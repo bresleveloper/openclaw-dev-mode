@@ -1,6 +1,6 @@
-import { l as resolveFaceTimeConfig, n as ensureCaptureBinary, r as ensureHelperArtifacts, s as installFaceTimeDriver, t as runFaceTimeSetup, u as validateFaceTimeConfig } from "./.setup/setup-zO6FazjC.mjs";
+import { l as resolveFaceTimeConfig, n as ensureCaptureBinary, r as ensureHelperArtifacts, s as installFaceTimeDriver, t as runFaceTimeSetup, u as validateFaceTimeConfig } from "./.setup/setup-DMPG615Z.mjs";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
-import { REALTIME_VOICE_AGENT_CONSULT_SENDER_AUTH_VERSION, REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, buildRealtimeVoiceAgentCancelProviderResult, buildRealtimeVoiceAgentConsultPolicyInstructions, buildRealtimeVoiceAgentConsultWorkingResponse, consultRealtimeVoiceAgent, createRealtimeVoiceBridgeSession, createTalkSessionController, getRealtimeVoiceProvider, recordRealtimeVoiceTranscript, recordTalkObservabilityEvent, resolveConfiguredRealtimeVoiceProvider, resolveRealtimeVoiceAgentConsultTools, resolveRealtimeVoiceAgentConsultToolsAllow } from "openclaw/plugin-sdk/realtime-voice";
+import { REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, buildRealtimeVoiceAgentCancelProviderResult, buildRealtimeVoiceAgentConsultPolicyInstructions, buildRealtimeVoiceAgentConsultWorkingResponse, consultRealtimeVoiceAgent, createRealtimeVoiceBridgeSession, createTalkSessionController, getRealtimeVoiceProvider, recordRealtimeVoiceTranscript, recordTalkObservabilityEvent, resolveConfiguredRealtimeVoiceProviderAsync, resolveRealtimeVoiceAgentConsultTools, resolveRealtimeVoiceAgentConsultToolsAllow } from "openclaw/plugin-sdk/realtime-voice";
 import { asBoolean, asFiniteNumber, asRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { resolve } from "node:path";
 import { constants, existsSync } from "node:fs";
@@ -20,7 +20,8 @@ const TU_CALL_STATUS = {
 	outgoingCreated: 0,
 	active: 1,
 	outgoingRinging: 3,
-	incomingRinging: 4
+	incomingRinging: 4,
+	disconnected: 6
 };
 function readFiniteNumber(value) {
 	return asFiniteNumber(typeof value === "string" ? Number(value) : value);
@@ -43,21 +44,8 @@ function normalizeCallTransport(value) {
 		isVoip: asBoolean(transport.is_voip ?? transport.isVoip),
 		isEmergency: asBoolean(transport.is_emergency ?? transport.isEmergency)
 	};
-	if (transport.kind === "facetime" && (transport.classifier_version === "tu-provider-v1" || transport.classifierVersion === "tu-provider-v1") && (base.service === 2 || base.service === 3) && base.providerClassified === true && base.providerIsFaceTime === true && base.providerIsTelephony === false && base.isUsingBaseband === false && base.isWifiCall === false && base.isVoip === true && base.isEmergency === false) return {
-		kind: "facetime",
-		classifierVersion: base.classifierVersion,
-		service: base.service,
-		...base.faceTimeTransportType !== void 0 ? { faceTimeTransportType: base.faceTimeTransportType } : {},
-		providerClassified: true,
-		providerIsFaceTime: true,
-		providerIsTelephony: false,
-		isUsingBaseband: false,
-		isWifiCall: false,
-		isVoip: true,
-		isEmergency: false
-	};
 	return {
-		kind: transport.kind === "cellular" ? "cellular" : "unknown",
+		kind: transport.kind === "facetime" && (transport.classifier_version === "tu-provider-v1" || transport.classifierVersion === "tu-provider-v1") && (base.service === 2 || base.service === 3) && base.providerClassified === true && base.providerIsFaceTime === true && base.providerIsTelephony === false && base.isUsingBaseband === false && base.isWifiCall === false && base.isVoip === true && base.isEmergency === false ? "facetime" : transport.kind === "cellular" ? "cellular" : "unknown",
 		classifierVersion: base.classifierVersion,
 		...base.service !== void 0 ? { service: base.service } : {},
 		...base.faceTimeTransportType !== void 0 ? { faceTimeTransportType: base.faceTimeTransportType } : {},
@@ -92,11 +80,8 @@ function collectHandleCandidates(value, candidates = [], seen = /* @__PURE__ */ 
 	for (const [key, nested] of Object.entries(record)) if (handleValueKeys.has(key) || nested && typeof nested === "object") collectHandleCandidates(nested, candidates, seen);
 	return candidates;
 }
-function normalizeFaceTimeHandleCandidates(value) {
-	return [...new Set(collectHandleCandidates(value).map((candidate) => candidate.trim()))];
-}
 function normalizeFaceTimeHandle(value) {
-	return normalizeFaceTimeHandleCandidates(value)[0];
+	return collectHandleCandidates(value)[0];
 }
 function canonicalizeFaceTimeHandle(value) {
 	const stripped = value.trim().toLowerCase().replace(/^mailto:/, "").replace(/^tel:/, "").replace(/^facetime-audio:/, "").replace(/^facetime:/, "");
@@ -140,7 +125,7 @@ function normalizeFaceTimeCallEvent(value) {
 function resolveAuthorizedFaceTimeOwner(params) {
 	if (!isVerifiedFaceTimeTransport(params.event)) return;
 	const ownerHandles = new Set(params.ownerHandles.map(canonicalizeFaceTimeHandle).filter(Boolean));
-	const senderId = normalizeFaceTimeHandleCandidates(params.event.data.handle).map(canonicalizeFaceTimeHandle).find((candidate) => ownerHandles.has(candidate));
+	const senderId = collectHandleCandidates(params.event.data.handle).map(canonicalizeFaceTimeHandle).find((candidate) => ownerHandles.has(candidate));
 	if (!senderId) return;
 	return {
 		senderId,
@@ -167,7 +152,7 @@ function isOutgoingRingingCall(event) {
 	return (event.data.call_status === TU_CALL_STATUS.outgoingCreated || event.data.call_status === TU_CALL_STATUS.outgoingRinging) && event.data.is_outgoing === true;
 }
 function isEndedCall(event) {
-	return event.data.has_ended === true;
+	return event.data.has_ended === true || event.data.call_status === TU_CALL_STATUS.disconnected;
 }
 function isUnknownCallStatus(event) {
 	return !isIncomingRingingCall(event) && !isOutgoingRingingCall(event) && !isActiveCall(event) && !isEndedCall(event);
@@ -259,7 +244,6 @@ var FaceTimeCallInstance = class {
 };
 var FaceTimeCallRegistry = class {
 	#active;
-	#aliases = /* @__PURE__ */ new Map();
 	get active() {
 		return this.#active;
 	}
@@ -270,7 +254,7 @@ var FaceTimeCallRegistry = class {
 		return (this.#active && this.#active.phase !== "closed" ? [this.#active] : [])[Symbol.iterator]();
 	}
 	get(identity) {
-		return this.#aliases.get(normalizeCallIdentity(identity));
+		return this.#active?.aliases.has(normalizeCallIdentity(identity)) ? this.#active : void 0;
 	}
 	has(identity) {
 		return this.get(identity) !== void 0;
@@ -278,20 +262,14 @@ var FaceTimeCallRegistry = class {
 	create(call) {
 		if (this.#active && this.#active.phase !== "closed") throw new Error("another FaceTime call lifecycle is already active");
 		this.#active = call;
-		for (const alias of call.aliases) this.#aliases.set(alias, call);
 	}
 	retainAlias(call, identity) {
 		if (this.#active !== call || call.phase === "closed") throw new Error("cannot retain an alias for an inactive FaceTime call");
-		const alias = normalizeCallIdentity(identity);
-		const existing = this.#aliases.get(alias);
-		if (existing && existing !== call) throw new Error("FaceTime call alias already belongs to another lifecycle");
-		call.aliases.add(alias);
-		this.#aliases.set(alias, call);
+		call.aliases.add(normalizeCallIdentity(identity));
 	}
 	close(call) {
 		if (this.#active !== call) return;
 		call.markClosed();
-		for (const alias of call.aliases) if (this.#aliases.get(alias) === call) this.#aliases.delete(alias);
 		this.#active = void 0;
 	}
 };
@@ -302,7 +280,8 @@ var basePort = 45670;
 var maxPort = 65535;
 //#endregion
 //#region extensions/facetime/src/helper-endpoint.ts
-function resolveFaceTimeHelperEndpoint(uid = typeof process.getuid === "function" ? process.getuid() : 501) {
+function resolveFaceTimeHelperEndpoint() {
+	const uid = typeof process.getuid === "function" ? process.getuid() : 501;
 	if (host !== "127.0.0.1" || !Number.isSafeInteger(basePort) || !Number.isSafeInteger(maxPort) || basePort < 1024 || maxPort > 65535 || basePort > maxPort || !Number.isSafeInteger(uid)) throw new Error("Invalid FaceTime loopback helper endpoint contract");
 	return {
 		host,
@@ -759,7 +738,7 @@ const TARGET_APP_PATHS = {
 	Phone: "/System/Applications/Phone.app"
 };
 const FACETIME_HELPER_TARGETS = ["FaceTime", "Phone"];
-const DEFAULT_RETRY_DELAYS_MS = [
+const RETRY_DELAYS_MS = [
 	1e3,
 	2e3,
 	5e3,
@@ -773,16 +752,12 @@ function targetForBundle(bundleIdentifier) {
 var FaceTimeHelperSupervisor = class {
 	#states;
 	#timers = /* @__PURE__ */ new Map();
-	#retryDelaysMs;
 	#injectionChain = Promise.resolve();
 	#started = false;
-	#generation = 0;
 	#abortController = new AbortController();
 	constructor(params) {
 		this.params = params;
-		this.#retryDelaysMs = params.retryDelaysMs && params.retryDelaysMs.length > 0 ? params.retryDelaysMs : DEFAULT_RETRY_DELAYS_MS;
-		const targetAvailable = params.targetAvailable ?? ((target) => existsSync(TARGET_APP_PATHS[target]));
-		this.#states = new Map(FACETIME_HELPER_TARGETS.filter((target) => targetAvailable(target)).map((target) => [target, {
+		this.#states = new Map(FACETIME_HELPER_TARGETS.filter((target) => existsSync(TARGET_APP_PATHS[target])).map((target) => [target, {
 			target,
 			connected: false,
 			attempts: 0,
@@ -795,14 +770,12 @@ var FaceTimeHelperSupervisor = class {
 	start() {
 		if (this.#started) return;
 		this.#started = true;
-		this.#generation += 1;
 		this.#abortController = new AbortController();
 		this.#refreshConnections();
-		for (const target of this.#states.keys()) if (!this.#states.get(target)?.connected) this.#schedule(target, this.params.initialGraceMs ?? 6e3);
+		for (const target of this.#states.keys()) if (!this.#states.get(target)?.connected) this.#schedule(target, 6e3);
 	}
 	async stop() {
 		this.#started = false;
-		this.#generation += 1;
 		this.#abortController.abort(/* @__PURE__ */ new Error("FaceTime helper supervisor stopped"));
 		for (const timer of this.#timers.values()) clearTimeout(timer);
 		this.#timers.clear();
@@ -826,7 +799,7 @@ var FaceTimeHelperSupervisor = class {
 		const target = targetForBundle(bundleIdentifier);
 		if (!target) return;
 		this.#refreshConnections();
-		if (this.#started && !this.#states.get(target)?.connected) this.#schedule(target, this.#retryDelaysMs[0] ?? 1e3);
+		if (this.#started && !this.#states.get(target)?.connected) this.#schedule(target, RETRY_DELAYS_MS[0]);
 	}
 	stale(bundleIdentifier, processId) {
 		const target = targetForBundle(bundleIdentifier);
@@ -874,18 +847,15 @@ var FaceTimeHelperSupervisor = class {
 		const timer = setTimeout(() => {
 			this.#timers.delete(target);
 			if (!this.#started) return;
-			const processAlive = this.params.processAlive ?? ((candidate) => {
-				try {
-					process.kill(candidate, 0);
-					return true;
-				} catch (error) {
-					if (error && typeof error === "object" && "code" in error) return error.code !== "ESRCH";
-					return true;
-				}
-			});
 			const state = this.#states.get(target);
 			if (!state?.stale || state.staleProcessId !== processId) return;
-			if (processAlive(processId)) {
+			let processAlive = true;
+			try {
+				process.kill(processId, 0);
+			} catch (error) {
+				processAlive = !(error && typeof error === "object" && "code" in error && error.code === "ESRCH");
+			}
+			if (processAlive) {
 				this.#scheduleStaleProcessCheck(target, processId);
 				return;
 			}
@@ -902,16 +872,15 @@ var FaceTimeHelperSupervisor = class {
 		const state = this.#states.get(target);
 		if (!state || state.queued || state.injecting) return;
 		state.queued = true;
-		const generation = this.#generation;
 		const pending = this.#injectionChain.then(async () => {
 			state.queued = false;
-			if (this.#started && generation === this.#generation) await this.#inject(target, generation);
+			if (this.#started) await this.#inject(target);
 		});
 		this.#injectionChain = pending.catch(() => void 0);
 	}
-	async #waitForAuthenticatedConnection(target, generation) {
-		const deadline = Date.now() + (this.params.connectionGraceMs ?? 1e4);
-		while (this.#started && generation === this.#generation && Date.now() < deadline) {
+	async #waitForAuthenticatedConnection(target) {
+		const deadline = Date.now() + 1e4;
+		while (this.#started && Date.now() < deadline) {
 			this.#refreshConnections();
 			const state = this.#states.get(target);
 			if (!state || state.connected || state.stale) return;
@@ -919,8 +888,8 @@ var FaceTimeHelperSupervisor = class {
 		}
 		this.#refreshConnections();
 	}
-	async #inject(target, generation) {
-		if (!this.#started || generation !== this.#generation) return;
+	async #inject(target) {
+		if (!this.#started) return;
 		this.#refreshConnections();
 		const state = this.#states.get(target);
 		if (!state || state.connected || state.injecting || state.stale) return;
@@ -938,27 +907,27 @@ var FaceTimeHelperSupervisor = class {
 				signal: this.#abortController.signal,
 				killProcessTree: true
 			});
-			if (!this.#started || generation !== this.#generation) return;
+			if (!this.#started) return;
 			if (result.code !== 0) throw new Error(result.stderr || result.stdout || `exit ${result.code}`);
 			state.lastError = void 0;
 			this.params.logger.info(`[facetime] injected helper into ${target}`);
 			if (!state.connected && !state.stale) {
-				await this.#waitForAuthenticatedConnection(target, generation);
+				await this.#waitForAuthenticatedConnection(target);
 				if (!state.connected && !state.stale) throw new Error(`${target} helper injection completed but no authenticated connection arrived`);
 			}
 		} catch (error) {
-			if (this.#started && generation === this.#generation) {
+			if (this.#started) {
 				state.lastError = formatErrorMessage(error);
 				this.params.logger.warn(`[facetime] ${target} helper injection failed: ${state.lastError}`);
 			}
 		} finally {
 			state.injecting = false;
 		}
-		if (!this.#started || generation !== this.#generation) return;
+		if (!this.#started) return;
 		this.#refreshConnections();
 		if (!state.connected && !state.stale) {
-			const retryIndex = Math.min(state.attempts - 1, this.#retryDelaysMs.length - 1);
-			this.#schedule(target, this.#retryDelaysMs[retryIndex] ?? 6e4);
+			const retryIndex = Math.min(state.attempts - 1, RETRY_DELAYS_MS.length - 1);
+			this.#schedule(target, RETRY_DELAYS_MS[retryIndex] ?? 6e4);
 		}
 	}
 };
@@ -1062,6 +1031,17 @@ var PendingFaceTimeDialStore = class {
 	constructor(store) {
 		this.store = store;
 	}
+	async #deleteMatching(expectedDialID) {
+		let observation = await this.store.observe(PENDING_DIAL_KEY);
+		for (;;) {
+			const result = await this.store.compareAndApply(PENDING_DIAL_KEY, observation.comparison, {
+				operation: "delete",
+				action: observation.value?.dialID === expectedDialID ? "delete" : "keep"
+			});
+			if (result.status !== "conflict") return result.status === "applied";
+			observation = result.current;
+		}
+	}
 	#enqueue(operation) {
 		const pending = this.#tail.then(operation);
 		this.#tail = pending.then(() => void 0, () => void 0);
@@ -1083,22 +1063,7 @@ var PendingFaceTimeDialStore = class {
 	clear(expectedDialID) {
 		const existing = this.#clearing.get(expectedDialID);
 		if (existing) return existing;
-		const clearing = this.#enqueue(async () => {
-			const { observe, compareAndApply } = this.store;
-			if (!observe || !compareAndApply) {
-				if (!this.store.deleteIf) throw new Error("FaceTime pending dial cleanup requires atomic plugin-state deletion");
-				return this.store.deleteIf(PENDING_DIAL_KEY, (current) => current.dialID === expectedDialID);
-			}
-			let observation = await observe(PENDING_DIAL_KEY);
-			for (;;) {
-				const result = await compareAndApply(PENDING_DIAL_KEY, observation.comparison, {
-					operation: "delete",
-					action: observation.value?.dialID === expectedDialID ? "delete" : "keep"
-				});
-				if (result.status !== "conflict") return result.status === "applied";
-				observation = result.current;
-			}
-		}).finally(() => this.#clearing.delete(expectedDialID));
+		const clearing = this.#enqueue(() => this.#deleteMatching(expectedDialID)).finally(() => this.#clearing.delete(expectedDialID));
 		this.#clearing.set(expectedDialID, clearing);
 		return clearing;
 	}
@@ -1134,8 +1099,8 @@ const SOX_COMMAND = [
 const FACETIME_FEED_DEVICE_NAME = "OpenClaw-Feed";
 const FACETIME_MIC_DEVICE_NAME = "OpenClaw-Mic";
 const MAX_PLAYBACK_BUFFERED_BYTES = 2097152;
-function sanitizedAudioChildEnv(env = process.env) {
-	return Object.fromEntries(Object.entries(env).filter(([key]) => !/(?:API_?KEY|AUTH|CREDENTIAL|PASSWORD|SECRET|TOKEN)/iu.test(key)));
+function sanitizedAudioChildEnv() {
+	return Object.fromEntries(Object.entries(process.env).filter(([key]) => !/(?:API_?KEY|AUTH|CREDENTIAL|PASSWORD|SECRET|TOKEN)/iu.test(key)));
 }
 var PlaybackClock = class {
 	constructor() {
@@ -1146,7 +1111,8 @@ var PlaybackClock = class {
 		this.retiredFrames = 0;
 		this.items = [];
 	}
-	append(frames, itemId, nowMs = Date.now()) {
+	append(frames, itemId) {
+		const nowMs = Date.now();
 		if (nowMs >= this.playbackUntilMs) {
 			this.playedFramesBeforeSegment = this.generatedFrames;
 			this.playbackStartsAtMs = nowMs + OUTPUT_LATENCY_BUDGET_MS;
@@ -1178,16 +1144,17 @@ var PlaybackClock = class {
 		this.items = [];
 		this.retiredFrames = this.generatedFrames;
 	}
-	playedFrames(nowMs = Date.now()) {
+	playedFrames() {
+		const nowMs = Date.now();
 		if (nowMs <= this.playbackStartsAtMs) return this.playedFramesBeforeSegment;
 		const elapsedFrames = (nowMs - this.playbackStartsAtMs) / 1e3 * FACETIME_AUDIO_SAMPLE_RATE_HZ;
 		return Math.min(this.generatedFrames, this.playedFramesBeforeSegment + elapsedFrames);
 	}
-	queuedFrames(nowMs = Date.now()) {
-		return Math.max(0, this.generatedFrames - this.playedFrames(nowMs));
+	queuedFrames() {
+		return Math.max(0, this.generatedFrames - this.playedFrames());
 	}
-	millisecondsUntilDrained(nowMs = Date.now()) {
-		return Math.max(0, this.playbackUntilMs - nowMs);
+	millisecondsUntilDrained() {
+		return Math.max(0, this.playbackUntilMs - Date.now());
 	}
 	reset() {
 		this.generatedFrames = 0;
@@ -1219,6 +1186,47 @@ function buildSoxOutputArguments() {
 		FACETIME_FEED_DEVICE_NAME
 	];
 }
+function spawnAudioProcess(process, env) {
+	let command;
+	let args;
+	let stdio;
+	switch (process.kind) {
+		case "capture":
+			command = process.command;
+			args = [];
+			stdio = [
+				"pipe",
+				"pipe",
+				"pipe"
+			];
+			break;
+		case "playback":
+			command = SOX_COMMAND;
+			args = buildSoxOutputArguments();
+			stdio = [
+				"pipe",
+				"ignore",
+				"pipe"
+			];
+			break;
+		case "wake":
+			command = CAFFEINATE_COMMAND;
+			args = [
+				"-d",
+				"-i",
+				...process.capturePid ? ["-w", String(process.capturePid)] : []
+			];
+			stdio = [
+				"ignore",
+				"ignore",
+				"pipe"
+			];
+	}
+	return spawn(command, args, {
+		env,
+		stdio
+	});
+}
 async function terminateProcess(proc, signal = "SIGTERM") {
 	if (proc.killed && signal !== "SIGKILL") return;
 	let exited = false;
@@ -1228,75 +1236,64 @@ async function terminateProcess(proc, signal = "SIGTERM") {
 			resolve();
 		});
 	});
-	try {
-		proc.kill(signal);
-	} catch {
-		return;
-	}
-	await Promise.race([exitedPromise, sleepWithAbort(500, void 0, { ref: false })]);
-	if (!exited && signal !== "SIGKILL") {
+	const signals = signal === "SIGKILL" ? [signal] : [signal, "SIGKILL"];
+	for (const nextSignal of signals) {
 		try {
-			proc.kill("SIGKILL");
+			proc.kill(nextSignal);
 		} catch {
 			return;
 		}
 		await Promise.race([exitedPromise, sleepWithAbort(500, void 0, { ref: false })]);
+		if (exited) return;
 	}
 }
+function createAudioReadiness() {
+	const deferred = createDeferred();
+	let settled = false;
+	let timer;
+	deferred.promise.catch(() => {});
+	return {
+		promise: deferred.promise,
+		start(timeoutMs, onTimeout) {
+			if (settled || timer) return;
+			timer = setTimeout(onTimeout, timeoutMs);
+			timer.unref?.();
+		},
+		settle(error) {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			timer = void 0;
+			if (error) deferred.reject(error);
+			else deferred.resolve();
+		}
+	};
+}
 function startFaceTimeAudioPump(params) {
-	const spawnFn = params.spawn ?? ((command, args, options) => spawn(command, args, options));
 	const childEnv = sanitizedAudioChildEnv();
 	const playbackClock = new PlaybackClock();
 	let playbackGeneration = 1;
 	let drainTimer;
 	let outputProcess;
-	const captureProcess = spawnFn(params.captureBinary, [], {
-		env: childEnv,
-		stdio: [
-			"pipe",
-			"pipe",
-			"pipe"
-		]
-	});
+	const captureProcess = spawnAudioProcess({
+		kind: "capture",
+		command: params.captureBinary
+	}, childEnv);
 	let stopped = false;
 	let mediaSuspended = false;
 	let captureSuppressionActive = false;
 	let captureFailureReported = false;
-	let captureReadySettled = false;
-	let routeReadySettled = false;
-	let routeReadyTimer;
 	let captureStderr = "";
-	const captureReady = createDeferred();
-	const routeReady = createDeferred();
-	const captureReadyPromise = captureReady.promise;
-	const routeReadyPromise = routeReady.promise;
-	captureReadyPromise.catch(() => {});
-	routeReadyPromise.catch(() => {});
-	const settleCaptureReady = (error) => {
-		if (captureReadySettled) return;
-		captureReadySettled = true;
-		clearTimeout(captureReadyTimer);
-		if (error) captureReady.reject(error);
-		else captureReady.resolve();
-	};
-	const settleRouteReady = (error) => {
-		if (routeReadySettled) return;
-		routeReadySettled = true;
-		if (routeReadyTimer) {
-			clearTimeout(routeReadyTimer);
-			routeReadyTimer = void 0;
-		}
-		if (error) routeReady.reject(error);
-		else routeReady.resolve();
-	};
+	const captureReady = createAudioReadiness();
+	const routeReady = createAudioReadiness();
 	const reportFailure = (error, suppressionLost) => {
 		if (stopped) return;
 		if (suppressionLost) {
 			captureSuppressionActive = false;
 			params.onSuppressionLost?.(error);
 		}
-		settleCaptureReady(error);
-		settleRouteReady(error);
+		captureReady.settle(error);
+		routeReady.settle(error);
 		params.logger.warn(`[facetime] native audio bridge failed: ${formatErrorMessage(error)}`);
 		Promise.resolve(params.onError?.(error)).then((safeToStop) => {
 			if (safeToStop !== false) stop();
@@ -1309,20 +1306,12 @@ function startFaceTimeAudioPump(params) {
 		}
 	};
 	const spawnOutput = () => {
-		const proc = spawnFn(SOX_COMMAND, buildSoxOutputArguments(), {
-			env: childEnv,
-			stdio: [
-				"pipe",
-				"ignore",
-				"pipe"
-			]
-		});
-		proc.on("error", (error) => {
+		const proc = spawnAudioProcess({ kind: "playback" }, childEnv);
+		const onError = (error) => {
 			if (!stopped && !mediaSuspended && proc === outputProcess) reportFailure(error, false);
-		});
-		proc.stdin?.on("error", (error) => {
-			if (!stopped && !mediaSuspended && proc === outputProcess) reportFailure(error, false);
-		});
+		};
+		proc.on("error", onError);
+		proc.stdin?.on("error", onError);
 		proc.on("exit", (code, signal) => {
 			if (!stopped && !mediaSuspended && proc === outputProcess) reportFailure(/* @__PURE__ */ new Error(`SoX playback exited (${code ?? signal ?? "done"})`), false);
 		});
@@ -1332,17 +1321,9 @@ function startFaceTimeAudioPump(params) {
 		return proc;
 	};
 	outputProcess = spawnOutput();
-	const captureReadyTimer = setTimeout(() => {
+	captureReady.start(1e4, () => {
 		reportFailure(/* @__PURE__ */ new Error("FaceTime process tap was not ready within 10 seconds"), true);
-	}, 1e4);
-	captureReadyTimer.unref?.();
-	const startRouteReadyTimer = () => {
-		if (routeReadySettled || routeReadyTimer) return;
-		routeReadyTimer = setTimeout(() => {
-			reportFailure(/* @__PURE__ */ new Error("FaceTime input route was not verified within 15 seconds"), true);
-		}, 15e3);
-		routeReadyTimer.unref?.();
-	};
+	});
 	const clearPlayback = () => {
 		if (stopped || mediaSuspended) return;
 		const previous = outputProcess;
@@ -1356,8 +1337,8 @@ function startFaceTimeAudioPump(params) {
 		if (stopped) return;
 		mediaSuspended = true;
 		captureSuppressionActive = false;
-		settleCaptureReady(/* @__PURE__ */ new Error("FaceTime native audio bridge stopped before readiness"));
-		settleRouteReady(/* @__PURE__ */ new Error("FaceTime input route stopped before verification"));
+		captureReady.settle(/* @__PURE__ */ new Error("FaceTime native audio bridge stopped before readiness"));
+		routeReady.settle(/* @__PURE__ */ new Error("FaceTime input route stopped before verification"));
 		cancelDrainTimer();
 		playbackClock.reset();
 		try {
@@ -1371,18 +1352,10 @@ function startFaceTimeAudioPump(params) {
 			wakeProcess ? terminateProcess(wakeProcess) : Promise.resolve()
 		]);
 	};
-	const wakeProcess = existsSync(CAFFEINATE_COMMAND) ? spawnFn(CAFFEINATE_COMMAND, [
-		"-d",
-		"-i",
-		...captureProcess.pid ? ["-w", String(captureProcess.pid)] : []
-	], {
-		env: childEnv,
-		stdio: [
-			"ignore",
-			"ignore",
-			"pipe"
-		]
-	}) : void 0;
+	const wakeProcess = existsSync(CAFFEINATE_COMMAND) ? spawnAudioProcess({
+		kind: "wake",
+		capturePid: captureProcess.pid
+	}, childEnv) : void 0;
 	wakeProcess?.on("error", () => void 0);
 	captureProcess.on("error", (error) => reportFailure(error, true));
 	captureProcess.stdin?.on("error", (error) => reportFailure(error, false));
@@ -1394,9 +1367,9 @@ function startFaceTimeAudioPump(params) {
 		for (const line of captureStderr.split(/\r?\n/u).slice(0, -1)) {
 			if (line.includes("started FaceTime process tap")) {
 				captureSuppressionActive = true;
-				settleCaptureReady();
+				captureReady.settle();
 			}
-			if (line.includes("verified OpenClaw-Mic input route")) settleRouteReady();
+			if (line.includes("verified OpenClaw-Mic input route")) routeReady.settle();
 			const fatal = line.match(/facetime-audio-capture: fatal(?:-safety-retained)?:\s*(.*)$/u);
 			if (!captureFailureReported && fatal) {
 				captureFailureReported = true;
@@ -1413,10 +1386,12 @@ function startFaceTimeAudioPump(params) {
 		}
 	});
 	return {
-		suppressionReady: async () => await captureReadyPromise,
+		suppressionReady: async () => await captureReady.promise,
 		routeReady: async () => {
-			startRouteReadyTimer();
-			await routeReadyPromise;
+			routeReady.start(15e3, () => {
+				reportFailure(/* @__PURE__ */ new Error("FaceTime input route was not verified within 15 seconds"), true);
+			});
+			await routeReady.promise;
 		},
 		processOutputSuppressed: () => captureSuppressionActive,
 		writeOutputAudio(audio, metadata) {
@@ -1503,9 +1478,6 @@ const FACETIME_END_CALL_TOOL = {
 		properties: {}
 	}
 };
-function assertAuthenticatedSenderConsultSupport() {
-	if (REALTIME_VOICE_AGENT_CONSULT_SENDER_AUTH_VERSION !== 1) throw new Error("OpenClaw host does not support authenticated sender identity for realtime agent consults; update OpenClaw before enabling FaceTime");
-}
 function agentIdFromSessionKey(sessionKey, config) {
 	if (parseAgentSessionKey(sessionKey)) return resolveAgentIdFromSessionKey(sessionKey);
 	return resolveAgentIdFromSessionKey(sessionKey, resolveDefaultAgentId(config));
@@ -1561,7 +1533,7 @@ async function resolveFaceTimeRealtimeProvider(params) {
 		}
 		return [providerId, { ...providerConfig }];
 	})));
-	return resolveConfiguredRealtimeVoiceProvider({
+	return resolveConfiguredRealtimeVoiceProviderAsync({
 		configuredProviderId,
 		providerConfigs: providers,
 		providerConfigOverrides: params.config.realtime.voice ? { voice: params.config.realtime.voice } : void 0,
@@ -1605,7 +1577,7 @@ function pushCheck(checks, check) {
 function parseCoreAudioDevices(systemProfilerOutput) {
 	try {
 		const parsed = asRecord(JSON.parse(systemProfilerOutput));
-		const devices = (Array.isArray(parsed.SPAudioDataType) ? parsed.SPAudioDataType : []).flatMap((entry) => {
+		return (Array.isArray(parsed.SPAudioDataType) ? parsed.SPAudioDataType : []).flatMap((entry) => {
 			const record = asRecord(entry);
 			const items = record["_items"];
 			return Array.isArray(items) ? items : [record];
@@ -1617,17 +1589,9 @@ function parseCoreAudioDevices(systemProfilerOutput) {
 				virtual: record.coreaudio_device_transport === "coreaudio_device_type_virtual"
 			}] : [];
 		});
-		if (devices.length > 0) return devices;
-	} catch {}
-	const devices = [];
-	for (const line of systemProfilerOutput.split(/\r?\n/u)) {
-		const match = line.match(/^\s{8}(.+):\s*$/u);
-		if (match?.[1]) devices.push({
-			name: match[1].trim(),
-			virtual: false
-		});
+	} catch {
+		return [];
 	}
-	return [...new Map(devices.map((device) => [device.name, device])).values()];
 }
 function findPhysicalOutputProblem(defaults, devices) {
 	if (defaults.output.isAggregate) return `system output is aggregate device ${defaults.output.name}`;
@@ -1777,7 +1741,7 @@ async function runFaceTimePreflight(params) {
 //#region extensions/facetime/src/runtime-carrier-process.ts
 async function terminateExactCarrierProcesses(params) {
 	params.assertCurrent();
-	if (params.peers.size === 0) throw new Error("no authenticated carrier process identity is available for fail-closed shutdown");
+	if (params.peers.size === 0) throw new Error("no authenticated carrier process identity is available for safe shutdown");
 	for (const peer of params.peers.values()) {
 		const expected = peer.bundleIdentifier === "com.apple.FaceTime" ? "FaceTime" : peer.bundleIdentifier === "com.apple.FaceTime.FTConversationService" ? "FTConversationService" : peer.bundleIdentifier === "com.apple.mobilephone" ? "Phone" : peer.bundleIdentifier === "com.apple.TelephonyUtilities" ? "TelephonyUtilities" : "";
 		const inspectExactProcess = async () => {
@@ -1819,6 +1783,81 @@ async function terminateExactCarrierProcesses(params) {
 			params.assertCurrent();
 		}
 		if (alive) throw new Error("authenticated carrier process remains alive after force termination");
+	}
+}
+//#endregion
+//#region extensions/facetime/src/runtime-helper-results.ts
+const OUTBOUND_DIAL_HELPER_BUNDLES = /* @__PURE__ */ new Set(["com.apple.FaceTime", "com.apple.FaceTime.FTConversationService"]);
+function readHelperPeers(result) {
+	const peers = [];
+	for (const entry of readHelperResults(result)) {
+		const peer = entry.helperPeer;
+		if (peer && typeof peer === "object" && "processId" in peer && "bundleIdentifier" in peer && "connectionGeneration" in peer && "processStartedAtMs" in peer && typeof peer.processId === "number" && typeof peer.bundleIdentifier === "string" && typeof peer.connectionGeneration === "number" && typeof peer.processStartedAtMs === "number") peers.push({
+			bundleIdentifier: peer.bundleIdentifier,
+			processId: peer.processId,
+			processStartedAtMs: peer.processStartedAtMs,
+			connectionGeneration: peer.connectionGeneration
+		});
+	}
+	return peers;
+}
+function retainHelperResultPeers(call, result) {
+	for (const peer of readHelperPeers(result)) call.carrierPeers.set(peer.processId, peer);
+}
+function retainOutboundDialHelperPeers(peers, result) {
+	for (const entry of readHelperResults(result)) {
+		if (entry.found === false && entry.retained_outbound_dial !== true && entry.cancelled !== true) continue;
+		for (const peer of readHelperPeers(entry)) if (OUTBOUND_DIAL_HELPER_BUNDLES.has(peer.bundleIdentifier)) peers.set(peer.processId, peer);
+	}
+}
+function readOutboundCallUUID(result) {
+	return readHelperResults(result).map((entry) => normalizeOptionalString(entry.call_uuid)).find((value) => Boolean(value));
+}
+function readOutboundProxyIdentifier(result) {
+	return readHelperResults(result).map((entry) => normalizeOptionalString(entry.proxy_identifier)).find((value) => Boolean(value));
+}
+function hasDialHelperConfirmation(results) {
+	return results.some((entry) => typeof entry.helperBundleIdentifier === "string" && OUTBOUND_DIAL_HELPER_BUNDLES.has(entry.helperBundleIdentifier));
+}
+function hasDefinitiveDialHelperAbsence(result, requiredPeerProcessIds) {
+	const results = readHelperResults(result);
+	const observedProcessIds = new Set(readHelperPeers(result).map((peer) => peer.processId));
+	return result.topologyComplete === true && results.length === result.helpersContacted && hasDialHelperConfirmation(results) && results.every((entry) => entry.found === false && entry.retained_outbound_dial !== true) && [...requiredPeerProcessIds].every((processId) => observedProcessIds.has(processId));
+}
+async function reconcilePendingFaceTimeCarrier(params) {
+	const { pending } = params;
+	let previousAbsentTopology;
+	let previousAbsenceCurrent;
+	for (let attempt = 0; attempt < 12; attempt += 1) {
+		if (!params.isCurrent()) return;
+		const { ownerEpoch, delivery, callUUID, proxyIdentifier } = pending;
+		const aliases = new Set(pending.callUUIDAliases);
+		const isSnapshotCurrent = () => params.isCurrent() && pending.ownerEpoch === ownerEpoch && pending.delivery === delivery && pending.callUUID === callUUID && pending.proxyIdentifier === proxyIdentifier && (pending.callUUIDAliases?.size ?? 0) === aliases.size && [...aliases].every((alias) => pending.callUUIDAliases?.has(alias) === true);
+		const result = await params.helper.findOutgoingCall(pending.handle, callUUID, pending.dialID, proxyIdentifier, pending.requestedAt, pending.mode);
+		if (!params.isCurrent()) return;
+		if (!isSnapshotCurrent()) {
+			previousAbsentTopology = void 0;
+			previousAbsenceCurrent = void 0;
+			continue;
+		}
+		retainOutboundDialHelperPeers(params.peers, result);
+		const reconciledCallUUID = readOutboundCallUUID(result);
+		const reconciledProxyIdentifier = readOutboundProxyIdentifier(result);
+		if (reconciledCallUUID || reconciledProxyIdentifier) {
+			retainFaceTimeDialCallUUID(pending, reconciledCallUUID);
+			if (reconciledProxyIdentifier) pending.proxyIdentifier = reconciledProxyIdentifier;
+			await params.persist();
+		}
+		if (reconciledCallUUID || reconciledProxyIdentifier || readHelperResults(result).some((entry) => entry.found === true)) return;
+		const topologyGeneration = typeof result.topologyGeneration === "number" ? result.topologyGeneration : void 0;
+		const completeAbsence = hasDefinitiveDialHelperAbsence(result, params.peers.keys());
+		if (completeAbsence && topologyGeneration !== void 0 && topologyGeneration === previousAbsentTopology && previousAbsenceCurrent?.()) {
+			await params.clear();
+			return;
+		}
+		previousAbsentTopology = completeAbsence ? topologyGeneration : void 0;
+		previousAbsenceCurrent = completeAbsence ? isSnapshotCurrent : void 0;
+		if (attempt + 1 < 12) await sleep(250);
 	}
 }
 //#endregion
@@ -2122,7 +2161,7 @@ function createFaceTimeInitialGreeting(params) {
 				timer = void 0;
 				dismissed = true;
 				params.speak(FACETIME_INITIAL_GREETING);
-			}, params.delayMs ?? FACETIME_GREETING_MEDIA_SETTLE_MS);
+			}, FACETIME_GREETING_MEDIA_SETTLE_MS);
 			timer.unref?.();
 		},
 		cancel() {
@@ -2135,7 +2174,6 @@ function createFaceTimeInitialGreeting(params) {
 //#region extensions/facetime/src/talk-driver.ts
 async function startFaceTimeTalkDriver(params) {
 	if (params.signal?.aborted) throw new Error("FaceTime talk startup aborted");
-	assertAuthenticatedSenderConsultSupport();
 	const consultAgentId = agentIdFromSessionKey(params.config.realtime.sessionKey, params.fullConfig);
 	const normalizedCallUUID = params.callUUID.trim().toLowerCase();
 	const consultSessionKey = `agent:${consultAgentId}:facetime:${normalizedCallUUID}`;
@@ -2657,14 +2695,14 @@ function createFaceTimeCallControl(params) {
 			action: async () => await params.helper.setMuted(call.carrierCallUUID, false)
 		});
 		call.lastHelperAction = mutedResult;
-		params.retainHelperResultPeers(call, mutedResult);
+		retainHelperResultPeers(call, mutedResult);
 		projectFaceTimeNativeAction("unmute", mutedResult);
 		const transmissionResult = await call.runCarrierCommand({
 			generation,
 			action: async () => await params.helper.startTransmission(call.carrierCallUUID)
 		});
 		call.lastHelperAction = transmissionResult;
-		params.retainHelperResultPeers(call, transmissionResult);
+		retainHelperResultPeers(call, transmissionResult);
 		projectFaceTimeNativeAction("activate", transmissionResult);
 		call.markCarrierActive(generation);
 		if (call.audioTransport) {
@@ -2679,18 +2717,13 @@ function createFaceTimeCallControl(params) {
 			call.carrierHangupRetryTimer = void 0;
 		}
 		call.beginClosing();
-		await call.audioRouting?.catch((error) => {
-			params.logger.debug?.(`[facetime] audio routing cancellation for active call: ${formatErrorMessage(error)}`);
-		});
-		await call.talkStarting?.catch((error) => {
-			params.logger.debug?.(`[facetime] talk startup cancellation for active call: ${formatErrorMessage(error)}`);
-		});
-		await call.talk?.close(reason).catch((error) => {
-			params.logger.debug?.(`[facetime] talk close ignored for active call: ${formatErrorMessage(error)}`);
-		});
-		await call.talkActivation?.catch((error) => {
-			params.logger.debug?.(`[facetime] talk activation cancellation for active call: ${formatErrorMessage(error)}`);
-		});
+		const logCleanupFailure = (stage) => (error) => {
+			params.logger.debug?.(`[facetime] ${stage} for active call: ${formatErrorMessage(error)}`);
+		};
+		await call.audioRouting?.catch(logCleanupFailure("audio routing cancellation"));
+		await call.talkStarting?.catch(logCleanupFailure("talk startup cancellation"));
+		await call.talk?.close(reason).catch(logCleanupFailure("talk close ignored"));
+		await call.talkActivation?.catch(logCleanupFailure("talk activation cancellation"));
 		call.audioReady = false;
 		call.audioTransport = void 0;
 		params.calls.close(call);
@@ -2719,27 +2752,23 @@ function createFaceTimeCallControl(params) {
 					return;
 				}
 			};
-			try {
-				const muted = await runCarrierActionAcrossAliases({
+			for (const [action, method, failure] of [[
+				"safe-mute",
+				"safetyMute",
+				"failed to confirm carrier safety mute"
+			], [
+				"terminate",
+				"leaveCall",
+				"carrier termination request failed"
+			]]) try {
+				retainHelperResultPeers(call, await runCarrierActionAcrossAliases({
 					call,
 					generation,
-					action: "safe-mute",
-					run: async (callUUID) => await params.helper.safetyMute(callUUID)
-				});
-				params.retainHelperResultPeers(call, muted);
+					action,
+					run: async (callUUID) => await params.helper[method](callUUID)
+				}));
 			} catch (error) {
-				if (readCompleteAbsenceGeneration(error) === void 0) params.logger.warn(`[facetime] failed to confirm carrier safety mute: ${formatErrorMessage(error)}`);
-			}
-			try {
-				const leave = await runCarrierActionAcrossAliases({
-					call,
-					generation,
-					action: "terminate",
-					run: async (callUUID) => await params.helper.leaveCall(callUUID)
-				});
-				params.retainHelperResultPeers(call, leave);
-			} catch (error) {
-				if (readCompleteAbsenceGeneration(error) === void 0) params.logger.warn(`[facetime] carrier termination request failed: ${formatErrorMessage(error)}`);
+				if (readCompleteAbsenceGeneration(error) === void 0) params.logger.warn(`[facetime] ${failure}: ${formatErrorMessage(error)}`);
 			}
 			try {
 				const inspect = async () => await call.runCarrierCommand({
@@ -2808,7 +2837,7 @@ function createFaceTimeCallControl(params) {
 			await closeCall(call, "runtime-stop-carrier-terminated");
 		} catch (error) {
 			await call.talk?.suspendMedia("runtime-stop-carrier-unconfirmed");
-			throw new Error(`FaceTime fail-closed carrier termination failed: ${formatErrorMessage(error)}; carrier closure remains unconfirmed`, { cause: error });
+			throw new Error(`FaceTime safety shutdown failed: ${formatErrorMessage(error)}; carrier closure remains unconfirmed`, { cause: error });
 		}
 	};
 	const startCallTalk = async (call) => {
@@ -2855,13 +2884,13 @@ function createFaceTimeCallControl(params) {
 			if (call.talkStarting === starting) call.talkStarting = void 0;
 		}
 	};
-	const activateCallTalk = async (call, options) => {
+	const activateCallTalk = async (call) => {
 		const generation = call.captureGeneration();
 		if (!call.talkActivation) call.talkActivation = (async () => {
 			await call.talk?.readyForAudio();
 			call.assertCurrent(generation);
 			call.markModelReady(generation);
-			if (options.unmute) await enableCallAudio(call);
+			await enableCallAudio(call);
 			call.assertCurrent(generation);
 			call.markModelActive(generation);
 			call.talk?.activate();
@@ -2870,7 +2899,7 @@ function createFaceTimeCallControl(params) {
 		try {
 			await activation;
 			call.assertCurrent(generation);
-			if (options.unmute && call.carrierMode !== "active") await enableCallAudio(call);
+			if (call.carrierMode !== "active") await enableCallAudio(call);
 		} finally {
 			if (call.talkActivation === activation) call.talkActivation = void 0;
 		}
@@ -2882,81 +2911,6 @@ function createFaceTimeCallControl(params) {
 		startCallTalk,
 		stopCall
 	};
-}
-//#endregion
-//#region extensions/facetime/src/runtime-helper-results.ts
-const OUTBOUND_DIAL_HELPER_BUNDLES = /* @__PURE__ */ new Set(["com.apple.FaceTime", "com.apple.FaceTime.FTConversationService"]);
-function readHelperPeers(result) {
-	const peers = [];
-	for (const entry of readHelperResults(result)) {
-		const peer = entry.helperPeer;
-		if (peer && typeof peer === "object" && "processId" in peer && "bundleIdentifier" in peer && "connectionGeneration" in peer && "processStartedAtMs" in peer && typeof peer.processId === "number" && typeof peer.bundleIdentifier === "string" && typeof peer.connectionGeneration === "number" && typeof peer.processStartedAtMs === "number") peers.push({
-			bundleIdentifier: peer.bundleIdentifier,
-			processId: peer.processId,
-			processStartedAtMs: peer.processStartedAtMs,
-			connectionGeneration: peer.connectionGeneration
-		});
-	}
-	return peers;
-}
-function retainHelperResultPeers(call, result) {
-	for (const peer of readHelperPeers(result)) call.carrierPeers.set(peer.processId, peer);
-}
-function retainOutboundDialHelperPeers(peers, result) {
-	for (const entry of readHelperResults(result)) {
-		if (entry.found === false && entry.retained_outbound_dial !== true && entry.cancelled !== true) continue;
-		for (const peer of readHelperPeers(entry)) if (OUTBOUND_DIAL_HELPER_BUNDLES.has(peer.bundleIdentifier)) peers.set(peer.processId, peer);
-	}
-}
-function readOutboundCallUUID(result) {
-	return readHelperResults(result).map((entry) => normalizeOptionalString(entry.call_uuid)).find((value) => Boolean(value));
-}
-function readOutboundProxyIdentifier(result) {
-	return readHelperResults(result).map((entry) => normalizeOptionalString(entry.proxy_identifier)).find((value) => Boolean(value));
-}
-function hasDialHelperConfirmation(results) {
-	return results.some((entry) => typeof entry.helperBundleIdentifier === "string" && OUTBOUND_DIAL_HELPER_BUNDLES.has(entry.helperBundleIdentifier));
-}
-function hasDefinitiveDialHelperAbsence(result, requiredPeerProcessIds) {
-	const results = readHelperResults(result);
-	const observedProcessIds = new Set(readHelperPeers(result).map((peer) => peer.processId));
-	return result.topologyComplete === true && results.length === result.helpersContacted && hasDialHelperConfirmation(results) && results.every((entry) => entry.found === false && entry.retained_outbound_dial !== true) && [...requiredPeerProcessIds].every((processId) => observedProcessIds.has(processId));
-}
-async function reconcilePendingFaceTimeCarrier(params) {
-	const { pending } = params;
-	let previousAbsentTopology;
-	let previousAbsenceCurrent;
-	for (let attempt = 0; attempt < 12; attempt += 1) {
-		if (!params.isCurrent()) return;
-		const { ownerEpoch, delivery, callUUID, proxyIdentifier } = pending;
-		const aliases = new Set(pending.callUUIDAliases);
-		const isSnapshotCurrent = () => params.isCurrent() && pending.ownerEpoch === ownerEpoch && pending.delivery === delivery && pending.callUUID === callUUID && pending.proxyIdentifier === proxyIdentifier && (pending.callUUIDAliases?.size ?? 0) === aliases.size && [...aliases].every((alias) => pending.callUUIDAliases?.has(alias) === true);
-		const result = await params.helper.findOutgoingCall(pending.handle, callUUID, pending.dialID, proxyIdentifier, pending.requestedAt, pending.mode);
-		if (!params.isCurrent()) return;
-		if (!isSnapshotCurrent()) {
-			previousAbsentTopology = void 0;
-			previousAbsenceCurrent = void 0;
-			continue;
-		}
-		retainOutboundDialHelperPeers(params.peers, result);
-		const reconciledCallUUID = readOutboundCallUUID(result);
-		const reconciledProxyIdentifier = readOutboundProxyIdentifier(result);
-		if (reconciledCallUUID || reconciledProxyIdentifier) {
-			retainFaceTimeDialCallUUID(pending, reconciledCallUUID);
-			if (reconciledProxyIdentifier) pending.proxyIdentifier = reconciledProxyIdentifier;
-			await params.persist();
-		}
-		if (reconciledCallUUID || reconciledProxyIdentifier || readHelperResults(result).some((entry) => entry.found === true)) return;
-		const topologyGeneration = typeof result.topologyGeneration === "number" ? result.topologyGeneration : void 0;
-		const completeAbsence = hasDefinitiveDialHelperAbsence(result, params.peers.keys());
-		if (completeAbsence && topologyGeneration !== void 0 && topologyGeneration === previousAbsentTopology && previousAbsenceCurrent?.()) {
-			await params.clear();
-			return;
-		}
-		previousAbsentTopology = completeAbsence ? topologyGeneration : void 0;
-		previousAbsenceCurrent = completeAbsence ? isSnapshotCurrent : void 0;
-		if (attempt + 1 < 12) await sleep(250);
-	}
 }
 //#endregion
 //#region extensions/facetime/src/runtime-state.ts
@@ -3084,7 +3038,7 @@ function createFaceTimeCallEventHandler(params) {
 			});
 			projectFaceTimeNativeAction("answer", answerResult);
 			retainHelperResultPeers(call, answerResult);
-			await params.callControl.activateCallTalk(call, { unmute: true });
+			await params.callControl.activateCallTalk(call);
 			params.logger.info("[facetime] answered authorized FaceTime call");
 		} catch (error) {
 			params.logger.warn(`[facetime] failed to answer FaceTime call: ${formatErrorMessage(error)}`);
@@ -3129,7 +3083,7 @@ function createFaceTimeCallEventHandler(params) {
 		updateCallStatus(call, event);
 		try {
 			await params.callControl.startCallTalk(call);
-			await params.callControl.activateCallTalk(call, { unmute: true });
+			await params.callControl.activateCallTalk(call);
 			params.logger.info("[facetime] realtime talk session active");
 		} catch (error) {
 			if (call.lifecycleAbort.signal.aborted || params.calls.active !== call) return;
@@ -3149,7 +3103,7 @@ function createFaceTimeCallEventHandler(params) {
 		}
 		const verifiedTransport = isVerifiedFaceTimeTransport(event);
 		if (existingCall && !verifiedTransport && !isEndedCall(event)) {
-			params.logger.warn("[facetime] managed call transport lost FaceTime verification; closing fail-closed");
+			params.logger.warn("[facetime] managed call transport lost FaceTime verification; closing the call");
 			await params.callControl.attemptCarrierHangup(existingCall, "transport-verification-lost");
 			return;
 		}
@@ -3243,7 +3197,7 @@ function createFaceTimeCallEventHandler(params) {
 		if (isUnknownCallStatus(event)) {
 			const unknownCall = params.calls.get(callUUID);
 			if (unknownCall) {
-				params.logger.warn("[facetime] unknown native call status; closing carrier fail-closed");
+				params.logger.warn("[facetime] unknown native call status; closing the carrier");
 				await params.callControl.attemptCarrierHangup(unknownCall, "unknown-native-status");
 			}
 		}
@@ -3252,8 +3206,8 @@ function createFaceTimeCallEventHandler(params) {
 }
 //#endregion
 //#region extensions/facetime/src/talk-events-summary.ts
-function summarizeRecentTalkEvents(events, limit = 12) {
-	return events.slice(-limit).map((event) => {
+function summarizeRecentTalkEvents(events) {
+	return events.slice(-12).map((event) => {
 		const record = asRecord(event);
 		const payload = asRecord(record.payload);
 		return {
@@ -3338,7 +3292,7 @@ async function createFaceTimeRuntime(params) {
 	const validation = validateFaceTimeConfig(config);
 	if (!validation.valid) throw new Error(`Invalid facetime config: ${validation.errors.join("; ")}`);
 	const calls = new FaceTimeCallRegistry();
-	const pendingDialStore = new PendingFaceTimeDialStore(params.runtime.state.openKeyedStore({
+	const pendingDialStore = new PendingFaceTimeDialStore(params.runtime.state.openKeyedStoreV2({
 		namespace: "pending-dial",
 		maxEntries: 1,
 		overflowPolicy: "reject-new"
@@ -3514,8 +3468,7 @@ async function createFaceTimeRuntime(params) {
 		logger: params.logger,
 		captureBinary,
 		isStopping: () => stopping,
-		getHelperTopologyVersion: () => helperTopologyVersion,
-		retainHelperResultPeers
+		getHelperTopologyVersion: () => helperTopologyVersion
 	});
 	const { attemptCarrierHangup, stopCall } = callControl;
 	const callEvents = createFaceTimeCallEventHandler({
@@ -3548,7 +3501,6 @@ async function createFaceTimeRuntime(params) {
 		config,
 		fullConfig: params.fullConfig,
 		runtime: params.runtime,
-		logger: params.logger,
 		helperConnected: helper.connectedSockets > 0,
 		captureBinary
 	});
@@ -3687,7 +3639,6 @@ async function createFaceTimeRuntime(params) {
 			driverInstallTask = installFaceTimeDriver({
 				pluginRoot: params.pluginRoot,
 				runCommandWithTimeout: params.runtime.system.runCommandWithTimeout,
-				callActive: false,
 				signal: installAbortController.signal
 			}).then((result) => {
 				driverInstall = {
@@ -3743,7 +3694,7 @@ async function createFaceTimeRuntime(params) {
 							runtime: params.runtime,
 							peers: outboundCarrierPeers,
 							assertCurrent: () => {
-								if (outboundCallPending !== shutdownPending || shutdownPending.ownerEpoch !== pendingEpoch) throw new Error("pending FaceTime dial changed during fail-closed shutdown");
+								if (outboundCallPending !== shutdownPending || shutdownPending.ownerEpoch !== pendingEpoch) throw new Error("pending FaceTime dial changed during shutdown");
 							}
 						});
 						await clearOutboundCallPending(shutdownPending.dialID);

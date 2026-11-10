@@ -1,8 +1,9 @@
 //#region packages/ai/src/provider-types.ts
 const PROVIDER_CONTEXT_HANDOFF = Symbol("providerContextHandoff");
+const PROVIDER_MODEL_INPUT = Symbol("providerModelInput");
 /** Resolves provider-only context without widening the canonical call contract. */
 async function resolveProviderContext(context, options) {
 	return options?.[PROVIDER_CONTEXT_HANDOFF]?.() ?? context;
 }
 //#endregion
-export { PROVIDER_CONTEXT_HANDOFF, resolveProviderContext };
+export { PROVIDER_CONTEXT_HANDOFF, PROVIDER_MODEL_INPUT, resolveProviderContext };

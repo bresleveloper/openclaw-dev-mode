@@ -1,4 +1,3 @@
-// Provides canonical default config values and model/provider defaults.
 import { normalizeProviderId } from "@openclaw/model-catalog-core/provider-id";
 import {
   collectManifestModelIdNormalizationPolicies,
@@ -10,7 +9,7 @@ import {
 } from "@openclaw/normalization-core/number-coercion";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { normalizeLowercaseStringOrEmpty } from "@openclaw/normalization-core/string-coerce";
-import { DEFAULT_CONTEXT_TOKENS } from "../agents/defaults.js";
+import { DEFAULT_CONTEXT_TOKENS, resolveDefaultModelMaxTokens } from "../agents/defaults.js";
 import { resolveCatalogOwnedModelCompat } from "../agents/model-compat-catalog.js";
 import type { PluginManifestRegistry } from "../plugins/manifest-registry.js";
 import {
@@ -41,7 +40,6 @@ type ProviderPolicyDefaultsOptions = {
 const defaultWarnState: WarnState = { warned: false };
 
 export const DEFAULT_MODEL_ALIASES: Readonly<Record<string, string>> = {
-  // Anthropic (shared model runtime catalog uses "latest" ids without date suffix)
   opus: "anthropic/claude-opus-5-5",
   sonnet: "anthropic/claude-sonnet-5-5",
 
@@ -49,10 +47,9 @@ export const DEFAULT_MODEL_ALIASES: Readonly<Record<string, string>> = {
   "gpt-mini": "openai/gpt-5.4-mini",
   "gpt-nano": "openai/gpt-5.4-nano",
 
-  // Google Gemini (3.x — flash-lite is GA; pro and flash are still preview)
-  gemini: "google/gemini-3.1-pro-preview",
-  "gemini-flash": "google/gemini-3-flash-preview",
-  "gemini-flash-lite": "google/gemini-3.1-flash-lite",
+  gemini: "google/gemini-4-argon",
+  "gemini-flash": "google/gemini-3.8-flash",
+  "gemini-flash-lite": "google/gemini-3.5-flash-lite",
 };
 
 const DEFAULT_MODEL_COST: ModelDefinitionConfig["cost"] = {
@@ -62,7 +59,8 @@ const DEFAULT_MODEL_COST: ModelDefinitionConfig["cost"] = {
   cacheWrite: 0,
 };
 const DEFAULT_MODEL_INPUT: ModelDefinitionConfig["input"] = ["text"];
-const DEFAULT_MODEL_MAX_TOKENS = 8192;
+// Mistral rejects output caps that fill the context window; keep its repair value conservative.
+const MISTRAL_UNKNOWN_MODEL_SAFE_MAX_TOKENS = 8_192;
 const MISTRAL_SAFE_MAX_TOKENS_BY_MODEL = {
   "devstral-medium-latest": 32_768,
   "magistral-small": 40_000,
@@ -109,7 +107,7 @@ export function resolveNormalizedProviderModelMaxTokens(params: {
   }
   return clamped < params.contextWindow
     ? clamped
-    : Math.min(DEFAULT_MODEL_MAX_TOKENS, params.contextWindow);
+    : Math.min(MISTRAL_UNKNOWN_MODEL_SAFE_MAX_TOKENS, params.contextWindow);
 }
 
 type SessionDefaultsOptions = {
@@ -119,13 +117,23 @@ type SessionDefaultsOptions = {
 
 export function applyMessageDefaults(cfg: OpenClawConfig): OpenClawConfig {
   const messages = cfg.messages;
-  if (messages?.ackReactionScope !== undefined) {
+  if (
+    messages?.ackReactionScope !== undefined &&
+    messages.queue?.allowCollaborativeSteering !== undefined
+  ) {
     return cfg;
   }
 
   return {
     ...cfg,
-    messages: { ...messages, ackReactionScope: "group-mentions" },
+    messages: {
+      ...messages,
+      ackReactionScope: messages?.ackReactionScope ?? "group-mentions",
+      queue: {
+        ...messages?.queue,
+        allowCollaborativeSteering: messages?.queue?.allowCollaborativeSteering ?? true,
+      },
+    },
   };
 }
 
@@ -297,10 +305,13 @@ export function applyModelDefaults(
           asPositiveFiniteNumber(catalogModel?.contextTokens);
 
         const maxTokenContextWindow = contextWindow ?? DEFAULT_CONTEXT_TOKENS;
-        const defaultMaxTokens = Math.min(
-          providerMaxTokens ?? DEFAULT_MODEL_MAX_TOKENS,
-          maxTokenContextWindow,
-        );
+        // An authored provider cap wins; otherwise size the invented cap to the usable window.
+        const defaultMaxTokens =
+          providerMaxTokens !== undefined
+            ? Math.min(providerMaxTokens, maxTokenContextWindow)
+            : resolveDefaultModelMaxTokens(
+                Math.min(contextTokens ?? maxTokenContextWindow, maxTokenContextWindow),
+              );
         const rawMaxTokens =
           asPositiveFiniteNumber(raw.maxTokens) ??
           asPositiveFiniteNumber(catalogModel?.maxTokens) ??

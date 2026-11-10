@@ -1,73 +1,10 @@
-import { n as OpenClawConfig$1 } from "../../types.openclaw-DA3BMvaX.js";
-import { A as ShortTermAuditSummary, D as repairShortTermPromotionArtifacts, E as removeGroundedShortTermCandidates, H as ConversationRecallContext, K as MemorySearchManager, M as RepairDreamingArtifactsResult, N as ShortTermDreamingStats, O as loadShortTermPromotionDreamingStats, P as ShortTermDreamingStatsEntry, T as auditShortTermPromotionArtifacts, U as MemoryExtraPath, W as MemoryOriginClass, _ as MemoryEmbeddingProviderRuntime, b as configureMemoryCoreDreamingState, g as MemoryEmbeddingProviderCreateResult, h as MemoryEmbeddingProviderCreateOptions, j as DreamingArtifactsAuditSummary, k as RepairShortTermPromotionArtifactsResult, m as MemoryEmbeddingProviderAdapter, p as MemoryEmbeddingProvider, q as MemorySearchResult, v as MemoryPluginRuntime, y as MemoryCoreOpenKeyedStore } from "../../cli-backend.types-BeWYryLP.js";
-import "../../health-CmgFZOuS.js";
-//#region packages/memory-host-sdk/src/host/config-utils.d.ts
-type DmScope = "main" | "per-peer" | "per-channel-peer" | "per-account-channel-peer";
-/** Citation injection behavior for memory search results. */
-type MemoryCitationsMode = "auto" | "on" | "off";
-/** Top-level memory config shared by host and runtime callers. */
-type MemoryConfig = {
-  citations?: MemoryCitationsMode;
-  search?: MemorySearchConfig;
-};
-/** Per-agent memory search enablement and extra collection paths. */
-type MemorySearchConfig = {
-  enabled?: boolean;
-  rememberAcrossConversations?: boolean;
-  extraPaths?: MemoryExtraPath[];
-};
-/** Agent context limits that bound memory file reads. */
-type AgentContextLimitsConfig = {
-  memoryGetMaxChars?: number;
-};
-/** Secret reference accepted by provider header config. */
-type SecretInput = string | {
-  source: string;
-  provider: string;
-  id: string;
-};
-/** Agent-level config fields consumed by memory host helpers. */
-type AgentConfig = {
-  workspace?: string;
-  memory?: {
-    search?: MemorySearchConfig;
-  };
-  contextLimits?: AgentContextLimitsConfig;
-};
-/** Narrow OpenClaw config shape consumed by memory host utilities. */
-type OpenClawConfig = {
-  agents?: {
-    ownership?: "explicit";
-    defaults?: {
-      workspace?: string;
-      contextLimits?: AgentContextLimitsConfig;
-    };
-    entries?: Record<string, AgentConfig>;
-  };
-  session?: {
-    dmScope?: DmScope;
-  };
-  bindings?: unknown[];
-  memory?: MemoryConfig;
-  models?: {
-    providers?: Record<string, {
-      api?: string;
-      baseUrl?: string;
-      headers?: Record<string, SecretInput>;
-    }>;
-  };
-};
-//#endregion
-//#region packages/memory-host-sdk/src/host/backend-config.d.ts
-type ResolvedMemoryBackendConfig = {
-  backend: "builtin";
-  citations: MemoryCitationsMode;
-};
-declare function resolveMemoryBackendConfig(params: {
-  cfg: OpenClawConfig;
-  agentId: string;
-}): ResolvedMemoryBackendConfig;
-//#endregion
+import { M as OpenClawConfig, S as MemorySearchResult, h as MemoryCliSearchResult, m as MemoryCliSearchParams, v as MemoryOriginClass, x as MemorySearchManager } from "../../types-D7I_F5Ux.js";
+import { Fm as MemoryEmbeddingProviderRuntime, Mm as MemoryEmbeddingProviderAdapter, Nm as MemoryEmbeddingProviderCreateOptions, Pm as MemoryEmbeddingProviderCreateResult, RC as ConversationRecallContext, jm as MemoryEmbeddingProvider, zm as MemoryPluginRuntime } from "../../config-contracts-CY87ANNp.js";
+import { o as ShortTermDreamingStats, r as RepairDreamingArtifactsResult, s as ShortTermDreamingStatsEntry, t as DreamingArtifactsAuditSummary } from "../../dreaming-D2Tdqt2p.js";
+import "../../memory-core-host-engine-embeddings-BSewlUJd.js";
+import { a as repairShortTermPromotionArtifacts, c as RepairShortTermPromotionArtifactsResult, i as removeGroundedShortTermCandidates, l as ShortTermAuditSummary, n as configureMemoryCoreDreamingState, o as loadShortTermPromotionDreamingStats, r as auditShortTermPromotionArtifacts, t as MemoryCoreOpenKeyedStore } from "../../dreaming-state-Bbascr8N.js";
+import { t as resolveMemoryBackendConfig } from "../../memory-core-host-runtime-core-uGyluBS6.js";
+import "../../memory-core-host-engine-foundation-FxqvW1N9.js";
 //#region packages/memory-host-sdk/src/host/status-format.d.ts
 /** Display tone used by memory status renderers. */
 type Tone = "ok" | "warn" | "muted";
@@ -115,7 +52,7 @@ type MemoryCoreRuntimeHost = {
 //#region extensions/memory-core/src/memory/search-manager.d.ts
 type MemorySearchManagerPurpose = "default" | "status" | "cli";
 type MemorySearchManagerParams = {
-  cfg: OpenClawConfig$1;
+  cfg: OpenClawConfig;
   agentId: string;
   purpose?: MemorySearchManagerPurpose;
   inspectSources?: boolean;
@@ -125,7 +62,7 @@ type MemorySearchManagerParams = {
 type MemorySearchManagerResult = {
   manager: MemorySearchManager | null;
   error?: string;
-  debug?: {
+  debug: {
     backend: "builtin";
     purpose: MemorySearchManagerPurpose;
     managerMs: number;
@@ -134,7 +71,7 @@ type MemorySearchManagerResult = {
 export declare function getMemorySearchManager(params: MemorySearchManagerParams): Promise<MemorySearchManagerResult>;
 declare function closeAllMemorySearchManagers(): Promise<void>;
 declare function closeMemorySearchManager(params: {
-  cfg: OpenClawConfig$1;
+  cfg: OpenClawConfig;
   agentId: string;
 }): Promise<void>;
 //#endregion
@@ -144,35 +81,35 @@ type ReloadHandle = ReturnType<NonNullable<MemoryPluginRuntime["prepareReload"]>
 type MemoryReloadState = {
   retireRuntime: boolean;
   adapters: Set<MemoryEmbeddingProviderAdapter>;
-  generation: number;
 };
 type MemoryManagerLifecycle = {
   reload?: MemoryReloadState;
   prepare?: (reload: MemoryReloadState) => ReloadHandle["drain"];
 };
-/** Fence acquisition even before the lazy manager module has loaded. */
+/** Pause new acquisition while the plugin owner replaces its adapters. */
 declare function prepareMemoryManagerReload(change: ReloadChange, lifecycle?: MemoryManagerLifecycle): ReloadHandle;
 //#endregion
 //#region extensions/memory-core/src/runtime-provider.d.ts
 export declare function createMemoryRuntime(host: MemoryCoreRuntimeHost): {
+  searchForCli(params: MemoryCliSearchParams): Promise<MemoryCliSearchResult>;
   prepareReload: typeof prepareMemoryManagerReload;
   getMemorySearchManager(params: {
-    cfg: OpenClawConfig$1;
+    cfg: OpenClawConfig;
     agentId: string;
     purpose?: "default" | "status" | "cli";
     inspectSources?: boolean;
   }): Promise<{
     manager: MemorySearchManager | null;
+    error?: string;
     debug: {
       backend: "builtin";
       purpose: "cli" | "default" | "status";
       managerMs: number;
-    } | undefined;
-    error: string | undefined;
+    };
   }>;
   resolveMemoryBackendConfig: typeof resolveMemoryBackendConfig;
   authorizeSearchHits(params: {
-    cfg: OpenClawConfig$1;
+    cfg: OpenClawConfig;
     agentId: string;
     requesterSessionKey: string | undefined;
     sandboxed: boolean;
@@ -182,7 +119,7 @@ export declare function createMemoryRuntime(host: MemoryCoreRuntimeHost): {
   }): Promise<MemorySearchResult[]>;
   supportsWorkspaceMemoryReadSources: true;
   classifyWorkspaceMemoryPaths: (params: {
-    cfg: OpenClawConfig$1;
+    cfg: OpenClawConfig;
     agentId: string;
     workspaceDir: string;
     relativePaths: string[];

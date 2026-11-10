@@ -7,8 +7,17 @@ import {
   clearGatewayContextResolver,
   getGatewayContextResolver,
 } from "../../../plugins/runtime/gateway-request-scope.js";
+import { parseAgentSessionKey } from "../../../routing/session-key.js";
+import { captureExecRequestCancellation } from "../../bash-process-control.js";
+import { resolveActiveEmbeddedRunOwnerByRunId } from "../../embedded-agent-runner/runs.js";
+import { retireRequesterFollowupAuthority } from "../requester-cron-authority.js";
+import {
+  resolveSubagentChildAgentId,
+  resolveSubagentChildAuthority,
+} from "./subagent-child-owner-match.js";
 import type { SubagentKillSession } from "./subagent-control-session.js";
 import { getCurrentSubagentRunOwner, subagentRuns } from "./subagent-registry-memory.js";
+import { resolveControllerSessionKey } from "./subagent-registry-read-topology.js";
 import type { SubagentRunRecord } from "./subagent-registry.types.js";
 import { getSubagentRunRuntimeKey } from "./subagent-run-generation.js";
 
@@ -24,6 +33,51 @@ type ExecutionCleanupObservation = {
 // Immutable row publications preserve their existing physical execution owner.
 const executionCleanups = new WeakMap<object, ExecutionCleanupObservation>();
 
+export function captureSubagentEmbeddedExecution(entry: SubagentRunRecord) {
+  if (resolveSubagentChildAuthority(entry).status === "mismatch") {
+    return undefined;
+  }
+  const owner = resolveActiveEmbeddedRunOwnerByRunId(entry.runId);
+  return owner?.sessionKey === entry.childSessionKey &&
+    (!entry.childSessionIdentity?.sessionId ||
+      owner.sessionId === entry.childSessionIdentity.sessionId)
+    ? owner
+    : undefined;
+}
+
+export async function captureSubagentReplyExecution(entry: SubagentRunRecord) {
+  const authority = resolveSubagentChildAuthority(entry);
+  if (authority.status === "mismatch") {
+    return undefined;
+  }
+  const [{ resolveReplyOperationsForSession }, { getAttachedBackend }] = await Promise.all([
+    import("../../../auto-reply/reply/reply-run-registry.registry.js"),
+    import("../../../auto-reply/reply/reply-run-registry.state.js"),
+  ]);
+  const current = () =>
+    resolveReplyOperationsForSession({
+      agentId: authority.childAgentId,
+      sessionKeys: [entry.childSessionKey],
+      sessionId: entry.childSessionIdentity?.sessionId,
+    }).find(
+      (operation) =>
+        operation.key === entry.childSessionKey &&
+        getAttachedBackend(operation)?.runId === entry.runId,
+    );
+  const operation = current();
+  if (!operation) {
+    return undefined;
+  }
+  const backend = getAttachedBackend(operation);
+  const isCurrent = () => current() === operation && getAttachedBackend(operation) === backend;
+  return {
+    sessionId: operation.sessionId,
+    settlement: operation.ownerSettlement,
+    isCurrent,
+    abort: () => isCurrent() && operation.abortByUser(),
+  };
+}
+
 export function captureSubagentExecution(params: {
   entry: SubagentRunRecord;
   session: SubagentKillSession;
@@ -37,7 +91,11 @@ export function captureSubagentExecution(params: {
       entries: context.chatAbortControllers,
       runId: entry.runId,
       sessionKey: entry.childSessionKey,
-      sessionId: params.session.entry?.sessionId,
+      sessionId:
+        resolveSubagentChildAuthority(entry).status === "legacy-unverified"
+          ? (entry.childSessionIdentity?.sessionId ??
+            context.chatAbortControllers.get(entry.runId)?.sessionId)
+          : params.session.entry?.sessionId,
       lifecycleGeneration: entry.execution.lifecycleGeneration,
     });
   return context && execution
@@ -48,6 +106,7 @@ export function captureSubagentExecution(params: {
 /** Retire execution authority while its raw owner still supplies cleanup observation. */
 export function retireSubagentGatewayBinding(observed: SubagentRunRecord): void {
   const entry = getCurrentSubagentRunOwner(subagentRuns, observed) ?? observed;
+  retireRequesterFollowupAuthority(entry);
   const key = getSubagentRunRuntimeKey(entry);
   const resolver = getGatewayContextResolver(entry);
   try {
@@ -126,8 +185,77 @@ export function getSubagentExecutionCleanup(
   const observation = executionCleanups.get(getSubagentRunRuntimeKey(entry));
   return observation?.sessionId === session?.sessionId &&
     observation?.matchesRecord() &&
-    (observation.sessionLifecycleRevision === undefined ||
-      observation.sessionLifecycleRevision === session?.lifecycleRevision)
+    observation.sessionLifecycleRevision === session?.lifecycleRevision
     ? observation
     : undefined;
+}
+
+function hasRetainedControllerExecution(entry: SubagentRunRecord): boolean {
+  const retained = executionCleanups.get(getSubagentRunRuntimeKey(entry));
+  const cleanup = getSubagentExecutionCleanup(
+    entry,
+    entry.childSessionIdentity ??
+      (retained && {
+        sessionId: retained.sessionId,
+        lifecycleRevision: retained.sessionLifecycleRevision,
+      }),
+  );
+  if (cleanup && !cleanup.settlement.cleanupSettled) {
+    return true;
+  }
+  const context = getGatewayContextResolver(entry)?.();
+  const execution = context?.chatAbortControllers.get(entry.runId);
+  return Boolean(
+    execution &&
+    execution.kind === "agent" &&
+    execution.sessionKey === entry.childSessionKey &&
+    (!entry.childSessionIdentity || execution.sessionId === entry.childSessionIdentity.sessionId) &&
+    (entry.execution.lifecycleGeneration === undefined ||
+      execution.lifecycleGeneration === entry.execution.lifecycleGeneration) &&
+    execution.executionSettlement &&
+    !execution.executionSettlement.cleanupSettled,
+  );
+}
+
+/** Snapshot topology before cancellation awaits; terminal timestamps never prove cleanup. */
+export function captureSubagentRetainedWork() {
+  const children = new Map<string, SubagentRunRecord[]>();
+  for (const entry of subagentRuns.values()) {
+    const key = resolveControllerSessionKey(entry);
+    const group = children.get(key) ?? [];
+    group.push(entry);
+    children.set(key, group);
+  }
+  const hasRetainedWork = (entry: SubagentRunRecord, visited = new Set<string>()): boolean => {
+    if (visited.has(entry.runId)) {
+      return false;
+    }
+    visited.add(entry.runId);
+    const childAgentId = resolveSubagentChildAgentId(entry);
+    return (
+      entry.execution.status !== "terminal" ||
+      typeof entry.execution.endedAt !== "number" ||
+      entry.pauseReason === "sessions_yield" ||
+      Boolean(entry.requesterSettleWake) ||
+      Boolean(
+        entry.killIntent || entry.killReconciliation || entry.collectorLaunchCleanupPending,
+      ) ||
+      captureSubagentEmbeddedExecution(entry) !== undefined ||
+      hasRetainedControllerExecution(entry) ||
+      captureExecRequestCancellation({
+        runId: entry.runId,
+        sessionKey: entry.childSessionKey,
+        sessionId: entry.childSessionIdentity?.sessionId,
+        agentId: childAgentId,
+      }).owners.length > 0 ||
+      (children.get(entry.childSessionKey) ?? []).some(
+        (child) =>
+          (!childAgentId ||
+            (parseAgentSessionKey(resolveControllerSessionKey(child))?.agentId ??
+              child.requesterAgentId) === childAgentId) &&
+          hasRetainedWork(child, visited),
+      )
+    );
+  };
+  return (entry: SubagentRunRecord) => hasRetainedWork(entry);
 }

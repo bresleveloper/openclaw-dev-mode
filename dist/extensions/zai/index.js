@@ -47,17 +47,34 @@ function wrapZaiStreamFn(ctx) {
 	const disableThinking = ctx.thinkingLevel === "off" && !reasoningEffort;
 	if (!disableThinking && !preserveThinking && !reasoningEffort) return streamFn;
 	return createPayloadPatchStreamWrapper(streamFn, ({ payload, model }) => {
-		if (model.api !== "openai-completions" || model.provider !== PROVIDER_ID) return;
+		if ((ctx.sourceApi ?? model.api) !== "openai-completions" || model.provider !== PROVIDER_ID) return;
 		if (disableThinking) {
 			payload.thinking = { type: "disabled" };
 			return;
 		}
-		if (reasoningEffort) payload.reasoning_effort = reasoningEffort;
+		if (reasoningEffort) {
+			payload.reasoning_effort = reasoningEffort;
+			delete payload.thinking;
+			delete payload.enable_thinking;
+		}
 		if (preserveThinking) payload.thinking = {
 			type: "enabled",
 			clear_thinking: false
 		};
 	});
+}
+function wrapZaiSimpleCompletionStreamFn(ctx) {
+	return (model, context, options) => {
+		const thinkingLevel = options?.reasoning ?? ctx.thinkingLevel ?? resolveThinkingProfile({
+			provider: ctx.provider,
+			modelId: model.id
+		}).defaultLevel;
+		return wrapZaiStreamFn({
+			...ctx,
+			modelId: model.id,
+			thinkingLevel
+		})(model, context, options);
+	};
 }
 async function promptForZaiEndpoint(ctx) {
 	return await ctx.prompter.select({
@@ -194,16 +211,17 @@ var zai_default = defineSingleProviderPluginEntry({
 		}),
 		prepareExtraParams: (ctx) => defaultToolStreamExtraParams(ctx.extraParams),
 		wrapStreamFn: wrapZaiStreamFn,
+		wrapSimpleCompletionStreamFn: wrapZaiSimpleCompletionStreamFn,
 		resolveThinkingProfile,
 		isModernModelRef: ({ modelId }) => {
 			const lower = normalizeLowercaseStringOrEmpty(modelId);
 			return lower.startsWith("glm-5") || lower.startsWith("glm-4.7");
 		},
 		resolveUsageAuth: async (ctx) => {
-			const apiKey = ctx.resolveApiKeyFromConfigAndStore({
+			const apiKey = (await ctx.resolveApiKeyCandidatesFromConfigAndStore?.({
 				providerIds: [PROVIDER_ID, "z-ai"],
 				envDirect: [ctx.env.ZAI_API_KEY, ctx.env.Z_AI_API_KEY]
-			});
+			}))?.[0];
 			return apiKey ? { token: apiKey } : null;
 		},
 		fetchUsageSnapshot: async (ctx) => await fetchZaiUsage(ctx.token, ctx.timeoutMs, ctx.fetchFn),

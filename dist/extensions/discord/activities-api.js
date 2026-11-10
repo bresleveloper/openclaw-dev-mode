@@ -1,10 +1,10 @@
-import { c as resolveDiscordAccount } from "./.setup/accounts-HE9-mj1L.mjs";
-import { D as getDiscordEndpointRuntime } from "./.setup/allow-list-vxkG9_JD.mjs";
-import { m as resolveDiscordChannelId$1 } from "./.setup/send.receipt-DVOg2Oaw.mjs";
-import { S as parseDiscordActivityCustomId, i as buildDiscordPresentationComponents } from "./.setup/components-DLJR0xU-.mjs";
-import { r as sendDiscordComponentMessage } from "./.setup/send.components-dPljuV24.mjs";
-import { r as setDiscordActivitiesRuntime, t as DiscordActivitiesRuntime } from "./.setup/runtime-DPcmPST9.mjs";
-import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { l as resolveDiscordAccount } from "./.setup/accounts-ljrzXBJi.mjs";
+import { D as getDiscordEndpointRuntime } from "./.setup/allow-list-BKqOldGy.mjs";
+import { n as resolveDiscordChannelId$1 } from "./.setup/target-parsing-C-HyNxcE.mjs";
+import { S as parseDiscordActivityCustomId, i as buildDiscordPresentationComponents } from "./.setup/components-Du9NhD8h.mjs";
+import { r as sendDiscordComponentMessage } from "./.setup/send.components-CWZUuGvA.mjs";
+import { r as setDiscordActivitiesRuntime, t as DiscordActivitiesRuntime } from "./.setup/runtime-plifsKg9.mjs";
+import { asOptionalRecord, normalizeBoundedOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { randomBytes } from "node:crypto";
 import { fetchWithSsrFGuard as fetchWithSsrFGuard$1 } from "openclaw/plugin-sdk/ssrf-runtime";
 import { logError } from "openclaw/plugin-sdk/logging-core";
@@ -13,6 +13,7 @@ import fs from "node:fs/promises";
 import { resolveRequestClientIp } from "openclaw/plugin-sdk/webhook-ingress";
 import { WEBHOOK_BODY_READ_DEFAULTS, readJsonBodyWithLimit, sendHttpRequestRejection } from "openclaw/plugin-sdk/webhook-request-guards";
 import { WIDGET_CDN_ORIGINS } from "openclaw/plugin-sdk/widget-html";
+import { containsAsciiControlCharacter } from "openclaw/plugin-sdk/string-normalization-runtime";
 //#region extensions/discord/src/activities/discord-api.ts
 const DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token";
 const DISCORD_USER_URL = "https://discord.com/api/v10/users/@me";
@@ -21,13 +22,8 @@ const DISCORD_ACTIVITY_REQUEST_TIMEOUT_MS = 15e3;
 const JSON_MAX_BYTES = 65536;
 const INSTANCE_ID_MAX_LENGTH = 256;
 function normalizeInstanceId(value) {
-	const instanceId = value?.trim();
-	if (!instanceId || instanceId.length > INSTANCE_ID_MAX_LENGTH) return;
-	for (let index = 0; index < instanceId.length; index += 1) {
-		const codePoint = instanceId.charCodeAt(index);
-		if (codePoint < 32 || codePoint === 127) return;
-	}
-	return instanceId;
+	const instanceId = normalizeBoundedOptionalString(value, INSTANCE_ID_MAX_LENGTH);
+	return instanceId && !containsAsciiControlCharacter(instanceId) ? instanceId : void 0;
 }
 async function fetchDiscordJson(params) {
 	const endpoint = Object.hasOwn(params, "endpointRuntime") ? params.endpointRuntime : getDiscordEndpointRuntime();
@@ -99,19 +95,17 @@ var TokenRateLimiter = class {
 	allowKey(key) {
 		const now = this.now();
 		const active = (this.attempts.get(key) ?? []).filter((timestamp) => timestamp > now - TOKEN_RATE_WINDOW_MS);
-		if (active.length >= TOKEN_RATE_LIMIT) {
-			this.attempts.delete(key);
-			this.attempts.set(key, active);
-			return false;
+		const allowed = active.length < TOKEN_RATE_LIMIT;
+		if (allowed) {
+			if (!this.attempts.has(key) && this.attempts.size >= TOKEN_RATE_MAX_KEYS) {
+				const oldestKey = this.attempts.keys().next().value;
+				if (typeof oldestKey === "string") this.attempts.delete(oldestKey);
+			}
+			active.push(now);
 		}
-		if (!this.attempts.has(key) && this.attempts.size >= TOKEN_RATE_MAX_KEYS) {
-			const oldestKey = this.attempts.keys().next().value;
-			if (typeof oldestKey === "string") this.attempts.delete(oldestKey);
-		}
-		active.push(now);
 		this.attempts.delete(key);
 		this.attempts.set(key, active);
-		return true;
+		return allowed;
 	}
 	reserveGlobal() {
 		const now = this.now();
@@ -260,14 +254,11 @@ const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
 const WIDGET_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/;
 const DOC_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const DISCORD_ACTIVITY_WIDGET_CSP = `sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' ${WIDGET_CDN_ORIGINS.join(" ")}; style-src 'unsafe-inline' ${WIDGET_CDN_ORIGINS.join(" ")}; img-src data: blob:; font-src data: ${WIDGET_CDN_ORIGINS.join(" ")}; connect-src 'none'; frame-ancestors *`;
-function setCommonHeaders(res) {
+function respond(res, statusCode, body, contentType, headers) {
+	res.statusCode = statusCode;
 	res.setHeader("Cache-Control", "no-store");
 	res.setHeader("Referrer-Policy", "no-referrer");
 	res.setHeader("X-Content-Type-Options", "nosniff");
-}
-function respond(res, statusCode, body, contentType, headers) {
-	res.statusCode = statusCode;
-	setCommonHeaders(res);
 	res.setHeader("Content-Type", contentType);
 	for (const [key, value] of Object.entries(headers ?? {})) res.setHeader(key, value);
 	res.end(body);
@@ -298,10 +289,6 @@ function extractApplicationId(req) {
 function bearerToken(req) {
 	return ((readHeader(req, "authorization")?.trim())?.match(/^Bearer\s+([A-Za-z0-9_-]{43})$/i))?.[1];
 }
-function widgetIdFromCustomId(customId) {
-	if (WIDGET_ID_PATTERN.test(customId)) return customId;
-	return parseDiscordActivityCustomId(customId)?.widgetId;
-}
 function createDiscordActivityHttpHandler(deps) {
 	const fetchGuard = deps.fetchGuard ?? fetchWithSsrFGuard$1;
 	const limiter = new TokenRateLimiter(deps.now ?? Date.now);
@@ -323,6 +310,12 @@ function createDiscordActivityHttpHandler(deps) {
 		const account = deps.runtime.resolveHttpAccount(applicationId);
 		if (!account) return respondJson(res, 503, { error: "Discord Activities is not fully configured" });
 		const endpointRuntime = getDiscordEndpointRuntime() ?? null;
+		const fetchAccountJson = (params) => fetchDiscordJson({
+			...params,
+			fetchGuard,
+			fetchImpl: account.proxyFetch,
+			endpointRuntime
+		}).catch(() => void 0);
 		const bodyResult = await readJsonBodyWithLimit(req, {
 			maxBytes: BODY_MAX_BYTES,
 			timeoutMs: bodyTimeoutMs,
@@ -341,43 +334,29 @@ function createDiscordActivityHttpHandler(deps) {
 		if (reservation === null) return respondJson(res, 429, { error: "too many token requests" });
 		let completed = false;
 		try {
-			let tokenResponse;
-			try {
-				tokenResponse = await fetchDiscordJson({
-					fetchGuard,
-					fetchImpl: account.proxyFetch,
-					url: DISCORD_TOKEN_URL,
-					init: {
-						method: "POST",
-						headers: { "Content-Type": "application/x-www-form-urlencoded" },
-						body: new URLSearchParams({
-							grant_type: "authorization_code",
-							client_id: account.applicationId,
-							client_secret: account.clientSecret,
-							code
-						})
-					},
-					auditContext: "discord.activities.oauth.token",
-					endpointRuntime
-				});
-			} catch {
-				return respondJson(res, 503, { error: "Discord token exchange unavailable" });
-			}
+			const tokenResponse = await fetchAccountJson({
+				url: DISCORD_TOKEN_URL,
+				init: {
+					method: "POST",
+					headers: { "Content-Type": "application/x-www-form-urlencoded" },
+					body: new URLSearchParams({
+						grant_type: "authorization_code",
+						client_id: account.applicationId,
+						client_secret: account.clientSecret,
+						code
+					})
+				},
+				auditContext: "discord.activities.oauth.token"
+			});
+			if (!tokenResponse) return respondJson(res, 503, { error: "Discord token exchange unavailable" });
 			const granted = typeof tokenResponse.body?.access_token === "string" ? tokenResponse.body.access_token.trim() : "";
 			if (!tokenResponse.ok || !granted) return respondJson(res, 401, { error: "invalid authorization code" });
-			let userResponse;
-			try {
-				userResponse = await fetchDiscordJson({
-					fetchGuard,
-					fetchImpl: account.proxyFetch,
-					url: DISCORD_USER_URL,
-					init: { headers: { Authorization: `Bearer ${granted}` } },
-					auditContext: "discord.activities.oauth.user",
-					endpointRuntime
-				});
-			} catch {
-				return respondJson(res, 503, { error: "Discord user lookup unavailable" });
-			}
+			const userResponse = await fetchAccountJson({
+				url: DISCORD_USER_URL,
+				init: { headers: { Authorization: `Bearer ${granted}` } },
+				auditContext: "discord.activities.oauth.user"
+			});
+			if (!userResponse) return respondJson(res, 503, { error: "Discord user lookup unavailable" });
 			const discordUserId = typeof userResponse.body?.id === "string" ? userResponse.body.id : void 0;
 			if (!userResponse.ok || !discordUserId) return respondJson(res, 401, { error: "Discord user lookup failed" });
 			const minted = await deps.runtime.store.createSession({
@@ -410,7 +389,7 @@ function createDiscordActivityHttpHandler(deps) {
 		}) : void 0;
 		if (!channelId) return respondJson(res, 404, { error: "widget not found" });
 		let resolved = null;
-		const requestedWidgetId = widgetIdFromCustomId(customId);
+		const requestedWidgetId = WIDGET_ID_PATTERN.test(customId) ? customId : parseDiscordActivityCustomId(customId)?.widgetId;
 		if (requestedWidgetId) {
 			const widget = await deps.runtime.store.lookupWidget(requestedWidgetId);
 			if (widget?.accountId !== session.accountId || widget.channelId !== channelId) return respondJson(res, 404, { error: "widget not found" });
@@ -457,7 +436,7 @@ function createDiscordActivityHttpHandler(deps) {
 		if (!widget || widget.accountId !== capability.accountId) return notFound(res, true);
 		return respond(res, 200, widget.html, "text/html; charset=utf-8", { "Content-Security-Policy": DISCORD_ACTIVITY_WIDGET_CSP });
 	}
-	return { async handleHttpRequest(req, res) {
+	return { handleHttpRequest: async (req, res) => {
 		const url = new URL(req.url ?? "/", "http://localhost");
 		if (url.pathname !== "/discord/activity" && !url.pathname.startsWith(`/discord/activity/`)) return false;
 		if (!deps.runtime.hasEnabledAccounts()) return false;
@@ -491,6 +470,13 @@ function createDiscordActivityHttpHandler(deps) {
 //#endregion
 //#region extensions/discord/src/activities/presenter.ts
 const DISCORD_WIDGET_HTML_MAX_BYTES = 49152;
+const unavailable = () => ({
+	ok: false,
+	error: {
+		code: "unavailable",
+		message: "Discord Activities are unavailable for the current channel and account."
+	}
+});
 function resolveDiscordChannelId(context) {
 	const raw = context.nativeChannelId?.trim() || context.currentMessagingTarget?.trim() || context.currentChannelId?.trim() || context.deliveryContext?.to?.trim();
 	if (!raw) return;
@@ -530,23 +516,11 @@ function createDiscordWidgetPresenter(runtime) {
 			return resolveDiscordPresentationRoute(context, runtime) ? {
 				ok: true,
 				value: { available: true }
-			} : {
-				ok: false,
-				error: {
-					code: "unavailable",
-					message: "Discord Activities are unavailable for the current channel and account."
-				}
-			};
+			} : unavailable();
 		},
 		async present({ context, document, title }) {
 			const route = resolveDiscordPresentationRoute(context, runtime);
-			if (!route) return {
-				ok: false,
-				error: {
-					code: "unavailable",
-					message: "Discord Activities are unavailable for the current channel and account."
-				}
-			};
+			if (!route) return unavailable();
 			if (Array.from(title).length > 80) return {
 				ok: false,
 				error: {
@@ -628,31 +602,17 @@ function requireAtomicComparison(store) {
 	return store;
 }
 function openDiscordActivityStores(openKeyedStore) {
+	const openStore = (namespace, maxEntries, defaultTtlMs) => openKeyedStore({
+		namespace,
+		maxEntries,
+		overflowPolicy: "evict-oldest",
+		defaultTtlMs
+	});
 	return {
-		widgets: requireAtomicComparison(openKeyedStore({
-			namespace: "activities-widgets",
-			maxEntries: 64,
-			overflowPolicy: "evict-oldest",
-			defaultTtlMs: WIDGET_TTL_MS
-		})),
-		sessions: openKeyedStore({
-			namespace: "activities-sessions",
-			maxEntries: 256,
-			overflowPolicy: "evict-oldest",
-			defaultTtlMs: SESSION_TTL_MS
-		}),
-		docTokens: openKeyedStore({
-			namespace: "activities-doc-tokens",
-			maxEntries: 256,
-			overflowPolicy: "evict-oldest",
-			defaultTtlMs: DOC_TOKEN_TTL_MS
-		}),
-		launches: requireAtomicComparison(openKeyedStore({
-			namespace: "activities-launches",
-			maxEntries: 256,
-			overflowPolicy: "evict-oldest",
-			defaultTtlMs: PENDING_LAUNCH_TTL_MS
-		}))
+		widgets: requireAtomicComparison(openStore("activities-widgets", 64, WIDGET_TTL_MS)),
+		sessions: openStore("activities-sessions", 256, SESSION_TTL_MS),
+		docTokens: openStore("activities-doc-tokens", 256, DOC_TOKEN_TTL_MS),
+		launches: requireAtomicComparison(openStore("activities-launches", 256, PENDING_LAUNCH_TTL_MS))
 	};
 }
 function pendingLaunchKey(accountId, channelId, discordUserId) {
@@ -665,16 +625,6 @@ async function applyActivityStoreIntent(store, key, intent) {
 		if (result.status !== "conflict") return result.status;
 		observed = result.current;
 	}
-}
-function pendingLaunchForWidget(existing, widgetId, createdAt) {
-	return existing && (existing.state === "ambiguous" || existing.widgetId !== widgetId) ? {
-		state: "ambiguous",
-		createdAt
-	} : {
-		state: "single",
-		widgetId,
-		createdAt
-	};
 }
 var DiscordActivityStore = class {
 	constructor(stores) {
@@ -751,7 +701,14 @@ var DiscordActivityStore = class {
 		await applyActivityStoreIntent(this.stores.launches, key, (existing) => ({
 			operation: "update",
 			action: "set",
-			value: pendingLaunchForWidget(existing, widgetId, createdAt)
+			value: existing && (existing.state === "ambiguous" || existing.widgetId !== widgetId) ? {
+				state: "ambiguous",
+				createdAt
+			} : {
+				state: "single",
+				widgetId,
+				createdAt
+			}
 		}));
 	}
 	async retirePendingLaunch(accountId, channelId, discordUserId, widgetId) {
@@ -781,7 +738,7 @@ function registerDiscordActivities(api) {
 		path: DISCORD_ACTIVITY_ROUTE_PREFIX,
 		auth: "plugin",
 		match: "prefix",
-		handler: async (req, res) => await http.handleHttpRequest(req, res)
+		handler: http.handleHttpRequest
 	});
 	api.registerWidgetPresenter(createDiscordWidgetPresenter(runtime));
 }

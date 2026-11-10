@@ -28,6 +28,20 @@ export type LeaseScenario = {
 
 // A narrow child substitutes for the CLI, not for its cross-process lease.
 export async function runUpdateLeaseChild(): Promise<void> {
+  try {
+    await runUpdateLeaseScenario();
+  } finally {
+    // Fixture children bypass CLI cleanup and must join their database workers.
+    const { closeOpenClawStateDatabaseAsync } =
+      await import("../../state/openclaw-state-db-cache.js");
+    await closeOpenClawStateDatabaseAsync();
+    const { closeDefaultRetainedNativeWorkerSource } =
+      await import("../../infra/worker-native-lifecycle.js");
+    await closeDefaultRetainedNativeWorkerSource();
+  }
+}
+
+async function runUpdateLeaseScenario(): Promise<void> {
   const stateDir = process.env.OPENCLAW_STATE_DIR;
   const configPath = process.env.OPENCLAW_CONFIG_PATH;
   assert.ok(stateDir && configPath);
@@ -214,7 +228,7 @@ export async function runUpdateLeaseChild(): Promise<void> {
       const { defaultRuntime: runtime } = await import("../../runtime.js");
       const options = { repair: true, nonInteractive: true, workspaceSuggestions: false };
       const prompter = createDoctorPrompter({ runtime, options });
-      const configResult = await loadAndMaybeMigrateDoctorConfig({
+      await using configResult = await loadAndMaybeMigrateDoctorConfig({
         options,
         prompter,
         runtime,

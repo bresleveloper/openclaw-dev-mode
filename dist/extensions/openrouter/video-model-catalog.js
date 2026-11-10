@@ -1,2 +1,2 @@
-import { n as resolveOpenRouterVideoModelCapabilities, t as listOpenRouterVideoModelCatalog } from "../../video-model-catalog-BaZxFLI0.mjs";
+import { n as resolveOpenRouterVideoModelCapabilities, t as listOpenRouterVideoModelCatalog } from "../../video-model-catalog-FRX7YYEl.mjs";
 export { listOpenRouterVideoModelCatalog, resolveOpenRouterVideoModelCapabilities };

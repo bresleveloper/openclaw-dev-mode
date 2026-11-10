@@ -32,7 +32,7 @@ export function serializeSseEvents(events: Record<string, unknown>[]): string {
   return events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("");
 }
 
-export function createRawSseResponse(body: string): Response {
+function createRawSseResponse(body: string): Response {
   return new Response(body, {
     status: 200,
     headers: { "content-type": "text/event-stream" },

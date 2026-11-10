@@ -2,21 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import * as ts from "typescript/unstable/ast";
 import { createNativeTypeScriptParser } from "./native-typescript.mts";
+import { controlUiBuildSiblingPid } from "./output-root-guard.mjs";
 import { isRecord as object } from "./record-shared.mjs";
 import { parseReleaseVersion } from "./release-version.mjs";
-import { standaloneRuntimeProcessBuildEntries } from "./runtime-process-core-build-entries.mts";
 import {
   isUpdateCompatibilityChunk,
   UPDATE_COMPATIBILITY_CHUNK_HEADER,
 } from "./update-compat-contract.mjs";
 import { ModuleGraph, type UpdateCompatibilityOrigin } from "./update-compat-module-graph.mts";
-import { isUpdatePackageAssetImport } from "./update-compat-source-imports.mts";
 
 export { isUpdateCompatibilityChunk } from "./update-compat-contract.mjs";
 const HASHED_CHUNK = /-[A-Za-z0-9_-]{8}\.m?js$/;
-const standaloneRuntimeProcessOutputs = new Set(
-  Object.keys(standaloneRuntimeProcessBuildEntries).map((name) => `${name}.js`),
-);
 const POST_SWAP_OWNER = /^src\/(?:cli\/update-cli\/|daemon\/|cli\/runtime-cleanup(?:-scope)?\.ts$)/;
 
 // These verified releases coalesced lifecycle declarations under the cache module's region.
@@ -84,6 +80,13 @@ function moduleFiles(root: string): string[] {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const file = path.join(directory, entry.name);
       if (entry.isDirectory()) {
+        // The UI publishes its independent browser graph by renaming these trees.
+        if (
+          directory === root &&
+          (entry.name === "control-ui" || controlUiBuildSiblingPid(entry.name) !== null)
+        ) {
+          continue;
+        }
         // Plugin outputs and installed dependencies are independent runtime graphs.
         if (!["node_modules", "extensions", "plugin-sdk"].includes(entry.name)) {
           visit(file);
@@ -108,6 +111,92 @@ function ownerAt(source: string, offset: number): string | undefined {
   return owner;
 }
 
+function isPostSwapImport(owner: string, node: ts.CallExpression): boolean {
+  // The wizard starts the update, and cleanup-scope prepares its resources
+  // before running the command. Only its final drain can follow replacement.
+  if (owner === "src/cli/update-cli/wizard.ts") {
+    return false;
+  }
+  if (owner !== "src/cli/runtime-cleanup-scope.ts") {
+    return true;
+  }
+  for (let ancestor: ts.Node = node; ancestor.parent; ancestor = ancestor.parent) {
+    if (ts.isTryStatement(ancestor.parent) && ancestor.parent.finallyBlock === ancestor) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function consumedPromiseAllExports(node: ts.CallExpression): string[] | undefined {
+  const array = node.parent;
+  if (
+    !ts.isArrayLiteralExpression(array) ||
+    !array.elements.every(
+      (element) =>
+        ts.isCallExpression(element) &&
+        element.expression.kind === ts.SyntaxKind.ImportKeyword &&
+        element.arguments.length === 1 &&
+        ts.isStringLiteralLikeNode(element.arguments[0]!),
+    )
+  ) {
+    return undefined;
+  }
+  const call = array.parent;
+  if (
+    !ts.isCallExpression(call) ||
+    call.questionDotToken ||
+    call.arguments.length !== 1 ||
+    !ts.isPropertyAccessExpression(call.expression) ||
+    call.expression.questionDotToken ||
+    !ts.isIdentifier(call.expression.expression) ||
+    call.expression.expression.text !== "Promise" ||
+    call.expression.name.text !== "all" ||
+    !ts.isAwaitExpression(call.parent)
+  ) {
+    return undefined;
+  }
+  const declaration = call.parent.parent;
+  if (
+    !ts.isVariableDeclaration(declaration) ||
+    declaration.initializer !== call.parent ||
+    !ts.isArrayBindingPattern(declaration.name) ||
+    declaration.name.elements.length !== array.elements.length
+  ) {
+    return undefined;
+  }
+  const names: string[][] = [];
+  for (const element of declaration.name.elements) {
+    if (
+      !ts.isBindingElement(element) ||
+      element.dotDotDotToken ||
+      element.initializer ||
+      !element.name ||
+      !ts.isObjectBindingPattern(element.name) ||
+      element.name.elements.length === 0
+    ) {
+      return undefined;
+    }
+    const exports: string[] = [];
+    for (const binding of element.name.elements) {
+      const name = binding.propertyName ?? binding.name;
+      if (
+        binding.dotDotDotToken ||
+        binding.initializer ||
+        !binding.name ||
+        !name ||
+        !ts.isIdentifier(binding.name) ||
+        !ts.isIdentifier(name)
+      ) {
+        return undefined;
+      }
+      exports.push(name.text);
+    }
+    names.push(exports);
+  }
+  return names[array.elements.indexOf(node)];
+}
+
 function consumedExports(node: ts.CallExpression): string[] | undefined {
   let expression: ts.Node = node;
   let awaited = false;
@@ -120,7 +209,7 @@ function consumedExports(node: ts.CallExpression): string[] | undefined {
   }
   // A direct import() is a Promise; its properties are not namespace exports.
   if (!awaited) {
-    return undefined;
+    return consumedPromiseAllExports(node);
   }
   const parent = expression.parent;
   if (ts.isPropertyAccessExpression(parent) && parent.expression === expression) {
@@ -194,14 +283,12 @@ export function recordUpdateCompatibilityRelease(params: {
     const visit = (node: ts.Node) => {
       if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
         const owner = ownerAt(source, node.getStart());
-        // The wizard's only lazy command import starts the update, before replacement.
-        if (owner && POST_SWAP_OWNER.test(owner) && owner !== "src/cli/update-cli/wizard.ts") {
+        if (owner && POST_SWAP_OWNER.test(owner) && isPostSwapImport(owner, node)) {
           const specifier = node.arguments[0];
           if (!specifier || !ts.isStringLiteralLikeNode(specifier)) {
-            if (isUpdatePackageAssetImport(owner, node)) {
-              return;
-            }
-            throw new Error(`Nonliteral post-swap import in ${file}: ${node.getText()}`);
+            // This inventory bridges literal dist imports. Computed package
+            // assets retain their package owner's installation contract.
+            return;
           }
           if (specifier.text.startsWith(".")) {
             const target = path.resolve(path.dirname(file), specifier.text);
@@ -407,6 +494,22 @@ function collectRequiredCompatibilityChunks(
   return [...requiredByPath.values()];
 }
 
+// Older updaters import these after package activation, while their module cache still
+// holds the older release's dependency instances. Their bridges run the current export
+// in a worker so current code never links against those cached modules.
+const ISOLATED_COMPATIBILITY_ORIGINS = new Set([
+  "src/cli/update-cli/update-command-fresh-doctor.ts:runUpdateFinalizationDoctorInFreshProcess",
+  "src/cli/update-cli/update-command-failure-recovery.ts:verifyUpdateFailureRecovery",
+  "src/infra/update-triage.ts:prepareUpdateFailureTriage",
+]);
+// Released recovery paths load these owners' imports after activation; keep them isolated.
+const POST_ACTIVATION_RECOVERY_OWNERS = new Set([
+  "src/cli/update-cli/update-command-service-recovery.ts",
+  "src/cli/update-cli/update-command-triage.ts",
+  "src/cli/update-cli/update-finalization-lifecycle.ts",
+]);
+export const ISOLATED_COMPATIBILITY_BRIDGE = "update-compat-isolated-bridge.mjs";
+
 const STABLE_10_1_CLEANUP_FACADE = "runtime-cleanup-DlrF_x2c.mjs";
 const STABLE_10_1_CLEANUP_OWNER = "runtime-cleanup-Dowg583v.mjs";
 
@@ -451,6 +554,7 @@ export function writeUpdateCompatibilityChunks(params: {
   distDir: string;
   sourceDir: string;
   inventory: UpdateCompatibilityInventory;
+  dryRun?: boolean;
 }): string[] {
   const distDir = path.resolve(params.distDir);
   using parser = createNativeTypeScriptParser({ cwd: params.sourceDir });
@@ -464,15 +568,35 @@ export function writeUpdateCompatibilityChunks(params: {
       origins.set(`${entry.origin.module}:${entry.origin.symbol}`, origin);
     }
   }
+  const isolated = (origin: UpdateCompatibilityOrigin) => {
+    const current = origins.get(`${origin.module}:${origin.symbol}`)!;
+    return ISOLATED_COMPATIBILITY_ORIGINS.has(`${current.module}:${current.symbol}`);
+  };
+  for (const release of params.inventory.releases) {
+    for (const chunk of release.chunks) {
+      for (const imported of chunk.imports) {
+        if (!POST_ACTIVATION_RECOVERY_OWNERS.has(imported.owner)) {
+          continue;
+        }
+        for (const name of imported.exports) {
+          const entry = chunk.exports.find((candidate) => candidate.exported === name);
+          if (entry && !isolated(entry.origin)) {
+            throw new Error(
+              `${release.version} recovery import ${chunk.path}:${name} from ${imported.owner} must run isolated; add ${entry.origin.module}:${entry.origin.symbol} to ISOLATED_COMPATIBILITY_ORIGINS`,
+            );
+          }
+        }
+      }
+    }
+  }
   const ownerModules = new Set([...origins.values()].map((origin) => origin.module));
   const candidates = new Map<string, Map<string, { file: string; exported: string }>>();
   for (const file of moduleFiles(distDir)) {
     const relative = portable(path.relative(distDir, file));
-    // Standalone processes, retained config repairs, and the one-shot hook relay
-    // have independent module instances; their shared-source annotations cannot
-    // authorize bridging to worker-only lifecycle or authority state.
+    // Retained config repairs and the one-shot native hook relay are built
+    // separately from the updater's runtime graph; their copies of shared
+    // modules are not bridge candidates.
     if (
-      standaloneRuntimeProcessOutputs.has(relative) ||
       relative.startsWith("extensions/") ||
       relative.startsWith("plugin-sdk/") ||
       relative.startsWith("config-doctor/") ||
@@ -539,6 +663,25 @@ export function writeUpdateCompatibilityChunks(params: {
       );
     }
     const lines = [UPDATE_COMPATIBILITY_CHUNK_HEADER];
+    const isolatedCount = chunk.exports.filter((entry) => isolated(entry.origin)).length;
+    if (isolatedCount > 0 && isolatedCount !== chunk.exports.length) {
+      throw new Error(
+        `Cannot bridge ${chunk.path}: isolated and in-process exports cannot share one module`,
+      );
+    }
+    if (isolatedCount > 0) {
+      let bridge = portable(
+        path.relative(path.dirname(destination), path.join(distDir, ISOLATED_COMPATIBILITY_BRIDGE)),
+      );
+      if (!bridge.startsWith(".")) {
+        bridge = `./${bridge}`;
+      }
+      lines.push(`import { isolatedUpdateCompatExport } from ${JSON.stringify(bridge)};`);
+      outputs.set(
+        ISOLATED_COMPATIBILITY_BRIDGE,
+        `${UPDATE_COMPATIBILITY_CHUNK_HEADER}\n${fs.readFileSync(new URL("./update-compat-isolated-bridge.mjs", import.meta.url), "utf8")}`,
+      );
+    }
     for (const entry of chunk.exports) {
       const origin = origins.get(`${entry.origin.module}:${entry.origin.symbol}`)!;
       const matches = [...(candidates.get(`${origin.module}:${origin.symbol}`)?.values() ?? [])];
@@ -573,6 +716,10 @@ export function writeUpdateCompatibilityChunks(params: {
           "// 10.1's already-loaded owner must drain its original pending disposer queue.",
           `export { i as runCliDisposerAfterPending } from "./${STABLE_10_1_CLEANUP_OWNER}";`,
         );
+      } else if (isolatedCount > 0) {
+        lines.push(
+          `export const ${entry.exported} = isolatedUpdateCompatExport(import.meta.url, ${JSON.stringify(specifier)}, ${JSON.stringify(match.exported)});`,
+        );
       } else {
         lines.push(
           `export { ${match.exported} as ${entry.exported} } from ${JSON.stringify(specifier)};`,
@@ -583,6 +730,9 @@ export function writeUpdateCompatibilityChunks(params: {
     outputs.set(chunk.path, contents);
   }
   // Finish all mappings before writing any compatibility output.
+  if (params.dryRun) {
+    return [...outputs.keys()].toSorted();
+  }
   for (const [relative, contents] of outputs) {
     const destination = path.join(distDir, relative);
     fs.mkdirSync(path.dirname(destination), { recursive: true });

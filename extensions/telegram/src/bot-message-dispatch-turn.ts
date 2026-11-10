@@ -16,7 +16,7 @@ import {
   beginDraftQueuedFollowup,
   cleanupDrafts,
   enqueueDraftEvent,
-  handleBeforeDeliverCancelled,
+  dropQueuedAnswerBlockRotation,
   ingestDraftLaneSegments,
   prepareQueuedAnswerBlock,
   repositionLaneForNewMessage,
@@ -50,14 +50,12 @@ const TELEGRAM_MAX_CONSECUTIVE_TYPING_FAILURES = 5;
 
 export async function runTelegramDispatchTurn(turn: Turn) {
   const { context } = turn;
+  const hasRepliedRef = { value: false };
   const isRoomEvent = context.ctxPayload.InboundEventKind === "room_event";
+  // Quiet drafts do not disable explicit /verbose diagnostics; only configured opt-outs do.
   const toolProgressEnabled =
     turn.streamMode !== "off" &&
-    resolveChannelStreamingPreviewToolProgress(
-      turn.telegramCfg,
-      turn.streamMode !== "progress",
-      turn.streamMode,
-    );
+    resolveChannelStreamingPreviewToolProgress(turn.telegramCfg, true, turn.streamMode);
   const beginDeliveryCorrelation = () =>
     telegramInboundEventDelivery.begin(
       context.ctxPayload.SessionKey,
@@ -125,10 +123,11 @@ export async function runTelegramDispatchTurn(turn: Turn) {
           record: context.turn.record,
           dispatchReplyFromConfig: turn.opts.dispatchReplyFromConfig,
           delivery: {
-            deliverWithProviderMessageSending: async (payload, info) =>
-              await deliverReply(turn, payload, info),
-            deliverPreparedWithProviderMessageSending: async (plan, info) =>
-              await deliverPreparedReply(turn, plan, info),
+            // Delivery owns its full draft mutation, including native questions and receipts.
+            deliverWithProviderMessageSending: (payload, info) =>
+              enqueueDraftEvent(turn, () => deliverReply(turn, payload, info), "delivery"),
+            deliverPreparedWithProviderMessageSending: (plan, info) =>
+              enqueueDraftEvent(turn, () => deliverPreparedReply(turn, plan, info), "delivery"),
             onError: (err, info) => handleReplyError(turn, err, info),
             onDelivered: (_payload, info, result) => {
               const reason = result?.suppression?.reason;
@@ -147,10 +146,18 @@ export async function runTelegramDispatchTurn(turn: Turn) {
             humanDelay: resolveHumanDelayConfig(turn.cfg, context.route.agentId),
             beforeDeliver: async (payload) => payload,
             onBeforeDeliverCancelled: (payload, info) =>
-              handleBeforeDeliverCancelled(turn, payload, info),
+              info.kind === "block"
+                ? enqueueDraftEvent(turn, async () => {
+                    dropQueuedAnswerBlockRotation(turn, payload, info.assistantMessageIndex);
+                  })
+                : undefined,
             onSkip: (payload, info) => handleReplySkip(turn, payload, info),
           },
           replyOptions: {
+            hasRepliedRef,
+            onPreparedAgentRunStart: ({ runId }) => {
+              turn.transcriptMirrorRunId = runId;
+            },
             ...(context.ctxPayload.CommandSource === "native"
               ? { [PLUGIN_COMMAND_DISPATCH]: { kind: "non-plugin" as const } }
               : {}),
@@ -256,6 +263,7 @@ export async function runTelegramDispatchTurn(turn: Turn) {
                   })
               : () => false,
             onQueuedFollowupAdmitted: () => {
+              hasRepliedRef.value = false;
               beginDraftQueuedFollowup(turn);
               turn.previewLifecycle.reset();
               turn.finalDispatchClaimed = false;
@@ -268,10 +276,11 @@ export async function runTelegramDispatchTurn(turn: Turn) {
             },
             suppressDefaultToolProgressMessages:
               !turn.streamDeliveryEnabled || Boolean(turn.answerLane.stream),
+            progressRequiresReply: turn.streamMode === "progress" ? true : undefined,
             suppressToolProgressMessages: !toolProgressEnabled,
             allowProgressCallbacksWhenSourceDeliverySuppressed:
               !isRoomEvent && Boolean(turn.answerLane.stream),
-            onVerboseProgressVisibility: (isActive) => {
+            onVerboseProgressVisibilityAsync: (isActive) => {
               turn.verboseProgressActive = isActive;
             },
             commentaryProgressEnabled:
@@ -284,39 +293,43 @@ export async function runTelegramDispatchTurn(turn: Turn) {
             shouldDeliverCommentaryPayloads:
               turn.progressPreambleEnabled === true ? () => false : undefined,
             reasoningPayloadsEnabled: turn.durableReasoningPayloadsEnabled,
-            onToolStart: (payload) => handleToolStart(turn, payload),
+            onToolStart: (payload) => enqueueDraftEvent(turn, () => handleToolStart(turn, payload)),
             onItemEvent: (payload) => handleItemEvent(turn, payload),
-            onPlanUpdate: (payload) => handlePlanUpdate(turn, payload),
-            onApprovalEvent: async (payload) =>
-              canPushToolProgress(turn)
-                ? await turn.progressCompositor.pushApprovalEvent(payload)
-                : false,
-            onToolResult: async (payload) => {
-              const text = payload.text?.trim();
-              if (!text) {
+            onPlanUpdate: (payload) =>
+              enqueueDraftEvent(turn, () => handlePlanUpdate(turn, payload)),
+            onApprovalEvent: (payload) =>
+              enqueueDraftEvent(turn, async () =>
+                (await canPushToolProgress(turn))
+                  ? await turn.progressCompositor.pushApprovalEvent(payload)
+                  : false,
+              ),
+            onToolResult: (payload) =>
+              enqueueDraftEvent(turn, async () => {
+                const text = payload.text?.trim();
+                if (!text) {
+                  return false;
+                }
+                const progressId = payload.channelData?.openclawToolProgressId;
+                const updatedDraft = await pushToolProgress(turn, text, {
+                  startImmediately: true,
+                  id: typeof progressId === "string" ? progressId : undefined,
+                });
+                if (updatedDraft) {
+                  return true;
+                }
+                if (isFastModeAutoProgressPayload(payload) && !(await canPushToolProgress(turn))) {
+                  return (await sendPayload(turn, payload)).visibleReplySent;
+                }
                 return false;
-              }
-              const progressId = payload.channelData?.openclawToolProgressId;
-              const updatedDraft = await pushToolProgress(turn, text, {
-                startImmediately: true,
-                id: typeof progressId === "string" ? progressId : undefined,
-              });
-              if (updatedDraft) {
-                return true;
-              }
-              if (isFastModeAutoProgressPayload(payload) && !canPushToolProgress(turn)) {
-                return (await sendPayload(turn, payload)).visibleReplySent;
-              }
-              return false;
-            },
+              }),
             // Ambient room events are intentionally invisible, including reactions.
             // User requests in group chats are not room_event turns and retain these callbacks.
             onCompactionStart: isRoomEvent
               ? undefined
-              : async () => await handleCompactionStart(turn),
+              : () => enqueueDraftEvent(turn, () => handleCompactionStart(turn)),
             onCompactionEnd: isRoomEvent
               ? undefined
-              : async (payload) => await handleCompactionEnd(turn, payload),
+              : (payload) => enqueueDraftEvent(turn, () => handleCompactionEnd(turn, payload)),
             onModelSelected,
           },
         }),

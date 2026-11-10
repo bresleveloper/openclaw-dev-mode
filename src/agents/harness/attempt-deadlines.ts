@@ -18,6 +18,11 @@ type Deadline = {
 /** Tracks execution and local settlement against their original absolute deadlines. */
 export function createAgentHarnessAttemptDeadlineController(params: {
   startedAtMs: number;
+  /**
+   * Captured alongside startedAtMs, before asynchronous attempt preparation.
+   * Official runtime plugins released before 2026.10.6 omit it.
+   */
+  startedAtMonotonicMs?: number;
   timeoutMs: number;
   settlementTimeoutMs: number;
   signal: AbortSignal;
@@ -26,27 +31,39 @@ export function createAgentHarnessAttemptDeadlineController(params: {
   ) => void;
   onTimeout: (timeout: AgentHarnessAttemptTimeout) => void;
 }) {
+  // Older version-bound plugins still pass only the epoch start; anchor it to the
+  // monotonic clock once so their admitted budget survives instead of becoming NaN.
+  const providedMonotonicMs = params.startedAtMonotonicMs;
+  const startedAtMonotonicMs =
+    providedMonotonicMs !== undefined && Number.isFinite(providedMonotonicMs)
+      ? providedMonotonicMs
+      : performance.now() - Math.max(0, Date.now() - params.startedAtMs);
   let deadline: Deadline | { kind: "unlimited" } | { kind: "closed" } = { kind: "closed" };
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const armDeadline = (next: Deadline) => {
     clearTimeout(timer);
     deadline = next;
+    // Queue receipts remain epoch-based; only execution elapsed time is monotonic.
     const deadlineAtMs = next.startedAtMs + next.timeoutMs;
     params.onDeadlineChanged?.({ kind: "bounded", deadlineAtMs });
+    const nowMs = next.kind === "execution" ? performance.now() : Date.now();
+    const startedMs = next.kind === "execution" ? startedAtMonotonicMs : next.startedAtMs;
+    const remainingMs = next.timeoutMs - (nowMs - startedMs);
     timer = setTimeout(
       () => {
         if (deadline !== next || params.signal.aborted) {
           return;
         }
         deadline = { kind: "closed" };
+        const firedNowMs = next.kind === "execution" ? performance.now() : Date.now();
         params.onTimeout({
           kind: next.kind,
-          elapsedMs: Math.max(0, Date.now() - next.startedAtMs),
+          elapsedMs: Math.max(0, firedNowMs - startedMs),
           timeoutMs: next.timeoutMs,
         });
       },
-      resolveTimerTimeoutMs(Math.max(1, deadlineAtMs - Date.now()), 1),
+      resolveTimerTimeoutMs(Math.max(1, remainingMs), 1),
     );
     timer.unref?.();
   };
@@ -72,7 +89,8 @@ export function createAgentHarnessAttemptDeadlineController(params: {
   return {
     ownsExecutionWait: () =>
       deadline.kind === "unlimited" ||
-      (deadline.kind === "execution" && Date.now() < deadline.startedAtMs + deadline.timeoutMs),
+      (deadline.kind === "execution" &&
+        performance.now() < startedAtMonotonicMs + deadline.timeoutMs),
     beginSettlement: (startedAtMs: number) => {
       if (deadline.kind === "closed" || deadline.kind === "settlement") {
         return;

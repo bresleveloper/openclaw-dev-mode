@@ -9,6 +9,7 @@ import {
   executeSqliteQueryTakeFirstSync,
   getNodeSqliteKysely,
 } from "./kysely-sync.js";
+import type { EngineConnection } from "./sql-connection.js";
 import { isSqliteLockError } from "./sqlite-error-diagnostics.js";
 import { assertSqliteSchemaContains } from "./sqlite-schema-contract.js";
 import { extractSqliteTableSchema } from "./sqlite-schema-sql.js";
@@ -35,12 +36,14 @@ import {
   finishUpdateRunRecord,
   isAbandonedUpdateRun,
   isUnacknowledgedPackageOwnerRefusal,
+  type CreateUpdateRunInput,
   type UpdateRunRecord,
   type UpdateRunPhase,
   type UpdateRunStep,
 } from "./update-run-record.js";
 import { isUpdateRecoveryPending } from "./update-run-recovery-schema.js";
 import { inspectRecoveryRows } from "./update-run-recovery-store.js";
+import { upsertStep } from "./update-run-step-upsert.js";
 import { recordUpdateRunVerificationRecord } from "./update-run-verification.js";
 import {
   applyUpdateRunPhase,
@@ -51,7 +54,6 @@ import {
   persistRun,
   UPDATE_RUN_BOOKKEEPING_TIMEOUT_MS,
   updateRunLedgerSchema as schema,
-  upsertStep,
 } from "./update-run-write.js";
 
 export {
@@ -73,21 +75,15 @@ export { finishUpdateRun, recordUpdateRunDiagnostics } from "./update-run-write.
 
 type LedgerDatabase = Pick<DB, "update_runs">;
 export function createUpdateRun(
-  input: RunPatch & {
-    runId?: string;
-    trigger: UpdateRunRecord["trigger"];
-    supersedeStaleIdentityless?: boolean;
-    /** Preview history must not repair canonical task data. */
-    preview?: boolean;
-    /** Record an already completed repair without publishing a transient running row. */
-    settlement?: { reason: string; detail: string };
-  },
+  input: CreateUpdateRunInput,
   options: LedgerOptions = {},
+  assertCurrent?: (stage: "transaction" | "commit") => void,
 ): UpdateRunRecord {
   const now = Date.now();
+  const createdAtMs = input.accepted?.startedAtMs ?? now;
   const initial: UpdateRunRecord = {
     runId: input.runId ?? randomUUID(),
-    createdAtMs: now,
+    createdAtMs,
     updatedAtMs: now,
     trigger: input.trigger,
     phase: "requested",
@@ -96,8 +92,8 @@ export function createUpdateRun(
     origin: input.origin ?? {},
     target: input.target ?? {},
     before: input.before ?? {},
-    after: {},
-    steps: [{ step: "requested", status: "in_progress", startedAtMs: now }],
+    after: input.after ?? {},
+    steps: [{ step: "requested", status: "in_progress", startedAtMs: createdAtMs }],
     verification: {},
     repair: [],
     confirmedAtMs: null,
@@ -112,6 +108,9 @@ export function createUpdateRun(
       detail: input.settlement.detail,
     });
     finishUpdateRunRecord(initial, { status: "succeeded", reason: input.settlement.reason });
+  }
+  if (input.accepted) {
+    finishUpdateRunRecord(initial, { status: "succeeded" });
   }
   const row = encodeRun(initial, options);
   return runUpdateRunAdmission(
@@ -169,11 +168,8 @@ export function createUpdateRun(
       return decodeRun(admittedRow);
     },
     options,
-    {
-      schemaSql: schema,
-      busyTimeoutMs: options.busyTimeoutMs,
-      recoverTaskDeliveryOrphans: !input.preview,
-    },
+    !input.preview,
+    assertCurrent,
   );
 }
 
@@ -437,6 +433,31 @@ export function reconcilePackageOwnerRefusal(
   );
 }
 
+function finishInterruptedRunInTransaction(
+  db: EngineConnection,
+  expected: UpdateRunRecord,
+  status: "skipped" | "failed",
+  options: LedgerOptions,
+): void {
+  if (
+    inspectRecoveryRows(db).some(
+      ({ record }) => record.runId === expected.runId || isUpdateRecoveryPending(record),
+    )
+  ) {
+    return;
+  }
+  mutateRunInTransaction(
+    db,
+    expected.runId,
+    (record) => {
+      if (isDeepStrictEqual(record, expected)) {
+        finishUpdateRunRecord(record, { status, reason: "interrupted" });
+      }
+    },
+    options,
+  );
+}
+
 /** Close only this local preview, excluding recovery in the same stable-schema transaction. */
 export function finishInterruptedUpdatePreview(
   expected: UpdateRunRecord,
@@ -446,25 +467,7 @@ export function finishInterruptedUpdatePreview(
     throw new Error("Preview interruption requires an active admission");
   }
   runExistingOpenClawStateWriteTransaction(
-    ({ db }) => {
-      if (
-        inspectRecoveryRows(db).some(
-          ({ record }) => record.runId === expected.runId || isUpdateRecoveryPending(record),
-        )
-      ) {
-        return;
-      }
-      mutateRunInTransaction(
-        db,
-        expected.runId,
-        (record) => {
-          if (isDeepStrictEqual(record, expected)) {
-            finishUpdateRunRecord(record, { status: "skipped", reason: "interrupted" });
-          }
-        },
-        options,
-      );
-    },
+    ({ db }) => finishInterruptedRunInTransaction(db, expected, "skipped", options),
     options,
     { schemaSql: schema, operationLabel: "update.preview.interrupted" },
   );
@@ -504,22 +507,7 @@ export function finishInterruptedUpdateBeforeActivation(
       if (recoveryObject) {
         assertSqliteSchemaContains(db, pathname, recoverySchema);
       }
-      if (
-        !inspectRecoveryRows(db).some(
-          ({ record }) => record.runId === expected.runId || isUpdateRecoveryPending(record),
-        )
-      ) {
-        mutateRunInTransaction(
-          db,
-          expected.runId,
-          (record) => {
-            if (isDeepStrictEqual(record, expected)) {
-              finishUpdateRunRecord(record, { status: "failed", reason: "interrupted" });
-            }
-          },
-          options,
-        );
-      }
+      finishInterruptedRunInTransaction(db, expected, "failed", options);
       assertCurrent();
     },
     options,

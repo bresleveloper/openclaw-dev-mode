@@ -1,10 +1,18 @@
 import type { AgentMessage } from "@openclaw/agent-core";
+import type { UserTurnTranscriptAdmissionReceipt } from "../../sessions/user-turn-transcript.types.js";
 import type {
   SessionTranscriptBoundedActiveContext,
   SessionTranscriptContextVersion,
   TranscriptEvent,
 } from "./session-accessor.sqlite-contract.js";
-import type { SessionBranchSummary } from "./session-accessor.types.js";
+import type {
+  SessionTranscriptRuntimeTarget,
+  SessionBranchSummary,
+} from "./session-accessor.types.js";
+import type { SessionTranscriptAnchorFacts } from "./session-transcript-anchor-read.types.js";
+import type { SessionTranscriptWatermark } from "./session-transcript-context-version.types.js";
+
+export type { SessionTranscriptWatermark } from "./session-transcript-context-version.types.js";
 
 export type SessionTitleFields = {
   firstUserMessage: string | null;
@@ -16,19 +24,20 @@ export type SessionPreviewItem = {
   text: string;
 };
 
-export type SessionTranscriptWatermark = {
-  generation: string | null;
-  maxSeq: number | null;
+export type SessionBranchSummarySnapshot = SessionTranscriptWatermark & {
+  branches: SessionBranchSummary[];
+  appendSafe?: boolean;
+  source?: { sessionId: string; databaseIdentity: string };
 };
 
 export type SessionBranchSummaryReadResult =
-  | ({ status: "ok"; branches: SessionBranchSummary[] } & SessionTranscriptWatermark)
+  | ({ status: "ok" } & SessionBranchSummarySnapshot)
   | { status: "missing-session" | "failed" };
 
 export type SessionModelContextLimits = {
   maxBytes: number;
   maxEvents: number;
-  /** Detached model views may omit result bodies; evidence and fork readers remain strict. */
+  /** Model views may omit result bodies to retain earlier requests; evidence and forks stay strict. */
   toolResultOverflow?: "omit";
 };
 
@@ -39,6 +48,8 @@ export type SessionTranscriptModelContext = {
 
 export type SessionTranscriptReadSnapshot = {
   events: TranscriptEvent[];
+  eventJson?: string[];
+  eventSeqs?: number[];
   version: SessionTranscriptContextVersion;
 };
 
@@ -50,7 +61,13 @@ export type SessionTranscriptContextSnapshot = {
 
 export type PreparedSessionTranscriptHydration =
   | { kind: "full"; snapshot: SessionTranscriptReadSnapshot }
-  | { kind: "bounded"; snapshot: SessionTranscriptBoundedActiveContext };
+  | {
+      kind: "bounded";
+      snapshot: SessionTranscriptBoundedActiveContext;
+      transcript?: SessionTranscriptAnchorFacts;
+      /** Byte and sequence facts for the actor's bounded context residency. */
+      residentRows?: Array<{ rawSeq: number; serializedBytes: number }>;
+    };
 
 export type SessionPendingInputReceipt =
   | { runId: string; state: "pending"; cancelled?: true }
@@ -67,3 +84,10 @@ export type SessionTranscriptEventMatch =
       deliveryMirror?: boolean;
     }
   | { kind: "active-assistant"; runId: string };
+
+export type SessionContextMessagesWorkerInput = {
+  kind: "context-messages";
+  target: SessionTranscriptRuntimeTarget;
+  admission?: UserTurnTranscriptAdmissionReceipt;
+  expectedIdentity?: import("../../infra/sqlite-worker-identity.js").DatabaseFileIdentity;
+};

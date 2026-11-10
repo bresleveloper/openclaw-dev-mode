@@ -1,2 +1,2 @@
-import { t as buzzPlugin } from "./.setup/channel-BbJ5DvVO.mjs";
+import { t as buzzPlugin } from "./.setup/channel-CHhN1hej.mjs";
 export { buzzPlugin };

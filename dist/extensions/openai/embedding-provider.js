@@ -1,5 +1,5 @@
-import { a as normalizeEmbeddingModelWithPrefixes, n as createRemoteEmbeddingProvider, r as resolveRemoteEmbeddingClient } from "../../memory-core-host-engine-embeddings-C_qi8FWC.mjs";
-import { r as OPENAI_DEFAULT_EMBEDDING_MODEL } from "../../default-models-CYEf1QuY.mjs";
+import { i as normalizeEmbeddingModelWithPrefixes, n as createRemoteEmbeddingProvider, r as resolveRemoteEmbeddingClient } from "../../memory-core-host-engine-embeddings-BIgAa5Te.mjs";
+import { r as OPENAI_DEFAULT_EMBEDDING_MODEL } from "../../default-models-CU9j2AqC.mjs";
 //#region extensions/openai/embedding-provider.ts
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const OPENAI_MAX_INPUT_TOKENS = {
@@ -14,17 +14,31 @@ function normalizeOpenAiModel(model) {
 		prefixes: ["openai/"]
 	});
 }
-function isNativeOpenAiBaseUrl(baseUrl) {
-	return URL.parse(baseUrl)?.hostname.toLowerCase().replace(/\.+$/, "") === "api.openai.com";
-}
 async function createOpenAiEmbeddingProvider(options) {
-	const client = await resolveOpenAiEmbeddingClient(options);
+	const originalModel = options.model;
+	const resolvedClient = await resolveRemoteEmbeddingClient({
+		provider: options.provider ?? "openai",
+		capability: "embedding",
+		options,
+		defaultBaseUrl: DEFAULT_OPENAI_BASE_URL,
+		normalizeModel: normalizeOpenAiModel
+	});
+	const isNativeOpenAi = URL.parse(resolvedClient.baseUrl)?.hostname.toLowerCase().replace(/\.+$/, "") === "api.openai.com";
+	if (!isNativeOpenAi && originalModel.startsWith("openai/")) resolvedClient.model = `openai/${normalizeOpenAiModel(originalModel)}`;
+	const client = {
+		...resolvedClient,
+		inputType: options.inputType,
+		queryInputType: options.queryInputType,
+		documentInputType: options.documentInputType,
+		outputDimensionality: options.dimensions
+	};
 	return {
 		provider: createRemoteEmbeddingProvider({
 			id: "openai",
 			client,
 			errorPrefix: "openai embeddings failed",
 			maxInputTokens: OPENAI_MAX_INPUT_TOKENS[normalizeOpenAiModel(client.model)],
+			maxInputsPerRequest: isNativeOpenAi ? 2048 : void 0,
 			buildRequestFields: (kind) => {
 				const value = (kind === "query" ? client.queryInputType : client.documentInputType) ?? client.inputType;
 				const inputType = typeof value === "string" && value.trim().length > 0 ? value.trim() : void 0;
@@ -35,24 +49,6 @@ async function createOpenAiEmbeddingProvider(options) {
 			}
 		}),
 		client
-	};
-}
-async function resolveOpenAiEmbeddingClient(options) {
-	const originalModel = options.model;
-	const client = await resolveRemoteEmbeddingClient({
-		provider: options.provider ?? "openai",
-		capability: "embedding",
-		options,
-		defaultBaseUrl: DEFAULT_OPENAI_BASE_URL,
-		normalizeModel: normalizeOpenAiModel
-	});
-	if (!isNativeOpenAiBaseUrl(client.baseUrl) && originalModel.startsWith("openai/")) client.model = `openai/${normalizeOpenAiModel(originalModel)}`;
-	return {
-		...client,
-		inputType: options.inputType,
-		queryInputType: options.queryInputType,
-		documentInputType: options.documentInputType,
-		outputDimensionality: options.dimensions
 	};
 }
 //#endregion

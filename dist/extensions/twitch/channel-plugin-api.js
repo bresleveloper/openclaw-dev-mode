@@ -1,2 +1,2 @@
-import { t as twitchPlugin } from "./.setup/plugin-BXWHdWMb.mjs";
+import { t as twitchPlugin } from "./.setup/plugin-CkRhClVg.mjs";
 export { twitchPlugin };

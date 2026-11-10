@@ -7,6 +7,7 @@ import { resolvePersistedSessionStoreOwnerForKey } from "../../config/sessions/s
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { createAbortError } from "../../infra/abort-signal.js";
 import { parseAgentSessionKey } from "../../routing/session-key.js";
+import { registerActiveEmbeddedRunRuntimeWait } from "../embedded-agent-runner/run-state.js";
 import { resolveSubagentCompletionResultText } from "../subagents/completion/subagent-completion-result.js";
 import { subscribeSubagentRunChanges } from "../subagents/registry/subagent-registry-publication.js";
 import { prepareSubagentRunsByRunIds } from "../subagents/registry/subagent-registry.js";
@@ -16,6 +17,10 @@ import { resolveSwarmConfig } from "../subagents/swarm/swarm-config.js";
 import { describeAgentsWaitTool } from "../tool-description-presets.js";
 import type { AnyAgentTool } from "./common.js";
 import { jsonResult, ToolInputError } from "./common.js";
+import {
+  captureGatewayToolCallerAssertion,
+  getGatewayToolCallerIdentity,
+} from "./gateway-caller-context.js";
 
 const MAX_WAIT_IDS = 1_000;
 
@@ -77,11 +82,15 @@ const AgentsWaitOutputSchema = Type.Object(
 
 type WaitError = NonNullable<Static<typeof AgentsWaitOutputSchema>["errors"]>[number];
 
+type CollectorOwnerScope = {
+  currentSessionKeys: ReadonlySet<string>;
+  currentAgentId?: string;
+  config?: OpenClawConfig;
+};
+
 function ownsRun(
   entry: SubagentRunRecord,
-  currentSessionKeys: ReadonlySet<string>,
-  currentAgentId?: string,
-  config?: OpenClawConfig,
+  { currentSessionKeys, currentAgentId, config }: CollectorOwnerScope,
 ): boolean {
   const owner = entry.swarmRequesterSessionKey?.trim();
   if (!owner) {
@@ -140,13 +149,9 @@ function completionResult(
 export type CollectorCompletionResult = NonNullable<ReturnType<typeof completionResult>>;
 
 /** Park one host bridge until its collector completes; registry writes wake it without polling. */
-export async function waitForCollectorCompletion(params: {
-  runId: string;
-  currentSessionKeys: ReadonlySet<string>;
-  currentAgentId?: string;
-  config?: OpenClawConfig;
-  signal?: AbortSignal;
-}): Promise<CollectorCompletionResult> {
+export async function waitForCollectorCompletion(
+  params: CollectorOwnerScope & { runId: string; signal?: AbortSignal },
+): Promise<CollectorCompletionResult> {
   const state = await waitForCollector({
     ...params,
     ids: [params.runId],
@@ -162,9 +167,7 @@ export async function waitForCollectorCompletion(params: {
 function readWaitState(
   entries: ReadonlyMap<string, SubagentRunRecord>,
   ids: readonly string[],
-  currentSessionKeys: ReadonlySet<string>,
-  currentAgentId?: string,
-  config?: OpenClawConfig,
+  owner: CollectorOwnerScope,
 ) {
   const errors: WaitError[] = [];
   const completed: Array<{
@@ -179,7 +182,7 @@ function readWaitState(
       errors.push({ runId, error: "not_found" });
       continue;
     }
-    if (!ownsRun(entry, currentSessionKeys, currentAgentId, config)) {
+    if (!ownsRun(entry, owner)) {
       errors.push({ runId, error: "not_owner" });
       continue;
     }
@@ -205,21 +208,23 @@ function readWaitState(
   };
 }
 
-async function waitForCollector(params: {
-  ids: readonly string[];
-  currentSessionKeys: ReadonlySet<string>;
-  currentAgentId?: string;
-  config?: OpenClawConfig;
-  timeoutMs?: number;
-  waitForAll?: boolean;
-  signal?: AbortSignal;
-  abortError: () => Error;
-}) {
+async function waitForCollector(
+  params: CollectorOwnerScope & {
+    ids: readonly string[];
+    timeoutMs?: number;
+    waitForAll?: boolean;
+    signal?: AbortSignal;
+    abortError: () => Error;
+  },
+) {
+  const authority = getGatewayToolCallerIdentity()?.approvalAuthority;
+  const assertCurrent = captureGatewayToolCallerAssertion();
   const deadline =
     params.timeoutMs === undefined ? undefined : performance.now() + params.timeoutMs;
   let changed: boolean;
   let resume: (() => void) | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let releaseRuntimeWait: (() => void) | undefined;
   const wake = () => {
     changed = true;
     resume?.();
@@ -245,13 +250,7 @@ async function waitForCollector(params: {
             callbackAbort = params.abortError();
             throw callbackAbort;
           }
-          return readWaitState(
-            entries,
-            params.ids,
-            params.currentSessionKeys,
-            params.currentAgentId,
-            params.config,
-          );
+          return readWaitState(entries, params.ids, params);
         });
       } catch (error) {
         if (params.signal?.aborted && error !== callbackAbort) {
@@ -281,15 +280,31 @@ async function waitForCollector(params: {
       }
       await new Promise<void>((resolve) => {
         resume = resolve;
+        // Only a successfully read, owned pending collector can park this run.
+        // Publications revoke the wait until its owner has been reread; a hung
+        // registry read remains ordinary recoverable host work. Revoked caller
+        // authority throws, which the recovery probe treats as unprotected.
+        releaseRuntimeWait = authority
+          ? registerActiveEmbeddedRunRuntimeWait(authority, () => {
+              if (resume === undefined || changed || params.signal?.aborted) {
+                return false;
+              }
+              assertCurrent?.();
+              return true;
+            })
+          : undefined;
         if (deadline !== undefined) {
           timer = setTimeout(resolve, Math.max(0, deadline - performance.now()));
         }
       });
+      releaseRuntimeWait?.();
+      releaseRuntimeWait = undefined;
       clearTimeout(timer);
       timer = undefined;
       resume = undefined;
     }
   } finally {
+    releaseRuntimeWait?.();
     clearTimeout(timer);
     unsubscribe();
     params.signal?.removeEventListener("abort", wake);

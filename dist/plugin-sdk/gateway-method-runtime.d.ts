@@ -1,13 +1,14 @@
-import { nn as SchemaContract } from "../types.openclaw-DWWUw8hA.js";
-import "../reply-payload-DazZPys5.js";
-import "../io-CwO8iq4h.js";
-import { Do as GatewayRequestOptions, Gf as RuntimePluginToolGrant, Ho as SubagentCompletionToolHandoffRegistration, Oo as RequesterSettleWakeReplay, as as TrustedSessionCreation, is as TrustedAgentToolCaller, ko as GatewayMethodDispatchResponse$1, ns as GatewayAgentRunTaskOwner, ps as GatewayOperatorRoleActor, rs as GatewayNodeInvokeStream, wo as GatewayContextResolver } from "../agent-harness-runtime-DZjstJNb.js";
-import "../user-profiles.types-ysUz1C8K.js";
-import { a as PluginSubagentRequesterContext } from "../hook-runner-global-Jvv9WFUW.js";
-import "../config-activation-shared-Dd5FrI8x.js";
+import "../types-D7I_F5Ux.js";
+import { t as SchemaContract } from "../schema-contract-v05QRSzC.js";
+import { A as RequesterSettleWakeReplay, E as GatewayContextResolver, JC as TrustedAgentToolCaller, KC as GatewayAgentRunTaskOwner, YC as TrustedSessionCreation, bE as ReplyExpectation, j as GatewayMethodDispatchResponse$1, k as GatewayRequestOptions, mw as PluginSubagentRequesterContext, qC as GatewayNodeInvokeStream, xE as SubagentCompletionToolHandoffRegistration, yE as RuntimePluginToolGrant } from "../config-contracts-CY87ANNp.js";
+import "../plugin-metadata-snapshot-C_ou8VB5.js";
+import { o as GatewayOperatorRoleActor } from "../origin-check-DKKuLlgF.js";
+import "../config-state-DeFJNtp3.js";
 //#region src/gateway/server-plugin-in-process-dispatch.types.d.ts
 type DispatchGatewayMethodInProcessOptions = {
   privateCompletion?: true;
+  /** Trusted input-owner policy; not accepted from the wire request. */
+  replyExpectation?: ReplyExpectation;
   settleWakeReplay?: RequesterSettleWakeReplay;
   allowSyntheticModelOverride?: boolean;
   agentToolCaller?: TrustedAgentToolCaller;

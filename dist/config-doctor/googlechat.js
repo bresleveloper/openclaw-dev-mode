@@ -1,4 +1,4 @@
-import { S as normalizeChannelConfigEntries, a as defineChannelAliasMigration, b as hasLegacyAccountStreamingAliases, k as asNullableRecord, n as defineKeyMoveMigration } from "./runtime-doctor-migrations-BhouWAUC.js";
+import { E as normalizeChannelConfigEntries, P as asNullableRecord, a as defineChannelAliasMigration, n as defineKeyMoveMigration, w as hasLegacyAccountStreamingAliases } from "./runtime-doctor-migrations-Bq3PkBbD.js";
 //#region extensions/googlechat/src/doctor-contract.ts
 const streamingAliasMigration = defineChannelAliasMigration({
 	channelId: "googlechat",

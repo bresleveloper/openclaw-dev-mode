@@ -1,34 +1,34 @@
 import { t as safeParseJson } from "../json-coercion-pfKbZnCJ.mjs";
-import { a as writeRuntimeJson, r as defaultRuntime } from "../runtime-DlO3PTAd.mjs";
-import { r as resolveStateDir } from "../state-dir-BHJORNly.mjs";
-import "../paths-DGIwWbpu.mjs";
-import { t as UpdateSchemaRefusalError } from "../openclaw-update-schema-refusal-M64rViod.mjs";
-import { r as formatCliJsonFailure } from "../failure-output-gtb9zaTk.mjs";
-import { t as exitCliAfterOutput } from "../one-shot-exit-Bd4757D_.mjs";
-import { a as getNodeSqliteKysely, i as executeSqliteQueryTakeFirstSync, r as executeSqliteQuerySync } from "../kysely-sync-K7ftY-g4.mjs";
-import { t as clearNodeSqliteKyselyCacheForDatabase } from "../kysely-sync-cache-state-eUau8Jaa.mjs";
-import { t as openNodeSqliteDatabase } from "../node-sqlite-XIcwmOrl.mjs";
-import { i as tableExists } from "../openclaw-state-db-schema-helpers-BlZefrPy.mjs";
-import { t as VERSION } from "../version-BJGPJZu6.mjs";
-import { l as getOpenClawDatabaseMaintenanceScope } from "../openclaw-state-db-async-lifecycle-DLKxSPCk.mjs";
-import { c as resolveOpenClawStateSqlitePath } from "../openclaw-state-db.paths-DfifnSGp.mjs";
-import { t as prepareSqliteReadOnlyLocation } from "../sqlite-snapshot-source-BPapZs5n.mjs";
-import "../update-post-core-context-B2x24New.mjs";
-import { i as resolveUpdateRehearsalRoot } from "../update-rehearsal-paths-DTVdt0cq.mjs";
-import { n as readUpdateRunDriver, r as sameUpdateRunDriver, t as inspectUpdateRunDriver } from "../update-run-driver-k0LVIIq0.mjs";
-import { r as UpdateRunRecordSchema } from "../update-run-schema-DOichlUj.mjs";
-import { n as openDoctorStateSchemaReadAdmission } from "../openclaw-state-db-doctor-schema-BlUz8kWR.mjs";
-import { st as readStateSchemaPublicationBlocker } from "../openclaw-state-db-fast-path-CPAamWzU.mjs";
-import { t as prepareDoctorDatabasePreflight } from "../doctor-database-preflight-DQeccfC9.mjs";
-import { t as createDoctorRehearsalDatabaseCoverage } from "../doctor-rehearsal-databases-jWB-feGw.mjs";
-import { n as recordUpdateDoctorRefusal, r as resolveUpdateDoctorGitRecovery } from "../doctor-update-refusal-CuBUilWt.mjs";
-import { d as isUpdatePackageSwapInProgress } from "../update-phase-BClSJ17n.mjs";
+import { o as writeRuntimeJson, r as defaultRuntime } from "../runtime-BazLsT0s.mjs";
+import { r as resolveStateDir } from "../state-dir-C8s3cOPX.mjs";
+import "../paths-orClZ-2Z.mjs";
+import { t as VERSION } from "../version-jg_14gWz.mjs";
+import { c as resolveOpenClawStateSqlitePath } from "../openclaw-state-db.paths-D3nUb_uk.mjs";
+import { l as getOpenClawDatabaseMaintenanceScope } from "../openclaw-state-db-async-lifecycle-CtHZ7B35.mjs";
+import { t as clearNodeSqliteKyselyCacheForDatabase } from "../kysely-sync-cache-state-Dc7tna9E.mjs";
+import { r as openNodeSqliteDatabase } from "../node-sqlite-CYaq-2Hb.mjs";
+import { a as executeSqliteQueryTakeFirstSync, i as executeSqliteQuerySync, o as getNodeSqliteKysely } from "../kysely-sync-9fPQaMlh.mjs";
+import { a as tableExists } from "../openclaw-state-db-schema-helpers-C7eId980.mjs";
+import { n as prepareSqliteReadOnlyLocation } from "../sqlite-snapshot-source-DQdkM3YQ.mjs";
+import { i as resolveUpdateRehearsalRoot } from "../update-rehearsal-paths-CRhoE25Z.mjs";
+import { n as readStateSchemaPublicationBlocker } from "../openclaw-state-schema-publication-C2fzjU88.mjs";
+import { n as openDoctorStateSchemaReadAdmission } from "../openclaw-state-db-doctor-schema-l6CS6yvq.mjs";
+import { t as UpdateSchemaRefusalError } from "../openclaw-update-schema-refusal-C8zbzbYZ.mjs";
+import { r as UpdateRunRecordSchema } from "../update-run-schema-CY2FAM7T.mjs";
+import { r as formatCliJsonFailure } from "../failure-output-CpIKhMiV.mjs";
+import { t as exitCliAfterOutput } from "../one-shot-exit-DmuNrGrj.mjs";
+import "../update-post-core-context-D3kte0je.mjs";
+import { n as readUpdateRunDriver, r as sameUpdateRunDriver, t as inspectUpdateRunDriver } from "../update-run-driver-CPVdsIOp.mjs";
+import { t as prepareDoctorDatabasePreflight } from "../doctor-database-preflight-D_Pwi3Vj.mjs";
+import { t as createDoctorRehearsalDatabaseCoverage } from "../doctor-rehearsal-databases-CyjkkJZX.mjs";
+import { n as recordUpdateDoctorRefusal, r as resolveUpdateDoctorGitRecovery } from "../doctor-update-refusal-oTYIgCV_.mjs";
+import { p as isUpdatePackageSwapInProgress } from "../update-phase-M5rvMZiC.mjs";
 import { lstatSync, realpathSync, statSync } from "node:fs";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 //#region src/commands/doctor-update-schema-guard.ts
 function sameSnapshotFile(left, right) {
-	return left.dev !== 0 && left.ino !== 0 && left.dev === right.dev && left.ino === right.ino;
+	return left.dev !== 0n && left.ino !== 0n && left.dev === right.dev && left.ino === right.ino;
 }
 async function readDrivingUpdater(sharedContentUpgrade = false) {
 	const snapshot = await prepareSqliteReadOnlyLocation(resolveOpenClawStateSqlitePath(), { preserveSourceArtifacts: true });
@@ -89,10 +89,13 @@ async function readDrivingUpdater(sharedContentUpgrade = false) {
 async function guardUpdateDoctorSchemaUpgrade(options) {
 	if (process.env.OPENCLAW_UPDATE_IN_PROGRESS !== "1") return;
 	const rehearsal = options.statePublicationOnly ? void 0 : createDoctorRehearsalDatabaseCoverage(process.env);
-	const schemas = options.schemas ?? await prepareDoctorDatabasePreflight(options.statePublicationOnly ? { scope: "state" } : void 0);
+	const schemas = options.schemas ?? await prepareDoctorDatabasePreflight({
+		scope: options.statePublicationOnly ? "state" : void 0,
+		preserveSourceArtifacts: options.preserveSourceArtifacts
+	});
 	rehearsal?.assertCurrent();
 	if (!schemas.pendingMigrations?.length) return schemas;
-	rehearsal?.admit([...schemas.pendingMigrations.filter((database) => database.kind === "agent").map((database) => database.path), ...schemas.agentDatabaseMigrationDiscovery?.discovery.targets.map((database) => database.path) ?? []]);
+	rehearsal?.admit([...schemas.pendingMigrations.filter((database) => database.kind === "agent").map((database) => database.path), ...schemas.agentDatabaseMigrationDiscovery?.discovery.schemaTargets.map((database) => database.path) ?? []]);
 	let updater;
 	const sharedContentUpgrade = (options.entry !== void 0 || options.statePublicationOnly === true) && schemas.pendingMigrations.some((database) => database.kind === "state" && database.supportedVersion > 17);
 	try {
@@ -101,7 +104,8 @@ async function guardUpdateDoctorSchemaUpgrade(options) {
 	rehearsal?.assertCurrent();
 	if (options.entry === "package-lifecycle" && !updater?.requiresReadableSharedContent) return schemas;
 	if (!updater) return schemas;
-	const blockedMigrations = schemas.pendingMigrations.filter((database) => updater.requiresReadableSharedContent ? database.kind === "state" && database.supportedVersion > 17 : database.kind === "agent" ? !options.statePublicationOnly && !rehearsal?.excludes(database.path) : !updater.canDeferStateSchema);
+	const earlyPackageDoctor = updater.earlyDoctorRunning && !updater.postCoreStarted && isUpdatePackageSwapInProgress(process.env) && process.env.OPENCLAW_UPDATE_PARENT_SUPPORTS_DOCTOR_CONFIG_WRITE === "1" && process.env["OPENCLAW_UPDATE_POST_CORE"] !== "1" && process.env.OPENCLAW_UPDATE_PARENT_SUPPORTS_GATEWAY_RESTART === "1" && process.env.OPENCLAW_UPDATE_PARENT_ALLOWS_GATEWAY_SERVICE_REPAIR === "0" && process.env.OPENCLAW_UPDATE_PARENT_ALLOWS_GATEWAY_ACTIVATION === "0" && process.env.OPENCLAW_SERVICE_REPAIR_POLICY === "external";
+	const blockedMigrations = schemas.pendingMigrations.filter((database) => updater.requiresReadableSharedContent ? database.kind === "state" && database.supportedVersion > 17 : database.kind === "agent" ? !options.statePublicationOnly && !rehearsal?.excludes(database.path) : !updater.canDeferStateSchema || earlyPackageDoctor);
 	rehearsal?.assertCurrent();
 	if (blockedMigrations.length === 0) return schemas;
 	const postCoreRecovery = {
@@ -110,14 +114,14 @@ async function guardUpdateDoctorSchemaUpgrade(options) {
 	};
 	const recovery = updater.postCoreStarted ? postCoreRecovery : await resolveUpdateDoctorGitRecovery();
 	rehearsal?.assertCurrent();
-	if (updater.canDeferStateSchema && blockedMigrations.every((entry) => entry.kind === "agent")) {
-		const capturePending = () => blockedMigrations.map((database) => ({
+	if (updater.canDeferStateSchema && (earlyPackageDoctor || blockedMigrations.every((entry) => entry.kind === "agent"))) {
+		const capturePending = () => blockedMigrations.filter((database) => database.kind === "agent").map((database) => ({
 			database,
-			identity: statSync(database.path)
+			identity: statSync(database.path, { bigint: true })
 		}));
 		const coverageRefusal = (uncovered, detail) => new UpdateSchemaRefusalError(uncovered, updater.version, {
 			targetVersion: VERSION,
-			cause: /* @__PURE__ */ new Error(`Missing recoverable canonical backup coverage: ${detail}`),
+			cause: /* @__PURE__ */ new Error(`Missing recoverable database backup coverage: ${detail}`),
 			recovery
 		});
 		const authority = options.postCoreSchemaRepair;
@@ -128,20 +132,24 @@ async function guardUpdateDoctorSchemaUpgrade(options) {
 				authority.assertCurrent();
 				maintenance.assertAdmission();
 				const changed = pending.filter(({ database, identity }) => {
-					const current = statSync(database.path, { throwIfNoEntry: false });
+					const current = statSync(database.path, {
+						bigint: true,
+						throwIfNoEntry: false
+					});
 					return !current?.isFile() || !sameSnapshotFile(identity, current);
 				});
 				if (changed.length) throw coverageRefusal(changed.map(({ database }) => database), "a pending agent database changed physical identity.");
 			};
 			assertCurrent();
 			const [{ createBackupArchive }, { verifyBackupArchive }, { resolveUpdateCaptureRoot }] = await Promise.all([
-				import("../backup-create-Bj7XL5w0.mjs"),
-				import("../backup-verify-CkQonlxk.mjs"),
-				import("../update-capture-paths-_3kPlbkf.mjs")
+				import("../backup-create-DqfhrN9t.mjs"),
+				import("../backup-verify-DEhecj-d.mjs"),
+				import("../update-capture-paths-Bx3JwOAv.mjs")
 			]);
 			assertCurrent();
 			let snapshotFacts = [];
 			const backup = await createBackupArchive({
+				signal: options.signal,
 				output: path.join(resolveUpdateCaptureRoot(resolveStateDir()), `agent-schema-${updater.runId}-${randomUUID()}.tar.gz`),
 				includeWorkspace: false,
 				onSqliteSnapshots: (facts) => {
@@ -157,7 +165,7 @@ async function guardUpdateDoctorSchemaUpgrade(options) {
 				requiredSnapshots.push(fact);
 				return false;
 			});
-			if (uncovered.length) throw coverageRefusal(uncovered.map(({ database }) => database), `the retained archive at ${backup.archivePath} has no captured canonical image for these agent databases.`);
+			if (uncovered.length) throw coverageRefusal(uncovered.map(({ database }) => database), `the retained archive at ${backup.archivePath} has no captured database image for these agent databases.`);
 			const migrationSnapshots = snapshotFacts.filter((snapshot) => snapshot.role === "agent");
 			await verifyBackupArchive(backup.archivePath, migrationSnapshots);
 			assertCurrent();
@@ -170,7 +178,10 @@ async function guardUpdateDoctorSchemaUpgrade(options) {
 			});
 			maintenance.addAgentSchemaMigrationCheck((migration) => {
 				authority.assertCurrent();
-				const identity = statSync(migration.path, { throwIfNoEntry: false });
+				const identity = statSync(migration.path, {
+					bigint: true,
+					throwIfNoEntry: false
+				});
 				if (!identity?.isFile() || !migrationSnapshots.some((fact) => fact.role === "agent" && fact.agentId === migration.agentId && sameSnapshotFile(identity, fact))) throw coverageRefusal([{
 					kind: "agent",
 					...migration
@@ -180,15 +191,18 @@ async function guardUpdateDoctorSchemaUpgrade(options) {
 			options.onVerifiedBackup?.(requiredSnapshots);
 			return schemas;
 		}
-		if (!recovery && updater.earlyDoctorRunning && !updater.postCoreStarted && isUpdatePackageSwapInProgress(process.env) && process.env.OPENCLAW_UPDATE_PARENT_SUPPORTS_DOCTOR_CONFIG_WRITE === "1" && process.env["OPENCLAW_UPDATE_POST_CORE"] !== "1" && process.env.OPENCLAW_UPDATE_PARENT_SUPPORTS_GATEWAY_RESTART === "1" && process.env.OPENCLAW_UPDATE_PARENT_ALLOWS_GATEWAY_SERVICE_REPAIR === "0" && process.env.OPENCLAW_UPDATE_PARENT_ALLOWS_GATEWAY_ACTIVATION === "0" && process.env.OPENCLAW_SERVICE_REPAIR_POLICY === "external") {
+		if (!recovery && earlyPackageDoctor) {
 			const pending = capturePending();
 			const registered = schemas.agentDatabaseMigrationDiscovery?.registeredAgentDatabases ?? [];
 			const uncovered = pending.filter(({ database, identity }) => !registered.some((entry) => {
 				if (entry.agentId !== database.agentId) return false;
-				const current = statSync(entry.path, { throwIfNoEntry: false });
+				const current = statSync(entry.path, {
+					bigint: true,
+					throwIfNoEntry: false
+				});
 				return current?.isFile() && sameSnapshotFile(identity, current);
 			}));
-			if (uncovered.length) throw coverageRefusal(uncovered.map(({ database }) => database), "these pending agent databases have no registered canonical snapshot owner.");
+			if (uncovered.length) throw coverageRefusal(uncovered.map(({ database }) => database), "these pending agent databases have no registered snapshot owner.");
 			return {
 				...schemas,
 				updateSchemaRehearsal: {
@@ -258,13 +272,13 @@ async function rehearseDeferredUpdateDoctorSchemaForParent(schemas, runtime, par
 	};
 	assertParent();
 	const [{ createConfigIO }, { resolveOpenClawPackageRoot }, { resolveUpdateInstallKind }, { prepareUpdateCandidateRehearsal }, { resolveGatewayInstallEntrypoint }, { runUtf8CommandWithTimeout }, { resolveSqliteInspectionBudget }] = await Promise.all([
-		import("../io-BM-qEheD.mjs"),
-		import("../openclaw-root-Cr3tCNk3.mjs"),
-		import("../update-check-D5e9uqv6.mjs"),
-		import("../update-candidate-rehearsal-nNf124C8.mjs"),
-		import("../gateway-entrypoint-ByuBsr2t.mjs"),
-		import("../exec-C89-C-hl.mjs"),
-		import("../sqlite-readonly-worker-DPlfD0t8.mjs")
+		import("../io-Cwio_qp9.mjs"),
+		import("../openclaw-root-Dkw5sjL6.mjs"),
+		import("../update-check-BGBcpFZi.mjs"),
+		import("../update-candidate-rehearsal-UWQh-VWB.mjs"),
+		import("../gateway-entrypoint-HmyhrcN2.mjs"),
+		import("../exec-D_xMFUac.mjs"),
+		import("../sqlite-readonly-worker-B2W54074.mjs")
 	]);
 	const root = await resolveOpenClawPackageRoot({
 		moduleUrl: import.meta.url,
@@ -289,13 +303,13 @@ async function rehearseDeferredUpdateDoctorSchemaForParent(schemas, runtime, par
 		stateDir: resolveStateDir()
 	});
 	const cleanupRoots = new Map(rehearsal.cleanupDirectories.map((directory) => {
-		const identity = lstatSync(directory);
+		const identity = lstatSync(directory, { bigint: true });
 		if (!identity.isDirectory() || identity.isSymbolicLink() || realpathSync(directory) !== directory) throw new Error(`Private Doctor cleanup root is not physical; retained ${directory}.`);
 		return [directory, identity];
 	}));
 	const assertCleanupDirectory = (directory) => {
 		const original = cleanupRoots.get(directory);
-		const current = lstatSync(directory);
+		const current = lstatSync(directory, { bigint: true });
 		if (!original || !sameSnapshotFile(original, current) || !current.isDirectory() || current.isSymbolicLink() || current.uid !== original.uid || realpathSync(directory) !== directory) throw new Error(`Private Doctor cleanup identity changed; inspect ${directory}.`);
 	};
 	let failure;
@@ -303,11 +317,12 @@ async function rehearseDeferredUpdateDoctorSchemaForParent(schemas, runtime, par
 	let writerStarted = false;
 	let resourceWarnings = [];
 	try {
+		await rehearsal.prepareRuntime(assertParent);
 		const env = {
 			...rehearsal.env,
 			OPENCLAW_UPDATE_IN_PROGRESS: "0"
 		};
-		const { inspectPreparedDoctorRehearsal } = await import("../doctor-update-rehearsal-inventory-D45Y2ifF.mjs");
+		const { inspectPreparedDoctorRehearsal } = await import("../doctor-update-rehearsal-inventory-ZK_XoZpo.mjs");
 		const admitted = await inspectPreparedDoctorRehearsal({
 			stateDir: rehearsal.stateDir,
 			pluginCodeLinks: rehearsal.pluginCodeLinks,
@@ -342,7 +357,7 @@ async function rehearseDeferredUpdateDoctorSchemaForParent(schemas, runtime, par
 		settled = result.cleanup === "normal";
 		if (!settled) throw new Error(`Private Doctor did not settle; rehearsal retained at ${rehearsal.stateDir}.`);
 		if (result.code !== 0 || result.termination !== "exit" || result.outputLimitExceeded) {
-			const { redactSupportString } = await import("../diagnostic-support-redaction-qDWsXcH4.mjs");
+			const { redactSupportString } = await import("../diagnostic-support-redaction-B3C2B4u0.mjs");
 			throw new Error(`Private Doctor schema validation failed (${result.termination}): ${redactSupportString(result.stderr, {
 				env,
 				stateDir: rehearsal.stateDir
@@ -359,8 +374,8 @@ async function rehearseDeferredUpdateDoctorSchemaForParent(schemas, runtime, par
 		else throw cleanupError;
 	}
 	if (failure) throw failure.error;
-	const warning = `Validated schema repair on private copies for OpenClaw ${selected.updaterVersion}; live agent databases are unchanged. Repair is deferred to the fresh post-core updater.`;
-	const { UPDATE_POST_INSTALL_DOCTOR_RESULT_PATH_ENV, writeUpdatePostInstallDoctorResult } = await import("../update-doctor-result-Co_hELNl.mjs");
+	const warning = `Validated schema repair on private copies for OpenClaw ${selected.updaterVersion}; live databases are unchanged. Repair is deferred to the fresh post-core updater.`;
+	const { UPDATE_POST_INSTALL_DOCTOR_RESULT_PATH_ENV, writeUpdatePostInstallDoctorResult } = await import("../update-doctor-result-CZlmTT6x.mjs");
 	const resultPath = process.env[UPDATE_POST_INSTALL_DOCTOR_RESULT_PATH_ENV];
 	if (resultPath) await writeUpdatePostInstallDoctorResult({
 		resultPath,

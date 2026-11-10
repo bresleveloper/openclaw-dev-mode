@@ -73,8 +73,18 @@ Explicit path variables such as `OPENCLAW_STATE_DIR`, `OPENCLAW_CONFIG_PATH`, an
 
 Packaged OpenClaw uses `NODE_COMPILE_CACHE/openclaw/<version>/<build>` when
 `NODE_COMPILE_CACHE` is set, or `node-compile-cache/openclaw` under the OS temporary
-directory otherwise. Child processes reuse the same build namespace. Source
-checkouts keep their existing cache-disable policy.
+directory otherwise. Gateway workers and child processes reuse the same build
+namespace, including when running a built source checkout. The Gateway main
+thread stays uncached: Node's synchronous cache flush can stall its event loop
+at startup or shutdown. Workers retain their existing flush boundaries on their
+own threads. An inherited active cache requires a startup respawn; on platforms
+with `execve`, the serving process keeps its PID. Node permission mode retains
+an already-active caller cache because it can forbid process replacement.
+
+Short-lived CLI commands keep their existing policy: caching is opt-in through
+`NODE_COMPILE_CACHE`, and source CLI entrypoints remain uncached. Explicit release
+prewarming still populates the cache. `NODE_DISABLE_COMPILE_CACHE` disables caching
+for both the Gateway and its workers.
 
 Release builds use a stable 16-character hash of the build ID. On Windows,
 OpenClaw skips cache paths longer than 200 characters with a warning and disables
@@ -175,6 +185,18 @@ back to refresh-on-search after observation retries are exhausted.
 Skills refreshes during agent preparation after capacity exhaustion, and the
 development supervisor stops its child if observation fails.
 
+## ClawHub install telemetry
+
+Authenticated skill or plugin installs from ClawHub send a best-effort install report.
+See [ClawHub telemetry](/clawhub/telemetry) for what is sent, when it is sent, and
+what is never included.
+
+| Variable                    | Purpose                                                             |
+| --------------------------- | ------------------------------------------------------------------- |
+| `CLAWHUB_DISABLE_TELEMETRY` | Disable ClawHub install reporting with `1`, `true`, `yes`, or `on`. |
+
+`CLAWDHUB_DISABLE_TELEMETRY` is accepted when `CLAWHUB_DISABLE_TELEMETRY` is unset or blank.
+
 ## Provider credentials and workspace `.env`
 
 Do not keep provider API keys only in a workspace `.env`. OpenClaw blocks a large set of provider credential and endpoint-redirect keys from workspace `.env` files, including every known provider auth env var (for example `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `PERPLEXITY_API_KEY`, `BRAVE_API_KEY`, `TAVILY_API_KEY`, `EXA_API_KEY`, `FIRECRAWL_API_KEY`), plus any key ending in `_API_HOST`, `_BASE_URL`, `_ENDPOINT`, or `_HOMESERVER`, and the entire `OPENCLAW_*`, `CLAWHUB_*`, `ANTHROPIC_API_KEY_*`, and `OPENAI_API_KEY_*` namespaces.
@@ -262,12 +284,12 @@ before login startup files run. Bash reads `/etc/profile` and the first availabl
 profile (`~/.bash_profile`, `~/.bash_login`, or `~/.profile`). Many login profiles also source
 `~/.bashrc`. Keep those files quiet and bounded because their output, long-running work, or
 failures can affect OpenClaw startup. Other shells use noninteractive login startup (`-l -c`).
-The probe runs in its own session, detached from your terminal, so startup files get no job
+The check runs in its own session, detached from your terminal, so startup files get no job
 control and cannot take over the terminal that runs OpenClaw.
 This interactive Bash mode is limited to explicit shell env imports. Automatic executable PATH
 discovery during ordinary Gateway commands remains noninteractive.
 
-Successful probes are cached. If a probe fails, the next shell environment or PATH lookup tries again.
+Successful checks are cached. If a check fails, the next shell environment or PATH lookup tries again.
 
 ## Exec shell snapshots
 
@@ -278,7 +300,7 @@ snapshots or redirect the snapshot cache.
 
 ## Runtime-injected env vars
 
-Gateway port-listener diagnostics and lock-owner identity probes run native utilities with
+Gateway port-listener diagnostics and lock-owner identity checks run native utilities with
 a limited environment containing executable paths, OS bootstrap and account directories,
 temporary directories, and known locale and timezone settings. These children do not inherit provider credentials,
 application tokens, proxies, runtime injection variables, or arbitrary application settings.

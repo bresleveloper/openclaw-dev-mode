@@ -22,6 +22,7 @@ import { prepareSessionEventProjection } from "./session-event-projection.js";
 import { resolveSessionEventAgentScope } from "./session-request-agent.js";
 import type { SessionRowProjection } from "./session-row-projection.js";
 import { canReceiveSessionEvent, prepareProjectedSessionSharing } from "./session-sharing.js";
+import type { SessionViewerPresenceDeclarations } from "./session-viewer-presence.js";
 
 /** Creates transport-independent connection, subscription, and run state. */
 export function createGatewayConnectionState(params: {
@@ -61,7 +62,15 @@ export function createGatewayConnectionState(params: {
     isConnectionActive,
     forgetConnectionAncestors,
   );
-  const eventWebPush = createEventWebPushDelivery({ getRuntimeConfig: loadRuntimeConfig });
+  // Lifecycle owns viewer declarations; agent-finished pushes fail open until it attaches them.
+  let sessionViewers: SessionViewerPresenceDeclarations | undefined;
+  const eventWebPush = createEventWebPushDelivery({
+    getRuntimeConfig: loadRuntimeConfig,
+    viewers: {
+      isViewedOnDevice: (deviceId, sessionKey) =>
+        sessionViewers?.isViewedOnDevice(deviceId, sessionKey) === true,
+    },
+  });
   const gatewayBroadcaster = createGatewayBroadcaster({
     clients,
     preparePresenceProjection: (presence) =>
@@ -90,6 +99,9 @@ export function createGatewayConnectionState(params: {
               },
             }
           : undefined;
+        if (!prepared) {
+          return false;
+        }
         return canReceiveSessionEvent({
           cfg,
           policyConfig,
@@ -98,7 +110,7 @@ export function createGatewayConnectionState(params: {
           agentId,
           event,
           payload,
-          ...(prepared ? { prepared } : {}),
+          prepared,
         });
       } catch {
         return false;
@@ -212,6 +224,9 @@ export function createGatewayConnectionState(params: {
       sessionRowProjection = projection;
       ancestorReferences = new WeakMap();
       const unsubscribe = sessionChanges.subscribeFacts((change) => {
+        if (!("all" in change) && change.scope === "acp") {
+          return;
+        }
         if ("all" in change) {
           ancestorReferences = new WeakMap();
         } else if (change.factsInvalidated || (change.facts && change.facts.kind !== "unchanged")) {
@@ -225,6 +240,9 @@ export function createGatewayConnectionState(params: {
           ancestorReferences = new WeakMap();
         }
       };
+    },
+    attachSessionViewerPresence(this: void, declarations: SessionViewerPresenceDeclarations) {
+      sessionViewers = declarations;
     },
     clients,
     forgetConnectionAncestors,

@@ -7,6 +7,9 @@
     "configRepair": true,
     "stateMigrations": [
       {
+        "id": "matrix-crypto-unsafe-state"
+      },
+      {
         "id": "matrix-account-sqlite-schema"
       },
       {

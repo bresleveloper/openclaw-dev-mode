@@ -1,2 +1,2 @@
-import { t as googlechatSetupPlugin } from "./.setup/setup-plugin-api-5p-SthtR.mjs";
+import { r as googlechatSetupPlugin } from "./.setup/channel-base-sWlG7EP1.mjs";
 export { googlechatSetupPlugin };

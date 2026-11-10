@@ -2,7 +2,6 @@ import { hasAnthropicVertexAvailableAuth, resolveAnthropicVertexConfigApiKey } f
 //#region extensions/anthropic-vertex/provider-discovery.ts
 const PROVIDER_ID = "anthropic-vertex";
 const GCP_VERTEX_CREDENTIALS_MARKER = "gcp-vertex-credentials";
-/** Anthropic Vertex provider discovery descriptor. */
 const anthropicVertexProviderDiscovery = {
 	id: PROVIDER_ID,
 	label: "Anthropic Vertex",

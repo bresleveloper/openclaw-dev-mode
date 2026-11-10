@@ -1,11 +1,11 @@
-import { a as parseFeishuTargetId, i as parseFeishuDirectConversationId, n as buildFeishuModelOverrideParentCandidates, r as parseFeishuConversationId, t as buildFeishuConversationId } from "./.setup/conversation-id-C1ofUfU8.mjs";
-import { a as setFeishuNamedAccountEnabled, i as feishuSetupAdapter, n as feishuSetupWizard, r as runFeishuLogin, t as feishuPlugin } from "./.setup/channel-CYW02TqI.mjs";
-import { J as feishuExternalToolResult, K as registerFeishuDriveTools, Q as assertFeishuApiSuccess, X as createFeishuToolClient, Y as unknownToolActionResult, Z as resolveFeishuToolAccount, dt as chunkFeishuMarkdown, gt as visitFeishuMarkdown, mt as parseFeishuMarkdown, q as registerFeishuTool } from "./.setup/reply-delivery-result-laBNOmBu.mjs";
+import { a as parseFeishuTargetId, i as parseFeishuDirectConversationId, n as buildFeishuModelOverrideParentCandidates, r as parseFeishuConversationId, t as buildFeishuConversationId } from "./.setup/conversation-id-D00i9uy5.mjs";
+import { a as setFeishuNamedAccountEnabled, i as feishuSetupAdapter, n as feishuSetupWizard, r as runFeishuLogin, t as feishuPlugin } from "./.setup/channel-D60cZ_Y_.mjs";
+import { $ as resolveFeishuToolAccount, J as registerFeishuDriveTools, Q as createFeishuToolClient, X as feishuExternalToolResult, Y as registerFeishuTool, Z as unknownToolActionResult, et as assertFeishuApiSuccess, gt as parseFeishuMarkdown, pt as chunkFeishuMarkdown, vt as visitFeishuMarkdown } from "./.setup/reply-delivery-result-DknmIzOB.mjs";
 import { t as getFeishuRuntime } from "./.setup/runtime-C5JxBWZp.mjs";
-import { f as resolveConfiguredHttpTimeoutMs, r as createFeishuClient } from "./.setup/client-CcxmEkoy.mjs";
-import { o as registerFeishuChatTools } from "./.setup/chat-mTBvMMvx.mjs";
-import { n as getFeishuThreadBindingManager, t as createFeishuThreadBindingManager } from "./.setup/thread-bindings--wJ9fHq5.mjs";
-import { n as handleFeishuSubagentEnded, t as handleFeishuSubagentDeliveryTarget } from "./.setup/subagent-hooks-JTYBKuB2.mjs";
+import { f as resolveConfiguredHttpTimeoutMs, r as createFeishuClient } from "./.setup/client-BTiFlqqL.mjs";
+import { n as getFeishuThreadBindingManager, t as createFeishuThreadBindingManager } from "./.setup/thread-bindings-BxKmOara.mjs";
+import { o as registerFeishuChatTools } from "./.setup/chat-qj1pEIcO.mjs";
+import { n as handleFeishuSubagentEnded, t as handleFeishuSubagentDeliveryTarget } from "./.setup/subagent-hooks-CvVuM0O4.mjs";
 import { optionalPositiveIntegerSchema } from "openclaw/plugin-sdk/channel-actions";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { normalizeLowercaseStringOrEmpty, normalizeOptionalString, readStringValue, uniqueStrings } from "openclaw/plugin-sdk/string-coerce-runtime";
@@ -179,16 +179,7 @@ function calculateAdaptiveColumnWidths(blocks, tableBlockId, getBlockMap) {
 	const cellIds = normalizeChildBlockIds(tableBlock.children);
 	const blockMap = getBlockMap();
 	function getCellText(cellId) {
-		const cell = blockMap.get(cellId);
-		let text = "";
-		const childIds = normalizeChildBlockIds(cell?.children);
-		for (const childId of childIds) {
-			const child = blockMap.get(childId);
-			if (child?.text?.elements) {
-				for (const elem of child.text.elements) if (elem.text_run?.content) text += elem.text_run.content;
-			}
-		}
-		return text;
+		return normalizeChildBlockIds(blockMap.get(cellId)?.children).flatMap((childId) => blockMap.get(childId)?.text?.elements ?? []).map((element) => element.text_run?.content ?? "").join("");
 	}
 	function getWeightedLength(text) {
 		let length = 0;
@@ -196,12 +187,9 @@ function calculateAdaptiveColumnWidths(blocks, tableBlockId, getBlockMap) {
 		return length;
 	}
 	const maxLengths = Array.from({ length: column_size }, () => 0);
-	for (let row = 0; row < row_size; row++) for (let col = 0; col < column_size; col++) {
-		const cellId = cellIds[row * column_size + col];
-		if (cellId) {
-			const length = getWeightedLength(getCellText(cellId));
-			maxLengths[col] = Math.max(maxLengths[col] ?? 0, length);
-		}
+	for (const [index, cellId] of cellIds.slice(0, row_size * column_size).entries()) if (cellId) {
+		const col = index % column_size;
+		maxLengths[col] = Math.max(maxLengths[col] ?? 0, getWeightedLength(getCellText(cellId)));
 	}
 	const totalLength = maxLengths.reduce((a, b) => a + b, 0);
 	if (totalLength === 0) {
@@ -311,33 +299,12 @@ async function patchTable(client, params) {
 //#endregion
 //#region extensions/feishu/src/docx-batch-insert.ts
 const BATCH_SIZE = 1e3;
-function normalizeChildIds$1(children) {
-	if (Array.isArray(children)) return children;
-	const child = readStringValue(children);
-	return child ? [child] : void 0;
-}
 function toDescendantBlock(block) {
-	const children = normalizeChildIds$1(block.children);
+	const child = readStringValue(block.children);
 	return {
 		...block,
-		...children ? { children } : {}
+		...child ? { children: [child] } : {}
 	};
-}
-function collectDescendants(blockMap, rootId) {
-	const result = [];
-	const visited = /* @__PURE__ */ new Set();
-	function collect(blockId) {
-		if (visited.has(blockId)) return;
-		visited.add(blockId);
-		const block = blockMap.get(blockId);
-		if (!block) return;
-		result.push(block);
-		const children = block.children;
-		if (Array.isArray(children)) for (const childId of children) collect(childId);
-		else if (typeof children === "string") collect(children);
-	}
-	collect(rootId);
-	return result;
 }
 async function insertDocxDescendants(client, docToken, descendants, firstLevelBlockIds, parentBlockId = docToken, index = -1) {
 	if (descendants.length === 0) return [];
@@ -366,9 +333,18 @@ async function insertBlocksInBatches(client, docToken, blocks, firstLevelBlockId
 	const blockMap = /* @__PURE__ */ new Map();
 	for (const block of blocks) if (block.block_id) blockMap.set(block.block_id, block);
 	for (const firstLevelId of firstLevelBlockIds) {
-		const newBlocks = collectDescendants(blockMap, firstLevelId).filter((b) => b.block_id && !usedBlockIds.has(b.block_id));
+		const newBlocks = [];
+		const collect = (blockId) => {
+			const block = blockMap.get(blockId);
+			if (!block || usedBlockIds.has(blockId)) return;
+			usedBlockIds.add(blockId);
+			newBlocks.push(block);
+			const children = block.children;
+			for (const childId of typeof children === "string" ? [children] : children ?? []) collect(childId);
+		};
+		collect(firstLevelId);
 		if (newBlocks.length > 1e3) throw new Error(`Block "${firstLevelId}" has ${newBlocks.length} descendants, which exceeds the Feishu API limit of ${BATCH_SIZE} blocks per request. Please split the content into smaller sections.`);
-		if (currentBatch.blocks.length + newBlocks.length > 1e3 && currentBatch.blocks.length > 0) {
+		if (currentBatch.blocks.length + newBlocks.length > 1e3) {
 			batches.push(currentBatch);
 			currentBatch = {
 				firstLevelIds: [],
@@ -376,10 +352,7 @@ async function insertBlocksInBatches(client, docToken, blocks, firstLevelBlockId
 			};
 		}
 		currentBatch.firstLevelIds.push(firstLevelId);
-		for (const block of newBlocks) {
-			currentBatch.blocks.push(block);
-			if (block.block_id) usedBlockIds.add(block.block_id);
-		}
+		currentBatch.blocks.push(...newBlocks);
 	}
 	if (currentBatch.blocks.length > 0) batches.push(currentBatch);
 	let currentIndex = startIndex;
@@ -457,13 +430,8 @@ const STABLE_LINE_CONTAINER_TYPES = /* @__PURE__ */ new Set([
 	"code"
 ]);
 function resolveRemoteImageUrl(value) {
-	if (!value) return;
-	try {
-		const url = new URL(value);
-		return url.protocol === "http:" || url.protocol === "https:" ? value : void 0;
-	} catch {
-		return;
-	}
+	const url = URL.parse(value ?? "");
+	return url?.protocol === "http:" || url?.protocol === "https:" ? value : void 0;
 }
 function collectMarkdownImages(root) {
 	const definitions = /* @__PURE__ */ new Map();
@@ -486,20 +454,11 @@ function splitSourceAtOffsets(source, offsets) {
 	chunks.push(source.slice(start));
 	return chunks;
 }
-function headingOffsets(source, root) {
+function blockStartOffsets(root, include = () => true) {
 	const offsets = [];
 	for (const node of root.children ?? []) {
-		if (node.type !== "heading" || node.depth === void 0 || node.depth > 2) continue;
 		const offset = node.position?.start.offset;
-		if (offset !== void 0 && source[offset] === "#") offsets.push(offset);
-	}
-	return offsets;
-}
-function blockBreakOffsets(root) {
-	const offsets = [];
-	for (const block of root.children ?? []) {
-		const blockStart = block.position?.start.offset;
-		if (blockStart !== void 0 && blockStart > 0) offsets.push(blockStart);
+		if (offset !== void 0 && include(node, offset)) offsets.push(offset);
 	}
 	return offsets;
 }
@@ -528,15 +487,10 @@ function lineBreakOffsets(source) {
 function nearestOffset(offsets, target, sourceLength) {
 	return offsets.filter((offset) => offset > 0 && offset < sourceLength).toSorted((left, right) => Math.abs(left - target) - Math.abs(right - target) || left - right);
 }
-function isStableParagraphBreak(source, offset) {
-	const before = parseFeishuMarkdown(source.slice(0, offset)).children?.at(-1);
-	const after = parseFeishuMarkdown(source.slice(offset)).children?.[0];
-	return before?.type === "paragraph" && after?.type === "paragraph";
-}
-function isStableContainerBreak(source, offset, containerType) {
+function isStableBreak(source, offset, blockType) {
 	const before = parseFeishuMarkdown(source.slice(0, offset)).children;
 	const after = parseFeishuMarkdown(source.slice(offset)).children;
-	return before?.length === 1 && after?.length === 1 && before[0]?.type === containerType && after[0]?.type === containerType;
+	return (blockType === "paragraph" || before?.length === 1 && after?.length === 1) && before?.at(-1)?.type === blockType && after?.[0]?.type === blockType;
 }
 function splitTableAtRow(source, root, target) {
 	const table = root.children?.length === 1 ? root.children[0] : void 0;
@@ -561,7 +515,7 @@ function createDocxMarkdownChunk(markdown) {
 }
 function createDocxMarkdownPlan(markdown) {
 	const root = parseFeishuMarkdown(markdown);
-	return { chunks: splitSourceAtOffsets(markdown, headingOffsets(markdown, root)).map((chunk) => chunk === markdown ? {
+	return { chunks: splitSourceAtOffsets(markdown, blockStartOffsets(root, (node, offset) => node.type === "heading" && node.depth !== void 0 && node.depth <= 2 && markdown[offset] === "#")).map((chunk) => chunk === markdown ? {
 		markdown,
 		images: collectMarkdownImages(root)
 	} : createDocxMarkdownChunk(chunk)) };
@@ -570,22 +524,28 @@ function splitDocxMarkdownBySize(markdown, maxChars) {
 	if (markdown.length <= maxChars) return [markdown];
 	const root = parseFeishuMarkdown(markdown);
 	const target = Math.min(markdown.length - 1, Math.max(1, maxChars));
-	const splitOffset = nearestOffset(blockBreakOffsets(root), target, markdown.length)[0];
+	const splitOffset = nearestOffset(blockStartOffsets(root), target, markdown.length)[0];
 	if (splitOffset !== void 0) return [markdown.slice(0, splitOffset), markdown.slice(splitOffset)];
-	const paragraphOffset = nearestOffset(paragraphBreakOffsets(markdown, root), target, markdown.length).slice(0, MAX_BREAK_PROBES).find((offset) => isStableParagraphBreak(markdown, offset));
+	const paragraphOffset = nearestOffset(paragraphBreakOffsets(markdown, root), target, markdown.length).slice(0, MAX_BREAK_PROBES).find((offset) => isStableBreak(markdown, offset, "paragraph"));
 	if (paragraphOffset !== void 0) return [markdown.slice(0, paragraphOffset), markdown.slice(paragraphOffset)];
 	if (root.children?.length === 1 && root.children[0]?.type === "code" && isFencedCodeSource(markdown)) return chunkFeishuMarkdown(markdown, maxChars);
 	const tableChunks = splitTableAtRow(markdown, root, target);
 	if (tableChunks) return tableChunks;
 	const containerType = root.children?.length === 1 ? root.children[0]?.type : void 0;
 	if (containerType && STABLE_LINE_CONTAINER_TYPES.has(containerType)) {
-		const containerOffset = nearestOffset(lineBreakOffsets(markdown), target, markdown.length).slice(0, MAX_BREAK_PROBES).find((offset) => isStableContainerBreak(markdown, offset, containerType));
+		const containerOffset = nearestOffset(lineBreakOffsets(markdown), target, markdown.length).slice(0, MAX_BREAK_PROBES).find((offset) => isStableBreak(markdown, offset, containerType));
 		if (containerOffset !== void 0) return [markdown.slice(0, containerOffset), markdown.slice(containerOffset)];
 	}
 	return [markdown];
 }
 //#endregion
 //#region extensions/feishu/src/docx-upload-input.ts
+function resolveDocToolLocalRoots(ctx) {
+	if (ctx.fsPolicy?.workspaceOnly !== true) return;
+	const workspaceDir = ctx.workspaceDir?.trim();
+	if (!workspaceDir) return [];
+	return [resolve(workspaceDir)];
+}
 function decodeBase64Image(params) {
 	const estimatedBytes = estimateBase64DecodedBytes(params.payload);
 	if (estimatedBytes > params.maxBytes) throw new Error(`${params.oversizedLabel} exceeds limit: estimated ${estimatedBytes} bytes > ${params.maxBytes} bytes`);
@@ -628,21 +588,6 @@ function resolveImageLocalPath(image) {
 	if (unambiguousPath || absolutePath && existsSync(candidate)) return candidate;
 	if (absolutePath) throw new Error(`File not found: "${candidate}". If you intended to pass image binary data, use a data URI instead: data:image/jpeg;base64,...`);
 }
-async function resolveRemoteUpload(input) {
-	const fetched = await getFeishuRuntime().channel.media.readRemoteMediaBuffer({
-		url: input.url,
-		maxBytes: input.maxBytes,
-		...input.remoteReadTimeoutMs !== void 0 ? {
-			responseHeaderTimeoutMs: input.remoteReadTimeoutMs,
-			readIdleTimeoutMs: input.remoteReadTimeoutMs
-		} : {}
-	});
-	const urlFileName = new URL(input.url).pathname.split("/").pop() || "upload.bin";
-	return {
-		buffer: fetched.buffer,
-		fileName: input.fileName ?? fetched.fileName ?? urlFileName
-	};
-}
 async function resolveDocxUploadInput(input) {
 	const sources = [
 		input.url && "url",
@@ -650,16 +595,27 @@ async function resolveDocxUploadInput(input) {
 		input.image && "image"
 	].filter((source) => Boolean(source));
 	if (sources.length !== 1) throw new Error(sources.length === 0 ? "Either url, file_path, or image (base64/data URI) must be provided" : `Provide only one upload source; got: ${sources.join(", ")}`);
-	if (input.url) return await resolveRemoteUpload({
-		...input,
-		url: input.url
-	});
-	if (input.filePath) return await resolveLocalUpload(input.filePath, input.maxBytes, input.localRoots, input.fileName);
+	if (input.url) {
+		const fetched = await getFeishuRuntime().channel.media.readRemoteMediaBuffer({
+			url: input.url,
+			maxBytes: input.maxBytes,
+			...input.remoteReadTimeoutMs !== void 0 ? {
+				responseHeaderTimeoutMs: input.remoteReadTimeoutMs,
+				readIdleTimeoutMs: input.remoteReadTimeoutMs
+			} : {}
+		});
+		const urlFileName = new URL(input.url).pathname.split("/").pop() || "upload.bin";
+		return {
+			buffer: fetched.buffer,
+			fileName: input.fileName ?? fetched.fileName ?? urlFileName
+		};
+	}
+	if (input.filePath) return resolveLocalUpload(input.filePath, input.maxBytes, input.localRoots, input.fileName);
 	const image = input.image;
 	if (!image) throw new Error("Image input must not be empty");
 	if (image.startsWith("data:")) return resolveDataUriImage(image, input.maxBytes, input.fileName);
 	const localPath = resolveImageLocalPath(image);
-	if (localPath) return await resolveLocalUpload(localPath, input.maxBytes, input.localRoots, input.fileName);
+	if (localPath) return resolveLocalUpload(localPath, input.maxBytes, input.localRoots, input.fileName);
 	return {
 		buffer: decodeBase64Image({
 			payload: image,
@@ -672,12 +628,6 @@ async function resolveDocxUploadInput(input) {
 }
 //#endregion
 //#region extensions/feishu/src/docx.ts
-function resolveDocToolLocalRoots(ctx) {
-	if (ctx.fsPolicy?.workspaceOnly !== true) return;
-	const workspaceDir = ctx.workspaceDir?.trim();
-	if (!workspaceDir) return [];
-	return [resolve(workspaceDir)];
-}
 const BLOCK_TYPE_NAMES = {
 	1: "Page",
 	2: "Text",
@@ -754,9 +704,8 @@ function normalizeConvertedBlockTree(blocks, firstLevelIds) {
 		rootIds: uniqueRootIds
 	};
 }
-async function insertBlocks(client, docToken, blocks, parentBlockId) {
+async function insertBlocks(client, docToken, blocks, blockId) {
 	const cleaned = blocks.filter((block) => !UNSUPPORTED_CREATE_TYPES.has(block.block_type));
-	const blockId = parentBlockId ?? docToken;
 	const allInserted = [];
 	for (const block of cleaned) {
 		const res = await client.docx.documentBlockChildren.create({
@@ -771,50 +720,37 @@ async function insertBlocks(client, docToken, blocks, parentBlockId) {
 	}
 	return allInserted;
 }
-async function convertMarkdownWithFallback(client, chunk, depth = 0) {
-	try {
-		return {
-			...await convertMarkdown(client, chunk.markdown),
-			images: chunk.images
-		};
-	} catch (error) {
-		if (depth >= MAX_CONVERT_RETRY_DEPTH || chunk.markdown.length < 2) throw error;
-		const splitTarget = Math.max(256, Math.floor(chunk.markdown.length / 2));
-		const chunks = splitDocxMarkdownBySize(chunk.markdown, splitTarget).map(createDocxMarkdownChunk);
-		if (chunks.length <= 1) throw error;
-		const blocks = [];
-		const firstLevelBlockIds = [];
-		const images = [];
-		for (const fallbackChunk of chunks) {
-			const converted = await convertMarkdownWithFallback(client, fallbackChunk, depth + 1);
-			blocks.push(...converted.blocks);
-			firstLevelBlockIds.push(...converted.firstLevelBlockIds);
-			images.push(...converted.images);
-		}
-		return {
-			blocks,
-			firstLevelBlockIds,
-			images
-		};
-	}
-}
-/** Convert markdown in chunks to avoid document.convert content size limits */
-async function chunkedConvertMarkdown(client, chunks) {
-	const allBlocks = [];
-	const allRootIds = [];
-	const allImages = [];
-	for (const chunk of chunks) {
-		const { blocks, firstLevelBlockIds, images } = await convertMarkdownWithFallback(client, chunk);
-		const { orderedBlocks, rootIds } = normalizeConvertedBlockTree(blocks, firstLevelBlockIds);
-		allBlocks.push(...orderedBlocks);
-		allRootIds.push(...rootIds);
-		allImages.push(...images);
-	}
-	return {
-		blocks: allBlocks,
-		firstLevelBlockIds: allRootIds,
-		images: allImages
+/** Convert markdown in chunks to avoid document.convert content size limits. */
+async function chunkedConvertMarkdown(client, chunks, depth = 0) {
+	const result = {
+		blocks: [],
+		firstLevelBlockIds: [],
+		images: []
 	};
+	for (const chunk of chunks) {
+		let converted;
+		try {
+			converted = {
+				...await convertMarkdown(client, chunk.markdown),
+				images: chunk.images
+			};
+		} catch (error) {
+			if (depth >= MAX_CONVERT_RETRY_DEPTH || chunk.markdown.length < 2) throw error;
+			const splitTarget = Math.max(256, Math.floor(chunk.markdown.length / 2));
+			const fallbackChunks = splitDocxMarkdownBySize(chunk.markdown, splitTarget).map(createDocxMarkdownChunk);
+			if (fallbackChunks.length <= 1) throw error;
+			converted = await chunkedConvertMarkdown(client, fallbackChunks, depth + 1);
+		}
+		const { blocks, firstLevelBlockIds, images } = converted;
+		const { orderedBlocks, rootIds } = depth === 0 ? normalizeConvertedBlockTree(blocks, firstLevelBlockIds) : {
+			orderedBlocks: blocks,
+			rootIds: firstLevelBlockIds
+		};
+		result.blocks.push(...orderedBlocks);
+		result.firstLevelBlockIds.push(...rootIds);
+		result.images.push(...images);
+	}
+	return result;
 }
 async function deleteBlockChildren(client, docToken, parentId, startIndex, endIndex) {
 	const res = await client.docx.documentBlockChildren.batchDelete({
@@ -829,6 +765,17 @@ async function deleteBlockChildren(client, docToken, parentId, startIndex, endIn
 	});
 	assertFeishuApiSuccess(res);
 }
+async function deleteChildBlock(client, docToken, parentId, blockId) {
+	const children = await client.docx.documentBlockChildren.get({ path: {
+		document_id: docToken,
+		block_id: parentId
+	} });
+	assertFeishuApiSuccess(children);
+	const index = (children.data?.items ?? []).findIndex((item) => item.block_id === blockId);
+	if (index === -1) return false;
+	await deleteBlockChildren(client, docToken, parentId, index, index + 1);
+	return true;
+}
 async function clearDocumentContent(client, docToken) {
 	const existing = await client.docx.documentBlock.list({ path: { document_id: docToken } });
 	assertFeishuApiSuccess(existing);
@@ -836,16 +783,28 @@ async function clearDocumentContent(client, docToken) {
 	if (childIds.length > 0) await deleteBlockChildren(client, docToken, docToken, 0, childIds.length);
 	return childIds.length;
 }
-async function uploadImageToDocx(client, blockId, imageBuffer, fileName, docToken) {
+async function uploadDocxMedia(client, kind, parentNode, upload, docToken) {
 	const fileToken = (await client.drive.media.uploadAll({ data: {
-		file_name: fileName,
-		parent_type: "docx_image",
-		parent_node: blockId,
-		size: imageBuffer.length,
-		file: imageBuffer,
+		file_name: upload.fileName,
+		parent_type: kind === "image" ? "docx_image" : "docx_file",
+		parent_node: parentNode,
+		size: upload.buffer.length,
+		file: upload.buffer,
 		...docToken ? { extra: JSON.stringify({ drive_route_token: docToken }) } : {}
 	} }))?.file_token;
-	if (!fileToken) throw new Error("Image upload failed: no file_token returned");
+	if (!fileToken) throw new Error(`${kind === "image" ? "Image" : "File"} upload failed: no file_token returned`);
+	return fileToken;
+}
+async function uploadImageToDocx(client, blockId, upload, docToken) {
+	const fileToken = await uploadDocxMedia(client, "image", blockId, upload, docToken);
+	const patchRes = await client.docx.documentBlock.patch({
+		path: {
+			document_id: docToken,
+			block_id: blockId
+		},
+		data: { replace_image: { token: fileToken } }
+	});
+	assertFeishuApiSuccess(patchRes);
 	return fileToken;
 }
 async function processImages(client, docToken, images, insertedBlocks, maxBytes, imageReadTimeoutMs) {
@@ -857,20 +816,11 @@ async function processImages(client, docToken, images, insertedBlocks, maxBytes,
 		const blockId = imageBlocks[i]?.block_id;
 		if (!url || !blockId) continue;
 		try {
-			const upload = await resolveDocxUploadInput({
+			await uploadImageToDocx(client, blockId, await resolveDocxUploadInput({
 				url,
 				maxBytes,
 				remoteReadTimeoutMs: imageReadTimeoutMs
-			});
-			const fileToken = await uploadImageToDocx(client, blockId, upload.buffer, upload.fileName, docToken);
-			const patchRes = await client.docx.documentBlock.patch({
-				path: {
-					document_id: docToken,
-					block_id: blockId
-				},
-				data: { replace_image: { token: fileToken } }
-			});
-			assertFeishuApiSuccess(patchRes);
+			}), docToken);
 			processed++;
 		} catch (err) {
 			console.error(`Failed to process image ${url}:`, err);
@@ -924,48 +874,18 @@ async function uploadImageBlock(client, { doc_token: docToken, parent_block_id: 
 	if (insertRes.code !== 0) throw new Error(`Failed to create image block: ${insertRes.msg}`);
 	const imageBlockId = insertRes.data?.children?.find((b) => b.block_type === 27)?.block_id;
 	if (!imageBlockId) throw new Error("Failed to create image block");
-	const fileToken = await uploadImageToDocx(client, imageBlockId, upload.buffer, upload.fileName, docToken);
-	const patchRes = await client.docx.documentBlock.patch({
-		path: {
-			document_id: docToken,
-			block_id: imageBlockId
-		},
-		data: { replace_image: { token: fileToken } }
-	});
-	assertFeishuApiSuccess(patchRes);
 	return {
 		success: true,
 		block_id: imageBlockId,
-		file_token: fileToken,
+		file_token: await uploadImageToDocx(client, imageBlockId, upload, docToken),
 		file_name: upload.fileName,
 		size: upload.buffer.length
 	};
 }
-async function uploadFileBlock(client, { doc_token: docToken, parent_block_id: parentBlockId }, upload) {
-	const blockId = parentBlockId ?? docToken;
-	const converted = await convertMarkdown(client, "[file](https://example.com/placeholder)");
-	const { orderedBlocks } = normalizeConvertedBlockTree(converted.blocks, converted.firstLevelBlockIds);
-	const placeholderBlock = (await insertBlocks(client, docToken, orderedBlocks, blockId))[0];
-	if (!placeholderBlock?.block_id) throw new Error("Failed to create placeholder block for file upload");
-	const parentId = placeholderBlock.parent_id ?? blockId;
-	const childrenRes = await client.docx.documentBlockChildren.get({ path: {
-		document_id: docToken,
-		block_id: parentId
-	} });
-	assertFeishuApiSuccess(childrenRes);
-	const placeholderIdx = (childrenRes.data?.items ?? []).findIndex((item) => item.block_id === placeholderBlock.block_id);
-	if (placeholderIdx >= 0) await deleteBlockChildren(client, docToken, parentId, placeholderIdx, placeholderIdx + 1);
-	const fileToken = (await client.drive.media.uploadAll({ data: {
-		file_name: upload.fileName,
-		parent_type: "docx_file",
-		parent_node: docToken,
-		size: upload.buffer.length,
-		file: upload.buffer
-	} }))?.file_token;
-	if (!fileToken) throw new Error("File upload failed: no file_token returned");
+async function uploadFileBlock(client, { doc_token: docToken }, upload) {
 	return {
 		success: true,
-		file_token: fileToken,
+		file_token: await uploadDocxMedia(client, "file", docToken, upload),
 		file_name: upload.fileName,
 		size: upload.buffer.length,
 		note: "File uploaded to drive. Use the file_token to reference it. Direct file block creation is not supported by the Feishu API."
@@ -1008,41 +928,36 @@ async function readDoc(client, docToken) {
 		...hint && { hint }
 	};
 }
-async function createDoc(client, title, folderToken, options) {
+async function createDoc(client, params, requesterOpenId) {
 	const res = await client.docx.document.create({ data: {
-		title,
-		folder_token: folderToken
+		title: params.title,
+		folder_token: params.folder_token
 	} });
 	assertFeishuApiSuccess(res);
 	const doc = res.data?.document;
 	const docToken = doc?.document_id;
 	if (!docToken) throw new Error("Document creation succeeded but no document_id was returned");
-	const shouldGrantToRequester = options?.grantToRequester !== false;
-	const requesterOpenId = options?.requesterOpenId?.trim();
+	const shouldGrantToRequester = params.grant_to_requester !== false;
 	const requesterPermType = "edit";
 	let requesterPermissionAdded = false;
-	let requesterPermissionSkippedReason;
 	let requesterPermissionError;
-	if (shouldGrantToRequester) {
-		if (!requesterOpenId) requesterPermissionSkippedReason = "trusted requester identity unavailable";
-		else try {
-			const permissionRes = await client.drive.permissionMember.create({
-				path: { token: docToken },
-				params: {
-					type: "docx",
-					need_notification: false
-				},
-				data: {
-					member_type: "openid",
-					member_id: requesterOpenId,
-					perm: requesterPermType
-				}
-			});
-			assertFeishuApiSuccess(permissionRes);
-			requesterPermissionAdded = true;
-		} catch (err) {
-			requesterPermissionError = formatErrorMessage(err);
-		}
+	if (shouldGrantToRequester && requesterOpenId) try {
+		const permissionRes = await client.drive.permissionMember.create({
+			path: { token: docToken },
+			params: {
+				type: "docx",
+				need_notification: false
+			},
+			data: {
+				member_type: "openid",
+				member_id: requesterOpenId,
+				perm: requesterPermType
+			}
+		});
+		assertFeishuApiSuccess(permissionRes);
+		requesterPermissionAdded = true;
+	} catch (err) {
+		requesterPermissionError = formatErrorMessage(err);
 	}
 	return {
 		document_id: docToken,
@@ -1052,7 +967,7 @@ async function createDoc(client, title, folderToken, options) {
 			requester_permission_added: requesterPermissionAdded,
 			...requesterOpenId && { requester_open_id: requesterOpenId },
 			requester_perm_type: requesterPermType,
-			...requesterPermissionSkippedReason && { requester_permission_skipped_reason: requesterPermissionSkippedReason },
+			...!requesterOpenId && { requester_permission_skipped_reason: "trusted requester identity unavailable" },
 			...requesterPermissionError && { requester_permission_error: requesterPermissionError }
 		}
 	};
@@ -1168,42 +1083,6 @@ async function writeTableCells(client, docToken, tableBlockId, values) {
 		}
 	};
 }
-async function updateBlock(client, docToken, blockId, content) {
-	await getBlock(client, docToken, blockId);
-	const res = await client.docx.documentBlock.patch({
-		path: {
-			document_id: docToken,
-			block_id: blockId
-		},
-		data: { update_text_elements: { elements: [{ text_run: { content } }] } }
-	});
-	assertFeishuApiSuccess(res);
-	return {
-		success: true,
-		block_id: blockId
-	};
-}
-async function deleteBlock(client, docToken, blockId) {
-	const { block } = await getBlock(client, docToken, blockId);
-	const parentId = block?.parent_id ?? docToken;
-	const children = await client.docx.documentBlockChildren.get({ path: {
-		document_id: docToken,
-		block_id: parentId
-	} });
-	assertFeishuApiSuccess(children);
-	const index = (children.data?.items ?? []).findIndex((item) => item.block_id === blockId);
-	if (index === -1) throw new Error("Block not found");
-	await deleteBlockChildren(client, docToken, parentId, index, index + 1);
-	return {
-		success: true,
-		deleted_block_id: blockId
-	};
-}
-async function listBlocks(client, docToken) {
-	const res = await client.docx.documentBlock.list({ path: { document_id: docToken } });
-	assertFeishuApiSuccess(res);
-	return { blocks: res.data?.items ?? [] };
-}
 async function getBlock(client, docToken, blockId) {
 	const res = await client.docx.documentBlock.get({ path: {
 		document_id: docToken,
@@ -1212,28 +1091,11 @@ async function getBlock(client, docToken, blockId) {
 	assertFeishuApiSuccess(res);
 	return { block: res.data?.block };
 }
-async function listAppScopes(client) {
-	const res = await client.application.scope.list({});
-	assertFeishuApiSuccess(res);
-	const scopes = res.data?.scopes ?? [];
-	const granted = scopes.filter((s) => s.grant_status === 1);
-	const pending = scopes.filter((s) => s.grant_status !== 1);
-	return {
-		granted: granted.map((s) => ({
-			name: s.scope_name,
-			type: s.scope_type
-		})),
-		pending: pending.map((s) => ({
-			name: s.scope_name,
-			type: s.scope_type
-		})),
-		summary: `${granted.length} granted, ${pending.length} pending`
-	};
-}
 function registerFeishuDocTools(api) {
 	registerFeishuTool(api, {
 		family: "doc",
 		name: "feishu_doc",
+		workspaceAccess: "execute",
 		label: "Feishu Doc",
 		description: "Feishu document operations. Actions: read, write, append, insert, create, list_blocks, get_block, update_block, delete_block, create_table, write_table_cells, create_table_with_values, insert_table_row, insert_table_column, delete_table_rows, delete_table_columns, merge_table_cells, upload_image, upload_file, color_text",
 		parameters: FeishuDocSchema,
@@ -1260,14 +1122,37 @@ function registerFeishuDocTools(api) {
 					case "write":
 					case "append":
 					case "insert": return feishuExternalToolResult(await editDoc(client, p, mediaMaxBytes, imageReadTimeoutMs, api.logger));
-					case "create": return feishuExternalToolResult(await createDoc(client, p.title, p.folder_token, {
-						grantToRequester: p.grant_to_requester,
-						requesterOpenId: trustedRequesterOpenId
-					}));
-					case "list_blocks": return feishuExternalToolResult(await listBlocks(client, p.doc_token));
+					case "create": return feishuExternalToolResult(await createDoc(client, p, trustedRequesterOpenId));
+					case "list_blocks": {
+						const res = await client.docx.documentBlock.list({ path: { document_id: p.doc_token } });
+						assertFeishuApiSuccess(res);
+						return feishuExternalToolResult({ blocks: res.data?.items ?? [] });
+					}
 					case "get_block": return feishuExternalToolResult(await getBlock(client, p.doc_token, p.block_id));
-					case "update_block": return feishuExternalToolResult(await updateBlock(client, p.doc_token, p.block_id, p.content));
-					case "delete_block": return feishuExternalToolResult(await deleteBlock(client, p.doc_token, p.block_id));
+					case "update_block": {
+						await getBlock(client, p.doc_token, p.block_id);
+						const res = await client.docx.documentBlock.patch({
+							path: {
+								document_id: p.doc_token,
+								block_id: p.block_id
+							},
+							data: { update_text_elements: { elements: [{ text_run: { content: p.content } }] } }
+						});
+						assertFeishuApiSuccess(res);
+						return feishuExternalToolResult({
+							success: true,
+							block_id: p.block_id
+						});
+					}
+					case "delete_block": {
+						const { block } = await getBlock(client, p.doc_token, p.block_id);
+						const parentId = block?.parent_id ?? p.doc_token;
+						if (!await deleteChildBlock(client, p.doc_token, parentId, p.block_id)) throw new Error("Block not found");
+						return feishuExternalToolResult({
+							success: true,
+							deleted_block_id: p.block_id
+						});
+					}
 					case "create_table":
 					case "create_table_with_values": return feishuExternalToolResult(await createTable(client, p));
 					case "write_table_cells": return feishuExternalToolResult(await writeTableCells(client, p.doc_token, p.table_block_id, p.values));
@@ -1305,15 +1190,29 @@ function registerFeishuDocTools(api) {
 		parameters: Type.Object({}),
 		createExecute(ctx, cfg) {
 			return async (_params) => {
-				const result = await listAppScopes(createFeishuToolClient({
+				const res = await createFeishuToolClient({
 					cfg,
 					defaultAccountId: ctx.agentAccountId,
 					requiredTool: {
 						family: "scopes",
 						label: "App Scopes"
 					}
-				}));
-				return feishuExternalToolResult(result);
+				}).application.scope.list({});
+				assertFeishuApiSuccess(res);
+				const scopes = res.data?.scopes ?? [];
+				const granted = scopes.filter((s) => s.grant_status === 1);
+				const pending = scopes.filter((s) => s.grant_status !== 1);
+				return feishuExternalToolResult({
+					granted: granted.map((s) => ({
+						name: s.scope_name,
+						type: s.scope_type
+					})),
+					pending: pending.map((s) => ({
+						name: s.scope_name,
+						type: s.scope_type
+					})),
+					summary: `${granted.length} granted, ${pending.length} pending`
+				});
 			};
 		}
 	});
@@ -1758,63 +1657,53 @@ function isPlaceholderBitableRecord(fields) {
 async function cleanupNewBitable(client, appToken, tableId, tableName, logger) {
 	let cleanedRows = 0;
 	let cleanedFields = 0;
-	const fieldsRes = await client.bitable.appTableField.list({ path: {
+	const tablePath = {
 		app_token: appToken,
 		table_id: tableId
-	} });
+	};
+	const fieldsRes = await client.bitable.appTableField.list({ path: tablePath });
 	if (fieldsRes.code === 0 && fieldsRes.data?.items) {
 		const primaryField = fieldsRes.data.items.find((f) => f.is_primary);
-		if (primaryField?.field_id) try {
-			ensureLarkSuccess(await client.bitable.appTableField.update({
-				path: {
-					app_token: appToken,
-					table_id: tableId,
-					field_id: primaryField.field_id
-				},
-				data: {
-					field_name: tableName.length <= 20 ? tableName : "Name",
-					type: 1
-				}
-			}), "bitable.appTableField.update");
-			cleanedFields++;
-		} catch (err) {
-			logger.debug(`Failed to rename primary field: ${String(err)}`);
-		}
 		const defaultFieldsToDelete = fieldsRes.data.items.filter((f) => !f.is_primary && DEFAULT_CLEANUP_FIELD_TYPES.has(f.type ?? 0));
-		for (const field of defaultFieldsToDelete) if (field.field_id) try {
-			ensureLarkSuccess(await client.bitable.appTableField.delete({ path: {
-				app_token: appToken,
-				table_id: tableId,
-				field_id: field.field_id
-			} }), "bitable.appTableField.delete");
-			cleanedFields++;
-		} catch (err) {
-			logger.debug(`Failed to delete default field ${field.field_name}: ${String(err)}`);
+		for (const field of [primaryField, ...defaultFieldsToDelete]) {
+			if (!field?.field_id) continue;
+			const isPrimary = field === primaryField;
+			const operation = isPrimary ? "update" : "delete";
+			try {
+				const path = {
+					...tablePath,
+					field_id: field.field_id
+				};
+				ensureLarkSuccess(isPrimary ? await client.bitable.appTableField.update({
+					path,
+					data: {
+						field_name: tableName.length <= 20 ? tableName : "Name",
+						type: 1
+					}
+				}) : await client.bitable.appTableField.delete({ path }), `bitable.appTableField.${operation}`);
+				cleanedFields++;
+			} catch (err) {
+				const failure = isPrimary ? "rename primary field" : `delete default field ${field.field_name}`;
+				logger.debug(`Failed to ${failure}: ${String(err)}`);
+			}
 		}
 	}
 	const recordsRes = await client.bitable.appTableRecord.list({
-		path: {
-			app_token: appToken,
-			table_id: tableId
-		},
+		path: tablePath,
 		params: { page_size: 100 }
 	});
 	if (recordsRes.code === 0 && recordsRes.data?.items) {
 		const emptyRecordIds = recordsRes.data.items.filter((r) => isPlaceholderBitableRecord(r.fields)).map((r) => r.record_id).filter((id) => Boolean(id));
 		if (emptyRecordIds.length > 0) try {
 			ensureLarkSuccess(await client.bitable.appTableRecord.batchDelete({
-				path: {
-					app_token: appToken,
-					table_id: tableId
-				},
+				path: tablePath,
 				data: { records: emptyRecordIds }
 			}), "bitable.appTableRecord.batchDelete");
 			cleanedRows = emptyRecordIds.length;
 		} catch {
 			for (const recordId of emptyRecordIds) try {
 				ensureLarkSuccess(await client.bitable.appTableRecord.delete({ path: {
-					app_token: appToken,
-					table_id: tableId,
+					...tablePath,
 					record_id: recordId
 				} }), "bitable.appTableRecord.delete");
 				cleanedRows++;
@@ -1838,17 +1727,15 @@ async function createApp(client, name, folderToken, logger) {
 	if (!appToken) throw new Error("Failed to create Bitable: no app_token returned");
 	const log = logger ?? { debug: () => {} };
 	let tableId;
-	let cleanedRows = 0;
-	let cleanedFields = 0;
+	let cleanup = {
+		cleanedRows: 0,
+		cleanedFields: 0
+	};
 	try {
 		const tablesRes = await client.bitable.appTable.list({ path: { app_token: appToken } });
 		if (tablesRes.code === 0) {
 			tableId = tablesRes.data?.items?.[0]?.table_id;
-			if (tableId) {
-				const cleanup = await cleanupNewBitable(client, appToken, tableId, name, log);
-				cleanedRows = cleanup.cleanedRows;
-				cleanedFields = cleanup.cleanedFields;
-			}
+			if (tableId) cleanup = await cleanupNewBitable(client, appToken, tableId, name, log);
 		}
 	} catch (err) {
 		log.debug(`Cleanup failed (non-critical): ${String(err)}`);
@@ -1858,8 +1745,8 @@ async function createApp(client, name, folderToken, logger) {
 		table_id: tableId,
 		name: res.data?.app?.name,
 		url: res.data?.app?.url,
-		cleaned_placeholder_rows: cleanedRows,
-		cleaned_default_fields: cleanedFields,
+		cleaned_placeholder_rows: cleanup.cleanedRows,
+		cleaned_default_fields: cleanup.cleanedFields,
 		hint: tableId ? `Table created. Use app_token="${appToken}" and table_id="${tableId}" for other bitable tools.` : "Application created, but table metadata was not retrieved. Inspect the existing application using the returned app_token or URL; do not create it again."
 	};
 }

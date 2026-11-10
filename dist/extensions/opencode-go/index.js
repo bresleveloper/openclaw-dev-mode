@@ -1,13 +1,13 @@
-import { c as resolveFirstProviderCatalogAuth } from "../../provider-catalog-Io9OWhUB.mjs";
-import { r as buildProviderReplayFamilyHooks } from "../../provider-model-shared-CgZ78XZA.mjs";
-import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-Ngo-Palb.mjs";
-import "../../provider-catalog-shared-Bd3PD4e1.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-Dw7vrvaY.mjs";
+import { s as resolveFirstProviderCatalogAuth } from "../../provider-catalog-D0GOHaAj.mjs";
+import { r as buildProviderReplayFamilyHooks } from "../../provider-model-shared-B_4afNJ5.mjs";
+import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BILEsjga.mjs";
+import "../../provider-catalog-shared-Di2nlF3g.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-CKUq_-Jy.mjs";
 import { t as opencodeGoMediaUnderstandingProvider } from "../../media-understanding-provider-Fpof7f9k.mjs";
 import { t as OPENCODE_GO_DEFAULT_MODEL_REF } from "../../onboard-Bp8A_rOc.mjs";
-import { a as normalizeOpencodeGoResolvedModel, c as openclaw_plugin_default, i as normalizeOpencodeGoBaseUrl, n as buildStaticOpencodeGoProviderConfig, o as resolveOpencodeGoModel, r as listOpencodeGoModelCatalogEntries, s as resolveOpencodeGoStarterModel, t as buildOpencodeGoLiveProviderConfig } from "../../provider-catalog-BdT1oRyu.mjs";
-import { i as resolveThinkingProfile } from "../../provider-policy-api-CoTNAtCt.mjs";
-import { n as createOpencodeGoWrapper, t as createOpencodeGoWireWrapper } from "../../stream-DJ-PuhwG.mjs";
+import { a as normalizeOpencodeGoResolvedModel, c as openclaw_plugin_default, i as normalizeOpencodeGoBaseUrl, n as buildStaticOpencodeGoProviderConfig, o as resolveOpencodeGoModel, r as listOpencodeGoModelCatalogEntries, s as resolveOpencodeGoStarterModel, t as buildOpencodeGoLiveProviderConfig } from "../../provider-catalog-d145G2GS.mjs";
+import { i as resolveThinkingProfile } from "../../provider-policy-api-DjDiACJy.mjs";
+import { n as createOpencodeGoWrapper, t as createOpencodeGoWireWrapper } from "../../stream-PD3_zK2R.mjs";
 //#region extensions/opencode-go/index.ts
 const PROVIDER_ID = "opencode-go";
 var opencode_go_default = defineSingleProviderPluginEntry({
@@ -91,6 +91,7 @@ var opencode_go_default = defineSingleProviderPluginEntry({
 		augmentModelCatalog: () => listOpencodeGoModelCatalogEntries(),
 		...buildProviderReplayFamilyHooks({ family: "passthrough-gemini" }),
 		resolveThinkingProfile,
+		classifyFailoverReason: ({ status, errorMessage }) => status === 403 && /\bUpstream request failed:\s*Endpoint is unavailable\./i.test(errorMessage) ? "server_error" : void 0,
 		resolveTransportTurnState: (ctx) => {
 			if (!normalizeOpencodeGoBaseUrl({
 				api: ctx.model?.api,

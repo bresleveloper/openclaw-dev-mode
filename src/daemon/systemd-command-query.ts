@@ -1,9 +1,8 @@
-import { asOptionalRecord } from "@openclaw/normalization-core/record-coerce";
-/** Deadline- and custody-bound effective command queries for the systemd reader. */
 import {
   runServiceInspectionGuard,
   withServiceInspectionBudget,
 } from "./service-inspection-budget.js";
+/** Deadline- and custody-bound effective command queries for the systemd reader. */
 import {
   findServiceOwnershipRefusal,
   ServiceInspectionError,
@@ -11,6 +10,7 @@ import {
 } from "./service-inspection-error.js";
 import type { GatewayServiceEnv, GatewayServiceReadOptions } from "./service-types.js";
 import { assertGatewayServiceUpdateCurrent } from "./service-update-authority.js";
+import { decodeSystemdBusProperties } from "./systemd-bus-query.js";
 import { decodeLegacyBusctlOutput } from "./systemd-busctl-legacy.js";
 import {
   bindSystemdManagerOwner,
@@ -60,16 +60,20 @@ export async function createSystemdCommandQuery(
     if (transport?.kind === "private" && opts?.requireLoaded) {
       throw new ServiceInspectionError("systemd-user-bus-unavailable");
     }
+    const privateInspectionFailed = (error: unknown, preserveReason = false): never => {
+      assertGatewayServiceUpdateCurrent();
+      const refusal = findServiceOwnershipRefusal(error);
+      if (refusal) {
+        throw refusal;
+      }
+      if (preserveReason && error instanceof ServiceInspectionError) {
+        throw error;
+      }
+      throw new ServiceInspectionError("systemd-user-bus-unavailable");
+    };
     const managerPeer =
       !opts?.requireLoaded && transport?.kind === "private"
-        ? await openSystemdUserManager(transport.address, deadlineAt).catch((error: unknown) => {
-            assertGatewayServiceUpdateCurrent();
-            const refusal = findServiceOwnershipRefusal(error);
-            if (refusal) {
-              throw refusal;
-            }
-            throw new ServiceInspectionError("systemd-user-bus-unavailable");
-          })
+        ? await openSystemdUserManager(transport.address, deadlineAt).catch(privateInspectionFailed)
         : undefined;
     const managerUid = scope === "system" ? 0 : inspection?.managerUid;
     let remainingCalls = managerUid !== undefined ? 6 : 3;
@@ -80,15 +84,7 @@ export async function createSystemdCommandQuery(
         try {
           return await managerPeer.query(args, signatures, deadlineAt);
         } catch (error) {
-          assertGatewayServiceUpdateCurrent();
-          const refusal = findServiceOwnershipRefusal(error);
-          if (refusal) {
-            throw refusal;
-          }
-          if (error instanceof ServiceInspectionError) {
-            throw error;
-          }
-          throw new ServiceInspectionError("systemd-user-bus-unavailable");
+          privateInspectionFailed(error, true);
         }
       }
       const assertCurrent =
@@ -185,17 +181,7 @@ export async function createSystemdCommandQuery(
       if (legacyOutput) {
         return decodeLegacyBusctlOutput(result.stdout, signatures, args[0] === "call");
       }
-      const properties = result.stdout
-        .trim()
-        .split(/\r?\n/)
-        .map((line) => asOptionalRecord(JSON.parse(line)));
-      if (
-        properties.length !== signatures.length ||
-        !properties.every((property, index) => property?.type === signatures[index])
-      ) {
-        throw unavailable();
-      }
-      return properties.map((property) => property?.data);
+      return decodeSystemdBusProperties(result.stdout, signatures, unavailable);
     };
     const binding =
       peer ??

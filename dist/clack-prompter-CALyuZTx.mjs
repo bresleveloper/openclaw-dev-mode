@@ -1,0 +1,480 @@
+import { o as normalizeLowercaseStringOrEmpty } from "./string-coerce-1VuiLaaR.mjs";
+import "./src-Djeo9OvP.mjs";
+import { t as expectDefined } from "./expect-lbe3Hgrh.mjs";
+import { i as stripAnsi } from "./ansi-Xy3t0ZdY.mjs";
+import { n as isRich, r as theme } from "./theme-DzaUZY4q.mjs";
+import { n as WizardCancelledError, r as WizardNavigationError } from "./prompts-DLsO8MlU.mjs";
+import { n as stylePromptMessage, r as stylePromptTitle } from "./prompt-style-zarsDmI2.mjs";
+import { n as noteToStream } from "./note-CmoIRLec.mjs";
+import { n as createProgressSpinner, t as createCliProgress } from "./progress-BIOeyA3T.mjs";
+import { t as styleSelectParams } from "./prompt-select-styled-params-DiyhlGNl.mjs";
+import { styleText } from "node:util";
+import { CANCEL_SYMBOL, S_BAR, S_BAR_END, S_CHECKBOX_ACTIVE, S_CHECKBOX_INACTIVE, S_CHECKBOX_SELECTED, S_PASSWORD_MASK, S_RADIO_ACTIVE, S_RADIO_INACTIVE, autocomplete, autocompleteMultiselect, cancel, confirm, intro, limitOptions, multiselect, outro, password, select, settings, symbol, symbolBar, text } from "@clack/prompts";
+import { AutocompletePrompt, ConfirmPrompt, MultiSelectPrompt, PasswordPrompt, SelectPrompt, TextPrompt, settings as settings$1, wrapTextWithPrefix } from "@clack/core";
+//#region src/wizard/clack-navigation-prompts.ts
+function getOptionLabel(option) {
+	return option.label ?? String(option.value ?? "");
+}
+function computeLabel(label, style) {
+	return label.split("\n").map((text) => styleText(style, text)).join("\n");
+}
+function navigationFooterLines(guideVisible, barStyle, navigation, extraHints = []) {
+	if (!navigation || !navigation.canGoBack && !navigation.canGoForward) return [];
+	const hintLine = [
+		...navigation.canGoBack ? [styleText("dim", "← back")] : [],
+		...navigation.canGoForward ? [styleText("dim", "→ next")] : [],
+		...extraHints
+	].join("  ");
+	return [`${guideVisible ? `${styleText(barStyle, S_BAR)}  ` : ""}${hintLine}`];
+}
+function renderChoiceOption(option, state, multiple = false) {
+	const label = getOptionLabel(option);
+	if (state === "cancelled" || state === "submitted") return computeLabel(label, state === "cancelled" ? ["strikethrough", "dim"] : "dim");
+	const active = state === "active" || state === "active-selected";
+	const selected = state === "selected" || state === "active-selected";
+	const disabled = state === "disabled";
+	const symbol = selected ? S_CHECKBOX_SELECTED : active ? multiple ? S_CHECKBOX_ACTIVE : S_RADIO_ACTIVE : multiple ? S_CHECKBOX_INACTIVE : S_RADIO_INACTIVE;
+	const color = disabled ? "gray" : selected || active && !multiple ? "green" : active ? "cyan" : "dim";
+	const renderedLabel = active ? label : computeLabel(label, disabled ? multiple ? ["strikethrough", "gray"] : "gray" : "dim");
+	const hint = (active || selected || disabled) && option.hint ? ` ${styleText("dim", `(${option.hint})`)}` : "";
+	return `${styleText(color, symbol)} ${renderedLabel}${hint}`;
+}
+function selectWithNavigationFooter(opts) {
+	return new SelectPrompt({
+		options: opts.options,
+		signal: opts.signal,
+		input: opts.input,
+		output: opts.output,
+		initialValue: opts.initialValue,
+		render() {
+			const showGuide = settings$1.withGuide;
+			const titlePrefix = `${symbol(this.state)}  `;
+			const titlePrefixBar = `${symbolBar(this.state)}  `;
+			const messageLines = wrapTextWithPrefix(opts.output, opts.message, titlePrefixBar, titlePrefix);
+			const title = `${showGuide ? `${styleText("gray", S_BAR)}\n` : ""}${messageLines}\n`;
+			switch (this.state) {
+				case "submit":
+				case "cancel": {
+					const cancelled = this.state === "cancel";
+					const prefix = showGuide ? `${styleText("gray", S_BAR)}  ` : "";
+					return `${title}${wrapTextWithPrefix(opts.output, renderChoiceOption(expectDefined(this.options[this.cursor], "options entry at this.cursor"), cancelled ? "cancelled" : "submitted"), prefix)}${cancelled && showGuide ? `\n${styleText("gray", S_BAR)}` : ""}`;
+				}
+				default: {
+					const prefix = showGuide ? `${styleText("cyan", S_BAR)}  ` : "";
+					const footerLines = [...navigationFooterLines(showGuide, "cyan", opts.navigation, [styleText("dim", "↑/↓ option")]), showGuide ? styleText("cyan", S_BAR_END) : ""];
+					const titleLineCount = title.split("\n").length;
+					const footerLineCount = footerLines.length + 1;
+					return `${title}${prefix}${limitOptions({
+						output: opts.output,
+						cursor: this.cursor,
+						options: this.options,
+						columnPadding: prefix.length,
+						rowPadding: titleLineCount + footerLineCount,
+						style: (item, active) => renderChoiceOption(item, item.disabled ? "disabled" : active ? "active" : "inactive")
+					}).join(`\n${prefix}`)}\n${footerLines.join("\n")}\n`;
+				}
+			}
+		}
+	}).prompt();
+}
+function renderAutocompleteOption(prompt, option, active) {
+	const label = getOptionLabel(option);
+	const hint = option.hint && option.value === prompt.focusedValue && (!prompt.multiple || prompt.focusedValue !== void 0) ? styleText("dim", ` (${option.hint})`) : "";
+	const inactiveSymbol = prompt.multiple ? S_CHECKBOX_INACTIVE : S_RADIO_INACTIVE;
+	if (option.disabled) return `${styleText("gray", inactiveSymbol)} ${styleText(["strikethrough", "gray"], label)}`;
+	return `${prompt.multiple && prompt.selectedValues.includes(option.value) ? styleText("green", S_CHECKBOX_SELECTED) : active && !prompt.multiple ? styleText("green", S_RADIO_ACTIVE) : styleText("dim", inactiveSymbol)} ${active ? `${label}${hint}` : styleText("dim", label)}`;
+}
+function renderAutocomplete(prompt, opts) {
+	const showGuide = settings$1.withGuide;
+	const headings = [...showGuide ? [styleText("gray", S_BAR)] : [], `${symbol(prompt.state)}  ${opts.message}`];
+	const title = `${headings.join("\n")}\n`;
+	const userInput = prompt.userInput;
+	if (prompt.state === "submit") {
+		if (prompt.multiple) return `${title}${showGuide ? `${styleText("gray", S_BAR)}  ` : ""}${styleText("dim", `${prompt.selectedValues.length} items selected`)}`;
+		const selected = prompt.options.filter((option) => prompt.selectedValues.includes(option.value));
+		const label = selected.length > 0 ? `  ${styleText("dim", selected.map(getOptionLabel).join(", "))}` : "";
+		return `${title}${showGuide ? styleText("gray", S_BAR) : ""}${label}`;
+	}
+	if (prompt.state === "cancel") {
+		if (prompt.multiple) return `${title}${showGuide ? `${styleText("gray", S_BAR)}  ` : ""}${styleText(["strikethrough", "dim"], userInput)}`;
+		const input = userInput ? `  ${styleText(["strikethrough", "dim"], userInput)}` : "";
+		return `${title}${showGuide ? styleText("gray", S_BAR) : ""}${input}`;
+	}
+	const barStyle = prompt.state === "error" ? "yellow" : "cyan";
+	const guidePrefix = showGuide ? `${styleText(barStyle, S_BAR)}  ` : "";
+	const searchText = prompt.isNavigating ? styleText("dim", userInput) : prompt.userInputWithCursor;
+	if (showGuide || prompt.multiple) headings.push(showGuide ? styleText(barStyle, S_BAR) : "");
+	const searchSuffix = prompt.multiple || !prompt.isNavigating || userInput ? ` ${searchText}` : "";
+	const matches = prompt.filteredOptions.length !== prompt.options.length ? styleText("dim", ` (${prompt.filteredOptions.length} match${prompt.filteredOptions.length === 1 ? "" : "es"})`) : "";
+	headings.push(`${guidePrefix}${styleText("dim", "Search:")}${searchSuffix}${matches}`);
+	if (prompt.filteredOptions.length === 0 && userInput) headings.push(`${guidePrefix}${styleText("yellow", "No matches found")}`);
+	if (prompt.state === "error") headings.push(`${guidePrefix}${styleText("yellow", prompt.error)}`);
+	const footers = [
+		`${guidePrefix}${[
+			`${styleText("dim", "↑/↓")} to ${prompt.multiple ? "navigate" : "select"}`,
+			...prompt.multiple ? [`${styleText("dim", prompt.isNavigating ? "Space/Tab:" : "Tab:")} select`] : [],
+			`${styleText("dim", "Enter:")} confirm`,
+			`${styleText("dim", "Type:")} to search`
+		].join(" • ")}`,
+		...navigationFooterLines(showGuide, barStyle, opts.navigation),
+		showGuide ? styleText(barStyle, S_BAR_END) : ""
+	];
+	const displayOptions = !prompt.multiple && prompt.filteredOptions.length === 0 ? [] : limitOptions({
+		cursor: prompt.cursor,
+		options: prompt.filteredOptions,
+		...!prompt.multiple ? { columnPadding: showGuide ? 3 : 0 } : {},
+		rowPadding: headings.length + footers.length,
+		style: (option, active) => renderAutocompleteOption(prompt, option, active),
+		output: opts.output
+	});
+	return [
+		...headings,
+		...displayOptions.map((option) => `${guidePrefix}${option}`),
+		...footers
+	].join("\n");
+}
+function autocompleteWithNavigationFooter(opts) {
+	return new AutocompletePrompt({
+		options: opts.options,
+		initialValue: opts.initialValue === void 0 ? void 0 : [opts.initialValue],
+		filter: opts.filter,
+		signal: opts.signal,
+		input: opts.input,
+		output: opts.output,
+		validate: opts.validate,
+		render() {
+			return renderAutocomplete(this, opts);
+		}
+	}).prompt();
+}
+function renderTextPrompt(prompt, opts, input, value, masked = false) {
+	const showGuide = settings$1.withGuide;
+	const bar = showGuide ? styleText("gray", S_BAR) : "";
+	const title = `${showGuide ? `${bar}\n` : ""}${symbol(prompt.state)}  ${opts.message}\n`;
+	if (prompt.state === "submit" || prompt.state === "cancel") {
+		const cancelled = prompt.state === "cancel";
+		return `${title}${bar}${masked ? showGuide ? "  " : "" : value ? "  " : ""}${value ? styleText(cancelled ? ["strikethrough", "dim"] : "dim", value) : ""}${cancelled && (masked ? value && showGuide : value.trim()) ? `\n${bar}` : ""}`;
+	}
+	const failed = prompt.state === "error";
+	const color = failed ? "yellow" : "cyan";
+	const prefix = showGuide ? `${styleText(color, S_BAR)}  ` : "";
+	const end = showGuide ? `${styleText(color, S_BAR_END)}${failed && masked ? "  " : ""}` : "";
+	const footerLines = navigationFooterLines(showGuide, color, opts.navigation);
+	const errorText = failed ? masked ? styleText("yellow", prompt.error) : prompt.error ? `  ${styleText("yellow", prompt.error)}` : "" : "";
+	return `${failed ? `${title.trim()}\n` : title}${prefix}${failed && masked ? value : input}\n${footerLines.length ? `${footerLines.join("\n")}\n` : ""}${end}${errorText}\n`;
+}
+function textWithNavigationFooter(opts) {
+	return new TextPrompt({
+		validate: opts.validate,
+		placeholder: opts.placeholder,
+		initialValue: opts.initialValue,
+		output: opts.output,
+		signal: opts.signal,
+		input: opts.input,
+		render() {
+			const placeholder = opts.placeholder ? styleText("inverse", opts.placeholder[0] ?? "") + styleText("dim", opts.placeholder.slice(1)) : styleText(["inverse", "hidden"], "_");
+			return renderTextPrompt(this, opts, this.userInput ? this.userInputWithCursor : placeholder, this.value ?? "");
+		}
+	}).prompt();
+}
+function passwordWithNavigationFooter(opts) {
+	return new PasswordPrompt({
+		validate: opts.validate,
+		mask: S_PASSWORD_MASK,
+		signal: opts.signal,
+		input: opts.input,
+		output: opts.output,
+		render() {
+			return renderTextPrompt(this, opts, this.userInputWithCursor, this.masked ?? "", true);
+		}
+	}).prompt();
+}
+function multiselectWithNavigationFooter(opts) {
+	return new MultiSelectPrompt({
+		options: opts.options,
+		signal: opts.signal,
+		input: opts.input,
+		output: opts.output,
+		initialValues: opts.initialValues,
+		validate(selected) {
+			if (selected === void 0 || selected.length === 0) return `Please select at least one option.\n${styleText("reset", styleText("dim", `Press ${styleText([
+				"gray",
+				"bgWhite",
+				"inverse"
+			], " space ")} to select, ${styleText("gray", styleText("bgWhite", styleText("inverse", " enter ")))} to submit`))}`;
+		},
+		render() {
+			const showGuide = settings$1.withGuide;
+			const wrappedMessage = wrapTextWithPrefix(opts.output, opts.message, showGuide ? `${symbolBar(this.state)}  ` : "", `${symbol(this.state)}  `);
+			const title = `${showGuide ? `${styleText("gray", S_BAR)}\n` : ""}${wrappedMessage}\n`;
+			const value = this.value ?? [];
+			const styleOption = (option, active) => {
+				if (option.disabled) return renderChoiceOption(option, "disabled", true);
+				const selected = value.includes(option.value);
+				if (active && selected) return renderChoiceOption(option, "active-selected", true);
+				if (selected) return renderChoiceOption(option, "selected", true);
+				return renderChoiceOption(option, active ? "active" : "inactive", true);
+			};
+			switch (this.state) {
+				case "submit": {
+					const submitText = this.options.filter(({ value: optionValue }) => value.includes(optionValue)).map((option) => renderChoiceOption(option, "submitted", true)).join(styleText("dim", ", ")) || styleText("dim", "none");
+					return `${title}${wrapTextWithPrefix(opts.output, submitText, showGuide ? `${styleText("gray", S_BAR)}  ` : "")}`;
+				}
+				case "cancel": {
+					const label = this.options.filter(({ value: optionValue }) => value.includes(optionValue)).map((option) => renderChoiceOption(option, "cancelled", true)).join(styleText("dim", ", "));
+					if (label.trim() === "") return `${title}${styleText("gray", S_BAR)}`;
+					return `${title}${wrapTextWithPrefix(opts.output, label, showGuide ? `${styleText("gray", S_BAR)}  ` : "")}${showGuide ? `\n${styleText("gray", S_BAR)}` : ""}`;
+				}
+				default: {
+					const barStyle = this.state === "error" ? "yellow" : "cyan";
+					const prefix = showGuide ? `${styleText(barStyle, S_BAR)}  ` : "";
+					const footerLines = this.state === "error" ? this.error.split("\n").map((line, index) => index === 0 ? `${showGuide ? `${styleText("yellow", S_BAR_END)}  ` : ""}${styleText("yellow", line)}` : `   ${line}`) : [...navigationFooterLines(showGuide, "cyan", opts.navigation, [styleText("dim", "↑/↓ option"), styleText("dim", "space select")]), showGuide ? styleText("cyan", S_BAR_END) : ""];
+					const titleLineCount = title.split("\n").length;
+					const footerLineCount = footerLines.length + 1;
+					return `${title}${prefix}${limitOptions({
+						output: opts.output,
+						options: this.options,
+						cursor: this.cursor,
+						columnPadding: prefix.length,
+						rowPadding: titleLineCount + footerLineCount,
+						style: styleOption
+					}).join(`\n${prefix}`)}\n${footerLines.join("\n")}\n`;
+				}
+			}
+		}
+	}).prompt();
+}
+function autocompleteMultiselectWithNavigationFooter(opts) {
+	return new AutocompletePrompt({
+		options: opts.options,
+		multiple: true,
+		filter: opts.filter,
+		initialValue: opts.initialValues,
+		signal: opts.signal,
+		input: opts.input,
+		output: opts.output,
+		render() {
+			return renderAutocomplete(this, opts);
+		}
+	}).prompt();
+}
+function confirmWithNavigationFooter(opts) {
+	const active = "Yes";
+	const inactive = "No";
+	return new ConfirmPrompt({
+		active,
+		inactive,
+		signal: opts.signal,
+		input: opts.input,
+		output: opts.output,
+		initialValue: opts.initialValue ?? true,
+		render() {
+			const showGuide = settings$1.withGuide;
+			const titlePrefix = `${symbol(this.state)}  `;
+			const titlePrefixBar = showGuide ? `${styleText("gray", S_BAR)}  ` : "";
+			const messageLines = wrapTextWithPrefix(opts.output, opts.message, titlePrefixBar, titlePrefix);
+			const title = `${showGuide ? `${styleText("gray", S_BAR)}\n` : ""}${messageLines}\n`;
+			const value = this.value ? active : inactive;
+			switch (this.state) {
+				case "submit": return `${title}${showGuide ? `${styleText("gray", S_BAR)}  ` : ""}${styleText("dim", value)}`;
+				case "cancel": return `${title}${showGuide ? `${styleText("gray", S_BAR)}  ` : ""}${styleText(["strikethrough", "dim"], value)}${showGuide ? `\n${styleText("gray", S_BAR)}` : ""}`;
+				default: {
+					const defaultPrefix = showGuide ? `${styleText("cyan", S_BAR)}  ` : "";
+					const defaultPrefixEnd = showGuide ? styleText("cyan", S_BAR_END) : "";
+					const separator = opts.vertical ? showGuide ? `\n${styleText("cyan", S_BAR)}  ` : "\n" : ` ${styleText("dim", "/")} `;
+					const footerLines = navigationFooterLines(showGuide, "cyan", opts.navigation, [styleText("dim", "↑/↓ option")]);
+					return `${title}${defaultPrefix}${this.value ? `${styleText("green", S_RADIO_ACTIVE)} ${active}` : `${styleText("dim", S_RADIO_INACTIVE)} ${styleText("dim", active)}`}${separator}${!this.value ? `${styleText("green", S_RADIO_ACTIVE)} ${inactive}` : `${styleText("dim", S_RADIO_INACTIVE)} ${styleText("dim", inactive)}`}\n${footerLines.length > 0 ? `${footerLines.join("\n")}\n` : ""}${defaultPrefixEnd}\n`;
+				}
+			}
+		}
+	}).prompt();
+}
+//#endregion
+//#region src/wizard/clack-prompter.ts
+const CLAW_SPINNER_FRAMES = [
+	"(\\/)",
+	"(||)",
+	"(--)",
+	"(||)"
+];
+function guardCancel(value, output, signal) {
+	if (value === CANCEL_SYMBOL) {
+		if (!signal?.aborted) cancel(stylePromptTitle("Setup cancelled.") ?? "Setup cancelled.", { output });
+		throw new WizardCancelledError();
+	}
+	return value;
+}
+function resolveNavigationDirection(navigation, key) {
+	if (key?.name === "left" && navigation?.canGoBack) return "back";
+	if (key?.name === "right" && navigation?.canGoForward) return "forward";
+}
+function hasPromptNavigation(navigation) {
+	return navigation?.canGoBack === true || navigation?.canGoForward === true;
+}
+async function withHorizontalCursorActionsDisabled(disabled, work) {
+	if (!disabled) return await work();
+	const hadLeft = settings.actions.has("left");
+	const hadRight = settings.actions.has("right");
+	settings.actions.delete("left");
+	settings.actions.delete("right");
+	try {
+		return await work();
+	} finally {
+		if (hadLeft) settings.actions.add("left");
+		if (hadRight) settings.actions.add("right");
+	}
+}
+async function runPromptWithNavigation(navigation, work, output, externalSignal) {
+	return await withHorizontalCursorActionsDisabled(hasPromptNavigation(navigation), async () => {
+		const controller = new AbortController();
+		const signal = externalSignal ? AbortSignal.any([controller.signal, externalSignal]) : controller.signal;
+		let navigationDirection;
+		let promptSettled = false;
+		let cancellationImmediate;
+		const queueCancellation = () => {
+			if (cancellationImmediate || signal.aborted || navigationDirection) return;
+			cancellationImmediate = setImmediate(() => {
+				cancellationImmediate = void 0;
+				if (!promptSettled && !signal.aborted && !navigationDirection) controller.abort();
+			});
+		};
+		const onKeypress = (input, key) => {
+			if (input === "" || key?.ctrl === true && key.name === "d") {
+				queueCancellation();
+				return;
+			}
+			const nextDirection = resolveNavigationDirection(navigation, key);
+			if (!nextDirection) return;
+			navigationDirection ??= nextDirection;
+			controller.abort();
+		};
+		try {
+			process.stdin.once("end", queueCancellation);
+			if (process.stdin.readableEnded) queueCancellation();
+			process.stdin.on("keypress", onKeypress);
+			const value = await work(signal).finally(() => {
+				promptSettled = true;
+			});
+			if (navigationDirection) throw new WizardNavigationError(navigationDirection);
+			return guardCancel(value, output, externalSignal);
+		} finally {
+			if (cancellationImmediate) {
+				clearImmediate(cancellationImmediate);
+				cancellationImmediate = void 0;
+			}
+			process.stdin.off("end", queueCancellation);
+			process.stdin.off("keypress", onKeypress);
+		}
+	});
+}
+function tokenizedOptionFilter(search, option) {
+	const tokens = normalizeLowercaseStringOrEmpty(search).split(/\s+/).filter((token) => token.length > 0);
+	if (tokens.length === 0) return true;
+	const label = stripAnsi(option.label ?? "");
+	const hint = stripAnsi(option.hint ?? "");
+	const value = String(option.value ?? "");
+	const haystack = normalizeLowercaseStringOrEmpty(`${label} ${hint} ${value}`);
+	return tokens.every((token) => haystack.includes(token));
+}
+function createClackPrompter(output = process.stdout, signal) {
+	return {
+		intro: async (title) => {
+			intro(stylePromptTitle(title) ?? title, { output });
+		},
+		outro: async (message) => {
+			outro(stylePromptTitle(message) ?? message, { output });
+		},
+		note: async (message, title) => {
+			noteToStream(message, title, output);
+		},
+		plain: async (message) => {
+			output.write(message.endsWith("\n") ? message : `${message}\n`);
+		},
+		select: async (params) => {
+			const { message, options: styledOptions } = styleSelectParams(params);
+			const options = styledOptions;
+			return await runPromptWithNavigation(params.navigation, async (promptSignal) => {
+				return await (params.searchable ? params.navigation ? autocompleteWithNavigationFooter : autocomplete : params.navigation ? selectWithNavigationFooter : select)({
+					message,
+					options,
+					initialValue: params.initialValue,
+					...params.searchable ? { filter: tokenizedOptionFilter } : {},
+					signal: promptSignal,
+					...params.navigation ? { navigation: params.navigation } : {},
+					output
+				});
+			}, output, signal);
+		},
+		multiselect: async (params) => {
+			const { message, options: styledOptions } = styleSelectParams(params);
+			const options = styledOptions;
+			return await runPromptWithNavigation(params.navigation, async (promptSignal) => {
+				return await (params.searchable ? params.navigation ? autocompleteMultiselectWithNavigationFooter : autocompleteMultiselect : params.navigation ? multiselectWithNavigationFooter : multiselect)({
+					message,
+					options,
+					initialValues: params.initialValues,
+					...params.searchable ? { filter: tokenizedOptionFilter } : {},
+					signal: promptSignal,
+					...params.navigation ? { navigation: params.navigation } : {},
+					output
+				});
+			}, output, signal);
+		},
+		text: async (params) => {
+			return await runPromptWithNavigation(params.navigation, async (promptSignal) => {
+				const validate = params.validate;
+				return await (params.sensitive ? params.navigation ? passwordWithNavigationFooter : password : params.navigation ? textWithNavigationFooter : text)({
+					message: stylePromptMessage(params.message),
+					...!params.sensitive ? {
+						initialValue: params.initialValue,
+						placeholder: params.placeholder
+					} : {},
+					validate: validate ? (value) => validate(value ?? "") : void 0,
+					...params.navigation ? { navigation: params.navigation } : {},
+					signal: promptSignal,
+					output
+				});
+			}, output, params.signal && signal ? AbortSignal.any([params.signal, signal]) : params.signal ?? signal);
+		},
+		confirm: async (params) => await runPromptWithNavigation(params.navigation, async (promptSignal) => {
+			const message = stylePromptMessage(params.message);
+			return await (params.navigation ? confirmWithNavigationFooter : confirm)({
+				message,
+				initialValue: params.initialValue,
+				vertical: params.layout === "vertical",
+				...params.navigation ? { navigation: params.navigation } : {},
+				signal: promptSignal,
+				output
+			});
+		}, output, signal),
+		progress: (label) => {
+			const useClawSpinner = output.isTTY && isRich() && !process.env.CI && !process.env.VITEST;
+			const spin = createProgressSpinner(useClawSpinner ? {
+				frames: CLAW_SPINNER_FRAMES,
+				delay: 120,
+				styleFrame: theme.accent,
+				output
+			} : { output }, 10);
+			spin.start(label);
+			const osc = createCliProgress({
+				label,
+				indeterminate: true,
+				enabled: true,
+				fallback: "none",
+				stream: output
+			});
+			return {
+				update: (message) => {
+					spin.message(message);
+					osc.setLabel(message);
+				},
+				stop: (message) => {
+					osc.done();
+					spin.stop(message);
+				}
+			};
+		}
+	};
+}
+//#endregion
+export { tokenizedOptionFilter as n, createClackPrompter as t };

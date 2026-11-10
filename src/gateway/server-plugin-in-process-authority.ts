@@ -5,6 +5,7 @@ import {
   resolveGatewayToolOperatorSelection,
   withoutGatewayToolCallerIdentity,
 } from "../agents/tools/gateway-caller-context.js";
+import { composeSessionSourceAssertion } from "../config/sessions/session-source-authority.js";
 import { getActivePluginRegistry } from "../plugins/runtime.js";
 import {
   getCanonicalGatewayContextResolver,
@@ -19,6 +20,7 @@ import {
   bindInProcessSubagentResume,
   readInProcessSubagentResume,
 } from "./in-process-subagent-resume.js";
+import { resolveLeastPrivilegeOperatorScopesForMethod } from "./method-scopes.js";
 import { resolveGatewayOperatorRoleActor } from "./operator-role-policy.js";
 import { captureGatewayOperatorRunAuthority } from "./operator-run-authority.js";
 import {
@@ -127,11 +129,12 @@ export function runWithOperatorToolGatewayCleanupContext<T>(run: () => T): T {
   );
 }
 
-/** Captured while live; its accepting owner, not the original invocation, releases it. */
-export function captureOperatorToolGatewayContinuationContext(target?: {
-  sessionKey: string;
-  agentId?: string;
-}) {
+export function captureOperatorToolGatewayContinuationContextInternal(
+  target?: { sessionKey: string; agentId?: string },
+  options?: {
+    request?: { method: string; params: Record<string, unknown> };
+  },
+) {
   const scope = getPluginRuntimeGatewayRequestScope();
   const caller = getGatewayToolCallerIdentity();
   const resolveGatewayContext = caller?.gatewayContextResolver ?? scope?.resolveGatewayContext;
@@ -141,22 +144,33 @@ export function captureOperatorToolGatewayContinuationContext(target?: {
   // Use the normal dispatch owner to intersect scopes and validate the live caller
   // before transferring its source. A cleanup scope alone retains request lifetime.
   const assertCallerCurrent = captureGatewayToolCallerAssertion();
-  const resolved = resolveInProcessGatewayDispatch("agent", target, {
+  const method = options?.request?.method ?? "agent";
+  if (options?.request && method !== "plugins.reload") {
+    throw new Error("Request-bound continuation only supports plugin reload");
+  }
+  const requestParams = options?.request?.params ?? target;
+  const resolved = resolveInProcessGatewayDispatch(method, requestParams, {
     forceSyntheticClient: true,
     operatorRoleActor: { kind: "system" },
     resolveGatewayContext,
-    syntheticScopeMode: "exact",
+    ...(options?.request
+      ? {
+          syntheticScopes: resolveLeastPrivilegeOperatorScopesForMethod(method, requestParams),
+          syntheticScopeMode: "minimum" as const,
+        }
+      : { syntheticScopeMode: "exact" as const }),
   });
   return captureGatewayOperatorRunAuthority({
     client: resolved.operatorSourceClient,
     context: resolved.context,
     hasCurrentClientAuthority: resolved.hasCurrentClientAuthority,
+    independentContinuation: true,
   }).then((captured) => {
     try {
       captured?.authority.assertCurrent();
       resolved.assertContextCurrent();
       resolved.assertInvocationCurrent();
-      assertCallerCurrent?.("agent");
+      assertCallerCurrent?.(method);
       const continuationScope = runWithOperatorToolGatewayCleanupContext(() => ({
         ...getPluginRuntimeGatewayRequestScope(),
         client: captured
@@ -197,7 +211,15 @@ export function captureOperatorToolGatewayContinuationContext(target?: {
       const assertCurrent = () => {
         lifetime.signal.throwIfAborted();
         captured?.authority.assertCurrent();
-        resolved.assertSourceCurrent();
+        if (captured) {
+          if (
+            (resolveGatewayContext ? resolveGatewayContext() : scope?.context) !== resolved.context
+          ) {
+            throw new Error("Gateway continuation instance binding is no longer active");
+          }
+        } else {
+          resolved.assertSourceCurrent();
+        }
         lifetime.signal.throwIfAborted();
       };
       return {
@@ -219,6 +241,14 @@ export function captureOperatorToolGatewayContinuationContext(target?: {
       throw error;
     }
   });
+}
+
+/** Captured while live; its accepting owner, not the original invocation, releases it. */
+export function captureOperatorToolGatewayContinuationContext(target?: {
+  sessionKey: string;
+  agentId?: string;
+}) {
+  return captureOperatorToolGatewayContinuationContextInternal(target);
 }
 
 /** Holds the original operator source until an accepted asynchronous follow-up settles. */
@@ -275,7 +305,7 @@ export function resolveInProcessGatewayDispatch(
     method === "agent" ? options?.settleWakeReplay?.assertCurrent : undefined;
   const isHostOwnedAgentRun =
     method === "agent" && Boolean(options?.agentRunTracking || assertSettleWakeCurrent);
-  const assertCallerCurrent = captureGatewayToolCallerAssertion();
+  const assertCallerCurrent = captureGatewayToolCallerAssertion(method);
   const transfersCreatedInput =
     method === "sessions.create" &&
     options?.sessionCreation?.via === "spawn" &&
@@ -283,16 +313,21 @@ export function resolveInProcessGatewayDispatch(
     assertCallerCurrent !== undefined &&
     options.agentToolCaller?.agentId === caller.agentId &&
     options.agentToolCaller.sessionKey === caller.sessionKey;
-  const assertInvocationCurrent = () => {
-    selection?.assertCurrent();
-    runtimeParticipant?.assertCurrent();
-    assertSettleWakeCurrent?.();
-    if (!isHostOwnedAgentRun || !operatorRunAuthority) {
-      inheritedOperatorAuthority?.signal.throwIfAborted();
-      inheritedOperatorAuthority?.assertCurrent?.();
-    }
-    operatorRunAuthority?.assertCurrent();
-  };
+  const assertInvocationCurrent = composeSessionSourceAssertion([
+    selection?.assertCurrent,
+    runtimeParticipant?.assertCurrent,
+    assertSettleWakeCurrent,
+    !isHostOwnedAgentRun || !operatorRunAuthority
+      ? composeSessionSourceAssertion(
+          [inheritedOperatorAuthority?.assertCurrent],
+          (assertSource) => {
+            inheritedOperatorAuthority?.signal.throwIfAborted();
+            assertSource();
+          },
+        )
+      : undefined,
+    operatorRunAuthority?.assertCurrent,
+  ]);
   assertInvocationCurrent();
   if (!isHostOwnedAgentRun) {
     assertCallerCurrent?.(method);
@@ -476,25 +511,26 @@ export function resolveInProcessGatewayDispatch(
     }
     bindInProcessSubagentResume(client.internal, resume);
   }
-  const assertSourceCurrent = () => {
-    operatorRunAuthority?.assertCurrent();
-    if ((resolveGatewayContext ? resolveGatewayContext() : scope?.context) !== context) {
-      throw new Error(
-        `In-process gateway dispatch requires a current gateway instance binding (method: ${method}).`,
-      );
-    }
-  };
+  const assertSourceCurrent = composeSessionSourceAssertion(
+    [operatorRunAuthority?.assertCurrent],
+    (assertSource) => {
+      assertSource();
+      if ((resolveGatewayContext ? resolveGatewayContext() : scope?.context) !== context) {
+        throw new Error(
+          `In-process gateway dispatch requires a current gateway instance binding (method: ${method}).`,
+        );
+      }
+    },
+  );
   return {
     assertSourceCurrent,
     assertInvocationCurrent,
-    assertContextCurrent: () => {
-      selection?.assertCurrent();
-      runtimeParticipant?.assertCurrent();
-      assertSourceCurrent();
-      if (method !== "agent") {
-        assertCallerCurrent?.(method);
-      }
-    },
+    assertContextCurrent: composeSessionSourceAssertion([
+      selection?.assertCurrent,
+      runtimeParticipant?.assertCurrent,
+      assertSourceCurrent,
+      method !== "agent" ? assertCallerCurrent : undefined,
+    ]),
     ...(transfersCreatedInput ? { assertCreatedInputSourceCurrent: assertSourceCurrent } : {}),
     client,
     context,

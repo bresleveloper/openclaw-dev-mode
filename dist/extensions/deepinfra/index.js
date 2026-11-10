@@ -1,5 +1,5 @@
 import { createDeepInfraAnthropicCacheWrapper } from "./cache-wrapper.js";
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-D7BLeoIa.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-5ywdmEQ1.mjs";
 import { buildDeepInfraEmbeddingAdapter } from "./embedding-adapter.js";
 import { buildDeepInfraImageGenerationProvider } from "./image-generation-provider.js";
 import { buildDeepInfraMediaUnderstandingProvider } from "./media-understanding-provider.js";
@@ -11,7 +11,7 @@ import { buildDeepInfraSpeechProvider } from "./speech-provider.js";
 import { listDeepInfraImageGenCatalog, listDeepInfraVideoGenCatalog } from "./surface-model-catalogs.js";
 import { buildDeepInfraVideoGenerationProvider } from "./video-generation-provider.js";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
-import { buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
+import { applyModelCompatPatch, buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
 import { createOpenRouterWrapper, isProxyReasoningUnsupported } from "openclaw/plugin-sdk/provider-stream";
 //#region extensions/deepinfra/index.ts
 const PROVIDER_ID = "deepinfra";
@@ -35,6 +35,10 @@ var deepinfra_default = defineSingleProviderPluginEntry({
 			staticRun: async () => ({ provider: buildStaticDeepInfraProvider() })
 		},
 		...buildProviderReplayFamilyHooks({ family: "passthrough-gemini" }),
+		normalizeResolvedModel: ({ model }) => model.api === "openai-completions" && model.baseUrl?.trim().replace(/\/+$/u, "") === openclaw_plugin_default.modelCatalog.providers.deepinfra.baseUrl ? applyModelCompatPatch(model, {
+			supportsPromptCacheKey: model.compat?.supportsPromptCacheKey ?? true,
+			supportsLongCacheRetention: model.compat?.supportsLongCacheRetention ?? false
+		}) : model,
 		wrapStreamFn: (ctx) => {
 			const thinkingLevel = isProxyReasoningUnsupported(ctx.modelId) ? void 0 : ctx.thinkingLevel;
 			return createDeepInfraAnthropicCacheWrapper(createOpenRouterWrapper(ctx.streamFn, thinkingLevel), ctx.extraParams);

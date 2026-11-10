@@ -1,13 +1,13 @@
-import { o as getRuntimeConfigSnapshot } from "../../runtime-snapshot-DYptB0Cf.mjs";
+import { o as getRuntimeConfigSnapshot } from "../../runtime-snapshot-BBYDJbw9.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import { m as readToolStringParam } from "../../common-Dyxcwsy8.mjs";
-import "../../runtime-config-snapshot-DlrhEsA8.mjs";
-import "../../provider-web-search-DUaDxxRi.mjs";
+import { m as readToolStringParam } from "../../common-BofcG96e.mjs";
+import "../../runtime-config-snapshot-kTPhBdOK.mjs";
+import "../../provider-web-search-Buc2BYyP.mjs";
 import { n as createCodeExecutionToolDefinition, t as buildMissingCodeExecutionApiKeyPayload } from "../../code-execution-tool-shared-CeAkKo1Y.mjs";
-import { a as XAI_DEFAULT_MODEL_ID } from "../../model-definitions-BTg9V4Hq.mjs";
-import { r as resolveXaiToolApiKeyWithAuth } from "../../tool-auth-shared-DfHEiTF0.mjs";
-import { n as readPluginCodeExecutionConfig, r as resolveCodeExecutionEnabled, t as readCodeExecutionConfigRecord } from "../../code-execution-config-LHbglujB.mjs";
-import { a as requireXaiResponseTextAndCitations, c as resolveXaiToolDefaultReasoningEffort, i as requestXaiResponsesTool, n as resolvePositiveIntegerToolConfig, r as XAI_RESPONSES_ENDPOINT, t as resolveNormalizedXaiToolModel } from "../../tool-config-shared-BH-m0o8C.mjs";
+import { a as XAI_DEFAULT_MODEL_ID } from "../../model-definitions-Bv0caRc4.mjs";
+import { r as resolveXaiToolApiKeyWithAuth } from "../../tool-auth-shared-CCLi3SRe.mjs";
+import { n as readPluginCodeExecutionConfig, r as resolveCodeExecutionEnabled, t as readCodeExecutionConfigRecord } from "../../code-execution-config-Bbrjc7Mc.mjs";
+import { a as requireXaiResponseTextAndCitations, c as resolveXaiToolDefaultReasoningEffort, i as requestXaiResponsesTool, n as resolvePositiveIntegerToolConfig, r as XAI_RESPONSES_ENDPOINT, t as resolveNormalizedXaiToolModel } from "../../tool-config-shared-D54mUMFo.mjs";
 //#region extensions/xai/src/code-execution-shared.ts
 function resolveXaiCodeExecutionModel(config) {
 	return resolveNormalizedXaiToolModel({

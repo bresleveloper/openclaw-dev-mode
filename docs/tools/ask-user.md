@@ -26,6 +26,10 @@ You can answer from any supported conversation surface:
   or expired questions keep their wording alongside the outcome.
   Switching between pending questions preserves both selected choices and typed
   answers, even when typed text matches an option label.
+  Use number keys to choose an option and Ctrl+Enter (Cmd+Enter on macOS) to
+  continue while the panel, a choice, or an answer field is focused. Plain Enter
+  adds a line in **Other**; links, file pickers, and action buttons keep their
+  native keyboard behavior.
 - The TUI shows a question prompt in both Gateway and local modes. Use arrow
   keys or number keys to choose an option, **Other…** to type an answer, or
   **Skip**. Multi-select prompts let you toggle choices before confirming;
@@ -54,6 +58,15 @@ does not expose their questions or make them answerable. Secret, administrative,
 and sessionless questions keep their existing privileged access requirements.
 Answering a question does not grant the agent additional permissions.
 
+An accepted answer belongs to the waiting agent turn, which can save its tool
+result and continue after the answer enters conversation history. An unrelated
+new user turn, a changed transcript branch, or revoked run authority still
+prevents that older turn from appending a response.
+
+If a standalone question link cannot refresh after reconnecting, use **Retry**
+to load it again without losing the answer you typed in that page. A question
+that is no longer available remains unavailable.
+
 OpenClaw always enables a free-text **Other** answer. The agent must not add an
 `Other` option to the authored option list.
 
@@ -77,6 +90,10 @@ channels. The Control UI and TUI keep the full structured stepper. The TUI shows
 the time remaining, dismisses expired prompts, and restores pending questions
 for the selected session after reconnecting or switching sessions. Local mode
 keeps questions in the running process; they do not survive exiting the TUI.
+
+A turn started through the `agent` Gateway method with a messaging-channel
+target also delivers its question to that conversation. The question is an
+explicit tool message; automatic final-reply delivery is configured separately.
 
 ## Async questions
 
@@ -115,8 +132,8 @@ answers ambiguous, the summary shows the saved reply text without splitting it.
 
 The default timeout is 900 seconds. `timeoutSeconds` is clamped to the range
 30 through 3600 seconds. This is a maximum human wait, subject to earlier agent
-run cancellation or the overall run timeout. A pending question does not extend
-an explicit run budget.
+run cancellation or the current model attempt's timeout. A pending question
+does not pause or extend that attempt's execution budget.
 
 If the question expires or is cancelled before an answer arrives, the tool
 returns `status: "no_answer"`. The agent then continues with its best judgment.

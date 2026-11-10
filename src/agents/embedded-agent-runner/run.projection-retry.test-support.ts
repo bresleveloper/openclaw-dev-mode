@@ -35,6 +35,8 @@ describe("runEmbeddedAgent transcript projection retry", () => {
     resetSharedRunIntegrationHarnessMocks();
     const { createOpenClawTestState } = await import("../../test-utils/openclaw-test-state.js");
     state = await createOpenClawTestState({ label: "run.projection-retry" });
+    const { setRuntimeConfigSnapshot } = await import("../../config/runtime-snapshot.js");
+    setRuntimeConfigSnapshot({});
   });
 
   afterEach(async () => {
@@ -152,7 +154,7 @@ describe("runEmbeddedAgent transcript projection retry", () => {
         { ...sessionTarget, expectedWriterRunId: "run-owned-projection-retry" },
         expect.any(AbortSignal),
       );
-      agentDatabase.closeOpenClawAgentDatabaseByPath(
+      await agentDatabase.closeOpenClawAgentDatabaseByPathAsync(
         agentDatabase.resolveOpenClawAgentSqlitePath(databaseOptions),
       );
       expect(

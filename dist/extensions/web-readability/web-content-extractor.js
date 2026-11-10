@@ -1,7 +1,7 @@
 import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
 import { t as stripInvisibleUnicode } from "../../unicode-visibility-cJ_24BIl.mjs";
-import { i as normalizeWhitespace, n as htmlToMarkdown, o as sanitizeHtml } from "../../web-fetch-utils-Iv2Zmiom.mjs";
-import "../../web-content-extractor-DBM1nXel.mjs";
+import { n as htmlToMarkdown, o as sanitizeHtml, r as markdownToText } from "../../web-fetch-utils-_ON8SiFP.mjs";
+import "../../web-content-extractor-CiB6tsyv.mjs";
 //#region extensions/web-readability/web-content-extractor.ts
 const READABILITY_MAX_HTML_CHARS = 1e6;
 const READABILITY_MAX_ESTIMATED_NESTING_DEPTH = 3e3;
@@ -68,14 +68,11 @@ async function extractWithReadability(request) {
 		const [{ Readability }, { parseHTML }] = await loadReadabilityDeps();
 		const { document } = parseHTML(cleanHtml, { location: { href: request.url } });
 		const textMode = request.extractMode === "text";
-		const parsed = new Readability(document, textMode ? { serializer: () => "" } : void 0).parse();
+		const parsed = new Readability(document).parse();
 		if (!parsed) return null;
 		const title = parsed.title || void 0;
-		const rendered = textMode ? {
-			text: normalizeWhitespace(parsed.textContent ?? ""),
-			title
-		} : htmlToMarkdown(parsed.content ?? "");
-		const text = stripInvisibleUnicode(rendered.text);
+		const rendered = htmlToMarkdown(parsed.content ?? "", { linksAsText: textMode });
+		const text = stripInvisibleUnicode(textMode ? markdownToText(rendered.text) : rendered.text);
 		return text ? {
 			text,
 			title: title ?? rendered.title

@@ -1,9 +1,9 @@
-import { n as validateJsonSchemaValue } from "../../schema-validator-qnYkiHpy.mjs";
-import { x as createAssistantMessageEventStream } from "../../llm-BoijNIT8.mjs";
+import { n as validateJsonSchemaValue } from "../../schema-validator-B9g4ZpIt.mjs";
+import { S as createAssistantMessageEventStream } from "../../llm-YCnSGJtn.mjs";
 import { t as buildAssistantMessage } from "../../stream-message-shared-CYuIJ_XF.mjs";
-import "../../json-schema-runtime-WxokAVVM.mjs";
-import { r as quoteUnsafeIntegerLiterals } from "../../json-unsafe-integers-BeeNmB5X.mjs";
-import { d as failTransportStream, o as createEmptyTransportUsage } from "../../provider-transport-runtime-wQQsx9u_.mjs";
+import "../../json-schema-runtime-DwjLDY1j.mjs";
+import { r as quoteUnsafeIntegerLiterals } from "../../json-unsafe-integers-DcKagBUk.mjs";
+import { p as failTransportStream, s as createEmptyTransportUsage } from "../../provider-transport-runtime-DyX8vIBV.mjs";
 //#region extensions/apple-fm/stream.ts
 /** Native tools propose calls; the OpenClaw agent loop validates and executes them. */
 function createAppleFmStream(native) {
@@ -94,6 +94,10 @@ function createAppleFmStream(native) {
 						type: "toolCall",
 						...call
 					};
+					const streamingCall = {
+						...toolCall,
+						partialJson: JSON.stringify(call.arguments)
+					};
 					const contentIndex = message.content.length;
 					message.content.push(toolCall);
 					stream.push({
@@ -104,8 +108,11 @@ function createAppleFmStream(native) {
 					stream.push({
 						type: "toolcall_delta",
 						contentIndex,
-						delta: JSON.stringify(call.arguments),
-						partial: message
+						delta: streamingCall.partialJson,
+						partial: {
+							...message,
+							content: [...message.content.slice(0, -1), streamingCall]
+						}
 					});
 					stream.push({
 						type: "toolcall_end",

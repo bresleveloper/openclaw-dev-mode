@@ -132,7 +132,7 @@ bare spec installs through npm. Raw `@openclaw/*`
 specs that match bundled plugins also resolve to the bundled copy before npm
 fallback. Use `npm:@openclaw/<plugin>@<version>` to deliberately install the
 external npm package instead of the bundled copy. Use `clawhub:`, `npm:`,
-`git:`, or `npm-pack:` for deterministic source selection. See
+`git:`, or `npm-pack:` to select the source explicitly. See
 [`openclaw plugins`](/cli/plugins#install) for the full command contract.
 
 For npm installs, unpinned specs and `@latest` choose the newest stable
@@ -221,7 +221,7 @@ Key policy rules:
 - OpenAI-family Codex routing keeps provider and runtime plugin boundaries
   separate: legacy Codex model refs are legacy config that doctor repairs,
   while the bundled `codex` plugin owns Codex app-server runtime for
-  canonical `openai/*` agent refs, explicit `agentRuntime.id: "codex"`, and
+  current `openai/*` agent refs, explicit `agentRuntime.id: "codex"`, and
   legacy `codex/*` refs.
 
 When `plugins.allow` is unset and non-bundled plugins are auto-discovered from
@@ -387,6 +387,7 @@ If the plugin needs a trust-gated capability, use the applicable remedy below.
 | `install-path-mismatch` | Reinstall the intended package and remove load paths that select another copy.                                                                                                                                       |
 | `owner-ambiguous`       | Refresh the registry and resolve conflicting package ownership before reinstalling.                                                                                                                                  |
 | `provenance-invalid`    | Reinstall from the official source; conflicting or partial provenance is not automatically trusted.                                                                                                                  |
+| `third-party-npm`       | The npm install record is consistent, but the plugin is not official. Reinstalling the same package cannot grant trust-gated capabilities; use an official package if you need them.                                 |
 
 `bundled` and `trusted-official` identify accepted sources. Legacy npm records
 with a consistent official package spec remain valid without extra resolution

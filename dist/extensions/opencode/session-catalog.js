@@ -40,9 +40,7 @@ const SAFE_ENV_KEYS = [
 	"XDG_DATA_HOME",
 	"XDG_STATE_HOME"
 ];
-const openCodeConfigIdentities = /* @__PURE__ */ new WeakMap();
 const openCodeQueryCache = /* @__PURE__ */ new Map();
-let nextOpenCodeConfigIdentity = 1;
 const log = createSubsystemLogger("opencode/session-catalog");
 let cliVersion;
 async function isOpenCodeV2() {
@@ -64,14 +62,8 @@ async function isOpenCodeV2() {
 	}
 	return cliVersion.result;
 }
-function openCodeQueryCacheKey(query, configIdentity) {
-	let identity = openCodeConfigIdentities.get(configIdentity);
-	if (identity === void 0) {
-		identity = nextOpenCodeConfigIdentity++;
-		openCodeConfigIdentities.set(configIdentity, identity);
-	}
-	const environment = SAFE_ENV_KEYS.map((key) => `${key}=${process.env[key] ?? ""}`).join("\0");
-	return `${String(identity)}\0${environment}\0${query}`;
+function openCodeQueryCacheKey(query) {
+	return `${SAFE_ENV_KEYS.map((key) => `${key}=${process.env[key] ?? ""}`).join("\0")}\0${query}`;
 }
 const isExactOpenCodeSessionCursor = sessionCatalogPaging.isExactCursor;
 const OPENCODE_PARAMETER_MESSAGES = {
@@ -157,10 +149,10 @@ async function queryOpenCodeSessions(query, count) {
 	if (!await isOpenCodeV2()) return queryOpenCodeDatabase(query);
 	const sessions = [];
 	let cursor;
-	const deadline = Date.now() + CLI_TIMEOUT_MS;
+	const deadline = performance.now() + CLI_TIMEOUT_MS;
 	while (sessions.length < count) {
 		const limit = Math.max(100, count - sessions.length);
-		const parsed = JSON.parse(await runOpenCodeApi("session.list", [`limit=${limit}`, ...cursor ? [`cursor=${cursor}`] : ["order=desc", "parentID=null"]], deadline - Date.now()));
+		const parsed = JSON.parse(await runOpenCodeApi("session.list", [`limit=${limit}`, ...cursor ? [`cursor=${cursor}`] : ["order=desc", "parentID=null"]], deadline - performance.now()));
 		if (!isRecord(parsed) || !Array.isArray(parsed.data) || parsed.data.length > limit) throw new Error("OpenCode returned an invalid session list");
 		for (const session of parsed.data) {
 			if (!isRecord(session) || !isRecord(session.time) || !isRecord(session.location)) throw new Error("OpenCode returned an invalid session");
@@ -183,7 +175,7 @@ async function queryOpenCodeSessions(query, count) {
 	return sessions;
 }
 async function queryCachedOpenCodeSessions(query, count, options) {
-	const key = openCodeQueryCacheKey(query, options.configIdentity ?? process.env);
+	const key = openCodeQueryCacheKey(query);
 	const cached = openCodeQueryCache.get(key);
 	if (options.forceRefresh !== true && cached && cached.expiresAt > Date.now()) {
 		openCodeQueryCache.delete(key);

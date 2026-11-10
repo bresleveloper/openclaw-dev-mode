@@ -1,2 +1,2 @@
-import { n as listEmbeddingProviders, t as getEmbeddingProvider } from "../embedding-provider-runtime-Ds9Q1kIR.mjs";
+import { n as listEmbeddingProviders, t as getEmbeddingProvider } from "../embedding-provider-runtime-B1n-kPR5.mjs";
 export { getEmbeddingProvider, listEmbeddingProviders };

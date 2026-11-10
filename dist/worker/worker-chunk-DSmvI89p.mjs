@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{c as t}from"./worker-chunk-Dhgagryu.mjs";function materializeErrorStack(e){let t=e,n=/* @__PURE__ */ new Set;for(;t instanceof Error&&!n.has(t);){n.add(t);try{t.stack=String(t.stack)}catch{t.stack=`Stack trace unavailable: custom formatter failed`}t=t.cause}}var n=e((()=>{t()}));export{materializeErrorStack as n,n as t};

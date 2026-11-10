@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,o as n}from"./worker-chunk-B6ohhBjF.mjs";import r from"node:path";function resolveWorkshopSkillsDir(e,t,i=process.env){return r.join(n(e,t,i),`workshop-skills`)}var i=e((()=>{t()}));export{resolveWorkshopSkillsDir as n,i as t};

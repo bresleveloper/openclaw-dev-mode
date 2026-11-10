@@ -1,0 +1,2 @@
+import { a as resetGlobalUndiciStreamTimeoutsForTests, i as forceResetGlobalDispatcher, n as ensureGlobalUndiciDispatcherStreamTimeouts, r as ensureGlobalUndiciEnvProxyDispatcher, t as DEFAULT_UNDICI_STREAM_TIMEOUT_MS } from "./undici-global-dispatcher-9JyoXANm.mjs";
+export { DEFAULT_UNDICI_STREAM_TIMEOUT_MS, ensureGlobalUndiciDispatcherStreamTimeouts, ensureGlobalUndiciEnvProxyDispatcher, forceResetGlobalDispatcher, resetGlobalUndiciStreamTimeoutsForTests };

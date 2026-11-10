@@ -1,11 +1,5 @@
-import { redactTranscriptText } from "../agents/transcript-redact-text.js";
-import {
-  publishTranscriptUpdate,
-  readActiveTranscriptEntryAnchor,
-  rewriteTranscriptMessageAtAnchor,
-} from "../config/sessions/session-accessor.js";
-import { SessionTranscriptWriterClaimReboundError } from "../config/sessions/transcript-write-context.js";
-import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { publishTranscriptUpdate } from "../config/sessions/session-accessor.sqlite-events.js";
+import { rewritePreparedTranscriptMessageAtAnchor } from "../config/sessions/session-message-rewrite.js";
 import { isUserMessage, readModelPromptProjection } from "./user-turn-transcript.message.js";
 import {
   normalizePersistedSteerTargetRunId,
@@ -26,7 +20,7 @@ export async function confirmPersistedSteerTargetRunId(params: {
     }
   | undefined
 > {
-  const rewritten = await rewriteTranscriptMessageAtAnchor(params.admission, (message) => {
+  const rewritten = await rewritePreparedTranscriptMessageAtAnchor(params.admission, (message) => {
     if (!isUserMessage(message)) {
       return undefined;
     }
@@ -53,8 +47,6 @@ export async function capturePersistedModelPromptProjection(params: {
   admission: UserTurnTranscriptAdmissionReceipt;
   message: PersistedUserTurnMessage;
   text: string;
-  requestLocal?: boolean;
-  config?: OpenClawConfig;
   assertCurrent: () => void;
   assertWritable: () => void;
   onCommitted: (
@@ -63,15 +55,7 @@ export async function capturePersistedModelPromptProjection(params: {
   ) => void;
 }): Promise<PersistedUserTurnMessage> {
   params.assertCurrent();
-  const text = redactTranscriptText(params.text, params.config);
-  const projected = (candidate: PersistedUserTurnMessage): PersistedUserTurnMessage => ({
-    ...candidate,
-    __openclaw: { ...candidate["__openclaw"], modelPromptProjection: { version: 1, text } },
-  });
-  // Request-local text crosses the provider boundary under the same redaction, never durably.
-  if (params.requestLocal) {
-    return projected(params.message);
-  }
+  const text = params.text;
   const requireMatchingProjection = (candidate: PersistedUserTurnMessage) => {
     const existing = readModelPromptProjection(candidate);
     if (existing !== undefined && existing !== text) {
@@ -84,26 +68,30 @@ export async function capturePersistedModelPromptProjection(params: {
   }
   params.assertWritable();
   let captured: PersistedUserTurnMessage | undefined;
-  const rewritten = await rewriteTranscriptMessageAtAnchor(params.admission, (candidate) => {
-    params.assertWritable();
-    // Only the still-active admitted row may gain a projection; a moved branch keeps its bytes.
-    if (readActiveTranscriptEntryAnchor(params.admission)?.rawSeq !== params.admission.rawSeq) {
-      throw new SessionTranscriptWriterClaimReboundError();
-    }
-    if (!isUserMessage(candidate)) {
-      throw new Error("Model prompt projection lost its canonical user turn");
-    }
-    if (requireMatchingProjection(candidate)) {
-      captured = candidate;
-      return undefined;
-    }
-    return projected(candidate);
-  });
+  const rewritten = await rewritePreparedTranscriptMessageAtAnchor(
+    params.admission,
+    (candidate) => {
+      if (!isUserMessage(candidate)) {
+        throw new Error("Model prompt projection lost its canonical user turn");
+      }
+      if (requireMatchingProjection(candidate)) {
+        captured = candidate;
+        return undefined;
+      }
+      return {
+        ...candidate,
+        __openclaw: {
+          ...candidate["__openclaw"],
+          modelPromptProjection: { version: 1, text },
+        },
+      };
+    },
+    { active: "sequence", assertCurrent: params.assertWritable },
+  );
   params.assertCurrent();
   if (!rewritten) {
     if (!captured) {
-      // The anchored row was replaced before the rewrite; never attach to its successor.
-      throw new SessionTranscriptWriterClaimReboundError();
+      throw new Error("Model prompt projection lost its canonical user turn");
     }
     params.onCommitted(params.admission, captured);
     return captured;

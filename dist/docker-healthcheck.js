@@ -1,28 +1,27 @@
 import { t as isMainModule } from "./is-main-DYSvvM1W.mjs";
-import { b as resolveGatewayPort } from "./paths-DGIwWbpu.mjs";
-import { r as getRuntimeConfig } from "./io.runtime-BSum32pK.mjs";
-import "./config-9720xhC5.mjs";
-import { s as readActiveGatewayLockPort } from "./gateway-lock-B6mKYs2x.mjs";
+import { b as resolveGatewayPort, d as parseGatewayPortEnvValue } from "./paths-orClZ-2Z.mjs";
+import { t as createConfigIO } from "./io.factory-B5D3Sy_M.mjs";
+import "./config-B3oiWDlr.mjs";
+import { s as readActiveGatewayLockPort } from "./gateway-lock-OT1e72lx.mjs";
 import { fileURLToPath } from "node:url";
 //#region src/docker-healthcheck.ts
-async function resolveDockerHealthcheckPort(deps = {}) {
-	const env = deps.env ?? process.env;
-	const readActivePort = deps.readActiveGatewayLockPort ?? readActiveGatewayLockPort;
+async function resolveDockerHealthcheckPort() {
 	try {
-		const activePort = await readActivePort({ env });
+		const activePort = await readActiveGatewayLockPort({ env: process.env });
 		if (activePort !== void 0) return activePort;
 	} catch {}
-	const config = (deps.getRuntimeConfig ?? (() => getRuntimeConfig({
-		pin: false,
-		skipPluginValidation: true,
-		skipShellEnvFallback: true
-	})))();
-	return (deps.resolveGatewayPort ?? resolveGatewayPort)(config, env);
+	const envPort = parseGatewayPortEnvValue(process.env.OPENCLAW_GATEWAY_PORT);
+	if (envPort !== null) return envPort;
+	const config = await createConfigIO({
+		pluginValidation: "skip",
+		shellEnvFallback: "defer"
+	}).loadConfigAsync();
+	return resolveGatewayPort(config, process.env);
 }
-async function probeDockerGatewayHealth(deps = {}) {
+async function probeDockerGatewayHealth() {
 	try {
-		const port = await resolveDockerHealthcheckPort(deps);
-		return (await (deps.fetch ?? globalThis.fetch)(`http://127.0.0.1:${port}/healthz`)).ok;
+		const port = await resolveDockerHealthcheckPort();
+		return (await globalThis.fetch(`http://127.0.0.1:${port}/healthz`)).ok;
 	} catch {
 		return false;
 	}

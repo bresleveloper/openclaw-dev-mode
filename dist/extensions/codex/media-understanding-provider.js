@@ -33,7 +33,7 @@ async function describeCodexImages(req, options) {
 	const model = req.model.trim();
 	if (!model) throw new Error("Codex image understanding requires model id.");
 	req.signal?.throwIfAborted();
-	const { runBoundedCodexAppServerTurn } = await import("./.setup/bounded-turn-DUVJcTLW.mjs");
+	const { runBoundedCodexAppServerTurn } = await import("./.setup/bounded-turn-0Siz1u82.mjs");
 	req.signal?.throwIfAborted();
 	const { text } = await runBoundedCodexAppServerTurn({
 		config: req.cfg,
@@ -73,7 +73,7 @@ async function extractCodexStructured(req, options) {
 	if (req.input.length === 0) throw new Error("Codex structured extraction requires at least one input.");
 	if (!req.input.some((entry) => entry.type === "image")) throw new Error("Codex structured extraction requires at least one image input.");
 	req.signal?.throwIfAborted();
-	const { runBoundedCodexAppServerTurn } = await import("./.setup/bounded-turn-DUVJcTLW.mjs");
+	const { runBoundedCodexAppServerTurn } = await import("./.setup/bounded-turn-0Siz1u82.mjs");
 	req.signal?.throwIfAborted();
 	const { text } = await runBoundedCodexAppServerTurn({
 		config: req.cfg,
@@ -94,59 +94,21 @@ async function extractCodexStructured(req, options) {
 		requiredModalities: ["text", "image"],
 		isolation: "configured-transport"
 	});
-	return normalizeStructuredExtractionResult({
+	const result = {
 		text,
 		model,
 		provider: req.provider,
-		req
-	});
-}
-function buildCodexImagePrompt(req) {
-	const prompt = req.prompt?.trim() || DEFAULT_CODEX_IMAGE_PROMPT;
-	if (req.images.length <= 1) return prompt;
-	return `${prompt}\n\nAnalyze all ${req.images.length} images together.`;
-}
-function buildCodexStructuredInput(req) {
-	return [{
-		type: "text",
-		text: buildStructuredExtractionPrompt(req),
-		text_elements: []
-	}, ...req.input.map((entry) => {
-		if (entry.type === "text") return {
-			type: "text",
-			text: entry.text,
-			text_elements: []
-		};
-		return {
-			type: "image",
-			url: `data:${entry.mime ?? "image/png"};base64,${entry.buffer.toString("base64")}`
-		};
-	})];
-}
-function buildStructuredExtractionPrompt(req) {
-	return [
-		req.instructions.trim(),
-		req.schemaName ? `Schema name: ${req.schemaName}` : void 0,
-		req.jsonSchema ? `JSON schema:\n${JSON.stringify(req.jsonSchema)}` : void 0,
-		req.jsonMode === false ? "Return the extraction as concise text." : "Return valid JSON only. Do not wrap the JSON in Markdown fences."
-	].filter((part) => Boolean(part)).join("\n\n");
-}
-function normalizeStructuredExtractionResult(params) {
-	const result = {
-		text: params.text,
-		model: params.model,
-		provider: params.provider,
-		contentType: params.req.jsonMode === false ? "text" : "json"
+		contentType: req.jsonMode === false ? "text" : "json"
 	};
-	if (params.req.jsonMode !== false) {
+	if (req.jsonMode !== false) {
 		try {
-			result.parsed = JSON.parse(params.text);
+			result.parsed = JSON.parse(text);
 		} catch {
 			throw new Error("Codex structured extraction returned invalid JSON.");
 		}
-		if (isRecord(params.req.jsonSchema)) {
+		if (isRecord(req.jsonSchema)) {
 			const validation = validateJsonSchemaValue({
-				schema: params.req.jsonSchema,
+				schema: req.jsonSchema,
 				cacheKey: "codex.media-understanding.extractStructured",
 				value: result.parsed,
 				cache: false
@@ -159,6 +121,33 @@ function normalizeStructuredExtractionResult(params) {
 		}
 	}
 	return result;
+}
+function buildCodexImagePrompt(req) {
+	const prompt = req.prompt?.trim() || DEFAULT_CODEX_IMAGE_PROMPT;
+	if (req.images.length <= 1) return prompt;
+	return `${prompt}\n\nAnalyze all ${req.images.length} images together.`;
+}
+function buildCodexStructuredInput(req) {
+	return [{
+		type: "text",
+		text: [
+			req.instructions.trim(),
+			req.schemaName ? `Schema name: ${req.schemaName}` : void 0,
+			req.jsonSchema ? `JSON schema:\n${JSON.stringify(req.jsonSchema)}` : void 0,
+			req.jsonMode === false ? "Return the extraction as concise text." : "Return valid JSON only. Do not wrap the JSON in Markdown fences."
+		].filter((part) => Boolean(part)).join("\n\n"),
+		text_elements: []
+	}, ...req.input.map((entry) => {
+		if (entry.type === "text") return {
+			type: "text",
+			text: entry.text,
+			text_elements: []
+		};
+		return {
+			type: "image",
+			url: `data:${entry.mime ?? "image/png"};base64,${entry.buffer.toString("base64")}`
+		};
+	})];
 }
 //#endregion
 export { buildCodexMediaUnderstandingProvider };

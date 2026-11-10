@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var WorkerEnvironmentInventoryClosedError,t=e((()=>{WorkerEnvironmentInventoryClosedError=class extends Error{constructor(){super(`Worker environment inventory has closed`),this.name=`WorkerEnvironmentInventoryClosedError`}}}));export{t as n,WorkerEnvironmentInventoryClosedError as t};

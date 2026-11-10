@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-IQf3eJtA.mjs";function createDeferredCore(){return t.withResolvers()}var t;function init_deferred(){return(init_deferred=e((()=>{t=Promise})))()}export{init_deferred as n,createDeferredCore as t};

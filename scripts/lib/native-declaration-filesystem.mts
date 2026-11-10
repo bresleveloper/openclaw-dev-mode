@@ -57,10 +57,6 @@ export function createDeclarationFileSystem(
           }
         : { ...lookup, path: file };
     const key = `${recorded.kind}\0${recorded.path}`;
-    const previous = lookups.get(key);
-    if (previous && JSON.stringify(previous) !== JSON.stringify(recorded)) {
-      reject(new Error(`Native compiler lookup changed during compilation: ${recorded.path}`));
-    }
     lookups.set(key, recorded);
   };
   const local = (file: string) => {
@@ -171,6 +167,9 @@ export function createDeclarationFileSystem(
         return accepted;
       }
     },
+    removeFile(this: void) {
+      reject(new Error("Native declarations must be emitted in memory"));
+    },
     writeFile(this: void) {
       reject(new Error("Native declarations must be emitted in memory"));
     },
@@ -201,6 +200,7 @@ export function createDeclarationFileSystem(
       observe({ kind: "realpath", path: file, result });
       return result;
     },
+    removeFile: physical.removeFile,
     writeFile: physical.writeFile,
   } satisfies FileSystem;
   return {

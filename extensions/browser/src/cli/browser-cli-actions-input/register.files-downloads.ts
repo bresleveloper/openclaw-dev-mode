@@ -1,5 +1,4 @@
 import type { Command } from "commander";
-import { danger, defaultRuntime } from "openclaw/plugin-sdk/runtime-env";
 import {
   normalizeOptionalString,
   readStringValue,
@@ -21,30 +20,24 @@ export function registerBrowserFilesAndDownloadsCommands(
   browser: Command,
   parentOpts: (cmd: Command) => BrowserParentOpts,
 ) {
-  const resolveTimeoutAndTarget = (opts: { timeoutMs?: unknown; targetId?: unknown }) => {
-    const timeoutMs = Number.isFinite(opts.timeoutMs) ? Number(opts.timeoutMs) : undefined;
-    const targetId = normalizeOptionalString(opts.targetId);
-    return { timeoutMs, targetId };
-  };
-
-  const runDownloadCommand = async (
-    cmd: Command,
+  const runHook = async <T = unknown>(
+    parent: BrowserParentOpts,
     opts: { timeoutMs?: unknown; targetId?: unknown },
-    request: { path: string; body: Record<string, unknown> },
+    request: Pick<Parameters<typeof runBrowserCliRequest<T>>[0], "path" | "successMessage"> & {
+      body: Record<string, unknown>;
+    },
   ) => {
-    const parent = parentOpts(cmd);
-    const { timeoutMs, targetId } = resolveTimeoutAndTarget(opts);
-    await runBrowserCliRequest<{ download: { path: string } }>({
+    const timeoutMs = Number.isFinite(opts.timeoutMs) ? Number(opts.timeoutMs) : undefined;
+    await runBrowserCliRequest<T>({
+      ...request,
       parent,
-      path: request.path,
       body: {
         ...request.body,
-        targetId,
+        targetId: normalizeOptionalString(opts.targetId),
         timeoutMs,
       },
       timeoutMs: withBrowserActionTimeoutSlack(timeoutMs ?? DEFAULT_BROWSER_HOOK_TIMEOUT_MS),
       errorPolicy: "inline",
-      successMessage: (result) => `downloaded: ${shortenHomePath(result.download.path)}`,
     });
   };
 
@@ -71,20 +64,14 @@ export function registerBrowserFilesAndDownloadsCommands(
         if (!resolved.ok) {
           throw new Error(resolved.error);
         }
-        const { timeoutMs, targetId } = resolveTimeoutAndTarget(opts);
-        await runBrowserCliRequest({
-          parent,
+        await runHook(parent, opts, {
           path: "/hooks/file-chooser",
           body: {
             paths: resolved.paths,
             ref: normalizeOptionalString(opts.ref),
             inputRef: normalizeOptionalString(opts.inputRef),
             element: normalizeOptionalString(opts.element),
-            targetId,
-            timeoutMs,
           },
-          timeoutMs: withBrowserActionTimeoutSlack(timeoutMs ?? DEFAULT_BROWSER_HOOK_TIMEOUT_MS),
-          errorPolicy: "inline",
           successMessage: `upload armed for ${paths.length} file(s)`,
         });
       }, "inline");
@@ -104,11 +91,12 @@ export function registerBrowserFilesAndDownloadsCommands(
       (v: string) => parseBrowserPositiveIntegerOption(v, "--timeout-ms"),
     )
     .action(async (outPath: string | undefined, opts, cmd) => {
-      await runDownloadCommand(cmd, opts, {
+      await runHook<{ download: { path: string } }>(parentOpts(cmd), opts, {
         path: "/wait/download",
         body: {
           path: normalizeOptionalString(outPath),
         },
+        successMessage: (result) => `downloaded: ${shortenHomePath(result.download.path)}`,
       });
     });
 
@@ -127,12 +115,13 @@ export function registerBrowserFilesAndDownloadsCommands(
       (v: string) => parseBrowserPositiveIntegerOption(v, "--timeout-ms"),
     )
     .action(async (ref: string, outPath: string, opts, cmd) => {
-      await runDownloadCommand(cmd, opts, {
+      await runHook<{ download: { path: string } }>(parentOpts(cmd), opts, {
         path: "/download",
         body: {
           ref,
           path: outPath,
         },
+        successMessage: (result) => `downloaded: ${shortenHomePath(result.download.path)}`,
       });
     });
 
@@ -152,29 +141,19 @@ export function registerBrowserFilesAndDownloadsCommands(
     .action(async (opts, cmd) => {
       const parent = parentOpts(cmd);
       if (opts.accept && opts.dismiss) {
-        defaultRuntime.error(danger("Specify only one of --accept or --dismiss"));
-        defaultRuntime.exit(1);
-        return;
+        throw new Error("Specify only one of --accept or --dismiss");
       }
       const accept = opts.accept ? true : opts.dismiss ? false : undefined;
       if (accept === undefined) {
-        defaultRuntime.error(danger("Specify --accept or --dismiss"));
-        defaultRuntime.exit(1);
-        return;
+        throw new Error("Specify --accept or --dismiss");
       }
-      const { timeoutMs, targetId } = resolveTimeoutAndTarget(opts);
-      await runBrowserCliRequest({
-        parent,
+      await runHook(parent, opts, {
         path: "/hooks/dialog",
         body: {
           accept,
           promptText: readStringValue(opts.prompt),
           dialogId: normalizeOptionalString(opts.dialogId),
-          targetId,
-          timeoutMs,
         },
-        timeoutMs: withBrowserActionTimeoutSlack(timeoutMs ?? DEFAULT_BROWSER_HOOK_TIMEOUT_MS),
-        errorPolicy: "inline",
         successMessage: "dialog armed",
       });
     });

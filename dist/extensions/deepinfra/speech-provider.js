@@ -21,6 +21,7 @@ function buildDeepInfraSpeechProvider(options) {
 		defaultModel,
 		defaultVoice: DEFAULT_DEEPINFRA_TTS_VOICE,
 		defaultBaseUrl: DEEPINFRA_BASE_URL,
+		defaultTimeoutMs: 12e4,
 		envKey: "DEEPINFRA_API_KEY",
 		responseFormats: DEEPINFRA_TTS_RESPONSE_FORMATS,
 		defaultResponseFormat: "mp3",

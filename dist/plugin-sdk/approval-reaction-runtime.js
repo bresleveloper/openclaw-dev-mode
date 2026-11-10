@@ -1,16 +1,16 @@
-import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
 import { t as pruneMapToMaxSize } from "../map-size-BlrH_CnE.mjs";
+import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
 import { t as formatFencedCodeBlock } from "../markdown-code-Buzx6wvi.mjs";
 import { t as isApprovalNotFoundError } from "../approval-errors-Ccn5PiLn.mjs";
-import "../error-runtime-BmospGvZ.mjs";
-import { n as summarizeApprovalScope } from "../approval-scope-D8jXLqpU.mjs";
+import "../error-runtime-ikopZs5O.mjs";
+import { n as summarizeApprovalScope } from "../approval-scope-DTzlGETe.mjs";
 import { n as sanitizeForPromptLiteral } from "../sanitize-for-prompt-bzCyHFCH.mjs";
 import { t as formatApprovalDisplayPath } from "../approval-display-paths-DyUJ1OWu.mjs";
-import { a as buildExecApprovalPendingReplyPayload, f as formatExecApprovalExpiresIn } from "../exec-approval-reply-CsEym-Wu.mjs";
-import { c as normalizeApprovalRequest } from "../approval-request-account-binding-CtjEtTK0.mjs";
-import { c as shouldSuppressLocalNativeExecApprovalPrompt } from "../approval-native-helpers-D6DcoF8Y.mjs";
-import { n as buildPendingApprovalView } from "../approval-view-model-AZbu9pMK.mjs";
-import { r as buildPluginApprovalPendingReplyPayload, t as buildApprovalPendingReplyPayload } from "../approval-renderers-DEzohh5R.mjs";
+import { i as buildExecApprovalPendingReplyPayload, u as formatExecApprovalExpiresIn } from "../exec-approval-reply-Dn62m4ql.mjs";
+import { h as normalizeApprovalRequest } from "../approval-request-account-binding-CVzeB0WI.mjs";
+import { s as shouldSuppressLocalNativeExecApprovalPrompt } from "../approval-native-helpers-BiNYKNta.mjs";
+import { n as buildPendingApprovalView } from "../approval-view-model-CsFms5sq.mjs";
+import { r as buildPluginApprovalPendingReplyPayload, t as buildApprovalPendingReplyPayload } from "../approval-renderers-Cd_8TpLz.mjs";
 //#region src/plugin-sdk/approval-reaction-binding.ts
 /** Build the private marker revalidated after channel delivery. */
 function buildApprovalReactionDeliveredBindingMarker(binding) {
@@ -162,25 +162,19 @@ const APPROVAL_REACTION_HINT_PRESENT_RE = /(^|\n)React with:\s*(\n|$)/i;
 function hasApprovalReactionHintText(text) {
 	return APPROVAL_REACTION_HINT_PRESENT_RE.test(text ?? "");
 }
-/** Inserts a reaction hint after the `ID: <id>` header line, else prepends it. */
-function insertApprovalReactionHintNearIdHeader(params) {
+/** Adds the canonical reaction hint to approval prompt text unless one is present. */
+function addApprovalReactionHintToText(params) {
+	if (hasApprovalReactionHintText(params.text)) return params.text;
+	const hint = buildApprovalReactionHint({ allowedDecisions: params.allowedDecisions });
+	if (!hint) return params.text;
 	const lines = params.text.split(/\r?\n/);
 	const idLineIndex = lines.findIndex((line) => /^ID:\s*\S+/.test(line.trim()));
 	if (idLineIndex >= 0) {
 		const before = lines.slice(0, idLineIndex + 1).join("\n");
 		const after = lines.slice(idLineIndex + 1).join("\n").replace(/^\n+/, "");
-		return after ? `${before}\n\n${params.hint}\n\n${after}` : `${before}\n\n${params.hint}`;
+		return after ? `${before}\n\n${hint}\n\n${after}` : `${before}\n\n${hint}`;
 	}
-	return `${params.hint}\n\n${params.text}`;
-}
-/** Adds the canonical reaction hint to approval prompt text unless one is present. */
-function addApprovalReactionHintToText(params) {
-	if (hasApprovalReactionHintText(params.text)) return params.text;
-	const hint = buildApprovalReactionHint({ allowedDecisions: params.allowedDecisions });
-	return hint ? insertApprovalReactionHintNearIdHeader({
-		text: params.text,
-		hint
-	}) : params.text;
+	return `${hint}\n\n${params.text}`;
 }
 /** Normalize reaction emoji so skin-tone and text/presentation variants match canonical bindings. */
 function normalizeApprovalReactionEmoji(reactionKey) {
@@ -481,4 +475,4 @@ function createApprovalReactionTargetStore(params) {
 	};
 }
 //#endregion
-export { APPROVAL_REACTION_BINDINGS, addApprovalReactionHintToText, approvalReactionDecisionSetsMatch, buildApprovalNativeControlsPromptText, buildApprovalPendingPromptPayload, buildApprovalReactionDeliveredBindingMarker, buildApprovalReactionHint, buildApprovalReactionPendingContent, buildApprovalReactionPendingContentForRequest, buildApprovalReactionPromptPayloadForRequest, createApprovalReactionTargetStore, hasApprovalReactionHintText, insertApprovalReactionHintNearIdHeader, listApprovalReactionBindings, normalizeApprovalReactionDecision, normalizeApprovalReactionEmoji, readApprovalReactionDecisionList, readApprovalReactionDeliveredBinding, readApprovalReactionDeliveryMetadata, readApprovalReactionPresentationBinding, readApprovalReactionTargetRecord, resolveApprovalReactionDecision, resolveTypedApprovalReactionTarget, settleApprovalReaction, shouldSuppressLocalNativeExecApprovalPrompt };
+export { APPROVAL_REACTION_BINDINGS, addApprovalReactionHintToText, approvalReactionDecisionSetsMatch, buildApprovalNativeControlsPromptText, buildApprovalPendingPromptPayload, buildApprovalReactionDeliveredBindingMarker, buildApprovalReactionHint, buildApprovalReactionPendingContent, buildApprovalReactionPendingContentForRequest, buildApprovalReactionPromptPayloadForRequest, createApprovalReactionTargetStore, hasApprovalReactionHintText, listApprovalReactionBindings, normalizeApprovalReactionDecision, normalizeApprovalReactionEmoji, readApprovalReactionDecisionList, readApprovalReactionDeliveredBinding, readApprovalReactionDeliveryMetadata, readApprovalReactionPresentationBinding, readApprovalReactionTargetRecord, resolveApprovalReactionDecision, resolveTypedApprovalReactionTarget, settleApprovalReaction, shouldSuppressLocalNativeExecApprovalPrompt };

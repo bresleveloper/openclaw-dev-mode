@@ -100,6 +100,11 @@ function parseDirectiveToken(ctx) {
 	}
 }
 function buildVolcengineSpeechProvider() {
+	const isConfigured = ({ providerConfig }) => {
+		const cfg = readProviderConfig(providerConfig);
+		const legacy = resolveLegacyVolcengineCredentials(cfg);
+		return Boolean(resolveSeedSpeechApiKey(cfg.apiKey) || legacy.appId && legacy.token);
+	};
 	return {
 		id: "volcengine",
 		label: "Volcengine",
@@ -114,11 +119,8 @@ function buildVolcengineSpeechProvider() {
 			locale: v.startsWith("en_") ? "en-US" : "zh-CN",
 			gender: v.includes("_female_") ? "female" : "male"
 		})),
-		isConfigured: ({ providerConfig }) => {
-			const cfg = readProviderConfig(providerConfig);
-			const legacy = resolveLegacyVolcengineCredentials(cfg);
-			return Boolean(resolveSeedSpeechApiKey(cfg.apiKey) || legacy.appId && legacy.token);
-		},
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		synthesize: async (req) => {
 			const cfg = readProviderConfig(req.providerConfig);
 			const overrides = req.providerOverrides;

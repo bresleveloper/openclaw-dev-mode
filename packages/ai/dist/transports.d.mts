@@ -1,22 +1,20 @@
-import "./index-D27wAoOr.mjs";
-import { $ as StopReason, N as OpenAICompletionsCompat, Nt as ModelDataThinkingFormat, V as ProviderReplayState, a as AssistantMessage, d as Context, et as StreamFn, k as Model, l as CacheRetention, lt as Tool, n as Api, nt as StreamOptions, ot as ThinkingContent, pt as Usage, rt as TextContent, ut as ToolCall } from "./types-DvzmWW8J.mjs";
-import { n as ApiRegistry } from "./api-registry-B3rC2qu3.mjs";
-import { o as AiProviderStreamHookContext } from "./host-DiPhRjrc.mjs";
-import { a as BaseOpenAIStreamOptions, c as OpenAICompletionsOptions, l as OpenAIResponsesCompactionRejection, o as CodeModeToolSurfaceObservation, s as CompactionReplayRejection } from "./provider-options-CkieKvNJ.mjs";
-import { n as OpenAIToolProjection } from "./openai-tool-projection-793cE3QX.mjs";
-import "./types-UlNana-2.mjs";
-import { a as buildAnthropicSystemBlocks, c as logAnthropicContextEdits, d as resolveAnthropicPayloadPolicy, f as resolveAnthropicRequestBetaHeader, i as applyAnthropicRequestCacheControl, l as resolveAnthropicCacheOptions, m as supportsAnthropicServerSideFallback, n as applyAnthropicEphemeralCacheControlMarkers, o as isAnthropicServerToolClearingEnabled, p as resolveAnthropicServerCompactionPlan, r as applyAnthropicPayloadPolicyToParams, s as isDirectAnthropicModel, t as applyAnthropicContextManagementToRequest, u as resolveAnthropicEphemeralCacheControl } from "./anthropic-payload-policy-DD7vzpxE.mjs";
-import { a as resolveOpenAICompletionsCompat, i as isOpenAICodexResponsesModel, n as detectOpenAICompletionsCompat, o as resolveOpenAIPromptCacheKeySupport, r as isNativeOpenAIEndpoint, s as usesNativeOpenAICodexResponsesBackend, t as ResolvedOpenAICompletionsCompat } from "./openai-completions-compat-BgPg1BRs.mjs";
-import { l as OpenAIResponsesCompactionOutput, n as OpenAIResponsesOptions, r as OpenAIResponsesReasoningReplayMetadata } from "./openai-responses-contracts-D5yVZBp-.mjs";
-import { i as resolveOpenAIResponsesServerCompactionPlan, n as resolveOpenAIResponsesCompactEndpointPlan, r as resolveOpenAIResponsesPayloadPolicy, t as applyOpenAIResponsesPayloadPolicy } from "./openai-responses-payload-policy-s1apQlZZ.mjs";
-import { n as captureOpenAIResponsesCompaction, t as CompactionReplayRefreshRequiredError } from "./openai-responses-compaction-replay-BBNo098-.mjs";
-import { C as withProviderAcceptanceObserver, S as transportAbortError, _ as notifyProviderStreamOpened, a as coerceTransportToolCallArguments, b as sanitizeTransportPayloadText, c as createModelStreamCooperativeScheduler, d as finalizeTerminalToolCallArguments, f as finalizeTransportStream, g as notifyProviderHttpResponse, h as notifyProviderHttpMetadata, i as assignTransportErrorDetails, l as createWritableTransportEventStream, m as mergeTransportHeaders, n as ProviderAcceptance, o as copyProviderAcceptanceObserver, p as iterateModelStream, r as WritableTransportStream, s as createEmptyTransportUsage, t as IncompleteToolCallError, u as failTransportStream, v as parseTerminalToolCallArguments, w as withProviderResponseHook, x as throwIfModelStreamAborted, y as sanitizeNonEmptyTransportPayloadText } from "./transport-stream-shared-DW-7-qLR.mjs";
+import "./index-DSprYWaz.mjs";
+import { $ as StopReason, N as OpenAICompletionsCompat, Nt as ModelDataThinkingFormat, Q as SimpleStreamOptions, V as ProviderReplayState, a as AssistantMessage, d as Context, et as StreamFn, gt as VercelGatewayRouting, k as Model, l as CacheRetention, lt as Tool, n as Api, nt as StreamOptions, ot as ThinkingContent, pt as Usage, rt as TextContent, ut as ToolCall } from "./types-CVYzKrMl.mjs";
+import { n as ApiRegistry } from "./api-registry-gDt0faai.mjs";
+import { o as AiProviderStreamHookContext } from "./host-jJOffdlW.mjs";
+import { a as BaseOpenAIStreamOptions, c as OpenAICompletionsOptions, l as OpenAIResponsesCompactionRejection, m as OpenAIToolProjection, o as CodeModeToolSurfaceObservation, s as CompactionReplayRejection } from "./provider-options-DAzsyi49.mjs";
+import "./types-CBJthzJX.mjs";
+import { a as buildAnthropicSystemBlocks, c as logAnthropicContextEdits, d as resolveAnthropicPayloadPolicy, f as resolveAnthropicRequestBetaHeader, i as applyAnthropicRequestCacheControl, l as resolveAnthropicCacheOptions, m as supportsAnthropicServerSideFallback, n as applyAnthropicEphemeralCacheControlMarkers, o as isAnthropicServerToolClearingEnabled, p as resolveAnthropicServerCompactionPlan, r as applyAnthropicPayloadPolicyToParams, s as isDirectAnthropicModel, t as applyAnthropicContextManagementToRequest, u as resolveAnthropicEphemeralCacheControl } from "./anthropic-payload-policy-C0ki72BT.mjs";
+import { a as resolveOpenAICompletionsCompat, i as isOpenAICodexResponsesModel, n as detectOpenAICompletionsCompat, o as resolveOpenAIPromptCacheKeySupport, r as isNativeOpenAIEndpoint, s as usesNativeOpenAICodexResponsesBackend, t as ResolvedOpenAICompletionsCompat } from "./openai-completions-compat-CBvb2eld.mjs";
+import { a as ReplayableResponseReasoningItem, n as OpenAIResponsesOptions, r as OpenAIResponsesReasoningReplayMetadata, u as OpenAIResponsesCompactionOutput } from "./openai-responses-contracts-B1nkeLL6.mjs";
+import { a as resolveOpenAIResponsesPayloadPolicy, i as resolveOpenAIResponsesCompactEndpointPlan, n as applyOpenAIResponsesPayloadPolicy, o as resolveOpenAIResponsesRequestContextTokens, r as normalizeOpenAIServiceTier, s as resolveOpenAIResponsesServerCompactionPlan, t as OpenAIServiceTier } from "./openai-responses-payload-policy-BzM52TTH.mjs";
+import { n as captureOpenAIResponsesCompaction, t as CompactionReplayRefreshRequiredError } from "./openai-responses-compaction-replay-_sUXtcwU.mjs";
+import { C as withProviderAcceptanceObserver, S as transportAbortError, _ as notifyProviderStreamOpened, a as coerceTransportToolCallArguments, b as sanitizeTransportPayloadText, c as createModelStreamCooperativeScheduler, d as finalizeTerminalToolCallArguments, f as finalizeTransportStream, g as notifyProviderHttpResponse, h as notifyProviderHttpMetadata, i as assignTransportErrorDetails, l as createWritableTransportEventStream, m as mergeTransportHeaders, n as ProviderAcceptance, o as copyProviderAcceptanceObserver, p as iterateModelStream, r as WritableTransportStream, s as createEmptyTransportUsage, t as IncompleteToolCallError, u as failTransportStream, v as parseTerminalToolCallArguments, w as withProviderResponseHook, x as throwIfModelStreamAborted, y as sanitizeNonEmptyTransportPayloadText } from "./transport-stream-shared-8ru8eX4s.mjs";
 import { r as sortPromptCacheToolsByName } from "./prompt-cache-stability-Cwcjv_fx.mjs";
-import { r as normalizeOpenAIStrictToolParameters } from "./openai-tool-schema-a5ysBBga.mjs";
-import { d as VideoContent, i as ProviderContext, s as ProviderModel } from "./provider-types-v3bmqsfg.mjs";
-import { a as resolveModelSseDebugMode, i as resolveModelPayloadDebugMode, n as formatModelTransportDebugUrl, r as emitModelTransportDebug, t as formatModelTransportDebugBaseUrl } from "./model-transport-url-C5f59L3Y.mjs";
-import OpenAI from "openai";
+import { a as ProviderContext, c as ProviderModel, f as VideoContent } from "./provider-types-CWl4VXvE.mjs";
+import { a as resolveModelPayloadDebugMode, i as emitModelTransportError, n as formatModelTransportDebugUrl, o as resolveModelSseDebugMode, r as emitModelTransportDebug, t as formatModelTransportDebugBaseUrl } from "./model-transport-url-BrsjjdjR.mjs";
 import { Part } from "@google/genai";
+import OpenAI from "openai";
 import { ChatCompletionChunk } from "openai/resources/chat/completions.js";
 //#region packages/ai/src/transports/anthropic-transport-stream.d.ts
 /** Resolve the Anthropic Messages endpoint URL for the effective base URL. */
@@ -24,18 +22,28 @@ export declare function resolveAnthropicMessagesUrl(baseUrl?: string): string;
 /** Create the stream function used by Anthropic Messages transport models. */
 export declare function createAnthropicMessagesTransportStreamFn(): StreamFn;
 //#endregion
+//#region packages/ai/src/transports/anthropic-transport-options.d.ts
+/**
+ * Largest completion a request may ask for once transport thinking options
+ * apply, for callers that size the prompt before dispatch. Claude transports
+ * (Anthropic Messages, Vertex, Bedrock, Bedrock Mantle) may add a thinking
+ * budget to `maxTokens`, capped at the model's output limit; some add it even
+ * for adaptive models, and their Claude detection is plugin-owned, so every
+ * request on these APIs reserves the default budget for its level. Other
+ * transports keep `maxTokens` as the total output limit. Over-reserving only
+ * shrinks the prompt; it never overflows the window.
+ */
+export declare function resolveCompletionTokenReservation(model: Model, maxTokens: number, reasoning: SimpleStreamOptions["reasoning"]): number;
+//#endregion
 //#region packages/ai/src/transports/deepseek-text-filter.d.ts
-interface DeepSeekTextFilter {
-  /** Push one streamed text chunk and receive any safe visible text segments. */
-  push(chunk: string): string[];
-  /** Flush buffered text at stream end, dropping any unterminated DSML block. */
-  flush(): string[];
-}
 /** Create an incremental text filter that strips DeepSeek DSML tool blocks. */
-export declare function createDeepSeekTextFilter(): DeepSeekTextFilter;
+export declare function createDeepSeekTextFilter(): {
+  push(chunk: string): string[];
+  flush(): string[];
+};
 //#endregion
 //#region packages/ai/src/transports/google-thinking-level.d.ts
-/** Returns whether a Gemini Flash model accepts the MINIMAL thinking level. */
+/** Reports MINIMAL support for Gemini Flash and Gemini 4 models. */
 export declare function googleFlashSupportsMinimalThinking(modelId: string): boolean;
 //#endregion
 //#region packages/ai/src/transports/json-unsafe-integers.d.ts
@@ -123,18 +131,17 @@ type OpenAIModeCompatInput = Omit<OpenAICompletionsCompat, "thinkingFormat"> & {
 export type OpenAIModeModel = Omit<Model, "compat"> & {
   compat?: OpenAIModeCompatInput | null;
 };
-type MutableToolCall = ToolCall & {
-  partialArgs?: string;
-};
 export type MutableAssistantOutput = Omit<AssistantMessage, "content" | "usage"> & {
-  content: Array<TextContent | ThinkingContent | MutableToolCall>;
+  content: Array<TextContent | ThinkingContent | ToolCall>;
   usage: Usage & {
     reasoningTokens?: number;
   };
 };
+export declare function detachPartialSnapshot<TEvent>(event: TEvent): TEvent;
 export declare function parseOpenAICompletionsUsage(rawUsage: NonNullable<ChatCompletionChunk["usage"]> & {
   cost?: unknown;
   cache_creation_input_tokens?: number;
+  cached_tokens?: number;
   prompt_cache_hit_tokens?: number;
   prompt_tokens_details?: {
     cache_creation_input_tokens?: number;
@@ -144,6 +151,7 @@ export declare function parseOpenAICompletionsUsage(rawUsage: NonNullable<ChatCo
 }): MutableAssistantOutput["usage"];
 export declare function createOpenAIResponseHook(onResponse: BaseOpenAIStreamOptions["onResponse"], response: Response, model: Model): (() => void | Promise<void>) | undefined;
 export declare function createOpenAIProviderAcceptanceHook(options: Pick<BaseOpenAIStreamOptions, "onResponse" | "signal"> | undefined, response: Response, model: Model): () => Promise<void>;
+export declare function withOpenAIErrorResponseHook(fetch: typeof globalThis.fetch, onResponse: BaseOpenAIStreamOptions["onResponse"], model: Model): typeof globalThis.fetch;
 /** Measure one UTF-8 append without double-counting a surrogate pair split across chunks. */
 export declare function measureUtf8AppendBytes(bufferEndsWithHighSurrogate: boolean, chunk: string): {
   bytes: number;
@@ -161,7 +169,7 @@ declare function convertTools(tools: NonNullable<Context["tools"]>, compat: Reso
     function: {
       name: string;
       description: string | undefined;
-      parameters: ReturnType<typeof normalizeOpenAIStrictToolParameters>;
+      parameters: Record<string, unknown>;
       strict?: boolean;
     };
   }[];
@@ -170,7 +178,7 @@ export declare function buildOpenAICompletionsParams(model: OpenAIModeModel, con
 type CompletionsRequest = Record<string, unknown> & {
   model: string;
   messages: unknown[];
-  stream: true;
+  stream: boolean;
   tools?: ReturnType<typeof convertTools>["tools"];
 };
 //#endregion
@@ -196,6 +204,7 @@ export declare function resolveReplayableResponsesMessageId(params: {
   fallbackOrdinal: number;
   previousReplayItemWasReasoning: boolean;
 }): string | undefined;
+export declare function normalizeOpenAIResponsesReasoningReplayItem(item: ReplayableResponseReasoningItem, api: Api): ReplayableResponseReasoningItem;
 //#endregion
 //#region packages/ai/src/transports/openai-responses-tool-call-id-shape.d.ts
 export declare const OPENAI_RESPONSES_ID_MAX_LENGTH = 64;
@@ -226,11 +235,17 @@ type OpenAIResponsesCompactEndpointResult = {
     input_tokens: number;
     output_tokens: number;
   };
+  /** Normal Responses accounting, including cache splits and service-tier pricing. */
+  modelUsage?: Usage;
   model: Model;
   replayMetadata: OpenAIResponsesReasoningReplayMetadata;
 };
-/** Run a compact-endpoint request through the session's prepared stream stack. */
-export declare function requestPreparedOpenAIResponsesCompaction(streamFn: StreamFn, model: Model, context: Context, options: OpenAIResponsesOptions): Promise<OpenAIResponsesCompactEndpointResult>;
+type OpenAIResponsesV2ReplayBudget = {
+  maxTokens: number;
+  estimateTokens(output: OpenAIResponsesCompactionOutput, outputTokens: number): number;
+};
+/** Run provider compaction through the session's prepared stream stack. */
+export declare function requestPreparedOpenAIResponsesCompaction(streamFn: StreamFn, model: Model, context: Context, options: OpenAIResponsesOptions, mode?: "endpoint" | "v2", replayBudget?: OpenAIResponsesV2ReplayBudget): Promise<OpenAIResponsesCompactEndpointResult>;
 //#endregion
 //#region packages/ai/src/transports/openai-transport-params.d.ts
 export declare function readCodeModePayloadToolName(tool: unknown): string | undefined;
@@ -268,6 +283,7 @@ export declare function getCompat(model: OpenAIModeModel): {
   requiresThinkingAsText: boolean;
   requiresReasoningContentOnAssistantMessages: boolean;
   thinkingFormat: ModelDataThinkingFormat;
+  vercelGatewayRouting: VercelGatewayRouting;
   zaiToolStream: boolean;
   supportsStrictMode: boolean;
   supportsJsonSchemaResponseFormat: boolean;
@@ -276,11 +292,14 @@ export declare function getCompat(model: OpenAIModeModel): {
   cacheControlFormat?: OpenAICompletionsCompat["cacheControlFormat"];
   sessionAffinity: "none" | "openai" | "openrouter";
   visibleReasoningDetailTypes: string[];
+  emitsDsmlToolCalls: boolean;
   requiresNonEmptyUserOrAssistantMessage: boolean;
+  requiresTypedUnionBranches: boolean;
   configuredSupportsLongCacheRetention?: boolean;
+  reasoningEffortForOff: "none" | null;
+  thinkingOffControlUndeclared: boolean;
   reasoningEffortMap: Record<string, string>;
   openRouterRouting: Record<string, unknown>;
-  vercelGatewayRouting: Record<string, unknown>;
   requiresStringContent: boolean;
   strictMessageKeys: boolean;
 };
@@ -288,6 +307,10 @@ export declare function getCompat(model: OpenAIModeModel): {
 //#region packages/ai/src/transports/provider-compaction-checkpoint.d.ts
 /** Whether provider replay state is a prefix-bound server compaction checkpoint. */
 export declare function isCompactionReplayCheckpoint(replay: unknown): replay is ProviderReplayState;
+/** Strip prefix-bound checkpoint state from an in-place message rewrite. */
+export declare function stripCompactionReplayCheckpointInPlace(message: {
+  providerReplay?: unknown;
+}): void;
 /** Strip prefix-bound checkpoints after local history rewrites. */
 export declare function stripCompactionReplayCheckpoint(message: AssistantMessage): AssistantMessage;
 //#endregion
@@ -321,10 +344,6 @@ export declare function resolveCompactionReplayPressure<T extends ReplayMessage>
   prefixTokens: number;
   measuredTokens?: number;
 } | undefined;
-/** Strip prefix-bound checkpoint state from an in-place message rewrite. */
-export declare function stripCompactionReplayCheckpointInPlace(message: {
-  providerReplay?: unknown;
-}): void;
 /** Preserve the covered prefix and reindex checkpoints after known content removals. */
 export declare function replaceCompactionReplayOwnerContent(message: AssistantMessage, content: AssistantMessage["content"]): AssistantMessage;
 //#endregion
@@ -431,4 +450,13 @@ export declare function convertGoogleTools(tools: Tool[]): {
   functionDeclarations: Record<string, unknown>[];
 }[] | undefined;
 //#endregion
-export { CompactionReplayRefreshRequiredError, type CompactionReplayRejection, type GoogleStreamChunk, IncompleteToolCallError, type OpenAICompletionsOptions, type OpenAIResponsesCompactionRejection, ProviderAcceptance, ResolvedOpenAICompletionsCompat, WritableTransportStream, applyAnthropicContextManagementToRequest, applyAnthropicEphemeralCacheControlMarkers, applyAnthropicPayloadPolicyToParams, applyAnthropicRequestCacheControl, applyOpenAIResponsesPayloadPolicy, assignTransportErrorDetails, buildAnthropicSystemBlocks, createTransportAwareStreamFnForModel as buildTransportAwareSimpleStreamFn, captureOpenAIResponsesCompaction, coerceTransportToolCallArguments, copyProviderAcceptanceObserver, createSupportedTransportStreamFn as createBoundaryAwareStreamFnForModel, createSupportedTransportStreamFn as createOpenClawTransportStreamFnForModel, createEmptyTransportUsage, createModelStreamCooperativeScheduler, createWritableTransportEventStream, detectOpenAICompletionsCompat, emitModelTransportDebug, failTransportStream, finalizeTerminalToolCallArguments, finalizeTransportStream, formatModelTransportDebugBaseUrl, formatModelTransportDebugUrl, isAnthropicServerToolClearingEnabled, isDirectAnthropicModel, isNativeOpenAIEndpoint, isOpenAICodexResponsesModel, iterateModelStream, logAnthropicContextEdits, mergeTransportHeaders, notifyProviderHttpMetadata, notifyProviderHttpResponse, notifyProviderStreamOpened, parseTerminalToolCallArguments, resolveAnthropicCacheOptions, resolveAnthropicEphemeralCacheControl, resolveAnthropicPayloadPolicy, resolveAnthropicRequestBetaHeader, resolveAnthropicServerCompactionPlan, resolveModelPayloadDebugMode, resolveModelSseDebugMode, resolveOpenAICompletionsCompat, resolveOpenAIPromptCacheKeySupport, resolveOpenAIResponsesCompactEndpointPlan, resolveOpenAIResponsesPayloadPolicy, resolveOpenAIResponsesServerCompactionPlan, sanitizeNonEmptyTransportPayloadText, sanitizeTransportPayloadText, sortPromptCacheToolsByName as sortTransportToolsByName, supportsAnthropicServerSideFallback, throwIfModelStreamAborted, transportAbortError, usesNativeOpenAICodexResponsesBackend, withProviderAcceptanceObserver, withProviderResponseHook };
+//#region packages/ai/src/providers/google-video-slots.d.ts
+export declare const GOOGLE_VIDEO_SLOT_OMISSION = "(video omitted: native video slot unavailable)";
+type GoogleVideoSlots = Map<Record<string, unknown>, VideoContent>;
+export declare function createGoogleVideoPlaceholder<T extends {
+  text: string;
+}>(video: VideoContent, slots: GoogleVideoSlots | undefined, placeholder: T): T;
+/** Only original slot identities may recover private bytes after mutable payload hooks. */
+export declare function materializeGoogleVideoSlots(payload: unknown, slots: GoogleVideoSlots, materialize: (slot: Record<string, unknown>, video: VideoContent) => void, omitInjected: (part: Record<string, unknown>) => void): void;
+//#endregion
+export { CompactionReplayRefreshRequiredError, type CompactionReplayRejection, type GoogleStreamChunk, type GoogleVideoSlots, IncompleteToolCallError, type OpenAICompletionsOptions, type OpenAIResponsesCompactionRejection, OpenAIServiceTier, ProviderAcceptance, ResolvedOpenAICompletionsCompat, WritableTransportStream, applyAnthropicContextManagementToRequest, applyAnthropicEphemeralCacheControlMarkers, applyAnthropicPayloadPolicyToParams, applyAnthropicRequestCacheControl, applyOpenAIResponsesPayloadPolicy, assignTransportErrorDetails, buildAnthropicSystemBlocks, createTransportAwareStreamFnForModel as buildTransportAwareSimpleStreamFn, captureOpenAIResponsesCompaction, coerceTransportToolCallArguments, copyProviderAcceptanceObserver, createSupportedTransportStreamFn as createBoundaryAwareStreamFnForModel, createSupportedTransportStreamFn as createOpenClawTransportStreamFnForModel, createEmptyTransportUsage, createModelStreamCooperativeScheduler, createWritableTransportEventStream, detectOpenAICompletionsCompat, emitModelTransportDebug, emitModelTransportError, failTransportStream, finalizeTerminalToolCallArguments, finalizeTransportStream, formatModelTransportDebugBaseUrl, formatModelTransportDebugUrl, isAnthropicServerToolClearingEnabled, isDirectAnthropicModel, isNativeOpenAIEndpoint, isOpenAICodexResponsesModel, iterateModelStream, logAnthropicContextEdits, mergeTransportHeaders, normalizeOpenAIServiceTier, notifyProviderHttpMetadata, notifyProviderHttpResponse, notifyProviderStreamOpened, parseTerminalToolCallArguments, resolveAnthropicCacheOptions, resolveAnthropicEphemeralCacheControl, resolveAnthropicPayloadPolicy, resolveAnthropicRequestBetaHeader, resolveAnthropicServerCompactionPlan, resolveModelPayloadDebugMode, resolveModelSseDebugMode, resolveOpenAICompletionsCompat, resolveOpenAIPromptCacheKeySupport, resolveOpenAIResponsesCompactEndpointPlan, resolveOpenAIResponsesPayloadPolicy, resolveOpenAIResponsesRequestContextTokens, resolveOpenAIResponsesServerCompactionPlan, sanitizeNonEmptyTransportPayloadText, sanitizeTransportPayloadText, sortPromptCacheToolsByName as sortTransportToolsByName, supportsAnthropicServerSideFallback, throwIfModelStreamAborted, transportAbortError, usesNativeOpenAICodexResponsesBackend, withProviderAcceptanceObserver, withProviderResponseHook };

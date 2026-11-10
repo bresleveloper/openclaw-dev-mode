@@ -1,32 +1,17 @@
-import { $ as buildTelegramRoutingTarget, $t as resolveDefaultTelegramAccountId, Bn as SystemAgentApprovalRequest, C as probeTelegram, F as sendLocationTelegram, Fn as ChannelDirectoryEntry, Hn as ExecApprovalRequest, In as ChannelGroupContext, J as TelegramReplyTarget, Jt as TelegramMediaRuntimeOptions, K as TelegramSendOpts, Kt as TelegramThreadSpec, Nn as ChannelOutboundAdapter, P as sendMessageTelegram, Pn as ChannelAccountSnapshot, Q as buildTelegramParentPeer, Qt as listTelegramAccountIds, Rn as ChannelStatusIssue, S as TelegramProbeOptions, U as reactMessageTelegram, Vn as PluginApprovalRequest, X as buildTelegramGroupFrom, Xt as createTelegramActionGate, Y as buildGroupLabel, Yt as TelegramPollActionGateState, Z as buildTelegramGroupPeerId, Zt as listEnabledTelegramAccounts, _ as shouldSuppressTelegramExecApprovalForwardingFallback, _t as hasBotMention, an as TelegramTokenResolution, at as resolveTelegramForumThreadId, c as parseTelegramTopicConversation, ct as withResolvedTelegramForumFlag, dt as TelegramForwardedContext, en as resolveTelegramAccount, et as buildTelegramThreadParams, ft as TelegramTextEntity, g as buildTelegramExecApprovalPendingPayload, gt as getTelegramTextParts, hn as ReplyPayload, ht as extractTelegramLocation, in as resolveTelegramAccountConfig, it as resolveTelegramForumFlag, jn as ChannelPlugin, lt as resolveTelegramPreviewStreamMode, mn as TelegramInlineButtons, mt as buildSenderName, nn as resolveTelegramPollActionGateState, nt as describeReplyTarget, ot as resolveTelegramGroupAllowFromContext, pn as TelegramButtonStyle, pt as buildSenderLabel, qt as ResolvedTelegramAccount, rn as mergeTelegramAccountConfig, rt as extractTelegramForumFlag, s as ParsedTelegramTopicConversation, st as resolveTelegramThreadSpec, tn as resolveTelegramMediaRuntimeOptions, tt as buildTypingThreadParams, ut as StickerMetadata, vt as isBinaryContent, x as TelegramProbe, yt as normalizeForwardedContext } from "../../agent-harness-runtime-Du4B564s.js";
-import { Mn as GroupToolPolicyConfig, Un as MarkdownTableMode, X as OpenClawConfig, in as TelegramNetworkConfig, rn as TelegramInlineButtonsScope, tn as TelegramExecApprovalConfig, zn as GroupPolicy } from "../../runtime-types-LI_BBveH.js";
-import { C as normalizeTelegramCommandName, S as normalizeTelegramCommandDescription, _ as parseModelCallbackData, a as buildTelegramModelsProviderChannelData, b as TelegramCustomCommandInput, c as ParsedModelCallback, d as buildBrowseProvidersButton, f as buildModelSelectionCallbackData, g as getModelsPageSize, h as calculateTotalPages, i as buildCommandsPaginationKeyboard, l as ProviderInfo, m as buildProviderKeyboard, n as TelegramInteractiveHandlerRegistration, o as ButtonRow, p as buildModelsKeyboard, r as TelegramInteractiveHandlerResult, s as ModelsKeyboardParams, t as TelegramInteractiveHandlerContext, u as ResolveModelSelectionResult, v as resolveModelSelection, w as resolveTelegramCustomCommands, x as TelegramCustomCommandIssue, y as TELEGRAM_COMMAND_NAME_PATTERN } from "../../interactive-dispatch-GaBiEuto.js";
+import { M as OpenClawConfig, Vr as GroupToolPolicyConfig, ar as TelegramInlineButtonsScope, or as TelegramNetworkConfig, rr as TelegramExecApprovalConfig } from "../../types-D7I_F5Ux.js";
+import { v as MarkdownTableMode } from "../../types.base-6bKsSmWG.js";
+import { $x as resolveDefaultTelegramAccountId, Ac as TelegramProbe, CS as TelegramButtonStyle, Cd as resolveTelegramGroupAllowFromContext, Cu as sendLocationTelegram, Dd as StickerMetadata, Ed as resolveTelegramPreviewStreamMode, FD as ChannelDirectoryEntry, JD as ChannelStatusIssue, Jx as ResolvedTelegramAccount, LD as ChannelGroupContext, MD as ChannelAccountSnapshot, Mc as probeTelegram, NE as ChannelPlugin, Pu as TelegramSendOpts, Qx as listEnabledTelegramAccounts, Sd as resolveTelegramForumThreadId, Su as sendMessageTelegram, TS as TelegramInlineButtons, Td as withResolvedTelegramForumFlag, Uo as ParsedTelegramTopicConversation, Wo as parseTelegramTopicConversation, Xc as ResolvedReactionLevel$1, Xx as TelegramPollActionGateState, Yc as ReactionLevel, Yx as TelegramMediaRuntimeOptions, Zx as createTelegramActionGate, _d as buildTelegramThreadParams, aS as resolveTelegramAccountConfig, ap as getTelegramTextParts, bd as extractTelegramForumFlag, cD as ChannelOutboundAdapter, cp as normalizeForwardedContext, dd as TelegramReplyTarget, eS as resolveTelegramAccount, ep as TelegramForwardedContext, es as buildTelegramExecApprovalPendingPayload, fd as buildGroupLabel, gd as buildTelegramRoutingTarget, hd as buildTelegramParentPeer, iS as mergeTelegramAccountConfig, ip as extractTelegramLocation, jc as TelegramProbeOptions, ju as reactMessageTelegram, kS as ReplyPayload, md as buildTelegramGroupPeerId, nS as resolveTelegramPollActionGateState, np as buildSenderLabel, oS as TelegramTokenResolution, op as hasBotMention, ox as TelegramThreadSpec, pd as buildTelegramGroupFrom, rS as listTelegramAccountIds, rp as buildSenderName, sp as isBinaryContent, tS as resolveTelegramMediaRuntimeOptions, tp as TelegramTextEntity, ts as shouldSuppressTelegramExecApprovalForwardingFallback, vd as buildTypingThreadParams, wd as resolveTelegramThreadSpec, xd as resolveTelegramForumFlag, yd as describeReplyTarget } from "../../config-contracts-CY87ANNp.js";
+import { S as parseStrictInteger } from "../../string-normalization-BJMJTTOA.js";
+import { b as ExecApprovalRequest, d as PluginApprovalRequest, o as SystemAgentApprovalRequest } from "../../approval-types-faKMZQ8q.js";
+import "../../routing-D0Nf_wCU.js";
+import "../../channel-policy-C9FBhvXC.js";
+import { C as normalizeTelegramCommandName, S as normalizeTelegramCommandDescription, _ as parseModelCallbackData, a as buildTelegramModelsProviderChannelData, b as TelegramCustomCommandInput, c as ParsedModelCallback, d as buildBrowseProvidersButton, f as buildModelSelectionCallbackData, g as getModelsPageSize, h as calculateTotalPages, i as buildCommandsPaginationKeyboard, l as ProviderInfo, m as buildProviderKeyboard, n as TelegramInteractiveHandlerRegistration, o as ButtonRow, p as buildModelsKeyboard, r as TelegramInteractiveHandlerResult, s as ModelsKeyboardParams, t as TelegramInteractiveHandlerContext, u as ResolveModelSelectionResult, v as resolveModelSelection, w as resolveTelegramCustomCommands, x as TelegramCustomCommandIssue, y as TELEGRAM_COMMAND_NAME_PATTERN } from "../../interactive-dispatch-pvkEgBdy.js";
+import "../../reply-runtime-l9aFhoqX.js";
+import { h as DirectoryConfigParams } from "../../directory-config-helpers-DUV8XqcX.js";
 import { Message as TelegramBotMessage, Update as TelegramBotUpdate } from "grammy/types";
-//#region packages/normalization-core/src/number-coercion.d.ts
-/** Parses only safe integer numbers or base-10 integer strings. */
-declare function parseStrictInteger(value: unknown): number | undefined;
-//#endregion
 //#region extensions/telegram/src/outbound-params.d.ts
 export declare function parseTelegramReplyToMessageId(replyToId?: unknown): number | undefined;
 export declare function parseTelegramThreadId(threadId?: string | number | null): number | undefined;
-//#endregion
-//#region src/utils/reaction-level.d.ts
-/**
- * Shared reaction-level resolver for channel plugins that expose ACK and agent reaction controls.
- * Channel adapters supply defaults/fallbacks; this helper owns the common flag expansion.
- */
-/** User-configurable reaction behavior level for channel delivery. */
-type ReactionLevel = "off" | "ack" | "minimal" | "extensive";
-/** Expanded reaction flags consumed by runtime delivery and prompt guidance. */
-type ResolvedReactionLevel$1 = {
-  level: ReactionLevel;
-  /** Whether ACK reactions (e.g., 👀 when processing) are enabled. */
-  ackEnabled: boolean;
-  /** Whether agent-controlled reactions are enabled. */
-  agentReactionsEnabled: boolean;
-  /** Guidance level for agent reactions (minimal = sparse, extensive = liberal). */
-  agentReactionGuidance?: "minimal" | "extensive";
-};
 //#endregion
 //#region extensions/telegram/src/channel.d.ts
 export declare const telegramPlugin: ChannelPlugin<ResolvedTelegramAccount, TelegramProbe, unknown, 1>;
@@ -94,20 +79,6 @@ export declare function resolveTelegramDirectPeerId(params: {
   senderId?: number | string | null;
 }): string;
 //#endregion
-//#region src/channels/plugins/directory-types.d.ts
-/**
- * Shared input for channel directory lookups.
- *
- * Directory-capable plugins receive the active config plus optional account
- * scope, search text, and result limit from setup or command surfaces.
- */
-type DirectoryConfigParams = {
-  cfg: OpenClawConfig;
-  accountId?: string | null;
-  query?: string | null;
-  limit?: number | null;
-};
-//#endregion
 //#region extensions/telegram/src/directory-config.d.ts
 export declare const listTelegramDirectoryPeersFromConfig: (configParams: DirectoryConfigParams) => Promise<ChannelDirectoryEntry[]>;
 export declare const listTelegramDirectoryGroupsFromConfig: (configParams: DirectoryConfigParams) => Promise<ChannelDirectoryEntry[]>;
@@ -151,7 +122,7 @@ export declare const shouldHandleTelegramExecApprovalRequest: (input: {
   accountId?: string | null;
 } & {
   request: ExecApprovalRequest | PluginApprovalRequest | SystemAgentApprovalRequest;
-}) => boolean;
+}) => Promise<boolean>;
 export declare function shouldInjectTelegramExecApprovalButtons(params: {
   cfg: OpenClawConfig;
   accountId?: string | null;
@@ -168,46 +139,6 @@ export declare const isTelegramExecApprovalHandlerConfigured: (input: {
   accountId?: string | null;
 }) => boolean;
 //#endregion
-//#region src/channels/plugins/group-policy-warnings.d.ts
-type GroupPolicyWarningCollector = (groupPolicy: GroupPolicy) => string[];
-type ConfigGroupPolicyWarningCollector<Params extends {
-  cfg: OpenClawConfig;
-}> = (params: Params) => string[];
-declare const { collectWarnings: collectAllowlistProviderGroupPolicyWarnings, createCollector: createAllowlistProviderGroupPolicyWarningCollector }: {
-  collectWarnings: (params: {
-    cfg: OpenClawConfig;
-    providerConfigPresent: boolean;
-    configuredGroupPolicy?: GroupPolicy | null;
-    collect: GroupPolicyWarningCollector;
-  }) => string[];
-  createCollector: <Params extends {
-    cfg: OpenClawConfig;
-  }>(params: {
-    providerConfigPresent: (cfg: OpenClawConfig) => boolean;
-    resolveGroupPolicy: (params: Params) => GroupPolicy | null | undefined;
-    collect: (params: Params & {
-      groupPolicy: GroupPolicy;
-    }) => string[];
-  }) => ConfigGroupPolicyWarningCollector<Params>;
-};
-declare const { collectWarnings: collectOpenProviderGroupPolicyWarnings, createCollector: createOpenProviderGroupPolicyWarningCollector }: {
-  collectWarnings: (params: {
-    cfg: OpenClawConfig;
-    providerConfigPresent: boolean;
-    configuredGroupPolicy?: GroupPolicy | null;
-    collect: GroupPolicyWarningCollector;
-  }) => string[];
-  createCollector: <Params extends {
-    cfg: OpenClawConfig;
-  }>(params: {
-    providerConfigPresent: (cfg: OpenClawConfig) => boolean;
-    resolveGroupPolicy: (params: Params) => GroupPolicy | null | undefined;
-    collect: (params: Params & {
-      groupPolicy: GroupPolicy;
-    }) => string[];
-  }) => ConfigGroupPolicyWarningCollector<Params>;
-};
-//#endregion
 //#region extensions/telegram/src/group-policy.d.ts
 export declare function resolveTelegramGroupRequireMention(params: ChannelGroupContext): boolean | undefined;
 export declare function resolveTelegramGroupToolPolicy(params: ChannelGroupContext): GroupToolPolicyConfig | undefined;
@@ -223,6 +154,13 @@ export declare function stripTelegramInternalPrefixes(to: string): string;
 export declare function normalizeTelegramChatId(raw: string): string | undefined;
 export declare function isNumericTelegramChatId(raw: string): boolean;
 export declare function normalizeTelegramLookupTarget(raw: string): string | undefined;
+/**
+ * Supported delivery targets:
+ * - `chatId` (plain chat ID, t.me link, @username, or internal prefixes like `telegram:...`)
+ * - `chatId:topicId` (numeric topic/thread ID)
+ * - `chatId:topic:topicId` (explicit topic marker; preferred)
+ * - `chatId:direct-topic:topicId` (channel Direct Messages topic)
+ */
 export declare function parseTelegramTarget(to: string): TelegramTarget;
 export declare function resolveTelegramTargetChatType(target: string): "direct" | "group" | "unknown";
 //#endregion
@@ -262,9 +200,6 @@ export declare const telegramOutbound: ChannelOutboundAdapter;
 //#region extensions/telegram/src/reaction-level.d.ts
 type TelegramReactionLevel = ReactionLevel;
 type ResolvedReactionLevel = ResolvedReactionLevel$1;
-/**
- * Resolve the effective reaction level and its implications.
- */
 export declare function resolveTelegramReactionLevel(params: {
   cfg: OpenClawConfig;
   accountId?: string;

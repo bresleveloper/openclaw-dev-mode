@@ -1,4 +1,4 @@
-import type { PluginCapabilityCatalogContext } from "openclaw/plugin-sdk/plugin-entry";
+import type { PluginCapabilityCatalogHostContext } from "openclaw/plugin-sdk/plugin-entry";
 import { normalizeResolvedSecretInputString } from "openclaw/plugin-sdk/secret-input";
 import type {
   SpeechDirectiveTokenParseContext,
@@ -149,7 +149,10 @@ function parseXaiSpeechDirectiveToken(
 }
 
 export function createXaiSpeechProviderMetadata(
-  context: Pick<PluginCapabilityCatalogContext, "isProviderAuthProfileConfigured">,
+  context: Pick<
+    PluginCapabilityCatalogHostContext,
+    "isProviderAuthProfileConfigured" | "isProviderAuthProfileConfiguredAsync"
+  >,
 ): Omit<
   SpeechProviderPlugin,
   "listVoices" | "synthesize" | "streamSynthesize" | "synthesizeTelephony"
@@ -185,19 +188,22 @@ export function createXaiSpeechProviderMetadata(
         responseFormat: responseFormat ?? base.responseFormat,
       };
     },
-    resolveTalkOverrides: ({ params }) => ({
-      ...(normalizeOptionalString(params.voiceId ?? params.voice) === undefined
-        ? {}
-        : { voiceId: normalizeOptionalString(params.voiceId ?? params.voice) }),
-      ...(normalizeXaiLanguageCode(params.language ?? params.languageCode) === undefined
-        ? {}
-        : { language: normalizeXaiLanguageCode(params.language ?? params.languageCode) }),
-      ...(normalizeXaiSpeechSpeed(params.speed) === undefined
-        ? {}
-        : { speed: normalizeXaiSpeechSpeed(params.speed) }),
-    }),
+    resolveTalkOverrides: ({ params }) => {
+      const voiceId = normalizeOptionalString(params.voiceId ?? params.voice);
+      const language = normalizeXaiLanguageCode(params.language ?? params.languageCode);
+      const speed = normalizeXaiSpeechSpeed(params.speed);
+      return {
+        ...(voiceId === undefined ? {} : { voiceId }),
+        ...(language === undefined ? {} : { language }),
+        ...(speed === undefined ? {} : { speed }),
+      };
+    },
+    // Retained for synchronous SDK consumers through 2026-12-31.
     isConfigured: ({ providerConfig, cfg }) =>
       Boolean(resolveDirectXaiAudioApiKey(readXaiSpeechProviderConfig(providerConfig).apiKey)) ||
       context.isProviderAuthProfileConfigured({ provider: "xai", cfg }),
+    isConfiguredAsync: async ({ providerConfig, cfg }) =>
+      Boolean(resolveDirectXaiAudioApiKey(readXaiSpeechProviderConfig(providerConfig).apiKey)) ||
+      (await context.isProviderAuthProfileConfiguredAsync({ provider: "xai", cfg })),
   };
 }

@@ -1094,7 +1094,7 @@
         },
         "streaming.mode": {
           "label": "Mattermost Streaming Mode",
-          "help": "Canonical Mattermost preview mode: \"off\" | \"partial\" | \"block\" | \"progress\"."
+          "help": "Mattermost preview mode: \"off\" | \"partial\" | \"block\" | \"progress\"."
         },
         "streaming.block.enabled": {
           "label": "Mattermost Block Streaming Enabled",

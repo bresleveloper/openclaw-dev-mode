@@ -2,9 +2,12 @@ import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { Command } from "commander";
-import { getTerminalTableWidth, renderTable } from "../../packages/terminal-core/src/table.js";
+import {
+  getTerminalTableWidth,
+  renderTerminalSafeTable,
+} from "../../packages/terminal-core/src/table.js";
 import { theme } from "../../packages/terminal-core/src/theme.js";
-import { getRuntimeConfig } from "../config/config.js";
+import { captureRuntimeConfigAsyncReader } from "../config/config.js";
 import { pickPrimaryTailnetIPv4, pickPrimaryTailnetIPv6 } from "../infra/tailnet.js";
 import {
   getWideAreaZonePath,
@@ -111,14 +114,13 @@ function detectBrewPrefix(): string {
   return prefix;
 }
 
-function ensureImportLine(corefilePath: string, importGlob: string): boolean {
+function ensureImportLine(corefilePath: string, importGlob: string): void {
   const existing = fs.readFileSync(corefilePath, "utf-8");
   if (existing.includes(importGlob)) {
-    return false;
+    return;
   }
   const next = `${existing.replace(/\s*$/, "")}\n\nimport ${importGlob}\n`;
   writeFileSudoIfNeeded(corefilePath, next);
-  return true;
 }
 
 export function registerDnsCli(program: Command) {
@@ -139,7 +141,7 @@ export function registerDnsCli(program: Command) {
       false,
     )
     .action(async (opts) => {
-      const cfg = getRuntimeConfig();
+      const cfg = await captureRuntimeConfigAsyncReader()();
       const tailnetIPv4 = pickPrimaryTailnetIPv4();
       const tailnetIPv6 = pickPrimaryTailnetIPv6();
       const explicitDomain = (opts.domain as string | undefined) ?? cfg.discovery?.wideArea?.domain;
@@ -159,7 +161,7 @@ export function registerDnsCli(program: Command) {
       const tableWidth = getTerminalTableWidth();
       defaultRuntime.log(theme.heading("DNS setup"));
       defaultRuntime.log(
-        renderTable({
+        renderTerminalSafeTable({
           width: tableWidth,
           columns: [
             { key: "Key", header: "Key", minWidth: 18 },
@@ -204,7 +206,7 @@ export function registerDnsCli(program: Command) {
         throw new Error("dns setup is currently supported on macOS only");
       }
       if (!tailnetIPv4 && !tailnetIPv6) {
-        throw new Error("no tailnet IP detected; ensure Tailscale is running on this machine");
+        throw new Error("no tailnet IP detected; check that Tailscale is running on this machine");
       }
 
       const prefix = detectBrewPrefix();

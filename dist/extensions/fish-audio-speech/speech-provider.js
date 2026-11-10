@@ -1,14 +1,8 @@
-import { fishAudioTts, fishAudioTtsStream, listFishAudioVoices, normalizeFishAudioBaseUrl } from "./tts.js";
+import { FISH_AUDIO_MODELS, fishAudioTts, fishAudioTtsStream, listFishAudioVoices, normalizeFishAudioBaseUrl } from "./tts.js";
 import { normalizeResolvedSecretInputString } from "openclaw/plugin-sdk/secret-input";
 import { MAX_AUDIO_BYTES, parseSpeechDirectiveNumberOverride, resolveSpeechProviderApiKey } from "openclaw/plugin-sdk/speech-provider";
 import { asBoolean, asFiniteNumberInRange, asOptionalRecord, filterStringRecord, normalizeOptionalString, parseBooleanValue } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/fish-audio-speech/speech-provider.ts
-const FISH_AUDIO_MODELS = [
-	"s2.1-pro-free",
-	"s2.1-pro",
-	"s2-pro",
-	"s1"
-];
 const DEFAULT_MODEL = "s2.1-pro";
 const DEFAULT_LATENCY = "balanced";
 const DEFAULT_TIMEOUT_MS = 24e4;
@@ -121,36 +115,28 @@ function parseDirectiveToken(ctx) {
 				};
 			}
 		case "speed":
-		case "fish_speed": return parseSpeechDirectiveNumberOverride({
-			ctx,
-			overrideKey: "speed",
-			range: {
-				min: .5,
-				max: 2
-			},
-			warning: (value) => `invalid Fish Audio speed "${value}"`
-		});
+		case "fish_speed":
 		case "temperature":
-		case "fish_temperature": return parseSpeechDirectiveNumberOverride({
-			ctx,
-			overrideKey: "temperature",
-			range: {
-				min: 0,
-				max: 1
-			},
-			warning: (value) => `invalid Fish Audio temperature "${value}"`
-		});
+		case "fish_temperature":
 		case "top_p":
 		case "topp":
-		case "fish_top_p": return parseSpeechDirectiveNumberOverride({
-			ctx,
-			overrideKey: "topP",
-			range: {
-				min: 0,
-				max: 1
-			},
-			warning: (value) => `invalid Fish Audio top_p "${value}"`
-		});
+		case "fish_top_p": {
+			const setting = ctx.key.replace(/^fish_/, "");
+			const overrideKey = setting === "top_p" || setting === "topp" ? "topP" : setting;
+			const label = overrideKey === "topP" ? "top_p" : overrideKey;
+			return parseSpeechDirectiveNumberOverride({
+				ctx,
+				overrideKey,
+				range: overrideKey === "speed" ? {
+					min: .5,
+					max: 2
+				} : {
+					min: 0,
+					max: 1
+				},
+				warning: (value) => `invalid Fish Audio ${label} "${value}"`
+			});
+		}
 		case "latency":
 		case "fish_latency":
 			if (!ctx.policy.allowVoiceSettings) return { handled: true };
@@ -231,6 +217,7 @@ async function resolveSynthesisRequest(req) {
 	};
 }
 function buildFishAudioSpeechProvider() {
+	const isConfigured = ({ providerConfig }) => Boolean(resolveApiKey(readProviderConfig(providerConfig).apiKey));
 	return {
 		id: "fish-audio",
 		label: "Fish Audio",
@@ -285,7 +272,8 @@ function buildFishAudioSpeechProvider() {
 				timeoutMs: req.timeoutMs ?? DEFAULT_TIMEOUT_MS
 			});
 		},
-		isConfigured: ({ providerConfig }) => Boolean(resolveApiKey(readProviderConfig(providerConfig).apiKey)),
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		synthesize: async (req) => {
 			const params = await resolveSynthesisRequest(req);
 			return {

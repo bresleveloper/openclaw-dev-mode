@@ -1,4 +1,8 @@
-import { embeddedAgentLog, formatErrorMessage } from "openclaw/plugin-sdk/agent-harness-runtime";
+import {
+  embeddedAgentLog,
+  formatErrorMessage,
+  runAgentHarnessLlmInputHook,
+} from "openclaw/plugin-sdk/agent-harness-runtime";
 import {
   interruptCodexTurnAndWaitBestEffort,
   retireUnsafeCodexTurnClientBestEffort,
@@ -11,6 +15,7 @@ import {
   assertCodexSessionRuntimeOwnership,
   requireCodexSupervisionModelSelection,
 } from "./binding-connection.js";
+import { recordCodexTurnForkSettings } from "./client-fork-settings.js";
 import { prepareCodexWorkspaceReferences } from "./client-runtime.js";
 import { isCodexAppServerIndeterminateRequestCancellationError } from "./client.js";
 import { joinPresentSections } from "./developer-instruction-sections.js";
@@ -18,6 +23,7 @@ import { resolveCodexExplicitSkillInputs } from "./explicit-skill-input.js";
 import { CODEX_INFERENCE_GENERATION_KEY } from "./inference-context.js";
 import { getCodexInferenceThread } from "./inference-routing.js";
 import { readCodexRuntimeModelId } from "./model-runtime.js";
+import { assertCodexProtectedContextCarrier } from "./protected-context-carrier.js";
 import { assertCodexTurnStartResponse } from "./protocol-validators.js";
 import type { CodexTurnStartResponse } from "./protocol.js";
 import { prepareCodexProviderReviewContinuation } from "./provider-review-continuation.js";
@@ -28,10 +34,12 @@ import {
 } from "./run-attempt-lifecycle.js";
 import type { CodexAttemptResources } from "./run-attempt-resources.js";
 import type { CodexAttemptTurnState } from "./run-attempt-turn-state.js";
-import { resolveCodexUltrafastServiceTier } from "./service-tier.js";
-import { buildTurnStartParams } from "./thread-lifecycle.js";
+import {
+  buildCodexConversationTurnInstructions,
+  splitCodexExtraSystemPrompt,
+} from "./thread-prompt.js";
 import { recordCodexTrajectoryContext } from "./trajectory.js";
-import { buildCodexParentLocalInstructions } from "./turn-params.js";
+import { buildCodexParentLocalInstructions, buildTurnStartParams } from "./turn-params.js";
 import type { CodexThreadRouteReservation } from "./turn-router.js";
 import { buildCodexUserPromptMessage } from "./user-prompt-message.js";
 
@@ -111,22 +119,6 @@ export async function prepareCodexAttemptTurnRequest(
       });
     },
   });
-  const throwIfTurnStartAcceptedAfterAbort = () => {
-    if (!runAbortController.signal.aborted) {
-      return;
-    }
-    const reason = runAbortController.signal.reason;
-    if (reason instanceof Error) {
-      throw reason;
-    }
-    const error = new Error(
-      typeof reason === "string" && reason.length > 0
-        ? reason
-        : "codex app-server turn start aborted before acceptance",
-    );
-    error.name = "AbortError";
-    throw error;
-  };
   const prepareWorkspaceReferences = () => {
     const references = prepareCodexWorkspaceReferences(
       resourceState.client,
@@ -179,7 +171,13 @@ export async function prepareCodexAttemptTurnRequest(
       resourceState.client,
       resourceState.thread.threadId,
     );
-    const turnStartParams = buildTurnStartParams(runtimeParams, {
+    assertCodexProtectedContextCarrier(
+      turnClient,
+      threadId,
+      Boolean(inferenceRoute),
+      splitCodexExtraSystemPrompt(runtimeParams).turn,
+    );
+    const turnStartParams = await buildTurnStartParams(runtimeParams, {
       threadId: resourceState.thread.threadId,
       cwd: resourceState.codexExecutionCwd,
       appServer: turnAppServer,
@@ -204,17 +202,8 @@ export async function prepareCodexAttemptTurnRequest(
         (tool) => tool.name === "session_status",
       ),
     });
-    const serviceTier = await resolveCodexUltrafastServiceTier({
-      enabled: fastMode === "ultrafast" && turnAppServer.enableUltrafast !== false,
-      serviceTier: turnStartParams.serviceTier,
-      model: turnStartParams.model ?? model,
-      modelProvider,
-      client: turnClient,
-      timeoutMs: Math.min(params.timeoutMs, 2500),
-      signal: runAbortController.signal,
-      assertCurrent: assertTurnCurrent,
-      config: params.config,
-    });
+    const serviceTier =
+      fastMode === "ultrafast" ? selectedThread.preparedServiceTier : turnStartParams.serviceTier;
     assertTurnCurrent();
     turnStartParams.serviceTier = serviceTier;
     connection.mutable.pluginAppServer = { ...turnAppServer, serviceTier };
@@ -243,20 +232,21 @@ export async function prepareCodexAttemptTurnRequest(
           }
         : undefined;
     if (inferenceRoute) {
-      if (!usesSupervisionConnection) {
-        prompt.setParentLocalEgress();
-      }
       resourceState.releaseInferenceContext?.();
       const inferenceThread = resourceState.thread;
-      const registration = inferenceRoute.context.register({
-        threadId: resourceState.thread.threadId,
-        text: usesSupervisionConnection
+      const inferenceInstructions = joinPresentSections(
+        usesSupervisionConnection
           ? ""
           : (buildCodexParentLocalInstructions(runtimeParams, {
               personaInstructions: workspaceBootstrapContext.personaInstructions,
               skillsInstructions: context.skillsInstructions,
               memoryInstructions: workspaceBootstrapContext.memoryInstructions,
             }) ?? ""),
+        buildCodexConversationTurnInstructions(runtimeParams, toolBridge.availableSpecs),
+      );
+      const registration = await inferenceRoute.context.register({
+        threadId: resourceState.thread.threadId,
+        text: inferenceInstructions,
         signal: runAbortController.signal,
         assertCurrent: () => {
           params.hostCapabilities.assertActive();
@@ -272,6 +262,7 @@ export async function prepareCodexAttemptTurnRequest(
         },
       });
       resourceState.releaseInferenceContext = registration.release;
+      prompt.setInferenceInstructions(inferenceInstructions);
       turnStartParams.responsesapiClientMetadata = {
         ...turnStartParams.responsesapiClientMetadata,
         [CODEX_INFERENCE_GENERATION_KEY]: registration.generation,
@@ -293,6 +284,11 @@ export async function prepareCodexAttemptTurnRequest(
       assertCurrent: assertTurnCurrent,
     });
     codexModelCallDiagnostics.setRequestPayloadBytes(utf8JsonByteLength(turnStartParams));
+    runAgentHarnessLlmInputHook({
+      event: buildLlmInputEvent(),
+      ctx: context.hookContext,
+      hookRunner: context.hookRunner,
+    });
     recordCodexTrajectoryContext(resources.trajectoryRecorder, {
       attempt: params,
       developerInstructions: joinPresentSections(
@@ -328,11 +324,18 @@ export async function prepareCodexAttemptTurnRequest(
           withCurrent: connection.withCurrent,
           assertCurrent: () => {
             assertTurnCurrent();
+            assertCodexProtectedContextCarrier(
+              turnClient,
+              threadId,
+              Boolean(getCodexInferenceThread(turnClient, threadId)),
+              splitCodexExtraSystemPrompt(runtimeParams).turn,
+            );
             continuation?.dispatch();
           },
         }),
       );
       acceptedTurnId = startedTurn.turn.id;
+      recordCodexTurnForkSettings(turnClient, turnStartParams);
       resources.nativeProcessAuthority?.bindTurn(turnClient, threadId, acceptedTurnId);
       assertTurnCurrent();
       resourceState.nativeSubagentMonitor?.bindTurn(acceptedTurnId, modelMapping);
@@ -340,7 +343,19 @@ export async function prepareCodexAttemptTurnRequest(
       if (upstreamUserText.includes(workspaceBootstrapContext.promptContext ?? "")) {
         references.accepted();
       }
-      throwIfTurnStartAcceptedAfterAbort();
+      if (runAbortController.signal.aborted) {
+        const reason = runAbortController.signal.reason;
+        if (reason instanceof Error) {
+          throw reason;
+        }
+        const error = new Error(
+          typeof reason === "string" && reason.length > 0
+            ? reason
+            : "codex app-server turn start aborted before acceptance",
+        );
+        error.name = "AbortError";
+        throw error;
+      }
       await continuation?.accept(acceptedTurnId);
       return { turn: startedTurn, upstreamUserText };
     } catch (error) {
@@ -418,5 +433,5 @@ export async function prepareCodexAttemptTurnRequest(
       ? { harnessId: params.runtimePlan.observability.harnessId }
       : {}),
   });
-  return { codexModelCallDiagnostics, startCodexTurn, buildLlmInputEvent, buildLlmOutputEvent };
+  return { codexModelCallDiagnostics, startCodexTurn, buildLlmOutputEvent };
 }

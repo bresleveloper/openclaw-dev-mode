@@ -11,12 +11,10 @@ const ANTHROPIC_VERTEX_DEFAULT_REGION = "global";
 const ANTHROPIC_VERTEX_REGION_RE = /^[a-z0-9-]+$/;
 const GCP_VERTEX_CREDENTIALS_MARKER = "gcp-vertex-credentials";
 const ANTHROPIC_VERTEX_ADC_FILE_MAX_BYTES = 1048576;
-/** Resolve the configured Vertex region, defaulting to global. */
 function resolveAnthropicVertexRegion(env = process.env) {
 	const region = normalizeOptionalString(env.GOOGLE_CLOUD_LOCATION) || normalizeOptionalString(env.CLOUD_ML_REGION);
 	return region && ANTHROPIC_VERTEX_REGION_RE.test(region) ? region : ANTHROPIC_VERTEX_DEFAULT_REGION;
 }
-/** Resolve the Vertex project id from explicit env or ADC files. */
 function resolveAnthropicVertexProjectId(env = process.env) {
 	return normalizeOptionalString(env.ANTHROPIC_VERTEX_PROJECT_ID) || normalizeOptionalString(env.GOOGLE_CLOUD_PROJECT) || normalizeOptionalString(env.GOOGLE_CLOUD_PROJECT_ID) || resolveAnthropicVertexProjectIdFromAdc(env);
 }
@@ -57,15 +55,12 @@ function resolveAnthropicVertexProjectIdFromAdc(env = process.env) {
 		return;
 	}
 }
-/** Return whether ADC credentials or metadata-server auth are available. */
 function hasAnthropicVertexCredentials(env = process.env) {
 	return hasAnthropicVertexMetadataServerAdc(env) || canReadAnthropicVertexAdc(env);
 }
-/** Return whether Anthropic Vertex has usable auth for implicit registration. */
 function hasAnthropicVertexAvailableAuth(env = process.env) {
 	return hasAnthropicVertexCredentials(env);
 }
-/** Resolve the synthetic config API key marker for Anthropic Vertex auth. */
 function resolveAnthropicVertexConfigApiKey(env = process.env) {
 	return hasAnthropicVertexAvailableAuth(env) ? GCP_VERTEX_CREDENTIALS_MARKER : void 0;
 }

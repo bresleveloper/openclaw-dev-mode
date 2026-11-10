@@ -226,8 +226,9 @@ unchanged; no partially saved value is advertised.
 
 ## Recover from tool errors
 
-Nested tool failures are ordinary JavaScript errors. Guest code can catch them
-and inspect diagnostic fields: `code` identifies `input_contract`,
+Thrown tool errors are catchable. Returned values may instead report failure.
+Follow the tool's result contract, and inspect possible effects before retrying.
+Guest code can inspect diagnostic fields on thrown errors: `code` identifies `input_contract`,
 `output_contract`, `invalid_contract`, `invalid_input`, or `tool_error`;
 `location` contains the original guest call-site frames when available.
 `effectStatus` remains `"unknown"`: classification is not a dispatch-owner
@@ -261,6 +262,8 @@ JavaScript syntax errors and uncaught nested tool
 failures become failed `exec` or `wait` results. The model can read the error,
 correct its code, inspect the current state, and continue with the normal tool
 surface. A failed cell does not impose a separate recovery mode or mutation budget.
+
+Source syntax errors are detected before guest execution. Their parser-message text is bounded to 240 UTF-16 units and clipped at a Unicode code-point boundary.
 
 OpenClaw does not automatically replay a failed program. Earlier calls may have
 changed state, and a failed call may have partially applied. Inspect authoritative

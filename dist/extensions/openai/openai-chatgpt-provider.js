@@ -1,2 +1,2 @@
-import { n as buildOpenAICodexProviderHooks, t as buildOpenAIChatGPTAuthMethodRuns } from "../../openai-chatgpt-provider-DSoHd8aC.mjs";
+import { n as buildOpenAICodexProviderHooks, t as buildOpenAIChatGPTAuthMethodRuns } from "../../openai-chatgpt-provider-BzleGDeP.mjs";
 export { buildOpenAIChatGPTAuthMethodRuns, buildOpenAICodexProviderHooks };

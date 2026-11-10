@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-IQf3eJtA.mjs";import{A as t}from"./worker-chunk-DPWtezMr.mjs";import{randomBytes as n}from"node:crypto";function generateSecureFraction(){return n(4).readUInt32BE(0)/4294967296}function init_secure_random(){return(init_secure_random=e((()=>{t()})))()}export{init_secure_random as n,generateSecureFraction as t};

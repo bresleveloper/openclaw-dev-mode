@@ -28,7 +28,7 @@ async function gradiumTTS(params) {
 		auditContext: "gradium.tts"
 	});
 	try {
-		await assertOkOrThrowProviderError(response, "Gradium API error");
+		await assertOkOrThrowProviderError(response, "Gradium API error", { requestHeaders: { "x-api-key": apiKey } });
 		return await readProviderBinaryResponse(response, "Gradium API error", "audio", {
 			maxBytes,
 			onOverflow: ({ maxBytes: maxBytesLocal }) => /* @__PURE__ */ new Error(`Gradium TTS audio response exceeds ${maxBytesLocal} bytes`)

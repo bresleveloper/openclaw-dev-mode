@@ -1,18 +1,18 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
 import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { m as readProviderJsonResponse, n as assertOkOrThrowHttpError } from "../../provider-http-errors-DmewLLH7.mjs";
-import { p as sanitizeConfiguredModelProviderRequest } from "../../provider-request-config-By9R9pyt.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { r as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-CtwRSse3.mjs";
-import { _ as resolveProviderOperationTimeoutMs, a as createProviderOperationTimeoutResolver, d as postJsonRequest, h as resolveProviderHttpRequestConfig, l as pollProviderOperation, r as createProviderOperationDeadline, v as waitProviderOperationPollInterval } from "../../shared-DcnGQdHV.mjs";
-import "../../media-generation-runtime-DVf13dFr.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-B-PBEJIo.mjs";
-import "../../provider-http-CuRGJD0L.mjs";
-import { u as toImageDataUrl } from "../../image-assets-DT0442If.mjs";
-import "../../image-generation-DlQTzDSO.mjs";
-import { a as XAI_VIDEO_ASPECT_RATIOS, o as XAI_VIDEO_DEFAULT_TIMEOUT_MS, p as isXaiVideo15Model, t as DEFAULT_XAI_VIDEO_BASE_URL } from "../../capability-provider-metadata-factory-C2QQ6-HN.mjs";
-import { n as createXaiVideoGenerationProviderMetadata } from "../../capability-provider-metadata-mORI2UCe.mjs";
-import { n as fetchXaiVideoResponse, t as downloadXaiVideo } from "../../video-generation-transport-DrFkWIkc.mjs";
+import { m as readProviderJsonResponse, n as assertOkOrThrowHttpError } from "../../provider-http-errors-CjVOxCE5.mjs";
+import { p as sanitizeConfiguredModelProviderRequest } from "../../provider-request-config-WdycwKIG.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { i as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-BaCve0jk.mjs";
+import { _ as resolveProviderOperationTimeoutMs, a as createProviderOperationTimeoutResolver, d as postJsonRequest, h as resolveProviderHttpRequestConfig, l as pollProviderOperation, r as createProviderOperationDeadline, v as waitProviderOperationPollInterval } from "../../shared-BMUa_P4s.mjs";
+import "../../media-generation-runtime-BgMYgoiy.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CMRSW7VK.mjs";
+import "../../provider-http-BuV15s4V.mjs";
+import { u as toImageDataUrl } from "../../image-assets-PTBoX6Eo.mjs";
+import "../../image-generation-DwjRbF_L.mjs";
+import { a as XAI_VIDEO_ASPECT_RATIOS, o as XAI_VIDEO_DEFAULT_TIMEOUT_MS, p as isXaiVideo15Model, t as DEFAULT_XAI_VIDEO_BASE_URL } from "../../capability-provider-metadata-factory-Cs1Hgti5.mjs";
+import { n as createXaiVideoGenerationProviderMetadata } from "../../capability-provider-metadata-D94p50HJ.mjs";
+import { n as fetchXaiVideoResponse, t as downloadXaiVideo } from "../../video-generation-transport-UXqG8JpM.mjs";
 //#region extensions/xai/video-generation-provider.ts
 const POLL_INTERVAL_MS = 5e3;
 const MAX_POLL_ATTEMPTS = 120;
@@ -83,10 +83,9 @@ function resolveInputVideoUrl(input) {
 	if (input.buffer) throw new Error("xAI video editing currently requires a remote mp4 URL input.");
 	throw new Error("xAI video editing input is missing video data.");
 }
-function resolveDurationSeconds(params) {
-	if (typeof params.durationSeconds !== "number" || !Number.isFinite(params.durationSeconds)) return;
-	const rounded = Math.round(params.durationSeconds);
-	return Math.max(params.min ?? 1, Math.min(params.max ?? 15, rounded));
+function resolveDurationSeconds(value, min, max) {
+	if (typeof value !== "number" || !Number.isFinite(value)) return;
+	return Math.max(min, Math.min(max, Math.round(value)));
 }
 function resolveAspectRatio(value) {
 	const trimmed = normalizeOptionalString(value);
@@ -100,16 +99,6 @@ function resolveResolution(value, options) {
 	if (normalized === "720p") return "720p";
 	if (normalized === "1080p") return options?.allow1080p ? "1080p" : "720p";
 }
-function resolveXaiVideoMode(req) {
-	const hasVideoInput = (req.inputVideos?.length ?? 0) > 0;
-	if (!hasVideoInput && (req.inputImages ?? []).some(isReferenceImage)) return "referenceToVideo";
-	if (!hasVideoInput) return "generate";
-	return typeof resolveDurationSeconds({
-		durationSeconds: req.durationSeconds,
-		min: 2,
-		max: 10
-	}) === "number" ? "extend" : "edit";
-}
 function prepareCreateRequest(req) {
 	validateXaiVideo15Request(req);
 	const inputImages = req.inputImages ?? [];
@@ -119,44 +108,32 @@ function prepareCreateRequest(req) {
 	if (hasReferenceImages && inputImages.length > 7) throw new Error("xAI reference-image video generation supports at most 7 reference images.");
 	if ((req.inputVideos?.length ?? 0) > 1) throw new Error("xAI video generation supports at most one input video.");
 	if ((req.inputImages?.length ?? 0) > 0 && (req.inputVideos?.length ?? 0) > 0) throw new Error("xAI video generation does not support image and video inputs together.");
-	const mode = resolveXaiVideoMode(req);
 	const body = {
 		model: normalizeOptionalString(req.model) ?? "grok-imagine-video",
 		prompt: req.prompt
 	};
-	if (mode === "generate" || mode === "referenceToVideo") {
-		const isVideo15 = mode === "generate" && isXaiVideo15Model(req.model);
-		const inputImage = mode === "generate" ? inputImages[0] : void 0;
-		const imageUrl = inputImage ? resolveImageUrl(inputImage) : void 0;
-		if (mode === "referenceToVideo") body.reference_images = inputImages.map((image) => ({ url: resolveImageUrl(image) }));
-		else if (imageUrl) body.image = { url: imageUrl };
-		body.duration = resolveDurationSeconds({
-			durationSeconds: req.durationSeconds,
-			min: 1,
-			max: mode === "generate" ? 15 : 10
-		}) ?? XAI_VIDEO_DEFAULT_DURATION_SECONDS;
-		const aspectRatio = resolveAspectRatio(req.aspectRatio);
-		if (aspectRatio || !imageUrl) body.aspect_ratio = aspectRatio ?? XAI_VIDEO_DEFAULT_ASPECT_RATIO;
-		body.resolution = resolveResolution(req.resolution, { allow1080p: isVideo15 }) ?? XAI_VIDEO_DEFAULT_RESOLUTION;
+	if ((req.inputVideos?.length ?? 0) > 0) {
+		const duration = resolveDurationSeconds(req.durationSeconds, 2, 10);
+		body.video = { url: resolveInputVideoUrl(req.inputVideos?.[0]) };
+		if (duration !== void 0) body.duration = duration;
 		return {
 			body,
-			mode,
-			endpoint: "/videos/generations"
+			mode: duration === void 0 ? "edit" : "extend",
+			endpoint: duration === void 0 ? "/videos/edits" : "/videos/extensions"
 		};
 	}
-	body.video = { url: resolveInputVideoUrl(req.inputVideos?.[0]) };
-	if (mode === "extend") {
-		const duration = resolveDurationSeconds({
-			durationSeconds: req.durationSeconds,
-			min: 2,
-			max: 10
-		});
-		if (typeof duration === "number") body.duration = duration;
-	}
+	const inputImage = hasReferenceImages ? void 0 : inputImages[0];
+	const imageUrl = inputImage ? resolveImageUrl(inputImage) : void 0;
+	if (hasReferenceImages) body.reference_images = inputImages.map((image) => ({ url: resolveImageUrl(image) }));
+	else if (imageUrl) body.image = { url: imageUrl };
+	body.duration = resolveDurationSeconds(req.durationSeconds, 1, hasReferenceImages ? 10 : 15) ?? XAI_VIDEO_DEFAULT_DURATION_SECONDS;
+	const aspectRatio = resolveAspectRatio(req.aspectRatio);
+	if (aspectRatio || !imageUrl) body.aspect_ratio = aspectRatio ?? XAI_VIDEO_DEFAULT_ASPECT_RATIO;
+	body.resolution = resolveResolution(req.resolution, { allow1080p: !hasReferenceImages && isXaiVideo15Model(req.model) }) ?? XAI_VIDEO_DEFAULT_RESOLUTION;
 	return {
 		body,
-		mode,
-		endpoint: mode === "edit" ? "/videos/edits" : "/videos/extensions"
+		mode: hasReferenceImages ? "referenceToVideo" : "generate",
+		endpoint: "/videos/generations"
 	};
 }
 function buildXaiVideoGenerationProvider() {

@@ -1,21 +1,18 @@
-import { F as resolveTimerTimeoutMs, M as resolveNonNegativeIntegerOption } from "../number-coercion-CuVhdCBs.mjs";
+import { F as resolveTimerTimeoutMs, M as resolveNonNegativeIntegerOption } from "../number-coercion-CkhMiRw8.mjs";
 import { r as truncateUtf16Safe } from "../utf16-slice-D_ngcYKd.mjs";
-import { A as withTimeout } from "../fs-safe-BUXBSN-4.mjs";
-import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
-import { i as normalizeCapabilityProviderId } from "../provider-registry-shared-Cov0065J.mjs";
-import "../with-timeout-BMv4tv7r.mjs";
+import { t as formatErrorMessage } from "../errors-DPfGDWk1.mjs";
+import { A as withTimeout } from "../fs-safe-6Z4UiMS4.mjs";
+import "../with-timeout-DPEAkQt5.mjs";
 import { n as createRealtimeVoiceAudioQueue, t as RealtimeVoiceSessionLifecycle } from "../realtime-session-lifecycle-D5AJf2IE.mjs";
-import { a as normalizeRealtimeVoiceActivationNamePrefix, c as sortRealtimeVoiceActivationNames, i as normalizeRealtimeVoiceActivationName, n as isSupportedRealtimeVoiceActivationName, o as normalizeSupportedRealtimeVoiceActivationName, r as matchRealtimeVoiceActivationName, s as realtimeVoiceActivationNameWordCount, t as REALTIME_VOICE_ACTIVATION_NAME_MAX_WORDS } from "../activation-name-CFCXq1Ha.mjs";
-import { n as controlRealtimeVoiceAgentRun, r as registerRealtimeVoiceSelection, t as buildRealtimeVoiceAgentErrorProviderResult } from "../agent-run-control-Bebh3_4u.mjs";
-import { A as readSpeakableRealtimeVoiceToolResult, C as resolveRealtimeVoiceInterruptResponseOnInputAudio, D as matchRealtimeVoiceConsultQuestions, E as createRealtimeVoiceForcedConsultCoordinator, F as recordTalkLogEvent, I as createTalkDiagnosticEvent, L as recordTalkDiagnosticEvent, M as normalizeTalkTransport, N as recordTalkObservabilityEvent, O as normalizeRealtimeVoiceConsultQuestion, P as createTalkLogRecord, R as TALK_EVENT_TYPES, S as resolveRealtimeVoiceBargeIn, T as resolveRealtimeVoiceSessionPolicy, V as projectInternalRealtimeVoicePublicConfig, _ as REALTIME_VOICE_AGENT_CONSULT_SENDER_AUTH_VERSION, a as getRealtimeVoiceTranscriptHealth, c as recordRealtimeVoiceTranscript, d as resolveConfiguredRealtimeVoiceProvider, f as resolveRealtimeVoiceProviderCapabilities, g as createRealtimeVoiceAgentTalkbackQueue, h as listRealtimeVoiceProviders, i as getRealtimeVoiceBridgeEventHealth, j as createTalkSessionController, k as readRealtimeVoiceConsultQuestion, l as createRealtimeVoiceBridgeSession, m as getRealtimeVoiceProvider, o as isLikelyRealtimeVoiceAssistantEchoTranscript, p as canonicalizeRealtimeVoiceProviderId, r as extendRealtimeVoiceOutputEchoSuppression, s as recordRealtimeVoiceBridgeEvent, t as createRealtimeVoiceSessionHarness, v as assertRealtimeVoiceAgentConsultModelSelectionUnlocked, w as resolveRealtimeVoiceMinBargeInAudioEndMs, x as isRealtimeVoiceWakeNameRequired, y as consultRealtimeVoiceAgent, z as createTalkEventSequencer } from "../realtime-session-harness-CZgnZGxB.mjs";
-import { A as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, C as collectRealtimeVoiceAgentConsultVisibleText, D as resolveRealtimeVoiceAgentConsultTools, E as resolveRealtimeVoiceAgentConsultToolPolicy, M as realtimeVoiceAudioDurationMs, N as toOpenAICompatibleRealtimeAudioFormat, O as resolveRealtimeVoiceAgentConsultToolsAllow, S as buildRealtimeVoiceSessionInstructions, T as parseRealtimeVoiceAgentConsultArgs, _ as REALTIME_VOICE_AGENT_CONSULT_TOOL_POLICIES, a as buildRealtimeVoiceAgentCancelProviderResult, b as buildRealtimeVoiceAgentConsultPrompt, c as classifyRealtimeVoiceAgentControlText, d as normalizeRealtimeVoiceAgentControlMode, f as parseRealtimeVoiceAgentControlToolArgs, g as REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, h as REALTIME_VOICE_AGENT_CONSULT_TOOL, i as REALTIME_VOICE_AGENT_CONTROL_TOOL_NAME, j as normalizeRealtimeVoiceResponseOutcome, k as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, m as shouldAutoControlRealtimeVoiceAgentText, n as REALTIME_VOICE_AGENT_CONTROL_MODES, o as buildRealtimeVoiceAgentControlSpeechMessage, p as resolveRealtimeVoiceAgentControlIntent, r as REALTIME_VOICE_AGENT_CONTROL_TOOL, v as buildRealtimeVoiceAgentConsultChatMessage, w as isRealtimeVoiceAgentConsultToolPolicy, x as buildRealtimeVoiceAgentConsultWorkingResponse, y as buildRealtimeVoiceAgentConsultPolicyInstructions } from "../agent-run-control-shared-HQwazRP4.mjs";
-import { t as createRealtimeVoiceOutputActivityTracker } from "../output-activity-tracker-DibtmiPc.mjs";
-import { a as convertPcmToMulaw8k, c as pcmToMulaw, i as readPcm16AudioStats, l as resamplePcm, n as createSpeechThresholdGate, o as createStreamingPcmResampler, r as isRealtimeVoiceAudioAudible, s as mulawToPcm, t as calculateMulawRms, u as resamplePcmTo8k } from "../audio-energy-DXFUFDyy.mjs";
-import { t as createRealtimeVoiceAudioPortSender } from "../audio-output-port-Di-mQkyT.mjs";
+import { a as sortRealtimeVoiceActivationNames, i as normalizeSupportedRealtimeVoiceActivationName, n as matchRealtimeVoiceActivationName, r as normalizeRealtimeVoiceActivationNamePrefix, t as isSupportedRealtimeVoiceActivationName } from "../activation-name-Mr5RBN2x.mjs";
+import { n as controlRealtimeVoiceAgentRun, r as registerRealtimeVoiceSelection, t as buildRealtimeVoiceAgentErrorProviderResult } from "../agent-run-control-CwFgoHm3.mjs";
+import { A as readSpeakableRealtimeVoiceToolResult, C as resolveRealtimeVoiceBargeIn, D as createRealtimeVoiceForcedConsultCoordinator, E as resolveRealtimeVoiceSessionPolicy, F as projectInternalRealtimeVoicePublicConfig, M as recordTalkObservabilityEvent, N as TALK_EVENT_TYPES, O as matchRealtimeVoiceConsultQuestions, S as isRealtimeVoiceWakeNameRequired, T as resolveRealtimeVoiceMinBargeInAudioEndMs, _ as createRealtimeVoiceAgentTalkbackQueue, a as getRealtimeVoiceTranscriptHealth, c as recordRealtimeVoiceTranscript, d as resolveConfiguredRealtimeVoiceProvider, f as resolveConfiguredRealtimeVoiceProviderAsync, g as listRealtimeVoiceProviders, h as getRealtimeVoiceProvider, i as getRealtimeVoiceBridgeEventHealth, j as createTalkSessionController, k as readRealtimeVoiceConsultQuestion, l as createRealtimeVoiceBridgeSession, m as canonicalizeRealtimeVoiceProviderId, o as isLikelyRealtimeVoiceAssistantEchoTranscript, r as extendRealtimeVoiceOutputEchoSuppression, s as recordRealtimeVoiceBridgeEvent, t as createRealtimeVoiceSessionHarness, v as REALTIME_VOICE_AGENT_CONSULT_SENDER_AUTH_VERSION, w as resolveRealtimeVoiceInterruptResponseOnInputAudio, x as consultRealtimeVoiceAgent, y as assertRealtimeVoiceAgentConsultModelSelectionUnlocked } from "../realtime-session-harness-C96O9S-p.mjs";
+import { A as realtimeVoiceAudioDurationMs, C as parseRealtimeVoiceAgentConsultArgs, D as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, E as resolveRealtimeVoiceAgentConsultToolsAllow, O as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, S as isRealtimeVoiceAgentConsultToolPolicy, T as resolveRealtimeVoiceAgentConsultTools, _ as buildRealtimeVoiceAgentConsultPolicyInstructions, b as buildRealtimeVoiceSessionInstructions, f as shouldAutoControlRealtimeVoiceAgentText, g as buildRealtimeVoiceAgentConsultChatMessage, h as REALTIME_VOICE_AGENT_CONSULT_TOOL_POLICIES, i as buildRealtimeVoiceAgentCancelProviderResult, j as toOpenAICompatibleRealtimeAudioFormat, k as normalizeRealtimeVoiceResponseOutcome, m as REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, n as REALTIME_VOICE_AGENT_CONTROL_TOOL, p as REALTIME_VOICE_AGENT_CONSULT_TOOL, r as REALTIME_VOICE_AGENT_CONTROL_TOOL_NAME, s as classifyRealtimeVoiceAgentControlText, u as parseRealtimeVoiceAgentControlToolArgs, w as resolveRealtimeVoiceAgentConsultToolPolicy, y as buildRealtimeVoiceAgentConsultWorkingResponse } from "../agent-run-control-shared-CErtQzFX.mjs";
+import { a as resamplePcm, o as resamplePcmTo8k, r as mulawToPcm, s as createRealtimeVoiceOutputActivityTracker, t as convertPcmToMulaw8k } from "../audio-codec-CZcvtjIg.mjs";
+import { i as readPcm16AudioStats, n as createSpeechThresholdGate, r as isRealtimeVoiceAudioAudible, t as calculateMulawRms } from "../audio-energy-D6TOXih8.mjs";
+import { t as createRealtimeVoiceAudioPortSender } from "../audio-output-port-D8MeN94q.mjs";
 //#region src/talk/consult-transcript.ts
 /**
-* Transcript guardrails for realtime voice agent consults.
-*
 * ASR often emits partial fragments or polite closings that should not trigger
 * an OpenClaw consult. This classifier names those skip reasons for callers.
 */
@@ -52,7 +49,6 @@ const REALTIME_VOICE_CLOSING_REMAINDER = new RegExp(String.raw`^(?:(?:${[
 	String.raw`in (?:a|a few|few|one|two|three|four|five|six|seven|eight|nine|ten|\d+) (?:second|minute|moment)s?`,
 	"in a bit|in the (?:morning|afternoon|evening)"
 ].join("|")})\b|[.! ,;:—–-])*$`);
-/** Classify transcript text that is empty, incomplete, fragmented, or non-actionable. */
 function classifySkippableRealtimeVoiceConsultTranscript(text) {
 	const normalized = text.replace(/\s+/g, " ").trim().toLowerCase();
 	if (!normalized) return "empty";
@@ -262,16 +258,6 @@ function normalizeSnippet(text) {
 	if (normalized.length <= MAX_SNIPPET_CHARS) return normalized;
 	return `${truncateUtf16Safe(normalized, 699).trimEnd()}...`;
 }
-function buildSearchQuery(args) {
-	const parsed = parseRealtimeVoiceAgentConsultArgs(args);
-	return [parsed.question, parsed.context].filter(Boolean).join("\n\n");
-}
-function resolveLabels(labels) {
-	return {
-		audienceLabel: labels?.audienceLabel?.trim() || "person",
-		contextName: labels?.contextName?.trim() || "OpenClaw memory context"
-	};
-}
 function buildContextText(params) {
 	const hits = params.hits.map((hit, index) => `${index + 1}. [${hit.source}] ${hit.location}\n${normalizeSnippet(hit.snippet)}`).join("\n\n");
 	return [
@@ -296,42 +282,40 @@ function toNativeFastContextHit(hit) {
 	};
 }
 async function lookupFastContext(params) {
-	const { getActiveMemoryProviderCore, isActiveMemoryProviderNative } = await import("../memory-runtime-BNDrcERN.mjs");
-	if (!isActiveMemoryProviderNative({
+	const { authorizeActiveMemorySearchHits, getActiveMemoryProviderCore, getActiveMemorySearchManagerCore, isActiveMemoryProviderNative } = await import("../memory-runtime-CCvD2E5N.mjs");
+	if (isActiveMemoryProviderNative({
 		cfg: params.cfg,
 		agentId: params.agentId
-	})) return await lookupLegacyFastContext(params);
-	if (!params.callerSuppliedLiveness) return {
-		status: "unavailable",
-		error: "caller supplied no request liveness"
-	};
-	const memory = await getActiveMemoryProviderCore({
-		cfg: params.cfg,
-		agentId: params.agentId,
-		context: params.context
-	});
-	if (!memory.provider) return {
-		status: "unavailable",
-		error: memory.error ?? "no active memory provider"
-	};
-	try {
-		const { hits } = await memory.provider.search({
-			query: params.query,
-			maxResults: params.config.maxResults,
-			sources: params.config.sources
-		});
-		params.context.assertCurrent();
-		return {
-			status: "hits",
-			hits: hits.map(toNativeFastContextHit)
+	})) {
+		if (!params.callerSuppliedLiveness) return {
+			status: "unavailable",
+			error: "caller supplied no request liveness"
 		};
-	} finally {
-		await memory.provider.close();
-		params.context.assertCurrent();
+		const memory = await getActiveMemoryProviderCore({
+			cfg: params.cfg,
+			agentId: params.agentId,
+			context: params.context
+		});
+		if (!memory.provider) return {
+			status: "unavailable",
+			error: memory.error ?? "no active memory provider"
+		};
+		try {
+			const { hits } = await memory.provider.search({
+				query: params.query,
+				maxResults: params.config.maxResults,
+				sources: params.config.sources
+			});
+			params.context.assertCurrent();
+			return {
+				status: "hits",
+				hits: hits.map(toNativeFastContextHit)
+			};
+		} finally {
+			await memory.provider.close();
+			params.context.assertCurrent();
+		}
 	}
-}
-async function lookupLegacyFastContext(params) {
-	const { authorizeActiveMemorySearchHits, getActiveMemorySearchManagerCore } = await import("../memory-runtime-BNDrcERN.mjs");
 	const memory = await getActiveMemorySearchManagerCore({
 		cfg: params.cfg,
 		agentId: params.agentId
@@ -364,11 +348,14 @@ async function lookupLegacyFastContext(params) {
 		}))
 	};
 }
-/** Try to answer a realtime consult from fast memory/session context. */
 async function resolveRealtimeVoiceFastContextConsult(params) {
 	if (!params.config.enabled) return { handled: false };
-	const labels = resolveLabels(params.labels);
-	const query = buildSearchQuery(params.args);
+	const labels = {
+		audienceLabel: params.labels?.audienceLabel?.trim() || "person",
+		contextName: params.labels?.contextName?.trim() || "OpenClaw memory context"
+	};
+	const parsed = parseRealtimeVoiceAgentConsultArgs(params.args);
+	const query = [parsed.question, parsed.context].filter(Boolean).join("\n\n");
 	const lookupLifetime = new AbortController();
 	const signal = params.liveness?.signal ? AbortSignal.any([params.liveness.signal, lookupLifetime.signal]) : lookupLifetime.signal;
 	const context = {
@@ -417,4 +404,4 @@ async function resolveRealtimeVoiceFastContextConsult(params) {
 	};
 }
 //#endregion
-export { REALTIME_VOICE_ACTIVATION_NAME_MAX_WORDS, REALTIME_VOICE_AGENT_CONSULT_SENDER_AUTH_VERSION, REALTIME_VOICE_AGENT_CONSULT_TOOL, REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, REALTIME_VOICE_AGENT_CONSULT_TOOL_POLICIES, REALTIME_VOICE_AGENT_CONTROL_MODES, REALTIME_VOICE_AGENT_CONTROL_TOOL, REALTIME_VOICE_AGENT_CONTROL_TOOL_NAME, REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, RealtimeVoiceSessionLifecycle, TALK_EVENT_TYPES, assertRealtimeVoiceAgentConsultModelSelectionUnlocked, buildRealtimeVoiceAgentCancelProviderResult, buildRealtimeVoiceAgentConsultChatMessage, buildRealtimeVoiceAgentConsultPolicyInstructions, buildRealtimeVoiceAgentConsultPrompt, buildRealtimeVoiceAgentConsultWorkingResponse, buildRealtimeVoiceAgentControlSpeechMessage, buildRealtimeVoiceAgentErrorProviderResult, buildRealtimeVoiceSessionInstructions, buildRealtimeVoiceSpeakExactMessage, calculateMulawRms, canonicalizeRealtimeVoiceProviderId, classifyRealtimeVoiceAgentControlText, classifyRealtimeVoiceConsultToolCall, classifySkippableRealtimeVoiceConsultTranscript, collectRealtimeVoiceAgentConsultVisibleText, consultRealtimeVoiceAgent, controlRealtimeVoiceAgentRun, convertPcmToMulaw8k, createRealtimeVoiceAgentTalkbackQueue, createRealtimeVoiceAudioPortSender, createRealtimeVoiceAudioQueue, createRealtimeVoiceBridgeSession, createRealtimeVoiceForcedConsultCoordinator, createRealtimeVoiceOutputActivityTracker, createRealtimeVoiceSessionHarness, createRealtimeVoiceTurnContextTracker, createSpeechThresholdGate, createStreamingPcmResampler, createTalkDiagnosticEvent, createTalkEventSequencer, createTalkLogRecord, createTalkSessionController, extendRealtimeVoiceOutputEchoSuppression, getRealtimeVoiceBridgeEventHealth, getRealtimeVoiceProvider, getRealtimeVoiceTranscriptHealth, isLikelyRealtimeVoiceAssistantEchoTranscript, isRealtimeVoiceAgentConsultToolPolicy, isRealtimeVoiceAudioAudible, isRealtimeVoiceWakeNameRequired, isSupportedRealtimeVoiceActivationName, listRealtimeVoiceProviders, matchRealtimeVoiceActivationName, matchRealtimeVoiceConsultQuestions, mulawToPcm, normalizeRealtimeVoiceActivationName, normalizeRealtimeVoiceActivationNamePrefix, normalizeRealtimeVoiceAgentControlMode, normalizeRealtimeVoiceConsultQuestion, normalizeCapabilityProviderId as normalizeRealtimeVoiceProviderId, normalizeRealtimeVoiceResponseOutcome, normalizeSupportedRealtimeVoiceActivationName, normalizeTalkTransport, parseRealtimeVoiceAgentConsultArgs, parseRealtimeVoiceAgentControlToolArgs, pcmToMulaw, projectInternalRealtimeVoicePublicConfig, readPcm16AudioStats, readRealtimeVoiceConsultQuestion, readSpeakableRealtimeVoiceToolResult, realtimeVoiceActivationNameWordCount, realtimeVoiceAudioDurationMs, recordRealtimeVoiceBridgeEvent, recordRealtimeVoiceTranscript, recordTalkDiagnosticEvent, recordTalkLogEvent, recordTalkObservabilityEvent, registerRealtimeVoiceSelection, resamplePcm, resamplePcmTo8k, resolveConfiguredRealtimeVoiceProvider, resolveRealtimeVoiceAgentConsultToolPolicy, resolveRealtimeVoiceAgentConsultTools, resolveRealtimeVoiceAgentConsultToolsAllow, resolveRealtimeVoiceAgentControlIntent, resolveRealtimeVoiceBargeIn, resolveRealtimeVoiceFastContextConsult, resolveRealtimeVoiceInterruptResponseOnInputAudio, resolveRealtimeVoiceMinBargeInAudioEndMs, resolveRealtimeVoiceProviderCapabilities, resolveRealtimeVoiceSessionPolicy, shouldAutoControlRealtimeVoiceAgentText, sortRealtimeVoiceActivationNames, toOpenAICompatibleRealtimeAudioFormat };
+export { REALTIME_VOICE_AGENT_CONSULT_SENDER_AUTH_VERSION, REALTIME_VOICE_AGENT_CONSULT_TOOL, REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, REALTIME_VOICE_AGENT_CONSULT_TOOL_POLICIES, REALTIME_VOICE_AGENT_CONTROL_TOOL, REALTIME_VOICE_AGENT_CONTROL_TOOL_NAME, REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, RealtimeVoiceSessionLifecycle, TALK_EVENT_TYPES, assertRealtimeVoiceAgentConsultModelSelectionUnlocked, buildRealtimeVoiceAgentCancelProviderResult, buildRealtimeVoiceAgentConsultChatMessage, buildRealtimeVoiceAgentConsultPolicyInstructions, buildRealtimeVoiceAgentConsultWorkingResponse, buildRealtimeVoiceAgentErrorProviderResult, buildRealtimeVoiceSessionInstructions, buildRealtimeVoiceSpeakExactMessage, calculateMulawRms, canonicalizeRealtimeVoiceProviderId, classifyRealtimeVoiceAgentControlText, classifyRealtimeVoiceConsultToolCall, classifySkippableRealtimeVoiceConsultTranscript, consultRealtimeVoiceAgent, controlRealtimeVoiceAgentRun, convertPcmToMulaw8k, createRealtimeVoiceAgentTalkbackQueue, createRealtimeVoiceAudioPortSender, createRealtimeVoiceAudioQueue, createRealtimeVoiceBridgeSession, createRealtimeVoiceForcedConsultCoordinator, createRealtimeVoiceOutputActivityTracker, createRealtimeVoiceSessionHarness, createRealtimeVoiceTurnContextTracker, createSpeechThresholdGate, createTalkSessionController, extendRealtimeVoiceOutputEchoSuppression, getRealtimeVoiceBridgeEventHealth, getRealtimeVoiceProvider, getRealtimeVoiceTranscriptHealth, isLikelyRealtimeVoiceAssistantEchoTranscript, isRealtimeVoiceAgentConsultToolPolicy, isRealtimeVoiceAudioAudible, isRealtimeVoiceWakeNameRequired, isSupportedRealtimeVoiceActivationName, listRealtimeVoiceProviders, matchRealtimeVoiceActivationName, matchRealtimeVoiceConsultQuestions, mulawToPcm, normalizeRealtimeVoiceActivationNamePrefix, normalizeRealtimeVoiceResponseOutcome, normalizeSupportedRealtimeVoiceActivationName, parseRealtimeVoiceAgentControlToolArgs, projectInternalRealtimeVoicePublicConfig, readPcm16AudioStats, readRealtimeVoiceConsultQuestion, readSpeakableRealtimeVoiceToolResult, realtimeVoiceAudioDurationMs, recordRealtimeVoiceBridgeEvent, recordRealtimeVoiceTranscript, recordTalkObservabilityEvent, registerRealtimeVoiceSelection, resamplePcm, resamplePcmTo8k, resolveConfiguredRealtimeVoiceProvider, resolveConfiguredRealtimeVoiceProviderAsync, resolveRealtimeVoiceAgentConsultToolPolicy, resolveRealtimeVoiceAgentConsultTools, resolveRealtimeVoiceAgentConsultToolsAllow, resolveRealtimeVoiceBargeIn, resolveRealtimeVoiceFastContextConsult, resolveRealtimeVoiceInterruptResponseOnInputAudio, resolveRealtimeVoiceMinBargeInAudioEndMs, resolveRealtimeVoiceSessionPolicy, shouldAutoControlRealtimeVoiceAgentText, sortRealtimeVoiceActivationNames, toOpenAICompatibleRealtimeAudioFormat };

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{a as t,t as n}from"./worker-chunk-v4ETWpph.mjs";async function writeSiblingTempFile(e){return await t({...e,producerIsolation:`private-directory`})}var r=e((()=>{n()}));export{writeSiblingTempFile as n,r as t};

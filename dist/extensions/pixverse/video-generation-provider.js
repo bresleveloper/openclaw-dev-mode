@@ -3,7 +3,7 @@ import { asFiniteNumber, asSafeIntegerInRange, normalizeOptionalString } from "o
 import { randomUUID } from "node:crypto";
 import { bufferToBlobPart } from "openclaw/plugin-sdk/blob-runtime";
 import { extensionForMime } from "openclaw/plugin-sdk/media-mime";
-import { isProviderApiKeyConfigured } from "openclaw/plugin-sdk/provider-auth";
+import { isProviderApiKeyConfiguredAsync } from "openclaw/plugin-sdk/provider-auth";
 import { resolveApiKeyForProvider } from "openclaw/plugin-sdk/provider-auth-runtime";
 import { assertOkOrThrowHttpError, createProviderOperationDeadline, pollProviderOperationJson, postJsonRequest, postMultipartRequest, readProviderJsonResponse, resolveProviderHttpRequestConfig, resolveProviderOperationTimeoutMs, sanitizeConfiguredModelProviderRequest } from "openclaw/plugin-sdk/provider-http";
 //#region extensions/pixverse/video-generation-provider.ts
@@ -175,7 +175,7 @@ function buildPixVerseVideoGenerationProvider() {
 		defaultModel: "v6",
 		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
 		models: [...PIXVERSE_VIDEO_MODELS],
-		isConfigured: (ctx) => isProviderApiKeyConfigured({
+		isConfiguredAsync: (ctx) => isProviderApiKeyConfiguredAsync({
 			provider: PIXVERSE_PROVIDER_ID,
 			...ctx
 		}),

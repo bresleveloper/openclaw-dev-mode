@@ -4,10 +4,10 @@ import { isMemoryMachineOutput } from "./cli-output-mode.js";
 import { parseStrictPositiveInteger } from "openclaw/plugin-sdk/number-runtime";
 import { defaultRuntime } from "openclaw/plugin-sdk/runtime";
 //#region extensions/memory-lancedb/memory-cli.ts
-function parsePositiveIntegerOption(value, flag) {
+function parseLimit(value) {
 	if (value === void 0) return;
 	const parsed = parseStrictPositiveInteger(value);
-	if (parsed === void 0) throw new Error(`${flag} must be a positive integer`);
+	if (parsed === void 0) throw new Error("--limit must be a positive integer");
 	return parsed;
 }
 function parseMemoryCliColumns(value) {
@@ -56,7 +56,7 @@ function registerMemoryCli(api, db, embeddings, resolveCliAgentId, resolveConfig
 		const memory = program.command("ltm").description("LanceDB memory plugin commands");
 		memory.command("list").description("List memories").option("--agent <id>", "Agent id (default: configured default agent)").option("--limit <n>", "Max results").option("--order-by-created-at", "Order memories by createdAt descending", false).action(async (opts) => {
 			const agentId = resolveCliAgentId(opts.agent);
-			const limit = parsePositiveIntegerOption(opts.limit, "--limit");
+			const limit = parseLimit(opts.limit);
 			const entries = await db.list(agentId, limit, { orderByCreatedAt: Boolean(opts.orderByCreatedAt) });
 			defaultRuntime.writeJson(entries);
 		});
@@ -64,7 +64,7 @@ function registerMemoryCli(api, db, embeddings, resolveCliAgentId, resolveConfig
 			let failure;
 			try {
 				const agentId = resolveCliAgentId(opts.agent);
-				const limit = parsePositiveIntegerOption(opts.limit, "--limit");
+				const limit = parseLimit(opts.limit);
 				const config = resolveConfig();
 				const vector = await embeddings.embed(agentId, normalizeRecallQuery(query, config.recallMaxChars), config.embedding);
 				const results = await db.search(agentId, vector, limit, .3);
@@ -85,7 +85,7 @@ function registerMemoryCli(api, db, embeddings, resolveCliAgentId, resolveConfig
 			const order = parseMemoryCliOrder(opts.orderBy);
 			const selectedColumns = [...outputColumns];
 			if (order && !selectedColumns.includes(order.column)) selectedColumns.push(order.column);
-			const limit = parsePositiveIntegerOption(opts.limit, "--limit") ?? 10;
+			const limit = parseLimit(opts.limit) ?? 10;
 			let rows = await db.query(agentId, {
 				columns: selectedColumns,
 				filter: parseMemoryCliFilter(opts.filter),

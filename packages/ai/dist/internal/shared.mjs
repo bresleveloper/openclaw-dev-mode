@@ -1,9 +1,11 @@
-import { s as readAssistantThinkingAppend } from "../event-stream-C5AbCAaZ.mjs";
-import { M as hasMediaPayload, N as isImageWithMediaPayload, c as transformMessages, d as hasOnlyAssistantReasoningContent, f as isReasoningOnlyLengthAssistantTurn, l as FAILED_ASSISTANT_REPLAY_TEXT, m as resolveFailedAssistantReplay, p as isStreamErrorFallbackContent, u as STREAM_ERROR_FALLBACK_TEXT } from "../host-u3o8XiAp.mjs";
-import { n as projectProviderError, r as createDiagnosticRecord } from "../provider-error-DQBE1bUQ.mjs";
-import { P as sanitizeSurrogates } from "../transport-stream-shared-CCR7hSW0.mjs";
-import { C as stripSystemPromptCacheBoundary, D as sortPromptCacheToolsByName, E as normalizeStructuredPromptSection, S as splitSystemPromptRelocatableBoundary, T as normalizePromptCapabilityIds, _ as SYSTEM_PROMPT_RELOCATABLE_BOUNDARY, b as prependSystemPromptAdditionAfterCacheBoundary, d as describeToolResultMediaPlaceholder, f as describeUnsupportedToolResultMedia, g as SYSTEM_PROMPT_CACHE_BOUNDARY, h as formatToolResultText, i as clampReasoning, m as extractToolResultText, n as buildBaseOptions, p as extractToolResultBlockText, r as clampMaxTokensToModel, t as adjustMaxTokensForThinking, v as SYSTEM_PROMPT_RELOCATABLE_BOUNDARY_END, w as stripSystemPromptRelocatableBoundary, x as splitSystemPromptCacheBoundary, y as ensureSystemPromptCacheBoundary } from "../simple-options-7QuSKriJ.mjs";
-import { t as projectCopilotRequestFacts } from "../github-copilot-request-facts-DEE6gcB9.mjs";
+import { s as readAssistantThinkingAppend } from "../event-stream-X2gmsUWv.mjs";
+import { M as hasMediaPayload, N as isImageWithMediaPayload, c as transformMessages, d as hasOnlyAssistantReasoningContent, f as isReasoningOnlyLengthAssistantTurn, l as FAILED_ASSISTANT_REPLAY_TEXT, m as resolveFailedAssistantReplay, p as isStreamErrorFallbackContent, u as STREAM_ERROR_FALLBACK_TEXT } from "../host-CWt55nnF.mjs";
+import { i as isCredentialFieldName, n as projectProviderError, r as createDiagnosticRecord } from "../provider-error-qtZD2inE.mjs";
+import { t as sanitizeSurrogates } from "../sanitize-unicode-CRGuMONI.mjs";
+import { n as normalizeStructuredPromptSection, r as sortPromptCacheToolsByName, t as normalizePromptCapabilityIds } from "../prompt-cache-stability-D_MeCQFI.mjs";
+import { C as splitSystemPromptRelocatableBoundary, S as splitSystemPromptCacheBoundary, T as stripSystemPromptRelocatableBoundary, _ as SYSTEM_PROMPT_CACHE_BOUNDARY, b as ensureSystemPromptCacheBoundary, c as serializeModelRequestBody, d as extractToolResultBlockText, f as extractToolResultText, h as preparedRequestSuffix, i as clampReasoning, l as describeToolResultMediaPlaceholder, n as buildBaseOptions, p as formatToolResultText, r as clampMaxTokensToModel, t as adjustMaxTokensForThinking, u as describeUnsupportedToolResultMedia, v as SYSTEM_PROMPT_RELOCATABLE_BOUNDARY, w as stripSystemPromptCacheBoundary, x as prependSystemPromptAdditionAfterCacheBoundary, y as SYSTEM_PROMPT_RELOCATABLE_BOUNDARY_END } from "../simple-options-xJkqrG_E.mjs";
+import { t as projectCopilotRequestFacts } from "../github-copilot-request-facts-F-EmvkpW.mjs";
+import { n as matchesContextOverflowMessage } from "../overflow-OF3PgPbw.mjs";
 //#region packages/ai/src/utils/tls-certificate-errors.ts
 const HOSTNAME_MISMATCH_CODES = /* @__PURE__ */ new Set(["ERR_TLS_CERT_ALTNAME_INVALID", "HOSTNAME_MISMATCH"]);
 const CERTIFICATE_INVALID_CODES = /* @__PURE__ */ new Set([
@@ -81,7 +83,6 @@ function inspectTlsCertificateErrorInternal(error, seen, depth) {
 		candidate.error,
 		...nestedErrors
 	]) {
-		if (nested === void 0 || nested === error) continue;
 		const details = inspectTlsCertificateErrorInternal(nested, seen, depth + 1);
 		if (details) return details;
 	}
@@ -96,4 +97,4 @@ function inspectTlsCertificateError(error) {
 	return inspectTlsCertificateErrorInternal(error, /* @__PURE__ */ new Set(), 0);
 }
 //#endregion
-export { FAILED_ASSISTANT_REPLAY_TEXT, STREAM_ERROR_FALLBACK_TEXT, SYSTEM_PROMPT_CACHE_BOUNDARY, SYSTEM_PROMPT_RELOCATABLE_BOUNDARY, SYSTEM_PROMPT_RELOCATABLE_BOUNDARY_END, adjustMaxTokensForThinking, buildBaseOptions, clampMaxTokensToModel, clampReasoning, createDiagnosticRecord, describeToolResultMediaPlaceholder, describeUnsupportedToolResultMedia, ensureSystemPromptCacheBoundary, extractToolResultBlockText, extractToolResultText, formatToolResultText, hasMediaPayload, hasOnlyAssistantReasoningContent, inspectTlsCertificateError, isImageWithMediaPayload, isReasoningOnlyLengthAssistantTurn, isStreamErrorFallbackContent, normalizePromptCapabilityIds, normalizeStructuredPromptSection, prependSystemPromptAdditionAfterCacheBoundary, projectCopilotRequestFacts, projectProviderError, readAssistantThinkingAppend, resolveFailedAssistantReplay, sanitizeSurrogates, sortPromptCacheToolsByName, splitSystemPromptCacheBoundary, splitSystemPromptRelocatableBoundary, stripSystemPromptCacheBoundary, stripSystemPromptRelocatableBoundary, transformMessages };
+export { FAILED_ASSISTANT_REPLAY_TEXT, STREAM_ERROR_FALLBACK_TEXT, SYSTEM_PROMPT_CACHE_BOUNDARY, SYSTEM_PROMPT_RELOCATABLE_BOUNDARY, SYSTEM_PROMPT_RELOCATABLE_BOUNDARY_END, adjustMaxTokensForThinking, buildBaseOptions, clampMaxTokensToModel, clampReasoning, createDiagnosticRecord, describeToolResultMediaPlaceholder, describeUnsupportedToolResultMedia, ensureSystemPromptCacheBoundary, extractToolResultBlockText, extractToolResultText, formatToolResultText, hasMediaPayload, hasOnlyAssistantReasoningContent, inspectTlsCertificateError, isCredentialFieldName, isImageWithMediaPayload, isReasoningOnlyLengthAssistantTurn, isStreamErrorFallbackContent, matchesContextOverflowMessage, normalizePromptCapabilityIds, normalizeStructuredPromptSection, preparedRequestSuffix, prependSystemPromptAdditionAfterCacheBoundary, projectCopilotRequestFacts, projectProviderError, readAssistantThinkingAppend, resolveFailedAssistantReplay, sanitizeSurrogates, serializeModelRequestBody, sortPromptCacheToolsByName, splitSystemPromptCacheBoundary, splitSystemPromptRelocatableBoundary, stripSystemPromptCacheBoundary, stripSystemPromptRelocatableBoundary, transformMessages };

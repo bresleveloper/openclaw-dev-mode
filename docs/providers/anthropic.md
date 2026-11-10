@@ -13,10 +13,13 @@ Anthropic builds the **Claude** model family. OpenClaw supports two auth routes:
 
 ## Choose a model route
 
-The model picker can show **Anthropic** and **Claude CLI** separately. These are
-not interchangeable billing choices: `anthropic/*` is the canonical model
+The model picker shows each Claude model once per route. API and Claude CLI are
+not interchangeable billing choices: `anthropic/*` is the standard model
 identity and can run through either runtime; `claude-cli/*` selects the native
-Claude runtime explicitly.
+Claude runtime explicitly. When a configured `anthropic/*` model already runs
+through Claude CLI, the picker omits its matching `claude-cli/*` entry, unless the
+agent's model policy or a Gateway role allows that `claude-cli/*` entry but not
+the `anthropic/*` one.
 
 - **API / API · OpenClaw** uses the configured Anthropic API connection.
 - **Claude CLI / Claude CLI · native** runs through Claude Code, using its native
@@ -104,6 +107,20 @@ OpenClaw release:
         ```bash
         openclaw onboard --anthropic-api-key "$ANTHROPIC_API_KEY"
         ```
+
+        API-key setup asks for an optional **Anthropic workspace ID**. If your key
+        is not scoped to a workspace, enter its `wrkspc_...` ID from the Claude
+        Console. Leave it blank for a workspace-scoped key. Existing workspace
+        headers are preserved.
+
+        This is a provider account setting, separate from an agent's local
+        workspace directory. It applies to all requests through the configured
+        Anthropic provider. Use workspace-scoped keys or separate provider
+        configurations when accounts need different workspaces.
+
+        For non-interactive setup, configure
+        `models.providers.anthropic.headers["anthropic-workspace-id"]` beforehand.
+        See [Anthropic authentication](https://platform.claude.com/docs/en/manage-claude/authentication#select-a-workspace).
       </Step>
       <Step title="Verify the model is available">
         ```bash
@@ -127,7 +144,8 @@ OpenClaw release:
     **Best for:** reusing an existing Claude CLI login without a separate API key.
 
     <Steps>
-      <Step title="Ensure Claude CLI is installed and logged in">
+      <Step title="Install Claude CLI and log in">
+        <a id="ensure-claude-cli-is-installed-and-logged-in" />
         OpenClaw communicates directly with the installed Claude Code executable.
         Verify that Claude Code is installed and up to date:
 
@@ -159,16 +177,44 @@ OpenClaw release:
         through OpenClaw's direct CLI transport. OpenClaw uses a non-secret route
         marker and never reads, persists, refreshes, selects, or forwards the
         native login tokens. Claude owns the login and token refresh lifecycle.
-        Gateway startup shares the native login availability check across agent
-        workspaces using the same config and environment. Explicit catalog/auth
-        captures recheck availability for their own generation.
+        Gateway startup shares the native login check across agent workspaces using
+        the same config and environment. Checks use `claude auth status --json`;
+        an explicit logged-out response or a `claude` executable missing from
+        `PATH` blocks the native route, while a timeout or unreadable response
+        allows Claude to try the request. Captures expire
+        after one minute. If a selected native login is unavailable, spawn admission
+        rechecks it immediately, so signing in does not require a Gateway restart.
+
+        For native-login users, the model picker reads Claude Code's own model menu
+        in the background, without sending a prompt or using an inference turn.
+        It shows unique native model IDs as `anthropic/<id>` on the Claude CLI
+        runtime, with the effort levels reported by Claude Code. Models that allow
+        thinking to be disabled also offer `/think off`, independently of those
+        effort levels. Models with mandatory adaptive thinking do not offer `off`.
+        Account and organization restrictions therefore affect the menu. The hosted
+        OpenClaw catalog adds metadata only to those exact IDs; it cannot add native models.
+        New native models do not require an OpenClaw upgrade or a catalog edit.
+
+        Before the first discovery completes, only already configured or selected
+        models are available through the native route. Pickers never wait for the
+        subprocess. Existing configured and selected IDs remain listed and runnable,
+        including older IDs absent from the menu; deprecated rows stay hidden.
+        Use `openclaw models list --refresh --provider anthropic` to request fresh
+        discovery. API-only users and users with both API and native credentials
+        keep their existing API catalog behavior.
+
+        If a menu refresh fails temporarily, the picker keeps the last accepted
+        menu for the same authentication state. A successful refresh replaces
+        that menu, including when access becomes more restrictive. Changing
+        authentication discards the retained menu.
+
         New sessions select saved subscription credentials by account order and
         use protected file-descriptor forwarding, including tokens saved with
         `openclaw models auth paste-token --provider anthropic`. API keys saved for
         the `anthropic` provider require an explicit account selection for CLI
         forwarding. Existing sessions keep their account until you select another
         or remove its saved profile. Native-tool approvals remain under OpenClaw
-        control. Schema-valid native calls pass through OpenClaw's canonical
+        control. Schema-valid native calls pass through OpenClaw's shared
         tool policy before native approval. Isolated side-question completions
         and paired-node execution retain the supervised CLI path.
 
@@ -219,13 +265,13 @@ OpenClaw release:
     Direct Messages API requests using a setup token advertise a maintained
     Claude Code client version, or the installed CLI version when newer.
     Anthropic uses that identity to gate newer models. A missing, older, or
-    failed CLI probe uses OpenClaw's maintained version floor. Discovery is
+    failed CLI check uses OpenClaw's maintained version floor. Discovery is
     shared with the CLI backend and cached until process restart; API-key
-    requests do not run the probe.
+    requests do not run the check.
 
     ### Config example
 
-    Prefer the canonical Anthropic model ref plus a CLI runtime override:
+    Prefer the standard Anthropic model ref plus a CLI runtime override:
 
     ```json5
     {
@@ -276,7 +322,7 @@ OpenClaw release:
 
 ## Use Claude Opus 5.5
 
-After setting up either auth route above, select the canonical model ref:
+After setting up either auth route above, select the standard model ref:
 
 ```bash
 openclaw models set anthropic/claude-opus-5-5
@@ -286,7 +332,7 @@ The bare `opus` alias and explicit aliases `opus-5.5` / `opus-5-5` select this m
 Fresh API and Claude CLI setup defaults to Opus 5.5; existing version-pinned
 models and authored aliases remain unchanged.
 
-For Claude CLI authentication, keep the canonical ref and select the CLI runtime:
+For Claude CLI authentication, keep the standard ref and select the CLI runtime:
 
 ```json5
 {
@@ -323,7 +369,7 @@ for model-switching and response-shape changes.
 
 ## Use Claude Sonnet 5.5
 
-After setting up either auth route above, select the canonical model ref:
+After setting up either auth route above, select the standard model ref:
 
 ```bash
 openclaw models set anthropic/claude-sonnet-5-5
@@ -334,7 +380,7 @@ this model. Fresh API and Claude CLI setup still defaults to Opus 5.5; select
 Sonnet 5.5 explicitly. Existing version-pinned models and authored aliases
 remain unchanged. Use `sonnet-5` to keep Sonnet 5.
 
-For Claude CLI authentication, keep the canonical ref and select the CLI runtime:
+For Claude CLI authentication, keep the standard ref and select the CLI runtime:
 
 ```json5
 {
@@ -381,7 +427,7 @@ for model-switching and response-shape changes.
 
 ## Use Claude Fable 5.1
 
-After setting up either auth route above, select the canonical model ref:
+After setting up either auth route above, select the standard model ref:
 
 ```bash
 openclaw models set anthropic/claude-fable-5-1
@@ -426,13 +472,13 @@ Fable 5.1 binds retained thinking to the preceding system prompt, tools, and
 conversation history. Changing that prefix can invalidate later thinking
 blocks. On direct Anthropic API-key Messages routes, OpenClaw enables
 `inHistorySystemUpdates` for Opus 4.8, Opus 5/5.5, Sonnet 5/5.5, Fable 5/5.1,
-and Mythos 5/5.1. It pins the stable system prefix and appends changed, added,
+and Mythos 5/5.1. It pins the complete system prompt and appends changed, added,
 or removed prompt sections as system messages after the current user turn.
 Workspace instructions, skills, and permission changes therefore preserve the
-earlier prefix. Changing the provider, model, or transport, or compacting the
-session, starts a new prefix series. After a Gateway restart, the series
-continues only when the current stable prefix matches the last saved rendered
-prefix.
+earlier prefix. Changing the provider, model, transport, or selected personal
+profile, or compacting the session, starts a new prefix series. After a Gateway restart, the saved series
+continues and any refreshed sections arrive as appended updates. Dynamic suffix
+changes use the same update path.
 
 These routes also keep runtime context append-only as turn-scoped system
 messages, without user-message delimiters. OpenClaw sends
@@ -441,6 +487,9 @@ messages, without user-message delimiters. OpenClaw sends
 transcript but consume no input tokens after the next user message. Persistent
 prompt updates need no beta header. Operator system messages follow all other
 context for their user turn, including tool results.
+When replay excludes a Talk consult prompt, OpenClaw inserts a neutral user
+anchor (`.`) before any stranded system updates. This preserves their content,
+order, and lifetime without changing the pinned system prompt.
 Tool results and queued extension context also clear turn-scoped messages, so
 OpenClaw renews the current user turn's runtime context after those continuations.
 
@@ -522,6 +571,13 @@ colors stay unset. Discovery reads a bounded transcript prefix and tail, so rece
 metadata appended to large transcripts is included without reading the entire
 history. Metadata outside those windows may be unavailable. Desktop rows retain
 their Desktop title and remain colorless.
+
+Routine discovery reads at most 64 MiB of transcript metadata across 10,000 files.
+If it reaches either limit, the final discovered page reports `DISCOVERY_TRUNCATED`
+instead of claiming the inventory is complete. Search by an exact session ID to
+look up matching transcripts independently of that frontier; reading, continuing,
+and opening a known session in a terminal use the same bounded lookup. Per-file
+metadata windows and normal path, sidechain, and archive checks still apply.
 
 No additional OpenClaw config is required for discovery. The Anthropic plugin
 is bundled and enabled by default; a native macOS node advertises the read-only
@@ -618,16 +674,20 @@ for the node command and security boundary.
 ## Live model discovery
 
 With an Anthropic API key configured, OpenClaw refreshes the Claude catalog from
-Anthropic's models endpoint, so newly published snapshots of supported model
-families appear without an OpenClaw release. Models the shipped catalog already
-describes always keep their published metadata and pricing.
+Anthropic's models endpoint, so newly published models appear without an
+OpenClaw release. Models the shipped catalog already describes keep their
+published metadata and pricing.
 
-A newly discovered model is only offered when Anthropic's advertised
-capabilities match the request shaping OpenClaw would apply to it. A brand-new
-model generation therefore stays hidden until OpenClaw adds support for it,
-rather than appearing in the picker and failing every request. Discovery is
-advisory: without an API key, or if the endpoint is unreachable, the shipped
-catalog is used unchanged.
+Each listed row carries the thinking and effort capabilities Anthropic
+advertises for it (adaptive thinking, whether thinking can be disabled, and
+`xhigh`/`max` effort) as `params.claudeCapabilities` on the catalog row.
+Request shaping and the offered thinking levels follow those capabilities, so a
+new model gets the request shape it accepts on its first turn. Rows without
+them (shipped models absent from the listing, configured rows, and catalogs
+saved before discovery ran) keep OpenClaw's model-id rules. An unknown model
+whose listing carries no capability data stays hidden.
+Discovery is advisory: without an API key, or if the endpoint is unreachable,
+the shipped catalog is used unchanged.
 
 <a id="thinking-defaults-(claude-opus-5%2C-sonnet-5%2C-mythos-5%2C-fable-5%2C-4.8%2C-and-4.6)" />
 <a id="thinking-defaults-claude-opus-5-sonnet-5-mythos-5-fable-5-4-8-and-4-6" />
@@ -919,8 +979,8 @@ OpenClaw supports Anthropic's prompt caching feature for API-key auth.
     compaction occurs, OpenClaw assembles the streamed summary and stores it
     with the provider's opaque compaction metadata as hidden replay state. Both
     survive session reopening and are sent first on the next matching request.
-    Summary text still passes through transcript redaction; opaque metadata is
-    preserved for replay. The full transcript remains local; only the outbound
+    Summary text and opaque metadata are preserved without secret masking for
+    replay. The full transcript remains local; only the outbound
     history before the checkpoint is omitted. An empty compaction block is not
     stored as a checkpoint, so the next request sends the same history as
     before and OpenClaw's client-side compaction stays available. If Anthropic
@@ -929,8 +989,9 @@ OpenClaw supports Anthropic's prompt caching feature for API-key auth.
 
     When `anthropicCompactThreshold` is omitted, OpenClaw uses
     `max(50000, floor(budget * 0.7))`, where the budget is the model's
-    `contextTokens` cap when set and its `contextWindow` otherwise. With the
-    default trigger, Anthropic compacts before local preflight compaction
+    `contextTokens` cap when set and its `contextWindow` otherwise. Explicit session
+    context-window choices still apply when live model discovery is unavailable.
+    With the default trigger, Anthropic compacts before local preflight compaction
     would. If a trigger falls inside the local compaction reserve, for example
     the 50000 minimum on a small window, local compaction may run first; that
     only skips server compaction, never overflows. An explicit
@@ -1034,6 +1095,13 @@ OpenClaw supports Anthropic's prompt caching feature for API-key auth.
 ## Troubleshooting
 
 <AccordionGroup>
+  <Accordion title="Claude CLI login could not be verified">
+    OpenClaw waits up to 10 seconds for `claude auth status --json`, including
+    startup on slow hosts. A timeout does not mean that you are logged out.
+    Run that command as the Gateway user on the same host, then retry setup.
+    If it reports `loggedIn: false`, run `claude auth login` first.
+  </Accordion>
+
   <Accordion title="Claude CLI OAuth session expired or could not be refreshed">
     Run these commands as the Gateway user on the Gateway host:
 
@@ -1097,3 +1165,16 @@ More help: [Troubleshooting](/help/troubleshooting) and [FAQ](/help/faq).
     Anthropic models, Claude CLI, and the native Claude session catalog.
   </Card>
 </CardGroup>
+
+### Saved Claude CLI subscriptions and managed native tools
+
+Saved subscription accounts make configured Claude CLI models available without
+requiring a separate native login. API keys saved for `anthropic` still require
+an explicit account selection for CLI forwarding. Existing sessions retain their
+account until it is selected again or removed.
+
+Operators can keep the native `Agent` and `Workflow` orchestration tools with
+`plugins.entries.anthropic.config.managedNativeTools`. This is off by default;
+`default` sets the list and `agents.<id>` replaces it for one agent. Restricted,
+delegated, workspace-only, and explicitly capped runs keep no native tools.
+See [CLI backends](/gateway/cli-backends#keeping-claude-code-orchestration-tools-on-managed-turns).

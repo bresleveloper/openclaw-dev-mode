@@ -3,6 +3,8 @@ import { expect, vi } from "vitest";
 import { withEnvAsync } from "../test-utils/env.js";
 import type { ManagedServiceBoundaryOptions } from "./update-managed-service-handoff-boundary-contract.test-support.js";
 import type { ManagedServiceManagerBoundaryResult } from "./update-managed-service-handoff-lifecycle.test-support.js";
+import { renderUpdateRunReport } from "./update-run-report.js";
+import type { UpdateRunResult } from "./update-runner-types.js";
 
 export function registerManagedCampaignFailureTests(
   runManagedServiceManagerBoundary: (
@@ -11,6 +13,127 @@ export function registerManagedCampaignFailureTests(
   ) => Promise<ManagedServiceManagerBoundaryResult>,
   itUnix: ReturnType<typeof import("vitest").it.runIf>,
 ): void {
+  itUnix.each([
+    { updaterNotification: undefined, gatewayHealth: "ready" },
+    { updaterNotification: "consumed-before-exit", gatewayHealth: "exited" },
+    { updaterNotification: undefined, gatewayHealth: "throw" },
+  ] as const)(
+    "records the child's early refusal without its notification ($updaterNotification, $gatewayHealth)",
+    async ({ updaterNotification, gatewayHealth }) => {
+      const reason = "update-recovery-pending";
+      const repair =
+        "Retained package activation is prepared. Run openclaw update repair before retrying.";
+      const facts = [
+        {
+          check: "package-activation",
+          code: reason,
+          message: "Package publication is incomplete.",
+        },
+      ];
+      const { commands, parentSignal, run, state, sentinel, sensitiveFilesRemoved } =
+        await runManagedServiceManagerBoundary("systemd", {
+          ledger: true,
+          trigger: "campaign",
+          controlDisconnect: "transferred",
+          validationResult: "child-result",
+          helperExitCode: 7,
+          recoveryTimeoutMs: 30 * 60_000,
+          updaterNotification,
+          gatewayHealth,
+          updaterResult: {
+            status: "error",
+            mode: "npm",
+            reason,
+            after: { version: "2.0.0" },
+            recovery: { serviceRestartSafe: false, reason: "runtime-verification-failed" },
+            steps: [
+              {
+                name: "package-activation",
+                command: "openclaw update",
+                cwd: "",
+                durationMs: 0,
+                exitCode: 1,
+                failureFacts: facts,
+                diagnostics: [repair],
+                stdoutTail: updaterNotification ? undefined : "diagnostic context ".repeat(4_000),
+              },
+            ],
+            durationMs: 0,
+          } satisfies UpdateRunResult,
+        });
+      expect(commands).toEqual([]);
+      expect(parentSignal).toBeNull();
+      expect(state.parked).toBeUndefined();
+      expect(state.restored).toBeUndefined();
+      expect(sentinel).toBeNull();
+      expect(sensitiveFilesRemoved).toBe(true);
+      expect(state).toMatchObject({
+        healthProbeCount: 1,
+        expectedVersion: "1.0.0",
+        recoveryProbeTimeoutMs: 3000,
+      });
+      const recorded = expectDefined(run, "closed campaign run");
+      expect(recorded).toMatchObject({
+        status: "failed",
+        phase: "finished",
+        reason,
+        after: { version: "2.0.0" },
+      });
+      expect(recorded.steps).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            step: "package-activation",
+            status: "failed",
+            failureFacts: facts,
+          }),
+          expect.objectContaining({ step: "diagnostic:package-activation", detail: repair }),
+          expect.objectContaining({
+            step: "managed-service-handoff",
+            status: "failed",
+            detail: "managed-service-handoff-failed",
+          }),
+        ]),
+      );
+      const report = renderUpdateRunReport(recorded).markdown;
+      expect(report).toContain(reason);
+      expect(report).toContain("Package publication is incomplete.");
+      expect(recorded.verification.recovery).toMatchObject({ serviceRestartSafe: false });
+      if (gatewayHealth === "ready") {
+        expect(recorded.verification).toMatchObject({
+          runningVersion: "1.0.0",
+          versionMatch: true,
+          coreReady: true,
+          settled: true,
+        });
+      }
+      expect(report).toContain(
+        gatewayHealth === "ready"
+          ? "Recorded recovery: verified serving 1.0.0; restart remains unsafe (runtime-verification-failed)."
+          : gatewayHealth === "exited"
+            ? "Recorded recovery: not serving (service-not-running)"
+            : "Recorded recovery: recovery check failed (gateway-probe-failed)",
+      );
+      expect(state.triageInput).toMatchObject({
+        error: expect.stringContaining(
+          gatewayHealth === "ready" ? "Service recovery succeeded." : "Service recovery failed.",
+        ),
+      });
+    },
+  );
+
+  itUnix("keeps the handoff failure reason when the child produces no result", async () => {
+    const { commands, run } = await runManagedServiceManagerBoundary("systemd", {
+      ledger: true,
+      trigger: "campaign",
+      controlDisconnect: "transferred",
+      validationResult: "child-result",
+      updaterOutput: "missing",
+      helperExitCode: 7,
+    });
+    expect(commands).toEqual([]);
+    expect(run).toMatchObject({ status: "failed", reason: "managed-service-handoff-failed" });
+  });
+
   itUnix.each([false, true])(
     "preserves an automatic transfer failure through real helper cancellation (diagnostics fail=%s)",
     async (diagnosticFailure) => {
@@ -41,21 +164,13 @@ export function registerManagedCampaignFailureTests(
               .spyOn(handoff, "transferManagedServiceUpdateHandoff")
               .mockImplementationOnce(async () => {
                 if (diagnosticFailure) {
-                  const codec = await import("./update-run-codec.js");
-                  const encode = codec.encodeRun;
+                  const worker = await import("../state/openclaw-state-worker-store.js");
+                  const execute = worker.runOpenClawStateWorkerOperation;
                   const write = vi
-                    .spyOn(codec, "encodeRun")
-                    .mockImplementation((record, options) => {
-                      if (
-                        record.steps.some((step) =>
-                          step.failureFacts?.some((fact) => fact.check === "managed-service"),
-                        )
-                      ) {
-                        write.mockRestore();
-                        throw new Error("diagnostic ledger is read-only");
-                      }
-                      return encode(record, options);
-                    });
+                    .spyOn(worker, "runOpenClawStateWorkerOperation")
+                    // Keep the requested failure durable, then reject its optional diagnostics.
+                    .mockImplementationOnce(execute)
+                    .mockRejectedValueOnce(new Error("diagnostic ledger is read-only"));
                   restoreDiagnosticFailure = () => write.mockRestore();
                 }
                 throw new Error("automatic transfer failed");

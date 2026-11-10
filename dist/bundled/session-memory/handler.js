@@ -1,27 +1,29 @@
 import { l as normalizeOptionalString, m as readNonBlankString } from "../../string-coerce-1VuiLaaR.mjs";
-import { n as isVitestRuntimeEnv } from "../../test-runtime-env-mVzBKwSd.mjs";
-import "../../env-BBJTTIuE.mjs";
-import { w as root } from "../../fs-safe-BUXBSN-4.mjs";
-import { p as shortenHomePath } from "../../utils-DgZn2dLu.mjs";
-import { r as resolveStateDir } from "../../state-dir-BHJORNly.mjs";
-import "../../paths-DGIwWbpu.mjs";
-import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
-import { d as resolveAgentWorkspaceDir } from "../../agent-scope-config-CDYpzA0r.mjs";
-import { r as isIncognitoSessionKey } from "../../session-key-CmZ4o9-l.mjs";
-import { M as parseAgentSessionKey, _ as toAgentStoreSessionKey } from "../../session-key-C09ow4h0.mjs";
-import { l as resolveSessionStorePathCore } from "../../paths-dpReqUI8.mjs";
-import { l as resolveAgentIdByWorkspacePath } from "../../agent-scope-CG17uXFn.mjs";
-import { C as runWithGatewayIndependentRootWorkContinuation } from "../../gateway-work-admission-rc4ZgKq_.mjs";
-import { t as resolveHookConfig } from "../../policy-DntIYegk.mjs";
-import { o as resolveUserTimezone } from "../../date-time-DNFKWNdt.mjs";
-import { p as createMemoryWriteProvenanceObserver } from "../../agent-tools.read-DMtJ_zRT.mjs";
-import { t as generateSlugViaLLM } from "../../llm-slug-generator-AEqsa3Gd.mjs";
-import "../../config-DGzoNfBQ.mjs";
-import { t as captureSessionMemoryTranscript } from "../../capture-D55CiAZl.mjs";
-import { r as isSessionAutoResetReason } from "../../session-auto-reset--7kfd5ZA.mjs";
-import path from "node:path";
+import { t as createDeferredCore } from "../../deferred-D0La5CRk.mjs";
+import { c as isVitestRuntimeEnv } from "../../env-DbG527wb.mjs";
+import { p as shortenHomePath } from "../../utils-gjJ-tD2q.mjs";
+import { r as resolveStateDir } from "../../state-dir-C8s3cOPX.mjs";
+import "../../paths-orClZ-2Z.mjs";
+import { t as createSubsystemLogger } from "../../subsystem-mStysHHC.mjs";
+import { w as root } from "../../fs-safe-6Z4UiMS4.mjs";
+import { i as isIncognitoSessionKey } from "../../incognito-session-key-BWpn88lo.mjs";
+import { M as parseAgentSessionKey, _ as toAgentStoreSessionKey } from "../../session-key-CSDERtm3.mjs";
+import { f as resolveAgentWorkspaceDir } from "../../agent-scope-config-fjA2T9Gz.mjs";
+import { E as runWithGatewayIndependentRootWorkContinuation } from "../../gateway-work-admission-FWbk4b3p.mjs";
+import { c as resolveSessionStorePathCore } from "../../paths-YgcBNLgG.mjs";
+import { l as resolveAgentIdByWorkspacePath } from "../../agent-scope-DXrnO3F4.mjs";
+import { s as withFileLock } from "../../file-lock-BmWJVvRa.mjs";
+import "../../file-lock-BMq7QYoB.mjs";
+import { t as resolveHookConfig } from "../../policy-EID_8KAw.mjs";
+import { a as resolveUserTimezone } from "../../date-time-B92eHI7U.mjs";
+import { h as createMemoryWriteProvenanceObserver } from "../../secrets-tool-vT5mBKZ0.mjs";
+import { t as generateSlugViaLLM } from "../../llm-slug-generator-CmSfTc_l.mjs";
+import "../../config-DqsKkEU8.mjs";
+import { t as captureSessionMemoryTranscript } from "../../capture-DwnvG92B.mjs";
+import { r as isSessionAutoResetReason } from "../../session-auto-reset-CqDm4bvb.mjs";
 import fs from "node:fs/promises";
 import os from "node:os";
+import path from "node:path";
 //#region src/hooks/bundled/session-memory/handler.ts
 const log = createSubsystemLogger("hooks/session-memory");
 function pickDateTimePart(parts, type) {
@@ -134,16 +136,6 @@ async function saveSessionMemoryNow(event, agentId, transcript) {
 			slug = localTimestamp.timeSlug;
 			log.debug("Using fallback timestamp slug", { slug });
 		}
-		const filename = await resolveAvailableMemoryFilename({
-			memoryDir,
-			dateStr,
-			slug
-		});
-		const memoryFilePath = path.join(memoryDir, filename);
-		log.debug("Memory file path resolved", {
-			filename,
-			path: shortenHomePath(memoryFilePath)
-		});
 		const timeStr = localTimestamp.time;
 		const sessionId = sessionEntry.sessionId || "unknown";
 		const boundaryDetail = event.type === "session" ? `- **Reason**: ${context.reason || "unknown"}` : `- **Source**: ${context.commandSource || "unknown"}`;
@@ -167,12 +159,32 @@ async function saveSessionMemoryNow(event, agentId, transcript) {
 			sessionKey: event.sessionKey,
 			now: () => now.getTime()
 		});
-		const commit = () => memoryRoot.write(filename, entry, { encoding: "utf-8" });
-		await provenanceObserver.write({
-			absolutePath: memoryFilePath,
-			contentBefore: "",
-			contentAfter: entry,
-			commit
+		const memoryFilePath = await withFileLock(path.join(memoryDir, ".session-memory"), {
+			retries: {
+				retries: 1200,
+				factor: 1,
+				minTimeout: 25,
+				maxTimeout: 25
+			},
+			stale: 3e4,
+			staleRecovery: "remove-if-definitely-stale"
+		}, async () => {
+			const filename = await resolveAvailableMemoryFilename({
+				memoryDir,
+				dateStr,
+				slug
+			});
+			const allocatedPath = path.join(memoryDir, filename);
+			await provenanceObserver.write({
+				absolutePath: allocatedPath,
+				contentBefore: "",
+				contentAfter: entry,
+				commit: () => memoryRoot.create(filename, entry, {
+					encoding: "utf-8",
+					atomic: true
+				})
+			});
+			return allocatedPath;
 		});
 		log.debug("Memory file written successfully");
 		const relPath = shortenHomePath(memoryFilePath);
@@ -186,7 +198,7 @@ async function saveSessionMemoryNow(event, agentId, transcript) {
 		else log.error("Failed to save session memory", { error: String(err) });
 	}
 }
-const saveSessionToMemory = (event) => {
+const saveSessionToMemory = async (event) => {
 	const isResetCommand = event.action === "new" || event.action === "reset";
 	const isAutoReset = event.type === "session" && event.action === "auto-reset" && isSessionAutoResetReason(event.context.reason);
 	if ((event.type !== "command" || !isResetCommand) && !isAutoReset) return;
@@ -195,21 +207,28 @@ const saveSessionToMemory = (event) => {
 	if (isIncognitoSessionKey(event.sessionKey) || sessionEntry?.incognito === true) return;
 	const agentId = requireSessionMemoryAgentId(event);
 	const cfg = context.cfg;
-	const transcript = context.previousSessionMemory ?? (sessionEntry?.sessionId ? captureSessionMemoryTranscript({
-		agentId,
-		sessionId: sessionEntry.sessionId,
-		sessionKey: event.sessionKey,
-		storePath: normalizeOptionalString(context.storePath) ?? resolveSessionStorePathCore(cfg?.session?.store, { agentId })
-	}, cfg) : {
-		status: "available",
-		content: null,
-		originClass: "agent"
-	});
-	const writePromise = isAutoReset ? saveSessionMemoryNow(event, agentId, transcript) : runWithGatewayIndependentRootWorkContinuation(() => saveSessionMemoryNow(event, agentId, transcript), "hooks:session-memory");
+	const captureComplete = createDeferredCore();
+	const captureAndSave = async () => {
+		const transcript = context.previousSessionMemory ?? (sessionEntry?.sessionId ? await captureSessionMemoryTranscript({
+			agentId,
+			sessionId: sessionEntry.sessionId,
+			sessionKey: event.sessionKey,
+			storePath: normalizeOptionalString(context.storePath) ?? resolveSessionStorePathCore(cfg?.session?.store, { agentId })
+		}, cfg) : {
+			status: "available",
+			content: null,
+			originClass: "agent"
+		});
+		captureComplete.resolve();
+		await saveSessionMemoryNow(event, agentId, transcript);
+	};
+	const writePromise = isAutoReset ? captureAndSave() : runWithGatewayIndependentRootWorkContinuation(captureAndSave, "hooks:session-memory");
 	pendingSessionMemoryWrites.add(writePromise);
-	writePromise.finally(() => {
+	writePromise.then(() => pendingSessionMemoryWrites.delete(writePromise), (error) => {
 		pendingSessionMemoryWrites.delete(writePromise);
+		captureComplete.reject(error);
 	});
+	await captureComplete.promise;
 	if (isAutoReset) return writePromise;
 };
 //#endregion

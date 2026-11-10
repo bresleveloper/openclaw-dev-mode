@@ -1,6 +1,6 @@
-import { n as runFirecrawlScrape, r as runFirecrawlSearch } from "./.setup/firecrawl-client-Bqyr6x90.mjs";
-import { t as createFirecrawlWebFetchProvider } from "./.setup/firecrawl-fetch-provider-CcYAp_u6.mjs";
-import { n as createFirecrawlWebSearchProvider, t as createFirecrawlFreeWebSearchProvider } from "./.setup/firecrawl-search-provider-lAiZ3IJ5.mjs";
+import { n as runFirecrawlScrape, r as runFirecrawlSearch } from "./.setup/firecrawl-client--j4MjwgU.mjs";
+import { t as createFirecrawlWebFetchProvider } from "./.setup/firecrawl-fetch-provider-Br32KRpR.mjs";
+import { n as createFirecrawlWebSearchProvider, t as createFirecrawlFreeWebSearchProvider } from "./.setup/firecrawl-search-provider-D_gyroLO.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { optionalStringEnum } from "openclaw/plugin-sdk/channel-actions";
 import { jsonResult, readNonNegativeIntegerParam, readPositiveIntegerParam, readStringArrayParam, readStringParam } from "openclaw/plugin-sdk/provider-web-search";

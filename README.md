@@ -23,6 +23,11 @@ saving full log to enjoy my journey with OC ♥
 
 ## CHANGE LOG
 
+- 2026-11-10
+  - updated to v2026.11.3
+- 2026-11-05
+  - updated to v2026.10.10
+  - removed FIX-10 => upstream fixed it, cron jobs aimed at a chat keep the chat's session now
 - 2026-10-17
   - FIX-10 cron job aimed at a chat keeps the chat's Claude session => before, every run made the agent forget the chat
   - SEC-103 removed the "untrusted" mark on the agent's md files => `MEMORY.md` kept dropping out of the prompt
@@ -146,7 +151,6 @@ All gated by `OPENCLAW_DEV_MODE=1` alone — no extra flags to remember.
 | FIX-04 | revised to new global hook for `/new` and `/reset` and `/compact` and `auto-compact` to enable the greeting                                                                                                                                  |
 | FIX-07 | created `openclaw config validate --fix` to fix only the `openclaw.json`                                                                                                      |
 | FIX-09 | hardcoded block for OpenClaw update (`/update`, `openclaw update`, Control UI, auto-update) - an update would overwrite the fork |
-| FIX-10 | cron job aimed at a chat (`sessionTarget: "session:<key>"`) keeps that chat's Claude CLI session - upstream reset it on every run and again on the next chat turn, so the agent forgot the chat |
 
 
 ## How to install

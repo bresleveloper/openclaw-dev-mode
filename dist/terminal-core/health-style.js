@@ -1,2 +1,2 @@
-import { t as styleHealthChannelLine } from "../health-style-DYjoL3sy.mjs";
+import { t as styleHealthChannelLine } from "../health-style-DyZYpuTA.mjs";
 export { styleHealthChannelLine };

@@ -14,11 +14,13 @@ import { hasNodeErrorCode } from "./path-guards.js";
 import { runtimeProcessEntrypoints } from "./runtime-process-entrypoints.js";
 import { resolveRuntimeWorkerArgv, resolveRuntimeWorkerUrl } from "./runtime-worker-url.js";
 import { createPrivateSqliteTempDirectory } from "./sqlite-private-directory.js";
+import { resolveSqliteInspectionBudget } from "./sqlite-readonly-worker.js";
 import { measureUpdateStateFiles, withUpdateCandidateIoBudget } from "./update-candidate-io.js";
 import {
   readUpdateCandidatePluginCodeLinks,
   type UpdateCandidatePluginCodeLink,
 } from "./update-candidate-plugin-code-links.js";
+import type { UpdateCandidateBundledSource } from "./update-candidate-plugins.js";
 import { createUpdateStateInspectionDiagnostics } from "./update-candidate-state.diagnostics.js";
 import {
   collectStateDatabasePaths,
@@ -115,6 +117,21 @@ async function measureInitialUpdateSnapshotState(params: InitialSnapshotParams) 
     capacity: measureSnapshotCapacity(params.stateDir, { ...size, pluginBytes: null }, params.env),
     families: size.families,
   };
+}
+
+/**
+ * Candidate admission inspects these stores from a staged package, so its allowance follows
+ * measured state like the rehearsal's checks. The update step deadline stays the outer bound.
+ */
+export async function resolveUpdateCandidateAdmissionTimeoutMs(
+  params: InitialSnapshotParams & { stepTimeoutMs: number },
+): Promise<number> {
+  const bytes = await measureInitialUpdateSnapshotState(params).then(
+    ({ capacity }) => capacity.sqliteBytes,
+    () => 0,
+  );
+  const { timeoutMs } = resolveSqliteInspectionBudget("update admission", params.stateDir, bytes);
+  return Math.min(params.stepTimeoutMs, timeoutMs);
 }
 
 export async function assessInitialUpdateSnapshotCapacity(
@@ -232,6 +249,7 @@ async function allocateSnapshotRoot(
 export async function prepareUpdateCandidateStateSnapshot(params: {
   config: OpenClawConfig;
   candidateRoot: string;
+  sourceBundledPlugins?: UpdateCandidateBundledSource;
   stateDir: string;
   env: NodeJS.ProcessEnv;
   workerEnv: (directory: string) => NodeJS.ProcessEnv;
@@ -270,6 +288,8 @@ export async function prepareUpdateCandidateStateSnapshot(params: {
     const workerEnv = params.workerEnv(directory);
     const outputController = new AbortController();
     let progressPending = Promise.resolve();
+    let progressWriting = false;
+    let nextProgress: UpdateRunStep | undefined;
     let progressFailure: { error: unknown } | undefined;
     const failProgress = (error: unknown) => {
       if (!progressFailure) {
@@ -289,6 +309,9 @@ export async function prepareUpdateCandidateStateSnapshot(params: {
       outputController.abort(error);
     };
     let stderrOutputExceeded = false;
+    let reportIoProgress: (() => void) | undefined;
+    let completedIo = 0;
+    const copiedPages = new Map<string, number>();
     const diagnostics = createUpdateStateInspectionDiagnostics({
       operation: "State snapshot",
       phase: request.mode,
@@ -300,7 +323,24 @@ export async function prepareUpdateCandidateStateSnapshot(params: {
           outputController.abort(new Error("Update snapshot diagnostic output exceeded its limit"));
         },
       },
-      onProgress: ({ phase, path: database, snapshot }) => {
+      onProgress: ({ phase, path: database, snapshot, completedIo: observedIo }) => {
+        const key = `${phase}\0${database ?? ""}`;
+        const pagesAdvanced = snapshot && snapshot.copiedPages > (copiedPages.get(key) ?? 0);
+        const entriesAdvanced = observedIo !== undefined && observedIo > completedIo;
+        if (snapshot) {
+          copiedPages.set(key, snapshot.copiedPages);
+        }
+        if (entriesAdvanced) {
+          completedIo = observedIo;
+        }
+        if (pagesAdvanced || entriesAdvanced || snapshot?.status === "completed") {
+          try {
+            reportIoProgress?.();
+          } catch (error) {
+            failProgress(error);
+          }
+        }
+        // Entry receipts feed the I/O watchdog, not a ledger write per copied file.
         if (!snapshot) {
           return;
         }
@@ -309,19 +349,28 @@ export async function prepareUpdateCandidateStateSnapshot(params: {
           { env: params.env, stateDir: params.stateDir },
           { maxLength: UPDATE_RUN_TEXT_LIMIT },
         );
-        try {
-          // Invoke at emission so the writer captures this source before it yields.
-          const recording = Promise.resolve(
-            params.onProgress?.({
-              step: "candidate-state-snapshot",
-              status: "in_progress",
-              startedAtMs,
-              detail,
-            }),
-          ).catch(failProgress);
-          progressPending = Promise.all([progressPending, recording]).then(() => {});
-        } catch (error) {
-          failProgress(error);
+        nextProgress = {
+          step: "candidate-state-snapshot",
+          status: "in_progress",
+          startedAtMs,
+          detail,
+        };
+        if (!progressWriting && !progressFailure) {
+          progressWriting = true;
+          progressPending = (async () => {
+            try {
+              // Keep one write in flight and only the latest advisory observation behind it.
+              while (nextProgress) {
+                const step = nextProgress;
+                nextProgress = undefined;
+                await params.onProgress?.(step);
+              }
+            } catch (error) {
+              failProgress(error);
+            } finally {
+              progressWriting = false;
+            }
+          })();
         }
         if (
           snapshot.status === "completed" &&
@@ -340,10 +389,12 @@ export async function prepareUpdateCandidateStateSnapshot(params: {
         timeoutMs: params.timeoutMs,
         signal: params.signal,
         operation: "snapshot",
+        progress: "reported",
         nodeRunner: params.nodeRunner,
         env: workerEnv,
       },
-      async (signal) => {
+      async (signal, reportProgress) => {
+        reportIoProgress = reportProgress;
         signal.throwIfAborted();
         params.assertCurrent?.();
         const result = await runUtf8CommandWithTimeout(
@@ -361,10 +412,12 @@ export async function prepareUpdateCandidateStateSnapshot(params: {
             input: JSON.stringify({
               ...request,
               streamProgress: true,
+              streamEntryProgress: true,
               stateDir: params.stateDir,
               config: params.config,
               targetStateDir: directory,
               candidateRoot: params.candidateRoot,
+              sourceBundledPlugins: params.sourceBundledPlugins,
               env: {
                 HOME: params.env.HOME,
                 OPENCLAW_HOME: params.env.OPENCLAW_HOME,
@@ -415,10 +468,14 @@ export async function prepareUpdateCandidateStateSnapshot(params: {
         }
         return JSON.parse(result.stdout) as unknown;
       },
-    ).then(
-      (value) => ({ value }),
-      (error: unknown) => ({ error }),
-    );
+    )
+      .then(
+        (value) => ({ value }),
+        (error: unknown) => ({ error }),
+      )
+      .finally(() => {
+        reportIoProgress = undefined;
+      });
     await progressPending;
     if (progressFailure && hasCommandProcessCleanupError(progressFailure.error)) {
       if ("error" in outcome && outcome.error !== progressFailure.error) {

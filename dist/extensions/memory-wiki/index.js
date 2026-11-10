@@ -1,29 +1,31 @@
 import { t as asNonArrayRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { y as uniqueStrings } from "../../string-normalization-CECOqf64.mjs";
+import { y as uniqueStrings } from "../../string-normalization-D6DKCpwE.mjs";
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
-import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
-import "../../api-K5hfJ7_s.mjs";
-import { g as resolveDefaultAgentId } from "../../agent-scope-config-CDYpzA0r.mjs";
-import { t as ErrorCodes } from "../../gateway-error-details-DIefe7Zy.mjs";
-import { f as errorShape } from "../../error-codes-Dh56LniQ.mjs";
-import "../../error-runtime-BmospGvZ.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../text-utility-runtime-BDs7x8Fk.mjs";
+import { o as racePromiseWithAbortSignal } from "../../src-Bzfi3cQM.mjs";
+import { t as formatErrorMessage } from "../../errors-DPfGDWk1.mjs";
+import "../../api-DzhXPiio.mjs";
+import { _ as resolveDefaultAgentId } from "../../agent-scope-config-fjA2T9Gz.mjs";
+import { Ng as errorShape } from "../../src-pLJQA6J5.mjs";
+import { t as ErrorCodes } from "../../gateway-error-details-Cl-eEOTQ.mjs";
 import { n as textResult } from "../../tool-results-BCM3fdVS.mjs";
-import { u as readPositiveIntegerParam } from "../../common-Dyxcwsy8.mjs";
-import { i as optionalFiniteNumberSchema } from "../../typebox-X-jU33BZ.mjs";
-import { n as buildPluginConfigSchema } from "../../config-schema-BBtylDlH.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../gateway-runtime-DMDKFL1_.mjs";
-import { s as mapPluginConfigIssues } from "../../extension-shared-GoQu59iC.mjs";
-import "../../channel-actions-DF1kQl0D.mjs";
-import "../../memory-host-core-DN_I2RgE.mjs";
-import "../../param-readers-B4Zo5Lzz.mjs";
-import { A as activateMemoryWikiCompiledCacheOwner, C as searchMemoryWiki, D as ensureMemoryWikiVaultGeneration, F as loadMemoryWikiCompiledDashboards, I as reconcileMemoryWikiCompiledCacheOwner, L as resolveMemoryWikiCompiledCacheOwnerId, M as createMemoryWikiCompiledCacheStore, N as deactivateMemoryWikiCompiledCacheOwnersExcept, O as loadMemoryWikiValidatedVaultIdentity, P as loadMemoryWikiCompiledCache, R as setMemoryWikiDashboardState, S as getMemoryWikiPage, a as renderMemoryWikiStatus, c as waitForMemoryWikiImportedSourceSyncs, d as probeObsidianCli, f as runObsidianAction, g as normalizeMemoryWikiMutationInput, h as applyMemoryWikiMutation, j as configureMemoryWikiCompiledCacheStore, k as MemoryWikiDashboardUnavailableError, l as OBSIDIAN_ACTIONS, m as ingestMemoryWikiSource, n as renderWikiSearchResults, o as resolveMemoryWikiStatus, p as lintMemoryWikiVault, r as buildMemoryWikiDoctorReport, s as syncMemoryWikiImportedSources, t as renderWikiMutationSummary, u as assertOfficialObsidianCliSupported, w as initializeMemoryWikiVault, x as WIKI_SEARCH_MODES, y as compileMemoryWikiVault } from "../../presentation-Cb7k_bQJ.mjs";
-import { a as resolveMemoryWikiConfig, i as resolveMemoryWikiAgentConfig, n as WIKI_SEARCH_BACKENDS, o as resolveMemoryWikiConfiguredAgentIds, r as WIKI_SEARCH_CORPORA, t as MemoryWikiConfigSource } from "../../config-BATWLWdx.mjs";
-import { a as listMemoryWikiImportRunRecords, d as createMemoryWikiSourceSyncStateStore, i as createMemoryWikiImportRunStateStore, n as configureMemoryWikiImportRunStateStore, u as configureMemoryWikiSourceSyncStateStore } from "../../import-runs-state-DGOSREgh.mjs";
-import path from "node:path";
+import { u as readPositiveIntegerParam } from "../../common-BofcG96e.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../text-utility-runtime-B9RB6Cg0.mjs";
+import "../../time-runtime-D6GzEQJ4.mjs";
+import { i as optionalFiniteNumberSchema } from "../../typebox-DhJiP5MZ.mjs";
+import { n as buildPluginConfigSchema } from "../../config-schema-dqR2I9Q2.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../gateway-runtime-DVShvn9X.mjs";
+import { s as mapPluginConfigIssues } from "../../extension-shared-Bp_Ziw8S.mjs";
+import "../../channel-actions-CaJbCkxs.mjs";
+import "../../memory-host-core-DPUr2gMF.mjs";
+import "../../param-readers-gVcVc5Er.mjs";
+import { A as loadMemoryWikiValidatedVaultIdentity, B as setMemoryWikiDashboardState, C as WIKI_SEARCH_MODES, E as initializeMemoryWikiVault, F as deactivateMemoryWikiCompiledCacheOwnersExcept, I as loadMemoryWikiCompiledCache, L as loadMemoryWikiCompiledDashboards, M as activateMemoryWikiCompiledCacheOwner, N as configureMemoryWikiCompiledCacheStore, P as createMemoryWikiCompiledCacheStore, R as reconcileMemoryWikiCompiledCacheOwner, T as searchMemoryWiki, _ as compileMemoryWikiVault, a as renderMemoryWikiStatus, c as waitForMemoryWikiImportedSourceSyncs, d as probeObsidianCli, f as runObsidianAction, g as normalizeMemoryWikiMutationInput, h as applyMemoryWikiMutation, j as MemoryWikiDashboardUnavailableError, k as ensureMemoryWikiVaultGeneration, l as OBSIDIAN_ACTIONS, m as ingestMemoryWikiSource, n as renderWikiSearchResults, o as resolveMemoryWikiStatus, p as lintMemoryWikiVault, r as buildMemoryWikiDoctorReport, s as syncMemoryWikiImportedSources, t as renderWikiMutationSummary, u as assertOfficialObsidianCliSupported, w as getMemoryWikiPage, z as resolveMemoryWikiCompiledCacheOwnerId } from "../../presentation-CQP6tCbP.mjs";
+import { a as resolveMemoryWikiConfig, i as resolveMemoryWikiAgentConfig, n as WIKI_SEARCH_BACKENDS, o as resolveMemoryWikiConfiguredAgentIds, r as WIKI_SEARCH_CORPORA, t as MemoryWikiConfigSource } from "../../config-B1rNG_-d.mjs";
+import { c as createMemoryWikiSourceSyncStateStore, i as getMemoryWikiImportRunStateStore, n as configureMemoryWikiImportRunStateStore, r as createMemoryWikiImportRunStateStore, s as configureMemoryWikiSourceSyncStateStore } from "../../import-runs-state-SYz8z6TJ.mjs";
 import fs from "node:fs/promises";
+import path from "node:path";
 import { Type } from "typebox";
 //#region extensions/memory-wiki/src/config-schema.ts
 const memoryWikiConfigSchema = buildPluginConfigSchema(MemoryWikiConfigSource, { safeParse(value) {
@@ -82,31 +84,19 @@ function createWikiCorpusSupplement(params) {
 //#endregion
 //#region extensions/memory-wiki/src/import-runs.ts
 function toImportRunSummary(record) {
-	const createdPaths = record.createdPaths.map((entry) => entry.path);
-	const updatedPaths = record.updatedPaths.map((entry) => entry.path);
-	const pagePaths = uniqueStrings([...createdPaths, ...updatedPaths]);
+	const { version: _version, createdPaths, updatedPaths, ...metadata } = record;
+	const pagePaths = uniqueStrings([...createdPaths, ...updatedPaths].map((entry) => entry.path));
 	const rollingBack = Boolean(record.rollbackStartedAt || record.rollbackTargetsFinalizedAt);
 	return {
-		runId: record.runId,
-		importType: record.importType,
-		appliedAt: record.appliedAt,
-		exportPath: record.exportPath,
-		sourcePath: record.sourcePath,
-		conversationCount: record.conversationCount,
-		createdCount: record.createdCount,
-		updatedCount: record.updatedCount,
-		skippedCount: record.skippedCount,
+		...metadata,
 		status: record.rolledBackAt ? "rolled_back" : rollingBack ? "rolling_back" : "applied",
-		...record.rollbackStartedAt ? { rollbackStartedAt: record.rollbackStartedAt } : {},
-		...record.rollbackTargetsFinalizedAt ? { rollbackTargetsFinalizedAt: record.rollbackTargetsFinalizedAt } : {},
-		...record.rolledBackAt ? { rolledBackAt: record.rolledBackAt } : {},
 		pagePaths,
 		samplePaths: pagePaths.slice(0, 5)
 	};
 }
 async function listMemoryWikiImportRuns(config, options) {
 	const limit = Math.max(1, Math.floor(options?.limit ?? 10));
-	const runs = (await listMemoryWikiImportRunRecords(config.vault.path)).map(toImportRunSummary).toSorted((left, right) => right.appliedAt.localeCompare(left.appliedAt));
+	const runs = (await getMemoryWikiImportRunStateStore().list(config.vault.path)).map(toImportRunSummary).toSorted((left, right) => right.appliedAt.localeCompare(left.appliedAt));
 	return {
 		runs: runs.slice(0, limit),
 		totalRuns: runs.length,
@@ -191,8 +181,7 @@ function registerMemoryWikiGatewayMethods(params) {
 	};
 	const getAppConfig = () => {
 		if (params.getAppConfig) return params.getAppConfig();
-		if (typeof api.runtime.config?.current === "function") return api.runtime.config.current();
-		return params.appConfig;
+		return api.runtime.config.current();
 	};
 	const resolveSourceSyncSignal = () => {
 		const signal = params.resolveSourceSyncSignal?.();
@@ -258,6 +247,7 @@ function registerMemoryWikiGatewayMethods(params) {
 		await syncMemoryWikiImportedSources({
 			config,
 			appConfig,
+			deferIndexRefresh: true,
 			...signal ? { signal } : {}
 		});
 		return await compileMemoryWikiVault(config, signal ? { signal } : void 0);
@@ -278,6 +268,7 @@ function registerMemoryWikiGatewayMethods(params) {
 		await syncMemoryWikiImportedSources({
 			config,
 			appConfig,
+			deferIndexRefresh: true,
 			...signal ? { signal } : {}
 		});
 		return await lintMemoryWikiVault(config, signal ? { signal } : void 0);
@@ -390,12 +381,11 @@ function rankPromptDigestPage(page) {
 	return (page.contradictions?.length ?? 0) * 6 + (page.questions?.length ?? 0) * 4 + Math.min(page.claimCount ?? 0, 6) * 2 + Math.min(page.topClaims?.length ?? 0, 3);
 }
 function rankPromptClaimFreshness(level) {
-	switch (level) {
-		case "fresh": return 3;
-		case "aging": return 2;
-		case "stale": return 1;
-		default: return 0;
-	}
+	return [
+		"stale",
+		"aging",
+		"fresh"
+	].indexOf(level ?? "") + 1;
 }
 function sortPromptClaims(claims) {
 	return claims.toSorted((left, right) => {
@@ -471,6 +461,7 @@ function createWikiPromptSectionPreparer(params) {
 }
 //#endregion
 //#region extensions/memory-wiki/src/tool.ts
+const WIKI_SEARCH_TIMEOUT_MS = 3e4;
 function formatWikiToolReportPath(config, reportPath) {
 	const vaultRoot = path.resolve(config.vault.path);
 	const resolvedReportPath = path.resolve(reportPath);
@@ -479,7 +470,6 @@ function formatWikiToolReportPath(config, reportPath) {
 	return relativeReportPath.replace(/\\/g, "/");
 }
 const WikiStatusSchema = Type.Object({}, { additionalProperties: false });
-const WikiLintSchema = Type.Object({}, { additionalProperties: false });
 const WikiSearchBackendSchema = Type.Union(WIKI_SEARCH_BACKENDS.map((value) => Type.Literal(value)));
 const WikiSearchCorpusSchema = Type.Union(WIKI_SEARCH_CORPORA.map((value) => Type.Literal(value)));
 const WikiSearchModeSchema = Type.Union(WIKI_SEARCH_MODES.map((value) => Type.Literal(value)));
@@ -568,28 +558,45 @@ function createWikiSearchTool(config, appConfig, memoryContext = {}) {
 		label: "Wiki Search",
 		description: "Search wiki pages and, when shared search is enabled, the active memory corpus by title, path, id, or body text.",
 		parameters: WikiSearchSchema,
-		execute: async (_toolCallId, rawParams) => {
+		execute: async (_toolCallId, rawParams, callerSignal) => {
 			const params = rawParams;
-			await syncMemoryWikiImportedSources({
-				config,
-				appConfig,
-				signal: memoryContext.signal
-			});
-			const results = await searchMemoryWiki({
-				config,
-				appConfig,
-				agentId: memoryContext.agentId,
-				agentSessionKey: memoryContext.agentSessionKey,
-				sandboxed: memoryContext.sandboxed,
-				conversationRecall: memoryContext.conversationRecall,
-				memoryContext: memoryContext.memoryContext,
-				query: params.query,
-				maxResults: params.maxResults,
-				...params.backend ? { searchBackend: params.backend } : {},
-				...params.corpus ? { searchCorpus: params.corpus } : {},
-				...params.mode ? { mode: params.mode } : {}
-			});
-			return textResult(renderWikiSearchResults(results), { results });
+			const deadline = new AbortController();
+			const timer = setTimeout(() => deadline.abort(/* @__PURE__ */ new Error(`wiki_search timed out after ${WIKI_SEARCH_TIMEOUT_MS / 1e3}s`)), WIKI_SEARCH_TIMEOUT_MS);
+			timer.unref?.();
+			const signal = AbortSignal.any([
+				callerSignal,
+				memoryContext.signal,
+				deadline.signal
+			].filter((candidate) => candidate !== void 0));
+			try {
+				return await racePromiseWithAbortSignal(async () => {
+					await syncMemoryWikiImportedSources({
+						config,
+						appConfig,
+						signal
+					});
+					signal.throwIfAborted();
+					const results = await searchMemoryWiki({
+						config,
+						appConfig,
+						...memoryContext,
+						signal,
+						...memoryContext.memoryContext ? { memoryContext: {
+							...memoryContext.memoryContext,
+							signal
+						} } : {},
+						query: params.query,
+						maxResults: params.maxResults,
+						...params.backend ? { searchBackend: params.backend } : {},
+						...params.corpus ? { searchCorpus: params.corpus } : {},
+						...params.mode ? { mode: params.mode } : {}
+					});
+					signal.throwIfAborted();
+					return textResult(renderWikiSearchResults(results), { results });
+				}, signal, (abortedSignal) => abortedSignal.reason instanceof Error ? abortedSignal.reason : /* @__PURE__ */ new Error("wiki_search aborted"));
+			} finally {
+				clearTimeout(timer);
+			}
 		}
 	};
 }
@@ -598,12 +605,13 @@ function createWikiLintTool(config, appConfig, { signal } = {}) {
 		name: "wiki_lint",
 		label: "Wiki Lint",
 		description: "Lint the wiki vault and surface structural issues, provenance gaps, contradictions, and open questions.",
-		parameters: WikiLintSchema,
+		parameters: WikiStatusSchema,
 		execute: async () => {
 			await syncMemoryWikiImportedSources({
 				config,
 				appConfig,
-				signal
+				signal,
+				deferIndexRefresh: true
 			});
 			const result = await lintMemoryWikiVault(config, signal ? { signal } : void 0);
 			const contradictions = result.issuesByCategory.contradictions.length;
@@ -668,11 +676,7 @@ function createWikiGetTool(config, appConfig, memoryContext = {}) {
 			const result = await getMemoryWikiPage({
 				config,
 				appConfig,
-				agentId: memoryContext.agentId,
-				agentSessionKey: memoryContext.agentSessionKey,
-				sandboxed: memoryContext.sandboxed,
-				conversationRecall: memoryContext.conversationRecall,
-				memoryContext: memoryContext.memoryContext,
+				...memoryContext,
 				lookup,
 				fromLine: params.fromLine,
 				lineCount: params.lineCount,
@@ -713,7 +717,7 @@ var memory_wiki_default = definePluginEntry({
 	configSchema: memoryWikiConfigSchema,
 	register(api) {
 		const config = resolveMemoryWikiConfig(api.pluginConfig);
-		const getAppConfig = () => api.runtime.config?.current?.() ?? api.config;
+		const getAppConfig = () => api.runtime.config.current();
 		const resolveConfig = (agentId, appConfig = getAppConfig()) => resolveMemoryWikiAgentConfig({
 			config,
 			appConfig,
@@ -788,7 +792,6 @@ var memory_wiki_default = definePluginEntry({
 		registerMemoryWikiGatewayMethods({
 			api,
 			config,
-			appConfig: api.config,
 			getAppConfig,
 			resolveConfig,
 			resolveSourceSyncSignal: () => sourceSyncAbortController?.signal
@@ -832,7 +835,7 @@ var memory_wiki_default = definePluginEntry({
 			}
 		}, { name });
 		api.registerCli(async ({ program }) => {
-			const { registerWikiCli } = await import("../../cli-C-uqtuIv.mjs");
+			const { registerWikiCli } = await import("../../cli-C8uEEoAm.mjs");
 			registerWikiCli(program, {
 				config,
 				resolveConfig,

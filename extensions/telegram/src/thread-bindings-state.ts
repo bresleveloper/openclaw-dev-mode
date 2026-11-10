@@ -1,5 +1,6 @@
 import { resolveGlobalSingleton } from "openclaw/plugin-sdk/global-singleton";
 import type { StoreWriterQueue } from "openclaw/plugin-sdk/sqlite-runtime";
+import type { TelegramRuntime } from "./runtime.types.js";
 import { persistBindingMutation } from "./thread-bindings-persistence.js";
 import { resolveBindingKey } from "./thread-bindings-session.js";
 import { sanitizeStoredBinding } from "./thread-bindings-store.js";
@@ -8,13 +9,12 @@ import type {
   TelegramThreadBindingRecord,
 } from "./thread-bindings-store.js";
 
+type PendingBindingMutation = { preparedValueJson?: string | null };
+
 type TelegramThreadBindingsState = {
   managersByAccountId: Map<string, TelegramThreadBindingManager>;
   queues: Map<string, StoreWriterQueue>;
-  pendingMutations: WeakMap<
-    TelegramThreadBindingManager,
-    Map<string, { preparedValueJson?: string | null }>
-  >;
+  pendingMutations: WeakMap<TelegramThreadBindingManager, Map<string, PendingBindingMutation>>;
   bindingsByAccountConversation: Map<string, TelegramThreadBindingRecord>;
 };
 
@@ -47,10 +47,7 @@ export function getThreadBindingsState(): TelegramThreadBindingsState {
     queues: state.queues ?? new Map<string, StoreWriterQueue>(),
     pendingMutations:
       state.pendingMutations ??
-      new WeakMap<
-        TelegramThreadBindingManager,
-        Map<string, { preparedValueJson?: string | null }>
-      >(),
+      new WeakMap<TelegramThreadBindingManager, Map<string, PendingBindingMutation>>(),
   }));
 }
 
@@ -71,14 +68,14 @@ export function listBindingsForAccount(accountId: string): TelegramThreadBinding
 
 export function captureBindingMutation(
   manager: TelegramThreadBindingManager,
+  runtime: TelegramRuntime,
   conversationId: string,
 ) {
   const state = getThreadBindingsState();
   const key = resolveBindingKey({ accountId: manager.accountId, conversationId });
   const previous = state.bindingsByAccountConversation.get(key);
-  const pending =
-    state.pendingMutations.get(manager) ?? new Map<string, { preparedValueJson?: string | null }>();
-  const receipt: { preparedValueJson?: string | null } = {};
+  const pending = state.pendingMutations.get(manager) ?? new Map<string, PendingBindingMutation>();
+  const receipt: PendingBindingMutation = {};
   pending.set(conversationId, receipt);
   state.pendingMutations.set(manager, pending);
   const isCurrent = () =>
@@ -125,6 +122,7 @@ export function captureBindingMutation(
       this.prepare(next);
       const committed = await persistBindingMutation({
         ...options,
+        runtime,
         accountId: manager.accountId,
         persist: manager.shouldPersistMutations(),
         binding,

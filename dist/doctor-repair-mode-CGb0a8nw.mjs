@@ -1,0 +1,26 @@
+import { n as isTruthyEnvValue } from "./env-DbG527wb.mjs";
+//#region src/commands/doctor-repair-mode.ts
+function resolveDoctorRepairMode(options) {
+	const yes = options.yes === true;
+	const requestedNonInteractive = options.nonInteractive === true;
+	const shouldRepair = options.repair === true || yes;
+	const shouldForce = options.force === true;
+	const isTty = process.stdin.isTTY;
+	const nonInteractive = requestedNonInteractive || !isTty && !yes;
+	const updateInProgress = isTruthyEnvValue(process.env.OPENCLAW_UPDATE_IN_PROGRESS);
+	return {
+		shouldRepair,
+		shouldForce,
+		nonInteractive,
+		canPrompt: isTty && !yes && !nonInteractive,
+		updateInProgress
+	};
+}
+function isDoctorUpdateRepairMode(mode) {
+	return mode.updateInProgress && mode.nonInteractive;
+}
+function shouldAutoApproveDoctorFix(mode, params = {}) {
+	return mode.shouldRepair && !(params.requiresForce && !mode.shouldForce) && !(params.blockDuringUpdate && isDoctorUpdateRepairMode(mode));
+}
+//#endregion
+export { resolveDoctorRepairMode as n, shouldAutoApproveDoctorFix as r, isDoctorUpdateRepairMode as t };

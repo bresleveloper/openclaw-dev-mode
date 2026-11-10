@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/channel-plugin-api-B49ixQ0t.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/channel-plugin-api-U3Pg1KLp.mjs", import.meta.url).href),
 		exportName: "ircPlugin"
 	},
 	secrets: {

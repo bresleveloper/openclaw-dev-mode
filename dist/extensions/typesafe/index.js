@@ -16,7 +16,7 @@ function resolveRuntimeConfig(snapshot) {
 }
 //#endregion
 //#region extensions/typesafe/src/decisions.ts
-const loadClient = createLazyRuntimeModule(() => import("./.setup/client-vvIolGjJ.mjs"));
+const loadClient = createLazyRuntimeModule(() => import("./.setup/client-6lXBoHzi.mjs"));
 /** Translate the host-selected decision contract through the TypeSafe transport. */
 function createDecisionProvider(getConfig) {
 	return {

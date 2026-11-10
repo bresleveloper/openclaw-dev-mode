@@ -1,9 +1,12 @@
 import type { ProviderModelRef } from "@openclaw/model-catalog-core/model-catalog-refs";
 import type { ToolResultContentSource } from "../../../packages/agent-core/src/types.js";
+import type { SessionEventSourcePolicy } from "../../auto-reply/reply/session-event-contract.js";
 import type { CliSessionBinding, SessionEntry } from "../../config/sessions.js";
 import type { SessionTranscriptRuntimeTarget } from "../../config/sessions/session-accessor.js";
+import type { SessionSourceAssertion } from "../../config/sessions/session-source-authority.js";
 import type { SessionSystemPromptReport } from "../../config/sessions/types.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import type { GroupToolPolicyConfig } from "../../config/types.tools.js";
 import type { ContextEngine } from "../../context-engine/types.js";
 import type { CronScheduledToolCallerOrigin } from "../../cron/scheduled-tool-policy.js";
 import type { DiagnosticEmbeddedRunOwner } from "../../logging/diagnostic-run-activity.js";
@@ -14,7 +17,6 @@ import type {
 } from "../../plugins/cli-backend.types.js";
 import type { PluginInstanceConsumer } from "../../plugins/plugin-instance.types.js";
 import type { SpawnSecretInput } from "../../process/supervisor/types.js";
-import type { SkillWorkshopProposalRevisionConstraint } from "../../skills/workshop/types.js";
 import type { AdmittedRunContext } from "../admitted-run-context.js";
 import type { AuthProfileStore } from "../auth-profiles/types.js";
 import type { ExecElevatedDefaults } from "../bash-tools.exec-types.js";
@@ -43,8 +45,7 @@ import type { PreparedQuestionAnswerAuthority } from "../harness/host-private-ca
 import type { AgentHarnessIsolatedCompletionParamsV2 } from "../harness/types.js";
 import type { RuntimeContextFragment } from "../internal-runtime-context.js";
 import type { ReplyExpectation } from "../reply-completion.js";
-import type { RootedExecutionRequest } from "../rooted-run-params.js";
-import type { EmbeddedRunTrigger } from "../run-trigger.js";
+import type { EmbeddedRunTrigger, IsolatedCompletionPurpose } from "../run-trigger.js";
 import type { TrustedSubagentCompletionHandoff } from "../subagents/announce/subagent-announce-handoff.js";
 import type { SilentReplyPromptMode } from "../system-prompt.types.js";
 import type { prepareCliBundleMcpConfig } from "./bundle-mcp.js";
@@ -65,6 +66,9 @@ type CliSessionRetryParams = {
 
 /** Input contract for one CLI-backed agent run. */
 export type RunCliAgentParams = {
+  /** Effective tool policy prepared by the trusted channel ingress owner. */
+  conversationToolPolicy?: GroupToolPolicyConfig;
+  preparedTtsPreferences?: import("../../tts/tts-preferences.js").PreparedTtsPreferences;
   /** Verified in-process completion authority; never supplied by native CLI input. */
   trustedInternalHandoff?: TrustedSubagentCompletionHandoff;
   /** Core lifecycle owner; never forwarded to the plugin execution context. */
@@ -74,9 +78,9 @@ export type RunCliAgentParams = {
   runtimePolicySessionKey?: string;
   sessionEntry?: SessionEntry;
   trigger?: EmbeddedRunTrigger;
+  /** Heartbeat-transported turn that continues a conversation (its own command completion). */
+  continuesConversation?: boolean;
   sessionFile: string;
-  /** Host-owned task root; preparation must mediate all tools through its filesystem policy. */
-  rootedExecution?: RootedExecutionRequest;
   /** Start a fresh CLI process so per-turn MCP authority is reloaded from this run. */
   disableCliLiveSession?: boolean;
   /**
@@ -95,6 +99,8 @@ export type RunCliAgentParams = {
   executionMode?: CliBackendExecutionMode;
   /** Internal one-shot inference path: suppress transcript, hook, context-engine, and delivery work. */
   isolatedCompletion?: true;
+  /** Diagnostic attribution only; must not change execution policy or timeout selection. */
+  isolatedCompletionPurpose?: IsolatedCompletionPurpose;
   outputTextPolicy?: AgentHarnessIsolatedCompletionParamsV2["outputTextPolicy"];
   /** Internal backend control command: reuse the native session without recording a conversation turn. */
   controlOperation?: "compact";
@@ -136,10 +142,14 @@ export type RunCliAgentParams = {
   restoreCliSessionFork?: () => Promise<void>;
   /** Persist the successor ID as soon as the CLI reports the forked session. */
   persistCliSessionForkSuccessor?: (sessionId: string) => Promise<void>;
+  /** Bind a directly stopped first turn's flushed native session into an empty binding. */
+  persistStoppedFirstCliSession?: (binding: CliSessionBinding) => Promise<void>;
   /** Atomically arm a cache-preserving fork before retrying a stalled resumed session. */
   onBeforeForkedCliSessionRetry?: (params: CliSessionRetryParams) => boolean | Promise<boolean>;
   /** Private seam: report the credential/runtime owner only after a successful real turn. */
   onSuccessfulAuthBinding?: (binding: AgentExecutionAuthBinding) => void;
+  /** An unbound scheduled run may use native login, never a host credential profile. */
+  nativeAuthOnly?: true;
   onBeforeFreshCliSessionRetry?: (params: CliSessionRetryParams) => boolean | Promise<boolean>;
   bootstrapContextMode?: BootstrapContextMode;
   chatId?: string;
@@ -149,8 +159,6 @@ export type RunCliAgentParams = {
   bashElevated?: ExecElevatedDefaults;
   /** Runtime tool allow-list. CLI harnesses need a backend-owned exact translation. */
   toolsAllow?: string[];
-  /** Exact Skill Workshop proposal revision bound by the Gateway for this turn. */
-  skillWorkshopProposalRevision?: SkillWorkshopProposalRevisionConstraint;
   skillLibraryAuthoring?: import("../../skills/library/authoring.js").SkillLibraryAuthoringCapability;
   /** Server-authored origin for fresh automation mutations from this CLI run. */
   cronCreatorCallerOrigin?: CronScheduledToolCallerOrigin;
@@ -160,7 +168,7 @@ export type RunCliAgentParams = {
     openClaw: string[];
   };
   /** Caller-owned authority for credential use; cancellation alone is not authorization. */
-  assertCurrent?: () => void;
+  assertCurrent?: SessionSourceAssertion;
   /** Internal completion caller's representation of operator authorization failures. */
   mapOperatorAuthorizationError?: (error: unknown) => Error;
   onExecutionStarted?: () => unknown;
@@ -231,6 +239,8 @@ export function captureCliRunStartTime() {
 /** Fully prepared execution context consumed by the CLI runner executor. */
 export type PreparedCliRunContext = {
   params: RunCliAgentParams & { admittedRunContext: AdmittedRunContext };
+  /** Original host policy, retained before native tool translation consumes runtime caps. */
+  sessionEventSourcePolicy?: SessionEventSourcePolicy;
   /** Core-only original caller policy, bound to each native request's exact lifetime. */
   bindQuestionAnswerAuthority?: (assertActive: () => void) => PreparedQuestionAnswerAuthority;
   effectiveAuthProfileId?: string;
@@ -271,6 +281,9 @@ export type PreparedCliRunContext = {
   /** Host-held, policy-selected personal Workshop tool for the paired-node adapter. */
   nodeSkillWorkshop?: import("../tools/common.js").AnyAgentTool;
   openClawHistoryPrompt?: string;
+  /** Only the exact resumed native session may receive these newly committed conversation rows. */
+  resumeContext?: string;
+  transcriptCursor?: CliSessionBinding["transcriptCursor"];
   /** Live owner of the transcript account-coverage checkpoint, independent of native continuity. */
   cliHistoryWriter?: import("../../config/sessions/cli-history-boundary.js").CliHistoryWriter;
   authEpoch?: string;

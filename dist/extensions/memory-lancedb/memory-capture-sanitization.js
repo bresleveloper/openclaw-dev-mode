@@ -77,15 +77,13 @@ function stripLeadingMessageToolDeliveryHints(text) {
 	}
 	return stripped ? lines.slice(index).join("\n") : text;
 }
-function findFirstInboundEnvelopeIndex(text, options) {
+function findFirstInboundEnvelopeIndex(text) {
 	for (const match of text.matchAll(BRACKETED_PREFIX_RE)) {
 		const index = match.index;
-		if (options?.skipReplyQuoteLine) {
-			const lineStart = text.lastIndexOf("\n", index - 1) + 1;
-			if (text.slice(lineStart, index).includes("[Replying to:")) continue;
-		}
+		const lineStart = text.lastIndexOf("\n", index - 1) + 1;
+		if (text.slice(lineStart, index).includes("[Replying to:")) continue;
 		const candidate = text.slice(index);
-		if (INBOUND_ENVELOPE_PREFIX_RE.test(candidate) || matchKnownChannelMarkerFreeEnvelopePrefix(candidate, { allowAmbiguousDirect: options?.allowAmbiguousMarkerFree })) return index;
+		if (INBOUND_ENVELOPE_PREFIX_RE.test(candidate) || matchKnownChannelMarkerFreeEnvelopePrefix(candidate, { allowAmbiguousDirect: true })) return index;
 	}
 	return -1;
 }
@@ -113,10 +111,7 @@ function findLastContextMarker(text, markers) {
 function stripLeadingCurrentMessageContextBeforeEnvelope(text) {
 	const candidateText = text.trimStart();
 	if (!LEADING_CURRENT_MESSAGE_CONTEXT_RE.test(candidateText)) return text;
-	const envelopeIndex = findFirstInboundEnvelopeIndex(candidateText, {
-		allowAmbiguousMarkerFree: true,
-		skipReplyQuoteLine: true
-	});
+	const envelopeIndex = findFirstInboundEnvelopeIndex(candidateText);
 	if (envelopeIndex === -1) {
 		let plainBody = candidateText.replace(LEADING_CURRENT_MESSAGE_CONTEXT_RE, "").trimStart();
 		for (let pass = 0; pass < 4; pass += 1) {
@@ -157,15 +152,9 @@ function stripLeadingChronologicalContextBlocks(text) {
 		if (bodyStart === -1) return "";
 		const bodyLineEnd = afterLabel.indexOf("\n", bodyStart);
 		const firstBodyLine = bodyLineEnd === -1 ? afterLabel.slice(bodyStart) : afterLabel.slice(bodyStart, bodyLineEnd);
-		let lineEnvelopeIndex = firstBodyLine.trimStart().startsWith("[") ? findFirstInboundEnvelopeIndex(firstBodyLine, {
-			allowAmbiguousMarkerFree: true,
-			skipReplyQuoteLine: true
-		}) : -1;
+		let lineEnvelopeIndex = firstBodyLine.trimStart().startsWith("[") ? findFirstInboundEnvelopeIndex(firstBodyLine) : -1;
 		if (lineEnvelopeIndex === -1 && match[0].includes("selected for current message")) {
-			const inlineEnvelopeIndex = findFirstInboundEnvelopeIndex(firstBodyLine, {
-				allowAmbiguousMarkerFree: true,
-				skipReplyQuoteLine: true
-			});
+			const inlineEnvelopeIndex = findFirstInboundEnvelopeIndex(firstBodyLine);
 			const prefix = inlineEnvelopeIndex === -1 ? "" : firstBodyLine.slice(0, inlineEnvelopeIndex);
 			lineEnvelopeIndex = /^#\d+\s/.test(prefix.trimStart()) ? inlineEnvelopeIndex : -1;
 		}

@@ -45,6 +45,9 @@ Run workspace selection rejects an explicitly supplied blank or invalid agent ID
 
 `openclaw onboard`, `openclaw configure`, or `openclaw setup` create the workspace and seed the bootstrap files if they are missing.
 
+Already-provisioned workspaces can continue if packaged templates are unavailable.
+Creating missing files still requires a working template installation.
+
 <Note>
 Sandbox seed copies only accept regular in-workspace files; symlink/hardlink aliases that resolve outside the source workspace are ignored.
 </Note>
@@ -105,6 +108,8 @@ Standard files OpenClaw expects inside the workspace:
 <Note>
 If a required bootstrap file is missing, OpenClaw injects a "missing file" marker into the session and continues. Optional `USER.md` and `MEMORY.md` files are omitted when absent. Large bootstrap files are truncated when injected; adjust general limits with `agents.defaults.bootstrapMaxChars` (default: `20000`) and `agents.defaults.bootstrapTotalMaxChars` (default: `60000`). `USER.md` keeps its separate 4,000-character cap. `openclaw setup` can recreate missing defaults without overwriting existing files.
 </Note>
+
+The workspace document editor and `agents.files.set` accept up to 2 MiB of UTF-8 text per file. Larger saves are rejected before replacing the existing document. This byte limit is separate from prompt truncation settings and the identity form's avatar support.
 
 ## What is NOT in the workspace
 

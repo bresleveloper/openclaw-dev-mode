@@ -40,13 +40,13 @@ const stateMigrations = [{
 	doctorOnly: true,
 	phase: "after-session-repair",
 	async collectBackupResources(input) {
-		return (await import("./.setup/session-owner-migration-C73lfijV.mjs")).acpxSessionOwnerMigration.collectBackupResources(input);
+		return (await import("./.setup/session-owner-migration-BA3DJKb2.mjs")).acpxSessionOwnerMigration.collectBackupResources(input);
 	},
 	async detectLegacyState(input) {
-		return (await import("./.setup/session-owner-migration-C73lfijV.mjs")).acpxSessionOwnerMigration.detectLegacyState(input);
+		return (await import("./.setup/session-owner-migration-BA3DJKb2.mjs")).acpxSessionOwnerMigration.detectLegacyState(input);
 	},
 	async migrateLegacyState(input) {
-		return (await import("./.setup/session-owner-migration-C73lfijV.mjs")).acpxSessionOwnerMigration.migrateLegacyState(input);
+		return (await import("./.setup/session-owner-migration-BA3DJKb2.mjs")).acpxSessionOwnerMigration.migrateLegacyState(input);
 	}
 }];
 //#endregion

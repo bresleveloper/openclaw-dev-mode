@@ -8,6 +8,7 @@ import {
   createOperatorClient,
 } from "../gateway/server-plugin-in-process-dispatch.test-support.js";
 import { emitAgentEvent } from "../infra/agent-events.js";
+import { sqliteWorkerOwnerProbe as probe } from "../infra/sqlite-worker-owner-probe.test-support.js";
 import { withPluginRuntimeGatewayRequestScope } from "../plugins/runtime/gateway-request-scope.js";
 import { createDeferredCore } from "../shared/deferred.js";
 import * as stateWorker from "../state/openclaw-state-worker-store.js";
@@ -45,6 +46,33 @@ export type GatewayCall = {
   params?: Record<string, unknown>;
   onAccepted?: (payload: unknown) => void;
 };
+
+/** End through the real lifecycle and wait for the persisted terminal registry row. */
+export async function endChildRun(
+  runId: string,
+  childSessionKey: string,
+  terminalReply: { disposition: "visible"; text: string },
+) {
+  let stop = () => {};
+  const ended = new Promise<void>((resolve) => {
+    stop = subscribeSubagentRunChanges("persistence", () => {
+      if (getSubagentRunByRunId(runId)?.execution.endedAt !== undefined) {
+        resolve();
+      }
+    });
+  });
+  emitAgentEvent({
+    runId,
+    sessionKey: childSessionKey,
+    stream: "lifecycle",
+    data: { phase: "end", endedAt: Date.now(), terminalReply },
+  });
+  try {
+    await ended;
+  } finally {
+    stop();
+  }
+}
 
 /** Reuse the coordination suite's transport and state fixture for post-commit retirement. */
 export function registerSessionsSendRequesterRetirementTests({
@@ -129,6 +157,8 @@ export function registerSessionsSendRequesterRetirementTests({
         await registerSubagentRun({
           runId,
           childSessionKey,
+          childAgentId: "main",
+          sessionEntry: { sessionId: childSessionId },
           requesterSessionKey,
           requesterDisplayKey: requesterSessionKey,
           requesterAgentId: "main",
@@ -170,29 +200,20 @@ export function registerSessionsSendRequesterRetirementTests({
         requesterRetired = true;
         admission.close();
       };
-      const execute = stateWorker.runOpenClawStateWorkerOperation;
-      const retireBeforePublication = vi
-        .spyOn(stateWorker, "runOpenClawStateWorkerOperation")
-        .mockImplementation((owner, run, options) =>
-          execute(
-            owner,
-            (scope) =>
-              run({
-                execute: async (command, executeOptions) => {
-                  const result = await scope.execute(command, executeOptions);
-                  if (
-                    retirement === "before publication" &&
-                    !requesterRetired &&
-                    command.type === "subagents.persistChanges"
-                  ) {
-                    retireRequester();
-                  }
-                  return result;
-                },
-              }),
-            options,
-          ),
-        );
+      const retireBeforePublication = probe.command(
+        stateWorker,
+        async (command, executeOptions, scope) => {
+          const result = await scope.execute(command, executeOptions);
+          if (
+            retirement === "before publication" &&
+            !requesterRetired &&
+            command.type === "subagents.persistChanges"
+          ) {
+            retireRequester();
+          }
+          return result;
+        },
+      );
       const stopRetiring = subscribeSubagentRunChanges("persistence", () => {
         if (
           retirement === "after publication" &&

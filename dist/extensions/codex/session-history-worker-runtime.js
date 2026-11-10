@@ -1,41 +1,33 @@
-import { a as codexHistoryRejectionReason, t as consumeCodexHistory } from "./.setup/session-history-read-CNN8zwbD.mjs";
-import { n as projectVerifiedSettledCodexMessages, t as runCodexHistoryWorkerInput } from "./.setup/session-history.worker-Cq_4DYgN.mjs";
-import { n as resolveCodexHistoryTarget } from "./.setup/session-history-BogBHKLk.mjs";
+import { codexHistoryWorkerEntrypoint } from "./session-history-worker-entrypoint.js";
+import { n as codexHistoryRejectionReason } from "./.setup/history-rejection-B4nOXNXF.mjs";
+import { t as consumeCodexHistory } from "./.setup/session-history-read-BI_2jRED.mjs";
+import { n as resolveCodexHistoryTarget } from "./.setup/session-history-7W0cgTXF.mjs";
+import { t as projectVerifiedSettledCodexMessages } from "./.setup/settled-turn-evidence-B5Ew3UUB.mjs";
 import { WorkerTaskPool, resolveRuntimeWorkerArgv, resolveRuntimeWorkerUrl } from "openclaw/plugin-sdk/process-runtime";
-import { isIncognitoSessionKey } from "openclaw/plugin-sdk/session-key-runtime";
 import { fileURLToPath } from "node:url";
-import { SessionTranscriptReadFenceError, captureCodexSessionTranscriptReadAdmission, validateCodexSessionTranscriptContextVersion, validateCodexSessionTranscriptReadAdmission } from "openclaw/plugin-sdk/codex-session-transcript-runtime";
+import { SessionTranscriptReadFenceError, captureCodexSessionContextReader, readCodexSessionContextProjection } from "openclaw/plugin-sdk/codex-session-transcript-runtime";
 //#region extensions/codex/session-history-worker-runtime.ts
-const codexHistoryWorkerEntrypoint = {
-	currentModuleUrl: import.meta.url,
-	sourceWorkerName: "session-history.worker",
-	distWorkerPath: "extensions/codex/session-history.worker.js",
-	package: {
-		name: "@openclaw/codex",
-		distWorkerPath: "session-history.worker.js"
-	}
-};
-function resolveCodexHistoryWorkerUrl() {
-	const sourceUrl = resolveRuntimeWorkerUrl(codexHistoryWorkerEntrypoint);
-	if (!(/\.[cm]?ts$/u.test(sourceUrl.pathname) && (typeof process.versions.bun === "string" || resolveRuntimeWorkerArgv(sourceUrl).length === 1))) return sourceUrl;
-	return resolveRuntimeWorkerUrl({
+const sourceWorkerUrl = resolveRuntimeWorkerUrl(codexHistoryWorkerEntrypoint);
+const sourceNeedsBuiltFallback = /\.[cm]?ts$/u.test(sourceWorkerUrl.pathname) && (typeof process.versions.bun === "string" || resolveRuntimeWorkerArgv(sourceWorkerUrl).length === 1);
+const historyReads = new WorkerTaskPool({
+	workerUrl: sourceNeedsBuiltFallback ? resolveRuntimeWorkerUrl({
 		...codexHistoryWorkerEntrypoint,
 		root: fileURLToPath(new URL("../..", import.meta.url))
-	});
-}
-const historyReads = new WorkerTaskPool({
-	workerUrl: resolveCodexHistoryWorkerUrl(),
-	maxWorkers: 1
+	}) : sourceWorkerUrl,
+	workerClass: "reader"
 });
 async function projectCodexSettledHistoryInWorker(target, signal, contextReader) {
 	signal?.throwIfAborted();
-	if (contextReader && !target.sessionTarget) throw new Error("Actor history requires a captured sessionTarget");
-	const resolved = resolveCodexHistoryTarget(target);
-	if (contextReader) {
+	const resolved = await resolveCodexHistoryTarget(target);
+	const reader = contextReader ?? (resolved.kind === "sqlite" ? captureCodexSessionContextReader({
+		...target.sessionTarget,
+		...resolved.target
+	}, signal) : void 0);
+	if (reader) {
 		if (resolved.kind !== "sqlite") throw new Error("Actor history requires a complete matching sessionTarget");
 		let result;
 		try {
-			result = await contextReader(resolved.target, (messages, header) => {
+			result = await reader(resolved.target, (messages, header) => {
 				signal?.throwIfAborted();
 				try {
 					return {
@@ -59,31 +51,51 @@ async function projectCodexSettledHistoryInWorker(target, signal, contextReader)
 		signal?.throwIfAborted();
 		return result;
 	}
-	const receipt = resolved.kind === "sqlite" ? captureCodexSessionTranscriptReadAdmission(resolved.target) : void 0;
-	const input = {
-		target: resolved,
-		sessionId: target.sessionId,
-		...receipt ? { admission: { ...receipt } } : {},
-		evidence: {
-			mirroredMessages: target.mirroredMessages,
-			settledMessages: target.settledMessages,
-			turnId: target.turnId
-		}
+	const evidence = {
+		mirroredMessages: target.mirroredMessages,
+		settledMessages: target.settledMessages,
+		turnId: target.turnId,
+		...target.promptIdentity ? { promptIdentity: target.promptIdentity } : {},
+		...target.promptSuppressed ? { promptSuppressed: true } : {}
 	};
-	const result = resolved.kind === "sqlite" && isIncognitoSessionKey(resolved.target.sessionKey) ? await runCodexHistoryWorkerInput(input) : await historyReads.run(input, {
-		timeoutMs: 6e4,
-		signal
-	});
-	signal?.throwIfAborted();
 	if (resolved.kind === "sqlite") try {
-		if (input.admission) validateCodexSessionTranscriptReadAdmission(resolved.target, input.admission);
-		else validateCodexSessionTranscriptContextVersion(resolved.target, result.version);
+		return await readCodexSessionContextProjection(resolved.target, async ({ target: captured, admission, physicalSource }) => {
+			const input = {
+				target: {
+					kind: "sqlite",
+					target: captured
+				},
+				sessionId: target.sessionId,
+				admission,
+				physicalSource,
+				evidence
+			};
+			const result = await historyReads.run(input, {
+				timeoutMs: 6e4,
+				signal
+			});
+			return {
+				value: result.result,
+				version: result.version
+			};
+		}, signal);
 	} catch (error) {
+		signal?.throwIfAborted();
 		return {
 			status: "rejected",
 			reason: error instanceof SessionTranscriptReadFenceError ? "snapshot_invalidated" : codexHistoryRejectionReason(error)
 		};
 	}
+	const input = {
+		target: resolved,
+		sessionId: target.sessionId,
+		evidence
+	};
+	const result = await historyReads.run(input, {
+		timeoutMs: 6e4,
+		signal
+	});
+	signal?.throwIfAborted();
 	return result.result;
 }
 //#endregion

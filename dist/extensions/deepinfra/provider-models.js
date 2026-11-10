@@ -1,11 +1,12 @@
 import { DEEPINFRA_BASE_URL, DEEPINFRA_IMAGE_FALLBACK_CATALOG, DEEPINFRA_TTS_FALLBACK_CATALOG } from "./media-models.js";
 import { DEEPINFRA_MODEL_CATALOG, buildDeepInfraModelDefinition } from "./provider-static-catalog.js";
 import { parseDeepInfraPricingCatalog } from "./pricing-api.js";
+import { resolveDefaultModelMaxTokens } from "openclaw/plugin-sdk/provider-model-shared";
 import { asPositiveSafeInteger, isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { fetchLiveProviderModelRows } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { getCachedLiveCatalogValue } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { withTrustedEnvProxyGuardedFetchMode } from "openclaw/plugin-sdk/fetch-runtime";
-import { isProviderApiKeyConfigured } from "openclaw/plugin-sdk/provider-auth";
+import { isProviderApiKeyConfiguredAsync } from "openclaw/plugin-sdk/provider-auth";
 import { createSubsystemLogger } from "openclaw/plugin-sdk/runtime-env";
 import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
 //#region extensions/deepinfra/provider-models.ts
@@ -13,7 +14,6 @@ const log = createSubsystemLogger("deepinfra-models");
 const DEEPINFRA_MODELS_URL = `${DEEPINFRA_BASE_URL}/models?sort_by=openclaw&filter=with_meta`;
 const DEEPINFRA_PRICING_URL = "https://api.deepinfra.com/models/list";
 const DEEPINFRA_DEFAULT_CONTEXT_WINDOW = 128e3;
-const DEEPINFRA_DEFAULT_MAX_TOKENS = 8192;
 const DISCOVERY_TIMEOUT_MS = 5e3;
 const DISCOVERY_CACHE_TTL_MS = 3e5;
 function entryToSurfaceModel(entry) {
@@ -112,19 +112,19 @@ function chatSurfaceModelToModelDefinition(model) {
 		input,
 		...manifestModel?.compat ? { compat: manifestModel.compat } : {},
 		contextWindow: model.contextWindow ?? DEEPINFRA_DEFAULT_CONTEXT_WINDOW,
-		maxTokens: model.maxTokens ?? DEEPINFRA_DEFAULT_MAX_TOKENS
+		maxTokens: model.maxTokens ?? resolveDefaultModelMaxTokens(model.contextWindow ?? DEEPINFRA_DEFAULT_CONTEXT_WINDOW)
 	};
 }
-function canDiscoverDeepInfra(options) {
+async function canDiscoverDeepInfra(options) {
 	if (options?.hasApiKey !== void 0) return options.hasApiKey;
 	const fromEnv = (options?.env ?? process.env).DEEPINFRA_API_KEY;
-	return typeof fromEnv === "string" && fromEnv.trim() !== "" || isProviderApiKeyConfigured({
+	return typeof fromEnv === "string" && fromEnv.trim() !== "" || await isProviderApiKeyConfiguredAsync({
 		provider: "deepinfra",
 		agentDir: options?.agentDir
 	});
 }
 async function discoverDeepInfraSurfaces(options) {
-	if (canDiscoverDeepInfra(options)) try {
+	if (await canDiscoverDeepInfra(options)) try {
 		return await loadDeepInfraSurfaces();
 	} catch (error) {
 		log.warn(`Model metadata discovery unavailable: ${String(error)}`);
@@ -187,7 +187,7 @@ async function discoverDeepInfraPricing() {
 	});
 }
 async function discoverDeepInfraModels(options) {
-	if (!canDiscoverDeepInfra(options)) return DEEPINFRA_MODEL_CATALOG.map(buildDeepInfraModelDefinition);
+	if (!await canDiscoverDeepInfra(options)) return DEEPINFRA_MODEL_CATALOG.map(buildDeepInfraModelDefinition);
 	const strict = options?.discoveryMode !== "advisory";
 	const [metadata, pricing] = await Promise.allSettled([loadDeepInfraSurfaces(), discoverDeepInfraPricing()]);
 	if (metadata.status === "rejected") {

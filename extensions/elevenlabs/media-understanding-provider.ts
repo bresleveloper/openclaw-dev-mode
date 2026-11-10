@@ -49,6 +49,12 @@ async function transcribeElevenLabsAudio(
       prompt: req.prompt,
     },
   });
+  for (const key of ["no_verbatim", "tag_audio_events", "diarize"]) {
+    const value = req.query?.[key];
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      form.set(key, String(value));
+    }
+  }
   const { response, release } = await postTranscriptionRequest({
     url: `${baseUrl}/v1/speech-to-text`,
     headers,
@@ -68,7 +74,7 @@ async function transcribeElevenLabsAudio(
       "ElevenLabs audio transcription failed",
     );
     const text = requireTranscriptionText(
-      typeof payload.text === "string" ? payload.text : undefined,
+      payload.text,
       "ElevenLabs audio transcription response missing text",
     );
     return { text, model };

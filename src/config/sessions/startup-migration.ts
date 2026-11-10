@@ -5,8 +5,10 @@ import {
   readDeferredPluginSessionImport,
   readStaleDeferredPluginSessionImport,
 } from "../../infra/deferred-plugin-session-sources.js";
+import { throwSqliteLifecycleErrors } from "../../infra/sqlite-lifecycle-errors.js";
 import { recordStartupMigrationWarnings } from "../../infra/state-migrations.messages.js";
 import { formatDoctorStateRepairFailure } from "../../infra/state-repair-message.js";
+import { settleCurrentReadPreparations } from "../../shared/current-read-authority.js";
 import { readAgentDatabaseAdmissionRefusal } from "../../state/agent-database-admission.js";
 import {
   createAgentDatabaseDeletionClassifier,
@@ -17,7 +19,10 @@ import {
   readAgentDatabaseDeletionSnapshot,
   readAgentDeletionJournalStatusInWorker,
 } from "../../state/agent-deletion-journal.read.js";
-import { OPENCLAW_AGENT_SCHEMA_VERSION } from "../../state/openclaw-agent-db-contract.js";
+import {
+  AGENT_DATABASE_PREFLIGHT_CONCURRENCY,
+  OPENCLAW_AGENT_SCHEMA_VERSION,
+} from "../../state/openclaw-agent-db-contract.js";
 import { listOpenClawRegisteredAgentDatabases } from "../../state/openclaw-agent-db-registry.js";
 import {
   closeOpenClawAgentDatabaseByPathAsync,
@@ -26,17 +31,17 @@ import {
   resolveOpenClawAgentSqlitePath,
   type OpenClawAgentDatabaseOptions,
 } from "../../state/openclaw-agent-db.js";
-import { AGENT_DATABASE_PREFLIGHT_CONCURRENCY } from "../../state/openclaw-database-preflight-agent-scheduler.js";
 import { runTasksWithConcurrency } from "../../utils/run-with-concurrency.js";
 import { cloneEnvWithPlatformSemantics } from "../config-env-vars.js";
 import type { OpenClawConfig } from "../types.openclaw.js";
-import { migrateLegacyMainSessionKeys } from "./legacy-main-session-migration.js";
+import type { migrateLegacyMainSessionKeys } from "./legacy-main-session-migration.js";
 import {
   isLegacySessionRecordOwnedByTarget,
   listLegacySessionTranscriptFiles,
   readLegacySessionStoreEntries,
   shouldFilterLegacySessionRecordsByTarget,
 } from "./legacy-store-inspection.js";
+import { isExistingLegacySessionStore } from "./legacy-store-source.js";
 import { SessionStoreMigrationRequiredError } from "./migration-required.js";
 import { resolveSqliteReadScope, toDatabaseOptions } from "./session-accessor.sqlite-scope.js";
 import { isCanonicalSqliteSessionMainKeyCurrent } from "./session-canonical-key-read.js";
@@ -46,7 +51,9 @@ import {
   type SessionStoreRegistryRead,
 } from "./session-sqlite-target.js";
 import {
+  isConfiguredAgentDatabaseTarget,
   resolveAllAgentSessionStoreTargetsSync,
+  resolveConfiguredAgentDatabaseCandidatePaths,
   resolveConfiguredAgentDatabaseTargets,
 } from "./targets.js";
 
@@ -71,8 +78,8 @@ export function assertSessionStoreMigrationComplete(params: {
     const sourcePath = path.resolve(target.storePath);
     sourcesByPath.set(sourcePath, [...(sourcesByPath.get(sourcePath) ?? []), target]);
   }
-  const legacySources = [...sourcesByPath].filter(
-    ([storePath]) => !storePath.endsWith(".sqlite") && fs.existsSync(storePath),
+  const legacySources = [...sourcesByPath].filter(([storePath]) =>
+    isExistingLegacySessionStore(storePath),
   );
   if (legacySources.length === 0) {
     return;
@@ -225,7 +232,7 @@ export async function runSessionStartupMigration(params: {
   const resolveTargets =
     params.deps?.resolveAllAgentSessionStoreTargetsSync ?? resolveAllAgentSessionStoreTargetsSync;
   const admittedTargets = () =>
-    resolveTargets(params.cfg, { env }).filter(
+    resolveTargets(params.cfg, { env, agentIds: params.agentIds }).filter(
       (target) =>
         (!params.agentIds || params.agentIds.has(target.agentId)) &&
         !readAgentDatabaseAdmissionRefusal(target.agentId, { env }),
@@ -234,9 +241,24 @@ export async function runSessionStartupMigration(params: {
   // Stable installations may still have file-backed history. Only Doctor imports it;
   // do not serve an empty SQLite history or rewrite those files during startup.
   assertSessionStoreMigrationComplete({ cfg: params.cfg, env, targets });
+  const { assertAcpSessionKeysMigratedForStartup, assertEmbeddedAcpMetadataMigratedForStartup } =
+    await import("../../acp/runtime/session-meta-startup.js");
   const migrateLegacyMain =
-    params.deps?.migrateLegacyMainSessionKeys ?? migrateLegacyMainSessionKeys;
-  const result = await migrateLegacyMain({ cfg: params.cfg, env, mode: "detect" });
+    params.deps?.migrateLegacyMainSessionKeys ??
+    (await import("./legacy-main-session-migration.js")).migrateLegacyMainSessionKeys;
+  // Both inspections are read-only; join them before repair, including on refusal.
+  const [, result] = await settleCurrentReadPreparations([
+    params.agentIds
+      ? undefined
+      : assertAcpSessionKeysMigratedForStartup(
+          params.cfg,
+          env,
+          targets.map((target) => target.agentId),
+          undefined,
+          params.assertCurrent,
+        ),
+    migrateLegacyMain({ cfg: params.cfg, env, mode: "detect" }),
+  ] as const);
   params.assertCurrent?.();
   if (result.warnings.length > 0) {
     params.log.warn(
@@ -245,8 +267,13 @@ export async function runSessionStartupMigration(params: {
   }
 
   const databases = new Set<string>();
+  const coldCloses = new Set<string>();
+  let interruptedSessions = 0;
   const registeredDatabases = new Set(
     listOpenClawRegisteredAgentDatabases({ env }).map((entry) => `${entry.agentId}\0${entry.path}`),
+  );
+  const configuredTargets = resolveConfiguredAgentDatabaseCandidatePaths(params.cfg, { env }).map(
+    (pathname) => ({ path: pathname }),
   );
   const tasks = targets.map((target) => async () => {
     params.assertCurrent?.();
@@ -274,13 +301,20 @@ export async function runSessionStartupMigration(params: {
           "database",
           "runtime",
         )(databasePath, options.agentId);
-        if (typeof retained !== "object") {
-          return operation().then(() => true);
+        if (typeof retained === "object") {
+          params.log.info(
+            `session: skipping deleted agent database for ${options.agentId} at ${databasePath} (cleanup complete); run "${formatCliCommand("openclaw doctor --fix", env)}" for explicit restoration guidance`,
+          );
+          return false;
         }
-        params.log.info(
-          `session: skipping deleted agent database for ${options.agentId} at ${databasePath} (cleanup complete); run "${formatCliCommand("openclaw doctor --fix", env)}" for explicit restoration guidance`,
-        );
-        return false;
+        // Missing registry entries still need recovery before runtime can discover their lineage.
+        if (
+          registeredDatabases.has(`${options.agentId}\0${databasePath}`) &&
+          !isConfiguredAgentDatabaseTarget(configuredTargets, options.agentId, databasePath)
+        ) {
+          return false;
+        }
+        return operation().then(() => true);
       });
     const deletion = await readAgentDeletionJournalStatusInWorker(options.agentId, { env });
     params.assertCurrent?.();
@@ -293,11 +327,13 @@ export async function runSessionStartupMigration(params: {
     let alreadyOpen: boolean | undefined;
     let handedOff = false;
     try {
+      const { repairLegacySessionRunOutcomes } =
+        await import("../../commands/doctor/shared/session-entry-rewrite.js");
       if (
         !(await runUnlessDeleted(async () => {
           alreadyOpen = isOpenClawAgentDatabaseOpen(databasePath);
+          const mainKey = params.cfg.session?.mainKey;
           try {
-            const mainKey = params.cfg.session?.mainKey;
             if (
               !registeredDatabases.has(`${options.agentId}\0${databasePath}`) ||
               !isCanonicalSqliteSessionMainKeyCurrent(options, mainKey)
@@ -314,6 +350,10 @@ export async function runSessionStartupMigration(params: {
               `session: SQLite startup maintenance failed for ${target.agentId}; continuing: ${String(error)}`,
             );
           }
+          interruptedSessions += await repairLegacySessionRunOutcomes(
+            { agentId: options.agentId, env, storePath: databasePath },
+            () => params.assertCurrent?.(),
+          );
         }))
       ) {
         return;
@@ -335,6 +375,19 @@ export async function runSessionStartupMigration(params: {
         return;
       }
       params.assertCurrent?.();
+      await runUnlessDeleted(async () => {
+        params.assertCurrent?.();
+        if (params.agentIds) {
+          await assertAcpSessionKeysMigratedForStartup(
+            params.cfg,
+            env,
+            targets.map((admittedTarget) => admittedTarget.agentId),
+            options,
+            params.assertCurrent,
+          );
+        }
+        assertEmbeddedAcpMetadataMigratedForStartup(options);
+      });
       const handoffDatabase = params.handoffDatabase;
       if (handoffDatabase) {
         // Runtime readiness failures must propagate; only successful handoff
@@ -347,7 +400,7 @@ export async function runSessionStartupMigration(params: {
       }
     } finally {
       if (alreadyOpen === false && !handedOff) {
-        await closeOpenClawAgentDatabaseByPathAsync(databasePath);
+        coldCloses.add(databasePath);
       }
     }
   });
@@ -355,15 +408,34 @@ export async function runSessionStartupMigration(params: {
   // SQLite scans and worker heaps across the whole fleet. Drain active work on failure.
   const { withSqliteCanonicalValidationWorkerPool } =
     await import("./session-accessor.sqlite-canonical-worker-pool.js");
-  await withSqliteCanonicalValidationWorkerPool(env, async () => {
-    const { hasError, firstError } = await runTasksWithConcurrency({
-      tasks,
-      limit: AGENT_DATABASE_PREFLIGHT_CONCURRENCY,
-      errorMode: "stop",
+  const errors = new Set<unknown>();
+  try {
+    await withSqliteCanonicalValidationWorkerPool(env, async () => {
+      const { hasError, firstError } = await runTasksWithConcurrency({
+        tasks,
+        limit: AGENT_DATABASE_PREFLIGHT_CONCURRENCY,
+        errorMode: "stop",
+      });
+      if (hasError) {
+        errors.add(firstError);
+        throw firstError;
+      }
     });
-    if (hasError) {
-      throw firstError;
+  } catch (error) {
+    errors.add(error);
+  }
+  // Native lease release writes shared state synchronously; sibling workers must
+  // finish their admission requests before cold handles close on the main thread.
+  for (const databasePath of coldCloses) {
+    try {
+      await closeOpenClawAgentDatabaseByPathAsync(databasePath);
+    } catch (error) {
+      errors.add(error);
     }
-  });
+  }
+  throwSqliteLifecycleErrors([...errors], "Session startup migration and cleanup failed");
+  if (interruptedSessions > 0) {
+    params.log.info(`session: normalized ${interruptedSessions} legacy run(s) to interrupted`);
+  }
   params.assertCurrent?.();
 }

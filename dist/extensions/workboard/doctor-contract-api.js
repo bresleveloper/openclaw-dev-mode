@@ -23,6 +23,7 @@ async function detectRetiredState(params) {
 const stateMigrations = [{
 	id: "workboard-28-kv-to-sqlite",
 	label: "Workboard .28 plugin-state KV",
+	collectBackupResources: () => [],
 	detectLegacyState: detectRetiredState,
 	async migrateLegacyState(params) {
 		return {

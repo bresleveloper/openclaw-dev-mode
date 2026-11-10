@@ -101,21 +101,6 @@
         "api": "ollama",
         "models": [
           {
-            "id": "kimi-k2.5",
-            "status": "deprecated",
-            "reasoning": true,
-            "input": [
-              "text",
-              "image"
-            ],
-            "contextWindow": 262144,
-            "maxTokens": 8192,
-            "compat": {
-              "supportsTools": true,
-              "supportsUsageInStreaming": true
-            }
-          },
-          {
             "id": "kimi-k2.6",
             "reasoning": true,
             "input": [
@@ -164,46 +149,6 @@
             }
           },
           {
-            "id": "deepseek-v4-flash",
-            "reasoning": true,
-            "input": [
-              "text"
-            ],
-            "contextWindow": 1048576,
-            "maxTokens": 8192,
-            "compat": {
-              "supportsTools": true,
-              "supportsUsageInStreaming": true,
-              "codeMode": "capable"
-            }
-          },
-          {
-            "id": "deepseek-v4-flash:0731",
-            "reasoning": true,
-            "input": [
-              "text"
-            ],
-            "contextWindow": 1048576,
-            "maxTokens": 8192,
-            "compat": {
-              "supportsTools": true,
-              "supportsUsageInStreaming": true
-            }
-          },
-          {
-            "id": "deepseek-v4-flash:preview",
-            "reasoning": true,
-            "input": [
-              "text"
-            ],
-            "contextWindow": 1048576,
-            "maxTokens": 8192,
-            "compat": {
-              "supportsTools": true,
-              "supportsUsageInStreaming": true
-            }
-          },
-          {
             "id": "deepseek-v4-pro",
             "reasoning": true,
             "input": [
@@ -224,19 +169,6 @@
               "text"
             ],
             "contextWindow": 1048576,
-            "maxTokens": 8192,
-            "compat": {
-              "supportsTools": true,
-              "supportsUsageInStreaming": true
-            }
-          },
-          {
-            "id": "deepseek-v4-pro:preview",
-            "reasoning": true,
-            "input": [
-              "text"
-            ],
-            "contextWindow": 524288,
             "maxTokens": 8192,
             "compat": {
               "supportsTools": true,
@@ -269,20 +201,6 @@
             "compat": {
               "supportsTools": true,
               "supportsUsageInStreaming": true
-            }
-          },
-          {
-            "id": "glm-5.1",
-            "reasoning": true,
-            "input": [
-              "text"
-            ],
-            "contextWindow": 202752,
-            "maxTokens": 8192,
-            "compat": {
-              "supportsTools": true,
-              "supportsUsageInStreaming": true,
-              "codeMode": "capable"
             }
           },
           {
@@ -404,34 +322,6 @@
               "supportsTools": true,
               "supportsUsageInStreaming": true
             }
-          },
-          {
-            "id": "qwen3.5",
-            "reasoning": true,
-            "input": [
-              "text",
-              "image"
-            ],
-            "contextWindow": 262144,
-            "maxTokens": 8192,
-            "compat": {
-              "supportsTools": true,
-              "supportsUsageInStreaming": true
-            }
-          },
-          {
-            "id": "qwen3.5:397b",
-            "reasoning": true,
-            "input": [
-              "text",
-              "image"
-            ],
-            "contextWindow": 262144,
-            "maxTokens": 8192,
-            "compat": {
-              "supportsTools": true,
-              "supportsUsageInStreaming": true
-            }
           }
         ]
       }
@@ -447,6 +337,9 @@
     ],
     "tools": [
       "node_inference"
+    ],
+    "usageProviders": [
+      "ollama"
     ],
     "webSearchProviders": [
       "ollama"

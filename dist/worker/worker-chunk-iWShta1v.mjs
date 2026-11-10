@@ -1,1 +1,0 @@
-import{i as e,n as t,r as n,t as r}from"./worker-chunk-07n6_8P_.mjs";r();export{t as inspectLegacyPluginSourceCaptureRoots,n as pruneLegacyPluginSourceCaptures,e as pruneUnreferencedPluginNativeCaptures};

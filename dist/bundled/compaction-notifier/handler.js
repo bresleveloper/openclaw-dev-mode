@@ -1,6 +1,5 @@
-import { s as asFiniteNumber } from "../../number-coercion-CuVhdCBs.mjs";
+import { s as asFiniteNumber } from "../../number-coercion-CkhMiRw8.mjs";
 //#region src/hooks/bundled/compaction-notifier/handler.ts
-/** Session compaction hook that emits short user-visible progress messages. */
 const handler = async (event) => {
 	try {
 		const context = event.context;
@@ -11,6 +10,10 @@ const handler = async (event) => {
 			return;
 		}
 		if (event.type === "session" && event.action === "compact:after") {
+			if (context.compactionOutcome === "skipped") {
+				event.messages.push("✅ Nothing to compact. Continuing from where I left off.");
+				return;
+			}
 			const tokensBefore = asFiniteNumber(context.tokensBefore);
 			const tokensAfter = asFiniteNumber(context.tokensAfter);
 			const tokenDelta = tokensBefore !== void 0 && tokensAfter !== void 0 ? ` (${tokensBefore.toLocaleString()} → ${tokensAfter.toLocaleString()} tokens)` : "";

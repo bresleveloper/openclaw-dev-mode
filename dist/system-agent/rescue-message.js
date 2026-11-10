@@ -1,84 +1,56 @@
 import { t as hasNonEmptyString } from "../string-coerce-1VuiLaaR.mjs";
-import { D as resolveExpiresAtMsFromDurationMs, o as asDateTimestampMs } from "../number-coercion-CuVhdCBs.mjs";
-import { o as resolveAgentEntry } from "../agent-scope-config-CDYpzA0r.mjs";
-import { l as resolveExecModePolicy } from "../exec-approvals-core-s7tTQC_a.mjs";
-import { n as createCorePluginStateSyncKeyedStore } from "../plugin-state-store-yKq-W0-T.mjs";
-import "../exec-approvals-B1rZTeax.mjs";
-import { a as isPersistentSystemAgentOperation, i as formatSystemAgentPersistentPlan, o as parseSystemAgentOperation } from "../operations-parse-BH-EPBYS.mjs";
-import { t as listAgentRoles } from "../agent-roles-DcAkXaUx.mjs";
-import { t as executeSystemAgentOperation } from "../operations-9NkJbThA.mjs";
-import { t as classifySystemAgentApprovalText } from "../operator-approval-CFy1cqwo.mjs";
+import { D as resolveExpiresAtMsFromDurationMs, o as asDateTimestampMs } from "../number-coercion-CkhMiRw8.mjs";
+import { o as resolveAgentEntry } from "../agent-scope-config-fjA2T9Gz.mjs";
+import { l as resolveExecModePolicy } from "../exec-approvals-core-7oJu_fRe.mjs";
+import { d as replaceCorePluginStateEntry, t as createCorePluginStateKeyedStore } from "../plugin-state-store-DY4rDlss.mjs";
+import "../exec-approvals-ByI8H66l.mjs";
+import { a as isPersistentSystemAgentOperation, i as formatSystemAgentPersistentPlan, o as parseSystemAgentOperation } from "../operations-parse-B9TfqALv.mjs";
+import { t as listAgentRoles } from "../agent-roles-RdqEgKem.mjs";
+import { t as executeSystemAgentOperation } from "../operations-6fJefeqF.mjs";
+import { r as classifySystemAgentApprovalText } from "../operator-approval-BjhYZ1TF.mjs";
 import { createHash } from "node:crypto";
 //#region src/system-agent/rescue-policy.ts
-function resolveScopedExecConfig(cfg, agentId) {
-	return agentId ? resolveAgentEntry(cfg, agentId)?.tools?.exec : void 0;
-}
-function resolveScopedSandboxMode(cfg, agentId) {
-	return (agentId ? resolveAgentEntry(cfg, agentId)?.sandbox?.mode : void 0) ?? cfg.agents?.defaults?.sandbox?.mode ?? "off";
-}
-function isYoloHostPosture(cfg, agentId) {
-	const scopedExec = resolveScopedExecConfig(cfg, agentId);
-	const globalExec = cfg.tools?.exec;
+function resolveSystemAgentRescuePolicy(input) {
+	const agent = input.agentId ? resolveAgentEntry(input.cfg, input.agentId) : void 0;
+	if ((agent?.sandbox?.mode ?? input.cfg.agents?.defaults?.sandbox?.mode ?? "off") !== "off") return {
+		allowed: false,
+		reason: "sandbox-active",
+		message: "OpenClaw rescue is blocked because OpenClaw sandboxing is active. Fix the install locally or disable sandboxing before using remote rescue."
+	};
+	const globalExec = input.cfg.tools?.exec;
 	const inherited = resolveExecModePolicy({
 		mode: globalExec?.mode,
 		security: globalExec?.security ?? "full",
 		ask: globalExec?.ask ?? "off"
 	});
-	return resolveExecModePolicy({
+	const scopedExec = agent?.tools?.exec;
+	if (resolveExecModePolicy({
 		mode: scopedExec?.mode,
 		security: scopedExec?.security ?? inherited.security,
 		ask: scopedExec?.ask ?? inherited.ask
-	}).mode === "full";
-}
-/** Decide whether a message-channel rescue command is allowed for this sender/context. */
-function resolveSystemAgentRescuePolicy(input) {
-	const ownerDmOnly = true;
-	const pendingTtlMinutes = 15;
-	const sandboxActive = resolveScopedSandboxMode(input.cfg, input.agentId) !== "off";
-	const yolo = !sandboxActive && isYoloHostPosture(input.cfg, input.agentId);
-	const enabled = yolo;
-	const denied = {
+	}).mode !== "full") return {
 		allowed: false,
-		enabled,
-		ownerDmOnly,
-		pendingTtlMinutes,
-		yolo,
-		sandboxActive
-	};
-	if (sandboxActive) return {
-		...denied,
-		reason: "sandbox-active",
-		message: "OpenClaw rescue is blocked because OpenClaw sandboxing is active. Fix the install locally or disable sandboxing before using remote rescue."
-	};
-	if (!enabled) return {
-		...denied,
 		reason: "disabled",
 		message: "OpenClaw rescue requires YOLO host posture with sandboxing off."
 	};
 	if (!input.senderIsOwner) return {
-		...denied,
+		allowed: false,
 		reason: "not-owner",
 		message: "OpenClaw rescue only accepts commands from an OpenClaw owner."
 	};
 	if (!input.isDirectMessage) return {
-		...denied,
+		allowed: false,
 		reason: "not-direct-message",
 		message: "OpenClaw rescue is restricted to owner DMs by default."
 	};
-	return {
-		allowed: true,
-		enabled: true,
-		ownerDmOnly,
-		pendingTtlMinutes,
-		yolo: true,
-		sandboxActive: false
-	};
+	return { allowed: true };
 }
 //#endregion
 //#region src/system-agent/rescue-message.ts
 const SYSTEM_AGENT_COMMAND = "/openclaw";
 const RESCUE_PENDING_NAMESPACE = "rescue-pending";
 const RESCUE_PENDING_MAX_ENTRIES = 1024;
+const RESCUE_PENDING_TTL_MS = 9e5;
 const RESCUE_OPERATION_FIELDS = /* @__PURE__ */ new Map([
 	["set-default-model", {
 		required: ["model"],
@@ -149,14 +121,14 @@ function resolvePendingKey(input) {
 function resolveAccountDiscriminator(command) {
 	return command.accountId?.trim() || command.to?.trim() || "default";
 }
-function openPendingStore(env) {
-	return createCorePluginStateSyncKeyedStore({
+function pendingStoreOptions(env) {
+	return {
 		ownerId: "core:system-agent",
 		namespace: RESCUE_PENDING_NAMESPACE,
 		maxEntries: RESCUE_PENDING_MAX_ENTRIES,
 		overflowPolicy: "reject-new",
 		...env ? { env } : {}
-	});
+	};
 }
 function isPlainRecord(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
@@ -209,11 +181,19 @@ async function runSystemAgentRescueMessage(input) {
 		isDirectMessage: !input.isGroup
 	});
 	if (!policy.allowed) return policy.message;
-	const pendingStore = openPendingStore(input.env);
+	const assertOwnerCurrent = input.command.assertOwnerCurrent;
+	const assertInvocationCurrent = input.assertCurrent;
+	const assertCurrent = () => {
+		assertOwnerCurrent?.();
+		assertInvocationCurrent?.();
+	};
+	const options = pendingStoreOptions(input.env);
+	const pendingStore = createCorePluginStateKeyedStore(options).withCurrent({ assertCurrent });
 	const pendingKey = resolvePendingKey(input);
 	const approvalIntent = classifySystemAgentApprovalText(rescueMessage);
 	if (approvalIntent === "approve") {
-		const operation = parsePendingOperation(pendingStore.consume(pendingKey));
+		const operation = parsePendingOperation(await pendingStore.consume(pendingKey));
+		assertCurrent();
 		if (!operation) return "No pending OpenClaw rescue change is waiting for approval.";
 		const unsupported = formatUnsupportedRemoteOperation(operation);
 		if (unsupported) return unsupported;
@@ -221,26 +201,44 @@ async function runSystemAgentRescueMessage(input) {
 		await executeSystemAgentOperation(operation, capture.runtime, {
 			approved: true,
 			auditDetails: buildAuditDetails(input),
-			deps: input.deps
+			deps: input.deps,
+			beforePersistentApply: assertCurrent
 		});
 		return capture.read() || "OpenClaw rescue change applied.";
 	}
-	if (approvalIntent === "decline") return parsePendingOperation(pendingStore.consume(pendingKey)) ? "Dropped the pending OpenClaw rescue change." : "No pending OpenClaw rescue change is waiting for approval.";
-	pendingStore.delete(pendingKey);
+	if (approvalIntent === "decline") {
+		const pending = parsePendingOperation(await pendingStore.consume(pendingKey));
+		assertCurrent();
+		return pending ? "Dropped the pending OpenClaw rescue change." : "No pending OpenClaw rescue change is waiting for approval.";
+	}
 	const operation = parseSystemAgentOperation(rescueMessage);
 	const unsupported = formatUnsupportedRemoteOperation(operation);
-	if (unsupported) return unsupported;
+	if (unsupported) {
+		await pendingStore.delete(pendingKey);
+		assertCurrent();
+		return unsupported;
+	}
 	if (isPersistentSystemAgentOperation(operation)) {
 		const nowMs = asDateTimestampMs((/* @__PURE__ */ new Date()).getTime());
-		const expiresAtMs = nowMs === void 0 ? void 0 : resolveExpiresAtMsFromDurationMs(policy.pendingTtlMinutes * 6e4, { nowMs });
-		if (nowMs === void 0 || expiresAtMs === void 0) return "OpenClaw rescue could not create a pending approval because the expiry clock is invalid.";
+		const expiresAtMs = nowMs === void 0 ? void 0 : resolveExpiresAtMsFromDurationMs(RESCUE_PENDING_TTL_MS, { nowMs });
+		if (nowMs === void 0 || expiresAtMs === void 0) {
+			await pendingStore.delete(pendingKey);
+			assertCurrent();
+			return "OpenClaw rescue could not create a pending approval because the expiry clock is invalid.";
+		}
 		const ttlMs = expiresAtMs - nowMs;
-		pendingStore.register(pendingKey, {
+		await replaceCorePluginStateEntry(options, pendingKey, {
 			version: 1,
 			operation
-		}, { ttlMs });
+		}, {
+			ttlMs,
+			assertCurrent
+		});
+		assertCurrent();
 		return formatPersistentPlan(operation);
 	}
+	await pendingStore.delete(pendingKey);
+	assertCurrent();
 	const capture = createCaptureRuntime();
 	await executeSystemAgentOperation(operation, capture.runtime, {
 		approved: true,

@@ -1,9 +1,8 @@
-import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
-import { a as isAgentBootstrapEvent } from "../../internal-hooks-HjIVcJaQ.mjs";
-import { t as loadDeclaredExtraBootstrapFiles } from "../../declared-files-2J7j2c-r.mjs";
+import { t as createSubsystemLogger } from "../../subsystem-mStysHHC.mjs";
+import { a as isAgentBootstrapEvent } from "../../internal-hooks-DNLQqCT3.mjs";
+import { t as loadDeclaredExtraBootstrapFiles } from "../../declared-files-DmgJwHA_.mjs";
 //#region src/hooks/bundled/bootstrap-extra-files/handler.ts
 const log = createSubsystemLogger("bootstrap-extra-files");
-/** Agent-bootstrap hook that appends configured extra files to the session bootstrap set. */
 const bootstrapExtraFilesHook = async (event) => {
 	if (!isAgentBootstrapEvent(event)) return;
 	const context = event.context;

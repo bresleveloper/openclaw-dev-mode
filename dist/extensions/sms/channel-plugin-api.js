@@ -1,6 +1,6 @@
 import { t as getSmsRuntime } from "./.setup/runtime-BBlPgBIF.mjs";
-import { C as normalizeSmsAllowFrom, S as looksLikeSmsPhoneNumber, _ as isSmsAccountConfigured, a as listTwilioIncomingPhoneNumbers, b as resolveSmsAccount, c as resolveTwilioInboundSender, d as respondTwiml, f as retrieveTwilioMessagingService, g as inspectSmsAccount, h as assertSmsCredentialOwnerAvailable, i as buildTwilioInboundMessage, l as resolveTwilioMessageSid, m as verifyTwilioSignature, o as listTwilioMessages, p as sendSmsViaTwilio, r as TWIML_CONTENT_TYPE, s as readTwilioWebhookForm, t as TWILIO_MESSAGE_BODY_MAX_LENGTH, u as resolveTwilioWebhookSignatureUrl, v as listSmsAccountIds, w as normalizeSmsPhoneNumber, x as resolveTwilioStatusCallbackUrl, y as resolveDefaultSmsAccountId } from "./.setup/twilio-DLNDolQb.mjs";
-import { n as collectRuntimeConfigAssignments, r as secretTargetRegistryEntries } from "./.setup/secret-contract-BEWVid4f.mjs";
+import { C as normalizeSmsAllowFrom, S as looksLikeSmsPhoneNumber, _ as isSmsAccountConfigured, a as listTwilioIncomingPhoneNumbers, b as resolveSmsAccount, c as resolveTwilioInboundSender, d as respondTwiml, f as retrieveTwilioMessagingService, g as inspectSmsAccount, h as assertSmsCredentialOwnerAvailable, i as buildTwilioInboundMessage, l as resolveTwilioMessageSid, m as verifyTwilioSignature, o as listTwilioMessages, p as sendSmsViaTwilio, r as TWIML_CONTENT_TYPE, s as readTwilioWebhookForm, t as TWILIO_MESSAGE_BODY_MAX_LENGTH, u as resolveTwilioWebhookSignatureUrl, v as listSmsAccountIds, w as normalizeSmsPhoneNumber, x as resolveTwilioStatusCallbackUrl, y as resolveDefaultSmsAccountId } from "./.setup/twilio-BvmfwtSb.mjs";
+import { n as collectRuntimeConfigAssignments, r as secretTargetRegistryEntries } from "./.setup/secret-contract-B2P_lFGm.mjs";
 import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/account-id";
 import { createHybridChannelConfigAdapter, createScopedDmSecurityResolver } from "openclaw/plugin-sdk/channel-config-helpers";
 import { buildChannelOutboundSessionRoute, createChatChannelPlugin } from "openclaw/plugin-sdk/channel-core";
@@ -367,62 +367,20 @@ function toSmsPlainText(text) {
 		linkStyle: "label-and-url"
 	}).replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
-function chunkSmsPlainText(text, limit) {
+function prepareSmsTextChunks(params) {
+	const text = toSmsPlainText(params.text);
+	if (!text) return [];
 	return renderMarkdownIRChunksWithinLimit({
 		ir: {
 			text,
 			styles: [],
 			links: []
 		},
-		limit,
+		limit: Math.min(params.configuredLimit, TWILIO_MESSAGE_BODY_MAX_LENGTH),
 		assistantTranscriptRoleMessageBoundaries: true,
 		renderChunk: (chunk) => chunk.annotations?.some((annotation) => annotation.type === "assistant_transcript_role") ? `${SMS_ASSISTANT_TRANSCRIPT_ROLE_PREFIX}${chunk.text}` : chunk.text,
 		measureRendered: (rendered) => rendered.length
 	}).map(({ rendered }) => rendered).filter(Boolean);
-}
-function prepareSmsTextChunks(params) {
-	const text = toSmsPlainText(params.text);
-	if (!text) return [];
-	return chunkSmsPlainText(text, Math.min(params.configuredLimit, TWILIO_MESSAGE_BODY_MAX_LENGTH));
-}
-async function sendSmsProviderMessage(params) {
-	let platformDispatchStarted = false;
-	let result;
-	try {
-		result = await sendSmsViaTwilio({
-			account: params.account,
-			to: params.to,
-			...params.text !== void 0 ? { text: params.text } : {},
-			...params.mediaUrls !== void 0 ? { mediaUrls: params.mediaUrls } : {},
-			onPlatformSendDispatch: async () => {
-				await params.onPlatformSendDispatch?.();
-				platformDispatchStarted = true;
-			}
-		});
-	} catch (error) {
-		if (platformDispatchStarted || error instanceof PlatformMessageNotDispatchedError) throw error;
-		throw new PlatformMessageNotDispatchedError(`SMS send failed before Twilio dispatch: ${formatErrorMessage(error)}`, { cause: error });
-	}
-	await recordInitialDeliveryBestEffort(params.account, result);
-	return result;
-}
-async function recordInitialDeliveryBestEffort(account, result) {
-	try {
-		await recordInitialSmsDeliveryResult({
-			account,
-			result
-		});
-	} catch (error) {
-		try {
-			getSmsRuntime().logging.getChildLogger({
-				plugin: "sms",
-				feature: "delivery-status"
-			}).warn("SMS delivery initial state could not be persisted.", {
-				messageSid: result.sid,
-				errorType: error instanceof Error ? error.name : typeof error
-			});
-		} catch {}
-	}
 }
 async function sendSmsTextChunks(params) {
 	const chunks = prepareSmsTextChunks({
@@ -436,12 +394,39 @@ async function sendSmsMessages(params, messages, kind) {
 	const results = [];
 	try {
 		for (const [index, message] of messages.entries()) {
-			const result = await sendSmsProviderMessage({
-				account: params.account,
-				to: params.to,
-				...message,
-				onPlatformSendDispatch: params.onPlatformSendDispatch
-			});
+			let platformDispatchStarted = false;
+			let result;
+			try {
+				result = await sendSmsViaTwilio({
+					account: params.account,
+					to: params.to,
+					...message.text !== void 0 ? { text: message.text } : {},
+					...message.mediaUrls !== void 0 ? { mediaUrls: message.mediaUrls } : {},
+					onPlatformSendDispatch: async () => {
+						await params.onPlatformSendDispatch?.();
+						platformDispatchStarted = true;
+					}
+				});
+			} catch (error) {
+				if (platformDispatchStarted || error instanceof PlatformMessageNotDispatchedError) throw error;
+				throw new PlatformMessageNotDispatchedError(`SMS send failed before Twilio dispatch: ${formatErrorMessage(error)}`, { cause: error });
+			}
+			try {
+				await recordInitialSmsDeliveryResult({
+					account: params.account,
+					result
+				});
+			} catch (error) {
+				try {
+					getSmsRuntime().logging.getChildLogger({
+						plugin: "sms",
+						feature: "delivery-status"
+					}).warn("SMS delivery initial state could not be persisted.", {
+						messageSid: result.sid,
+						errorType: error instanceof Error ? error.name : typeof error
+					});
+				} catch {}
+			}
 			results.push(result);
 			await params.onDeliveryResult?.(createSmsSendResult({
 				results: [result],
@@ -461,7 +446,7 @@ async function prepareSmsMediaAttempt(params) {
 	});
 	let hostedMedia;
 	try {
-		const { prepareHostedSmsMedia } = await import("./.setup/media-fLUYh_H2.mjs");
+		const { prepareHostedSmsMedia } = await import("./.setup/media-BIjSnGTm.mjs");
 		assertSmsCredentialOwnerAvailable(params.account);
 		const prepared = await prepareHostedSmsMedia({
 			account: params.account,
@@ -572,7 +557,7 @@ async function dispatchSmsInboundEvent(params) {
 		params.log?.warn?.(`SMS sender ${from} is not authorized`);
 		return;
 	}
-	const materialized = params.msg.media.length > 0 || (params.msg.unavailableMediaCount ?? 0) > 0 ? await (await import("./.setup/media-fLUYh_H2.mjs")).materializeSmsInboundMedia({
+	const materialized = params.msg.media.length > 0 || (params.msg.unavailableMediaCount ?? 0) > 0 ? await (await import("./.setup/media-BIjSnGTm.mjs")).materializeSmsInboundMedia({
 		account: params.account,
 		msg: params.msg,
 		mediaRuntime: params.channelRuntime,
@@ -1075,7 +1060,7 @@ async function registerSmsWebhookRoute(params) {
 			throwOnFailure: true,
 			log: (msg) => params.log?.info?.(msg),
 			handler: async (req, res) => {
-				const { tryHandleHostedSmsMediaRequest } = await import("./.setup/media-fLUYh_H2.mjs");
+				const { tryHandleHostedSmsMediaRequest } = await import("./.setup/media-BIjSnGTm.mjs");
 				if (await tryHandleHostedSmsMediaRequest(req, res, params.account.accountId)) return true;
 				return await webhookHandler(req, res);
 			}
@@ -1157,13 +1142,7 @@ async function runRemoteProbe(params) {
 	}
 }
 function addTailscaleHint(account, hints) {
-	let host;
-	try {
-		host = new URL(account.publicWebhookUrl).hostname;
-	} catch {
-		return;
-	}
-	if (!host.endsWith(".ts.net")) return;
+	if (!(URL.parse(account.publicWebhookUrl)?.hostname)?.endsWith(".ts.net")) return;
 	hints.push(`Tailscale Funnel must expose the exact SMS path: tailscale funnel --bg --set-path ${account.webhookPath} http://127.0.0.1:<gateway-port>${account.webhookPath}`);
 }
 function compareTwilioWebhook(account, phoneNumber) {
@@ -1205,7 +1184,7 @@ function compareTwilioWebhook(account, phoneNumber) {
 function compareTwilioMessagingService(account, service) {
 	if (service.useInboundWebhookOnNumber) return {
 		status: "unavailable",
-		reason: "Twilio Messaging Service defers inbound webhooks to sender phone numbers; configure fromNumber or disable defer-to-sender before probing."
+		reason: "Twilio Messaging Service defers inbound webhooks to sender phone numbers; configure fromNumber or disable defer-to-sender before checking."
 	};
 	const summary = {
 		serviceSid: service.sid || account.messagingServiceSid,
@@ -1281,43 +1260,38 @@ async function probeSmsAccount(params) {
 	let messages = [];
 	if (remoteTimeoutMs === 0) webhook = {
 		status: "unavailable",
-		reason: "Twilio webhook probe skipped because the probe timeout is too short."
+		reason: "Twilio webhook check skipped because the check timeout is too short."
 	};
 	else {
-		const webhookTask = params.account.fromNumber ? runRemoteProbe({
-			label: "Twilio webhook probe",
+		const requestOptions = () => ({
+			account: params.account,
+			fetchImpl: params.options?.fetchImpl,
+			timeoutMs: remoteTimeoutMs
+		});
+		const webhookTask = params.account.fromNumber || params.account.messagingServiceSid ? runRemoteProbe({
+			label: "Twilio webhook check",
 			timeoutMs: remoteTimeoutMs,
-			run: async () => compareTwilioWebhook(params.account, (await listTwilioIncomingPhoneNumbers({
-				account: params.account,
-				phoneNumber: params.account.fromNumber,
-				fetchImpl: params.options?.fetchImpl,
-				timeoutMs: remoteTimeoutMs
-			}))[0])
-		}) : params.account.messagingServiceSid ? runRemoteProbe({
-			label: "Twilio webhook probe",
-			timeoutMs: remoteTimeoutMs,
-			run: async () => compareTwilioMessagingService(params.account, await retrieveTwilioMessagingService({
-				account: params.account,
-				serviceSid: params.account.messagingServiceSid,
-				fetchImpl: params.options?.fetchImpl,
-				timeoutMs: remoteTimeoutMs
+			run: params.account.fromNumber ? async () => compareTwilioWebhook(params.account, (await listTwilioIncomingPhoneNumbers({
+				...requestOptions(),
+				phoneNumber: params.account.fromNumber
+			}))[0]) : async () => compareTwilioMessagingService(params.account, await retrieveTwilioMessagingService({
+				...requestOptions(),
+				serviceSid: params.account.messagingServiceSid
 			}))
 		}) : Promise.resolve({
 			kind: "value",
 			value: {
 				status: "unavailable",
-				reason: "Twilio SMS probe requires fromNumber or messagingServiceSid."
+				reason: "Twilio SMS check requires fromNumber or messagingServiceSid."
 			}
 		});
 		const messageTask = params.account.fromNumber ? runRemoteProbe({
-			label: "Twilio message history probe",
+			label: "Twilio message history check",
 			timeoutMs: remoteTimeoutMs,
 			run: async () => await listTwilioMessages({
-				account: params.account,
+				...requestOptions(),
 				to: params.account.fromNumber,
-				pageSize: 3,
-				fetchImpl: params.options?.fetchImpl,
-				timeoutMs: remoteTimeoutMs
+				pageSize: 3
 			})
 		}) : Promise.resolve({
 			kind: "value",
@@ -1352,11 +1326,11 @@ function formatSmsProbeLines(probe) {
 	const smsProbe = probe;
 	const lines = [];
 	if (smsProbe.ok === true) lines.push({
-		text: "Probe: ok",
+		text: "Check: ok",
 		tone: "success"
 	});
 	else if (smsProbe.ok === false) lines.push({
-		text: `Probe: failed${smsProbe.error ? ` (${smsProbe.error})` : ""}`,
+		text: `Check: failed${smsProbe.error ? ` (${smsProbe.error})` : ""}`,
 		tone: "error"
 	});
 	if (smsProbe.webhook?.status === "matches" || smsProbe.webhook?.status === "messaging-service-matches") lines.push({ text: `Twilio SMS webhook: ${smsProbe.webhook.configuredUrl}` });
@@ -1428,7 +1402,7 @@ const collectSmsOpenDmFindings = createConditionalWarningCollector.findings({
 	severity: "critical",
 	title: "SMS security warning"
 });
-function smsSetupPatch(input) {
+function applySmsAccountConfig(params) {
 	const patch = {};
 	for (const key of [
 		"accountSid",
@@ -1440,11 +1414,7 @@ function smsSetupPatch(input) {
 		"publicWebhookUrl",
 		"dmPolicy",
 		"allowFrom"
-	]) if (input[key] !== void 0) patch[key] = input[key];
-	return patch;
-}
-function applySmsAccountConfig(params) {
-	const patch = smsSetupPatch(params.input);
+	]) if (params.input[key] !== void 0) patch[key] = params.input[key];
 	const channels = { ...params.cfg.channels };
 	const current = { ...channels[CHANNEL_ID] };
 	if (params.accountId === DEFAULT_ACCOUNT_ID) {

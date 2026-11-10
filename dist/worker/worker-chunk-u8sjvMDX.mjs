@@ -1,0 +1,1 @@
+import{a as e,n as t}from"./worker-chunk-CjbvUWbn.mjs";e();export{t as activatePluginRegistry};

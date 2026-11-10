@@ -46,7 +46,6 @@ try {
     const native = new BaseSequencer(ctx);
     const original = index ? await native.shard(specifications) : specifications;
     const selected = {};
-    const receipts = [];
     for (const [policy, partition] of Object.entries(selections)) {
       selected[policy] = [];
       for (const selection of partition) {
@@ -54,22 +53,15 @@ try {
           includeFile,
           JSON.stringify(selection.includePatterns ?? paths(specifications)),
         );
-        const requestId = `${index ?? "all"}-${policy}-${selection.runtime}`;
-        const receiptFile = path.join(path.dirname(output), `${requestId}.json`);
-        process.env.OPENCLAW_VITEST_NATIVE_SHARD_RECEIPT = receiptFile;
-        process.env.OPENCLAW_VITEST_NATIVE_SHARD_REQUEST_ID = requestId;
         const sequencer = new ctx.config.sequence.sequencer(ctx);
         const sharded = index ? await sequencer.shard(specifications) : specifications;
         selected[policy].push({
           runtime: selection.runtime,
           files: paths(await sequencer.sort(sharded)),
         });
-        delete process.env.OPENCLAW_VITEST_NATIVE_SHARD_RECEIPT;
-        delete process.env.OPENCLAW_VITEST_NATIVE_SHARD_REQUEST_ID;
-        receipts.push({ requestId, value: JSON.parse(fs.readFileSync(receiptFile, "utf8")) });
       }
     }
-    rows.push({ index, original: paths(original), selected, receipts });
+    rows.push({ index, original: paths(original), selected });
   }
 
   // Exercise the registered sequencer with interleaved environment pragmas,
@@ -100,7 +92,7 @@ try {
     );
     return unit.createSpecification(file);
   });
-  await ctx.cache.stats.populateStats(ctx.config.root, schedulingSpecs);
+  // Vitest 5.0.5 reads uncached file sizes directly during native sorting.
   const names = (files) => files.map((file) => path.basename(file.moduleId, ".test.ts"));
   const native = new BaseSequencer(ctx);
   const sequencer = new ctx.config.sequence.sequencer(ctx);
@@ -115,13 +107,16 @@ try {
   for (const populateAll of [false, true]) {
     for (const [index, spec] of schedulingSpecs.entries()) {
       if (populateAll || index === 0) {
-        ctx.cache.results.updateResults([
-          {
-            filepath: spec.moduleId,
-            projectName: unit.name,
-            result: { duration: index * 100, state: index === 2 ? "fail" : "pass" },
-          },
-        ]);
+        // Seed native cache storage only: both sequencers retain real cache readers.
+        // These synthetic modules are deliberately never executed as test bodies.
+        // eslint-disable-next-line no-underscore-dangle -- Native fixture cache seeding; no public write API exists.
+        const results = ctx.cache._results;
+        results.getProjectResults(unit.name).files.set(results.getFilePath(spec), {
+          duration: index * 100,
+          failed: index === 2,
+          lastRun: 1,
+        });
+        results.legacyResults = undefined;
       }
     }
     scheduling.cached.push({
@@ -140,7 +135,8 @@ try {
       path.relative = relative;
     }
   }
-  ctx.cache.results.cache.clear();
+  // eslint-disable-next-line no-underscore-dangle -- Clear only the synthetic native results seeded above.
+  await ctx.cache._results.clear();
   // testLines identify independent selections over shared physical pragma
   // fixtures; the real sequencer still reads their environments and file sizes.
   const boundedSpecs = [
@@ -166,7 +162,6 @@ try {
   for (const name of ["unit-mock-registry", "chromium", "unit-timing"]) {
     const project = ctx.getProjectByName(name);
     const specs = schedulingSpecs.map((spec) => project.createSpecification(spec.moduleId));
-    await ctx.cache.stats.populateStats(ctx.config.root, specs);
     scheduling.preserved.push({
       native: names(await native.sort(specs)),
       actual: names(await sequencer.sort(specs)),

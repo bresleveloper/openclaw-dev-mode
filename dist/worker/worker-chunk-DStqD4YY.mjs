@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function attachModelProviderLocalServiceReconciler(e,n){return{...e,[t]:n}}function getModelProviderLocalServiceReconciler(e){return e[t]}var t,n=e((()=>{t=Symbol.for(`openclaw.modelProviderLocalServiceReconciler`)}));export{getModelProviderLocalServiceReconciler as n,n as r,attachModelProviderLocalServiceReconciler as t};

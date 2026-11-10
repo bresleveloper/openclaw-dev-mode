@@ -10,16 +10,17 @@ import { expect, vi } from "vitest";
 import { resolveCodexAppServerHomeDir } from "./auth-start-options.js";
 import { CodexAppServerClient } from "./client.js";
 import { resolveCodexAppServerRuntimeOptions } from "./config.js";
+import type { CodexSkillsListResponse } from "./protocol-control-plane.js";
 import {
   isJsonObject,
   type CodexConfigReadResponse,
   type CodexGetAccountResponse,
 } from "./protocol.js";
+import type { CodexAppServerClientOptions } from "./shared-client-options.js";
 import {
   getLeasedSharedCodexAppServerClient,
   releaseLeasedSharedCodexAppServerClient,
   type CodexAppServerClientFactory,
-  type CodexAppServerClientOptions,
 } from "./shared-client.js";
 
 /** Synthetic transports declare their own trust and proxy profile, never the host's. */
@@ -169,6 +170,42 @@ export async function waitForHarnessRequest(
   return { id: request.id, params: request.params };
 }
 
+export function withoutCodexSkillDiscovery(methods: string[]): string[] {
+  return methods.filter((method) => method !== "skills/list");
+}
+
+function readCodexInjectedDeveloperText(params: unknown): string | undefined {
+  if (!isJsonObject(params) || !Array.isArray(params.items)) {
+    return undefined;
+  }
+  const item = params.items[0];
+  if (!isJsonObject(item) || item.role !== "developer" || !Array.isArray(item.content)) {
+    return undefined;
+  }
+  const content = item.content[0];
+  return isJsonObject(content) && content.type === "input_text" && typeof content.text === "string"
+    ? content.text
+    : undefined;
+}
+
+export function isCodexTurnContextHandoff(params: unknown): boolean {
+  return (
+    readCodexInjectedDeveloperText(params)?.startsWith(
+      "Current OpenClaw conversation instructions (replace earlier conversation context, not persistent policy):",
+    ) === true
+  );
+}
+
+export function withoutCodexTurnContextHandoffs(
+  requests: ReadonlyArray<{ method: string; params?: unknown }>,
+): string[] {
+  return withoutCodexSkillDiscovery(
+    requests
+      .filter((request) => !isCodexTurnContextHandoff(request.params))
+      .map(({ method }) => method),
+  );
+}
+
 /** Creates an in-memory Codex app-server client harness with writable stdout frames. */
 export function createClientHarness(
   options: {
@@ -296,9 +333,11 @@ export function createCodexInferenceReadResponses() {
   return {
     "config/read": { config: {}, origins: {}, layers: [] },
     "account/read": { account: { type: "apiKey" }, requiresOpenaiAuth: true },
+    "skills/list": { data: [] },
   } satisfies {
     "config/read": CodexConfigReadResponse;
     "account/read": CodexGetAccountResponse;
+    "skills/list": CodexSkillsListResponse;
   };
 }
 
@@ -314,7 +353,9 @@ export function createInferenceReadyClientHarness(
       if (
         isJsonObject(request) &&
         request.id !== undefined &&
-        (request.method === "config/read" || request.method === "account/read")
+        (request.method === "config/read" ||
+          request.method === "account/read" ||
+          request.method === "skills/list")
       ) {
         send({ id: request.id, result: reads[request.method] });
       } else {

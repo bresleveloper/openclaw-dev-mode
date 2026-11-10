@@ -1,8 +1,4 @@
-import { ma as PluginRuntime } from "../agent-harness-runtime-DZjstJNb.js";
-import { t as ChannelId } from "../channel-id.types-CM2F8b5e.js";
-import { M as ChannelPairingAdapter } from "../types.adapters-Bo2TMZGx.js";
-import "../types.public-DpLTXZT0.js";
-import { n as readChannelAllowFromStoreSync, t as readChannelAllowFromStore } from "../pairing-store-DLnk6P9g.js";
+import { Mg as PluginRuntime, _x as readChannelAllowFromStoreSync, sD as ChannelPairingAdapter, wA as ChannelId, yx as readChannelAllowFromStore } from "../config-contracts-CY87ANNp.js";
 //#region src/pairing/pairing-challenge.d.ts
 type PairingMeta = Record<string, string | undefined>;
 type PairingChallengeParams = {
@@ -69,17 +65,8 @@ declare function createScopedPairingAccess(params: {
 //#endregion
 //#region src/channels/plugins/pairing-adapters.d.ts
 type PairingNotifyParams = Parameters<NonNullable<ChannelPairingAdapter["notifyApproval"]>>[0];
-/**
- * Creates an allowlist normalizer that strips a channel-specific target prefix.
- */
 export declare function createPairingPrefixStripper(prefixRe: RegExp, map?: (entry: string) => string): NonNullable<ChannelPairingAdapter["normalizeAllowEntry"]>;
-/**
- * Creates a pairing notifier that logs a formatted approval message.
- */
 export declare function createLoggedPairingApprovalNotifier(format: string | ((params: PairingNotifyParams) => string), log?: (message: string) => void): NonNullable<ChannelPairingAdapter["notifyApproval"]>;
-/**
- * Creates a text-message pairing adapter with optional allowlist normalization.
- */
 export declare function createTextPairingAdapter(params: {
   idLabel: string;
   message: string;

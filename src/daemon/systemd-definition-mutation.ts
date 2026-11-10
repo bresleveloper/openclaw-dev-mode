@@ -1,6 +1,5 @@
-/** Systemd service-definition authority and atomic, cross-process publication. */
 import { randomUUID } from "node:crypto";
-import { constants, promises as fs, type Stats } from "node:fs";
+import { constants, promises as fs, type BigIntStats } from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { toErrorObject } from "@openclaw/normalization-core/error-coercion";
@@ -10,6 +9,7 @@ import { sha256Hex } from "../infra/crypto-digest.js";
 import { hasErrnoCode } from "../infra/errno.js";
 import { withFileLock } from "../infra/file-lock.js";
 import { canonicalPathFromExistingAncestor, findExistingAncestor } from "../infra/fs-safe.js";
+import { hasCommandProcessCleanupError } from "../process/exec-result.js";
 import { withServiceInspectionBudget } from "./service-inspection-budget.js";
 import {
   readServiceFileState,
@@ -40,7 +40,7 @@ import {
 import { assertNoSystemSystemdOwnership, isSystemSystemdOwnershipError } from "./systemd-system.js";
 import { splitSystemdLogicalLines } from "./systemd-unit.js";
 
-type Snapshot = { contents: Buffer; mode: number } | null;
+type Snapshot = { contents: Buffer; mode: number; requiresRegeneration?: boolean } | null;
 type SystemdDefinitionMutation = {
   snapshots: Map<string, Snapshot>;
   publish: (file: string, contents: string | Buffer, mode: number) => Promise<void>;
@@ -48,7 +48,7 @@ type SystemdDefinitionMutation = {
   restoreAll: () => Promise<boolean>;
   remove: (file: string) => Promise<void>;
 };
-const identity = (stat: Stats, contents?: Buffer) =>
+const identity = (stat: BigIntStats, contents?: Buffer) =>
   [stat.dev, stat.ino, stat.uid, stat.gid, stat.mode, contents && sha256Hex(contents)].join(":");
 
 function resolveMutationTargets(
@@ -66,7 +66,7 @@ function resolveMutationTargets(
 
 async function readStableFile(
   file: string,
-  stat: Stats,
+  stat: BigIntStats,
   requireReplacement: boolean,
 ): Promise<{ contents: Buffer } | { sealed: true }> {
   const handle = await fs.open(
@@ -74,7 +74,7 @@ async function readStableFile(
     constants.O_RDONLY | constants.O_NOFOLLOW | (constants.O_NONBLOCK ?? 0),
   );
   try {
-    const opened = await handle.stat();
+    const opened = await handle.stat({ bigint: true });
     if (!opened.isFile() || identity(opened) !== identity(stat)) {
       throw new Error("changed artifact");
     }
@@ -114,6 +114,7 @@ async function inspect(
   let shared = new Set<string>();
   let sourcePath: string | undefined;
   let artifactPath: string | undefined;
+  let repairStateDirectory = false;
   const result = (capability: ServiceDefinitionMutationCapability) => ({
     capability:
       capability.kind !== "writable" && capability.artifact === "service-file" && artifactPath
@@ -123,6 +124,7 @@ async function inspect(
     fingerprint,
     shared,
     sourcePath,
+    repairStateDirectory,
   });
   let artifact: ServiceDefinitionMutationArtifact | undefined;
   try {
@@ -161,7 +163,7 @@ async function inspect(
       const inspected =
         directory && !required ? ((await findExistingAncestor(file)) ?? file) : file;
       artifactPath = inspected;
-      const stat = await fs.lstat(inspected).catch((error: unknown) => {
+      const stat = await fs.lstat(inspected, { bigint: true }).catch((error: unknown) => {
         if (required || !hasErrnoCode(error, "ENOENT")) {
           throw error;
         }
@@ -174,16 +176,28 @@ async function inspect(
       if (!directory && stat.isSymbolicLink()) {
         return result({ kind: "unknown", reason: "symlink", artifact });
       }
-      const actual = directory && stat.isSymbolicLink() ? await fs.stat(inspected) : stat;
-      if (!shared.has(file) && actual.uid !== process.geteuid?.()) {
+      const actual =
+        directory && stat.isSymbolicLink() ? await fs.stat(inspected, { bigint: true }) : stat;
+      if (!shared.has(file) && actual.uid !== BigInt(process.geteuid?.() ?? -1)) {
         return result({ kind: "sealed", reason: "foreign-owner", artifact });
       }
       if (directory && !actual.isDirectory()) {
         return result({ kind: "unknown", reason: "invalid-artifact", artifact });
       }
-      if (actual.mode & 0o022) {
+      // Older installers inherited umask for the unit and copied its mode to .bak.
+      // Safe parent authority lets the installer replace these owned regular files;
+      // loaded overrides and generated environment files are not legacy unit outputs.
+      const repairableGeneratedFile = actual.isFile() && (file === unit || file === `${unit}.bak`);
+      const repairableStateDirectory =
+        directory &&
+        file === path.dirname(generated) &&
+        inspected === file &&
+        !stat.isSymbolicLink();
+      const requiresRegeneration = Boolean(actual.mode & 0o022n);
+      if (requiresRegeneration && !repairableGeneratedFile && !repairableStateDirectory) {
         return result({ kind: "unknown", reason: "unsafe-permissions", artifact });
       }
+      repairStateDirectory ||= requiresRegeneration && repairableStateDirectory;
       if (directory) {
         await fs.access(inspected, constants.W_OK | constants.X_OK);
         fingerprint.set(file, `${inspected}:${identity(stat)}:${identity(actual)}`);
@@ -196,12 +210,16 @@ async function inspect(
       const { contents } = snapshot;
       fingerprint.set(file, identity(stat, contents));
       if (targets.has(file)) {
-        snapshots.set(file, { contents, mode: stat.mode & 0o777 });
+        snapshots.set(file, {
+          contents,
+          mode: Number(stat.mode & 0o777n),
+          ...(requiresRegeneration ? { requiresRegeneration: true } : {}),
+        });
       }
     }
     return result({ kind: "writable" });
   } catch (error) {
-    if (error instanceof GatewayServiceAuthorityError) {
+    if (error instanceof GatewayServiceAuthorityError || hasCommandProcessCleanupError(error)) {
       throw error;
     }
     return result({ kind: "unknown", reason: "inspection-failed", artifact });
@@ -253,6 +271,9 @@ export async function readSystemdDefinitionMutationCapability(
             ...(options?.requireLoaded ? [{ requireLoaded: true }] : []),
           );
         } catch (error) {
+          if (hasCommandProcessCleanupError(error)) {
+            throw error;
+          }
           const owned =
             isSystemSystemdOwnershipError(error) && error.ownership.status !== "unverifiable";
           if (owned) {
@@ -270,7 +291,12 @@ export async function readSystemdDefinitionMutationCapability(
             requireLoaded: true,
           }).then(
             (inspection) => inspection.capability,
-            () => undefined,
+            (inspectionError: unknown) => {
+              if (hasCommandProcessCleanupError(inspectionError)) {
+                throw inspectionError;
+              }
+              return undefined;
+            },
           );
           return loaded?.kind === "writable" ? loaded : unverified;
         }
@@ -278,7 +304,10 @@ export async function readSystemdDefinitionMutationCapability(
       try {
         return (await inspect(env, environment, { ...readOptions, timeoutMs: remaining() }))
           .capability;
-      } catch {
+      } catch (error) {
+        if (hasCommandProcessCleanupError(error)) {
+          throw error;
+        }
         return { kind: "unknown", reason: "inspection-failed" };
       }
     },
@@ -311,6 +340,23 @@ export async function withSystemdDefinitionMutation<T>(
       await fs.mkdir(path.dirname(unit), { recursive: true, mode: 0o755 });
       assertGatewayServiceUpdateCurrent();
       await fs.mkdir(path.dirname(generated), { recursive: true, mode: 0o700 });
+      if (initial.repairStateDirectory) {
+        const directory = await fs.open(
+          path.dirname(generated),
+          constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+        );
+        try {
+          const stat = await directory.stat();
+          if (stat.uid !== process.geteuid?.()) {
+            throw new Error("Cannot repair a foreign-owned service state directory.");
+          }
+          // Tighten the owned inode before writing service credentials; reads never chmod.
+          assertGatewayServiceUpdateCurrent();
+          await directory.chmod(0o700);
+        } finally {
+          await directory.close();
+        }
+      }
       return { initial, lockedTargets: await canonicalTargets() };
     },
     async () => false,
@@ -408,7 +454,7 @@ export async function withSystemdDefinitionMutation<T>(
         } finally {
           await temporaryHandle.close();
         }
-        const written = await fs.lstat(temporary);
+        const written = await fs.lstat(temporary, { bigint: true });
         if (file === unit || file === generated) {
           await options?.definitionTransaction?.filePrepared(file, temporary);
         }
@@ -429,8 +475,8 @@ export async function withSystemdDefinitionMutation<T>(
           const after = await readServiceFileState(file);
           if (
             !after ||
-            after.dev !== written.dev ||
-            after.ino !== written.ino ||
+            after.dev !== written.dev.toString() ||
+            after.ino !== written.ino.toString() ||
             after.sha256 !== sha256Hex(Buffer.from(contents)) ||
             after.mode !== mode
           ) {

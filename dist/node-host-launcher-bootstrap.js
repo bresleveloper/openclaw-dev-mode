@@ -1,6 +1,6 @@
 import path from "node:path";
 import os from "node:os";
-import { AsyncLocalStorage, AsyncResource } from "node:async_hooks";
+import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "node:fs";
 import { readRegularFileSync } from "@openclaw/fs-safe/advanced";
 import { parse } from "dotenv";
@@ -45,6 +45,12 @@ function isGatewayServiceEnv(env) {
 	const serviceKind = env.OPENCLAW_SERVICE_KIND?.trim();
 	return !serviceKind || serviceKind === "gateway";
 }
+const NODE_LAUNCH_AGENT_LABEL = "ai.openclaw.node";
+const NODE_SYSTEMD_SERVICE_NAME = "openclaw-node";
+const NODE_WINDOWS_TASK_NAME = "OpenClaw Node";
+const NODE_SERVICE_MARKER = "openclaw";
+const NODE_SERVICE_KIND = "node";
+const NODE_WINDOWS_TASK_SCRIPT_NAME = "node.cmd";
 function normalizeGatewayProfile(profile) {
 	const trimmed = profile?.trim();
 	if (!trimmed || normalizeLowercaseStringOrEmpty(trimmed) === "default") return null;
@@ -66,6 +72,27 @@ function resolveGatewayWindowsTaskName(profile) {
 	const normalized = normalizeGatewayProfile(profile);
 	if (!normalized) return GATEWAY_WINDOWS_TASK_NAME;
 	return `OpenClaw Gateway (${normalized})`;
+}
+function resolveNodeLaunchAgentLabel() {
+	return NODE_LAUNCH_AGENT_LABEL;
+}
+function resolveNodeSystemdServiceName() {
+	return NODE_SYSTEMD_SERVICE_NAME;
+}
+function resolveNodeWindowsTaskName() {
+	return NODE_WINDOWS_TASK_NAME;
+}
+function resolveNodeServiceIdentityEnvironment() {
+	return {
+		OPENCLAW_LAUNCHD_LABEL: resolveNodeLaunchAgentLabel(),
+		OPENCLAW_SYSTEMD_UNIT: resolveNodeSystemdServiceName(),
+		OPENCLAW_WINDOWS_TASK_NAME: resolveNodeWindowsTaskName(),
+		OPENCLAW_WINDOWS_TASK_HIDDEN_LAUNCHER: "1",
+		OPENCLAW_TASK_SCRIPT_NAME: NODE_WINDOWS_TASK_SCRIPT_NAME,
+		OPENCLAW_LOG_PREFIX: "node",
+		OPENCLAW_SERVICE_MARKER: NODE_SERVICE_MARKER,
+		OPENCLAW_SERVICE_KIND: NODE_SERVICE_KIND
+	};
 }
 //#endregion
 //#region packages/normalization-core/src/home-dir.ts
@@ -317,7 +344,7 @@ const UPDATE_OPTION_SPECS = [
 		"Output result as JSON",
 		false
 	],
-	["--no-restart", "Skip restarting the gateway service after a successful update"],
+	["--no-restart", "Skip updater restart (package Gateways may restart themselves)"],
 	[
 		"--dry-run",
 		"Preview update actions without making changes",
@@ -386,7 +413,6 @@ const PARENT_COMMAND_FLAGS = /* @__PURE__ */ new Map([
 	["channels", [[], ["--agent"]]],
 	["update", [UPDATE_PARENT_BOOLEAN_FLAGS, UPDATE_PARENT_VALUE_FLAGS]]
 ]);
-/** Resolve the parent commands whose options may precede a child command. */
 function resolveCliParentCommandPath(argv, expectedParent) {
 	const [command] = getRootOptionAwareCommandPath(argv, 1);
 	if (!command || expectedParent && command !== expectedParent) return null;
@@ -475,136 +501,45 @@ function isDoctorMachineOutput(params) {
 }
 //#endregion
 //#region src/cli/program/core-command-descriptors.ts
+function command(name, description, hasSubcommands, options = {}) {
+	return {
+		name,
+		description,
+		hasSubcommands,
+		...options
+	};
+}
 const CORE_CLI_COMMAND_DESCRIPTORS = [
-	{
-		name: "setup",
-		description: "Chat with OpenClaw; onboard when setup is incomplete",
-		hasSubcommands: false
-	},
-	{
-		name: "crestodian",
-		description: "Deprecated: use openclaw setup",
-		hasSubcommands: false,
-		hidden: true
-	},
-	{
-		name: "onboard",
-		description: "Guided setup for auth, models, Gateway, workspace, channels, and skills",
-		hasSubcommands: true
-	},
-	{
-		name: "configure",
-		description: "Interactive configuration for credentials, channels, gateway, and agent defaults",
-		hasSubcommands: false
-	},
-	{
-		name: "config",
-		description: "Non-interactive config helpers (get/set/patch/unset/file/schema/validate). Run without subcommand for guided setup.",
-		hasSubcommands: true,
-		machineOutput: ({ argv }) => isConfigMachineOutput(argv)
-	},
-	{
-		name: "claws",
-		description: "Inspect and add experimental OpenClaw Claws",
-		hasSubcommands: true,
-		parentDefaultHelp: true
-	},
-	{
-		name: "backup",
-		description: "Create, verify, and restore backup archives and SQLite snapshots",
-		hasSubcommands: true
-	},
-	{
-		name: "database",
-		description: "Inspect database schema compatibility and shared-state write ownership",
-		hasSubcommands: true,
-		parentDefaultHelp: true
-	},
-	{
-		name: "migrate",
-		description: "Import state from another agent system",
-		hasSubcommands: true
-	},
-	{
-		name: "storage",
-		description: "List, initialize, and test configured storage locations",
-		hasSubcommands: true,
+	command("setup", "Chat with OpenClaw; onboard when setup is incomplete", false),
+	command("crestodian", "Deprecated: use openclaw setup", false, { hidden: true }),
+	command("onboard", "Guided setup for auth, models, Gateway, workspace, channels, and skills", true),
+	command("configure", "Interactive configuration for credentials, channels, gateway, and agent defaults", false),
+	command("config", "Non-interactive config helpers (get/set/patch/unset/file/schema/validate). Run without subcommand for guided setup.", true, { machineOutput: ({ argv }) => isConfigMachineOutput(argv) }),
+	command("claws", "Inspect and add experimental OpenClaw Claws", true, { parentDefaultHelp: true }),
+	command("backup", "Create, verify, and restore backup archives and SQLite snapshots", true),
+	command("database", "Inspect database compatibility, manage ownership, and port workboard stores", true, {
 		parentDefaultHelp: true,
 		machineOutput: ({ argv }) => hasMachineOutputOption(argv, "--json")
-	},
-	{
-		name: "doctor",
-		description: "Health checks + quick fixes for the gateway and channels",
-		hasSubcommands: false,
-		machineOutput: isDoctorMachineOutput
-	},
-	{
-		name: "triage",
-		description: "Collect sanitized diagnostics and open a local coding agent for repair",
-		hasSubcommands: false,
+	}),
+	command("migrate", "Import state from another agent system", true),
+	command("storage", "List, initialize, and test configured storage locations", true, {
+		parentDefaultHelp: true,
 		machineOutput: ({ argv }) => hasMachineOutputOption(argv, "--json")
-	},
-	{
-		name: "dashboard",
-		description: "Open the Control UI with your current token",
-		hasSubcommands: false
-	},
-	{
-		name: "reset",
-		description: "Reset local config/state (keeps the CLI installed)",
-		hasSubcommands: false
-	},
-	{
-		name: "uninstall",
-		description: "Uninstall the gateway service + local data",
-		hasSubcommands: false
-	},
-	{
-		name: "message",
-		description: "Send, read, and manage messages and channel actions",
-		hasSubcommands: true
-	},
-	{
-		name: "mcp",
-		description: "Manage OpenClaw mcp.servers config and channel bridge",
-		hasSubcommands: true,
-		parentDefaultHelp: true
-	},
-	{
-		name: "transcripts",
-		description: "Inspect stored transcripts",
-		hasSubcommands: true
-	},
-	{
-		name: "agent",
-		description: "Run an agent turn via the Gateway (use --local for embedded)",
-		hasSubcommands: true
-	},
-	{
-		name: "agents",
-		description: "Manage isolated agents (workspaces + auth + routing)",
-		hasSubcommands: true
-	},
-	{
-		name: "status",
-		description: "Show channel health and recent session recipients",
-		hasSubcommands: false
-	},
-	{
-		name: "health",
-		description: "Fetch health from the running gateway",
-		hasSubcommands: false
-	},
-	{
-		name: "audit",
-		description: "Inspect activity records and exact-run identity context",
-		hasSubcommands: false
-	},
-	{
-		name: "sessions",
-		description: "List stored conversation sessions",
-		hasSubcommands: true
-	}
+	}),
+	command("doctor", "Health checks + quick fixes for the gateway and channels", false, { machineOutput: isDoctorMachineOutput }),
+	command("triage", "Collect sanitized diagnostics and open a local coding agent for repair", false, { machineOutput: ({ argv }) => hasMachineOutputOption(argv, "--json") }),
+	command("dashboard", "Open the Control UI with your current token", false),
+	command("reset", "Reset local config/state (keeps the CLI installed)", false),
+	command("uninstall", "Uninstall the gateway service + local data", false),
+	command("message", "Send, read, and manage messages and channel actions", true),
+	command("mcp", "Manage OpenClaw mcp.servers config and channel bridge", true, { parentDefaultHelp: true }),
+	command("transcripts", "Inspect stored transcripts", true),
+	command("agent", "Run an agent turn via the Gateway (use --local for embedded)", true),
+	command("agents", "Manage isolated agents (workspaces + auth + routing)", true),
+	command("status", "Show channel health and recent session recipients", false),
+	command("health", "Fetch health from the running gateway", false),
+	command("audit", "Inspect activity records and exact-run identity context", false),
+	command("sessions", "List stored conversation sessions", true)
 ];
 const CRON_GATEWAY_VALUE_FLAGS = [
 	"url",
@@ -680,7 +615,6 @@ const WINDOWS_TASK_SUPERVISOR_FLAG = "--task-supervisor";
 const WINDOWS_TASK_SUPERVISOR_CHILD_FLAG = "--task-supervisor-child";
 //#endregion
 //#region src/cli/gateway-run-argv.ts
-/** Resolve the gateway command path from raw argv without full Commander registration. */
 function resolveGatewayCommandPath(argv, depth = 2) {
 	const positionals = getCommandPositionalsWithRootOptions(argv, {
 		commandPath: ["gateway"],
@@ -691,7 +625,6 @@ function resolveGatewayCommandPath(argv, depth = 2) {
 	});
 	return positionals ? ["gateway", ...positionals] : null;
 }
-/** Resolve the gateway command path used by catalog and startup-policy lookups. */
 function resolveGatewayCatalogCommandPath(argv) {
 	return resolveGatewayCommandPath(argv, 2);
 }
@@ -749,9 +682,12 @@ const DEFAULT_JSON_PATHS = /* @__PURE__ */ new Set([
 function isSystemMachineOutput(argv) {
 	return DEFAULT_JSON_PATHS.has(getRootOptionAwareCommandPath(argv, 3).slice(1).join(" "));
 }
+//#endregion
+//#region src/shared/detached-async-context.ts
+const asyncHooks = typeof process === "undefined" ? void 0 : process.getBuiltinModule("node:async_hooks");
+asyncHooks && resolveGlobalSingleton(Symbol.for("openclaw.detachedAsyncContext"), () => new asyncHooks.AsyncResource("openclaw.detached-async-context"));
 resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScope"), () => new AsyncLocalStorage());
 resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScopeAncestry"), () => new AsyncLocalStorage());
-resolveGlobalSingleton(Symbol.for("openclaw.detachedAsyncContext"), () => new AsyncResource("openclaw.detached-async-context"));
 resolveGlobalSingleton(Symbol.for("openclaw.pluginSourceRecoveryUnavailableError"), () => class SourceRecoveryUnavailableError extends Error {
 	constructor(cause) {
 		super("Captured plugin source is missing; its previous code cannot be recovered.", { cause });
@@ -775,6 +711,7 @@ var InvocationFrame = class InvocationFrame {
 		this.cacheScope = scopes.cacheScope;
 		this.sourceCaptureStorage = scopes.sourceCaptureStorage;
 	}
+	get runtimePluginId() {}
 	withScopes(scopes) {
 		return new InvocationFrame(scopes);
 	}
@@ -937,11 +874,6 @@ const subCliCommandDescriptors = [
 	{
 		name: "sandbox",
 		description: "Manage sandbox containers (Docker-based agent isolation)",
-		hasSubcommands: true
-	},
-	{
-		name: "fleet",
-		description: "Provision and manage isolated tenant cells (experimental)",
 		hasSubcommands: true
 	},
 	{
@@ -1163,7 +1095,6 @@ function getPrimaryCommand(argv) {
 }
 //#endregion
 //#region src/cli/argv-invocation.ts
-/** Resolves command path and help/version mode from a raw process argv array. */
 function resolveCliArgvInvocation(argv) {
 	return {
 		argv,
@@ -1188,7 +1119,6 @@ function resolveProfileStateDir(profile, env, homedir) {
 }
 //#endregion
 //#region src/cli/root-option-scan.ts
-/** Walk argv once, letting callers consume custom flags before forwarding root options. */
 function scanCliRootOptions(argv, visit) {
 	if (argv.length < 2) return {
 		ok: true,
@@ -1219,10 +1149,7 @@ function scanCliRootOptions(argv, visit) {
 		}
 		const consumedRootOption = consumeRootOptionToken(args, i);
 		if (consumedRootOption > 0) {
-			for (let offset = 0; offset < consumedRootOption; offset += 1) {
-				const token = args[i + offset];
-				if (token !== void 0) out.push(token);
-			}
+			out.push(...args.slice(i, i + consumedRootOption));
 			i += consumedRootOption - 1;
 			continue;
 		}
@@ -1250,7 +1177,6 @@ function parseInlineOptionToken(token) {
 }
 //#endregion
 //#region src/cli/root-option-value.ts
-/** Return the normalized option value and whether the next argv token was consumed. */
 function takeCliRootOptionValue(raw, next) {
 	const parsed = parseInlineOptionToken(raw);
 	if (parsed.hasInlineValue) return {
@@ -1346,12 +1272,11 @@ function applyCliProfileEnv(params) {
 		env,
 		homedir
 	}) === path.join(inheritedProfileStateDir, "openclaw.json"));
-	const inheritedManagedServiceSelectors = switchesInheritedProfile && isGatewayServiceEnv(env) && switchesInheritedProfileState && replacesInheritedProfileConfig;
+	const inheritedManagedServiceSelectors = isGatewayServiceEnv(env) && switchesInheritedProfileState && replacesInheritedProfileConfig;
 	if (inheritedManagedServiceSelectors) for (const key of GATEWAY_SERVICE_SELECTOR_ENV_KEYS) delete env[key];
 	env.OPENCLAW_PROFILE = profile;
-	const retainedStateDir = inheritedManagedServiceSelectors ? void 0 : existingStateDir;
-	const stateDir = retainedStateDir && !switchesInheritedProfileState ? retainedStateDir : selectedProfileStateDir;
-	if (!retainedStateDir || switchesInheritedProfileState) env.OPENCLAW_STATE_DIR = stateDir;
+	const stateDir = existingStateDir && !switchesInheritedProfileState ? existingStateDir : selectedProfileStateDir;
+	if (!existingStateDir || switchesInheritedProfileState) env.OPENCLAW_STATE_DIR = stateDir;
 	if (!inheritedManagedServiceSelectors && (!existingConfigPath || replacesInheritedProfileConfig)) env.OPENCLAW_CONFIG_PATH = path.join(stateDir, "openclaw.json");
 	if (switchesInheritedProfile && !inheritedManagedServiceSelectors) for (const [key, inheritedValues] of Object.entries(inheritedServiceSelectors)) {
 		const activeValue = normalizeOptionalString(env[key]);
@@ -1360,21 +1285,7 @@ function applyCliProfileEnv(params) {
 	if (profile === "dev" && !env.OPENCLAW_GATEWAY_PORT?.trim()) env.OPENCLAW_GATEWAY_PORT = "19001";
 }
 //#endregion
-//#region src/infra/test-runtime-env.ts
-/** Detects Vitest/test execution from the env shape used by local and worker processes. */
-function isVitestRuntimeEnv(env = process.env) {
-	const vitest = env.VITEST;
-	return vitest === "true" || vitest === "1" || env.VITEST_POOL_ID !== void 0 || env.VITEST_WORKER_ID !== void 0 || env.NODE_ENV === "test";
-}
-/** Enables the shared fast-test shortcuts only inside a detected test runtime. */
-function isFastTestRuntimeEnv(env = process.env) {
-	return env.OPENCLAW_TEST_FAST === "1" && (isVitestRuntimeEnv(env) || env !== process.env && isVitestRuntimeEnv(process.env));
-}
-//#endregion
 //#region src/config/state-dir.ts
-function resolveLegacyStateDirs(homedir = resolveRequiredHomeDir) {
-	return [path.join(homedir(), ".clawdbot")];
-}
 function resolveNewStateDir(homedir = resolveRequiredHomeDir) {
 	return path.join(homedir(), ".openclaw");
 }
@@ -1393,10 +1304,8 @@ function resolveStateDir(env = process.env, homedir = () => resolveRequiredHomeD
 	return resolveStateDirFromHome(env, effectiveHomedir);
 }
 /** Select a default state directory from the caller's already resolved home. */
-function resolveStateDirFromHome(env, effectiveHomedir) {
-	const newDir = resolveNewStateDir(effectiveHomedir);
-	if (isFastTestRuntimeEnv(env) || fs.existsSync(newDir)) return newDir;
-	return resolveLegacyStateDirs(effectiveHomedir).find((dir) => fs.existsSync(dir)) ?? newDir;
+function resolveStateDirFromHome(_env, effectiveHomedir) {
+	return resolveNewStateDir(effectiveHomedir);
 }
 //#endregion
 //#region src/infra/config-dir.ts
@@ -1841,6 +1750,7 @@ const PORTABLE_ENV_VAR_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
 new Set(HOST_ENV_SECURITY_POLICY.blockedKeys);
 new Set(HOST_ENV_SECURITY_POLICY.blockedInheritedKeys);
 new Set(HOST_ENV_SECURITY_POLICY.blockedOverrideKeys);
+[...Object.keys(resolveNodeServiceIdentityEnvironment())];
 new AsyncLocalStorage();
 function normalizeEnvVarKey(rawKey, options) {
 	const key = rawKey.trim();
@@ -1941,14 +1851,23 @@ function loadParsedDotEnvFiles(files, env, overrideKeys, onWarning) {
 	}
 	return appliedKeysByFile;
 }
-function resolveGlobalDotEnvPaths(opts, env) {
+function resolveGlobalDotEnvFiles(opts, env) {
 	const stateEnvPath = opts.stateEnvPath ?? path.join(resolveConfigDir(env), ".env");
 	const globalEnvPaths = [.../* @__PURE__ */ new Set([stateEnvPath, ...opts.additionalEnvPaths ?? []])];
 	const home = resolveRequiredHomeDir(env, os.homedir);
 	const defaultStateEnvPath = path.join(home, ".openclaw", ".env");
+	const hasExplicitNonDefaultStateDir = env.OPENCLAW_STATE_DIR?.trim() !== void 0 && path.resolve(stateEnvPath) !== path.resolve(defaultStateEnvPath);
+	const readOptions = {
+		entryFilter: opts.entryFilter,
+		quiet: opts.quiet ?? true,
+		onWarning: opts.onWarning
+	};
 	return {
-		globalEnvPaths,
-		gatewayEnvPath: env.OPENCLAW_STATE_DIR?.trim() !== void 0 && path.resolve(stateEnvPath) !== path.resolve(defaultStateEnvPath) ? void 0 : path.join(home, ".config", "openclaw", "gateway.env")
+		globalFiles: globalEnvPaths.map((filePath) => Object.assign({}, readOptions, { filePath })),
+		gatewayFile: hasExplicitNonDefaultStateDir ? void 0 : {
+			...readOptions,
+			filePath: path.join(home, ".config", "openclaw", "gateway.env")
+		}
 	};
 }
 function applyGlobalDotEnvFiles(globalEnvs, gatewayEnv, env, overrideKeys, onWarning) {
@@ -1963,19 +1882,8 @@ function applyGlobalDotEnvFiles(globalEnvs, gatewayEnv, env, overrideKeys, onWar
 /** Load global runtime dotenv files with first-wins precedence, defaulting to `process.env`. */
 function loadGlobalRuntimeDotEnvFilesCore(opts = {}) {
 	const env = opts.env ?? process.env;
-	const { globalEnvPaths, gatewayEnvPath } = resolveGlobalDotEnvPaths(opts, env);
-	const readOptions = {
-		entryFilter: opts.entryFilter,
-		quiet: opts.quiet ?? true,
-		onWarning: opts.onWarning
-	};
-	return applyGlobalDotEnvFiles(globalEnvPaths.map((filePath) => readDotEnvFileCore({
-		...readOptions,
-		filePath
-	})), gatewayEnvPath ? readDotEnvFileCore({
-		...readOptions,
-		filePath: gatewayEnvPath
-	}) : null, env, opts.overrideKeys, opts.onWarning);
+	const { globalFiles, gatewayFile } = resolveGlobalDotEnvFiles(opts, env);
+	return applyGlobalDotEnvFiles(globalFiles.map(readDotEnvFileCore), gatewayFile ? readDotEnvFileCore(gatewayFile) : null, env, opts.overrideKeys, opts.onWarning);
 }
 //#endregion
 //#region src/infra/semver.ts
@@ -2026,60 +1934,54 @@ function resolveIsNixMode(env = process.env) {
 }
 resolveIsNixMode();
 const CONFIG_FILENAME = "openclaw.json";
-const LEGACY_CONFIG_FILENAMES = ["clawdbot.json"];
-function configPathsInStateDir(stateDir) {
-	return [CONFIG_FILENAME, ...LEGACY_CONFIG_FILENAMES].map((name) => path.join(stateDir, name));
-}
-function findExistingConfigPath(candidates) {
-	return candidates.find((candidate) => fs.existsSync(candidate));
-}
 /** Build a homedir thunk that respects OPENCLAW_HOME for the given env. */
 function envHomedir(env) {
 	return () => resolveRequiredHomeDir(env, os.homedir);
 }
 resolveStateDir();
 /**
-* Config file path (JSON or JSON5).
-* Can be overridden via OPENCLAW_CONFIG_PATH.
-* Default: ~/.openclaw/openclaw.json (or $OPENCLAW_STATE_DIR/openclaw.json)
-*/
-function resolveCanonicalConfigPath(env = process.env, stateDir) {
-	const override = env.OPENCLAW_CONFIG_PATH?.trim();
-	if (override) return resolveUserPath(override, env, envHomedir(env));
-	return path.join(stateDir ?? resolveStateDir(env, envHomedir(env)), CONFIG_FILENAME);
-}
-/**
-* Resolve the active config path by preferring existing config candidates
-* before falling back to the canonical path.
+* Resolve the explicitly selected or canonical config path.
 */
 function resolveConfigPathCandidate(env = process.env, homedir = envHomedir(env)) {
+	return resolveConfigPath(env, void 0, homedir);
+}
+/**
+* Active config path.
+*/
+function resolveConfigPath(env = process.env, stateDir, homedir = envHomedir(env)) {
 	const override = env.OPENCLAW_CONFIG_PATH?.trim();
 	if (override) return resolveUserPath(override, env, homedir);
-	if (isFastTestRuntimeEnv(env)) return resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
-	return findExistingConfigPath(resolveDefaultConfigCandidates(env, homedir)) ?? resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
+	return path.join(stateDir ?? resolveStateDir(env, homedir), CONFIG_FILENAME);
 }
 resolveConfigPathCandidate();
-/**
-* Resolve default config path candidates across default locations.
-* Order: explicit config path → state-dir-derived paths → new default.
-*/
-function resolveDefaultConfigCandidates(env = process.env, homedir = envHomedir(env)) {
-	const effectiveHomedir = () => resolveRequiredHomeDir(env, homedir);
-	const explicit = env.OPENCLAW_CONFIG_PATH?.trim();
-	if (explicit) return [resolveUserPath(explicit, env, effectiveHomedir)];
-	const openclawStateDir = env.OPENCLAW_STATE_DIR?.trim();
-	return [
-		...openclawStateDir ? [resolveUserPath(openclawStateDir, env, effectiveHomedir)] : [],
-		resolveNewStateDir(effectiveHomedir),
-		...resolveLegacyStateDirs(effectiveHomedir)
-	].flatMap(configPathsInStateDir);
-}
 AsyncLocalStorage.snapshot();
+//#endregion
+//#region src/infra/path-guards.ts
+/**
+* Normalize a Windows path for boundary math whose result is handed back to callers.
+*
+* Unlike `normalizeWindowsPathForComparison`, this preserves case: `path.win32.relative`
+* already matches roots case-insensitively, so lowercasing only corrupts the returned
+* relative path — and callers create files from it on a case-preserving filesystem.
+* Extended-length prefix stripping stays, or `\\?\`-prefixed inputs read as boundary escapes.
+*/
+function normalizeWindowsPathPreservingCase(input) {
+	const normalized = path.win32.normalize(input);
+	if (!normalized.startsWith("\\\\?\\")) return normalized;
+	const withoutPrefix = normalized.slice(4);
+	return withoutPrefix.toUpperCase().startsWith("UNC\\") ? `\\\\${withoutPrefix.slice(4)}` : withoutPrefix;
+}
+process.platform !== "linux" && process.platform;
+/** Native SQLite namespaces are filesystem locators, not distinct database owners. */
+function normalizeDatabasePath(location) {
+	const normalized = process.platform === "win32" ? normalizeWindowsPathPreservingCase(location) : location;
+	return process.platform === "win32" && !/^(?:[a-z]:[\\/]|[\\/]{2})/iu.test(normalized) ? location : normalized;
+}
 //#endregion
 //#region src/state/openclaw-state-db.paths.ts
 /** Resolve the shared state SQLite file path. */
 function resolveOpenClawStateSqlitePath(env = process.env) {
-	return path.join(resolveStateDir(env), "state", "openclaw.sqlite");
+	return normalizeDatabasePath(path.join(resolveStateDir(env), "state", "openclaw.sqlite"));
 }
 //#endregion
 //#region src/node-host/launcher-client.ts

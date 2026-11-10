@@ -1,6 +1,6 @@
 import { n as DISCORD_COMMAND_DEPLOY_HASH_NAMESPACE, t as DISCORD_COMMAND_DEPLOY_HASH_MAX_ENTRIES } from "./.setup/command-deploy-store-DFkBTViB.mjs";
 import { t as runtime_doctor_migrations_exports } from "./.setup/runtime-doctor-migrations-BPV-R4G9.mjs";
-import { n as normalizeCompatibilityConfig, t as legacyConfigRules } from "./.setup/doctor-contract-Bg3NPAMw.mjs";
+import { n as normalizeCompatibilityConfig, t as legacyConfigRules } from "./.setup/doctor-contract-Bwv8EuQ_.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 //#region extensions/discord/src/monitor/command-deploy-migration.ts

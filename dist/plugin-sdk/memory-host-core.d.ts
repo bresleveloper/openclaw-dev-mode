@@ -1,9 +1,6 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { r as resolveSessionTranscriptsDirForAgent } from "../paths-BfUTg5dU.js";
-import "../config-Dpca5-xX.js";
-import { Cl as buildMemoryPromptSection, Dl as registerMemoryCapability, El as listActiveMemoryPublicArtifacts, Ol as registerMemoryCorpusSupplement, Tl as getMemoryCapabilityRegistration, gl as MemoryPluginPublicArtifact, hl as MemoryPluginCapability, vl as MemoryPromptSectionBuilder, wl as clearMemoryPluginState } from "../agent-harness-runtime-DZjstJNb.js";
-import { f as resolveDefaultAgentId } from "../agent-scope-CQBriA71.js";
-import { t as resolveSessionAgentIdCompatibility } from "../agent-scope-runtime-rNgrwLoo.js";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { Bm as MemoryPromptSectionBuilder, Gl as registerMemoryCapability, Hl as clearMemoryPluginState, Im as MemoryPluginCapability, Kl as registerMemoryCorpusSupplement, Lm as MemoryPluginPublicArtifact, OA as resolveSessionTranscriptsDirForAgent, TT as resolveDefaultAgentId, Ul as getMemoryCapabilityRegistration, Vl as buildMemoryPromptSection, Wl as listActiveMemoryPublicArtifacts, hi as resolveSessionAgentIdCompatibility } from "../config-contracts-CY87ANNp.js";
+import "../config-S5Zm-Svf.js";
 //#region src/plugin-sdk/memory-host-core.d.ts
 /** Lists public memory artifacts across all configured memory workspaces. */
 export declare function listMemoryHostPublicArtifacts(params: {

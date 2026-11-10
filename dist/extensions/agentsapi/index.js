@@ -1,7 +1,7 @@
-import { n as buildPluginConfigSchema } from "../../config-schema-BBtylDlH.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { n as agentsApiConfigSchema } from "../../config-C0jAkmTa.mjs";
-import { t as createAgentsApiHarness } from "../../agentsapi-harness-DMK2L3eQ.mjs";
+import { n as buildPluginConfigSchema } from "../../config-schema-dqR2I9Q2.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import { n as agentsApiConfigSchema } from "../../config-gtw8-BMW.mjs";
+import { t as createAgentsApiHarness } from "../../agentsapi-harness-BT7Qq8oB.mjs";
 //#region extensions/agentsapi/index.ts
 var agentsapi_default = definePluginEntry({
 	id: "agentsapi",
@@ -10,7 +10,14 @@ var agentsapi_default = definePluginEntry({
 	configSchema: buildPluginConfigSchema(agentsApiConfigSchema),
 	reload: { noopPrefixes: ["plugins.entries.agentsapi.config.plugins"] },
 	register(api) {
-		api.registerAgentHarness(createAgentsApiHarness(api.runtime));
+		const config = agentsApiConfigSchema.parse(api.pluginConfig ?? {});
+		api.registerAgentHarness({
+			...createAgentsApiHarness(api.runtime),
+			...config.environment === "openai_hosted" ? { workspaceEnvironment: {
+				kind: "provider-hosted",
+				label: "OpenAI (Agents API)"
+			} } : {}
+		});
 	}
 });
 //#endregion

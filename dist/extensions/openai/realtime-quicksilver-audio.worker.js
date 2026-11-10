@@ -1,7 +1,7 @@
-import { t as createRealtimeVoiceAudioPortSender } from "../../audio-output-port-Di-mQkyT.mjs";
-import "../../realtime-voice-provider-BV3-O7oZ.mjs";
-import { a as OpenAIQuicksilverPendingAudio } from "../../realtime-quicksilver-audio-buffer-BQ7ahbkO.mjs";
-import { t as OpenAIQuicksilverAudioPeer } from "../../realtime-quicksilver-media.runtime-Bmg7d7fL.mjs";
+import { t as createRealtimeVoiceAudioPortSender } from "../../audio-output-port-D8MeN94q.mjs";
+import "../../realtime-voice-provider-CSOj_y12.mjs";
+import { a as OpenAIQuicksilverPendingAudio } from "../../realtime-quicksilver-audio-buffer-D3gKGDMC.mjs";
+import { t as OpenAIQuicksilverAudioPeer } from "../../realtime-quicksilver-media.runtime-CLzzfP-S.mjs";
 import { parentPort, workerData } from "node:worker_threads";
 //#region extensions/openai/realtime-quicksilver-audio.worker.ts
 const port = parentPort;

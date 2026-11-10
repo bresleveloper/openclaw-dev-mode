@@ -501,19 +501,25 @@ function assertHostReadMediaAllowed(params: {
   );
 }
 
-function toImageFileName(fileName: string | undefined, mimeType: string): string | undefined {
+// Queue custody keeps artifact paths; public image names describe the encoded bytes.
+function reconcileImageFileName(media: WebMediaResult): WebMediaResult {
+  if (media.kind !== "image" || !media.fileName) {
+    return media;
+  }
+  const fileName = basenameFromAnyPath(media.fileName.trim());
   if (!fileName) {
-    return undefined;
+    return media;
   }
-  const trimmed = basenameFromAnyPath(fileName.trim());
-  if (!trimmed) {
-    return fileName;
+  const contentType = normalizeMimeType(media.contentType);
+  const extension = extensionForMime(contentType);
+  if (!extension || mimeTypeFromFilePath(fileName) === contentType) {
+    return { ...media, fileName };
   }
-  const parsed = path.parse(trimmed);
-  const ext = extensionForMime(mimeType);
-  return mimeType !== "image/jpeg" && parsed.ext.toLowerCase() === ext
-    ? fileName
-    : path.format({ dir: parsed.dir, name: parsed.name || trimmed, ext });
+  const parsed = path.parse(fileName);
+  return {
+    ...media,
+    fileName: path.format({ name: parsed.name || fileName, ext: extension }),
+  };
 }
 
 const DEFAULT_JPEG_SIDES = [2048, 1536, 1280, 1024, 800] as const;
@@ -589,25 +595,20 @@ function imageSatisfiesHardDimensionPolicy(
   metadata?: ImageMetadata,
 ): boolean {
   const models = policy?.models ?? [];
-  const hardMaxSides = models
-    .map((model) => positiveInteger(model.maxSidePx))
-    .filter((value): value is number => value !== undefined);
-  const hardMaxPixels = models
-    .map((model) => positiveInteger(model.maxPixels))
-    .filter((value): value is number => value !== undefined);
-  if (hardMaxSides.length === 0 && hardMaxPixels.length === 0) {
+  const hardMaxSide = Math.min(
+    ...models.map((model) => positiveInteger(model.maxSidePx) ?? Infinity),
+  );
+  const hardMaxPixels = Math.min(
+    ...models.map((model) => positiveInteger(model.maxPixels) ?? Infinity),
+  );
+  if (hardMaxSide === Infinity && hardMaxPixels === Infinity) {
     return true;
   }
-
   const meta = metadata ?? readImageMetadataFromHeader(buffer);
-  if (!meta) {
-    return false;
-  }
-  const maxSide = Math.max(meta.width, meta.height);
-  const pixels = meta.width * meta.height;
-  return (
-    (hardMaxSides.length === 0 || maxSide <= Math.min(...hardMaxSides)) &&
-    (hardMaxPixels.length === 0 || pixels <= Math.min(...hardMaxPixels))
+  return Boolean(
+    meta &&
+    Math.max(meta.width, meta.height) <= hardMaxSide &&
+    meta.width * meta.height <= hardMaxPixels,
   );
 }
 
@@ -737,37 +738,6 @@ function logOptimizedImage(originalSize: number, optimized: EncodedImage): void 
   );
 }
 
-async function optimizeImageWithFallback(params: {
-  buffer: Buffer;
-  cap: number;
-  imageCompression?: ImageCompressionPolicy;
-  maxInputPixels?: number;
-}): Promise<EncodedImage> {
-  const { buffer, cap } = params;
-  const grid = resolveImageCompressionGrid(params.imageCompression);
-  // Generic callers keep the shared decode limit. An owner with a bounded downscale path may
-  // widen source admission explicitly, while every encoded result remains under the output cap.
-  const processor = createImageProcessorWithPixelLimits({
-    inputPixels: params.maxInputPixels ?? MAX_IMAGE_INPUT_PIXELS,
-    outputPixels: MAX_IMAGE_INPUT_PIXELS,
-  });
-  const optimized = await processor.encode(buffer, {
-    format: "auto",
-    maxBytes: cap,
-    opaque: { format: "jpeg" },
-    transparent: { format: "png" },
-    search: {
-      maxSide: grid.sides,
-      quality: grid.qualities,
-    },
-    transparency: "auto",
-  });
-  if (optimized.chosen.transparency === "flattened" && shouldLogVerbose()) {
-    logVerbose(`Image transparency flattened to fit ${formatMediaSize(cap)} optimization budget`);
-  }
-  return optimized;
-}
-
 /** Optimizes image bytes for web-media delivery while preserving accepted original formats when possible. */
 export async function optimizeImageBufferForWebMedia(params: {
   buffer: Buffer;
@@ -796,19 +766,31 @@ export async function optimizeImageBufferForWebMedia(params: {
     });
   }
   if (originalContentType) {
-    return {
+    return reconcileImageFileName({
       buffer: params.buffer,
       contentType: originalContentType,
       kind: "image",
       fileName: params.fileName,
-    };
+    });
   }
-  const optimized = await optimizeImageWithFallback({
-    buffer: params.buffer,
-    cap,
-    imageCompression: params.imageCompression,
-    ...(params.maxInputPixels === undefined ? {} : { maxInputPixels: params.maxInputPixels }),
+  const grid = resolveImageCompressionGrid(params.imageCompression);
+  // Generic callers keep the shared decode limit. An owner with a bounded downscale path may
+  // widen source admission explicitly, while every encoded result remains under the output cap.
+  const processor = createImageProcessorWithPixelLimits({
+    inputPixels: params.maxInputPixels ?? MAX_IMAGE_INPUT_PIXELS,
+    outputPixels: MAX_IMAGE_INPUT_PIXELS,
   });
+  const optimized = await processor.encode(params.buffer, {
+    format: "auto",
+    maxBytes: cap,
+    opaque: { format: "jpeg" },
+    transparent: { format: "png" },
+    search: { maxSide: grid.sides, quality: grid.qualities },
+    transparency: "auto",
+  });
+  if (optimized.chosen.transparency === "flattened" && shouldLogVerbose()) {
+    logVerbose(`Image transparency flattened to fit ${formatMediaSize(cap)} optimization budget`);
+  }
   logOptimizedImage(params.buffer.length, optimized);
   if (optimized.data.length > cap) {
     throw new ImageOptimizationLimitError(
@@ -816,12 +798,12 @@ export async function optimizeImageBufferForWebMedia(params: {
       cap,
     );
   }
-  return {
+  return reconcileImageFileName({
     buffer: optimized.data,
     contentType: optimized.mimeType,
     kind: "image",
-    fileName: toImageFileName(params.fileName, optimized.mimeType),
-  };
+    fileName: params.fileName,
+  });
 }
 
 async function loadWebMediaInternal(
@@ -1057,9 +1039,11 @@ export async function loadWebMedia(
   maxBytesOrOptions?: number | WebMediaOptions,
   options?: { ssrfPolicy?: SsrFPolicy; localRoots?: readonly string[] | "any" },
 ): Promise<WebMediaResult> {
-  return await loadWebMediaInternal(
-    mediaUrl,
-    resolveWebMediaOptions({ maxBytesOrOptions, options, optimizeImages: true }),
+  return reconcileImageFileName(
+    await loadWebMediaInternal(
+      mediaUrl,
+      resolveWebMediaOptions({ maxBytesOrOptions, options, optimizeImages: true }),
+    ),
   );
 }
 

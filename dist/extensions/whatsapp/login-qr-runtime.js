@@ -1,12 +1,10 @@
-import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 //#region extensions/whatsapp/login-qr-runtime.ts
-const loadLoginQrModule = createLazyRuntimeModule(() => import("./.setup/login-qr-C4ihaE9-.mjs"));
 async function startWebLoginWithQr(...args) {
-	const { startWebLoginWithQr: startWebLoginWithQrLocal } = await loadLoginQrModule();
+	const { startWebLoginWithQr: startWebLoginWithQrLocal } = await import("./.setup/login-qr-BpUg-7uW.mjs");
 	return await startWebLoginWithQrLocal(...args);
 }
 async function waitForWebLogin(...args) {
-	const { waitForWebLogin: waitForWebLoginLocal } = await loadLoginQrModule();
+	const { waitForWebLogin: waitForWebLoginLocal } = await import("./.setup/login-qr-BpUg-7uW.mjs");
 	return await waitForWebLoginLocal(...args);
 }
 //#endregion

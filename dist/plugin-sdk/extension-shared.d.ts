@@ -1,5 +1,22 @@
-import { t as createLoggerBackedRuntime } from "../runtime-logger.internal-Dlpp6FcE.js";
+import { t as createLoggerBackedRuntime } from "../runtime-logger.internal-DbcYwkHp.js";
 import { ZodType, z } from "zod";
+//#region src/utils/fetch-timeout.d.ts
+type TimeoutAbortSignalParams = {
+  timeoutMs?: number;
+  signal?: AbortSignal;
+  operation?: string;
+  url?: string;
+};
+/**
+ * Builds an abort signal that combines an optional parent signal with a timeout.
+ * Callers must run `cleanup`; `refresh` restarts only the internal timeout timer.
+ */
+export declare function buildTimeoutAbortSignal(params: TimeoutAbortSignalParams): {
+  signal?: AbortSignal;
+  cleanup: () => void;
+  refresh: () => void;
+};
+//#endregion
 //#region src/shared/deferred.d.ts
 type Deferred<T = void> = {
   promise: Promise<T>;
@@ -19,23 +36,6 @@ export declare function safeParseWithSchema<T>(schema: ZodType<T>, value: unknow
 /** Parses JSON, then safely validates it with a Zod schema, returning null for parse or schema failures. */
 export declare function safeParseJsonWithSchema<T>(schema: ZodType<T>, raw: string): T | null;
 //#endregion
-//#region src/utils/fetch-timeout.d.ts
-type TimeoutAbortSignalParams = {
-  timeoutMs?: number;
-  signal?: AbortSignal;
-  operation?: string;
-  url?: string;
-};
-/**
- * Builds an abort signal that combines an optional parent signal with a timeout.
- * Callers must run `cleanup`; `refresh` restarts only the internal timeout timer.
- */
-export declare function buildTimeoutAbortSignal(params: TimeoutAbortSignalParams): {
-  signal?: AbortSignal;
-  cleanup: () => void;
-  refresh: () => void;
-};
-//#endregion
 //#region src/plugin-sdk/extension-shared.d.ts
 type PassiveChannelStatusSnapshot = {
   configured?: boolean;
@@ -49,9 +49,6 @@ type PassiveChannelStatusSnapshot = {
 type TrafficStatusSnapshot = {
   lastInboundAt?: number | null;
   lastOutboundAt?: number | null;
-};
-type StoppableMonitor = {
-  stop: () => void;
 };
 type RequireOpenAllowFromFn = (params: {
   policy?: string;
@@ -89,14 +86,6 @@ export declare function buildTrafficStatusSummary(snapshot?: TrafficStatusSnapsh
   lastInboundAt: number | null;
   lastOutboundAt: number | null;
 };
-/**
- * Runs a passive monitor until the supplied abort signal fires, then calls `stop()`.
- * This adapts simple plugin monitors to the shared passive account lifecycle.
- */
-export declare function runStoppablePassiveMonitor<TMonitor extends StoppableMonitor>(params: {
-  abortSignal: AbortSignal;
-  start: () => Promise<TMonitor>;
-}): Promise<void>;
 /**
  * Returns the provided runtime or creates a logger-backed fallback for monitor-only paths.
  * The fallback cannot exit the process, so command/runtime callers should inject a real runtime.

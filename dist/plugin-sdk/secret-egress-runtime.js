@@ -1,2 +1,2 @@
-import { t as withConfiguredModelEgress } from "../secret-egress-runtime-BBU26SIQ.mjs";
-export { withConfiguredModelEgress };
+import { n as withSetupSecretEgress, t as withConfiguredModelEgress } from "../secret-egress-runtime-C_62moZd.mjs";
+export { withConfiguredModelEgress, withSetupSecretEgress };

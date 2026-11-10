@@ -8,6 +8,7 @@ import { getPluginInstance, getPluginValueInstance } from "./plugin-instance-sco
 import { PluginInstance } from "./plugin-instance.js";
 import { withProfile } from "./plugin-load-profile.js";
 import { getCachedPluginModuleLoader } from "./plugin-module-loader-cache.js";
+import { nativeAdmissionStateFor } from "./plugin-native-admission-state.js";
 import { installOpenClawPluginSdkNativeResolver } from "./plugin-sdk-native-resolver.js";
 import { getPluginRegistryInspectionResources } from "./registry-inspection-resources.js";
 import type { PluginRecord, PluginRegistry } from "./registry-types.js";
@@ -59,6 +60,7 @@ const LAZY_RUNTIME_PROPERTIES = {
   worktrees: true,
   webSearch: true,
   modelConfig: true,
+  capabilities: true,
 } satisfies Record<keyof PluginRuntime, true>;
 
 export function runPluginRegisterSyncInRegistry(
@@ -136,15 +138,23 @@ export function createPluginModuleLoader(options: {
       ...(captured.tryNative !== undefined ? { tryNative: captured.tryNative } : {}),
     });
   };
-  return (
-    modulePath: string,
-    owner?: {
-      record: PluginRecord;
-      rootDir: string;
-      registry: PluginRegistry;
-      standalone?: boolean;
-    },
-  ): unknown =>
+  type Owner = {
+    record: PluginRecord;
+    rootDir: string;
+    registry: PluginRegistry;
+    standalone?: boolean;
+    /** Installer-proven identity when the plugin source cannot change in place. */
+    immutableInstallIdentity?: string;
+  };
+  // Only uncached inspections of immutable installs may share evaluated code.
+  const inspection = (owner: Owner) =>
+    getPluginRegistryInspectionResources(owner.registry) === undefined
+      ? {}
+      : {
+          inspectionSourceIdentity: owner.immutableInstallIdentity,
+          inspectionRetention: nativeAdmissionStateFor(cache).inspectionNativeEsm,
+        };
+  return (modulePath: string, owner?: Owner): unknown =>
     withPluginCache(cache, () => {
       if (!owner) {
         return createLoaderForModule(modulePath)(toSafeImportPath(modulePath));
@@ -159,6 +169,7 @@ export function createPluginModuleLoader(options: {
           rootDir: owner.rootDir,
           standalone: owner.standalone,
           expectedSourceDigest: captured.expectedSourceDigests?.[owner.record.id],
+          ...inspection(owner),
           devSourceRoot: captured.devSourceRoot,
           pluginSdkResolution: captured.pluginSdkResolution,
           createHostModuleLoader: () => createLoaderForModule(modulePath),
@@ -263,7 +274,7 @@ export function createLazyPluginRuntime(params: {
       if (prop === "version") {
         return VERSION;
       }
-      if (prop === "config" || prop === "state" || prop === "system") {
+      if (prop === "capabilities" || prop === "config" || prop === "state" || prop === "system") {
         return base[prop];
       }
     }

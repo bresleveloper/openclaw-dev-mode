@@ -1,3 +1,4 @@
+import "../config-contracts-CY87ANNp.js";
 //#region src/plugin-sdk/file-lock.d.ts
 /** Retry and stale-recovery policy for acquiring a filesystem lock. */
 type FileLockOptions = {
@@ -202,30 +203,10 @@ export declare function resolvePersistentDedupePluginStateNamespace(options: {
 }): string;
 //#endregion
 //#region src/plugin-sdk/persistent-dedupe.d.ts
-export type PersistentDedupeLegacyJsonMigrationResult = {
-  imported: number;
-  skippedExpired: number;
-  skippedInvalid: number;
-  skippedExisting: number;
-  removed: boolean;
-};
-export type PersistentDedupeLegacyJsonMigrationOptions = PersistentDedupePluginStateOptions & {
-  filePath: string;
-  namespace: string;
-  now?: number;
-  removeFile?: boolean;
-};
-export declare function listPersistentDedupeLegacyJsonFileEntries(options: {
-  filePath: string;
-  ttlMs: number;
-  now?: number;
-}): Promise<PersistentDedupeLegacyJsonImportEntry[]>;
 export declare function shouldReplacePersistentDedupeEntry(params: {
   existingValue: unknown;
   incomingValue: unknown;
 }): boolean;
-/** Import one retired JSON dedupe cache file into plugin-state SQLite during doctor repair. */
-export declare function migratePersistentDedupeLegacyJsonFile(options: PersistentDedupeLegacyJsonMigrationOptions): Promise<PersistentDedupeLegacyJsonMigrationResult>;
 /** Create a dedupe helper that combines in-memory fast checks with SQLite-backed state. */
 export declare function createPersistentDedupe(options: PersistentDedupeOptions): PersistentDedupe;
 type ClaimLoopInflight = {

@@ -1,34 +1,34 @@
 import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
 import { n as findNormalizedProviderValue } from "../../provider-id-D1VImdKk.mjs";
-import { r as resolveAgentConfig } from "../../agent-scope-config-CDYpzA0r.mjs";
-import "../../defaults-Jag53zwP.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../text-utility-runtime-BDs7x8Fk.mjs";
-import { o as buildPassthroughGeminiSanitizingReplayPolicy } from "../../provider-replay-helpers-Da6bKlcZ.mjs";
-import "../../agent-scope-runtime-DMJYuX7c.mjs";
-import "../../provider-model-shared-CgZ78XZA.mjs";
-import "../../provider-auth-BGYKg9mW.mjs";
-import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-Ngo-Palb.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-Dw7vrvaY.mjs";
-import { a as loadOpenRouterModelCapabilities, i as getOpenRouterModelCapabilities, r as getLoadedOpenRouterModelCapabilities } from "../../provider-stream-aRo8sEaq.mjs";
-import "../../provider-stream-family-DbJy-rAq.mjs";
+import { r as resolveAgentConfig } from "../../agent-scope-config-fjA2T9Gz.mjs";
+import { o as resolveDefaultModelMaxTokens } from "../../defaults-Bg930vxE.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../text-utility-runtime-B9RB6Cg0.mjs";
+import { o as buildPassthroughGeminiSanitizingReplayPolicy } from "../../provider-replay-helpers-B7QyB_ca.mjs";
+import "../../agent-scope-runtime-Dld1eD8B.mjs";
+import "../../provider-model-shared-B_4afNJ5.mjs";
+import "../../provider-auth-JCvgbsWg.mjs";
+import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BILEsjga.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-CKUq_-Jy.mjs";
+import { a as loadOpenRouterModelCapabilities, r as getLoadedOpenRouterModelCapabilities } from "../../provider-stream-D-B5aERN.mjs";
+import "../../provider-stream-family-DCSl210N.mjs";
 import "../../provider-defaults-ilQX6q3J.mjs";
-import { a as resolveOpenRouterApiBaseUrl, i as normalizeOpenRouterBaseUrl, n as buildOpenrouterProvider, r as isOpenRouterProxyReasoningUnsupportedModel, t as buildOpenrouterLiveProvider } from "../../provider-catalog-BLcqGWTd.mjs";
-import { t as buildOpenRouterImageGenerationProvider } from "../../image-generation-provider-CwO9paox.mjs";
-import { t as openrouterMediaUnderstandingProvider } from "../../media-understanding-provider-W6LCc6-s.mjs";
-import { i as normalizeOpenRouterModelFamilyId, n as isOpenRouterMistralModelId, r as normalizeOpenRouterApiModelId } from "../../models-DNvPaErb.mjs";
-import { t as buildOpenRouterMusicGenerationProvider } from "../../music-generation-provider-DTtWVqQP.mjs";
-import { n as applyOpenrouterConfig, t as OPENROUTER_DEFAULT_MODEL_REF } from "../../onboard-BcQl47iL.mjs";
-import { t as createOpenRouterOAuthAuthMethod } from "../../oauth-BDrQMcVa.mjs";
-import { t as resolveOpenRouterExtraParamsForTransport } from "../../provider-routing-BKidv0ix.mjs";
-import { t as buildOpenRouterSpeechProvider } from "../../speech-provider-Ce2-GXtb.mjs";
-import { t as wrapOpenRouterProviderStream } from "../../stream-BOx82CPE.mjs";
-import { t as resolveOpenRouterThinkingProfile } from "../../thinking-policy-OmaHqPE4.mjs";
-import { n as normalizeOpenRouterToolSchemas, t as inspectOpenRouterToolSchemas } from "../../tool-schemas-B6dWwdXz.mjs";
-import { t as fetchOpenRouterUsage } from "../../usage-Cw31B_Gl.mjs";
-import { t as listOpenRouterVideoModelCatalog } from "../../video-model-catalog-BaZxFLI0.mjs";
-import { t as buildOpenRouterVideoGenerationProvider } from "../../video-generation-provider-CWU57jlq.mjs";
+import { a as resolveOpenRouterApiBaseUrl, i as normalizeOpenRouterBaseUrl, n as buildOpenrouterProvider, r as isOpenRouterProxyReasoningUnsupportedModel, t as buildOpenrouterLiveProvider } from "../../provider-catalog-CNn8GbrF.mjs";
+import { t as buildOpenRouterImageGenerationProvider } from "../../image-generation-provider-C5kchZoW.mjs";
+import { t as openrouterMediaUnderstandingProvider } from "../../media-understanding-provider-Bb8XYIDu.mjs";
+import { i as normalizeOpenRouterModelFamilyId, n as isOpenRouterMistralModelId, r as normalizeOpenRouterApiModelId } from "../../models-CrlfkNW6.mjs";
+import { t as buildOpenRouterMusicGenerationProvider } from "../../music-generation-provider-BS2iHTEh.mjs";
+import { n as applyOpenrouterConfig, t as OPENROUTER_DEFAULT_MODEL_REF } from "../../onboard-DOCPQBy4.mjs";
+import { t as createOpenRouterOAuthAuthMethod } from "../../oauth-CLJMWWs6.mjs";
+import { t as resolveOpenRouterExtraParamsForTransport } from "../../provider-routing-CgfUYlmZ.mjs";
+import { t as buildOpenRouterSpeechProvider } from "../../speech-provider-CXRkg77r.mjs";
+import { t as wrapOpenRouterProviderStream } from "../../stream-D0Uilx0L.mjs";
+import { t as resolveOpenRouterThinkingProfile } from "../../thinking-policy-DqOqcerC.mjs";
+import { n as normalizeOpenRouterToolSchemas, t as inspectOpenRouterToolSchemas } from "../../tool-schemas-CbJSCojp.mjs";
+import { t as fetchOpenRouterUsage } from "../../usage-DpZRQ9-T.mjs";
+import { t as listOpenRouterVideoModelCatalog } from "../../video-model-catalog-FRX7YYEl.mjs";
+import { t as buildOpenRouterVideoGenerationProvider } from "../../video-generation-provider-Bhisvymz.mjs";
 //#region extensions/openrouter/openclaw.plugin.json
 var openclaw_plugin_default = {
 	id: "openrouter",
@@ -36,6 +36,7 @@ var openclaw_plugin_default = {
 	capabilityCatalogEntry: "./capability-catalog.ts",
 	activation: { "onStartup": false },
 	enabledByDefault: true,
+	managesOwnAvailability: true,
 	providers: ["openrouter"],
 	modelCatalog: { "discovery": { "openrouter": "runtime" } },
 	modelIdNormalization: { "providers": { "openrouter": { "prefixWhenBare": "openrouter" } } },
@@ -107,9 +108,8 @@ var openclaw_plugin_default = {
 //#endregion
 //#region extensions/openrouter/index.ts
 const PROVIDER_ID = "openrouter";
-const OPENROUTER_DEFAULT_MAX_TOKENS = 8192;
 const OPENROUTER_FUSION_MODEL_ID = "openrouter/fusion";
-const OPENROUTER_CACHE_TTL_MODEL_FAMILY = /^(?:anthropic|deepseek|moonshot(?:ai)?|z-?ai)\//;
+const OPENROUTER_CACHE_TTL_MODEL_FAMILY = /^(?:(?:anthropic|deepseek|moonshot(?:ai)?|x-ai|z-?ai)\/|google\/gemini-(?:2\.5|3))/;
 const MAX_PROMPT_MODEL_ID_DISPLAY_CHARS = 256;
 function isOpenRouterCatalogRoute(route) {
 	return (route.api == null || route.api === "openai-completions") && (route.baseUrl == null || route.baseUrl === "https://openrouter.ai/api/v1");
@@ -202,7 +202,7 @@ var openrouter_default = defineSingleProviderPluginEntry({
 	provider() {
 		function buildDynamicOpenRouterModel(ctx) {
 			const apiModelId = normalizeOpenRouterApiModelId(ctx.modelId) ?? ctx.modelId;
-			const capabilities = getOpenRouterModelCapabilities(apiModelId);
+			const capabilities = getLoadedOpenRouterModelCapabilities(apiModelId);
 			return {
 				id: ctx.modelId,
 				name: capabilities?.name ?? ctx.modelId,
@@ -223,7 +223,7 @@ var openrouter_default = defineSingleProviderPluginEntry({
 					cacheWrite: 0
 				},
 				contextWindow: capabilities?.contextWindow ?? 2e5,
-				maxTokens: capabilities?.maxTokens ?? OPENROUTER_DEFAULT_MAX_TOKENS
+				maxTokens: capabilities?.maxTokens ?? resolveDefaultModelMaxTokens(capabilities?.contextWindow)
 			};
 		}
 		return {
@@ -253,7 +253,10 @@ var openrouter_default = defineSingleProviderPluginEntry({
 						}) })
 					});
 				},
-				staticRun: async () => ({ provider: buildOpenrouterProvider() })
+				staticRun: async (ctx) => {
+					if (ctx.providerIds?.includes(PROVIDER_ID)) await loadOpenRouterModelCapabilities(OPENROUTER_DEFAULT_MODEL_REF);
+					return { provider: buildOpenrouterProvider() };
+				}
 			},
 			resolveDynamicModel: buildDynamicOpenRouterModel,
 			preferRuntimeResolvedModel: (ctx) => {
@@ -306,7 +309,7 @@ var openrouter_default = defineSingleProviderPluginEntry({
 			wrapSimpleCompletionStreamFn: wrapOpenRouterProviderStream,
 			isCacheTtlEligible: ({ modelId }) => OPENROUTER_CACHE_TTL_MODEL_FAMILY.test(normalizeOpenRouterModelFamilyId(modelId) ?? ""),
 			resolveUsageAuth: async (ctx) => {
-				const apiKey = ctx.resolveApiKeyFromConfigAndStore({ envDirect: [ctx.env.OPENROUTER_API_KEY] });
+				const apiKey = (await ctx.resolveApiKeyCandidatesFromConfigAndStore?.({ envDirect: [ctx.env.OPENROUTER_API_KEY] }))?.[0];
 				return apiKey ? { token: apiKey } : null;
 			},
 			fetchUsageSnapshot: async (ctx) => await fetchOpenRouterUsage({

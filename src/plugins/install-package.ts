@@ -42,6 +42,31 @@ const PLUGIN_ARCHIVE_ROOT_MARKERS = [
   "plugin.json",
 ];
 
+function pickPackageInstallCommonParams(
+  params: InternalPackageInstallCommonParams,
+): InternalPackageInstallCommonParams {
+  return copyPluginInstallTransactionRequest(params, {
+    config: params.config,
+    onInstallPolicyWarning: params.onInstallPolicyWarning,
+    trustedSourceLinkedOfficialInstall: params.trustedSourceLinkedOfficialInstall,
+    extensionsDir: params.extensionsDir,
+    npmDir: params.npmDir,
+    timeoutMs: params.timeoutMs,
+    workTimeoutMs: params.workTimeoutMs,
+    logger: params.logger,
+    mode: params.mode,
+    dryRun: params.dryRun,
+    expectedPluginId: params.expectedPluginId,
+    requirePluginManifest: params.requirePluginManifest,
+    allowSourceTypeScriptEntries: params.allowSourceTypeScriptEntries,
+    installPolicyRequest: params.installPolicyRequest,
+    onPluginArtifactInspect: params.onPluginArtifactInspect,
+    onBeforePluginArtifactCommit: params.onBeforePluginArtifactCommit,
+    beforePersistentApply: params.beforePersistentApply,
+    onEffectiveMode: params.onEffectiveMode,
+  });
+}
+
 function installPolicyRequestForPath(
   params: PackageInstallCommonParams & { path: string },
   kind: PluginInstallPolicyRequest["kind"],
@@ -173,6 +198,7 @@ async function installBundleFromSourceDir(
       copyErrorPrefix: "failed to copy plugin bundle",
       hasDeps: false,
       depsLogMessage: "",
+      onPluginArtifactInspect: params.onPluginArtifactInspect,
       onBeforePluginArtifactCommit: params.onBeforePluginArtifactCommit,
       beforePersistentApply: params.beforePersistentApply,
     }),
@@ -293,6 +319,7 @@ async function installPluginFromPackageDir(
       sourceHardlinks: shouldInstallRuntimeDeps ? "package-manager" : "reject",
       depsLogMessage: "Installing plugin dependencies…",
       nameEncoder: encodePluginInstallDirName,
+      onPluginArtifactInspect: params.onPluginArtifactInspect,
       onBeforePluginArtifactCommit: params.onBeforePluginArtifactCommit,
       beforePersistentApply: params.beforePersistentApply,
       afterInstall: async (installedDir) => {
@@ -366,6 +393,7 @@ export async function installPluginFromArchive<
           trustedSourceLinkedOfficialInstall: params.trustedSourceLinkedOfficialInstall,
           requirePluginManifest: true,
           installPolicyRequest,
+          onPluginArtifactInspect: params.onPluginArtifactInspect,
           onBeforePluginArtifactCommit: params.onBeforePluginArtifactCommit,
           beforePersistentApply: params.beforePersistentApply,
           onEffectiveMode: (resolvedMode) => {
@@ -434,11 +462,12 @@ export async function installPluginFromPath(
     return pathResult;
   }
   const { resolvedPath: resolved, stat } = pathResult;
+  const packageInstallOptions = pickPackageInstallCommonParams(params);
 
   if (stat.isDirectory()) {
     return await installPluginFromDir({
-      ...params,
       dirPath: resolved,
+      ...packageInstallOptions,
       installPolicyRequest: installPolicyRequestForPath(params, "plugin-dir"),
     });
   }
@@ -446,8 +475,8 @@ export async function installPluginFromPath(
   const archiveKind = runtime.resolveArchiveKind(resolved);
   if (archiveKind) {
     return await installPluginFromArchive({
-      ...params,
       archivePath: resolved,
+      ...packageInstallOptions,
       installPolicyRequest: installPolicyRequestForPath(params, "plugin-archive"),
     });
   }

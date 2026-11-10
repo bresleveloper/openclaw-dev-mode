@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,n,r,i=e((()=>{t=`gateway-owner`,n=4096,r=`git.coauthor.enabled`}));export{i,r as n,n as r,t};

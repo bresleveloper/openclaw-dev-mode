@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t,n}from"./worker-chunk-DCrq24cb.mjs";import r from"node:path";function assertNoRetiredRestartSentinelFiles(e){n(`Restart sentinel JSON`,[r.join(e,`restart-sentinel.json`),r.join(e,`restart-sentinel.json.doctor-importing`)])}var i=e((()=>{t()}));export{i as n,assertNoRetiredRestartSentinelFiles as t};

@@ -11,7 +11,6 @@ import { isProvenDeliveryNotSentError } from "../../infra/delivery-recovery.shar
 import { normalizeDeliverableOutboundChannel } from "../../infra/outbound/channel-resolution.js";
 import {
   type DurableFinalDeliveryRequirement,
-  type OutboundDeliveryIntent,
   resolveOutboundDurableFinalDeliverySupport,
 } from "../../infra/outbound/deliver.js";
 import type { OutboundPayloadPlan } from "../../infra/outbound/reply-payload-parts.js";
@@ -75,14 +74,6 @@ type DurableInboundReplyDeliveryResult =
       sentBeforeError?: boolean;
     };
 
-function resolveDeliveryTarget(params: DurableInboundReplyDeliveryParams): string | undefined {
-  return (
-    normalizeOptionalString(params.to) ??
-    normalizeOptionalString(params.ctxPayload.OriginatingTo) ??
-    normalizeOptionalString(params.ctxPayload.To)
-  );
-}
-
 function resolveDurableInboundReplyToId(
   params: Pick<DurableInboundReplyDeliveryParams, "ctxPayload" | "payload" | "replyToId">,
 ): string | null | undefined {
@@ -99,14 +90,6 @@ function resolveDurableInboundReplyToId(
     normalizeOptionalString(params.ctxPayload.ReplyToIdFull) ??
     normalizeOptionalString(params.ctxPayload.ReplyToId)
   );
-}
-
-function toDeliveryIntent(intent: OutboundDeliveryIntent): ChannelDeliveryResult["deliveryIntent"] {
-  return {
-    id: intent.id,
-    kind: "outbound_queue",
-    queuePolicy: intent.queuePolicy,
-  };
 }
 
 function resolveDurableSuppression(
@@ -137,16 +120,6 @@ export function throwIfDurableInboundReplyDeliveryFailed(
   if (result.status === "failed") {
     throw result.error;
   }
-}
-
-function resolveAcceptedVisibleContent(
-  results: readonly { meta?: Record<string, unknown> }[],
-): string | undefined {
-  const content = results
-    .map((result) => result.meta?.visibleText)
-    .filter((value): value is string => typeof value === "string")
-    .join("");
-  return content || undefined;
 }
 
 export async function deliverInboundReplyWithMessageSendContextCore(
@@ -200,7 +173,10 @@ async function deliverAdmittedInboundReply(
       }
     : input;
   const channel = normalizeDeliverableOutboundChannel(params.channel);
-  const to = resolveDeliveryTarget(params);
+  const to =
+    normalizeOptionalString(params.to) ??
+    normalizeOptionalString(params.ctxPayload.OriginatingTo) ??
+    normalizeOptionalString(params.ctxPayload.To);
   if (!channel) {
     return { status: "unsupported", reason: "missing_channel" };
   }
@@ -255,6 +231,7 @@ async function deliverAdmittedInboundReply(
     to,
     accountId: params.accountId,
     payloads: [params.payload],
+    retryAmbiguousFinalText: params.retryAmbiguousFinalText,
     ...((params.runId ?? params.executionIdentityToken?.runId)
       ? { runId: params.runId ?? params.executionIdentityToken?.runId }
       : {}),
@@ -289,14 +266,27 @@ async function deliverAdmittedInboundReply(
     };
   }
   const content =
-    send.status === "partial_failed" ? resolveAcceptedVisibleContent(send.results) : undefined;
+    send.status === "partial_failed"
+      ? send.results
+          .map((result) => result.meta?.visibleText)
+          .filter((value): value is string => typeof value === "string")
+          .join("")
+      : undefined;
   const receiptDelivery = createChannelDeliveryResultFromReceipt({
     receipt: send.receipt,
     threadId: threadId == null ? undefined : String(threadId),
     ...(replyToId ? { replyToId } : {}),
     visibleReplySent: send.status !== "suppressed",
     ...(content ? { content } : {}),
-    ...(send.deliveryIntent ? { deliveryIntent: toDeliveryIntent(send.deliveryIntent) } : {}),
+    ...(send.deliveryIntent
+      ? {
+          deliveryIntent: {
+            id: send.deliveryIntent.id,
+            kind: "outbound_queue",
+            queuePolicy: send.deliveryIntent.queuePolicy,
+          },
+        }
+      : {}),
   });
   if (send.status === "partial_failed") {
     return {

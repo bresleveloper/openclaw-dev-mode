@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function projectTranscriptNavigationFields(e){let t={};for(let n of[`type`,`id`,`parentId`,`targetId`,`appendParentId`,`appendMode`])Object.hasOwn(e,n)&&(t[n]=e[n]);return t}var t=e((()=>{}));export{projectTranscriptNavigationFields as n,t};

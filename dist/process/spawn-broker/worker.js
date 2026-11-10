@@ -1,12 +1,18 @@
 import { Socket, createConnection, createServer } from "node:net";
+import { setTimeout as setTimeout$1 } from "node:timers/promises";
+import { readRegularFile } from "@openclaw/fs-safe/advanced";
 import { spawn, spawnSync } from "node:child_process";
-import fs, { opendirSync, readFileSync, readdirSync } from "node:fs";
+import fsSync, { opendirSync, readFileSync, readdirSync } from "node:fs";
+import { ProcSafeError } from "@openclaw/proc-safe/errors";
+import { readProcessIdentity } from "@openclaw/proc-safe/identity";
 import path from "node:path";
-import { tmpdir } from "node:os";
-import { isDeepStrictEqual, stripVTControlCharacters } from "node:util";
+import "@openclaw/fs-safe/path";
+import { listProcesses } from "@openclaw/proc-safe/inspect";
+import { stripVTControlCharacters } from "node:util";
 import { execa } from "execa";
 import { EventEmitter, once } from "node:events";
 import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { Transform } from "node:stream";
 import { deserialize, serialize } from "node:v8";
 //#region packages/normalization-core/src/error-coercion.ts
@@ -35,10 +41,259 @@ function extractErrorCode(err) {
 	return typeof code === "string" || typeof code === "number" ? String(code) : void 0;
 }
 //#endregion
-//#region packages/normalization-core/src/record-coerce.ts
-/** Type guard for non-array object records at browser-safe boundaries. */
-function isRecord(value) {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
+//#region src/shared/deferred.ts
+const promiseWithResolvers = Promise;
+function createDeferredCore() {
+	return promiseWithResolvers.withResolvers();
+}
+//#endregion
+//#region src/shared/pid-alive.ts
+function readDarwinNativeIdentity(pid) {
+	if (process.platform !== "darwin" || typeof SEALED_RUNTIME_BUILD === "boolean" && SEALED_RUNTIME_BUILD) return;
+	try {
+		const identity = readProcessIdentity(pid);
+		return identity && !identity.exited ? {
+			startedAt: Math.floor(identity.startTimeMicros / 1e6),
+			startTimeMicros: identity.startTimeMicros
+		} : null;
+	} catch {
+		return;
+	}
+}
+/** Unknown observations never prove death; Linux keeps its thread-aware procfs policy. */
+function readNativeLiveness(pid) {
+	if (![
+		"darwin",
+		"win32",
+		"freebsd"
+	].includes(process.platform) || typeof SEALED_RUNTIME_BUILD === "boolean" && SEALED_RUNTIME_BUILD) return;
+	try {
+		const identity = readProcessIdentity(pid);
+		return identity !== null && !identity.exited;
+	} catch (error) {
+		if (error instanceof ProcSafeError && (error.code === "helper-unavailable" || error.code === "unsupported-platform")) return;
+		return true;
+	}
+}
+function isValidPid(pid) {
+	return Number.isInteger(pid) && pid > 0;
+}
+/**
+* Reject recycled worker TIDs and terminal leaders without live sibling threads.
+* Missing or reaped procfs snapshots require a fresh existence probe.
+*/
+function isExitedLinuxProcess(pid) {
+	if (process.platform !== "linux") return false;
+	try {
+		const status = fsSync.readFileSync(`/proc/${pid}/status`, "utf8");
+		const state = status.match(/^State:\s+(\S)/m)?.[1];
+		const threads = status.match(/^Threads:[ \t]+(\d+)[ \t]*$/m)?.[1];
+		if (threads !== "0") {
+			const tgid = status.match(/^Tgid:[ \t]+(\d+)[ \t]*$/m)?.[1];
+			return tgid !== void 0 && Number(tgid) !== pid || (state === "Z" || state === "X") && threads === "1";
+		}
+	} catch {}
+	try {
+		process.kill(pid, 0);
+	} catch (error) {
+		return error.code === "ESRCH";
+	}
+	return false;
+}
+/** Returns true only when the PID is invalid, missing, or a known terminal task. */
+function isPidDefinitelyDead(pid) {
+	if (!isValidPid(pid)) return true;
+	try {
+		process.kill(pid, 0);
+	} catch (error) {
+		if (error.code !== "ESRCH") return false;
+		const native = readNativeLiveness(pid);
+		return native === void 0 ? process.platform !== "freebsd" : !native;
+	}
+	const native = readNativeLiveness(pid);
+	return native === void 0 ? isExitedLinuxProcess(pid) : !native;
+}
+/** Read the Linux procfs start identity used by Linux-owned runtime state. */
+function getProcessStartTime(pid) {
+	if (!isValidPid(pid) || process.platform !== "linux") return null;
+	try {
+		const stat = fsSync.readFileSync(`/proc/${pid}/stat`, "utf8");
+		const commEndIndex = stat.lastIndexOf(")");
+		if (commEndIndex < 0) return null;
+		const fields = stat.slice(commEndIndex + 1).trimStart().split(/\s+/);
+		const starttime = Number(fields[19]);
+		return Number.isInteger(starttime) && starttime >= 0 ? starttime : null;
+	} catch {
+		return null;
+	}
+}
+/** Custody recovery needs native birth precision rather than the shipped lease timestamp format. */
+function getProcessInstanceStartTime(pid) {
+	if (!isValidPid(pid)) return null;
+	if (process.platform === "linux") {
+		const startedAt = getProcessStartTime(pid);
+		return Number.isSafeInteger(startedAt) ? startedAt : null;
+	}
+	const native = readDarwinNativeIdentity(pid);
+	if (!native) return null;
+	const startedAt = native.startTimeMicros;
+	return Number.isSafeInteger(startedAt) ? startedAt : null;
+}
+//#endregion
+//#region packages/terminal-core/src/ansi-sequences.ts
+const ANSI_OSC_INTRODUCER_PATTERN = "(?:\\x1b\\]|\\x9d)";
+const ANSI_STRING_TERMINATOR_PATTERN = "(?:\\x1b\\\\|\\x07|\\x9c)";
+const ANSI_OSC_PATTERN = `${ANSI_OSC_INTRODUCER_PATTERN}[^\\x07\\x1b\\x9c]*${ANSI_STRING_TERMINATOR_PATTERN}`;
+const ANSI_COMPAT_CONTROL_SEQUENCE_PATTERN = "[\\u001B\\u009B][[\\]()#;?]*(?:\\d{1,4}(?:[;:]\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]";
+new RegExp(ANSI_OSC_PATTERN, "y");
+new RegExp(`${`${ANSI_OSC_INTRODUCER_PATTERN}[\\s\\S]*?${ANSI_STRING_TERMINATOR_PATTERN}`}|${ANSI_COMPAT_CONTROL_SEQUENCE_PATTERN}`, "y");
+new Intl.Segmenter(void 0, { granularity: "grapheme" });
+new RegExp(`[${String.fromCharCode(0)}-${String.fromCharCode(31)}${String.fromCharCode(127)}-${String.fromCharCode(159)}]`, "g");
+//#endregion
+//#region packages/normalization-core/src/string-coerce.ts
+/** Trims string input and returns null for non-strings or empty strings. */
+function normalizeNullableString(value) {
+	if (typeof value !== "string") return null;
+	const trimmed = value.trim();
+	return trimmed ? trimmed : null;
+}
+/** Trims string input and returns undefined for non-strings or empty strings. */
+function normalizeOptionalString(value) {
+	return normalizeNullableString(value) ?? void 0;
+}
+/** Lowercases a normalized optional string. */
+function normalizeOptionalLowercaseString(value) {
+	return normalizeOptionalString(value)?.toLowerCase();
+}
+//#endregion
+//#region src/utils/boolean.ts
+const DEFAULT_TRUTHY = [
+	"true",
+	"1",
+	"yes",
+	"on"
+];
+const DEFAULT_FALSY = [
+	"false",
+	"0",
+	"no",
+	"off"
+];
+function asBoolean(value) {
+	return typeof value === "boolean" ? value : void 0;
+}
+function parseBooleanValue(value, options = {}) {
+	const booleanValue = asBoolean(value);
+	if (booleanValue !== void 0) return booleanValue;
+	const normalized = normalizeOptionalLowercaseString(value);
+	if (!normalized) return;
+	if ((options.truthy ?? DEFAULT_TRUTHY).includes(normalized)) return true;
+	if ((options.falsy ?? DEFAULT_FALSY).includes(normalized)) return false;
+}
+//#endregion
+//#region src/process/linux-oom-score.ts
+/**
+* Linux children inherit the Gateway's OOM score, leaving the larger Gateway
+* vulnerable under memory pressure (#70404). Raise children to 1000 through a
+* shell that execs the command, or after native spawn when argv0 must be retained.
+* Raising a same-user child's score needs no CAP_SYS_RESOURCE.
+* OPENCLAW_CHILD_OOM_SCORE_ADJ=0 (also false/no/off) opts out per child or process.
+*/
+const CHILD_OOM_SCORE_ADJ_ENV_KEY = "OPENCLAW_CHILD_OOM_SCORE_ADJ";
+const OOM_SCORE_WRAP_SHELL = "/bin/sh";
+const OOM_SCORE_WRAP_SCRIPT = "echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec \"$0\" \"$@\"";
+[
+	"echo 1000 > /proc/self/oom_score_adj 2>/dev/null; if [ \"${OC_INTERNAL_OOM_EXEC_BASH_ENV+x}\" = x ]; then BASH_ENV=\"$OC_INTERNAL_OOM_EXEC_BASH_ENV\"; export BASH_ENV; fi; unset OC_INTERNAL_OOM_EXEC_BASH_ENV",
+	"if [ \"${OC_INTERNAL_OOM_EXEC_ENV+x}\" = x ]; then ENV=\"$OC_INTERNAL_OOM_EXEC_ENV\"; export ENV; fi; unset OC_INTERNAL_OOM_EXEC_ENV",
+	"if [ \"${OC_INTERNAL_OOM_EXEC_CDPATH+x}\" = x ]; then CDPATH=\"$OC_INTERNAL_OOM_EXEC_CDPATH\"; export CDPATH; fi; unset OC_INTERNAL_OOM_EXEC_CDPATH",
+	"if [ \"${OC_INTERNAL_OOM_EXEC_PS4+x}\" = x ]; then PS4=\"$OC_INTERNAL_OOM_EXEC_PS4\"; export PS4; fi; unset OC_INTERNAL_OOM_EXEC_PS4; exec \"$0\" \"$@\""
+].join("; ");
+function raiseChildOomScore(pid) {
+	if (pid === void 0) return;
+	try {
+		fsSync.writeFileSync(`/proc/${pid}/oom_score_adj`, "1000");
+	} catch {}
+}
+function spawnOomScoreAdjusted(command, args, options) {
+	const child = spawn(command, args, options);
+	if (!options.shell && shouldAdjustChildOomScore(options)) raiseChildOomScore(child.pid);
+	return child;
+}
+function shouldAdjustChildOomScore(options) {
+	if ((options?.platform ?? process.platform) !== "linux") return false;
+	return parseBooleanValue(options?.env?.[CHILD_OOM_SCORE_ADJ_ENV_KEY] ?? process.env[CHILD_OOM_SCORE_ADJ_ENV_KEY]) !== false;
+}
+function isWrapped(command, args) {
+	return command === OOM_SCORE_WRAP_SHELL && args[0] === "-c" && args[1] === OOM_SCORE_WRAP_SCRIPT;
+}
+/** Only small spawn owners may temporarily raise their score; never call from the Gateway. */
+function spawnWithInheritedOomScore(command, args, options) {
+	if (process.platform !== "linux" || !isWrapped(command, args) || !args[2] || options.shell || options.argv0 !== void 0) return spawnOomScoreAdjusted(command, args, options);
+	let scoreFd;
+	let original;
+	try {
+		scoreFd = fsSync.openSync("/proc/self/oom_score_adj", "r+");
+		original = fsSync.readFileSync(scoreFd, "utf8").trim();
+		fsSync.writeSync(scoreFd, "1000", 0, "utf8");
+	} catch {
+		if (scoreFd !== void 0) fsSync.closeSync(scoreFd);
+		return spawn(command, args, options);
+	}
+	try {
+		return spawn(args[2], args.slice(3), options);
+	} finally {
+		try {
+			fsSync.writeSync(scoreFd, original, 0, "utf8");
+		} catch {
+			process.emitWarning("Could not restore spawn owner's Linux OOM score");
+		} finally {
+			fsSync.closeSync(scoreFd);
+		}
+	}
+}
+//#endregion
+//#region src/process/spawn-broker/child-completion.ts
+/** Observe immediately after spawn, before this owner can disconnect or transfer pipes. */
+function waitForBrokerChildCompletion(child) {
+	return new Promise((resolve) => {
+		let exited = child.exitCode != null || child.signalCode != null;
+		let ipcClosed = !child.connected;
+		let openPipes = 0;
+		const finish = () => {
+			if (!exited || !ipcClosed || openPipes !== 0) return;
+			child.removeListener("exit", onExit);
+			child.removeListener("error", onError);
+			child.removeListener("disconnect", onDisconnect);
+			resolve();
+		};
+		const onExit = () => {
+			exited = true;
+			finish();
+		};
+		const onError = () => {
+			if (child.pid === void 0) {
+				exited = true;
+				ipcClosed = true;
+				finish();
+			}
+		};
+		const onDisconnect = () => {
+			ipcClosed = true;
+			finish();
+		};
+		child.once("exit", onExit);
+		child.on("error", onError);
+		child.once("disconnect", onDisconnect);
+		for (const stream of child.stdio ?? []) {
+			if (!stream || stream.closed) continue;
+			openPipes++;
+			stream.once("close", () => {
+				openPipes--;
+				finish();
+			});
+		}
+		finish();
+	});
 }
 //#endregion
 //#region packages/agent-core/src/harness/env/kill-tree.ts
@@ -65,6 +320,10 @@ const MAX_UNIX_PROCESS_TREE_DEPTH = 128;
 * - `detached: false`: skip group kill unconditionally.
 * - `detached: true`: use group kill unconditionally (trust caller).
 * - `detached` omitted: use group kill only when PID is the group leader.
+*
+* `exited()` verifies that every retained escalation target is gone: the group,
+* every captured Linux attached-tree identity, or otherwise the root. True latches,
+* clears the grace timer, and prevents later `force()` calls from signaling recycled numbers.
 */
 function killProcessTree(pid, opts) {
 	if (!Number.isFinite(pid) || pid <= 0) return;
@@ -100,10 +359,22 @@ function killProcessTree(pid, opts) {
 	const graceMs = normalizeGraceMs(opts?.graceMs);
 	const forceTimer = setTimeout(force, graceMs);
 	if (!attachedLinuxTree) forceTimer.unref();
-	return { force: () => {
-		clearTimeout(forceTimer);
-		force();
-	} };
+	let gone = false;
+	const exited = () => {
+		gone ||= useGroupKill ? !isProcessAlive(-pid) : processTree ? !processTree.some(capturedProcessInstanceMayBeAlive) : !isProcessAlive(pid);
+		if (gone) {
+			forceRequested = true;
+			clearTimeout(forceTimer);
+		}
+		return gone;
+	};
+	return {
+		force: () => {
+			clearTimeout(forceTimer);
+			force();
+		},
+		exited
+	};
 }
 function normalizeGraceMs(value) {
 	if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_GRACE_MS;
@@ -182,6 +453,12 @@ function readUnixProcessInstance(pid, deadlineMs) {
 function verifiedProcessInstanceAlive(entry) {
 	if (!entry.identity || !isProcessAlive(entry.pid)) return false;
 	return readUnixProcessIdentity(entry.pid) === entry.identity;
+}
+/** Completion needs proof: an existing PID whose identity is unreadable may still be the captured instance. */
+function capturedProcessInstanceMayBeAlive(entry) {
+	if (!entry.identity || !isProcessAlive(entry.pid)) return false;
+	const identity = readUnixProcessIdentity(entry.pid);
+	return identity === void 0 || identity === entry.identity;
 }
 function* readUnixProcessChildren(pid, canReadTask) {
 	let tasks;
@@ -309,79 +586,79 @@ function signalProcessTreeWindowsAndWait(pid, signal, onExit) {
 	], onExit);
 }
 //#endregion
-//#region src/process/linux-oom-score.ts
-const OOM_SCORE_WRAP_SHELL = "/bin/sh";
-const OOM_SCORE_WRAP_SCRIPT = "echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec \"$0\" \"$@\"";
-[
-	"echo 1000 > /proc/self/oom_score_adj 2>/dev/null; if [ \"${OC_INTERNAL_OOM_EXEC_BASH_ENV+x}\" = x ]; then BASH_ENV=\"$OC_INTERNAL_OOM_EXEC_BASH_ENV\"; export BASH_ENV; fi; unset OC_INTERNAL_OOM_EXEC_BASH_ENV",
-	"if [ \"${OC_INTERNAL_OOM_EXEC_ENV+x}\" = x ]; then ENV=\"$OC_INTERNAL_OOM_EXEC_ENV\"; export ENV; fi; unset OC_INTERNAL_OOM_EXEC_ENV",
-	"if [ \"${OC_INTERNAL_OOM_EXEC_CDPATH+x}\" = x ]; then CDPATH=\"$OC_INTERNAL_OOM_EXEC_CDPATH\"; export CDPATH; fi; unset OC_INTERNAL_OOM_EXEC_CDPATH",
-	"if [ \"${OC_INTERNAL_OOM_EXEC_PS4+x}\" = x ]; then PS4=\"$OC_INTERNAL_OOM_EXEC_PS4\"; export PS4; fi; unset OC_INTERNAL_OOM_EXEC_PS4; exec \"$0\" \"$@\""
-].join("; ");
-function isWrapped(command, args) {
-	return command === OOM_SCORE_WRAP_SHELL && args[0] === "-c" && args[1] === OOM_SCORE_WRAP_SCRIPT;
-}
-/** Only small spawn owners may temporarily raise their score; never call from the Gateway. */
-function spawnWithInheritedOomScore(command, args, options) {
-	if (process.platform !== "linux" || !isWrapped(command, args) || !args[2] || options.shell || options.argv0 !== void 0) return spawn(command, args, options);
-	let scoreFd;
-	let original;
-	try {
-		scoreFd = fs.openSync("/proc/self/oom_score_adj", "r+");
-		original = fs.readFileSync(scoreFd, "utf8").trim();
-		fs.writeSync(scoreFd, "1000", 0, "utf8");
-	} catch {
-		if (scoreFd !== void 0) fs.closeSync(scoreFd);
-		return spawn(command, args, options);
-	}
-	try {
-		return spawn(args[2], args.slice(3), options);
-	} finally {
-		try {
-			fs.writeSync(scoreFd, original, 0, "utf8");
-		} catch {
-			process.emitWarning("Could not restore spawn owner's Linux OOM score");
-		} finally {
-			fs.closeSync(scoreFd);
-		}
-	}
-}
-//#endregion
 //#region src/process/supervisor/cancellation-policy.ts
 const GRACEFUL_CANCEL_TIMEOUT_MS = 5e3;
 //#endregion
-//#region src/shared/pid-alive.ts
-function isValidPid(pid) {
-	return Number.isInteger(pid) && pid > 0;
-}
-/**
-* Check whether a Linux task is terminal and has no live sibling threads.
-* Missing or reaped procfs snapshots require a fresh existence probe.
-*/
-function isExitedLinuxProcess(pid) {
-	if (process.platform !== "linux") return false;
-	try {
-		const status = fs.readFileSync(`/proc/${pid}/status`, "utf8");
-		const state = status.match(/^State:\s+(\S)/m)?.[1];
-		const threads = status.match(/^Threads:[ \t]+(\d+)[ \t]*$/m)?.[1];
-		if (threads !== "0") return (state === "Z" || state === "X") && threads === "1";
-	} catch {}
-	try {
-		process.kill(pid, 0);
-	} catch (error) {
-		return error.code === "ESRCH";
+//#region src/process/darwin-process-inspection.ts
+var DarwinProcessInspectionError = class extends Error {
+	constructor(reason, options) {
+		super(`Darwin process inspection ${reason}`, options);
+		this.reason = reason;
+		this.name = "DarwinProcessInspectionError";
+		this.code = reason === "deadline" ? "ETIMEDOUT" : reason === "permission" ? "EPERM" : "EIO";
 	}
-	return false;
+};
+function failure(cause) {
+	if (cause instanceof DarwinProcessInspectionError) return cause;
+	const code = cause && typeof cause === "object" && "code" in cause ? cause.code : void 0;
+	return new DarwinProcessInspectionError(code === "ETIMEDOUT" || code === "ABORT_ERR" || code === "timeout" ? "deadline" : [
+		"EACCES",
+		"EPERM",
+		"ERR_ACCESS_DENIED",
+		"access-denied"
+	].includes(String(code)) ? "permission" : "unavailable", { cause });
 }
-/** Returns true only when the PID is invalid, missing, or a known terminal Linux task. */
-function isPidDefinitelyDead(pid) {
-	if (!isValidPid(pid)) return true;
-	try {
-		process.kill(pid, 0);
-	} catch (err) {
-		return err.code === "ESRCH";
+function remaining(deadline) {
+	const ms = Math.floor(deadline - performance.now());
+	if (ms <= 0) throw new DarwinProcessInspectionError("deadline");
+	return ms;
+}
+const states = {
+	running: "R",
+	sleeping: "S",
+	stopped: "T",
+	zombie: "Z",
+	idle: "I",
+	unknown: "?"
+};
+function hasReadableTopology(row) {
+	if (row.parentPid === void 0 || row.processGroupId === void 0 || row.state === void 0) {
+		if (readProcessIdentity(row.pid) === null) return false;
+		throw new DarwinProcessInspectionError("unavailable");
 	}
-	return isExitedLinuxProcess(pid);
+	return true;
+}
+function topology(row) {
+	return {
+		pid: row.pid,
+		ppid: row.parentPid,
+		pgid: row.processGroupId,
+		state: states[row.state],
+		owner: row.owner
+	};
+}
+function census(deadline, pids) {
+	try {
+		const rows = listProcesses({
+			timeoutMs: remaining(deadline),
+			...pids ? { pids } : {}
+		}).filter(hasReadableTopology);
+		remaining(deadline);
+		return rows;
+	} catch (cause) {
+		remaining(deadline);
+		throw failure(cause);
+	}
+}
+/** Synchronous census for the process-group cleanup worker, without spawning ps. */
+function* readDarwinProcessCensus(timeoutMs) {
+	const deadline = performance.now() + timeoutMs;
+	const rows = census(deadline).map(topology);
+	for (const row of rows) {
+		remaining(deadline);
+		yield row;
+	}
+	remaining(deadline);
 }
 //#endregion
 //#region src/process/supervisor/service-child-group-ownership.ts
@@ -395,11 +672,12 @@ function readLinuxProcessUid(pid) {
 		return;
 	}
 }
-/** The caller supplies native command inspection; the standalone group worker stays dependency-free. */
+/** The caller supplies command inspection; group cleanup only reads native topology. */
 function* readProcessGroupMembers(timeoutMs, commandInspection) {
 	const includeCommand = commandInspection !== void 0;
 	if (process.platform === "linux") {
-		const deadline = Date.now() + timeoutMs;
+		const startedAt = Date.now();
+		const deadline = startedAt + timeoutMs;
 		for (const name of readdirSync("/proc")) {
 			if (Date.now() >= deadline) throw new Error("Process group census exceeded its deadline");
 			if (!/^\d+$/.test(name)) continue;
@@ -425,7 +703,10 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 				throw new Error(`Could not classify PID ${pid}: process command inspection failed (${extractErrorCode(error) ?? "unavailable"}).`, { cause: error });
 			}
 			const match = /^(\d+) \([\s\S]*\) (\S) (\d+) (\d+)(?:\s|$)/.exec(stat);
-			if (!match || Number(match[1]) !== pid || Date.now() >= deadline) throw new Error("Process group census is unavailable");
+			if (!match) throw new Error(`Process group census is unavailable: malformed stat for PID ${pid}`);
+			if (Number(match[1]) !== pid) throw new Error(`Process group census is unavailable: stat PID mismatch for PID ${pid} (stat PID=${Number(match[1])})`);
+			const now = Date.now();
+			if (now >= deadline) throw new Error(`Process group census exceeded its deadline after reading PID ${pid} (elapsed=${now - startedAt}ms, budget=${timeoutMs}ms)`);
 			if (argv?.length === 0) {
 				const flags = Number(stat.slice(stat.lastIndexOf(")") + 2).split(/\s+/)[6]);
 				if (!(Number.isInteger(flags) && (flags & 2097152) !== 0) && !isPidDefinitelyDead(pid)) {
@@ -454,12 +735,29 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 		if (Date.now() >= deadline) throw new Error("Process group census exceeded its deadline");
 		return;
 	}
-	if (includeCommand && process.platform !== "darwin") throw new Error(`Exact process command census is unavailable on ${process.platform}.`);
+	if (process.platform === "darwin") {
+		for (const member of readDarwinProcessCensus(timeoutMs)) {
+			const command = includeCommand ? member.state.startsWith("Z") || member.pid === 0 ? { argv: [] } : commandInspection?.readDarwinCommand(member.pid, member.owner) : void 0;
+			if (includeCommand && !command) continue;
+			yield {
+				pid: member.pid,
+				pgid: member.pgid,
+				state: member.state,
+				...command ? { command: {
+					ppid: member.ppid,
+					owner: member.owner,
+					...command
+				} } : {}
+			};
+		}
+		return;
+	}
+	if (includeCommand) throw new Error(`Exact process command census is unavailable on ${process.platform}.`);
 	const deadline = Date.now() + timeoutMs;
 	const census = spawnSync("/bin/ps", [
 		"-A",
 		"-o",
-		includeCommand ? "pid=,pgid=,stat=,ppid=,uid=" : "pid=,pgid=,stat="
+		"pid=,pgid=,stat="
 	], {
 		encoding: "utf8",
 		timeout: timeoutMs,
@@ -468,39 +766,150 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 	if (census.error || census.status !== 0) throw new Error("Process group census is unavailable");
 	for (const line of census.stdout.split("\n")) {
 		if (!line.trim()) continue;
-		const match = includeCommand ? /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(-?\d+)\s*$/.exec(line) : /^\s*(\d+)\s+(\d+)\s+(\S+)\s*$/.exec(line);
+		const match = /^\s*(\d+)\s+(\d+)\s+(\S+)\s*$/.exec(line);
 		if (!match) throw new Error("Process group census is unavailable");
 		const pid = Number(match[1]);
-		if (pid !== census.pid) {
-			if (includeCommand && Date.now() >= deadline) throw new Error("Process group census exceeded its deadline");
-			const command = includeCommand ? match[3].startsWith("Z") || pid === 0 ? { argv: [] } : commandInspection?.readDarwinCommand(pid, Number(match[5]) >>> 0) : void 0;
-			if (includeCommand && !command) continue;
-			yield {
-				pid,
-				pgid: Number(match[2]),
-				state: match[3],
-				...command ? { command: {
-					ppid: Number(match[4]),
-					...command,
-					uid: Number(match[5]) >>> 0
-				} } : {}
-			};
-		}
+		if (pid !== census.pid) yield {
+			pid,
+			pgid: Number(match[2]),
+			state: match[3]
+		};
 	}
 	if (includeCommand && Date.now() >= deadline) throw new Error("Process group census exceeded its deadline");
 }
-/** Advisory retirement timing only; the host owns kernel group-disappearance proof. */
-function hasLiveOwnedProcessGroupMembers(timeoutMs = 1e3) {
-	let observedOwner = false;
-	try {
-		for (const { pid, pgid, state } of readProcessGroupMembers(Math.max(1, Math.min(1e3, timeoutMs)))) if (pid === process.pid) {
-			if (pgid !== process.pid) return;
-			observedOwner = true;
-		} else if (pgid === process.pid && (!state.startsWith("Z") || process.platform === "linux" && !isPidDefinitelyDead(pid))) return true;
-	} catch {
-		return;
+//#endregion
+//#region src/process/spawn-broker/protocol.ts
+var SpawnBrokerError = class extends Error {
+	constructor(message, options) {
+		super(message, options);
+		this.code = "ERR_SPAWN_BROKER_UNAVAILABLE";
+		this.name = "SpawnBrokerError";
 	}
-	return observedOwner ? false : void 0;
+};
+function serializeBrokerError(error) {
+	return {
+		message: error.message,
+		code: error.code,
+		errno: error.errno,
+		syscall: error.syscall,
+		path: error.path
+	};
+}
+//#endregion
+//#region src/process/spawn-broker/cleanup.ts
+function groupGone(pid) {
+	try {
+		process.kill(-pid, 0);
+		return false;
+	} catch (error) {
+		return extractErrorCode(error) === "ESRCH";
+	}
+}
+/** Once the original group is absent or its leader identity changes, never signal its number again. */
+function isBrokerChildGroupAlive(identity) {
+	if (groupGone(identity.pid)) return false;
+	const current = getProcessInstanceStartTime(identity.pid);
+	if (identity.isLeaderAlive) {
+		if (identity.isLeaderAlive()) return identity.startedAt === null || current === null || current === identity.startedAt;
+		if (!isPidDefinitelyDead(identity.pid)) return false;
+		return identity.startedAt === null || current === null || current === identity.startedAt;
+	}
+	if (identity.startedAt === null || current === null && !isPidDefinitelyDead(identity.pid)) throw new SpawnBrokerError(`Spawn broker group leader identity is unavailable for pid=${identity.pid}`);
+	return current === null || current === identity.startedAt;
+}
+function terminateRetainedBrokerChildGroup(identity) {
+	let retired = false;
+	let forced = false;
+	const signal = (value) => {
+		if (retired) return;
+		if (!isBrokerChildGroupAlive(identity)) {
+			retired = true;
+			return;
+		}
+		try {
+			process.kill(-identity.pid, value);
+		} catch (error) {
+			if (extractErrorCode(error) !== "ESRCH") throw error;
+			retired = true;
+		}
+	};
+	const force = () => {
+		if (retired || forced) return;
+		forced = true;
+		signal("SIGKILL");
+	};
+	return {
+		force,
+		settled: (async () => {
+			const graceEndsAt = performance.now() + GRACEFUL_CANCEL_TIMEOUT_MS;
+			const deadline = graceEndsAt + 2e3;
+			try {
+				signal("SIGTERM");
+				for (;;) {
+					if (retired || !isBrokerChildGroupAlive(identity)) break;
+					if (performance.now() >= graceEndsAt) force();
+					if (performance.now() >= deadline) throw new SpawnBrokerError(`Spawn broker child cleanup could not be confirmed for pid=${identity.pid}`);
+					await setTimeout$1(50);
+				}
+			} finally {
+				retired = true;
+			}
+		})()
+	};
+}
+/** Preserve a lost broker's tree cleanup across host restart and process exit. */
+function terminateLostBrokerChild(pid, detached, groupIdentity) {
+	if (detached && groupIdentity) {
+		if (groupIdentity.pid !== pid) throw new SpawnBrokerError("Spawn broker cleanup identity changed");
+		return terminateRetainedBrokerChildGroup(groupIdentity);
+	}
+	const termination = killProcessTree(pid, {
+		detached,
+		graceMs: GRACEFUL_CANCEL_TIMEOUT_MS
+	});
+	const deadline = performance.now() + GRACEFUL_CANCEL_TIMEOUT_MS + 2e3;
+	return {
+		force: () => termination?.force(),
+		settled: (async () => {
+			for (;;) {
+				if (isPidDefinitelyDead(pid) && (!detached || groupGone(pid)) && (termination?.exited() ?? true)) break;
+				if (performance.now() >= deadline) throw new SpawnBrokerError(`Spawn broker child cleanup could not be confirmed for pid=${pid}`);
+				await setTimeout$1(50);
+			}
+		})()
+	};
+}
+/** Drain abandoned members without killing the broker while its isolate is closing. */
+async function drainCurrentBrokerProcessGroup() {
+	if (process.platform === "win32") return;
+	const deadline = performance.now() + GRACEFUL_CANCEL_TIMEOUT_MS;
+	const signaled = /* @__PURE__ */ new Map();
+	for (;;) {
+		const members = [...readProcessGroupMembers(1e3)];
+		if (!members.some((member) => member.pid === process.pid && member.pgid === process.pid)) throw new SpawnBrokerError("Spawn broker lost its private process group");
+		const pending = members.filter((member) => member.pid !== process.pid && member.pgid === process.pid && !isPidDefinitelyDead(member.pid));
+		if (!pending.length) return;
+		const signal = performance.now() < deadline ? "SIGTERM" : "SIGKILL";
+		const identities = new Map(pending.map((member) => [member.pid, getProcessInstanceStartTime(member.pid)]));
+		for (const member of readProcessGroupMembers(1e3)) {
+			if (member.pid === process.pid || member.pgid !== process.pid || !identities.has(member.pid)) continue;
+			const identity = identities.get(member.pid);
+			if (identity === null) {
+				if (!isPidDefinitelyDead(member.pid)) throw new SpawnBrokerError(`Spawn broker cannot identify remaining group member pid=${member.pid}`);
+				continue;
+			}
+			if (getProcessInstanceStartTime(member.pid) !== identity) continue;
+			const key = `${member.pid}:${identity}`;
+			if (signaled.get(key) === signal) continue;
+			try {
+				process.kill(member.pid, signal);
+			} catch (error) {
+				if (extractErrorCode(error) !== "ESRCH") throw error;
+			}
+			signaled.set(key, signal);
+		}
+		await setTimeout$1(50);
+	}
 }
 //#endregion
 //#region src/process/spawn-broker/execa-message.ts
@@ -622,24 +1031,6 @@ async function createExecaOutput() {
 	}
 }
 //#endregion
-//#region src/process/spawn-broker/protocol.ts
-var SpawnBrokerError = class extends Error {
-	constructor(message, options) {
-		super(message, options);
-		this.code = "ERR_SPAWN_BROKER_UNAVAILABLE";
-		this.name = "SpawnBrokerError";
-	}
-};
-function serializeBrokerError(error) {
-	return {
-		message: error.message,
-		code: error.code,
-		errno: error.errno,
-		syscall: error.syscall,
-		path: error.path
-	};
-}
-//#endregion
 //#region src/process/spawn-broker/pipe.ts
 const readers = /* @__PURE__ */ new WeakMap();
 const holdReadable = () => {};
@@ -732,6 +1123,7 @@ async function startBrokerExeca(argv, options, assertCurrent) {
 			throw await adoptAbandonedSpawnError(error);
 		}
 		const child = subprocess.nodeChildProcess;
+		const groupStartedAt = child.pid && process.platform !== "win32" && (options.detached === true || options.killDescendants === true) ? getProcessInstanceStartTime(child.pid) : void 0;
 		const stdio = [
 			0,
 			1,
@@ -765,6 +1157,7 @@ async function startBrokerExeca(argv, options, assertCurrent) {
 			child,
 			stdio,
 			result,
+			groupStartedAt,
 			cancel() {
 				clearDeadline();
 				controller.abort();
@@ -795,12 +1188,6 @@ async function startBrokerExeca(argv, options, assertCurrent) {
 		throw error;
 	}
 }
-function isDescriptorSpawnError(error) {
-	if (!(error instanceof Error)) return false;
-	const syscall = "syscall" in error ? error.syscall : void 0;
-	const code = "code" in error ? error.code : void 0;
-	return typeof syscall === "string" && syscall.startsWith("spawn") && (code === "EMFILE" || code === "ENFILE");
-}
 async function adoptAbandonedSpawnError(thrown) {
 	if (!(thrown instanceof TypeError)) return thrown;
 	return await new Promise((resolve) => {
@@ -810,9 +1197,13 @@ async function adoptAbandonedSpawnError(thrown) {
 			resolve(error);
 		};
 		const onUncaught = (error) => {
-			if (isDescriptorSpawnError(error)) {
-				settle(error);
-				return;
+			if (error instanceof Error) {
+				const syscall = "syscall" in error ? error.syscall : void 0;
+				const code = "code" in error ? error.code : void 0;
+				if (typeof syscall === "string" && syscall.startsWith("spawn") && (code === "EMFILE" || code === "ENFILE")) {
+					settle(error);
+					return;
+				}
 			}
 			settle(thrown);
 			process.nextTick(() => {
@@ -865,9 +1256,11 @@ function createBrokerSender(send) {
 	let messages = 0;
 	let sequence = 0;
 	let previous = Promise.resolve();
-	const write = (message, handle) => new Promise((resolve, reject) => {
+	const write = (message, handle, initiateSpawn) => new Promise((resolve, reject) => {
 		try {
-			send(message, handle, (error) => error ? reject(error) : resolve());
+			const launch = () => send(message, handle, (error) => error ? reject(error) : resolve());
+			if (initiateSpawn) initiateSpawn(launch);
+			else launch();
 		} catch (error) {
 			reject(toErrorObject(error, "Spawn broker IPC write failed"));
 		}
@@ -883,14 +1276,14 @@ function createBrokerSender(send) {
 			messages -= 1;
 		});
 	};
-	const sender = (message, handle) => {
+	const sender = (message, handle, initiateSpawn) => {
 		const payload = serialize(message);
 		const size = payload.byteLength;
 		if (size > FRAME_BYTES && handle) return Promise.reject(new SpawnBrokerError("Spawn broker handle metadata exceeds one IPC frame"));
 		const id = ++sequence;
 		const operation = async () => {
 			if (size <= FRAME_BYTES) {
-				await write(message, handle);
+				await write(message, handle, initiateSpawn);
 				return;
 			}
 			for (let offset = 0; offset < size; offset += FRAME_BYTES) {
@@ -901,65 +1294,50 @@ function createBrokerSender(send) {
 					offset,
 					bytes: payload.subarray(offset, offset + FRAME_BYTES)
 				};
-				await write(frame);
+				await write(frame, void 0, offset + FRAME_BYTES >= size ? initiateSpawn : void 0);
 			}
 		};
 		return enqueue(size, operation);
 	};
 	return Object.assign(sender, { reserve(run) {
-		return enqueue(FRAME_BYTES, async () => {
-			let active = true;
-			let publication;
-			const publish = (message) => {
-				if (!active || publication) return Promise.reject(new SpawnBrokerError("Spawn broker publication reservation is closed"));
-				publication = (async () => {
-					if (serialize(message).byteLength > FRAME_BYTES) throw new SpawnBrokerError("Spawn broker reserved publication exceeds one IPC frame");
-					await write(message);
-				})();
-				publication.catch(() => {});
-				return publication;
-			};
-			try {
-				return await run(publish);
-			} finally {
-				active = false;
-				await publication;
-			}
-		});
+		return enqueue(FRAME_BYTES, () => run(async (message) => {
+			if (serialize(message).byteLength > FRAME_BYTES) throw new SpawnBrokerError("Spawn broker reserved publication exceeds one IPC frame");
+			await write(message);
+		}));
 	} });
 }
 /** Only the version-matched private peer can supply frames on this channel. */
 function createBrokerReceiver() {
-	const pending = /* @__PURE__ */ new Map();
-	let reserved = 0;
+	let pending;
+	const clear = () => {
+		pending = void 0;
+	};
 	return {
 		receive(message) {
-			if (!message || typeof message !== "object" || !("kind" in message) || message.kind !== FRAME_KIND) return message;
+			if (!message || typeof message !== "object" || !("kind" in message) || message.kind !== FRAME_KIND) {
+				clear();
+				return message;
+			}
 			const frame = message;
 			if (!Number.isSafeInteger(frame.id) || !Number.isSafeInteger(frame.total) || frame.total <= FRAME_BYTES || frame.total > 268435456 || !Number.isSafeInteger(frame.offset) || !Buffer.isBuffer(frame.bytes) || frame.bytes.length === 0 || frame.bytes.length > FRAME_BYTES) throw new SpawnBrokerError("Invalid spawn broker IPC frame");
-			let assembly = pending.get(frame.id);
+			let assembly = pending?.id === frame.id ? pending : void 0;
 			if (!assembly) {
-				if (frame.offset !== 0 || pending.size >= 1024 || reserved + frame.total > 268435456) throw new SpawnBrokerError("Spawn broker receive capacity exceeded");
-				assembly = {
+				if (frame.offset !== 0) throw new SpawnBrokerError("Spawn broker receive capacity exceeded");
+				pending = assembly = {
+					id: frame.id,
 					total: frame.total,
 					received: 0,
 					chunks: []
 				};
-				pending.set(frame.id, assembly);
-				reserved += frame.total;
 			}
 			if (assembly.total !== frame.total || assembly.received !== frame.offset || assembly.received + frame.bytes.length > assembly.total) throw new SpawnBrokerError("Out-of-order spawn broker IPC frame");
 			assembly.chunks.push(frame.bytes);
 			assembly.received += frame.bytes.length;
 			if (assembly.received < assembly.total) return;
-			pending.delete(frame.id);
-			reserved -= assembly.total;
+			clear();
 			return deserialize(Buffer.concat(assembly.chunks, assembly.total));
 		},
-		clear() {
-			pending.clear();
-			reserved = 0;
-		}
+		clear
 	};
 }
 //#endregion
@@ -985,7 +1363,7 @@ function encodeNativeWorkerFailure(value) {
 		if (prior) return prior;
 		const node = {
 			kind: "error",
-			constructorName: current instanceof AggregateError ? "AggregateError" : [...errorConstructors].find(([, Constructor]) => current instanceof Constructor)?.[0] ?? "Error",
+			constructorName: current instanceof AggregateError ? "AggregateError" : current instanceof SuppressedError ? "SuppressedError" : [...errorConstructors].find(([, Constructor]) => current instanceof Constructor)?.[0] ?? "Error",
 			name: current.name,
 			message: current.message,
 			stack: current.stack
@@ -1000,6 +1378,10 @@ function encodeNativeWorkerFailure(value) {
 		if (Object.hasOwn(current, "cause")) node.cause = encode(current.cause);
 		const errors = Object.getOwnPropertyDescriptor(current, "errors")?.value;
 		if (Array.isArray(errors)) node.errors = errors.map(encode);
+		if (current instanceof SuppressedError || current.name === "SuppressedError") for (const key of ["error", "suppressed"]) {
+			const field = Object.getOwnPropertyDescriptor(current, key);
+			if (field && "value" in field) node[key] = encode(field.value);
+		}
 		return node;
 	};
 	return encode(value);
@@ -1030,6 +1412,7 @@ var BrokerResourcePort = class extends EventEmitter {
 //#endregion
 //#region src/process/spawn-broker/resource-protocol.ts
 const SPAWN_BROKER_STARTUP_TIMEOUT_MS = 15e3;
+process.hrtime.bigint.bind(process.hrtime);
 //#endregion
 //#region src/process/spawn-broker/resource-socket.ts
 /** Byte transport only: socket closure says nothing about a resource's native lifetime. */
@@ -1132,6 +1515,7 @@ async function createBrokerNativeResourceServer(options) {
 	const connections = /* @__PURE__ */ new Set();
 	let available = true;
 	let sourceSealed = false;
+	let closePromise;
 	let ownerBufferedBytes = 0;
 	let ownerBufferedMessages = 0;
 	const live = () => available && process.connected;
@@ -1187,6 +1571,20 @@ async function createBrokerNativeResourceServer(options) {
 		}
 		publish(resource, reply);
 	};
+	const closeOwner = (resource) => {
+		if (resource.closed) return Promise.resolve();
+		if (resource.nativeClose) return resource.nativeClose;
+		const closing = Promise.resolve().then(async () => {
+			await resource.owner?.close();
+			resource.closed = true;
+			seal(resource, [resource.target, resource.ownerPort]);
+		});
+		resource.nativeClose = closing;
+		closing.catch(() => {
+			if (available) resource.nativeClose = void 0;
+		});
+		return closing;
+	};
 	const closeResource = async (resource, requestId) => {
 		if (resource.closed) {
 			publish(resource, {
@@ -1196,65 +1594,32 @@ async function createBrokerNativeResourceServer(options) {
 			});
 			return;
 		}
-		const origin = requestId > 0 ? "worker" : "parent";
-		if (resource.closing) {
-			const existing = resource.closeObservers[origin];
-			if (existing !== void 0 && existing !== requestId) closeError(resource, requestId, /* @__PURE__ */ new Error("Native resource close observer capacity exceeded"));
-			else resource.closeObservers[origin] = requestId;
-			return;
-		}
-		resource.closeObservers[origin] = requestId;
-		resource.closing = true;
-		let outcome;
 		try {
-			await new Promise((resolve) => {
-				if (sourceSealed) {
-					resolve();
-					return;
-				}
-				resource.finishInitializationWait = resolve;
-				resource.initialized.then(resolve);
-			});
-			resource.finishInitializationWait = void 0;
-			if (!live()) return;
-			if (!resource.closed) {
-				await resource.owner?.close();
-				resource.closed = true;
-				seal(resource, [resource.target, resource.ownerPort]);
-			}
-			outcome = { ok: true };
-		} catch (error) {
-			outcome = {
-				ok: false,
-				error
-			};
-		} finally {
-			const observers = resource.closeObservers;
-			resource.closeObservers = {};
-			resource.finishInitializationWait = void 0;
-			resource.closing = false;
-			if (live() && outcome) for (const observer of [observers.worker, observers.parent]) {
-				if (observer === void 0) continue;
-				if (outcome.ok) publish(resource, {
-					type: "resource-closed",
-					id: resource.attachment.id,
-					requestId: observer
+			await (resource.closing ??= (async () => {
+				await new Promise((resolve) => {
+					if (sourceSealed) {
+						resolve();
+						return;
+					}
+					resource.finishInitializationWait = resolve;
+					resource.initialized.then(resolve);
 				});
-				else closeError(resource, observer, outcome.error);
-			}
+				if (live()) await closeOwner(resource);
+			})().finally(() => {
+				resource.closing = void 0;
+				resource.finishInitializationWait = void 0;
+			}));
+			if (live()) publish(resource, {
+				type: "resource-closed",
+				id: resource.attachment.id,
+				requestId
+			});
+		} catch (error) {
+			if (live()) closeError(resource, requestId, error);
 		}
 	};
 	const receiveOwner = (resource, request) => {
-		const acknowledge = (sequence) => publish(resource, resource.ownerFailures.get(sequence)?.response ?? {
-			type: "resource-owner-received",
-			id: resource.attachment.id,
-			sequence
-		});
-		if (!Number.isSafeInteger(request.sequence) || request.sequence <= 0) throw new Error("Invalid native resource owner sequence");
-		if (request.sequence <= resource.ownerSequence) {
-			acknowledge(request.sequence);
-			return;
-		}
+		if (request.sequence <= resource.ownerSequence) return;
 		if (!resource.ownerPort || resource.closed || !resource.created) throw new Error("Native resource owner port is unavailable");
 		const ownerPort = resource.ownerPort;
 		const apply = (sequence, value) => {
@@ -1263,27 +1628,24 @@ async function createBrokerNativeResourceServer(options) {
 				ownerPort.receive(value);
 			} catch (error) {
 				try {
-					const response = {
+					publish(resource, {
 						type: "resource-owner-rejected",
 						id: resource.attachment.id,
 						sequence,
 						error: encodeNativeWorkerFailure(error)
-					};
-					const size = serialize(response).length;
-					if (ownerBufferedBytes + size > 268435456 || ownerBufferedMessages >= 1024) throw new Error("Native resource owner receipt capacity exceeded", { cause: error });
-					resource.ownerFailures.set(sequence, {
-						response,
-						size
 					});
-					ownerBufferedBytes += size;
-					ownerBufferedMessages++;
+					return true;
 				} catch (receiptError) {
 					failed(resource, receiptError);
 					disconnect();
 					return false;
 				}
 			}
-			acknowledge(sequence);
+			publish(resource, {
+				type: "resource-owner-received",
+				id: resource.attachment.id,
+				sequence
+			});
 			return true;
 		};
 		if (request.sequence !== resource.ownerSequence + 1) {
@@ -1313,14 +1675,6 @@ async function createBrokerNativeResourceServer(options) {
 		if (request.type === "resource-seal") {
 			sourceSealed = true;
 			for (const resource of resources.values()) resource.finishInitializationWait?.();
-			return;
-		}
-		if (request.type === "resource-close" && (!Number.isSafeInteger(request.requestId) || request.requestId === 0)) {
-			publishParent({
-				type: "resource-failed",
-				id: request.id,
-				error: encodeNativeWorkerFailure(/* @__PURE__ */ new Error("Invalid native resource close request ID"))
-			});
 			return;
 		}
 		const resource = resources.get(request.id);
@@ -1357,11 +1711,6 @@ async function createBrokerNativeResourceServer(options) {
 				ownerBufferedMessages--;
 			}
 			resource.ownerMessages.clear();
-			for (const outcome of resource.ownerFailures.values()) {
-				ownerBufferedBytes -= outcome.size;
-				ownerBufferedMessages--;
-			}
-			resource.ownerFailures.clear();
 			resource.socket?.close();
 		} else if (!resource.created || resource.closed || (resource.closing || sourceSealed) && request.type === "resource-target") failed(resource, /* @__PURE__ */ new Error("Native resource is not accepting messages"));
 		else try {
@@ -1402,55 +1751,46 @@ async function createBrokerNativeResourceServer(options) {
 					transport.close();
 					return;
 				}
-				let resource = resources.get(attachment.id);
-				const fresh = resource === void 0;
-				if (resource) {
-					if (resource.socket || resource.attachment.moduleUrl !== attachment.moduleUrl || resource.attachment.ownerPort !== attachment.ownerPort || !isDeepStrictEqual(resource.attachment.input, attachment.input)) {
-						transport.close();
-						return;
-					}
-				} else {
-					if (!options.canAdmit()) {
-						transport.send({
-							type: "resource-failed",
+				if (resources.has(attachment.id)) {
+					transport.close();
+					return;
+				}
+				if (!options.canAdmit()) {
+					transport.send({
+						type: "resource-failed",
+						id: attachment.id,
+						error: encodeNativeWorkerFailure(/* @__PURE__ */ new Error("Spawn broker request capacity exceeded"))
+					}).finally(() => transport.close()).catch(() => {});
+					return;
+				}
+				const current = {
+					attachment,
+					target: new BrokerResourcePort((message) => {
+						publishSocket(current, {
+							type: "resource-target",
 							id: attachment.id,
-							error: encodeNativeWorkerFailure(/* @__PURE__ */ new Error("Spawn broker request capacity exceeded"))
-						}).finally(() => transport.close()).catch(() => {});
-						return;
-					}
-					const current = {
-						attachment,
-						target: new BrokerResourcePort((message) => {
-							publishSocket(current, {
-								type: "resource-target",
-								id: attachment.id,
-								value: message
-							});
-						}),
-						initialized: Promise.resolve(),
-						created: false,
-						targetSealed: false,
-						closing: false,
-						closeObservers: {},
-						closed: false,
-						sequence: 0,
-						ownerSequence: 0,
-						ownerMessages: /* @__PURE__ */ new Map(),
-						ownerFailures: /* @__PURE__ */ new Map()
-					};
-					if (attachment.ownerPort) current.ownerPort = new BrokerResourcePort((message) => {
-						publish(current, {
-							type: "resource-owner",
-							id: attachment.id,
-							sequence: ++current.sequence,
 							value: message
 						});
+					}),
+					initialized: Promise.resolve(),
+					created: false,
+					targetSealed: false,
+					closed: false,
+					sequence: 0,
+					ownerSequence: 0,
+					ownerMessages: /* @__PURE__ */ new Map()
+				};
+				if (attachment.ownerPort) current.ownerPort = new BrokerResourcePort((message) => {
+					publish(current, {
+						type: "resource-owner",
+						id: attachment.id,
+						sequence: ++current.sequence,
+						value: message
 					});
-					resource = current;
-					resources.set(attachment.id, current);
-				}
-				attached = resource;
-				resource.socket = transport;
+				});
+				resources.set(attachment.id, current);
+				attached = current;
+				current.socket = transport;
 				socket.setTimeout(0);
 				const ready = {
 					type: "resource-ready",
@@ -1460,38 +1800,20 @@ async function createBrokerNativeResourceServer(options) {
 				};
 				const readySent = transport.send(ready);
 				publishParent(ready);
-				if (resource.created) readySent.then(() => transport.send({
-					type: "resource-created",
-					id: attachment.id
-				})).catch(() => transport.close());
-				else if (fresh) {
-					const current = resource;
-					current.initialized = (async () => {
-						await readySent;
-						if (!live() || sourceSealed) return;
-						const module = await import(attachment.moduleUrl);
-						if (!live() || sourceSealed) return;
-						current.owner = module.createNativeWorkerResource(current.target, attachment.input, current.ownerPort);
-						current.created = true;
-						publish(current, {
-							type: "resource-created",
-							id: attachment.id
-						});
-					})().catch((error) => {
-						current.initializationFailure = encodeNativeWorkerFailure(error);
-						failed(current, error);
+				current.initialized = (async () => {
+					await readySent;
+					if (!live() || sourceSealed) return;
+					const module = await import(attachment.moduleUrl);
+					if (!live() || sourceSealed) return;
+					current.owner = module.createNativeWorkerResource(current.target, attachment.input, current.ownerPort);
+					current.created = true;
+					publish(current, {
+						type: "resource-created",
+						id: attachment.id
 					});
-				} else {
-					const current = resource;
-					readySent.then(async () => {
-						await current.initialized;
-						if (current.initializationFailure) await transport.send({
-							type: "resource-failed",
-							id: attachment.id,
-							error: current.initializationFailure
-						});
-					}).catch(() => transport.close());
-				}
+				})().catch((error) => {
+					failed(current, error);
+				});
 			},
 			close() {
 				connections.delete(transport);
@@ -1507,12 +1829,37 @@ async function createBrokerNativeResourceServer(options) {
 		if (!live()) transport.close();
 	});
 	server.maxConnections = 256;
+	const serverClosed = new Promise((resolve) => {
+		server.once("close", resolve);
+	});
 	function disconnect() {
 		if (!available) return;
 		available = false;
+		sourceSealed = true;
 		server.close();
 		for (const connection of connections) connection.close();
-		for (const resource of resources.values()) seal(resource, [resource.target, resource.ownerPort]);
+		for (const resource of resources.values()) {
+			resource.finishInitializationWait?.();
+			seal(resource, [resource.target, resource.ownerPort]);
+		}
+		close().catch(() => {
+			process.exitCode = 1;
+			process.stderr.write("Spawn broker native resource cleanup failed.\n");
+		});
+	}
+	function close() {
+		closePromise ??= Promise.resolve().then(async () => {
+			const outcomes = await Promise.allSettled([...resources.values()].map(async (resource) => {
+				await resource.initialized;
+				await closeOwner(resource);
+			}));
+			await serverClosed;
+			const errors = outcomes.flatMap((outcome) => outcome.status === "rejected" ? [outcome.reason] : []);
+			if (errors.length) throw new AggregateError(errors, "Spawn broker native resource cleanup failed");
+			resources.clear();
+		});
+		disconnect();
+		return closePromise;
 	}
 	await new Promise((resolve, reject) => {
 		server.once("error", reject);
@@ -1525,6 +1872,7 @@ async function createBrokerNativeResourceServer(options) {
 	return {
 		receive,
 		disconnect,
+		close,
 		get size() {
 			return resources.size;
 		}
@@ -1601,8 +1949,12 @@ const owned = /* @__PURE__ */ new Map();
 const receiver = createBrokerReceiver();
 let stopping = false;
 const starting = /* @__PURE__ */ new Map();
+const launchGrants = /* @__PURE__ */ new Map();
 let resources;
 let startup = "waiting";
+let initialization = Promise.resolve();
+const launches = /* @__PURE__ */ new Set();
+const fileReads = /* @__PURE__ */ new Map();
 const sender = createWorkerSender((message, handle, callback) => {
 	if (!process.send || !process.connected) {
 		callback(/* @__PURE__ */ new Error("Spawn broker parent disconnected"));
@@ -1617,48 +1969,113 @@ function report(message, handle) {
 	});
 }
 function forget(id, entry) {
-	if (entry.announced && entry.exited && entry.resultSettled && entry.openPipes.size === 0) owned.delete(id);
+	if (entry.announced && entry.exited && entry.resultSettled && entry.openPipes.size === 0) {
+		if (entry.groupIdentity && !entry.groupGone) {
+			const identity = entry.groupIdentity;
+			entry.groupObservation ??= (async () => {
+				for (;;) {
+					if (stopping) return;
+					if (!isBrokerChildGroupAlive(identity)) {
+						entry.groupGone = true;
+						owned.delete(id);
+						return;
+					}
+					await setTimeout$1(50, void 0, { ref: false });
+				}
+			})();
+			entry.groupObservation.catch(() => {});
+			return;
+		}
+		owned.delete(id);
+	}
+}
+function stopChild(entry) {
+	return entry.stopping ??= (async () => {
+		const { child, execa } = entry;
+		if (child.connected) child.disconnect();
+		const directChildAlive = child.exitCode === null && child.signalCode === null;
+		const groupAlive = !entry.groupGone && (entry.groupIdentity ? isBrokerChildGroupAlive(entry.groupIdentity) : directChildAlive);
+		const termination = child.pid && groupAlive ? terminateLostBrokerChild(child.pid, entry.detached, entry.groupIdentity) : void 0;
+		termination?.settled.catch(() => {});
+		if (groupAlive && directChildAlive) execa?.cancel();
+		for (const fd of entry.openPipes) execa?.outputDrained(fd, /* @__PURE__ */ new Error("Spawn broker is stopping"));
+		entry.openPipes.clear();
+		for (const stream of execa?.stdio ?? child.stdio ?? []) stream?.destroy();
+		await Promise.allSettled([entry.closed, execa?.result]);
+		await termination?.settled;
+		entry.groupGone = true;
+	})();
 }
 function shutdown() {
 	if (stopping) return;
 	stopping = true;
+	for (const grant of launchGrants.values()) grant.resolve(false);
 	resources?.disconnect();
 	sender.close(/* @__PURE__ */ new Error("Spawn broker parent disconnected"));
 	receiver.clear();
-	const terminations = [];
-	for (const entry of owned.values()) {
-		if (entry.child.connected) entry.child.disconnect();
-		if (entry.child.pid) terminations.push(killProcessTree(entry.child.pid, {
-			detached: entry.detached,
-			graceMs: GRACEFUL_CANCEL_TIMEOUT_MS
-		}));
-	}
-	const signalGroup = (signal) => {
+	const childStops = [...owned.values()].map(stopChild);
+	for (const stopped of childStops) stopped.catch(() => {});
+	(async () => {
 		try {
-			process.kill(-process.pid, signal);
-		} catch {}
-	};
-	const finish = () => {
-		for (const termination of terminations) termination?.force();
-		signalGroup("SIGKILL");
-		process.exit(0);
-	};
-	signalGroup("SIGTERM");
-	if (owned.size === 0 && starting.size === 0 && !resources?.size && hasLiveOwnedProcessGroupMembers() === false) {
-		finish();
-		return;
-	}
-	setTimeout(finish, 5250);
+			await initialization.catch(() => void 0);
+			await Promise.allSettled(launches);
+			const failures = (await Promise.allSettled([
+				...childStops,
+				...[...owned.values()].map(stopChild),
+				resources?.close()
+			])).flatMap((outcome) => outcome.status === "rejected" ? [outcome.reason] : []);
+			if (failures.length) throw new AggregateError(failures, "Spawn broker native cleanup failed");
+			await drainCurrentBrokerProcessGroup();
+		} catch (error) {
+			process.exitCode = 1;
+			process.stderr.write("Spawn broker cleanup failed: " + String(error) + "\n");
+		} finally {
+			process.stdin.destroy();
+			if (process.connected) process.disconnect?.();
+		}
+	})();
 }
 function disposeFailedChild(child) {
 	if (!child) return;
 	child.once("error", () => {});
-	if (child.pid) child.kill("SIGKILL");
+	if (child.pid && child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
 	if (child.connected) child.disconnect();
 	for (const stream of child.stdio ?? []) stream?.destroy();
 }
+async function readFile(message) {
+	const pending = { canceled: false };
+	try {
+		if (resources || owned.size + starting.size + fileReads.size >= 256) throw new SpawnBrokerError("Spawn broker cannot admit a raw file read");
+		fileReads.set(message.id, pending);
+		const { buffer } = await readRegularFile({ filePath: message.filePath });
+		for (let offset = 0; offset < buffer.length; offset += 524288) {
+			if (stopping || pending.canceled) return;
+			await report({
+				type: "file-read-chunk",
+				id: message.id,
+				bytes: buffer.subarray(offset, offset + 524288)
+			});
+		}
+		if (!stopping && !pending.canceled) await report({
+			type: "file-read-result",
+			id: message.id
+		});
+	} catch (error) {
+		if (!stopping && !pending.canceled) {
+			const failure = toErrorObject(error, "File read failed");
+			await report({
+				type: "file-read-result",
+				id: message.id,
+				error: failure,
+				code: serializeBrokerError(failure).code
+			});
+		}
+	} finally {
+		fileReads.delete(message.id);
+	}
+}
 async function launch(message) {
-	if (stopping || owned.size + starting.size + (resources?.size ?? 0) >= 256) {
+	if (stopping || owned.size + starting.size + fileReads.size + (resources?.size ?? 0) >= 256) {
 		const error = new SpawnBrokerError("Spawn broker request capacity exceeded");
 		await report({
 			type: "execa-result",
@@ -1690,21 +2107,42 @@ async function launch(message) {
 	const pending = {};
 	starting.set(message.id, pending);
 	let spawnedChild;
+	let spawnedClose;
+	let spawnedGroupIdentity;
+	const detached = message.options.detached === true || message.type === "spawn-execa" && message.options.killDescendants === true;
 	const assertActive = () => {
-		if (stopping || !process.connected) throw new Error("Spawn broker is stopping");
+		if (stopping || !process.connected || message.type === "prepare-spawn" && (pending.canceled || pending.signal)) throw new Error("Spawn broker is stopping");
 	};
 	try {
 		const admission = await sender.reserve(async (publish) => {
 			assertActive();
+			if (message.type === "prepare-spawn") {
+				const grant = createDeferredCore();
+				launchGrants.set(message.id, grant);
+				try {
+					await publish({
+						type: "prepared",
+						id: message.id
+					});
+					if (!await grant.promise) throw new Error("Spawn broker launch authority refused");
+					assertActive();
+				} finally {
+					launchGrants.delete(message.id);
+				}
+			}
 			const execa = message.type === "spawn-execa" ? await startBrokerExeca(message.argv, message.options, assertActive) : void 0;
-			const child = execa?.child ?? (message.type === "spawn" ? spawnWithInheritedOomScore(message.argv[0], message.argv.slice(1), message.options) : void 0);
+			const child = execa?.child ?? (message.type !== "spawn-execa" ? spawnWithInheritedOomScore(message.argv[0], message.argv.slice(1), message.options) : void 0);
 			spawnedChild = child;
 			if (!child) throw new Error("Spawn broker command did not start");
+			spawnedClose = waitForBrokerChildCompletion(child);
+			if (detached && child.pid && process.platform !== "win32") spawnedGroupIdentity = {
+				pid: child.pid,
+				startedAt: execa ? execa.groupStartedAt ?? null : getProcessInstanceStartTime(child.pid),
+				isLeaderAlive: () => child.exitCode === null && child.signalCode === null
+			};
 			if (!execa) {
 				if (child.stdio === void 0) {
-					const closed = new Promise((resolve) => {
-						child.once("close", () => resolve());
-					});
+					const closed = spawnedClose;
 					const error = await new Promise((resolve) => {
 						child.once("error", resolve);
 					});
@@ -1723,12 +2161,14 @@ async function launch(message) {
 			}
 			const current = {
 				child,
-				detached: message.options.detached === true || message.type === "spawn-execa" && message.options.killDescendants === true,
+				detached,
+				...spawnedGroupIdentity ? { groupIdentity: spawnedGroupIdentity } : {},
 				execa,
 				announced: false,
 				events: [],
 				exited: false,
 				resultSettled: !execa,
+				closed: spawnedClose,
 				openPipes: new Set((execa?.stdio ?? child.stdio).flatMap((stream, fd) => stream instanceof Socket ? [fd] : []))
 			};
 			owned.set(message.id, current);
@@ -1762,7 +2202,7 @@ async function launch(message) {
 				code,
 				signal
 			}));
-			child.once("close", () => {
+			spawnedClose.then(() => {
 				event({
 					type: "closed",
 					id: message.id
@@ -1823,11 +2263,7 @@ async function launch(message) {
 		const current = admission.entry;
 		const { child, execa } = current;
 		if (stopping) {
-			if (child.connected) child.disconnect();
-			if (child.pid) killProcessTree(child.pid, {
-				detached: current.detached,
-				graceMs: GRACEFUL_CANCEL_TIMEOUT_MS
-			});
+			await stopChild(current);
 			return;
 		}
 		const streams = execa?.stdio ?? child.stdio;
@@ -1865,7 +2301,15 @@ async function launch(message) {
 		current.announced = true;
 		forget(message.id, current);
 	} catch (error) {
-		disposeFailedChild(spawnedChild);
+		const current = owned.get(message.id);
+		if (current) await stopChild(current);
+		else {
+			const termination = spawnedGroupIdentity ? terminateLostBrokerChild(spawnedGroupIdentity.pid, true, spawnedGroupIdentity) : void 0;
+			termination?.settled.catch(() => {});
+			disposeFailedChild(spawnedChild);
+			await spawnedClose;
+			await termination?.settled;
+		}
 		owned.delete(message.id);
 		if (!stopping) await report({
 			type: "error",
@@ -1884,9 +2328,14 @@ const onSupervisorSignal = () => {
 process.on("SIGTERM", onSupervisorSignal);
 process.on("SIGINT", onSupervisorSignal);
 process.on("message", (raw, handle) => {
+	if (stopping) {
+		if (handle instanceof Socket) handle.destroy();
+		return;
+	}
 	if (startup === "waiting") {
 		startup = "initializing";
-		initialize(raw).catch(shutdown);
+		initialization = initialize(raw);
+		initialization.catch(shutdown);
 		return;
 	}
 	if (startup !== "ready") {
@@ -1906,12 +2355,29 @@ process.on("message", (raw, handle) => {
 		shutdown();
 		return;
 	}
+	if (message.type === "launch") {
+		launchGrants.get(message.id)?.resolve(message.allowed);
+		return;
+	}
 	if (message.type === "pipe-received") {
 		sender.acknowledge(message.id, message.fd);
 		return;
 	}
-	if (message.type === "spawn" || message.type === "spawn-execa") {
-		launch(message).catch(shutdown);
+	if (message.type === "cancel-read-file") {
+		const read = fileReads.get(message.id);
+		if (read) read.canceled = true;
+		return;
+	}
+	if (message.type === "read-file") {
+		const reading = readFile(message).catch(shutdown);
+		launches.add(reading);
+		reading.finally(() => launches.delete(reading));
+		return;
+	}
+	if (message.type === "spawn" || message.type === "prepare-spawn" || message.type === "spawn-execa") {
+		const launched = launch(message).catch(shutdown);
+		launches.add(launched);
+		launched.finally(() => launches.delete(launched));
 		return;
 	}
 	if (message.type === "resource-seal" || message.type === "resource-target" || message.type === "resource-owner" || message.type === "resource-close" || message.type === "resource-release") {
@@ -1921,8 +2387,14 @@ process.on("message", (raw, handle) => {
 	const entry = owned.get(message.id);
 	if (!entry) {
 		const pending = starting.get(message.id);
-		if (pending && message.type === "cancel") pending.canceled = true;
-		if (pending && message.type === "kill") pending.signal = message.signal;
+		if (pending && message.type === "cancel") {
+			pending.canceled = true;
+			launchGrants.get(message.id)?.resolve(false);
+		}
+		if (pending && message.type === "kill") {
+			pending.signal = message.signal;
+			launchGrants.get(message.id)?.resolve(false);
+		}
 		if (message.type === "ipc") report({
 			type: "ipc-sent",
 			id: message.id,
@@ -1955,12 +2427,10 @@ process.on("message", (raw, handle) => {
 		}
 	}
 });
-async function initialize(raw) {
-	if (!isRecord(raw) || raw.type !== "bootstrap") throw new Error("Invalid spawn broker bootstrap");
+async function initialize(bootstrap) {
 	if (stopping || !process.connected) return;
-	if (raw.nativeResource !== void 0) {
-		const authority = raw.nativeResource;
-		if (!isRecord(authority) || typeof authority.endpoint !== "string" || !authority.endpoint || typeof authority.secret !== "string" || !authority.secret || typeof authority.generation !== "number" || !Number.isSafeInteger(authority.generation) || authority.generation < 0) throw new Error("Invalid native resource bootstrap authority");
+	if (bootstrap.nativeResource) {
+		const authority = bootstrap.nativeResource;
 		resources = await createBrokerNativeResourceServer({
 			endpoint: authority.endpoint,
 			secret: authority.secret,

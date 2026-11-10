@@ -1,2 +1,2 @@
-import { t as buildAzureSpeechProvider } from "../../speech-provider-DDy23Uv5.mjs";
+import { t as buildAzureSpeechProvider } from "../../speech-provider-5SUZIkoH.mjs";
 export { buildAzureSpeechProvider };

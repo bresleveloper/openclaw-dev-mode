@@ -1,11 +1,13 @@
+import { a as normalizeFastMode } from "../../string-coerce-1VuiLaaR.mjs";
 import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
-import "../../llm-BoijNIT8.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { i as streamSimple } from "../../stream-CL_UFGCU.mjs";
-import { n as buildProviderStreamFamilyHooks } from "../../provider-stream-aRo8sEaq.mjs";
-import "../../provider-stream-family-DbJy-rAq.mjs";
+import "../../llm-YCnSGJtn.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { i as streamSimple } from "../../stream-NAsW_bVF.mjs";
+import { n as buildProviderStreamFamilyHooks } from "../../provider-stream-D-B5aERN.mjs";
+import "../../provider-stream-family-DCSl210N.mjs";
+import { t as resolveOpenAIModelServiceTiers } from "../../service-tier-policy-CETGWqsV.mjs";
 import "../../token-sharing-CmBELw8t.mjs";
-import { t as createOpenAINativeWebSearchWrapper } from "../../native-web-search-CUmOOmgJ.mjs";
+import { t as createOpenAINativeWebSearchWrapper } from "../../native-web-search-D-t_bS0j.mjs";
 //#region extensions/openai/responses-stream.runtime.ts
 const { wrapStreamFn } = buildProviderStreamFamilyHooks("openai-responses-defaults");
 const SIWC_SERVICE_TIERS = [
@@ -16,12 +18,30 @@ const SIWC_SERVICE_TIERS = [
 ];
 function wrapOpenAIResponsesStream(ctx) {
 	let streamContext = ctx;
+	const serviceTiers = ctx.model ? resolveOpenAIModelServiceTiers({
+		modelId: ctx.model.id,
+		api: ctx.model.api,
+		baseUrl: ctx.model.baseUrl
+	}) : void 0;
+	if (serviceTiers) streamContext = {
+		...ctx,
+		extraParams: {
+			...ctx.extraParams,
+			fastMode: () => {
+				const raw = ctx.extraParams?.fastMode ?? ctx.extraParams?.fast_mode;
+				const requested = normalizeFastMode(typeof raw === "function" ? raw() : raw);
+				if (requested === void 0) return;
+				if (!serviceTiers.includes("priority")) return false;
+				return requested === "ultrafast" ? true : requested;
+			}
+		}
+	};
 	if (ctx.auth?.mode === "oauth" && ctx.auth.authFlow === "chatgpt-token-sharing") {
-		const underlying = ctx.streamFn ?? streamSimple;
+		const underlying = streamContext.streamFn ?? streamSimple;
 		streamContext = {
-			...ctx,
+			...streamContext,
 			extraParams: {
-				...ctx.extraParams,
+				...streamContext.extraParams,
 				transport: "sse",
 				responsesServerCompaction: false
 			},

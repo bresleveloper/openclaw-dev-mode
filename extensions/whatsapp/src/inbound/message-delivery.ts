@@ -1,6 +1,13 @@
-import type { AnyMessageContent, MiscMessageGenerationOptions, WAMessage, WASocket } from "baileys";
+import {
+  WAMessageStubType,
+  type AnyMessageContent,
+  type MiscMessageGenerationOptions,
+  type WAMessage,
+  type WASocket,
+} from "baileys";
 import { recordChannelActivity } from "openclaw/plugin-sdk/channel-activity-runtime";
 import { resolveInboundDebounceMs } from "openclaw/plugin-sdk/channel-inbound-debounce";
+import { pruneMapToMaxSize } from "openclaw/plugin-sdk/collection-runtime";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
 import { createDeferred } from "openclaw/plugin-sdk/extension-shared";
 import { getChildLogger } from "openclaw/plugin-sdk/logging-core";
@@ -483,6 +490,11 @@ export function createWhatsAppMessageDeliveryCoordinator(options: WhatsAppMessag
       return;
     }
     for (const msg of upsert.messages ?? []) {
+      if (!msg.message && msg.messageStubType === WAMessageStubType.CIPHERTEXT) {
+        // Baileys re-emits the decrypted copy under the same key after a
+        // placeholder resend; admitting the stub would complete that key first.
+        continue;
+      }
       rememberBaileysMessage(msg.key?.remoteJid, msg.key?.id, msg.message);
 
       const receiveOrder = nextReceiveOrder++;
@@ -510,12 +522,7 @@ export function createWhatsAppMessageDeliveryCoordinator(options: WhatsAppMessag
       let resolvePrepared: ((inbound: PreparedInbound | null | undefined) => void) | undefined;
       // A redelivery must not replace the first accepted delivery's preparation.
       if (durableId && !preparedInboundByDurableId.has(durableId)) {
-        if (preparedInboundByDurableId.size >= 1000) {
-          const oldest = preparedInboundByDurableId.keys().next().value;
-          if (oldest !== undefined) {
-            preparedInboundByDurableId.delete(oldest);
-          }
-        }
+        pruneMapToMaxSize(preparedInboundByDurableId, 999);
         const prepared = createDeferred<PreparedInbound | null | undefined>();
         resolvePrepared = prepared.resolve;
         preparedInboundByDurableId.set(durableId, prepared.promise);
@@ -558,7 +565,13 @@ export function createWhatsAppMessageDeliveryCoordinator(options: WhatsAppMessag
       }
       if (result.kind === "durable" && result.queueResult.kind === "completed") {
         finishPreparation(undefined);
-        const inbound = await normalizeInboundMessage(msg);
+        const inbound = await normalizeInboundMessage(msg).catch((error: unknown) => {
+          inboundLogger.warn(
+            { error: formatError(error) },
+            "failed preparing read receipt for completed WhatsApp inbound",
+          );
+          return null;
+        });
         if (inbound) {
           await maybeMarkNonSelfChatReadReceipt(inbound, buildReadReceiptTarget(inbound));
         }
@@ -646,10 +659,7 @@ export function createWhatsAppMessageDeliveryCoordinator(options: WhatsAppMessag
     if (detachMessagesUpsert) {
       return;
     }
-    detachMessagesUpsert = socketSession.listen(
-      "messages.upsert",
-      handleMessagesUpsertEvent as unknown as (...args: unknown[]) => void,
-    );
+    detachMessagesUpsert = socketSession.listen("messages.upsert", handleMessagesUpsertEvent);
     durableInboundMonitor.start();
   };
   const stopIntake = () => {

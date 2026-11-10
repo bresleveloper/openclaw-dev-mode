@@ -221,6 +221,8 @@ export async function syncWorkspaceSkills(params: {
     assertCurrent?.();
     const target = await root(targetSkillsDir, { assertBeforeMutation: assertCurrent });
     assertCurrent?.();
+    await target.write(".gitignore", "*\n", { mode: 0o644, durable: false });
+    assertCurrent?.();
     const manifest = parseSyncedSkillsManifest(await tryReadJson<unknown>(manifestPath));
     assertCurrent?.();
     let sourceVersion = getSkillsResourceVersion(sourceWorkspace, sourceScope);
@@ -288,10 +290,7 @@ export async function syncWorkspaceSkills(params: {
     const usedDirNames = new Set<string>();
     const plans: Array<{ destinationPath?: string; entry: SkillEntry; identity: string }> = [];
     for (const entry of entries) {
-      const identity = resolveSyncedSkillIdentity(
-        resolveSkillKey(entry.skill, entry),
-        entry.skill.name,
-      );
+      const identity = resolveSyncedSkillIdentity(resolveSkillKey(entry), entry.skill.name);
       if (entry.skill.filePath.startsWith("node://")) {
         plans.push({ entry, identity });
         continue;
@@ -343,7 +342,7 @@ export async function syncWorkspaceSkills(params: {
     const children = await fsp.readdir(targetSkillsDir);
     assertCurrent?.();
     for (const child of children) {
-      if (!preservedDestinations.has(child)) {
+      if (child !== ".gitignore" && !preservedDestinations.has(child)) {
         const stat = await fsp.lstat(path.join(targetSkillsDir, child));
         assertCurrent?.();
         if (stat.isDirectory()) {

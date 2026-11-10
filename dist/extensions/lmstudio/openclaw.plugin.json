@@ -10,6 +10,7 @@
   "providers": [
     "lmstudio"
   ],
+  "providerCatalogEntry": "./provider-discovery.js",
   "modelCatalog": {
     "discovery": {
       "lmstudio": "refreshable"

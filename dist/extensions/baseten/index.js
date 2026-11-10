@@ -1,4 +1,4 @@
-import { c as resolveBasetenDynamicModel, s as projectBasetenLiveModels, u as openclaw_plugin_default } from "./.setup/models-BOkRtUeP.mjs";
+import { c as resolveBasetenDynamicModel, s as projectBasetenLiveModels, u as openclaw_plugin_default } from "./.setup/models-wG5xIuOb.mjs";
 import { applyBasetenSetupConfig } from "./onboard.js";
 import { buildStaticBasetenProvider } from "./provider-catalog.js";
 import { createBasetenThinkingWrapper } from "./stream.js";

@@ -1,0 +1,2 @@
+import { a as hasGatewayClientCap, c as normalizeGatewayClientMode, i as GATEWAY_CLIENT_NAMES, l as normalizeGatewayClientName, n as GATEWAY_CLIENT_IDS, o as isNativeAppUiClient, r as GATEWAY_CLIENT_MODES, s as normalizeGatewayClientId, t as GATEWAY_CLIENT_CAPS } from "./client-info-BgcoFakQ.mjs";
+export { GATEWAY_CLIENT_CAPS, GATEWAY_CLIENT_IDS, GATEWAY_CLIENT_MODES, GATEWAY_CLIENT_NAMES, hasGatewayClientCap, isNativeAppUiClient, normalizeGatewayClientId, normalizeGatewayClientMode, normalizeGatewayClientName };

@@ -1,17 +1,17 @@
 import { a as resolveWhatsAppAccount, i as listWhatsAppAuthDirs, n as hasAnyWhatsAppAuth, o as resolveWhatsAppAuthDir, r as listEnabledWhatsAppAccounts, s as resolveWhatsAppMediaMaxBytes, t as DEFAULT_WHATSAPP_MEDIA_MAX_MB } from "./.setup/accounts-F0vHuze2.mjs";
 import { r as resolveDefaultWhatsAppAccountId, t as listAccountIds } from "./.setup/account-ids-CB5SOWjc.mjs";
-import { a as normalizeWhatsAppAllowFromEntries, c as normalizeWhatsAppTarget, i as looksLikeWhatsAppTargetId, r as isWhatsAppUserTarget, s as normalizeWhatsAppMessagingTarget, t as isWhatsAppGroupJid } from "./.setup/normalize-target-BGra1ZnM.mjs";
-import { t as resolveWhatsAppOutboundTarget } from "./.setup/resolve-outbound-target-CzyNKmrl.mjs";
-import { c as toWhatsappJid, i as markdownToWhatsApp, l as toWhatsappJidWithLid, n as isSelfChatMode, r as jidToE164, s as resolveJidToE164, t as assertWebChannel } from "./.setup/targets-runtime-Dls-Xh4F.mjs";
-import { n as WHATSAPP_LEGACY_OUTBOUND_SEND_DEP_KEYS, t as whatsappPlugin } from "./.setup/channel-Cd6IvxSf.mjs";
-import { i as resolveWhatsAppGroupToolPolicy, r as resolveWhatsAppGroupRequireMention } from "./.setup/shared-D-J6Lh6J.mjs";
+import { a as normalizeWhatsAppAllowFromEntries, c as normalizeWhatsAppTarget, i as looksLikeWhatsAppTargetId, r as isWhatsAppUserTarget, s as normalizeWhatsAppMessagingTarget, t as isWhatsAppGroupJid } from "./.setup/normalize-target-D67Kc3g6.mjs";
+import { t as resolveWhatsAppOutboundTarget } from "./.setup/resolve-outbound-target-qikGL4r0.mjs";
+import { c as toWhatsappJid, i as markdownToWhatsApp, l as toWhatsappJidWithLid, n as isSelfChatMode, r as jidToE164, s as resolveJidToE164, t as assertWebChannel } from "./.setup/targets-runtime-D5ryyPxh.mjs";
+import { n as WHATSAPP_LEGACY_OUTBOUND_SEND_DEP_KEYS, t as whatsappPlugin } from "./.setup/channel-BJa9HFJg.mjs";
+import { i as resolveWhatsAppGroupToolPolicy, r as resolveWhatsAppGroupRequireMention } from "./.setup/shared-BDLrdy5a.mjs";
 import { t as whatsappCommandPolicy } from "./.setup/command-policy-BIOSHySD.mjs";
-import { t as whatsappSetupPlugin } from "./.setup/channel.setup-CAPl5FTS.mjs";
+import { t as whatsappSetupPlugin } from "./.setup/channel.setup-aaLoVAM8.mjs";
 import { t as DEFAULT_WEB_MEDIA_BYTES } from "./.setup/constants-C7m81BNe.mjs";
-import { d as DEFAULT_WHATSAPP_SOCKET_TIMING, f as createWhatsAppSocketOperationTimeoutAdapter, i as waitForWaConnection, r as createWaSocket } from "./.setup/socket-close-ecLUztyz.mjs";
+import { d as DEFAULT_WHATSAPP_SOCKET_TIMING, f as createWhatsAppSocketOperationTimeoutAdapter, i as waitForWaConnection, r as createWaSocket } from "./.setup/socket-close-BP5U6Biu.mjs";
 import { n as getStatusCode, t as formatError } from "./.setup/session-errors-B8UcAnZN.mjs";
-import { n as listWhatsAppDirectoryGroupsFromConfig, r as listWhatsAppDirectoryPeersFromConfig } from "./.setup/directory-config-CvCiwMmt.mjs";
-import { _ as resolveInboundMediaMimetype, c as extractContextInfo, m as findMessageSection, o as describeReplyContext, p as extractText, t as createWebSendApi, u as extractLocationData } from "./.setup/send-api-B03VDwZ1.mjs";
+import { n as listWhatsAppDirectoryGroupsFromConfig, r as listWhatsAppDirectoryPeersFromConfig } from "./.setup/directory-config-B1rPnEu5.mjs";
+import { _ as resolveInboundMediaMimetype, c as extractContextInfo, m as findMessageSection, o as describeReplyContext, p as extractText, t as createWebSendApi, u as extractLocationData } from "./.setup/send-api-CJYdv1hd.mjs";
 import { asBoolean, isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { formatLocationText } from "openclaw/plugin-sdk/channel-inbound";
 import { normalizeE164, resolveUserPath } from "openclaw/plugin-sdk/text-utility-runtime";
@@ -108,7 +108,6 @@ async function startWhatsAppQaDriverSession(params) {
 	const observedMessages = [];
 	const waiters = /* @__PURE__ */ new Set();
 	let pendingNotificationsWaiter;
-	let closed = false;
 	let closedError;
 	let receivedPendingNotifications = false;
 	const removeWaiter = (waiter) => {
@@ -149,8 +148,7 @@ async function startWhatsAppQaDriverSession(params) {
 		sock.ev.off("connection.update", onConnectionUpdate);
 	};
 	const closeSessionResources = (waiterError) => {
-		if (closed) return;
-		closed = true;
+		if (closedError) return;
 		closedError = waiterError;
 		settlePendingNotifications(waiterError);
 		for (const waiter of waiters) {
@@ -169,8 +167,8 @@ async function startWhatsAppQaDriverSession(params) {
 				resolve();
 				return;
 			}
-			if (closed) {
-				reject(closedError ?? /* @__PURE__ */ new Error("WhatsApp QA driver session closed"));
+			if (closedError) {
+				reject(closedError);
 				return;
 			}
 			const timeoutMs = params.connectionTimeoutMs ?? 45e3;
@@ -224,7 +222,7 @@ async function startWhatsAppQaDriverSession(params) {
 			const predicate = (message) => (!paramsLocal.observedAfter || new Date(message.observedAt).getTime() >= paramsLocal.observedAfter.getTime()) && paramsLocal.match(message);
 			const existing = observedMessages.find(predicate);
 			if (existing) return existing;
-			if (closed) throw closedError ?? /* @__PURE__ */ new Error("WhatsApp QA driver session closed");
+			if (closedError) throw closedError;
 			return await new Promise((resolve, reject) => {
 				const waiter = {
 					predicate,

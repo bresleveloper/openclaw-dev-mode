@@ -1,22 +1,15 @@
-// Code region helpers expose Markdown Core spans to sanitizer consumers.
 import { expectDefined } from "@openclaw/normalization-core";
 import {
-  findMarkdownCodeRegions,
+  findMarkdownCodeRegions as findCodeRegions,
   parseMarkdownOwnership,
 } from "../../../packages/markdown-core/src/reasoning-tags.js";
+
+export { findCodeRegions };
 
 /** Public range inputs need only offsets; parser-owned metadata belongs to discovered regions. */
 export interface CodeRegion {
   start: number;
   end: number;
-}
-
-/** Finds CommonMark block-aware fenced, indented, and inline code regions. */
-export function findCodeRegions(
-  text: string,
-  options?: Parameters<typeof findMarkdownCodeRegions>[1],
-): ReturnType<typeof findMarkdownCodeRegions> {
-  return findMarkdownCodeRegions(text, options);
 }
 
 /** Index nonempty native parts using the visible text owner's newline separator. */
@@ -99,7 +92,6 @@ export function findCodeOwnership(
   };
 }
 
-/** Returns true when a character offset falls inside one of the discovered code regions. */
 export function isInsideCode(pos: number, regions: CodeRegion[]): boolean {
   return regions.some((region) => pos >= region.start && pos < region.end);
 }
@@ -116,4 +108,31 @@ export function stripLinesOutsideCode(
       ? ""
       : raw;
   });
+}
+
+export function isInsideSettledBlockCode(
+  pos: number,
+  text: string,
+  regions: ReturnType<typeof findCodeRegions>,
+): boolean {
+  return regions.some(
+    (region) =>
+      region.block &&
+      region.start <= pos &&
+      pos < region.end &&
+      /[\r\n]/.test(text.slice(region.start, pos)),
+  );
+}
+
+/** Bounded marker-free reuse; complex Markdown retains the canonical parser. */
+export function canReuseMarkdownOwnership(
+  previousText: string,
+  nextText: string,
+  ownership?: ReturnType<typeof findCodeOwnership>,
+): boolean {
+  if (ownership || !nextText.startsWith(previousText)) {
+    return false;
+  }
+  const boundary = previousText.slice(-4) + nextText.slice(previousText.length);
+  return !/[\x60~\t|\r[\]():-]| {4}/u.test(boundary);
 }

@@ -5582,6 +5582,7 @@ var init_gateway_lock_payload = __esmMin((() => {
 		/** Present when Gateway cron writes use the dynamic-default ownership projection. */
 		cronOwnerProjection: literal("dynamic-default-v1").optional(),
 		createdAt: string(),
+		startupPhase: literal("starting").optional(),
 		configPath: string(),
 		port: number().int().min(1).max(65535).optional(),
 		role: _enum([

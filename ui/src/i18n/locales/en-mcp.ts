@@ -4,6 +4,7 @@ import { en } from "./en.ts";
 const enMcp = {
   mcpServers: {
     signIn: "Sign in",
+    signInNamed: "Sign in {name}",
     authenticationSaved: "Authentication saved",
     signInFailed: "Sign-in did not finish. Check the connector settings and try again.",
     signInExpired: "This sign-in session ended. Close the dialog and sign in again.",
@@ -34,9 +35,12 @@ const enMcp = {
     connectRequired: "Connect to the gateway to change MCP servers.",
     adminRequired: "MCP server changes require operator.admin access.",
     enable: "Enable",
+    enableNamed: "Enable {name}",
     disable: "Disable",
+    disableNamed: "Disable {name}",
     removeNamed: "Remove {name}",
     working: "Working…",
+    workingNamed: "Working… {name}",
   },
   mcpPage: {
     intro: "Connect and manage MCP servers that provide tools to OpenClaw.",
@@ -47,7 +51,7 @@ const enMcp = {
     noServers: "No MCP servers configured.",
     setUpFirstServer: "Set up your first MCP server",
     operatorCommands: "MCP operator commands",
-    operatorCommandsHint: "Status, diagnostics, auth, probing, and runtime reload.",
+    operatorCommandsHint: "Status, diagnostics, auth, connection checks, and runtime reload.",
     runtimeHint:
       "Edits save automatically. With automatic reload enabled, MCP connections rebuild on next use.",
     toolFilter: "tool filter",

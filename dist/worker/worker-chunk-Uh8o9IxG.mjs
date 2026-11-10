@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var GatewayControlUiIngressError,t=e((()=>{GatewayControlUiIngressError=class extends Error{constructor(e,t){super(t),this.name=`GatewayControlUiIngressError`,this.code=e}}}));export{t as n,GatewayControlUiIngressError as t};

@@ -2,6 +2,7 @@ import { createReadStream, existsSync } from "node:fs";
 import path from "node:path";
 import { TextDecoder } from "node:util";
 import { readByteStreamWithLimit } from "@openclaw/media-core/read-byte-stream-with-limit";
+import { readNonBlankString } from "@openclaw/normalization-core/string-coerce";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { mergeDeep } from "../infra/deep-merge.js";
 
@@ -51,7 +52,7 @@ export async function resolveAgentExecPrompt(
   messageFile: string | undefined,
   stdin: AsyncIterable<unknown> = process.stdin,
 ): Promise<string> {
-  const file = messageFile?.trim();
+  const file = readNonBlankString(messageFile);
   const hasPositional = positionalMessage !== undefined;
   if (hasPositional && file) {
     throw new Error("Use either the prompt argument or --message-file, not both.");
@@ -148,16 +149,16 @@ export async function resolveExecBaseConfig(
     const { coerceConfig } = await import("../config/io.read-helpers.js");
     return coerceConfig(applyImplicitAgentRosterDefaults({}));
   }
-  const { createConfigIO, getRuntimeConfig } = await import("../config/io.js");
+  const { createConfigIO, captureRuntimeConfigAsyncReader } = await import("../config/io.js");
   if (!opts.config) {
-    return getRuntimeConfig();
+    return await captureRuntimeConfigAsyncReader()();
   }
   // A pinned file bypasses the published runtime snapshot and fails if missing or invalid.
   const io = createConfigIO({ configPath: path.resolve(opts.config) });
   if (!existsSync(io.configPath)) {
     throw new Error(`--config file not found: ${io.configPath}`);
   }
-  return io.loadConfig();
+  return await io.loadConfigAsync();
 }
 
 export function buildExecRunConfig(params: {

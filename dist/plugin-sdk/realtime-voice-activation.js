@@ -1,2 +1,2 @@
-import { a as normalizeRealtimeVoiceActivationNamePrefix, c as sortRealtimeVoiceActivationNames, i as normalizeRealtimeVoiceActivationName, n as isSupportedRealtimeVoiceActivationName, o as normalizeSupportedRealtimeVoiceActivationName, r as matchRealtimeVoiceActivationName, s as realtimeVoiceActivationNameWordCount, t as REALTIME_VOICE_ACTIVATION_NAME_MAX_WORDS } from "../activation-name-CFCXq1Ha.mjs";
-export { REALTIME_VOICE_ACTIVATION_NAME_MAX_WORDS, isSupportedRealtimeVoiceActivationName, matchRealtimeVoiceActivationName, normalizeRealtimeVoiceActivationName, normalizeRealtimeVoiceActivationNamePrefix, normalizeSupportedRealtimeVoiceActivationName, realtimeVoiceActivationNameWordCount, sortRealtimeVoiceActivationNames };
+import { r as normalizeRealtimeVoiceActivationNamePrefix, t as isSupportedRealtimeVoiceActivationName } from "../activation-name-Mr5RBN2x.mjs";
+export { isSupportedRealtimeVoiceActivationName, normalizeRealtimeVoiceActivationNamePrefix };

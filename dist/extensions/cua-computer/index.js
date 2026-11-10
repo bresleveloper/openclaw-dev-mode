@@ -1,24 +1,24 @@
-import { n as createLazyRuntimeMethodBinder } from "../../lazy-runtime-CJrzFzqU.mjs";
 import { a as asOptionalRecord, c as isRecord, u as readStringField } from "../../record-coerce-TIsquoVR.mjs";
-import { w as root } from "../../fs-safe-BUXBSN-4.mjs";
 import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-DR7bHNl9.mjs";
 import { Fn as object, Jn as string, Lt as boolean, Nt as array, Pn as number, qn as strictObject, xn as literal } from "../../schemas-BOYIvvln.mjs";
+import { w as root } from "../../fs-safe-6Z4UiMS4.mjs";
+import { n as createLazyRuntimeMethodBinder } from "../../lazy-runtime-CJrzFzqU.mjs";
+import { n as createNormalizedPluginsConfig } from "../../config-state-DkDfCu7E.mjs";
 import { t as KeyedAsyncQueue } from "../../keyed-async-queue-CTreGrmR.mjs";
-import { n as createNormalizedPluginsConfig } from "../../config-state-DY_WJYue.mjs";
 import { t as canonicalizeBase64 } from "../../base64-CU53EX1R.mjs";
-import { c as COMPUTER_USE_V2_ACTION_NAMES, h as parseComputerActParamsJSON, v as parseScreenSnapshotParamsJSON } from "../../computer-use-contract-g23cJXOi.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { c as removePathWithinRoot } from "../../file-access-runtime-BMp89X4Y.mjs";
-import { n as buildPluginConfigSchema } from "../../config-schema-BBtylDlH.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../plugin-config-runtime-DKh00pJ1.mjs";
-import "../../media-runtime-BQh7AQ_g.mjs";
-import "../../temp-path-C5ZA6ftW.mjs";
-import { t as registerComputerUseProvider } from "../../computer-use-DhnvVHBf.mjs";
-import { n as registerCuaDriverDoctorChecks, r as verifyInstalledCuaDriverArtifacts } from "../../api-BMuWSmQf.mjs";
+import { _ as parseScreenSnapshotParamsJSON, c as COMPUTER_USE_V2_ACTION_NAMES, m as parseComputerActParamsJSON } from "../../computer-use-contract-DZGyt5jE.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { c as removePathWithinRoot } from "../../file-access-runtime-DZTMkCCU.mjs";
+import { n as buildPluginConfigSchema } from "../../config-schema-dqR2I9Q2.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../plugin-config-runtime-Dm1sl1ov.mjs";
+import "../../media-runtime-CmxLZuo1.mjs";
+import "../../temp-path-D_RJiwsA.mjs";
+import { t as registerComputerUseProvider } from "../../computer-use-BtBSnndM.mjs";
+import { n as registerCuaDriverDoctorChecks, r as verifyInstalledCuaDriverArtifacts } from "../../api-_IJOhCfQ.mjs";
 import fs from "node:fs";
-import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
+import path from "node:path";
 import { createRastermill } from "rastermill";
 //#region extensions/cua-computer/src/actions.ts
 const MODIFIER_ALIASES = /* @__PURE__ */ new Map([
@@ -81,9 +81,7 @@ function normalizeModifierList(entries, platform) {
 function normalizeModifiers(value, platform) {
 	return value?.trim() ? normalizeModifierList(value.split("+"), platform) : [];
 }
-function normalizeKey(value, platform) {
-	const raw = value.trim();
-	if (!raw) throw unsupportedKey("key chord contains an empty key");
+function normalizeKey(raw, platform) {
 	const lowered = raw.toLowerCase();
 	const named = modifierAlias(lowered, platform) ?? KEY_ALIASES.get(lowered);
 	if (named) return named;
@@ -122,6 +120,14 @@ const ScrollDirection = {
 	Left: 2,
 	Right: 3
 };
+function isExpiredSessionError(sdk, error) {
+	return sdk.DriverError.Tool.instanceOf(error) && error.inner.errorCode === "permission_denied" && error.inner.message === "Permission denied: authorization context expired";
+}
+function driverToolError(sdk, error) {
+	if (!sdk.DriverError.Tool.instanceOf(error)) return error;
+	const { tool, message, errorCode } = error.inner;
+	return new Error(`CUA_DRIVER_TOOL_ERROR: ${tool}: ${message}${errorCode ? ` (${errorCode})` : ""}`, { cause: error });
+}
 function asyncOptions(signal) {
 	return signal ? { signal } : void 0;
 }
@@ -175,7 +181,6 @@ var DirectCuaDriverSession = class {
 	isAvailable() {
 		return !this.disposed && this.runtime.isAvailable();
 	}
-	resetAvailabilityCache() {}
 	async callTool(name, args, signal) {
 		return await this.invoke(signal, () => this.session.callTool(name, JSON.stringify({
 			...args,
@@ -186,8 +191,7 @@ var DirectCuaDriverSession = class {
 		return await this.invoke(signal, () => this.session.getCursorPosition({ session: this.publicSession }, asyncOptions(signal)));
 	}
 	async getSessionState(signal) {
-		await this.ensureSessionStarted(signal);
-		return await this.session.getSessionState({ session: this.publicSession }, asyncOptions(signal));
+		return await this.invoke(signal, () => this.session.getSessionState({ session: this.publicSession }, asyncOptions(signal)));
 	}
 	async getDesktopState(signal) {
 		return await this.invoke(signal, () => this.session.getDesktopState({}, asyncOptions(signal)));
@@ -271,7 +275,7 @@ var DirectCuaDriverSession = class {
 		if (this.started) try {
 			await this.session.endSession({ session: this.publicSession });
 		} catch (error) {
-			failure ??= error;
+			if (!isExpiredSessionError(this.sdk, error) && !this.sdk.DriverError.Shutdown.instanceOf(error)) failure ??= error;
 		}
 		try {
 			this.session.close();
@@ -301,9 +305,6 @@ function unavailableError(failure) {
 	const detail = failure instanceof Error ? failure.message : String(failure);
 	return new Error(`COMPUTER_DRIVER_UNAVAILABLE: failed to load CUA Driver SDK: ${detail}`, { cause: failure });
 }
-function isPromise(value) {
-	return typeof value.then === "function";
-}
 var LazyCuaDriverSession = class {
 	constructor(loadSdk) {
 		this.loadSdk = loadSdk;
@@ -326,30 +327,19 @@ var LazyCuaDriverSession = class {
 	resolveRuntime() {
 		if (this.disposed || this.hasLoadFailure || this.loadPromise) return;
 		if (this.runtime) return this.runtime;
-		try {
-			const loadedSdk = this.loadSdk();
-			if (!isPromise(loadedSdk)) {
-				this.runtime = new DirectCuaDriverSession(loadedSdk);
-				return this.runtime;
-			}
-			const loadPromise = loadedSdk.then((sdk) => new DirectCuaDriverSession(sdk)).then((runtime) => {
-				this.runtime = runtime;
-				return runtime;
-			}).catch((error) => {
-				this.loadFailure = error;
-				this.hasLoadFailure = true;
-				throw error;
-			}).finally(() => {
-				if (this.loadPromise === loadPromise) this.loadPromise = void 0;
-			});
-			this.loadPromise = loadPromise;
-			loadPromise.catch(() => {});
+		const loadPromise = this.loadSdk().then((sdk) => {
+			this.loadedSdk = sdk;
+			this.runtime = new DirectCuaDriverSession(sdk);
 			return this.runtime;
-		} catch (error) {
+		}).catch((error) => {
 			this.loadFailure = error;
 			this.hasLoadFailure = true;
-			return;
-		}
+			throw error;
+		}).finally(() => {
+			if (this.loadPromise === loadPromise) this.loadPromise = void 0;
+		});
+		this.loadPromise = loadPromise;
+		loadPromise.catch(() => {});
 	}
 	async requireRuntime() {
 		const runtime = this.resolveRuntime();
@@ -369,11 +359,44 @@ var LazyCuaDriverSession = class {
 		await this.loadPromise?.catch(() => {});
 	}
 	resetAvailabilityCache() {
-		if (this.runtime) this.runtime.resetAvailabilityCache();
-		else if (!this.disposed && !this.loadPromise) {
+		if (!this.runtime && !this.disposed && !this.loadPromise) {
 			this.loadFailure = void 0;
 			this.hasLoadFailure = false;
 		}
+	}
+	async prepareExecution(signal, assertAuthority) {
+		const assertActive = () => {
+			signal?.throwIfAborted();
+			assertAuthority?.();
+			if (this.disposed) throw unavailableError(/* @__PURE__ */ new Error("cua-computer is stopping"));
+		};
+		assertActive();
+		if (!this.preparePromise) this.preparePromise = (async () => {
+			const runtime = await this.requireRuntime();
+			assertActive();
+			try {
+				await runtime.getSessionState(signal);
+			} catch (error) {
+				const sdk = this.loadedSdk;
+				if (!sdk || !isExpiredSessionError(sdk, error)) throw sdk ? driverToolError(sdk, error) : error;
+				assertActive();
+				try {
+					await runtime.dispose();
+				} finally {
+					this.runtime = void 0;
+					this.generation = randomUUID();
+				}
+				assertActive();
+				this.runtime = new DirectCuaDriverSession(sdk);
+				await this.runtime.getSessionState(signal).catch((replacementError) => {
+					throw driverToolError(sdk, replacementError);
+				});
+			}
+		})().finally(() => {
+			this.preparePromise = void 0;
+		});
+		await this.preparePromise;
+		assertActive();
 	}
 	async dispose() {
 		if (this.disposed) return;
@@ -381,6 +404,7 @@ var LazyCuaDriverSession = class {
 		try {
 			await this.loadPromise;
 		} catch {}
+		await this.preparePromise?.catch(() => {});
 		await this.runtime?.dispose();
 	}
 };
@@ -1030,7 +1054,10 @@ const RESOURCE_ROOT_NAME = "cua-computer-resources";
 const MAX_RESOURCE_TREE_ENTRIES = 1e4;
 function createLazyCuaExecutionResources() {
 	let resourcesPromise;
-	const resources = () => resourcesPromise ??= createCuaExecutionResources();
+	const resources = () => resourcesPromise ??= createCuaExecutionResources().catch((error) => {
+		resourcesPromise = void 0;
+		throw error;
+	});
 	return {
 		createDirectory: async (label) => await (await resources()).createDirectory(label),
 		resolveFiles: async (handles) => await (await resources()).resolveFiles(handles),
@@ -1044,9 +1071,6 @@ function createLazyCuaExecutionResources() {
 }
 function resourceError(message) {
 	return /* @__PURE__ */ new Error(`COMPUTER_INVALID_RESOURCE: ${message}`);
-}
-function newHandle() {
-	return `${RESOURCE_HANDLE_PREFIX}${randomUUID()}`;
 }
 async function requireEntry(resources, executionRoot, handle, kind) {
 	if (!handle.startsWith(RESOURCE_HANDLE_PREFIX)) throw resourceError("malformed resource handle");
@@ -1095,25 +1119,13 @@ async function createCuaExecutionResources() {
 	const register = (kind, relativePath) => {
 		const existing = handlesByPath.get(relativePath);
 		if (existing) return existing;
-		const handle = newHandle();
+		const handle = `${RESOURCE_HANDLE_PREFIX}${randomUUID()}`;
 		resources.set(handle, {
 			kind,
 			relativePath
 		});
 		handlesByPath.set(relativePath, handle);
 		return handle;
-	};
-	const removeHandle = async (handle) => {
-		const entry = resources.get(handle);
-		if (!entry) return;
-		await removePathWithinRoot({
-			rootDir: executionRoot.rootReal,
-			relativePath: entry.relativePath,
-			recursive: true,
-			force: true
-		});
-		resources.delete(handle);
-		handlesByPath.delete(entry.relativePath);
 	};
 	return {
 		async createDirectory(kind) {
@@ -1160,7 +1172,16 @@ async function createCuaExecutionResources() {
 		},
 		async discard(handle) {
 			assertActive();
-			await removeHandle(handle);
+			const entry = resources.get(handle);
+			if (!entry) return;
+			await removePathWithinRoot({
+				rootDir: executionRoot.rootReal,
+				relativePath: entry.relativePath,
+				recursive: true,
+				force: true
+			});
+			resources.delete(handle);
+			handlesByPath.delete(entry.relativePath);
 		},
 		async dispose(discard) {
 			if (disposed) return;
@@ -1806,42 +1827,27 @@ async function handleBrowserAct(driver, state, resources, input, signal) {
 			if (input.dialogAction !== "inspect") state.dialog = void 0;
 			return JSON.stringify(browserDialogEnvelope(result, state, target));
 		}
-		case "browser_set_input_files": {
-			const target = browserTarget(driver, state, input);
-			const ref = browserElement(state, input, target);
-			const files = await resources.resolveFiles(input.resourceHandles ?? []);
-			let result;
-			try {
-				result = await callWindowTool(driver, state, "browser_set_input_files", {
-					target_id: target.targetId,
-					tab_id: target.tabId,
-					ref,
-					files
-				}, signal);
-			} catch (error) {
-				signal?.throwIfAborted();
-				throw new Error("COMPUTER_DRIVER_ERROR: browser_set_input_files failed; inspect node logs and resource state before retrying", { cause: error });
-			}
-			return JSON.stringify(browserToolEnvelope(result, "browser_set_input_files"));
-		}
+		case "browser_set_input_files":
 		case "browser_download": {
 			const target = browserTarget(driver, state, input);
 			const ref = browserElement(state, input, target);
-			const resource = await resources.createDirectory("browser-download");
+			const resource = input.action === "browser_download" ? await resources.createDirectory("browser-download") : void 0;
+			const resourceArgs = resource ? { destination_root: resource.path } : { files: await resources.resolveFiles(input.resourceHandles ?? []) };
 			let result;
 			try {
-				result = await callWindowTool(driver, state, "browser_download", {
+				result = await callWindowTool(driver, state, input.action, {
 					target_id: target.targetId,
 					tab_id: target.tabId,
 					ref,
-					destination_root: resource.path
+					...resourceArgs
 				}, signal);
 			} catch (error) {
-				await resources.discard(resource.handle).catch(() => {});
+				if (resource) await resources.discard(resource.handle).catch(() => {});
 				signal?.throwIfAborted();
-				throw new Error("COMPUTER_DRIVER_ERROR: browser_download failed; inspect node logs and resource state before retrying", { cause: error });
+				throw new Error(`COMPUTER_DRIVER_ERROR: ${input.action} failed; inspect node logs and resource state before retrying`, { cause: error });
 			}
-			const envelope = browserToolEnvelope(result, "browser_download");
+			const envelope = browserToolEnvelope(result, input.action);
+			if (!resource) return JSON.stringify(envelope);
 			const fileResourceHandles = await resources.captureFiles(resource.handle);
 			return JSON.stringify({
 				...envelope,
@@ -1879,6 +1885,7 @@ async function handleTargetedAct(platform, driver, state, params, signal) {
 	};
 	const delivery = params.deliveryMode ? { delivery_mode: params.deliveryMode } : {};
 	const element = elementArgs(state, params, windowRef);
+	const optionalTarget = (label) => element ?? (params.x !== void 0 || params.y !== void 0 ? windowPointArgs(state, params, windowRef, params, label) : {});
 	let tool;
 	let args;
 	switch (params.action) {
@@ -1922,31 +1929,27 @@ async function handleTargetedAct(platform, driver, state, params, signal) {
 			break;
 		}
 		case "left_mouse_down":
-			if (platform !== "linux") throw new Error("COMPUTER_UNSUPPORTED_ACTION: left_mouse_down is Linux-only");
-			if (element || params.deliveryMode === "foreground") throw new Error("COMPUTER_UNSUPPORTED_ACTION: left_mouse_down supports only background window pixels");
-			tool = "mouse_button_down";
+		case "left_mouse_up": {
+			const down = params.action === "left_mouse_down";
+			if (platform !== "linux") throw new Error(`COMPUTER_UNSUPPORTED_ACTION: ${params.action} is Linux-only`);
+			if (element || params.deliveryMode === "foreground") throw new Error(`COMPUTER_UNSUPPORTED_ACTION: ${params.action} supports only background window pixels`);
+			tool = down ? "mouse_button_down" : "mouse_button_up";
 			args = {
 				...base,
-				...windowPointArgs(state, params, windowRef, params, "mouse down"),
-				button: "left"
+				...down ? {
+					...windowPointArgs(state, params, windowRef, params, "mouse down"),
+					button: "left"
+				} : optionalTarget("mouse up")
 			};
 			break;
-		case "left_mouse_up":
-			if (platform !== "linux") throw new Error("COMPUTER_UNSUPPORTED_ACTION: left_mouse_up is Linux-only");
-			if (element || params.deliveryMode === "foreground") throw new Error("COMPUTER_UNSUPPORTED_ACTION: left_mouse_up supports only background window pixels");
-			tool = "mouse_button_up";
-			args = {
-				...base,
-				...params.x !== void 0 || params.y !== void 0 ? windowPointArgs(state, params, windowRef, params, "mouse up") : {}
-			};
-			break;
+		}
 		case "scroll":
 			if (!params.scrollDirection) throw new Error("COMPUTER_INVALID_REQUEST: scrollDirection is required for scroll");
 			if (normalizeModifiers(params.modifiers, platform).length) throw new Error("COMPUTER_UNSUPPORTED_ACTION: modifier-held scroll is unsupported by cua-driver");
 			tool = "scroll";
 			args = {
 				...base,
-				...element ?? (params.x !== void 0 || params.y !== void 0 ? windowPointArgs(state, params, windowRef, params, "scroll") : {}),
+				...optionalTarget("scroll"),
 				direction: params.scrollDirection,
 				by: "line",
 				amount: Math.min(50, params.scrollAmount ?? 3),
@@ -1958,7 +1961,7 @@ async function handleTargetedAct(platform, driver, state, params, signal) {
 			tool = "type_text";
 			args = {
 				...base,
-				...element ?? (params.x !== void 0 || params.y !== void 0 ? windowPointArgs(state, params, windowRef, params, "type") : {}),
+				...optionalTarget("type"),
 				text: params.text,
 				...delivery
 			};
@@ -1968,7 +1971,7 @@ async function handleTargetedAct(platform, driver, state, params, signal) {
 			tool = "press_key";
 			args = {
 				...base,
-				...element ?? (params.x !== void 0 || params.y !== void 0 ? windowPointArgs(state, params, windowRef, params, "key") : {}),
+				...optionalTarget("key"),
 				...chord,
 				...delivery
 			};
@@ -2058,49 +2061,32 @@ async function handleWindowAct(platform, driver, state, execution, params, handl
 			const result = await callWindowTool(driver, state, "kill_app", { pid: app.pid }, signal);
 			return JSON.stringify(actionEnvelope(result, { app: appName }));
 		}
-		case "bring_to_front": {
-			const { target } = requireWindowTarget(driver, state, input);
-			const result = await callWindowTool(driver, state, "bring_to_front", {
-				pid: target.pid,
-				window_id: target.windowId
-			}, signal);
-			return JSON.stringify(actionEnvelope(result));
-		}
-		case "set_value": {
-			const { ref, target } = requireWindowTarget(driver, state, input);
-			if (input.deliveryMode === "foreground") throw new Error("COMPUTER_UNSUPPORTED_ACTION: cua-driver set_value is background accessibility delivery");
-			const element = elementArgs(state, input, ref);
-			if (!element) throw new Error("COMPUTER_INVALID_REQUEST: elementRef is required for set_value");
-			const result = await callWindowTool(driver, state, "set_value", {
-				pid: target.pid,
-				window_id: target.windowId,
-				...element,
-				value: input.value
-			}, signal);
-			return JSON.stringify(actionEnvelope(result));
-		}
-		case "invoke_menu": {
-			const { target } = requireWindowTarget(driver, state, input);
-			if (input.deliveryMode === "foreground") throw new Error("COMPUTER_UNSUPPORTED_ACTION: cua-driver invoke_menu is background accessibility delivery");
-			const result = await callWindowTool(driver, state, "invoke_menu", {
-				pid: target.pid,
-				window_id: target.windowId,
-				path: input.path
-			}, signal);
-			return JSON.stringify(actionEnvelope(result));
-		}
+		case "bring_to_front":
+		case "set_value":
+		case "invoke_menu":
 		case "zoom": {
 			const { ref, target } = requireWindowTarget(driver, state, input);
-			resolveObservation(state, input.observationId, ref);
-			const result = await callWindowTool(driver, state, "zoom", {
+			const args = {
 				pid: target.pid,
-				window_id: target.windowId,
-				x1: input.x1,
-				y1: input.y1,
-				x2: input.x2,
-				y2: input.y2
-			}, signal);
-			return JSON.stringify(windowObservation(result, state, ref, { fromZoom: true }));
+				window_id: target.windowId
+			};
+			if ((input.action === "set_value" || input.action === "invoke_menu") && input.deliveryMode === "foreground") throw new Error(`COMPUTER_UNSUPPORTED_ACTION: cua-driver ${input.action} is background accessibility delivery`);
+			if (input.action === "set_value") {
+				const element = elementArgs(state, input, ref);
+				if (!element) throw new Error("COMPUTER_INVALID_REQUEST: elementRef is required for set_value");
+				Object.assign(args, element, { value: input.value });
+			} else if (input.action === "invoke_menu") args.path = input.path;
+			else if (input.action === "zoom") {
+				resolveObservation(state, input.observationId, ref);
+				Object.assign(args, {
+					x1: input.x1,
+					y1: input.y1,
+					x2: input.x2,
+					y2: input.y2
+				});
+			}
+			const result = await callWindowTool(driver, state, input.action, args, signal);
+			return JSON.stringify(input.action === "zoom" ? windowObservation(result, state, ref, { fromZoom: true }) : actionEnvelope(result));
 		}
 		case "escalate_scope": {
 			const result = await driver.getSessionState(signal);
@@ -2325,6 +2311,7 @@ function createCuaComputerProvider(options = {}) {
 	const platform = options.platform ?? process.platform;
 	const env = options.env ?? process.env;
 	const macOsEndpoint = platform === "darwin" ? resolveMacOsMcpEndpoint(env) : void 0;
+	const generation = `cua-computer-v2:${randomUUID()}`;
 	let ownedAvailabilityDriver;
 	let availabilityDisposal;
 	let stopped = false;
@@ -2357,7 +2344,7 @@ function createCuaComputerProvider(options = {}) {
 			provider: {
 				id: "cua-computer",
 				label: "CUA Computer",
-				generation: isSupportedPlatform ? `cua-computer-v2:${availabilityDriver().generation}` : "cua-computer-v2:unsupported"
+				generation
 			},
 			actions: platformActions(platform),
 			targets: [
@@ -2408,6 +2395,20 @@ function createCuaComputerProvider(options = {}) {
 			};
 			const queue = new KeyedAsyncQueue();
 			const frameState = { generation: executionDriver.generation };
+			const prepareExecution = async (signal) => {
+				const assertAuthority = () => {
+					signal?.throwIfAborted();
+					assertOpen();
+				};
+				assertAuthority();
+				try {
+					await executionDriver.prepareExecution?.(signal, assertAuthority);
+				} finally {
+					if (frameState.generation !== executionDriver.generation) executionState.recording.active = void 0;
+				}
+				assertAuthority();
+				adoptGeneration(frameState, executionDriver.generation);
+			};
 			let closing = false;
 			let closePromise;
 			const assertOpen = () => {
@@ -2419,6 +2420,7 @@ function createCuaComputerProvider(options = {}) {
 					assertOpen();
 					const params = parseScreenSnapshotParamsJSON(paramsJSON);
 					assertPrimaryDisplay(params.screenIndex);
+					await prepareExecution(signal);
 					const format = params.format ?? "jpeg";
 					const maxWidth = params.maxWidth ?? (format === "png" ? 900 : 1600);
 					const quality = Math.min(1, Math.max(.05, params.quality ?? .72));
@@ -2459,7 +2461,9 @@ function createCuaComputerProvider(options = {}) {
 				}),
 				act: async (paramsJSON, signal) => await queue.enqueue("execution", async () => {
 					assertOpen();
-					return await handleWindowAct(platform, executionDriver, frameState, executionState, parseComputerActParamsJSON(paramsJSON), handleDesktopAct, signal);
+					const params = parseComputerActParamsJSON(paramsJSON);
+					await prepareExecution(signal);
+					return await handleWindowAct(platform, executionDriver, frameState, executionState, params, handleDesktopAct, signal);
 				}),
 				close: async (reason) => {
 					if (closePromise) return await closePromise;

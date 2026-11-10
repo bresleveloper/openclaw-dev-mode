@@ -59,7 +59,7 @@ export async function prepareCommandConversationContext(params: {
     const shared = ctx.ChatType === "group" || ctx.ChatType === "channel";
     const sourceContext = buildSourceConversationContext({
       sessionCtx: ctx,
-      sourceReplyDeliveryMode: resolveSessionStableReplyMode({
+      sourceReplyDeliveryMode: await resolveSessionStableReplyMode({
         cfg,
         ctx,
         sessionEntry,
@@ -103,6 +103,11 @@ export async function prepareCommandConversationContext(params: {
           .filter(Boolean)
           .join("\n\n"),
         ...(conversationPrompt ? { silentReplyPromptMode: "none" as const } : {}),
+        extraSystemPromptTurnContext: {
+          start:
+            conversationPrompt || !opts.extraSystemPrompt ? 0 : opts.extraSystemPrompt.length + 2,
+          text: conversationPrompt || deliveryFormat || "",
+        },
       }
     : opts;
 }

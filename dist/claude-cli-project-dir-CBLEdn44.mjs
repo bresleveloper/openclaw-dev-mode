@@ -1,0 +1,32 @@
+import { l as normalizeOptionalString } from "./string-coerce-1VuiLaaR.mjs";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+//#region src/agents/command/claude-cli-project-dir.ts
+const CLAUDE_PROJECTS_DIRNAME = path.join(".claude", "projects");
+const MAX_SANITIZED_PROJECT_LENGTH = 200;
+function simpleHash36(input) {
+	let hash = 0;
+	for (let index = 0; index < input.length; index += 1) hash = hash * 31 + input.charCodeAt(index) >>> 0;
+	return hash.toString(36);
+}
+function sanitizeClaudeCliProjectKey(workspaceDir) {
+	const sanitized = workspaceDir.replace(/[^a-zA-Z0-9]/g, "-");
+	if (sanitized.length <= MAX_SANITIZED_PROJECT_LENGTH) return sanitized;
+	return `${sanitized.slice(0, MAX_SANITIZED_PROJECT_LENGTH)}-${simpleHash36(workspaceDir)}`;
+}
+function canonicalizeWorkspaceDir(workspaceDir) {
+	const resolved = path.resolve(workspaceDir).normalize("NFC");
+	try {
+		return fs.realpathSync.native(resolved).normalize("NFC");
+	} catch {
+		return resolved;
+	}
+}
+function resolveClaudeCliProjectDirForWorkspace(params) {
+	const homeDir = normalizeOptionalString(params.homeDir) || process.env.HOME || os.homedir();
+	const canonicalWorkspaceDir = canonicalizeWorkspaceDir(params.workspaceDir);
+	return path.join(homeDir, CLAUDE_PROJECTS_DIRNAME, sanitizeClaudeCliProjectKey(canonicalWorkspaceDir));
+}
+//#endregion
+export { resolveClaudeCliProjectDirForWorkspace as t };

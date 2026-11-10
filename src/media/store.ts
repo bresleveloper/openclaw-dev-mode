@@ -41,7 +41,7 @@ const OUTBOUND_STAGING_TTL_MS = 24 * 60 * 60_000;
 const PLAYBACK_TRANSCODE_MAX_CACHE_BYTES = 512 * 1024 * 1024;
 /** Playback renditions outlive transient media but are still retired after one week. */
 const PLAYBACK_TRANSCODE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const DEFAULT_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const DEFAULT_TTL_MS = 2 * 60 * 1000;
 const queuePlaybackCacheOperation = createAsyncLock();
 type CleanOldMediaOptions = {
   recursive?: boolean;
@@ -181,14 +181,24 @@ async function retryAfterRecreatingDir<T>(
 
 async function prunePlaybackTranscodeCacheToSize(): Promise<void> {
   const dir = resolveMediaScopedDir(PLAYBACK_TRANSCODE_SUBDIR, "prunePlaybackTranscodeCacheToSize");
-  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const entries = await fs.readdir(dir, { withFileTypes: true }).catch((error: unknown) => {
+    if (!findErrorWithCode(error, "ENOENT")) {
+      throw error;
+    }
+    return [];
+  });
   const files = (
     await Promise.all(
       entries.map(async (entry) => {
         if (!entry.isFile() || entry.name.startsWith(".")) {
           return null;
         }
-        const stat = await fs.lstat(path.join(dir, entry.name)).catch(() => null);
+        const stat = await fs.lstat(path.join(dir, entry.name)).catch((error: unknown) => {
+          if (!findErrorWithCode(error, "ENOENT")) {
+            throw error;
+          }
+          return null;
+        });
         return stat?.isFile() ? { name: entry.name, size: stat.size, mtimeMs: stat.mtimeMs } : null;
       }),
     )
@@ -205,13 +215,14 @@ async function prunePlaybackTranscodeCacheToSize(): Promise<void> {
       PLAYBACK_TRANSCODE_SUBDIR,
       "prunePlaybackTranscodeCacheToSize",
     );
-    const removed = await openMediaStore()
+    await openMediaStore()
       .remove(relativePath)
-      .then(() => true)
-      .catch(() => false);
-    if (removed) {
-      totalBytes -= file.size;
-    }
+      .catch((error: unknown) => {
+        if (!findErrorWithCode(error, "ENOENT") && !findErrorWithCode(error, "not-found")) {
+          throw error;
+        }
+      });
+    totalBytes -= file.size;
   }
 }
 
@@ -267,7 +278,6 @@ export async function writePlaybackTranscodeCache(params: {
   });
 }
 
-/** Prunes expired playback renditions and reapplies the fixed cache size budget. */
 export async function prunePlaybackTranscodeCache(): Promise<void> {
   await queuePlaybackCacheOperation(async () => {
     const cacheDir = resolveMediaScopedDir(
@@ -296,7 +306,6 @@ export async function pruneOutboundMedia(): Promise<void> {
   await pruneGeneratedHtmlProvenance(context);
 }
 
-/** Prunes expired non-playback media, optionally recursing into scoped subdirectories. */
 export async function cleanOldMedia(ttlMs = DEFAULT_TTL_MS, options: CleanOldMediaOptions = {}) {
   const context = captureOpenClawStateWorkerContext();
   await pruneNonPlaybackMedia(ttlMs, options);
@@ -305,7 +314,6 @@ export async function cleanOldMedia(ttlMs = DEFAULT_TTL_MS, options: CleanOldMed
   await pruneGeneratedHtmlProvenance(context);
 }
 
-/** Media-store file metadata returned after bytes are persisted under a safe media ID. */
 export type SavedMedia = {
   id: string;
   path: string;
@@ -705,7 +713,6 @@ export async function resolveMediaBufferPath(id: string, subdir = "inbound"): Pr
   return opened.realPath;
 }
 
-/** Read result for callers that need media bytes plus the resolved file path. */
 type ReadMediaBufferResult = {
   id: string;
   path: string;

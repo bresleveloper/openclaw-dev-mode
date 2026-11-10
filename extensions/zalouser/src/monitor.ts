@@ -2,7 +2,7 @@ import { mergeAllowlist, summarizeMapping } from "openclaw/plugin-sdk/allow-from
 import type { ChannelAccountSnapshot } from "openclaw/plugin-sdk/channel-contract";
 import {
   createAcceptedChannelDeliveryResult,
-  createChannelInboundEnvelopeBuilder,
+  createChannelInboundEnvelopeBuilderAsync,
   createChannelPartialDeliveryError,
   implicitMentionKindWhen,
   isChannelPartialDeliveryError,
@@ -210,7 +210,7 @@ async function processMessage(
         isGroup,
         message: message.eventMessage,
       };
-      await sendZaloDeliveredEvent({ ...ack, isSeen: true });
+      await sendZaloDeliveredEvent(ack);
       await sendZaloSeenEvent(ack);
     } catch (err) {
       logVerbose(core, runtime, `zalouser: delivery/seen ack failed for ${chatId}: ${String(err)}`);
@@ -241,7 +241,6 @@ async function processMessage(
         groupId: chatId,
         groupName,
         includeGroupIdAlias: true,
-        includeWildcard: true,
         allowNameMatching,
       }),
     );
@@ -484,7 +483,7 @@ async function processMessage(
   }
 
   const fromLabel = isGroup ? groupName || `group:${chatId}` : senderName || `user:${senderId}`;
-  const buildEnvelope = createChannelInboundEnvelopeBuilder({ cfg: config, route });
+  const buildEnvelope = await createChannelInboundEnvelopeBuilderAsync({ cfg: config, route });
   const body = buildEnvelope({
     channel: "Zalo Personal",
     from: fromLabel,
@@ -832,22 +831,13 @@ export async function monitorZalouserProvider(
     return stopTask;
   };
 
-  let settled = false;
   const { promise: waitForExit, resolve: resolveRun, reject: rejectRun } = createDeferred<void>();
 
   const settleSuccess = () => {
-    if (settled) {
-      return;
-    }
-    settled = true;
     void stop().then(resolveRun, rejectRun);
   };
 
   const settleFailure = (error: unknown) => {
-    if (settled) {
-      return;
-    }
-    settled = true;
     const failure = error instanceof Error ? error : new Error(String(error));
     void stop().then(
       () => rejectRun(failure),

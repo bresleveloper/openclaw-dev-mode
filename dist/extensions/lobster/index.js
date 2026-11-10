@@ -153,8 +153,8 @@ function createEmbeddedLobsterRunner(options) {
 }
 //#endregion
 //#region extensions/lobster/src/lobster-tool.ts
-function createLobsterTool(api, options) {
-	const runner = options?.runner ?? createEmbeddedLobsterRunner();
+function createLobsterTool(api) {
+	const runner = createEmbeddedLobsterRunner();
 	return {
 		name: "lobster",
 		label: "Lobster Workflow",
@@ -194,7 +194,6 @@ function createLobsterTool(api, options) {
 				maxStdoutBytes
 			};
 			const envelope = await runner.run(runnerParams);
-			if (!envelope.ok) throw new Error(envelope.error.message);
 			return jsonResult(envelope);
 		}
 	};
@@ -209,7 +208,10 @@ var lobster_default = definePluginEntry({
 		api.registerTool((ctx) => {
 			if (ctx.sandboxed) return null;
 			return createLobsterTool(api);
-		}, { optional: true });
+		}, {
+			optional: true,
+			workspaceAccess: "execute"
+		});
 	}
 });
 //#endregion

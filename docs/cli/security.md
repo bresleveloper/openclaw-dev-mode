@@ -20,9 +20,11 @@ openclaw security audit --fix
 openclaw security audit --json
 ```
 
+The `runtime.node_security_patch` warning reports when the **Node running the audit** is below the recommended 24.22.1/26.12.1 security patch levels. It appears in normal and JSON reports without a deep probe, does not block compatible Node from running or updating OpenClaw, and does not apply to Bun. If your Gateway runs under another executable, upgrade and refresh that service separately; this local finding is not a remote Gateway runtime inventory.
+
 ## Audit modes
 
-Plain `security audit` stays on the cold config/filesystem/read-only path: it does not discover plugin runtime security collectors, so routine audits do not load every installed plugin runtime. `--deep` adds best-effort live Gateway probes and plugin-owned security audit collectors (explicit internal callers may also opt into those collectors when they already have an appropriate runtime scope).
+Plain `security audit` stays on the cold config/filesystem/read-only path: it does not discover plugin runtime security collectors, so routine audits do not load every installed plugin runtime. `--deep` adds best-effort live Gateway checks and plugin-owned security audit collectors (explicit internal callers may also opt into those collectors when they already have an appropriate runtime scope).
 
 If Gateway password auth is supplied only at startup, pass the same value with `--auth password --password <password>` so the audit can check it against `hooks.token`.
 
@@ -87,7 +89,7 @@ Settings prefixed with `dangerous`/`dangerously` are explicit break-glass operat
 
 ## SecretRef behavior
 
-`security audit` resolves supported SecretRefs in read-only mode for its targeted paths. If a SecretRef is unavailable in the current command path, audit continues and reports `secretDiagnostics` instead of crashing. `--token` and `--password` only override deep-probe auth for that command invocation; they do not rewrite config or SecretRef mappings.
+`security audit` resolves supported SecretRefs in read-only mode for its targeted paths. If a SecretRef is unavailable in the current command path, audit continues and reports `secretDiagnostics` instead of crashing. `--token` and `--password` only override deep-check auth for that command invocation; they do not rewrite config or SecretRef mappings.
 
 ## Suppressions
 
@@ -130,7 +132,7 @@ If remediation fails unexpectedly, the command exits with status 1 before runnin
 
 ## What `--fix` changes
 
-Applies safe, deterministic remediations:
+Applies safe, fixed repairs:
 
 - flips common `groupPolicy="open"` to `groupPolicy="allowlist"` (including account variants in supported channels)
 - when WhatsApp group policy flips to `allowlist`, seeds `groupAllowFrom` from the stored `allowFrom` file when that list exists and config does not already define `allowFrom`

@@ -1,21 +1,17 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
-import { r as extensionForMime } from "../../mime-CGDYrRzL.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { _ as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline } from "../../shared-DcnGQdHV.mjs";
-import "../../media-mime-DLFR6fqC.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-B-PBEJIo.mjs";
-import "../../provider-http-CuRGJD0L.mjs";
-import { r as generatedMusicAssetFromBase64 } from "../../music-generation-D-5knzUP.mjs";
-import { n as resolveGoogleGenerativeAiApiOrigin } from "../../provider-policy-4Ba5tPL0.mjs";
-import { p as createGoogleMusicGenerationProviderMetadata } from "../../generation-provider-metadata-CkICOOMz.mjs";
-import { n as toStandardGoogleProviderBase64 } from "../../base64-CKISTF1b.mjs";
-import { t as createGoogleGenAI } from "../../google-genai-runtime-BvkO2YGf.mjs";
+import { r as extensionForMime } from "../../mime-C3j3dfQb.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { _ as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline } from "../../shared-BMUa_P4s.mjs";
+import "../../media-mime-CvBp3WXh.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CMRSW7VK.mjs";
+import "../../provider-http-BuV15s4V.mjs";
+import { r as generatedMusicAssetFromBase64 } from "../../music-generation-BfxMS45z.mjs";
+import { c as resolveGoogleGenerativeAiSdkHttpOptions } from "../../google-api-base-url-BSKc6KBi.mjs";
+import { p as createGoogleMusicGenerationProviderMetadata } from "../../generation-provider-metadata-B7YiGEWb.mjs";
+import { n as toStandardGoogleProviderBase64 } from "../../base64-DXpT5ejD.mjs";
+import { t as createGoogleGenAI } from "../../google-genai-runtime-CP-IyKpc.mjs";
 //#region extensions/google/music-generation-provider.ts
 const DEFAULT_TIMEOUT_MS = 18e4;
-function resolveConfiguredGoogleMusicBaseUrl(req) {
-	const configured = normalizeOptionalString(req.cfg?.models?.providers?.google?.baseUrl);
-	return configured ? resolveGoogleGenerativeAiApiOrigin(configured) : void 0;
-}
 function buildMusicPrompt(req) {
 	const parts = [req.prompt.trim()];
 	const lyrics = normalizeOptionalString(req.lyrics);
@@ -85,7 +81,7 @@ function buildGoogleMusicGenerationProvider() {
 				const supportedFormats = resolveSupportedFormats(model);
 				if (!supportedFormats.includes(req.format)) throw new Error(`Google music generation model ${model} supports ${supportedFormats.join(", ")} output.`);
 			}
-			const configuredBaseUrl = resolveConfiguredGoogleMusicBaseUrl(req);
+			const httpOptions = resolveGoogleGenerativeAiSdkHttpOptions(normalizeOptionalString(req.cfg?.models?.providers?.google?.baseUrl));
 			const operationTimeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 			const deadline = createProviderOperationDeadline({
 				timeoutMs: operationTimeoutMs,
@@ -96,7 +92,7 @@ function buildGoogleMusicGenerationProvider() {
 				const response = await createGoogleGenAI({
 					apiKey: auth.apiKey,
 					httpOptions: {
-						...configuredBaseUrl ? { baseUrl: configuredBaseUrl } : {},
+						...httpOptions,
 						timeout: resolveProviderOperationTimeoutMs({
 							deadline,
 							defaultTimeoutMs: operationTimeoutMs

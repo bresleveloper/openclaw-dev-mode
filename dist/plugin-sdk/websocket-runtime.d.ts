@@ -1,9 +1,15 @@
 import { a as WebSocketServer, i as RawData, n as Data, o as createWebSocketStream, t as ClientOptions } from "../websocket-DbnFnlN8.js";
-import { Duplex } from "node:stream";
 import { Socket } from "node:net";
+import { Duplex } from "node:stream";
 //#region src/shared/one-time-ticket-store.d.ts
-type OneTimeTicketStore<T> = {
-  mint(payload: T, opts?: {
+type OneTimeTicketStore<T> = ReturnType<typeof createOneTimeTicketStore<T>>;
+export declare function createOneTimeTicketStore<T>(opts: {
+  ttlMs: number;
+  now?: () => number;
+  /** Called when an unconsumed ticket expires through its timer, consume() or clear(). */
+  onExpire?: (payload: T, token: string) => void;
+}): {
+  mint(payload: T, options?: {
     ttlMs?: number;
     nowMs?: number;
     revokeSignal?: AbortSignal;
@@ -18,12 +24,6 @@ type OneTimeTicketStore<T> = {
   clear(): void;
   readonly size: number;
 };
-export declare function createOneTimeTicketStore<T>(opts: {
-  ttlMs: number;
-  now?: () => number;
-  /** Called when an unconsumed ticket expires through its timer, consume() or clear(). */
-  onExpire?: (payload: T, token: string) => void;
-}): OneTimeTicketStore<T>;
 //#endregion
 //#region src/gateway/websocket-keepalive.d.ts
 type WebSocketKeepaliveSocket = {

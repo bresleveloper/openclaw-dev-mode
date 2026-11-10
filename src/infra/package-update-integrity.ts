@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { constants, type BigIntStats } from "node:fs";
+import { constants, lstatSync, type BigIntStats } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createSubsystemLogger } from "../logging/subsystem.js";
@@ -9,8 +9,13 @@ import { readPackageVersion } from "./package-json.js";
 import * as fileHashing from "./package-update-integrity-hasher.js";
 import { UPDATE_RUNNER_TIMEOUT_MS } from "./update-run-timeouts.js";
 
-const MAX_TREE_BYTES = 1024 * 1024 * 1024;
-const MAX_TREE_ENTRIES = 50_000;
+// The shared deadline bounds elapsed time. At ~200 bytes per entry, 500,000
+// entries budget ~100 MB for observations and bound directory enumeration.
+// Hashing streams bytes; 8 GiB bounds total input rather than a buffer allocation.
+// Both allow roughly 10x a ~50,000-entry / ~570 MiB installation to grow without
+// making ordinary package size a verification failure, while retaining finite caps.
+const MAX_TREE_BYTES = 8 * 1024 * 1024 * 1024;
+const MAX_TREE_ENTRIES = 500_000;
 const MAX_MANIFEST_BYTES = 1024 * 1024;
 const MAX_LAUNCHER_BYTES = 1024 * 1024;
 const SETTLED_CTIME_MARGIN_MS = 5_000;
@@ -24,6 +29,25 @@ export type PackageDirectoryIdentity = Pick<PackageIntegrityFingerprint, "identi
 type EntryObservation = { fields: Map<string, string>; retained: string; reusable: boolean };
 // Observations live only as long as their in-process fingerprint; journals stay compact.
 const observations = new WeakMap<PackageIntegrityFingerprint, Map<string, EntryObservation>>();
+const settlementObservations = new WeakMap<
+  PackageIntegrityFingerprint,
+  Array<{ file: string; stat: BigIntStats }>
+>();
+
+/** Revalidate the remount proof at the synchronous durable-settlement boundary. */
+export function assertPackageIntegritySettlementUnchanged(
+  fingerprint: PackageIntegrityFingerprint,
+) {
+  const entries = settlementObservations.get(fingerprint);
+  if (!entries) {
+    throw new Error("Package settlement tree observations are unavailable.");
+  }
+  for (const { file, stat } of entries) {
+    if (!packageStatUnchanged(stat, lstatSync(file, { bigint: true }))) {
+      throw new Error("Package settlement tree changed after verification.");
+    }
+  }
+}
 
 export class PackageIntegrityMismatchError extends Error {
   constructor(
@@ -81,12 +105,12 @@ export function packageLauncherDifferences(
   options?: { checkMode?: boolean },
 ): string[] {
   const symlink = expected.type === "symlink" && actual.type === "symlink";
-  // A copied launcher must restore the same bytes or link target; npm may
-  // recreate its metadata. Exact-object mutation authority is checked separately.
+  // Symlink modes vary with umask. Exact-object mutation authority is checked separately.
   return (["type", "mode", "contents"] as const)
     .filter(
       (field) =>
-        (field !== "mode" || options?.checkMode === true) && expected[field] !== actual[field],
+        (field !== "mode" || (!symlink && options?.checkMode === true)) &&
+        expected[field] !== actual[field],
     )
     .map((field) =>
       field === "contents" && symlink
@@ -321,7 +345,20 @@ export function createPackageIntegrityReader(timeoutMs = UPDATE_RUNNER_TIMEOUT_M
     originalRoot = root,
     reuse?: PackageIntegrityFingerprint,
     legacy = false,
+    historicalDevices?: ReadonlyMap<string, string>,
   ): Promise<PackageIntegrityFingerprint> {
+    // Projection affects digest encoding only. Hashing, reuse and stability checks
+    // always use the actual current stat identity, never historical device values.
+    const digestIdentity = (stat: BigIntStats) => {
+      if (!historicalDevices) {
+        return identity(stat);
+      }
+      const device = historicalDevices.get(String(stat.dev));
+      if (device === undefined) {
+        throw new Error("Package settlement tree has an unqualified device.");
+      }
+      return `${device}:${stat.ino}`;
+    };
     const prior = reuse ? observations.get(reuse) : undefined;
     const digest = createHash("sha256");
     const observed: Array<{ file: string; stat: BigIntStats }> = [];
@@ -424,7 +461,7 @@ export function createPackageIntegrityReader(timeoutMs = UPDATE_RUNNER_TIMEOUT_M
       // npm bin repair chmods files; external hardlink removal changes nlink/ctime.
       // Keep inode, permissions and hashes strict; directory clocks/size also
       // change when npm replaces its hidden cache. Within-read checks stay strict.
-      const retained = [info["dev:ino"], info.mode, info.uid, info.gid];
+      const retained = [digestIdentity(stat), info.mode, info.uid, info.gid];
       if (!stat.isDirectory()) {
         retained.push(info.size, info.mtimeNs);
       }
@@ -545,7 +582,7 @@ export function createPackageIntegrityReader(timeoutMs = UPDATE_RUNNER_TIMEOUT_M
         for (const { file, stat } of observed) {
           const relative = path.relative(root, file).split(path.sep).join("/");
           const fields = entriesObserved.get(relative)!.fields;
-          const info = Object.values(metadata(stat));
+          const info = Object.values({ ...metadata(stat), "dev:ino": digestIdentity(stat) });
           if (!relative) {
             info.pop();
           }
@@ -567,6 +604,9 @@ export function createPackageIntegrityReader(timeoutMs = UPDATE_RUNNER_TIMEOUT_M
       }
       const fingerprint = { digest: digest.digest("hex"), identity: rootIdentity, version };
       observations.set(fingerprint, entriesObserved);
+      if (historicalDevices) {
+        settlementObservations.set(fingerprint, observed);
+      }
       return fingerprint;
     } finally {
       hasher.close();
@@ -653,5 +693,35 @@ export function createPackageIntegrityReader(timeoutMs = UPDATE_RUNNER_TIMEOUT_M
     }
   }
 
-  return { tree, rootEntry, directoryIdentity, launcher, exists, entries, observe };
+  async function copiedTree(
+    root: string,
+    originalRoot: string,
+    source: PackageIntegrityFingerprint,
+  ): Promise<PackageIntegrityFingerprint> {
+    const copied = await tree(root, originalRoot);
+    const before = observations.get(source);
+    const after = observations.get(copied);
+    if (!before || !after) {
+      throw new Error("Package copy verification requires the source inventory.");
+    }
+    // New inodes and timestamps are expected; bytes, links, permissions and
+    // ownership must survive before the copy can become rollback custody.
+    const fields = ["mode", "uid", "gid", "sha256", "target"];
+    const matches =
+      before.size === after.size &&
+      [...before].every(([name, entry]) => {
+        const actual = after.get(name);
+        return (
+          actual &&
+          fields.every((field) => entry.fields.get(field) === actual.fields.get(field)) &&
+          (!entry.fields.has("sha256") || entry.fields.get("size") === actual.fields.get("size"))
+        );
+      });
+    if (!matches || source.version !== copied.version) {
+      throw new Error("Package copy inventory does not match the original package.");
+    }
+    return copied;
+  }
+
+  return { tree, copiedTree, rootEntry, directoryIdentity, launcher, exists, entries, observe };
 }

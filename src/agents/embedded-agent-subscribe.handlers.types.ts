@@ -24,7 +24,9 @@ import type {
 } from "./embedded-agent-messaging.types.js";
 import type { BlockReplyPayload } from "./embedded-agent-payloads.js";
 import type { EmbeddedRunReplayState } from "./embedded-agent-runner/replay-state.js";
+import type { EmbeddedRunAttemptResult } from "./embedded-agent-runner/run/types.js";
 import type { EmbeddedRunLivenessState } from "./embedded-agent-runner/types.js";
+import type { StreamingReplyResolver } from "./embedded-agent-subscribe.streaming-reply.types.js";
 import type {
   BlockReplyChunking,
   SubscribeEmbeddedAgentSessionParams,
@@ -82,7 +84,7 @@ export type AssistantStreamData = {
 
 /** Incremental tag and Markdown parsing state, owned by one stream lane. */
 export type StreamBlockState = {
-  thinking: boolean;
+  reasoningDepth: number;
   final: boolean;
   inlineCode?: InlineCodeState;
   fence?: FenceScanState;
@@ -107,25 +109,18 @@ export type EmbeddedAgentSubscribeState = {
     finalMessageStart: number;
     lastAssistant: AssistantMessage;
     keptAnswer?: CompletedAssistantAnswer;
+    sourceReplyDeliveryState?: ReplyDeliveryState;
   }>;
   /** Latest response-ending answer to the current input. */
   inputAnswer?: CompletedAssistantAnswer;
   /** That answer while the latest assistant message added no reply of its own: the turn's reply. */
   keptAnswer?: CompletedAssistantAnswer;
-  toolMetas: Array<{
-    toolName?: string;
-    toolCallId?: string;
-    parentToolCallId?: string;
-    activity?: AgentItemEventData;
-    meta?: string;
-    replaySafe?: boolean;
-    isError?: boolean;
-    terminate?: boolean;
-    asyncStarted?: boolean;
-    asyncTaskRunId?: string;
-    asyncTaskId?: string;
-    codeModeSuspended?: boolean;
-  }>;
+  toolMetas: Array<
+    EmbeddedRunAttemptResult["toolMetas"][number] & {
+      parentToolCallId?: string;
+      activity?: AgentItemEventData;
+    }
+  >;
   acceptedSessionSpawns: AcceptedSessionSpawn[];
   toolMetaById: Map<string, ToolCallSummary>;
   toolSummaryById: Set<string>;
@@ -177,6 +172,7 @@ export type EmbeddedAgentSubscribeState = {
     raw: string;
     text: string;
     projection?: {
+      replyResolver?: StreamingReplyResolver;
       kind: "raw" | "delivery" | "final";
       projector: ReturnType<typeof createAssistantVisibleStreamText>;
       directiveCodePrefix?: StreamDirectiveCodePrefix;

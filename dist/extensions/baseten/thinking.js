@@ -1,4 +1,4 @@
-import { l as usesBasetenChatTemplateThinking } from "./.setup/models-BOkRtUeP.mjs";
+import { l as usesBasetenChatTemplateThinking } from "./.setup/models-wG5xIuOb.mjs";
 //#region extensions/baseten/thinking.ts
 const BASETEN_BINARY_THINKING_PROFILE = {
 	levels: [{ id: "off" }, {

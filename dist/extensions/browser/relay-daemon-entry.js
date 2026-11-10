@@ -1,14 +1,14 @@
-import { i as extractErrorCode } from "../../error-coercion-CvJK4lmH.mjs";
-import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
-import { r as getRuntimeConfig } from "../../io.runtime-BSum32pK.mjs";
-import "../../security-runtime-CpTHQYW2.mjs";
-import "../../runtime-config-snapshot-DlrhEsA8.mjs";
-import "../../logging-core-e269L3HU.mjs";
-import { a as createDeferred } from "../../extension-shared-GoQu59iC.mjs";
-import { i as resolveBrowserConfig, s as resolveProfile } from "../../config-DQZ6ubGi.mjs";
-import { t as readBrowserHostConfig } from "../../extension-host-config-CgZzBhnb.mjs";
-import { n as readExtensionRelayToken } from "../../relay-auth-z0aZf3a4.mjs";
-import { r as startExtensionRelayServer } from "../../relay-server-VNzPGXwB.mjs";
+import { a as extractErrorCode } from "../../error-coercion-BwMr25F8.mjs";
+import { t as createSubsystemLogger } from "../../subsystem-mStysHHC.mjs";
+import { t as captureRuntimeConfigAsyncReader } from "../../io.runtime-Ds5uC0Bf.mjs";
+import "../../security-runtime-6domDoE8.mjs";
+import "../../runtime-config-snapshot-kTPhBdOK.mjs";
+import "../../logging-core-CsXmxYo2.mjs";
+import { a as createDeferred } from "../../extension-shared-Bp_Ziw8S.mjs";
+import { i as resolveBrowserConfig, s as resolveProfile } from "../../config-xjgIR3E-.mjs";
+import { t as readBrowserHostConfig } from "../../extension-host-config-CElEV7KJ.mjs";
+import { n as readExtensionRelayToken } from "../../relay-auth-B3T3jEbR.mjs";
+import { n as startExtensionRelayServer } from "../../relay-server-BZJInYjI.mjs";
 //#region extensions/browser/src/browser/relay-daemon.ts
 const log = createSubsystemLogger("browser").child("relay-daemon");
 /** Default grace before a daemon with no extension and no CDP clients exits. */
@@ -21,13 +21,10 @@ const IDLE_POLL_MS = 3e4;
 * gone for the idle grace so an idle daemon never outlives Chrome.
 */
 async function runExtensionRelayDaemon(params) {
-	const readToken = params.readToken ?? readExtensionRelayToken;
 	const allowLegacyAuth = params.allowLegacyAuth ?? false;
-	const now = params.now ?? Date.now;
-	const idleExitMs = params.idleExitMs ?? RELAY_DAEMON_IDLE_EXIT_MS;
-	const pollMs = params.pollMs ?? IDLE_POLL_MS;
+	const now = Date.now;
 	const completion = createDeferred();
-	const token = readToken();
+	const token = readExtensionRelayToken();
 	if (!token) {
 		log.warn("relay daemon refused to start: no extension relay credential");
 		completion.resolve("no-credential");
@@ -39,7 +36,7 @@ async function runExtensionRelayDaemon(params) {
 	}
 	let handle;
 	try {
-		const config = getRuntimeConfig();
+		const config = await captureRuntimeConfigAsyncReader()();
 		const resolved = resolveBrowserConfig(config.browser, config);
 		const profiles = Object.keys(resolved.profiles).filter((name) => {
 			const profile = resolveProfile(resolved, name);
@@ -78,11 +75,11 @@ async function runExtensionRelayDaemon(params) {
 			lastActiveAtMs = now();
 			return;
 		}
-		if (now() - lastActiveAtMs >= idleExitMs) {
+		if (now() - lastActiveAtMs >= RELAY_DAEMON_IDLE_EXIT_MS) {
 			log.info("relay daemon idle (no extension, no CDP clients); exiting");
 			finish("idle");
 		}
-	}, pollMs);
+	}, IDLE_POLL_MS);
 	idleTimer.unref?.();
 	return {
 		done: completion.promise,

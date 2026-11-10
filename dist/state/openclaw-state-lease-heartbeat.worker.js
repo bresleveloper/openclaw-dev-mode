@@ -1,21 +1,25 @@
 import { createRequire } from "node:module";
-import { Worker, getEnvironmentData, isMainThread, parentPort, setEnvironmentData, threadId, workerData } from "node:worker_threads";
+import { MessageChannel, Worker, getEnvironmentData, isMainThread, parentPort, receiveMessageOnPort, setEnvironmentData, threadId, workerData } from "node:worker_threads";
 import { AsyncLocalStorage, AsyncResource } from "node:async_hooks";
-import { createHash, hash } from "node:crypto";
-import fs, { existsSync, realpathSync, statSync, default as openClawRootFsSync } from "node:fs";
-import os, { endianness, tmpdir } from "node:os";
+import { createHash, hash, randomUUID } from "node:crypto";
+import fs, { existsSync, fstatSync, readdirSync, realpathSync, statSync, default as openClawRootFsSync } from "node:fs";
 import path, { basename, join, posix } from "node:path";
+import os, { tmpdir } from "node:os";
 import { Chalk } from "chalk";
-import { appendRegularFile, appendRegularFileSync, canUseRootFileOpen, openRootFileSync, readFileWindowFullySync } from "@openclaw/fs-safe/advanced";
+import { isDeepStrictEqual, toUSVString, types } from "node:util";
+import { appendRegularFile, appendRegularFileSync, canUseRootFileOpen, openRootFileSync, readFileDescriptorBoundedSync, readFileWindowFullySync } from "@openclaw/fs-safe/advanced";
 import "@openclaw/fs-safe/errors";
-import { hasNodeErrorCode as hasErrnoCode, isPathInside, normalizeWindowsPathForComparison } from "@openclaw/fs-safe/path";
+import { hasNodeErrorCode as hasErrnoCode, isPathInside, isPathInside as isPathInside$1, normalizeWindowsPathForComparison, normalizeWindowsPathForComparison as normalizeWindowsPathForComparison$1 } from "@openclaw/fs-safe/path";
 import { channel } from "node:diagnostics_channel";
 import { performance as performance$1 } from "node:perf_hooks";
 import { Logger } from "tslog";
 import fsPromises, { mkdtemp, realpath, rm } from "node:fs/promises";
 import childProcess, { spawnSync } from "node:child_process";
-import "@openclaw/fs-safe/durability";
+import { ProcSafeError } from "@openclaw/proc-safe/errors";
+import { readProcessIdentity } from "@openclaw/proc-safe/identity";
 import "@openclaw/fs-safe/file-lock";
+import "@openclaw/fs-safe/durability";
+import { isUtf8 } from "node:buffer";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { readRootJsonObjectSync } from "@openclaw/fs-safe/json";
 import { setFlagsFromString } from "node:v8";
@@ -42,6 +46,14 @@ var __exportAll = (all, no_symbols) => {
 };
 //#endregion
 //#region packages/normalization-core/src/error-coercion.ts
+const PROVIDER_AUTH_PERSISTENCE_ERROR_BRAND = Symbol.for("openclaw.provider-auth-persistence-error");
+function isProviderAuthPersistenceError(value) {
+	try {
+		return PROVIDER_AUTH_PERSISTENCE_ERROR_BRAND in value && value[PROVIDER_AUTH_PERSISTENCE_ERROR_BRAND] === true;
+	} catch {
+		return false;
+	}
+}
 function isErrorObject(value) {
 	try {
 		if (value instanceof Error) return true;
@@ -97,15 +109,17 @@ function readErrorCauses(current) {
 	if (!isErrorObject(current)) return [];
 	const cause = readProperty(current, "cause");
 	const errors = isAggregateErrorObject(current) ? readProperty(current, "errors") : void 0;
+	const persistenceFailures = isProviderAuthPersistenceError(current) ? [readProperty(current, "persistenceError"), readProperty(current, "cleanupError")] : [];
 	const suppressed = readErrorText(current, "name") === "SuppressedError" ? [readProperty(current, "error"), readProperty(current, "suppressed")].map((failure) => failure == null ? String(failure) : failure) : [];
 	return [
+		...persistenceFailures,
 		cause || void 0,
 		...Array.isArray(errors) ? errors : [],
 		...suppressed
 	];
 }
-/** Formats unknown errors with cause/aggregate details, structured codes, and secret redaction. */
-function formatErrorMessage$1(value, options) {
+/** Formats unknown errors with cause/aggregate details and optional diagnostic redaction. */
+function formatErrorMessage$1(value, options = {}) {
 	let formatted;
 	if (isErrorObject(value)) {
 		formatted = readErrorText(value, "message") || readErrorText(value, "name") || "Error";
@@ -115,26 +129,21 @@ function formatErrorMessage$1(value, options) {
 			formatted += ` | ${message}`;
 			seenMessages.add(message);
 		};
-		const appendCauseErrorMessage = (message) => {
-			if (message && formatted.includes(message)) {
-				seenMessages.add(message);
-				return;
-			}
-			appendCauseMessage(message);
-		};
 		if (options.includeCode) {
 			const code = readProperty(value, "code");
 			if (typeof code === "string" || typeof code === "number") appendCauseMessage(String(code));
 		}
 		const causes = collectErrorGraphCandidates(value, readErrorCauses);
 		for (const cause of causes.slice(1)) if (isErrorObject(cause)) {
-			appendCauseErrorMessage(readErrorText(cause, "message"));
+			const message = readErrorText(cause, "message");
+			if (message && formatted.includes(message)) seenMessages.add(message);
+			else appendCauseMessage(message);
 			const code = readProperty(cause, "code");
 			if (typeof code === "string" || typeof code === "number") appendCauseMessage(String(code));
 		} else if (typeof cause === "string") appendCauseMessage(cause);
 		else appendCauseMessage(formatStatusAndCode(cause) ?? stringifyUnknown(cause));
 	} else formatted = formatStatusAndCode(value) ?? stringifyUnknown(value);
-	return options.redact(formatted);
+	return options.redact ? options.redact(formatted) : formatted;
 }
 /**
 * Normalizes an unknown thrown value into an Error. Non-Error objects become
@@ -309,21 +318,7 @@ function resolveUserPath(input, env = process.env, homedir = os.homedir) {
 	});
 }
 //#endregion
-//#region src/infra/test-runtime-env.ts
-/** Detects Vitest/test execution from the env shape used by local and worker processes. */
-function isVitestRuntimeEnv(env = process.env) {
-	const vitest = env.VITEST;
-	return vitest === "true" || vitest === "1" || env.VITEST_POOL_ID !== void 0 || env.VITEST_WORKER_ID !== void 0 || env.NODE_ENV === "test";
-}
-/** Enables the shared fast-test shortcuts only inside a detected test runtime. */
-function isFastTestRuntimeEnv(env = process.env) {
-	return env.OPENCLAW_TEST_FAST === "1" && (isVitestRuntimeEnv(env) || env !== process.env && isVitestRuntimeEnv(process.env));
-}
-//#endregion
 //#region src/config/state-dir.ts
-function resolveLegacyStateDirs(homedir = resolveRequiredHomeDir) {
-	return [path.join(homedir(), ".clawdbot")];
-}
 function resolveNewStateDir(homedir = resolveRequiredHomeDir) {
 	return path.join(homedir(), ".openclaw");
 }
@@ -342,10 +337,8 @@ function resolveStateDir(env = process.env, homedir = () => resolveRequiredHomeD
 	return resolveStateDirFromHome(env, effectiveHomedir);
 }
 /** Select a default state directory from the caller's already resolved home. */
-function resolveStateDirFromHome(env, effectiveHomedir) {
-	const newDir = resolveNewStateDir(effectiveHomedir);
-	if (isFastTestRuntimeEnv(env) || fs.existsSync(newDir)) return newDir;
-	return resolveLegacyStateDirs(effectiveHomedir).find((dir) => fs.existsSync(dir)) ?? newDir;
+function resolveStateDirFromHome(_env, effectiveHomedir) {
+	return resolveNewStateDir(effectiveHomedir);
 }
 //#endregion
 //#region src/config/paths.ts
@@ -361,13 +354,6 @@ function resolveIsNixMode(env = process.env) {
 }
 resolveIsNixMode();
 const CONFIG_FILENAME = "openclaw.json";
-const LEGACY_CONFIG_FILENAMES = ["clawdbot.json"];
-function configPathsInStateDir(stateDir) {
-	return [CONFIG_FILENAME, ...LEGACY_CONFIG_FILENAMES].map((name) => path.join(stateDir, name));
-}
-function findExistingConfigPath(candidates) {
-	return candidates.find((candidate) => fs.existsSync(candidate));
-}
 /** Build a homedir thunk that respects OPENCLAW_HOME for the given env. */
 function envHomedir(env) {
 	return () => resolveRequiredHomeDir(env, os.homedir);
@@ -405,57 +391,20 @@ function resolveIncludeRoots(env = process.env, homedir = envHomedir(env)) {
 }
 resolveStateDir();
 /**
-* Config file path (JSON or JSON5).
-* Can be overridden via OPENCLAW_CONFIG_PATH.
-* Default: ~/.openclaw/openclaw.json (or $OPENCLAW_STATE_DIR/openclaw.json)
-*/
-function resolveCanonicalConfigPath(env = process.env, stateDir) {
-	const override = env.OPENCLAW_CONFIG_PATH?.trim();
-	if (override) return resolveUserPath(override, env, envHomedir(env));
-	return path.join(stateDir ?? resolveStateDir(env, envHomedir(env)), CONFIG_FILENAME);
-}
-/**
-* Resolve the active config path by preferring existing config candidates
-* before falling back to the canonical path.
+* Resolve the explicitly selected or canonical config path.
 */
 function resolveConfigPathCandidate(env = process.env, homedir = envHomedir(env)) {
-	const override = env.OPENCLAW_CONFIG_PATH?.trim();
-	if (override) return resolveUserPath(override, env, homedir);
-	if (isFastTestRuntimeEnv(env)) return resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
-	return findExistingConfigPath(resolveDefaultConfigCandidates(env, homedir)) ?? resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
+	return resolveConfigPath(env, void 0, homedir);
 }
 /**
-* Active config path (prefers existing config files).
+* Active config path.
 */
 function resolveConfigPath(env = process.env, stateDir, homedir = envHomedir(env)) {
 	const override = env.OPENCLAW_CONFIG_PATH?.trim();
 	if (override) return resolveUserPath(override, env, homedir);
-	const selectedStateDir = stateDir ?? resolveStateDir(env, envHomedir(env));
-	if (isFastTestRuntimeEnv(env)) return path.join(selectedStateDir, CONFIG_FILENAME);
-	const stateOverride = env.OPENCLAW_STATE_DIR?.trim();
-	const existing = findExistingConfigPath(configPathsInStateDir(selectedStateDir));
-	if (existing) return existing;
-	if (stateOverride) return path.join(selectedStateDir, CONFIG_FILENAME);
-	const defaultStateDir = resolveStateDir(env, homedir);
-	if (path.resolve(selectedStateDir) === path.resolve(defaultStateDir)) return resolveConfigPathCandidate(env, homedir);
-	return path.join(selectedStateDir, CONFIG_FILENAME);
+	return path.join(stateDir ?? resolveStateDir(env, homedir), CONFIG_FILENAME);
 }
 resolveConfigPathCandidate();
-/**
-* Resolve default config path candidates across default locations.
-* Order: explicit config path → state-dir-derived paths → new default.
-*/
-function resolveDefaultConfigCandidates(env = process.env, homedir = envHomedir(env)) {
-	const effectiveHomedir = () => resolveRequiredHomeDir(env, homedir);
-	const explicit = env.OPENCLAW_CONFIG_PATH?.trim();
-	if (explicit) return [resolveUserPath(explicit, env, effectiveHomedir)];
-	const openclawStateDir = env.OPENCLAW_STATE_DIR?.trim();
-	return [
-		...openclawStateDir ? [resolveUserPath(openclawStateDir, env, effectiveHomedir)] : [],
-		resolveNewStateDir(effectiveHomedir),
-		...resolveLegacyStateDirs(effectiveHomedir)
-	].flatMap(configPathsInStateDir);
-}
 /** Append the lock layout when the caller has already resolved the state directory. */
 function resolveGatewayLockDirForCanonicalStateDir(stateDir, uid = typeof process.getuid === "function" ? process.getuid() : void 0) {
 	const suffix = uid != null ? `openclaw-${uid}` : "openclaw";
@@ -588,26 +537,15 @@ function isVerbose() {
 /** Process-wide listener counts used to avoid telemetry work without consumers. */
 const DIAGNOSTIC_EVENT_LISTENER_PRESENCE_KEY = Symbol.for("openclaw.diagnosticEventListenerPresence.v1");
 function getDiagnosticEventListenerPresence() {
-	const existing = globalThis[DIAGNOSTIC_EVENT_LISTENER_PRESENCE_KEY];
-	if (existing && typeof existing === "object" && existing.marker === DIAGNOSTIC_EVENT_LISTENER_PRESENCE_KEY) {
-		const state = existing;
-		state.broadInterestCount ??= 0;
-		state.eventInterestDeltas ??= /* @__PURE__ */ new Map();
-		return state;
-	}
-	const state = {
+	const state = resolveGlobalSingleton(DIAGNOSTIC_EVENT_LISTENER_PRESENCE_KEY, () => ({
 		broadInterestCount: 0,
 		eventInterestDeltas: /* @__PURE__ */ new Map(),
 		marker: DIAGNOSTIC_EVENT_LISTENER_PRESENCE_KEY,
 		internalCount: 0,
 		trustedCount: 0
-	};
-	Object.defineProperty(globalThis, DIAGNOSTIC_EVENT_LISTENER_PRESENCE_KEY, {
-		configurable: true,
-		enumerable: false,
-		value: state,
-		writable: false
-	});
+	}));
+	state.broadInterestCount ??= 0;
+	state.eventInterestDeltas ??= /* @__PURE__ */ new Map();
 	return state;
 }
 function isInternalDiagnosticEventInterested(interest, type, trusted) {
@@ -617,6 +555,57 @@ function hasInternalDiagnosticEventInterest(type) {
 	const state = getDiagnosticEventListenerPresence();
 	return state.broadInterestCount + (state.eventInterestDeltas.get(type) ?? 0) > 0;
 }
+//#endregion
+//#region src/plugins/plugin-instance-invocation.ts
+var InvocationFrame = class InvocationFrame {
+	constructor(scopes, invocation = scopes.invocation) {
+		this.invocation = invocation;
+		this.metadataScope = scopes.metadataScope;
+		this.cacheScope = scopes.cacheScope;
+		this.sourceCaptureStorage = scopes.sourceCaptureStorage;
+	}
+	get runtimePluginId() {}
+	withScopes(scopes) {
+		return new InvocationFrame(scopes);
+	}
+};
+/** Copy core scopes through the current owner so runtime-only fields survive. */
+function createPluginExecutionFrame(scopes, current) {
+	return current ? current.withScopes(scopes) : new InvocationFrame(scopes);
+}
+const pluginExecutionContext = resolveGlobalSingleton(Symbol.for("openclaw.pluginInstanceInvocation"), () => {
+	const frames = new AsyncLocalStorage();
+	return {
+		invocation: {
+			getStore() {
+				return frames.getStore()?.invocation;
+			},
+			run(invocation, run) {
+				const current = frames.getStore();
+				return frames.run(current?.invocation === invocation ? current : createPluginExecutionFrame({
+					...current,
+					invocation
+				}, current), run);
+			},
+			exit(run) {
+				const current = frames.getStore();
+				return current?.invocation ? frames.run(current.withScopes({
+					...current,
+					invocation: void 0
+				}), run) : run();
+			}
+		},
+		getFrame() {
+			return frames.getStore();
+		},
+		runFrame(frame, run) {
+			return frames.run(frame, run);
+		}
+	};
+});
+pluginExecutionContext.invocation;
+const getPluginExecutionFrame = pluginExecutionContext.getFrame;
+pluginExecutionContext.runFrame;
 //#endregion
 //#region src/shared/listeners.ts
 /** Notifies every registered listener while isolating individual listener failures. */
@@ -675,25 +664,11 @@ const DIAGNOSTIC_TRACE_SCOPE_STATE_KEY = Symbol.for("openclaw.diagnosticTraceSco
 function isNonZeroHex(value) {
 	return !/^0+$/.test(value);
 }
-function isDiagnosticTraceScopeState(value) {
-	if (!value || typeof value !== "object") return false;
-	const candidate = value;
-	return candidate.marker === DIAGNOSTIC_TRACE_SCOPE_STATE_KEY && candidate.storage instanceof AsyncLocalStorage;
-}
 function getDiagnosticTraceScopeState() {
-	const existing = globalThis[DIAGNOSTIC_TRACE_SCOPE_STATE_KEY];
-	if (isDiagnosticTraceScopeState(existing)) return existing;
-	const state = {
+	return resolveGlobalSingleton(DIAGNOSTIC_TRACE_SCOPE_STATE_KEY, () => ({
 		marker: DIAGNOSTIC_TRACE_SCOPE_STATE_KEY,
 		storage: new AsyncLocalStorage()
-	};
-	Object.defineProperty(globalThis, DIAGNOSTIC_TRACE_SCOPE_STATE_KEY, {
-		configurable: true,
-		enumerable: false,
-		value: state,
-		writable: false
-	});
-	return state;
+	}));
 }
 /** Returns whether a value is a non-zero W3C trace id. */
 function isValidDiagnosticTraceId(value) {
@@ -714,25 +689,11 @@ function getActiveDiagnosticTraceContext() {
 //#endregion
 //#region src/infra/diagnostic-trace-propagation.ts
 const DIAGNOSTIC_TRACE_PROPAGATION_STATE_KEY = Symbol.for("openclaw.diagnosticTracePropagation.state.v1");
-function isDiagnosticTracePropagationState(value) {
-	if (!value || typeof value !== "object") return false;
-	const candidate = value;
-	return candidate.marker === DIAGNOSTIC_TRACE_PROPAGATION_STATE_KEY && candidate.bridges instanceof Set;
-}
 function getDiagnosticTracePropagationState() {
-	const existing = globalThis[DIAGNOSTIC_TRACE_PROPAGATION_STATE_KEY];
-	if (isDiagnosticTracePropagationState(existing)) return existing;
-	const state = {
+	return resolveGlobalSingleton(DIAGNOSTIC_TRACE_PROPAGATION_STATE_KEY, () => ({
 		marker: DIAGNOSTIC_TRACE_PROPAGATION_STATE_KEY,
 		bridges: /* @__PURE__ */ new Set()
-	};
-	Object.defineProperty(globalThis, DIAGNOSTIC_TRACE_PROPAGATION_STATE_KEY, {
-		configurable: true,
-		enumerable: false,
-		value: state,
-		writable: false
-	});
-	return state;
+	}));
 }
 function activeDiagnosticTracePropagationBridge() {
 	let active;
@@ -771,14 +732,131 @@ function isBlockedObjectKey(key) {
 	return BLOCKED_OBJECT_KEYS.has(key);
 }
 //#endregion
+//#region src/infra/runtime-process-manifest.ts
+function createRuntimeProcessEntrypoints(currentModuleUrl) {
+	function runtimeProcessEntrypoint(modulePath) {
+		return {
+			currentModuleUrl,
+			sourceWorkerName: modulePath.startsWith("infra/") ? modulePath.slice(6) : `../${modulePath}`,
+			distWorkerPath: `${modulePath}.js`
+		};
+	}
+	return {
+		sqliteHeaderProbe: runtimeProcessEntrypoint("infra/sqlite-header-probe.worker"),
+		postgresBridge: runtimeProcessEntrypoint("infra/postgres-sync/bridge.worker"),
+		secretEgressProxy: runtimeProcessEntrypoint("secrets/egress-proxy/proxy.worker"),
+		codeModeNode: runtimeProcessEntrypoint("agents/code-mode-node.worker"),
+		cronReadOnly: runtimeProcessEntrypoint("cron/store/read-only.worker"),
+		stateRead: runtimeProcessEntrypoint("state/openclaw-state-read.worker"),
+		workerNativeLifecycle: runtimeProcessEntrypoint("infra/worker-native-lifecycle.worker"),
+		spawnBroker: runtimeProcessEntrypoint("process/spawn-broker/worker"),
+		cronStreamMatcher: runtimeProcessEntrypoint("gateway/cron-stream-matcher.worker"),
+		controlUiFile: runtimeProcessEntrypoint("gateway/control-ui-file.worker"),
+		publicSessionCard: runtimeProcessEntrypoint("gateway/control-ui-public-session-card.worker"),
+		nodeBootstrapArtifact: runtimeProcessEntrypoint("gateway/worker-environments/node-bootstrap-artifact.worker"),
+		nativeHookRelayClient: runtimeProcessEntrypoint("agents/harness/native-hook-relay-client.worker"),
+		computerHost: runtimeProcessEntrypoint("gateway/desktop/computer.worker"),
+		imageProcessor: runtimeProcessEntrypoint("media/image-processor.worker"),
+		fileToolPlanning: runtimeProcessEntrypoint("agents/sessions/tools/file-tool-planning.worker"),
+		fileToolRead: runtimeProcessEntrypoint("agents/sessions/tools/read-file.worker"),
+		attachmentProcessor: runtimeProcessEntrypoint("media/attachment-processor.worker"),
+		gitOperations: runtimeProcessEntrypoint("infra/git-operation.worker"),
+		gitPackCleanup: runtimeProcessEntrypoint("agents/worktrees/git-pack-cleanup.worker"),
+		fsSafeCopy: runtimeProcessEntrypoint("infra/fs-safe-copy.worker"),
+		sharedStateStore: runtimeProcessEntrypoint("state/openclaw-state.worker"),
+		authProfileInlineUsage: runtimeProcessEntrypoint("agents/auth-profiles/inline-usage.worker"),
+		pluginModelCatalogCredentials: runtimeProcessEntrypoint("agents/plugin-model-catalog.worker"),
+		agentDatabaseExecution: runtimeProcessEntrypoint("state/openclaw-agent-execution.worker"),
+		workspaceMemory: runtimeProcessEntrypoint("worker/memory-worker-entry"),
+		localAgentAvatar: runtimeProcessEntrypoint("agents/identity-avatar-file.worker"),
+		identityFile: runtimeProcessEntrypoint("agents/identity-file.worker"),
+		workspaceSkills: runtimeProcessEntrypoint("worker/skills-worker-entry"),
+		skillsDiscovery: runtimeProcessEntrypoint("skills/runtime/discovery.worker"),
+		boardStore: runtimeProcessEntrypoint("boards/sqlite-board-store.worker"),
+		progressCardStore: runtimeProcessEntrypoint("session-cards/progress-card-store.worker"),
+		sessionSharingStore: runtimeProcessEntrypoint("config/sessions/session-sharing-store.worker"),
+		sessionForkDomain: runtimeProcessEntrypoint("config/sessions/session-fork-domain.worker"),
+		sessionGoalOperations: runtimeProcessEntrypoint("config/sessions/goals-operations.worker"),
+		sessionLifecyclePlanningDomain: runtimeProcessEntrypoint("config/sessions/session-lifecycle-projection.worker"),
+		sessionMessageRewriteDomain: runtimeProcessEntrypoint("config/sessions/session-message-rewrite.worker"),
+		sessionDiskBudget: runtimeProcessEntrypoint("config/sessions/disk-budget.worker"),
+		heartbeatOutcomeStore: runtimeProcessEntrypoint("infra/heartbeat-outcome-store.worker"),
+		acpParentStreamStore: runtimeProcessEntrypoint("agents/subagents/spawn/acp-parent-stream-store.worker"),
+		messageToolRunOutcomeStore: runtimeProcessEntrypoint("infra/message-tool-run-outcome-store.worker"),
+		contextEngineTurnOutbox: runtimeProcessEntrypoint("agents/harness/context-engine-turn-outbox.worker"),
+		sqliteStore: runtimeProcessEntrypoint("infra/sqlite-store.worker"),
+		sqliteWriterAdmission: runtimeProcessEntrypoint("infra/sqlite-writer-admission.worker"),
+		agentSchemaInspection: runtimeProcessEntrypoint("state/openclaw-agent-schema-inspection.worker"),
+		stateMigrationSnapshot: runtimeProcessEntrypoint("infra/state-migrations.snapshot.worker"),
+		githubExec: runtimeProcessEntrypoint("agents/github-exec-launcher"),
+		sqliteReadOnly: runtimeProcessEntrypoint("infra/sqlite-readonly-location.worker"),
+		sqliteSnapshotStaging: runtimeProcessEntrypoint("infra/sqlite-snapshot-staging.worker"),
+		sqliteReadOnlyNativeResource: runtimeProcessEntrypoint("infra/sqlite-readonly-native-resource"),
+		sqliteSourceRevision: runtimeProcessEntrypoint("infra/sqlite-source-revision.worker"),
+		sqliteIntegrity: runtimeProcessEntrypoint("infra/sqlite-integrity.worker"),
+		sqliteCloseProbe: runtimeProcessEntrypoint("infra/bun-sqlite-close-probe.worker"),
+		preparedModelCatalog: runtimeProcessEntrypoint("agents/prepared-model-catalog.worker"),
+		providerPromptState: runtimeProcessEntrypoint("agents/embedded-agent-runner/provider-prompt-state.worker"),
+		updateRepair: runtimeProcessEntrypoint("infra/update-repair.worker"),
+		immutableBuild: runtimeProcessEntrypoint("infra/update-immutable-build.worker"),
+		updateMigratedFinalize: runtimeProcessEntrypoint("infra/update-migrated-finalize.worker"),
+		updateCandidateState: runtimeProcessEntrypoint("infra/update-candidate-state.worker"),
+		doctorLint: runtimeProcessEntrypoint("commands/doctor-lint.worker"),
+		doctor: runtimeProcessEntrypoint("commands/doctor.worker"),
+		databaseVerify: runtimeProcessEntrypoint("state/openclaw-database-verify.worker"),
+		stateOwnership: runtimeProcessEntrypoint("state/openclaw-state-ownership.worker"),
+		stateLeaseHeartbeat: runtimeProcessEntrypoint("state/openclaw-state-lease-heartbeat.worker"),
+		gatewayStateOwnerHeartbeat: runtimeProcessEntrypoint("infra/gateway-state-owner-heartbeat.worker"),
+		sessionTranscriptArchive: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-archive.worker"),
+		sessionTranscript: runtimeProcessEntrypoint("config/sessions/session-transcript.worker"),
+		workerTranscriptCommit: runtimeProcessEntrypoint("gateway/worker-environments/transcript-commit.worker"),
+		sessionManagerMetadata: runtimeProcessEntrypoint("agents/sessions/session-manager-metadata.worker"),
+		sessionTranscriptProjectionPublication: runtimeProcessEntrypoint("config/sessions/session-transcript-projection-publication.worker"),
+		sessionTranscriptReports: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-transcript-reports.worker"),
+		sessionTranscriptReconcile: runtimeProcessEntrypoint("config/sessions/session-transcript-reconcile.worker"),
+		tailscaleRouteOwner: runtimeProcessEntrypoint("infra/tailscale-route-owner.worker"),
+		serviceChildRelay: runtimeProcessEntrypoint("process/supervisor/service-child-relay"),
+		terminalPty: runtimeProcessEntrypoint("process/terminal-pty-worker"),
+		serviceChildGroupAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-group-anchor"),
+		serviceChildWindowsJobAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-windows-job-anchor"),
+		bunSqliteLibrary: runtimeProcessEntrypoint("infra/bun-sqlite-library")
+	};
+}
+var init_runtime_process_manifest = __esmMin((() => {}));
+//#endregion
+//#region src/infra/worker-diagnostic-script.ts
+init_runtime_process_manifest();
+const workerScriptNames = /* @__PURE__ */ new Set([
+	...Object.values(createRuntimeProcessEntrypoints(import.meta.url)).map((entry) => basename(entry.distWorkerPath)),
+	"catalog-page.worker.js",
+	"code-mode.worker.js",
+	"disk-budget.worker.js",
+	"document-extractor.worker.js",
+	"manager-index.worker.js",
+	"manager-search.worker.js",
+	"memory-index.worker.js",
+	"memory-search.worker.js",
+	"session-history.worker.js",
+	"audio-worker.runtime.js",
+	"realtime-quicksilver-audio.worker.js",
+	"realtime-quicksilver-socket.worker.js",
+	"telegram-ingress-worker.runtime.js"
+]);
+/** Imported diagnostics may contain arbitrary paths or names. Preserve only known scripts. */
+function normalizeDiagnosticWorkerScript(value) {
+	return typeof value === "string" && workerScriptNames.has(value) ? value : "other";
+}
+//#endregion
 //#region src/infra/diagnostic-events.ts
 const EMPTY_DIAGNOSTIC_PRIVATE_DATA = Object.freeze({});
 const MAX_ASYNC_DIAGNOSTIC_EVENTS = 1e4;
 const MAX_ASYNC_DIAGNOSTIC_EVENTS_PER_TURN = 100;
 const DIAGNOSTIC_EVENTS_STATE_KEY = Symbol.for("openclaw.diagnosticEvents.state.v1");
 const ASYNC_DIAGNOSTIC_EVENT_TYPES = /* @__PURE__ */ new Set([
+	"worker.request",
 	"diagnostic.gc",
 	"gateway.event_loop.sample",
+	"gateway.http.cancelled",
 	"gateway.rpc",
 	"tool.execution.started",
 	"tool.execution.completed",
@@ -811,8 +889,8 @@ const PRIORITY_ASYNC_DIAGNOSTIC_EVENT_TYPES = /* @__PURE__ */ new Set([
 	"harness.run.completed",
 	"harness.run.error"
 ]);
-function createDiagnosticEventsState() {
-	return {
+function getDiagnosticEventsState() {
+	const state = resolveGlobalSingleton(DIAGNOSTIC_EVENTS_STATE_KEY, () => ({
 		marker: DIAGNOSTIC_EVENTS_STATE_KEY,
 		enabled: true,
 		seq: 0,
@@ -827,31 +905,13 @@ function createDiagnosticEventsState() {
 		asyncDroppedTrustedEvents: 0,
 		asyncDroppedUntrustedEvents: 0,
 		asyncDroppedPriorityEvents: 0
-	};
-}
-function isDiagnosticEventsState(value) {
-	if (!value || typeof value !== "object") return false;
-	const candidate = value;
-	return candidate.marker === DIAGNOSTIC_EVENTS_STATE_KEY && typeof candidate.enabled === "boolean" && typeof candidate.seq === "number" && candidate.listeners instanceof Map && candidate.trustedListeners instanceof Map && (candidate.toolExecutionListeners === void 0 || candidate.toolExecutionListeners instanceof Set) && typeof candidate.dispatchDepth === "number" && Array.isArray(candidate.asyncQueue) && typeof candidate.asyncDrainScheduled === "boolean";
-}
-function getDiagnosticEventsState() {
-	const existing = globalThis[DIAGNOSTIC_EVENTS_STATE_KEY];
-	if (isDiagnosticEventsState(existing)) {
-		existing.asyncDroppedEvents ??= 0;
-		existing.asyncDroppedTrustedEvents ??= 0;
-		existing.asyncDroppedUntrustedEvents ??= 0;
-		existing.asyncDroppedPriorityEvents ??= 0;
-		existing.toolExecutionListeners ??= /* @__PURE__ */ new Set();
-		existing.toolExecutionSeq ??= 0;
-		return existing;
-	}
-	const state = createDiagnosticEventsState();
-	Object.defineProperty(globalThis, DIAGNOSTIC_EVENTS_STATE_KEY, {
-		configurable: true,
-		enumerable: false,
-		value: state,
-		writable: false
-	});
+	}));
+	state.asyncDroppedEvents ??= 0;
+	state.asyncDroppedTrustedEvents ??= 0;
+	state.asyncDroppedUntrustedEvents ??= 0;
+	state.asyncDroppedPriorityEvents ??= 0;
+	state.toolExecutionListeners ??= /* @__PURE__ */ new Set();
+	state.toolExecutionSeq ??= 0;
 	return state;
 }
 /** Returns the current process-wide diagnostic dispatcher enable flag. */
@@ -914,10 +974,7 @@ function scheduleAsyncDiagnosticDrain(state) {
 	setImmediate(() => {
 		state.asyncDrainScheduled = false;
 		const batch = state.asyncQueue.splice(0, MAX_ASYNC_DIAGNOSTIC_EVENTS_PER_TURN);
-		for (const entry of batch) dispatchDiagnosticEvent(state, entry.event, entry.metadata, entry.privateData, {
-			hostPluginId: entry.hostPluginId,
-			trustedListenersOnly: entry.trustedListenersOnly
-		});
+		for (const entry of batch) dispatchDiagnosticEvent(state, entry.event, entry.metadata, entry.privateData, entry);
 		if (state.asyncQueue.length > 0) {
 			scheduleAsyncDiagnosticDrain(state);
 			return;
@@ -970,6 +1027,17 @@ function emitDiagnosticEventWithTrust(event, trusted, options = {}) {
 	if (!state.enabled) return;
 	if (event.type === "security.event" && options.allowSecurityEvent !== true) return;
 	const enriched = enrichDiagnosticEvent(state, event);
+	if (trusted && enriched.type === "diagnostic.gc") {
+		switch (enriched.kind) {
+			case "scavenge":
+			case "mark_sweep_compact":
+			case "incremental":
+			case "weak_processing": break;
+			default: enriched.kind = void 0;
+		}
+		enriched.thread = enriched.thread === void 0 || enriched.thread === "main" ? "main" : normalizeDiagnosticWorkerScript(enriched.thread);
+		if (enriched.thread !== "code-mode-node.worker.js" || typeof enriched.workerSlot !== "number" || !Number.isInteger(enriched.workerSlot) || enriched.workerSlot < 1 || enriched.workerSlot > 64) enriched.workerSlot = void 0;
+	}
 	const { hostPluginId, internal = false, privateData } = options;
 	const trustedTraceContext = options.trustedTraceContext === true;
 	const metadata = {
@@ -1348,6 +1416,18 @@ function normalizeWindowsPathPreservingCase(input) {
 	return withoutPrefix.toUpperCase().startsWith("UNC\\") ? `\\\\${withoutPrefix.slice(4)}` : withoutPrefix;
 }
 //#endregion
+//#region src/infra/home-display.ts
+/** Replace an absolute home path with its display prefix without clipping sibling paths. */
+function shortenPathWithHome(input, { home, prefix }) {
+	if (input === home) return prefix;
+	if (input.startsWith(`${home}/`) || process.platform === "win32" && input.startsWith(`${home}\\`)) return `${prefix}${input.slice(home.length)}`;
+	if (process.platform === "win32" && path.win32.isAbsolute(input) && isPathInside(home, input)) {
+		const relative = path.win32.relative(normalizeWindowsPathPreservingCase(home), normalizeWindowsPathPreservingCase(input));
+		return path.win32.join(prefix, relative);
+	}
+	return input;
+}
+//#endregion
 //#region src/shared/regexp.ts
 /** Escape text so it can be embedded literally inside a RegExp pattern. */
 function escapeRegExp(value) {
@@ -1517,9 +1597,33 @@ init_src();
 //#endregion
 //#region src/utils/sleep.ts
 init_src();
+//#endregion
+//#region src/utils.ts
+/** Resolves the effective OpenClaw home directory, if one can be determined. */
+function resolveHomeDir() {
+	return resolveEffectiveHomeDir(process.env, os.homedir);
+}
 String.raw`(?<=^|[\s"'\x60(\[{<=:;]|file://)`;
 String.raw`[\s"'\x60)\]}>]`;
 String.raw`[:;](?=[/\\~$]|[A-Za-z]:)`;
+function resolveHomeDisplayPrefix() {
+	const home = resolveHomeDir();
+	if (!home) return;
+	if (normalizeHomeDirValue(process.env.OPENCLAW_HOME)) return {
+		home,
+		prefix: "$OPENCLAW_HOME"
+	};
+	return {
+		home,
+		prefix: "~"
+	};
+}
+/** Replaces the leading home directory in a path with `~` or `$OPENCLAW_HOME`. */
+function shortenHomePath(input) {
+	const display = resolveHomeDisplayPrefix();
+	if (!display) return input;
+	return shortenPathWithHome(input, display);
+}
 resolveConfigDir();
 //#endregion
 //#region src/utils/parse-json-compat.ts
@@ -1747,8 +1851,8 @@ var IncludeProcessor = class {
 		}
 	}
 	findContainingRoot(candidate, field) {
-		if (isPathInside(this.boundary.configRoot[field], candidate)) return this.boundary.configRoot;
-		for (const root of this.boundary.allowedRoots) if (isPathInside(root[field], candidate)) return root;
+		if (isPathInside$1(this.boundary.configRoot[field], candidate)) return this.boundary.configRoot;
+		for (const root of this.boundary.allowedRoots) if (isPathInside$1(root[field], candidate)) return root;
 		return null;
 	}
 	readFile(includePath, resolvedPath, root) {
@@ -1926,67 +2030,6 @@ function readLoggingConfig() {
 	}
 }
 //#endregion
-//#region packages/net-policy/src/redact-sensitive-url.ts
-const SENSITIVE_URL_QUERY_PARAM_NAMES = /* @__PURE__ */ new Set([
-	"token",
-	"key",
-	"api_key",
-	"apikey",
-	"secret",
-	"access_token",
-	"auth_token",
-	"password",
-	"pass",
-	"passwd",
-	"auth",
-	"jwt",
-	"session",
-	"id_token",
-	"code",
-	"client_secret",
-	"app_secret",
-	"hook_token",
-	"refresh_token",
-	"signature",
-	"x_amz_signature",
-	"x_amz_security_token",
-	"private_key",
-	"credential",
-	"authorization",
-	"sig",
-	"x_api_key",
-	"x_access_token",
-	"x_auth_token"
-]);
-const URL_QUERY_NAME_SEPARATOR_RE = /[\p{C}\p{Z}\u115F\u1160\u3164\uFFA0+]/gu;
-const SUFFIXED_OR_SCOPED_TOKEN_QUERY_PARAM_RE = /(?:^|_)token(?:_[a-f0-9]{16,})?$/u;
-const MAX_NESTED_URL_REDACTION_DEPTH = 8;
-function normalizeUrlQueryParamName(name) {
-	let current = name.replace(URL_QUERY_NAME_SEPARATOR_RE, "");
-	for (let depth = 0; depth <= MAX_NESTED_URL_REDACTION_DEPTH; depth += 1) {
-		let decoded;
-		try {
-			decoded = decodeURIComponent(current).replace(URL_QUERY_NAME_SEPARATOR_RE, "");
-		} catch {
-			break;
-		}
-		if (decoded === current) return {
-			value: normalizeLowercaseStringOrEmpty(current).replaceAll("-", "_"),
-			unresolvedEncoding: false
-		};
-		current = decoded;
-	}
-	return {
-		value: normalizeLowercaseStringOrEmpty(current).replaceAll("-", "_"),
-		unresolvedEncoding: current.includes("%")
-	};
-}
-/** True for auth-like URL query parameter names that should be redacted. */
-function isSensitiveUrlQueryParamName(name) {
-	const normalized = normalizeUrlQueryParamName(name);
-	return normalized.unresolvedEncoding || SENSITIVE_URL_QUERY_PARAM_NAMES.has(normalized.value) || SUFFIXED_OR_SCOPED_TOKEN_QUERY_PARAM_RE.test(normalized.value);
-}
-//#endregion
 //#region packages/acp-core/src/structured-auth-redaction.ts
 const HTTP_AUTH_SCHEME_PATTERN = "[A-Za-z0-9!#$%&'*+.^_`|~-]+";
 const HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN = String.raw`(?:\[REDACTED\]|[^\s\\"',;&#?<>)}\]]+)`;
@@ -2046,17 +2089,7 @@ function readAuthParamName(value, start) {
 }
 function isAuthHeaderStart(value, index) {
 	const previous = value[index - 1];
-	let serializedLineBoundary = false;
-	if (previous === "n" || previous === "r") {
-		let slashCursor = index - 2;
-		let slashCount = 0;
-		while (slashCount < 64 && value[slashCursor] === "\\") {
-			slashCount += 1;
-			slashCursor -= 1;
-		}
-		serializedLineBoundary = slashCount > 0;
-	}
-	if (!serializedLineBoundary && previous !== void 0 && /[A-Za-z0-9_-]/u.test(previous)) return false;
+	if (!((previous === "n" || previous === "r") && value[index - 2] === "\\") && previous !== void 0 && /[A-Za-z0-9_-]/u.test(previous)) return false;
 	const proxyName = "proxy-authorization";
 	const directName = "authorization";
 	const candidate = value.slice(index, index + 19).toLowerCase();
@@ -2317,56 +2350,9 @@ function readQuantifier(source, index) {
 		maxRepeat
 	};
 }
-function tokenizePattern(source) {
-	const tokens = [];
-	let inCharClass = false;
-	for (let i = 0; i < source.length; i += 1) {
-		const ch = source[i];
-		if (inCharClass) {
-			if (ch === "\\") {
-				i += 1;
-				continue;
-			}
-			if (ch === "]") inCharClass = false;
-			continue;
-		}
-		if (ch === "\\") {
-			i += 1;
-			tokens.push({ kind: "simple-token" });
-			continue;
-		}
-		if (ch === "[") {
-			inCharClass = true;
-			tokens.push({ kind: "simple-token" });
-			continue;
-		}
-		if (ch === "(") {
-			tokens.push({ kind: "group-open" });
-			continue;
-		}
-		if (ch === ")") {
-			tokens.push({ kind: "group-close" });
-			continue;
-		}
-		if (ch === "|") {
-			tokens.push({ kind: "alternation" });
-			continue;
-		}
-		const quantifier = readQuantifier(source, i);
-		if (quantifier) {
-			tokens.push({
-				kind: "quantifier",
-				quantifier
-			});
-			i += quantifier.consumed - 1;
-			continue;
-		}
-		tokens.push({ kind: "simple-token" });
-	}
-	return tokens;
-}
-function analyzeTokensForNestedRepetition(tokens) {
+function hasNestedRepetition(source) {
 	const frames = [createParseFrame()];
+	let inCharClass = false;
 	const emitToken = (token) => {
 		const frame = expectDefined(frames[frames.length - 1], "frames entry at frames.length 1");
 		frame.lastToken = token;
@@ -2382,16 +2368,28 @@ function analyzeTokensForNestedRepetition(tokens) {
 			maxLength: 1
 		});
 	};
-	for (const token of tokens) {
-		if (token.kind === "simple-token") {
+	for (let i = 0; i < source.length; i += 1) {
+		const ch = source[i];
+		if (inCharClass) {
+			if (ch === "\\") i += 1;
+			else if (ch === "]") inCharClass = false;
+			continue;
+		}
+		if (ch === "\\") {
+			i += 1;
 			emitSimpleToken();
 			continue;
 		}
-		if (token.kind === "group-open") {
+		if (ch === "[") {
+			inCharClass = true;
+			emitSimpleToken();
+			continue;
+		}
+		if (ch === "(") {
 			frames.push(createParseFrame());
 			continue;
 		}
-		if (token.kind === "group-close") {
+		if (ch === ")") {
 			if (frames.length > 1) {
 				const frame = frames.pop();
 				if (frame.hasAlternation) recordAlternative(frame);
@@ -2406,7 +2404,7 @@ function analyzeTokensForNestedRepetition(tokens) {
 			}
 			continue;
 		}
-		if (token.kind === "alternation") {
+		if (ch === "|") {
 			const frame = expectDefined(frames[frames.length - 1], "frames entry at frames.length 1");
 			frame.hasAlternation = true;
 			recordAlternative(frame);
@@ -2415,24 +2413,27 @@ function analyzeTokensForNestedRepetition(tokens) {
 			frame.lastToken = null;
 			continue;
 		}
+		const quantifier = readQuantifier(source, i);
+		if (!quantifier) {
+			emitSimpleToken();
+			continue;
+		}
+		i += quantifier.consumed - 1;
 		const frame = expectDefined(frames[frames.length - 1], "frames entry at frames.length 1");
 		const previousToken = frame.lastToken;
 		if (!previousToken) continue;
 		if (previousToken.containsRepetition) return true;
-		if (previousToken.hasAmbiguousAlternation && token.quantifier.maxRepeat === null) return true;
+		if (previousToken.hasAmbiguousAlternation && quantifier.maxRepeat === null) return true;
 		const previousMinLength = previousToken.minLength;
 		const previousMaxLength = previousToken.maxLength;
-		previousToken.minLength = multiplyLength(previousToken.minLength, token.quantifier.minRepeat);
-		previousToken.maxLength = token.quantifier.maxRepeat === null ? Number.POSITIVE_INFINITY : multiplyLength(previousToken.maxLength, token.quantifier.maxRepeat);
+		previousToken.minLength = multiplyLength(previousToken.minLength, quantifier.minRepeat);
+		previousToken.maxLength = quantifier.maxRepeat === null ? Number.POSITIVE_INFINITY : multiplyLength(previousToken.maxLength, quantifier.maxRepeat);
 		previousToken.containsRepetition = true;
 		frame.containsRepetition = true;
 		frame.branchMinLength = frame.branchMinLength - previousMinLength + previousToken.minLength;
 		frame.branchMaxLength = addLength(Number.isFinite(frame.branchMaxLength) && Number.isFinite(previousMaxLength) ? frame.branchMaxLength - previousMaxLength : Number.POSITIVE_INFINITY, previousToken.maxLength);
 	}
 	return false;
-}
-function hasNestedRepetition(source) {
-	return analyzeTokensForNestedRepetition(tokenizePattern(source));
 }
 function compileSafeRegexDetailed(source, flags = "") {
 	const trimmed = source.trim();
@@ -2490,6 +2491,46 @@ function compileConfigRegex(pattern, flags = "") {
 		flags: result.flags,
 		reason: normalizeRejectReason(result)
 	};
+}
+//#endregion
+//#region src/logging/logger-file-message.ts
+const MAX_FILE_LOG_MESSAGE_CHARS = 4096;
+function clampMessage(text) {
+	return text.length > MAX_FILE_LOG_MESSAGE_CHARS ? `${truncateUtf16Safe(text, MAX_FILE_LOG_MESSAGE_CHARS)}...(truncated)` : text;
+}
+function stringifyFileLogMessagePart(value, json) {
+	if (json) return JSON.stringify(value);
+	if (typeof value === "string") return value;
+	if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
+	if (isRecord(value) && typeof value.message === "string") return value.message;
+}
+function serializeFileLogRecord(record, parts = []) {
+	const ancestors = [];
+	const materialized = JSON.parse(JSON.stringify(record, function(_key, value) {
+		while (ancestors.length > 0 && ancestors.at(-1) !== this) ancestors.pop();
+		if (typeof value === "bigint") return String(value);
+		if (value !== null && typeof value === "object") {
+			if (ancestors.includes(value)) return "[Circular]";
+			ancestors.push(value);
+		}
+		return value;
+	}));
+	if (!isRecord(materialized)) throw new TypeError("File log records must serialize to objects");
+	const text = [];
+	for (const { key, json, primitiveText } of parts) {
+		const part = primitiveText ?? stringifyFileLogMessagePart(materialized[key], json);
+		if (part?.trim()) text.push(part);
+	}
+	if (text.length > 0) {
+		const message = clampMessage(text.join(" "));
+		if (Object.hasOwn(materialized, "message")) materialized.message = message;
+		else {
+			const entries = Object.entries(materialized);
+			entries.splice(entries.findIndex(([key]) => key === "hostname") + 1, 0, ["message", message]);
+			return JSON.stringify(Object.fromEntries(entries));
+		}
+	}
+	return JSON.stringify(materialized);
 }
 //#endregion
 //#region src/logging/redact-bounded.ts
@@ -2666,98 +2707,868 @@ function applyRedactionEdits(value, edits) {
 	return parts.join("") + value.slice(cursor);
 }
 //#endregion
-//#region src/logging/secret-redaction-registry.ts
-const MIN_SECRET_VALUE_LENGTH = 6;
-const state$1 = resolveGlobalSingleton(Symbol.for("openclaw.secretRedactionRegistry"), () => ({
-	registeredValues: /* @__PURE__ */ new Map(),
-	registryRevision: 0,
-	registeredValueRedactor: void 0
-}));
-const registrySnapshots = resolveGlobalSingleton(Symbol.for("openclaw.secretRedactionRegistrySnapshots"), () => new AsyncLocalStorage());
-function invalidateMatcher() {
-	state$1.registryRevision += 1;
-	state$1.registeredValueRedactor = void 0;
-}
-/** Replaces registered exact values while preserving the caller's mask convention. */
-function redactRegisteredSecretValues(text, mask) {
-	const scoped = registrySnapshots.getStore();
-	if (scoped) {
-		scoped.redactor ??= createSecretValueRedactor(scoped.snapshot.values);
-		return scoped.redactor(text, mask);
-	}
-	if (!text || state$1.registeredValues.size === 0) return text;
-	state$1.registeredValueRedactor ??= createSecretValueRedactor([...state$1.registeredValues.keys()]);
-	return state$1.registeredValueRedactor(text, mask);
-}
-function createSecretValueRedactor(values) {
-	let compiledMatcher;
-	let firstChars;
-	return (text, mask) => {
-		if (!text || values.length === 0) return text;
-		let couldMatch = false;
-		firstChars ??= new Set(values.map((value) => value.charAt(0)));
-		for (const firstChar of firstChars) if (text.includes(firstChar)) {
-			couldMatch = true;
+//#region packages/net-policy/src/redact-sensitive-url.ts
+const SENSITIVE_URL_QUERY_PARAM_NAMES = /* @__PURE__ */ new Set([
+	"token",
+	"key",
+	"api_key",
+	"apikey",
+	"secret",
+	"access_token",
+	"auth_token",
+	"password",
+	"pass",
+	"passwd",
+	"auth",
+	"jwt",
+	"session",
+	"id_token",
+	"code",
+	"client_secret",
+	"app_secret",
+	"hook_token",
+	"refresh_token",
+	"signature",
+	"x_amz_signature",
+	"x_amz_security_token",
+	"private_key",
+	"credential",
+	"authorization",
+	"sig",
+	"x_api_key",
+	"x_access_token",
+	"x_auth_token"
+]);
+const URL_QUERY_NAME_SEPARATOR_RE = /[\p{C}\p{Z}\u115F\u1160\u3164\uFFA0+]/gu;
+const SUFFIXED_OR_SCOPED_TOKEN_QUERY_PARAM_RE = /(?:^|_)token(?:_[a-f0-9]{16,})?$/u;
+const MAX_NESTED_URL_REDACTION_DEPTH = 8;
+function normalizeUrlQueryParamName(name) {
+	let current = name.replace(URL_QUERY_NAME_SEPARATOR_RE, "");
+	for (let depth = 0; depth <= MAX_NESTED_URL_REDACTION_DEPTH; depth += 1) {
+		let decoded;
+		try {
+			decoded = decodeURIComponent(current).replace(URL_QUERY_NAME_SEPARATOR_RE, "");
+		} catch {
 			break;
 		}
-		if (!couldMatch) return text;
-		if (!compiledMatcher) {
-			const buckets = /* @__PURE__ */ new Map();
-			for (const value of values.toSorted((left, right) => right.length - left.length)) {
-				const prefix = value.slice(0, MIN_SECRET_VALUE_LENGTH);
-				const bucket = buckets.get(prefix);
-				if (bucket) bucket.push(value);
-				else buckets.set(prefix, [value]);
-			}
-			compiledMatcher = {
-				prefixes: new RegExp([...buckets.keys()].map(escapeRegExp).join("|"), "g"),
-				buckets
-			};
-		}
-		const { prefixes, buckets } = compiledMatcher;
-		const matches = [];
-		prefixes.lastIndex = 0;
-		for (let match = prefixes.exec(text); match; match = prefixes.exec(text)) {
-			const index = match.index;
-			const value = buckets.get(match[0])?.find((candidate) => text.startsWith(candidate, index));
-			if (value !== void 0) matches.push({
-				index,
-				value
-			});
-			prefixes.lastIndex = index + (value?.length ?? 1);
-		}
-		let result = "";
-		let cursor = 0;
-		for (const match of matches) {
-			result += `${text.slice(cursor, match.index)}${mask(match.value, match.index)}`;
-			cursor = match.index + match.value.length;
-		}
-		return result + text.slice(cursor);
+		if (decoded === current) return {
+			value: normalizeLowercaseStringOrEmpty(current).replaceAll("-", "_"),
+			unresolvedEncoding: false
+		};
+		current = decoded;
+	}
+	return {
+		value: normalizeLowercaseStringOrEmpty(current).replaceAll("-", "_"),
+		unresolvedEncoding: current.includes("%")
 	};
 }
-function resetSecretRedactionRegistryForTest() {
-	state$1.registeredValues.clear();
-	invalidateMatcher();
+/** True for auth-like URL query parameter names that should be redacted. */
+function isSensitiveUrlQueryParamName(name) {
+	const normalized = normalizeUrlQueryParamName(name);
+	return normalized.unresolvedEncoding || SENSITIVE_URL_QUERY_PARAM_NAMES.has(normalized.value) || SUFFIXED_OR_SCOPED_TOKEN_QUERY_PARAM_RE.test(normalized.value);
 }
-if (process.env.VITEST || false) globalThis[Symbol.for("openclaw.secretRedactionRegistryTestApi")] = { resetSecretRedactionRegistryForTest };
 //#endregion
-//#region src/logging/redact-internal-state.ts
-const fullContextToolPayloadRedaction = Symbol("full-context-tool-payload-redaction");
-const fullContextToolPayloadRedactionState = {
-	mark(loggingConfig) {
-		return {
-			...loggingConfig,
-			[fullContextToolPayloadRedaction]: true
+//#region src/logging/redact-mask.ts
+const DEFAULT_REDACT_MIN_LENGTH = 18;
+const DEFAULT_REDACT_KEEP_START = 6;
+const SECRET_VALUE_TRAILING_DELIMITER_RE = /(["'`,;)}\]]+)$/u;
+const SECRET_VALUE_SUFFIX_RE = /^["'`,;)}\]]*$/u;
+const SECRET_VALUE_QUOTE_CHARS = /* @__PURE__ */ new Set([
+	"\"",
+	"'",
+	"`"
+]);
+function maskToken(token) {
+	if (token.length < DEFAULT_REDACT_MIN_LENGTH) return "***";
+	return `${sliceUtf16Safe(token, 0, DEFAULT_REDACT_KEEP_START)}…${sliceUtf16Safe(token, -4)}`;
+}
+function splitSecretValueForMask(token) {
+	const openingQuote = token[0] ?? "";
+	const contentStart = SECRET_VALUE_QUOTE_CHARS.has(openingQuote) ? 1 : 0;
+	if (contentStart) {
+		const closingQuoteIndex = token.lastIndexOf(openingQuote);
+		if (closingQuoteIndex > 0) {
+			const suffix = token.slice(closingQuoteIndex + 1);
+			if (SECRET_VALUE_SUFFIX_RE.test(suffix)) return {
+				maskable: token.slice(1, closingQuoteIndex),
+				suffix,
+				maskStart: 0,
+				maskEnd: closingQuoteIndex + 1
+			};
+		}
+	}
+	const content = token.slice(contentStart);
+	const trailingDelimiter = content.match(SECRET_VALUE_TRAILING_DELIMITER_RE)?.[1] ?? "";
+	const maskable = trailingDelimiter && trailingDelimiter.length < content.length ? content.slice(0, -trailingDelimiter.length) : content;
+	return {
+		maskable,
+		suffix: maskable === content ? "" : trailingDelimiter,
+		maskStart: 0,
+		maskEnd: contentStart + maskable.length
+	};
+}
+function splitFormAwareCredentialValue(token) {
+	const pairBoundary = token.search(/&[A-Za-z_][A-Za-z0-9_.-]*=/u);
+	return pairBoundary < 0 ? {
+		secret: token,
+		suffix: ""
+	} : {
+		secret: token.slice(0, pairBoundary),
+		suffix: token.slice(pairBoundary)
+	};
+}
+function maskSecretValue(token, options) {
+	const { maskable, suffix } = splitSecretValueForMask(token);
+	return `${options?.hinted ? maskToken(maskable) : "***"}${suffix}`;
+}
+//#endregion
+//#region src/logging/redact-pem.ts
+const PEM_REDACT_PATTERN_SOURCE = String.raw`-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]+?-----END [A-Z ]*PRIVATE KEY-----`;
+function createState() {
+	return {
+		scanner: {
+			offset: 0,
+			phase: "search",
+			dashes: 0,
+			keyword: "BEGIN ",
+			keywordOffset: 0,
+			start: 0,
+			suffix: ""
+		},
+		matchEnd: 0
+	};
+}
+function resetScanner(scanner, char) {
+	scanner.phase = "search";
+	scanner.dashes = char === "-" ? 1 : 0;
+	scanner.suffix = "";
+}
+function* readDelimiters(text, scanner) {
+	for (let index = 0; index < text.length; index += 1) {
+		if (scanner.phase === "search" && scanner.dashes === 0) {
+			const nextDash = text.indexOf("-", index);
+			if (nextDash === -1) {
+				scanner.offset += text.length - index;
+				return;
+			}
+			scanner.offset += nextDash - index;
+			index = nextDash;
+		}
+		const code = text.charCodeAt(index);
+		const char = code >= 97 && code <= 122 ? String.fromCharCode(code - 32) : text.charAt(index);
+		const offset = scanner.offset++;
+		switch (scanner.phase) {
+			case "search":
+				if (char === "-") scanner.dashes = Math.min(5, scanner.dashes + 1);
+				else if (scanner.dashes === 5 && (char === "B" || char === "E")) {
+					scanner.phase = "keyword";
+					scanner.keyword = char === "B" ? "BEGIN " : "END ";
+					scanner.keywordOffset = 1;
+					scanner.start = offset - 5;
+				} else scanner.dashes = 0;
+				break;
+			case "keyword":
+				if (char !== scanner.keyword.charAt(scanner.keywordOffset)) resetScanner(scanner, char);
+				else if (++scanner.keywordOffset === scanner.keyword.length) {
+					scanner.phase = "label";
+					scanner.suffix = "";
+				}
+				break;
+			case "label":
+				if (char >= "A" && char <= "Z" || char === " ") scanner.suffix = (scanner.suffix + char).slice(-11);
+				else if (char === "-" && scanner.suffix === "PRIVATE KEY") {
+					scanner.phase = "close";
+					scanner.dashes = 1;
+				} else resetScanner(scanner, char);
+				break;
+			case "close": if (char !== "-") resetScanner(scanner, char);
+			else if (++scanner.dashes === 5) {
+				scanner.phase = "search";
+				scanner.suffix = "";
+				yield {
+					kind: scanner.keyword === "BEGIN " ? "begin" : "end",
+					start: scanner.start,
+					end: offset + 1
+				};
+			}
+		}
+	}
+}
+function consumeDelimiter(state, delimiter) {
+	if (!state.open) {
+		if (delimiter.kind === "begin" && delimiter.start >= state.matchEnd) state.open = {
+			start: delimiter.start,
+			end: delimiter.end
 		};
+		return;
+	}
+	if (delimiter.kind !== "end" || delimiter.start <= state.open.end) return;
+	const block = {
+		start: state.open.start,
+		end: delimiter.end,
+		bodyStart: state.open.end,
+		bodyEnd: delimiter.start
+	};
+	state.open = void 0;
+	state.matchEnd = delimiter.end;
+	return block;
+}
+function* matchPem(text, context, incomplete) {
+	const state = {
+		...context,
+		scanner: { ...context.scanner },
+		open: context.open && { ...context.open }
+	};
+	const origin = state.scanner.offset;
+	for (const delimiter of readDelimiters(text, state.scanner)) {
+		const block = consumeDelimiter(state, delimiter);
+		if (!block) continue;
+		const start = Math.max(0, (incomplete ? block.bodyStart : block.start) - origin);
+		const end = (incomplete ? block.bodyEnd : block.end) - origin;
+		if (end <= start) continue;
+		yield {
+			match: text.slice(start, end),
+			groups: [],
+			input: text,
+			offset: start,
+			...incomplete ? { replacement: "…redacted…" } : {}
+		};
+	}
+	if (incomplete && state.open) {
+		const start = Math.max(0, state.open.end - origin);
+		if (start < text.length) yield {
+			match: text.slice(start),
+			groups: [],
+			input: text,
+			offset: start,
+			replacement: "…redacted…"
+		};
+	}
+}
+const PEM_REDACT_MATCHER = {
+	source: PEM_REDACT_PATTERN_SOURCE,
+	exec(text) {
+		return matchPem(text, createState(), false);
 	},
-	isMarked(loggingConfig) {
-		return Boolean(loggingConfig?.[fullContextToolPayloadRedaction]);
+	createContext() {
+		let whenClosed = false;
+		let whenOpen = true;
+		return {
+			resolve(active) {
+				whenClosed = active ? whenOpen : whenClosed;
+				whenOpen = whenClosed;
+			},
+			advance(text) {
+				const state = createState();
+				if (whenClosed) state.open = {
+					start: -1,
+					end: -1
+				};
+				for (const delimiter of readDelimiters(text, state.scanner)) consumeDelimiter(state, delimiter);
+				return state.open !== void 0;
+			},
+			prepend() {
+				const closed = createState();
+				const open = createState();
+				open.open = {
+					start: -1,
+					end: -1
+				};
+				return {
+					consume(text) {
+						for (const delimiter of readDelimiters(text, closed.scanner)) {
+							consumeDelimiter(closed, delimiter);
+							consumeDelimiter(open, delimiter);
+						}
+					},
+					finish() {
+						const nextClosed = closed.open ? whenOpen : whenClosed;
+						const nextOpen = open.open ? whenOpen : whenClosed;
+						whenClosed = nextClosed;
+						whenOpen = nextOpen;
+						return whenClosed === whenOpen;
+					}
+				};
+			},
+			pattern: {
+				source: PEM_REDACT_PATTERN_SOURCE,
+				exec(text) {
+					const state = createState();
+					if (whenClosed) state.open = {
+						start: -1,
+						end: -1
+					};
+					return matchPem(text, state, true);
+				}
+			}
+		};
 	}
 };
 //#endregion
-//#region src/logging/redact-internal.ts
-function isFullContextToolPayloadRedaction(loggingConfig) {
-	return fullContextToolPayloadRedactionState.isMarked(loggingConfig);
+//#region src/logging/redact-patterns.ts
+const PAYMENT_CREDENTIAL_ENV_KEYS = String.raw`CARD[_-]?NUMBER|CARD[_-]?CVC|CARD[_-]?CVV|CVC|CVV|SECURITY[_-]?CODE|PAYMENT[_-]?CREDENTIAL|SHARED[_-]?PAYMENT[_-]?TOKEN`;
+const PAYMENT_CREDENTIAL_QUERY_KEYS = String.raw`card[-_]?number|card[-_]?cvc|card[-_]?cvv|cvc|cvv|security[-_]?code|payment[-_]?credential|shared[-_]?payment[-_]?token`;
+const PAYMENT_CREDENTIAL_JSON_KEYS = String.raw`cardNumber|card_number|cardCvc|card_cvc|cardCvv|card_cvv|cvc|cvv|securityCode|security_code|paymentCredential|payment_credential|sharedPaymentToken|shared_payment_token`;
+const AWS_SECRET_ACCESS_KEY_FIELD_KEYS = String.raw`aws[-_]?secret[-_]?access[-_]?key|awsSecretAccessKey|SecretAccessKey`;
+const AUTH_QUERY_KEYS = String.raw`access[-_]?token|auth[-_]?token|hook[-_]?token|refresh[-_]?token|id[-_]?token|api[-_]?key|apikey|client[-_]?secret|app[-_]?secret|private[-_]?key|${AWS_SECRET_ACCESS_KEY_FIELD_KEYS}|credential|authorization|token|key|secret|password|pass|passwd|auth|jwt|session|code|signature|x[-_]?amz[-_]?(?:signature|security[-_]?token)`;
+const FORM_BODY_FIRST_PAIR_KEYS = String.raw`${AUTH_QUERY_KEYS}|app[-_]?secret|credential|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
+const STANDALONE_ASSIGNMENT_SECRET_KEYS = String.raw`access_token|refresh_token|id_token|auth[-_]?token|hook[-_]?token|api[-_]?key|client[-_]?secret|app[-_]?secret|private[-_]?key|authorization|jwt|token|secret|password|pass|passwd|credential|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
+const CONFIG_ASSIGNMENT_SECRET_KEYS = String.raw`access[-_]?token|refresh[-_]?token|id[-_]?token|auth[-_]?token|hook[-_]?token|api[-_]?(?:key|secret)|client[-_]?secret|app[-_]?secret|private[-_]?key|secret[-_]?key|key[-_]?material|authorization|jwt|token|secret|password|passphrase|pass|passwd|credential|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
+const CONFIG_COLON_ASSIGNMENT_SECRET_KEYS = String.raw`access[-_]?token|refresh[-_]?token|id[-_]?token|auth[-_]?token|hook[-_]?token|api[-_]?(?:key|secret)|client[-_]?secret|app[-_]?secret|private[-_]?key|secret[-_]?key|key[-_]?material|authorization|jwt|token|secret|password|passphrase|passwd|credential|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
+const CONFIG_DIRECT_ASSIGNMENT_SECRET_KEYS = String.raw`access-token|refresh-token|id-token|auth-token|hook-token|api[-_]?(?:key|secret)|secret[-_]?key|key[-_]?material|passphrase`;
+const CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_SECRET_KEYS = String.raw`password|passphrase|pass|passwd`;
+const CLI_SECRET_FLAG_KEYS = String.raw`${AWS_SECRET_ACCESS_KEY_FIELD_KEYS}|api[-_]?key|hook[-_]?token|access[-_]?token|refresh[-_]?token|id[-_]?token|token|secret|password|passwd|credential|private[-_]?key|client[-_]?secret|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
+const FORM_BODY_KEY_INVISIBLE_CHARS = String.raw`\p{C}\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\u115F\u1160\u3164\uFFA0`;
+const ENV_ASSIGNMENT_REDACT_PATTERN = String.raw`/\b[A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|${PAYMENT_CREDENTIAL_ENV_KEYS})\b\s*[=:]\s*(["']?)([^\s"'\\]+)\1/g`;
+const ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN = String.raw`/\b[A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|${PAYMENT_CREDENTIAL_ENV_KEYS})\b\s*[=:]\s*\\+(["'])([^\s"'\\]+)\\+\1/g`;
+const STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN = String.raw`(^|[\s,;({\["])(?:${STANDALONE_ASSIGNMENT_SECRET_KEYS})=(["'\x60])((?:(?!\2)[^\r\n])+)\2`;
+const STANDALONE_ASSIGNMENT_REDACT_PATTERN = String.raw`(^|[\s,;({\["])(?:${STANDALONE_ASSIGNMENT_SECRET_KEYS})=(["'\x60]?[^\s&#"'\x60<>]+)`;
+const CONFIG_QUOTED_ASSIGNMENT_SECRET_KEYS = String.raw`access[-_]?token|refresh[-_]?token|id[-_]?token|auth[-_]?token|hook[-_]?token|api[-_]?(?:key|secret)|secret[-_]?key|key[-_]?material|authorization|jwt|token|secret|password|passphrase|pass|passwd|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
+const CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN = String.raw`/(^|[\s,{])(?:(?:${CONFIG_QUOTED_ASSIGNMENT_SECRET_KEYS})(?:\s*:\s*|\s+=\s*|=\s*)|[a-z0-9][a-z0-9._-]{0,79}[-_](?:${CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_SECRET_KEYS})\s*[:=]\s*|[a-z0-9_.-]{1,80}\.(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=]\s*)(["'\x60])((?:(?!\2)[^\r\n])+)\2/g`;
+const CONFIG_ASSIGNMENT_REDACT_PATTERN = String.raw`/(^|[\s,{])(?:(?:${CONFIG_COLON_ASSIGNMENT_SECRET_KEYS})\s*:\s*|(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})(?:\s+=\s*|=\s+))([^\s#"'\x60<>]+)/g`;
+const CONFIG_DIRECT_ASSIGNMENT_REDACT_PATTERN = String.raw`/(^|[\s,{])(?:${CONFIG_DIRECT_ASSIGNMENT_SECRET_KEYS})=([^\s#"'\x60<>]+)/g`;
+const CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_REDACT_PATTERN = String.raw`/(^|[\s,{])[a-z0-9][a-z0-9._-]{0,79}[-_](?:${CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_SECRET_KEYS})\s*[:=]\s*([^\s#"'\x60<>]+)/g`;
+const CONFIG_NAMESPACED_ASSIGNMENT_REDACT_PATTERN = String.raw`/(^|[\s,{])[a-z0-9_.-]{1,80}\.(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=]\s*([^\s#"'\x60<>]+)/g`;
+const STRUCTURED_JSON_SECRET_REDACT_PATTERN = String.raw`"(?:apiKey|api_key|apiToken|api_token|bearerToken|bearer_token|token|secret|password|passwd|${AWS_SECRET_ACCESS_KEY_FIELD_KEYS}|credential|authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token|accessToken|access_token|refreshToken|refresh_token|idToken|id_token|authToken|auth_token|clientSecret|client_secret|privateKey|private_key|secret_value|raw_secret|secret_input|key_material)"\s*:\s*"([^"]+)"`;
+const STRUCTURED_JSON_PAYMENT_REDACT_PATTERN = String.raw`"(?:${PAYMENT_CREDENTIAL_JSON_KEYS})"\s*:\s*"([^"]+)"`;
+const AMBIGUOUS_QUOTED_SECRET_FIELD_REDACT_PATTERN = String.raw`(^|[\s,{])["']?(?:api[-_]key|access[-_]token|refresh[-_]token|id[-_]token|authToken|auth[-_]token|clientSecret|client[-_]secret|appSecret|app[-_]secret|private[-_]key|credential|authorization|secret[-_]value|raw[-_]secret|secret[-_]input|key[-_]material)["']?\s*[:=]\s*(["'])([^"'\r\n]+)\2`;
+const AMBIGUOUS_QUOTED_AUTH_FIELD_REDACT_PATTERN = String.raw`(^|[\s,{])["']?(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token)["']?\s*[:=]\s*(["'])([^"'\r\n]+)\2`;
+const BASE64_SAFE_TOKEN_BOUNDARY = String.raw`(^|[^A-Za-z0-9])`;
+const base64SafeToken = (token) => String.raw`${BASE64_SAFE_TOKEN_BOUNDARY}(?=${token})(?<!;base64,[A-Za-z0-9+/=]*)(${token})`;
+const IDENTIFIER_SAFE_TOKEN_BOUNDARY = String.raw`(^|[^A-Za-z0-9_])`;
+function isAwsValueCharacter(char) {
+	const code = char.charCodeAt(0);
+	return code >= 65 && code <= 90 || code >= 97 && code <= 122 || code >= 48 && code <= 57 || char === "/" || char === "+" || char === "=";
+}
+const AWS_SECRET_ACCESS_KEY_VALUE_RE = /(?=[A-Za-z0-9/+=]{0,39}[A-Z])(?=[A-Za-z0-9/+=]{0,39}[a-z])(?=[A-Za-z0-9/+=]{0,39}[0-9/+=])(?=[A-Za-z0-9/+=]{0,39}[G-Zg-z/+=])[A-Za-z0-9/+=]{40}/u;
+function couldMatchAwsSecretAccessKey(text) {
+	for (let end = 39; end < text.length;) {
+		let cursor = end;
+		while (cursor > end - 40 && isAwsValueCharacter(text[cursor])) cursor--;
+		if (cursor === end - 40) return AWS_SECRET_ACCESS_KEY_VALUE_RE.test(text);
+		end = cursor + 40;
+	}
+	return false;
+}
+const AWS_VALUE_WHITESPACE_RE = /\s/;
+const AWS_URL_SCHEME_CHARACTER_RE = /[A-Za-z0-9+.-]/;
+const AWS_URL_SCHEME_START_RE = /[A-Za-z]/;
+function* matchAwsSecretAccessKeys(text) {
+	if (!couldMatchAwsSecretAccessKey(text)) return;
+	const closingDelimiters = {
+		"\"": "\"",
+		"'": "'",
+		"`": "`",
+		"<": ">",
+		"(": ")",
+		"[": "]",
+		"{": "}"
+	};
+	let runStart = -1;
+	let schemeStart = -1;
+	let url;
+	let backslashes = 0;
+	const runs = [];
+	for (let index = 0; index <= text.length; index++) {
+		const char = text[index] ?? "";
+		const whitespace = index === text.length || AWS_VALUE_WHITESPACE_RE.test(char);
+		const escapeDepth = backslashes;
+		backslashes = char === "\\" ? backslashes + 1 : 0;
+		if (char && isAwsValueCharacter(char)) {
+			if (runStart === -1) runStart = index;
+		} else if (runStart !== -1) {
+			if (index - runStart === 40) runs.push({
+				start: runStart,
+				end: index,
+				origin: runStart,
+				url
+			});
+			else if (index - runStart > 40 && char === "@" && text[index - 41] === "/") runs.push({
+				start: index - 40,
+				end: index,
+				origin: runStart,
+				url
+			});
+			runStart = -1;
+		}
+		if (whitespace) {
+			if (url) url.end = Math.min(url.end, index);
+			for (const run of runs) {
+				const context = run.url;
+				const publicUrl = context && !context.hasAt && context.portValid && (context.portStart === -1 || (context.authorityEnd === -1 ? context.end : context.authorityEnd) > context.portStart + 1);
+				const before = text[run.start - 1] ?? "";
+				const after = text[run.end] ?? "";
+				const slashCredential = run.start !== run.origin;
+				const portCredential = context && context.portStart !== -1 && run.origin === context.portStart + 1 && context.authorityEnd > run.origin && run.end > context.authorityEnd && after === "@";
+				if (!slashCredential && (before === "_" || isAwsValueCharacter(before)) || after === "_" || text.slice(run.origin - 8, run.origin) === ";base64," || publicUrl && !portCredential && run.start >= context.start && run.end <= context.end) continue;
+				const match = text.slice(run.start, run.end);
+				if (AWS_SECRET_ACCESS_KEY_VALUE_RE.test(match)) yield {
+					match,
+					groups: [match],
+					input: text,
+					offset: run.start
+				};
+			}
+			runs.length = 0;
+			schemeStart = -1;
+			url = void 0;
+			continue;
+		}
+		if (url && index >= url.start) {
+			if (char === url.closing && escapeDepth === url.closingEscapeDepth) {
+				url.end = Math.min(url.end, index);
+				url = void 0;
+			} else {
+				if ("?#\"'<>`|()[]{}".includes(char)) url.end = Math.min(url.end, index);
+				url.queryOrFragment ||= char === "?" || char === "#";
+				if (url.authorityEnd === -1) {
+					url.hasAt ||= char === "@";
+					if ("/?#".includes(char)) url.authorityEnd = index;
+					else if (index < url.end) {
+						if (char === ":") {
+							url.portValid &&= url.portStart === -1;
+							url.portStart = index;
+						} else if (url.portStart !== -1 && (char < "0" || char > "9")) url.portValid = false;
+					}
+				}
+			}
+		}
+		if (AWS_URL_SCHEME_CHARACTER_RE.test(char)) {
+			if (schemeStart === -1) schemeStart = index;
+		} else {
+			if ((!url || index >= url.end && !url.queryOrFragment) && char === ":" && text.startsWith("//", index + 1) && schemeStart !== -1 && AWS_URL_SCHEME_START_RE.test(text[schemeStart])) {
+				const opening = text[schemeStart - 1];
+				let closingEscapeDepth = 0;
+				for (let offset = schemeStart - 2; offset >= 0 && text[offset] === "\\"; offset--) closingEscapeDepth++;
+				url = {
+					start: index + 3,
+					end: text.length,
+					authorityEnd: -1,
+					portStart: -1,
+					portValid: true,
+					hasAt: false,
+					queryOrFragment: false,
+					closing: opening ? closingDelimiters[opening] : void 0,
+					closingEscapeDepth
+				};
+			}
+			schemeStart = -1;
+		}
+	}
+}
+const AWS_SECRET_ACCESS_KEY_MATCHER = Object.freeze({
+	source: "aws-secret-access-key",
+	exec: matchAwsSecretAccessKeys,
+	couldMatch: couldMatchAwsSecretAccessKey
+});
+const BARE_PASS_KEY_RE = new RegExp(String.raw`(?<![A-Za-z0-9])(pass|${CONFIG_COLON_ASSIGNMENT_SECRET_KEYS})\s*:\s*`, "gi");
+const BARE_PASS_VALUE_RE = /[^\s#"'\x60<>]+/y;
+const ASCII_WORD_CHAR_RE = /[A-Za-z0-9]/;
+const INLINE_WHITESPACE_RE = /[ \t\r\n]/;
+function* matchBarePassAssignments(text) {
+	if (!/pass\s*:/.test(text)) return;
+	const keys = [...text.matchAll(BARE_PASS_KEY_RE)];
+	if (keys.length === 0) return;
+	let next = 0;
+	let assignmentSeen = false;
+	for (let index = 0; index < text.length; index++) {
+		const key = keys[next];
+		if (!key) return;
+		if (index === key.index) {
+			next++;
+			const before = text[index - 1] ?? "";
+			const owned = key[1] !== "pass" || before === "." || before === "-" || before === "_";
+			if (!(!owned && !assignmentSeen && before === " " && ASCII_WORD_CHAR_RE.test(text[index - 2] ?? ""))) {
+				assignmentSeen = true;
+				let end = index + key[0].length;
+				if (!owned) {
+					BARE_PASS_VALUE_RE.lastIndex = end;
+					const value = BARE_PASS_VALUE_RE.exec(text)?.[0];
+					if (value) {
+						end += value.length;
+						yield {
+							match: text.slice(index, end),
+							groups: [value],
+							input: text,
+							offset: index
+						};
+					}
+				}
+				let following = keys[next];
+				while (following && following.index < end) {
+					next++;
+					following = keys[next];
+				}
+				index = end - 1;
+				continue;
+			}
+		}
+		const char = text[index];
+		if (char === "\n" || char === "\r") assignmentSeen = false;
+		else if (char === "=") assignmentSeen = true;
+		else if (char === ":" && !INLINE_WHITESPACE_RE.test(text[index + 1] ?? " ")) assignmentSeen = true;
+	}
+}
+const BARE_PASS_ASSIGNMENT_MATCHER = Object.freeze({
+	source: "bare-pass-assignment",
+	exec: matchBarePassAssignments
+});
+const TELEGRAM_BOT_TOKEN_REDACT_PATTERN = String.raw`\bbot(\d{6,}:[A-Za-z0-9_-]{20,})\b`;
+const TELEGRAM_TOKEN_REDACT_PATTERN = String.raw`\b(\d{6,}:[A-Za-z0-9_-]{20,})\b`;
+const CREDENTIAL_STYLE_HEADER_KEYS = "x-goog-api-key|api-key|apikey|x-api-token|x-access-token";
+const GATEWAY_SECURITY_HEADER_KEYS = "X-OpenClaw-Token|x-pomerium-jwt-assertion|X-Api-Key|X-Auth-Token";
+const LOG_HEADER_BOUNDARY_PATTERN = String.raw`(^|[^A-Za-z0-9_?&-]|\\{1,64}[rn])`;
+const CREDENTIAL_STYLE_COLON_HEADER_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${CREDENTIAL_STYLE_HEADER_KEYS})${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*:${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}([^\s\\"',;]+)`;
+const CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${CREDENTIAL_STYLE_HEADER_KEYS})${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*=${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}([^\s\\"',;]+)`;
+const GATEWAY_SECURITY_COLON_HEADER_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${GATEWAY_SECURITY_HEADER_KEYS})\s*:\s*([^\s"',;]+)`;
+const GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${GATEWAY_SECURITY_HEADER_KEYS})\s*=\s*([^\s"',;]+)`;
+const HTTP_AUTH_HEADER_REDACT_PATTERNS = [
+	String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}Proxy-Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}${HTTP_AUTH_SCHEME_PATTERN}${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`,
+	String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}Proxy-Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})[ \t]*(?=${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(?:$|[,;)}\]]|\r?\n(?![ \t])))`,
+	String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(?!(?:Bearer|Basic|Bot)(?=${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}))${HTTP_AUTH_SCHEME_PATTERN}${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`,
+	String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(?!(?:Bearer|Basic|Bot)(?=${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}))(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})[ \t]*(?=${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(?:$|[,;)}\]]|\r?\n(?![ \t])))`,
+	CREDENTIAL_STYLE_COLON_HEADER_REDACT_PATTERN,
+	CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN
+];
+const AUTHORIZATION_BEARER_REDACT_PATTERN = String.raw`Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_LEGACY_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}Bearer${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`;
+const AUTHORIZATION_BASIC_REDACT_PATTERN = String.raw`Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_LEGACY_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}Basic${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`;
+const AUTHORIZATION_BOT_REDACT_PATTERN = String.raw`Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_LEGACY_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}Bot${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`;
+const STANDALONE_BEARER_REDACT_PATTERN = String.raw`\bBearer\s+([-A-Za-z0-9._~+/=]{18,})(?![-A-Za-z0-9._~+/=])`;
+const DEFAULT_REDACT_FIELD_PATTERNS = [
+	ENV_ASSIGNMENT_REDACT_PATTERN,
+	ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN,
+	STRUCTURED_JSON_SECRET_REDACT_PATTERN,
+	STRUCTURED_JSON_PAYMENT_REDACT_PATTERN,
+	AMBIGUOUS_QUOTED_SECRET_FIELD_REDACT_PATTERN,
+	AMBIGUOUS_QUOTED_AUTH_FIELD_REDACT_PATTERN,
+	String.raw`--(?:${CLI_SECRET_FLAG_KEYS})=([^\s"']+)`,
+	String.raw`--(?:${CLI_SECRET_FLAG_KEYS})\s+(?!(?:or|and)\b(?=\s+--))(["']?)([^\s"']+)\1`,
+	AUTHORIZATION_BEARER_REDACT_PATTERN,
+	AUTHORIZATION_BASIC_REDACT_PATTERN,
+	AUTHORIZATION_BOT_REDACT_PATTERN,
+	...HTTP_AUTH_HEADER_REDACT_PATTERNS,
+	GATEWAY_SECURITY_COLON_HEADER_REDACT_PATTERN,
+	GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN,
+	STANDALONE_BEARER_REDACT_PATTERN,
+	String.raw`\b(?:https?|wss?|ftp):\/\/[^\/\s:@]*:([^\/\s@]+)@`,
+	String.raw`\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|rediss?|amqps?):\/\/[^:\s/@]*:([^@\s]+)@`,
+	String.raw`(^|[\s,;])(?:${FORM_BODY_FIRST_PAIR_KEYS})=([^&\s]+)(?=&[A-Za-z_][A-Za-z0-9_.-]*=)`,
+	STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN,
+	STANDALONE_ASSIGNMENT_REDACT_PATTERN,
+	CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN,
+	CONFIG_ASSIGNMENT_REDACT_PATTERN,
+	BARE_PASS_ASSIGNMENT_MATCHER,
+	CONFIG_DIRECT_ASSIGNMENT_REDACT_PATTERN,
+	CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_REDACT_PATTERN,
+	CONFIG_NAMESPACED_ASSIGNMENT_REDACT_PATTERN,
+	PEM_REDACT_PATTERN_SOURCE,
+	String.raw`(^|[\s,{])["']?(?:${AWS_SECRET_ACCESS_KEY_FIELD_KEYS})["']?\s*[:=]\s*(["']?)([A-Za-z0-9/+=]{40})(?![A-Za-z0-9/+=])\2`
+];
+const VENDOR_TOKEN_REDACT_PATTERNS = [
+	String.raw`\b(sk-[A-Za-z0-9_-]{8,})\b`,
+	String.raw`(ghp_[A-Za-z0-9]{10,})`,
+	String.raw`(github_pat_[A-Za-z0-9_]{10,})`,
+	String.raw`(gho_[A-Za-z0-9]{10,})`,
+	String.raw`(ghu_[A-Za-z0-9]{10,})`,
+	String.raw`(ghs_[A-Za-z0-9]{10,})`,
+	String.raw`(ghr_[A-Za-z0-9]{10,})`,
+	String.raw`(glpat-[A-Za-z0-9._=\-]{20,})`,
+	String.raw`(gloas-(?:[A-Fa-f0-9]{65,}|[A-Za-z0-9_-]{64}|[A-Fa-f0-9]{32,}))`,
+	String.raw`(gldt-[A-Za-z0-9_-]{20,})`,
+	String.raw`(glcbt-[A-Za-z0-9]{1,5}_[A-Za-z0-9_-]{20,})`,
+	String.raw`(glptt-[A-Za-z0-9_-]{40,})`,
+	String.raw`(glft-(?:[A-Za-z0-9_-]{20,}|[a-h0-9]+-[0-9]+_))`,
+	String.raw`(glimt-[A-Za-z0-9_-]{25,})`,
+	String.raw`(glagent-[A-Za-z0-9_-]{50,})`,
+	String.raw`(glwt-[A-Za-z0-9_-]{20,})`,
+	String.raw`(glsoat-[A-Za-z0-9_-]{20,})`,
+	String.raw`(glffct-[A-Za-z0-9_-]{20,})`,
+	String.raw`(glrt-[A-Za-z0-9._-]{20,})`,
+	String.raw`(glrtr?-[A-Za-z0-9_-]{27,300}\.[0-9a-z]{2}\.[0-9a-z]{9})`,
+	String.raw`(GR1348941[A-Za-z0-9_-]{20,})`,
+	String.raw`(_gitlab_session=[A-Za-z0-9%._-]{20,})`,
+	String.raw`(xox[baprs]-[A-Za-z0-9-]{10,})`,
+	String.raw`(xapp-[A-Za-z0-9-]{10,})`,
+	String.raw`(https:\/\/hooks\.slack\.com\/(?:services\/T[A-Z0-9]+\/B[A-Z0-9]+|workflows\/T[A-Z0-9]+\/A[A-Z0-9]+\/[0-9]{17,19})\/[A-Za-z0-9]{20,})`,
+	String.raw`(https:\/\/discord(?:app)?\.com\/api\/webhooks\/[0-9]{17,20}\/[A-Za-z0-9_-]{60,})`,
+	String.raw`discord(?:.|\n|\r){0,40}?\b([A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27})\b`,
+	String.raw`(gsk_[A-Za-z0-9_-]{10,})`,
+	String.raw`(AIza[0-9A-Za-z\-_]{20,})`,
+	String.raw`(ya29\.[0-9A-Za-z_\-./+=]{10,})`,
+	String.raw`(1//0[0-9A-Za-z_\-./+=]{10,})`,
+	String.raw`(GOCSPX-[A-Za-z0-9_-]{20,})`,
+	String.raw`(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})`,
+	String.raw`(pplx-[A-Za-z0-9_-]{10,})`,
+	String.raw`(fal_[A-Za-z0-9_-]{10,})`,
+	String.raw`${IDENTIFIER_SAFE_TOKEN_BOUNDARY}(fc-[A-Za-z0-9]{10,})`,
+	String.raw`(bb_live_[A-Za-z0-9_-]{10,})`,
+	base64SafeToken(String.raw`gAAAA[A-Za-z0-9_=-]{20,}`),
+	String.raw`(sk_live_[A-Za-z0-9]{10,})`,
+	String.raw`(sk_test_[A-Za-z0-9]{10,})`,
+	String.raw`(rk_live_[A-Za-z0-9]{10,})`,
+	String.raw`(SG\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})`,
+	String.raw`(npm_[A-Za-z0-9]{10,})`,
+	String.raw`(pypi-[A-Za-z0-9_-]{10,})`,
+	String.raw`(dop_v1_[A-Za-z0-9]{10,})`,
+	String.raw`(doo_v1_[A-Za-z0-9]{10,})`,
+	String.raw`(dor_v1_[A-Za-z0-9]{10,})`,
+	String.raw`(dp\.(?:ct|pt|sa|scim|audit)\.[A-Za-z0-9]{40,44})`,
+	String.raw`(dp\.st\.[A-Za-z0-9]{40,44})`,
+	String.raw`(dp\.st\.[a-z0-9_-]{2,35}\.[A-Za-z0-9]{40,44})`,
+	String.raw`(dckr_(?:pat|oat)_[A-Za-z0-9_-]{27,32})`,
+	String.raw`(bkua_[a-z0-9]{40})`,
+	String.raw`(CCIPAT_[A-Za-z0-9]{22}_[A-Fa-f0-9]{40})`,
+	String.raw`(sbp_[a-z0-9]{40})`,
+	base64SafeToken(String.raw`dapi[0-9a-f]{32}(?:-\d)?`),
+	String.raw`(dd[pw]_[A-Za-z0-9]{36})`,
+	String.raw`(glsa_[A-Za-z0-9_]{41})`,
+	String.raw`(glc_eyJ[A-Za-z0-9+/=]{60,160})`,
+	String.raw`(nfp_[A-Za-z0-9_]{36})`,
+	String.raw`(CFPAT-[A-Za-z0-9_\-]{40,})`,
+	base64SafeToken(String.raw`ATCTT3xFfG[A-Za-z0-9+/=_-]+=[A-Za-z0-9]{8}`),
+	base64SafeToken(String.raw`ATATT[A-Za-z0-9+/=_-]+=[A-Za-z0-9]{8}`),
+	base64SafeToken(String.raw`ATBB[A-Za-z0-9_=.-]{16,}`),
+	String.raw`(BBDC-[A-Za-z0-9+/@_-]{40,50})`,
+	String.raw`(HRKU-AA[A-Za-z0-9_-]{20,})`,
+	String.raw`(pat-(?:eu|na)1-[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12})`,
+	String.raw`(apify_api_[A-Za-z0-9\-]{20,})`,
+	String.raw`(FlyV1 fm\d+_[A-Za-z0-9+/=,_-]{100,})`,
+	String.raw`(fio-u-[A-Za-z0-9_-]{40,})`,
+	String.raw`(^|[^A-Za-z0-9_])(am_[A-Za-z0-9_-]{10,})`,
+	String.raw`(^|[^A-Za-z0-9_])(sk_[A-Za-z0-9_]{10,})`,
+	String.raw`(tvly-[A-Za-z0-9]{10,})`,
+	String.raw`(exa_[A-Za-z0-9]{10,})`,
+	String.raw`(syt_[A-Za-z0-9]{10,})`,
+	String.raw`(retaindb_[A-Za-z0-9]{10,})`,
+	String.raw`(hsk-[A-Za-z0-9]{10,})`,
+	String.raw`(mem0_[A-Za-z0-9]{10,})`,
+	String.raw`(brv_[A-Za-z0-9]{10,})`,
+	String.raw`(xai-[A-Za-z0-9]{30,})`,
+	String.raw`${IDENTIFIER_SAFE_TOKEN_BOUNDARY}(fw-[A-Za-z0-9]{30,})`,
+	String.raw`${IDENTIFIER_SAFE_TOKEN_BOUNDARY}(fw_[A-Za-z0-9]{30,})`,
+	String.raw`${IDENTIFIER_SAFE_TOKEN_BOUNDARY}(fpk_[A-Za-z0-9]{30,})`,
+	base64SafeToken(String.raw`AKIA[A-Z0-9]{16}`),
+	base64SafeToken(String.raw`ASIA[A-Z0-9]{16}`),
+	String.raw`(AKID[A-Za-z0-9]{10,})`,
+	String.raw`(LTAI[A-Za-z0-9]{10,})`,
+	String.raw`(hf_[A-Za-z0-9]{10,})`,
+	String.raw`(api_org_[A-Za-z0-9]{20,})`,
+	String.raw`(r8_[A-Za-z0-9]{10,})`,
+	TELEGRAM_BOT_TOKEN_REDACT_PATTERN,
+	TELEGRAM_TOKEN_REDACT_PATTERN
+];
+const DEFAULT_REDACT_PATTERNS = [
+	...DEFAULT_REDACT_FIELD_PATTERNS,
+	...VENDOR_TOKEN_REDACT_PATTERNS,
+	AWS_SECRET_ACCESS_KEY_MATCHER
+];
+function createBackendRedactPatterns() {
+	const bodySecretKeys = /* @__PURE__ */ new Set([
+		"access_token",
+		"auth_token",
+		"awssecretaccesskey",
+		"aws_secret_access_key",
+		"hook_token",
+		"refresh_token",
+		"id_token",
+		"token",
+		"api_key",
+		"apikey",
+		"client_secret",
+		"app_secret",
+		"password",
+		"pass",
+		"passwd",
+		"auth",
+		"jwt",
+		"session",
+		"code",
+		"signature",
+		"x_amz_signature",
+		"x_amz_security_token",
+		"secret",
+		"secretaccesskey",
+		"credential",
+		"private_key",
+		"authorization",
+		"key",
+		"card_number",
+		"card_cvc",
+		"card_cvv",
+		"cvc",
+		"cvv",
+		"security_code",
+		"payment_credential",
+		"shared_payment_token"
+	]);
+	const credentialHeaderField = new RegExp(`^(?:${CREDENTIAL_STYLE_HEADER_KEYS}|${GATEWAY_SECURITY_HEADER_KEYS})$`, "i");
+	const formAware = /* @__PURE__ */ new Set([CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN, GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN]);
+	const shellReferencePreserving = /* @__PURE__ */ new Set([
+		ENV_ASSIGNMENT_REDACT_PATTERN,
+		ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN,
+		STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN,
+		STANDALONE_ASSIGNMENT_REDACT_PATTERN
+	]);
+	const CONFIG_KEY_PROBE = new RegExp(String.raw`[:=](?<=(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])`);
+	const CONFIG_QUOTED_PROBE = new RegExp(String.raw`[:=](?<=(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])\s*["'\x60]`);
+	const CONFIG_NAMESPACED_PROBE = new RegExp(String.raw`[:=](?<=\.(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])`);
+	const STANDALONE_ASSIGNMENT_PROBE = new RegExp(String.raw`=(?<=(?:^|[\s,;({\["])(?:${STANDALONE_ASSIGNMENT_SECRET_KEYS})=)`, "i");
+	return {
+		bodySecretKeys,
+		credentialHeaderField,
+		formAware,
+		shellReferencePreserving,
+		prefilters: new Map([
+			[ENV_ASSIGNMENT_REDACT_PATTERN, (text) => /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CARD|CVC|CVV|SECURITY|PAYMENT/.test(text)],
+			[ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN, (text) => text.includes("\\")],
+			[STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN, (text) => /[=]["'`]/.test(text)],
+			[STANDALONE_ASSIGNMENT_REDACT_PATTERN, (text) => STANDALONE_ASSIGNMENT_PROBE.test(text)],
+			[CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN, (text) => /["'`]/.test(text) && CONFIG_QUOTED_PROBE.test(text)],
+			[CONFIG_ASSIGNMENT_REDACT_PATTERN, (text) => (text.includes(":") || text.includes("=")) && CONFIG_KEY_PROBE.test(text)],
+			[CONFIG_DIRECT_ASSIGNMENT_REDACT_PATTERN, (text) => text.includes("=")],
+			[CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_REDACT_PATTERN, (text) => /[-_](?:password|passphrase|pass|passwd)\s*[:=]/.test(text)],
+			[CONFIG_NAMESPACED_ASSIGNMENT_REDACT_PATTERN, (text) => CONFIG_NAMESPACED_PROBE.test(text)],
+			[AMBIGUOUS_QUOTED_SECRET_FIELD_REDACT_PATTERN, (text) => /["']/.test(text)],
+			[AMBIGUOUS_QUOTED_AUTH_FIELD_REDACT_PATTERN, (text) => /["']/.test(text)],
+			...HTTP_AUTH_HEADER_REDACT_PATTERNS.slice(0, 4).map((raw) => [raw, (text) => /authorization/i.test(text)]),
+			[CREDENTIAL_STYLE_COLON_HEADER_REDACT_PATTERN, (text) => /api-key|apikey|api-token|access-token/i.test(text)],
+			[CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN, (text) => /api-key|apikey|api-token|access-token/i.test(text)],
+			[STRUCTURED_JSON_SECRET_REDACT_PATTERN, (text) => text.includes("\"")],
+			[STRUCTURED_JSON_PAYMENT_REDACT_PATTERN, (text) => text.includes("\"")],
+			[GATEWAY_SECURITY_COLON_HEADER_REDACT_PATTERN, (text) => /x-openclaw-token|x-pomerium-jwt-assertion|x-api-key|x-auth-token/i.test(text)],
+			[GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN, (text) => /x-openclaw-token|x-pomerium-jwt-assertion|x-api-key|x-auth-token/i.test(text)]
+		]),
+		chunkUnsafe: /* @__PURE__ */ new Set([
+			TELEGRAM_BOT_TOKEN_REDACT_PATTERN,
+			TELEGRAM_TOKEN_REDACT_PATTERN,
+			AUTHORIZATION_BEARER_REDACT_PATTERN,
+			AUTHORIZATION_BASIC_REDACT_PATTERN,
+			AUTHORIZATION_BOT_REDACT_PATTERN,
+			STANDALONE_BEARER_REDACT_PATTERN,
+			...HTTP_AUTH_HEADER_REDACT_PATTERNS,
+			...VENDOR_TOKEN_REDACT_PATTERNS.filter((source) => source.startsWith(BASE64_SAFE_TOKEN_BOUNDARY))
+		])
+	};
+}
+//#endregion
+//#region src/logging/redact-form-body.ts
+const FORM_BODY_KEY_OBFUSCATION_RE = new RegExp(String.raw`[${FORM_BODY_KEY_INVISIBLE_CHARS}+]`, "gu");
+const FORM_BODY_KEY_SEPARATOR_RE = /[\p{C}\p{Z}\u115F\u1160\u3164\uFFA0+]/gu;
+const FORM_BODY_PERCENT_ESCAPE_RE = /%[0-9A-Fa-f]{2}/u;
+const FORM_BODY_KEY = String.raw`[${FORM_BODY_KEY_INVISIBLE_CHARS}+]*(?:[A-Za-z_]|%[0-9A-Fa-f]{2})(?:[A-Za-z0-9_.-]|%[0-9A-Fa-f]{2}|[${FORM_BODY_KEY_INVISIBLE_CHARS}+])*`;
+const FORM_BODY_VALUE = "[^&\\s<>]*";
+const URL_QUERY_VALUE = "[^&#\\s<>]*";
+const FORM_BODY_PAIR = String.raw`${FORM_BODY_KEY}=${FORM_BODY_VALUE}`;
+const FORM_BODY_RE = new RegExp(String.raw`^${FORM_BODY_PAIR}(?:&${FORM_BODY_PAIR})+$`, "u");
+const FORM_BODY_SUBSTRING_RE = new RegExp(String.raw`(^|[\s:({\[,="'` + "`" + String.raw`])(${FORM_BODY_PAIR}(?:&${FORM_BODY_PAIR})+)`, "gu");
+const ENCODED_FORM_PAIR_RE = new RegExp(String.raw`(^|[\s:({\[,="'` + "`" + String.raw`&])(${FORM_BODY_KEY})=(${FORM_BODY_VALUE})`, "gu");
+const FORM_BODY_CONTEXT_SINGLE_PAIR_RE = new RegExp(String.raw`(\b(?:body|form(?:[-_\s]?body)?)\s*[:=]\s*(["'\x60]?))(${FORM_BODY_KEY})=(${FORM_BODY_VALUE})(["'\x60]?)`, "giu");
+const URL_QUERY_PAIR_RE = new RegExp(String.raw`([?&])(${FORM_BODY_KEY})=(${URL_QUERY_VALUE})`, "gu");
+const FORM_BODY_LINE_BREAK_SPLIT_RE = /(\r\n|\r|\n)/u;
+const FORM_BODY_LINE_BREAK_SEGMENT_RE = /^(?:\r\n|\r|\n)$/u;
+function createFormBodyRedactor(bodySecretKeys) {
+	function normalizeSensitiveKeyName(value) {
+		const stripped = value.replace(FORM_BODY_KEY_SEPARATOR_RE, "");
+		try {
+			return decodeURIComponent(stripped).replace(FORM_BODY_KEY_SEPARATOR_RE, "").toLowerCase().replaceAll("-", "_");
+		} catch {
+			return stripped.toLowerCase().replaceAll("-", "_");
+		}
+	}
+	function isSensitiveBodyKey(key) {
+		return isSensitiveUrlQueryParamName(key) || bodySecretKeys.has(normalizeSensitiveKeyName(key));
+	}
+	function hasEncodedOrInvisibleFormKey(key) {
+		return FORM_BODY_PERCENT_ESCAPE_RE.test(key) || key.replace(FORM_BODY_KEY_OBFUSCATION_RE, "") !== key;
+	}
+	function visitSensitiveAssignments(text, kind, visit) {
+		if (!text || kind === "url" && !text.includes("?")) return;
+		if (kind === "encoded" && !text.includes("%") && text.replace(FORM_BODY_KEY_OBFUSCATION_RE, "") === text) return;
+		if (kind === "context" && !/[=:]/u.test(text)) return;
+		const visitPair = (key, token, valueOffset) => {
+			if (kind === "encoded" && !hasEncodedOrInvisibleFormKey(key)) return;
+			if (!isSensitiveBodyKey(key)) return;
+			const { maskable, maskStart, maskEnd } = splitSecretValueForMask(token);
+			visit(valueOffset + maskStart, valueOffset + maskEnd, maskable);
+		};
+		if (kind === "form") {
+			let cursor = 0;
+			for (const pair of text.split("&")) {
+				const equalsIndex = pair.indexOf("=");
+				if (equalsIndex >= 0) visitPair(pair.slice(0, equalsIndex), pair.slice(equalsIndex + 1), cursor + equalsIndex + 1);
+				cursor += pair.length + 1;
+			}
+			return;
+		}
+		const pattern = kind === "url" ? URL_QUERY_PAIR_RE : kind === "encoded" ? ENCODED_FORM_PAIR_RE : FORM_BODY_CONTEXT_SINGLE_PAIR_RE;
+		const keyIndex = kind === "context" ? 3 : 2;
+		pattern.lastIndex = 0;
+		try {
+			for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+				const prefix = match[1] ?? "";
+				const key = match[keyIndex] ?? "";
+				visitPair(key, match[keyIndex + 1] ?? "", match.index + prefix.length + key.length + 1);
+			}
+		} finally {
+			pattern.lastIndex = 0;
+		}
+	}
+	function redactAssignmentValues(text, kind, onEdits) {
+		const parts = [];
+		const edits = [];
+		let cursor = 0;
+		visitSensitiveAssignments(text, kind, (start, end, maskable) => {
+			const replacement = kind === "url" ? maskToken(maskable) : "***";
+			parts.push(text.slice(cursor, start), replacement);
+			if (onEdits) edits.push({
+				start,
+				end,
+				replacement
+			});
+			cursor = end;
+		});
+		if (edits.length > 0) onEdits?.(edits);
+		return parts.length > 0 ? parts.join("") + text.slice(cursor) : text;
+	}
+	function redactFormBodyLine(text, onEdits) {
+		if (!text.includes("=")) return text;
+		const contextRedacted = redactAssignmentValues(redactAssignmentValues(text, "encoded", onEdits), "context", onEdits);
+		if (!contextRedacted.includes("&")) return contextRedacted;
+		if (FORM_BODY_RE.test(contextRedacted)) return redactAssignmentValues(contextRedacted, "form", onEdits);
+		const substringEdits = [];
+		const redacted = contextRedacted.replace(FORM_BODY_SUBSTRING_RE, (match, prefix, body, offset) => {
+			const redactedBody = redactAssignmentValues(body, "form", onEdits ? (edits) => {
+				for (const edit of edits) substringEdits.push({
+					...edit,
+					start: offset + prefix.length + edit.start,
+					end: offset + prefix.length + edit.end
+				});
+			} : void 0);
+			return redactedBody === body ? match : `${prefix}${redactedBody}`;
+		});
+		if (substringEdits.length > 0) onEdits?.(substringEdits);
+		return redactAssignmentValues(redactAssignmentValues(redacted, "encoded", onEdits), "context", onEdits);
+	}
+	function redactFormBody(text, onEdits) {
+		if (!text.includes("=")) return text;
+		if (FORM_BODY_LINE_BREAK_SPLIT_RE.test(text)) {
+			let offset = 0;
+			return text.split(FORM_BODY_LINE_BREAK_SPLIT_RE).map((segment) => {
+				const result = FORM_BODY_LINE_BREAK_SEGMENT_RE.test(segment) ? segment : redactFormBodyLine(segment, onEdits ? (edits) => onEdits(edits.map((edit) => ({
+					...edit,
+					start: offset + edit.start,
+					end: offset + edit.end
+				}))) : void 0);
+				offset += result.length;
+				return result;
+			}).join("");
+		}
+		return redactFormBodyLine(text, onEdits);
+	}
+	return {
+		redactAssignmentValues,
+		redactFormBody
+	};
 }
 //#endregion
 //#region src/logging/redact-json-tokens.ts
@@ -3016,46 +3827,24 @@ function rewriteOpenEndedRepeats(source, flags = "") {
 	let i = 0;
 	while (i < source.length) {
 		const char = source[i];
+		let end = i + 1;
+		let isAtom = true;
 		if (char === "\\") {
-			const end = escapeAtomEnd(source, i);
+			end = escapeAtomEnd(source, i);
 			if (end < 0) {
-				out += char;
-				i += 1;
-				atomStart = -1;
-				continue;
-			}
-			if (flags.includes("u") && isHighSurrogateEscape(source, i) && source[end] === "\\" && isLowSurrogateEscape(source, end)) {
-				const pairEnd = escapeAtomEnd(source, end);
-				out += source.slice(i, pairEnd);
-				atomStart = i;
-				atomEnd = pairEnd;
-				i = pairEnd;
-				continue;
-			}
-			out += source.slice(i, end);
-			if (ASSERTION_ESCAPE_CHARS.has(source[i + 1])) atomStart = -1;
-			else {
-				atomStart = i;
-				atomEnd = end;
-			}
-			i = end;
-			continue;
-		}
-		if (char === "[") {
-			const end = classAtomEnd(source, i);
+				end = i + 1;
+				isAtom = false;
+			} else if (flags.includes("u") && isHighSurrogateEscape(source, i) && source[end] === "\\" && isLowSurrogateEscape(source, end)) end = escapeAtomEnd(source, end);
+			else isAtom = !ASSERTION_ESCAPE_CHARS.has(source[i + 1]);
+		} else if (char === "[") {
+			end = classAtomEnd(source, i);
 			if (end < 0) return source;
-			out += source.slice(i, end);
-			atomStart = i;
-			atomEnd = end;
-			i = end;
-			continue;
-		}
-		if (char === "{") {
+		} else if (char === "{") {
 			const open = OPEN_REPEAT_RE.exec(source.slice(i));
-			if (open && atomStart >= 0) {
-				const atom = source.slice(atomStart, atomEnd);
-				out += `{${open[1]}}${atom}*`;
-				i += open[0].length;
+			const repeat = open && atomStart >= 0 ? open : BOUNDED_REPEAT_RE.exec(source.slice(i));
+			if (repeat) {
+				out += repeat === open ? `{${open[1]}}${source.slice(atomStart, atomEnd)}*` : repeat[0];
+				i += repeat[0].length;
 				if (source[i] === "?") {
 					out += "?";
 					i += 1;
@@ -3063,37 +3852,12 @@ function rewriteOpenEndedRepeats(source, flags = "") {
 				atomStart = -1;
 				continue;
 			}
-			const bounded = BOUNDED_REPEAT_RE.exec(source.slice(i));
-			if (bounded) {
-				out += bounded[0];
-				i += bounded[0].length;
-				if (source[i] === "?") {
-					out += "?";
-					i += 1;
-				}
-				atomStart = -1;
-				continue;
-			}
-			out += char;
-			atomStart = i;
-			atomEnd = i + 1;
-			i += 1;
-			continue;
-		}
-		out += char;
-		if (flags.includes("u") && char >= "\ud800" && char <= "\udbff" && i + 1 < source.length && source[i + 1] >= "\udc00" && source[i + 1] <= "\udfff") {
-			out += source[i + 1];
-			atomStart = i;
-			atomEnd = i + 2;
-			i += 2;
-			continue;
-		}
-		if (char === "*" || char === "+" || char === "?" || char === "(" || char === ")" || char === "|" || char === "^" || char === "$") atomStart = -1;
-		else {
-			atomStart = i;
-			atomEnd = i + 1;
-		}
-		i += 1;
+		} else if (flags.includes("u") && char >= "\ud800" && char <= "\udbff" && i + 1 < source.length && source[i + 1] >= "\udc00" && source[i + 1] <= "\udfff") end = i + 2;
+		else isAtom = !"*+?()|^$".includes(char);
+		out += source.slice(i, end);
+		atomStart = isAtom ? i : -1;
+		atomEnd = end;
+		i = end;
 	}
 	return out;
 }
@@ -3209,15 +3973,6 @@ function redactPemBlock(block, marker) {
 }
 //#endregion
 //#region src/logging/redact-json.ts
-function getPatternRedactionEdits(value, pattern, getCapture) {
-	const edits = [];
-	visitRedactMatches(value, pattern, (match) => {
-		const capture = getCapture(match, pattern);
-		const edit = capture?.redact(capture);
-		if (edit && edit.end >= edit.start) edits.push(edit);
-	});
-	return edits;
-}
 function stringBoundaries(text, start, end) {
 	const boundaries = /* @__PURE__ */ new Map();
 	let decoded = 0;
@@ -3545,630 +4300,6 @@ function redactJsonRecord(input, origins, patternPhases, getCapture, legacyField
 	}] : []));
 }
 //#endregion
-//#region src/logging/redact-pem.ts
-const PEM_REDACT_PATTERN_SOURCE = String.raw`-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]+?-----END [A-Z ]*PRIVATE KEY-----`;
-function createState() {
-	return {
-		scanner: {
-			offset: 0,
-			phase: "search",
-			dashes: 0,
-			keyword: "BEGIN ",
-			keywordOffset: 0,
-			start: 0,
-			suffix: ""
-		},
-		matchEnd: 0
-	};
-}
-function resetScanner(scanner, char) {
-	scanner.phase = "search";
-	scanner.dashes = char === "-" ? 1 : 0;
-	scanner.suffix = "";
-}
-function* readDelimiters(text, scanner) {
-	for (let index = 0; index < text.length; index += 1) {
-		if (scanner.phase === "search" && scanner.dashes === 0) {
-			const nextDash = text.indexOf("-", index);
-			if (nextDash === -1) {
-				scanner.offset += text.length - index;
-				return;
-			}
-			scanner.offset += nextDash - index;
-			index = nextDash;
-		}
-		const code = text.charCodeAt(index);
-		const char = code >= 97 && code <= 122 ? String.fromCharCode(code - 32) : text.charAt(index);
-		const offset = scanner.offset++;
-		switch (scanner.phase) {
-			case "search":
-				if (char === "-") scanner.dashes = Math.min(5, scanner.dashes + 1);
-				else if (scanner.dashes === 5 && (char === "B" || char === "E")) {
-					scanner.phase = "keyword";
-					scanner.keyword = char === "B" ? "BEGIN " : "END ";
-					scanner.keywordOffset = 1;
-					scanner.start = offset - 5;
-				} else scanner.dashes = 0;
-				break;
-			case "keyword":
-				if (char !== scanner.keyword.charAt(scanner.keywordOffset)) resetScanner(scanner, char);
-				else if (++scanner.keywordOffset === scanner.keyword.length) {
-					scanner.phase = "label";
-					scanner.suffix = "";
-				}
-				break;
-			case "label":
-				if (char >= "A" && char <= "Z" || char === " ") scanner.suffix = (scanner.suffix + char).slice(-11);
-				else if (char === "-" && scanner.suffix === "PRIVATE KEY") {
-					scanner.phase = "close";
-					scanner.dashes = 1;
-				} else resetScanner(scanner, char);
-				break;
-			case "close": if (char !== "-") resetScanner(scanner, char);
-			else if (++scanner.dashes === 5) {
-				scanner.phase = "search";
-				scanner.suffix = "";
-				yield {
-					kind: scanner.keyword === "BEGIN " ? "begin" : "end",
-					start: scanner.start,
-					end: offset + 1
-				};
-			}
-		}
-	}
-}
-function consumeDelimiter(state, delimiter) {
-	if (!state.open) {
-		if (delimiter.kind === "begin" && delimiter.start >= state.matchEnd) state.open = {
-			start: delimiter.start,
-			end: delimiter.end
-		};
-		return;
-	}
-	if (delimiter.kind !== "end" || delimiter.start <= state.open.end) return;
-	const block = {
-		start: state.open.start,
-		end: delimiter.end,
-		bodyStart: state.open.end,
-		bodyEnd: delimiter.start
-	};
-	state.open = void 0;
-	state.matchEnd = delimiter.end;
-	return block;
-}
-function* matchPem(text, context, incomplete) {
-	const state = {
-		...context,
-		scanner: { ...context.scanner },
-		open: context.open && { ...context.open }
-	};
-	const origin = state.scanner.offset;
-	for (const delimiter of readDelimiters(text, state.scanner)) {
-		const block = consumeDelimiter(state, delimiter);
-		if (!block) continue;
-		const start = Math.max(0, (incomplete ? block.bodyStart : block.start) - origin);
-		const end = (incomplete ? block.bodyEnd : block.end) - origin;
-		if (end <= start) continue;
-		yield {
-			match: text.slice(start, end),
-			groups: [],
-			input: text,
-			offset: start,
-			...incomplete ? { replacement: "…redacted…" } : {}
-		};
-	}
-	if (incomplete && state.open) {
-		const start = Math.max(0, state.open.end - origin);
-		if (start < text.length) yield {
-			match: text.slice(start),
-			groups: [],
-			input: text,
-			offset: start,
-			replacement: "…redacted…"
-		};
-	}
-}
-const PEM_REDACT_MATCHER = {
-	source: PEM_REDACT_PATTERN_SOURCE,
-	exec(text) {
-		return matchPem(text, createState(), false);
-	},
-	createContext() {
-		let whenClosed = false;
-		let whenOpen = true;
-		return {
-			prepend() {
-				const closed = createState();
-				const open = createState();
-				open.open = {
-					start: -1,
-					end: -1
-				};
-				return {
-					consume(text) {
-						for (const delimiter of readDelimiters(text, closed.scanner)) {
-							consumeDelimiter(closed, delimiter);
-							consumeDelimiter(open, delimiter);
-						}
-					},
-					finish() {
-						const nextClosed = closed.open ? whenOpen : whenClosed;
-						const nextOpen = open.open ? whenOpen : whenClosed;
-						whenClosed = nextClosed;
-						whenOpen = nextOpen;
-						return whenClosed === whenOpen;
-					}
-				};
-			},
-			pattern: {
-				source: PEM_REDACT_PATTERN_SOURCE,
-				exec(text) {
-					const state = createState();
-					if (whenClosed) state.open = {
-						start: -1,
-						end: -1
-					};
-					return matchPem(text, state, true);
-				}
-			}
-		};
-	}
-};
-//#endregion
-//#region src/logging/redact-patterns.ts
-const PAYMENT_CREDENTIAL_ENV_KEYS = String.raw`CARD[_-]?NUMBER|CARD[_-]?CVC|CARD[_-]?CVV|CVC|CVV|SECURITY[_-]?CODE|PAYMENT[_-]?CREDENTIAL|SHARED[_-]?PAYMENT[_-]?TOKEN`;
-const PAYMENT_CREDENTIAL_QUERY_KEYS = String.raw`card[-_]?number|card[-_]?cvc|card[-_]?cvv|cvc|cvv|security[-_]?code|payment[-_]?credential|shared[-_]?payment[-_]?token`;
-const PAYMENT_CREDENTIAL_JSON_KEYS = String.raw`cardNumber|card_number|cardCvc|card_cvc|cardCvv|card_cvv|cvc|cvv|securityCode|security_code|paymentCredential|payment_credential|sharedPaymentToken|shared_payment_token`;
-const AWS_SECRET_ACCESS_KEY_FIELD_KEYS = String.raw`aws[-_]?secret[-_]?access[-_]?key|awsSecretAccessKey|SecretAccessKey`;
-const AUTH_QUERY_KEYS = String.raw`access[-_]?token|auth[-_]?token|hook[-_]?token|refresh[-_]?token|id[-_]?token|api[-_]?key|apikey|client[-_]?secret|app[-_]?secret|private[-_]?key|${AWS_SECRET_ACCESS_KEY_FIELD_KEYS}|credential|authorization|token|key|secret|password|pass|passwd|auth|jwt|session|code|signature|x[-_]?amz[-_]?(?:signature|security[-_]?token)`;
-const FORM_BODY_FIRST_PAIR_KEYS = String.raw`${AUTH_QUERY_KEYS}|app[-_]?secret|credential|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
-const STANDALONE_ASSIGNMENT_SECRET_KEYS = String.raw`access_token|refresh_token|id_token|auth[-_]?token|hook[-_]?token|api[-_]?key|client[-_]?secret|app[-_]?secret|private[-_]?key|authorization|jwt|token|secret|password|pass|passwd|credential|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
-const CONFIG_ASSIGNMENT_SECRET_KEYS = String.raw`access[-_]?token|refresh[-_]?token|id[-_]?token|auth[-_]?token|hook[-_]?token|api[-_]?(?:key|secret)|client[-_]?secret|app[-_]?secret|private[-_]?key|secret[-_]?key|key[-_]?material|authorization|jwt|token|secret|password|passphrase|pass|passwd|credential|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
-const CONFIG_COLON_ASSIGNMENT_SECRET_KEYS = String.raw`access[-_]?token|refresh[-_]?token|id[-_]?token|auth[-_]?token|hook[-_]?token|api[-_]?(?:key|secret)|client[-_]?secret|app[-_]?secret|private[-_]?key|secret[-_]?key|key[-_]?material|authorization|jwt|token|secret|password|passphrase|passwd|credential|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
-const CONFIG_DIRECT_ASSIGNMENT_SECRET_KEYS = String.raw`access-token|refresh-token|id-token|auth-token|hook-token|api[-_]?(?:key|secret)|secret[-_]?key|key[-_]?material|passphrase`;
-const CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_SECRET_KEYS = String.raw`password|passphrase|pass|passwd`;
-const CLI_SECRET_FLAG_KEYS = String.raw`${AWS_SECRET_ACCESS_KEY_FIELD_KEYS}|api[-_]?key|hook[-_]?token|access[-_]?token|refresh[-_]?token|id[-_]?token|token|secret|password|passwd|credential|private[-_]?key|client[-_]?secret|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
-const BODY_SECRET_KEYS = /* @__PURE__ */ new Set([
-	"access_token",
-	"auth_token",
-	"awssecretaccesskey",
-	"aws_secret_access_key",
-	"hook_token",
-	"refresh_token",
-	"id_token",
-	"token",
-	"api_key",
-	"apikey",
-	"client_secret",
-	"app_secret",
-	"password",
-	"pass",
-	"passwd",
-	"auth",
-	"jwt",
-	"session",
-	"code",
-	"signature",
-	"x_amz_signature",
-	"x_amz_security_token",
-	"secret",
-	"secretaccesskey",
-	"credential",
-	"private_key",
-	"authorization",
-	"key",
-	"card_number",
-	"card_cvc",
-	"card_cvv",
-	"cvc",
-	"cvv",
-	"security_code",
-	"payment_credential",
-	"shared_payment_token"
-]);
-const FORM_BODY_KEY_INVISIBLE_CHARS = String.raw`\p{C}\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\u115F\u1160\u3164\uFFA0`;
-const ENV_ASSIGNMENT_REDACT_PATTERN = String.raw`/\b[A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|${PAYMENT_CREDENTIAL_ENV_KEYS})\b\s*[=:]\s*(["']?)([^\s"'\\]+)\1/g`;
-const ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN = String.raw`/\b[A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|${PAYMENT_CREDENTIAL_ENV_KEYS})\b\s*[=:]\s*\\+(["'])([^\s"'\\]+)\\+\1/g`;
-const STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN = String.raw`(^|[\s,;({\["])(?:${STANDALONE_ASSIGNMENT_SECRET_KEYS})=(["'\x60])((?:(?!\2)[^\r\n])+)\2`;
-const STANDALONE_ASSIGNMENT_REDACT_PATTERN = String.raw`(^|[\s,;({\["])(?:${STANDALONE_ASSIGNMENT_SECRET_KEYS})=(["'\x60]?[^\s&#"'\x60<>]+)`;
-const CONFIG_QUOTED_ASSIGNMENT_SECRET_KEYS = String.raw`access[-_]?token|refresh[-_]?token|id[-_]?token|auth[-_]?token|hook[-_]?token|api[-_]?(?:key|secret)|secret[-_]?key|key[-_]?material|authorization|jwt|token|secret|password|passphrase|pass|passwd|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
-const CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN = String.raw`/(^|[\s,{])(?:(?:${CONFIG_QUOTED_ASSIGNMENT_SECRET_KEYS})(?:\s*:\s*|\s+=\s*|=\s*)|[a-z0-9][a-z0-9._-]{0,79}[-_](?:${CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_SECRET_KEYS})\s*[:=]\s*|[a-z0-9_.-]{1,80}\.(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=]\s*)(["'\x60])((?:(?!\2)[^\r\n])+)\2/g`;
-const CONFIG_ASSIGNMENT_REDACT_PATTERN = String.raw`/(^|[\s,{])(?:(?:${CONFIG_COLON_ASSIGNMENT_SECRET_KEYS})\s*:\s*|(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})(?:\s+=\s*|=\s+))([^\s#"'\x60<>]+)/g`;
-const CONFIG_DIRECT_ASSIGNMENT_REDACT_PATTERN = String.raw`/(^|[\s,{])(?:${CONFIG_DIRECT_ASSIGNMENT_SECRET_KEYS})=([^\s#"'\x60<>]+)/g`;
-const CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_REDACT_PATTERN = String.raw`/(^|[\s,{])[a-z0-9][a-z0-9._-]{0,79}[-_](?:${CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_SECRET_KEYS})\s*[:=]\s*([^\s#"'\x60<>]+)/g`;
-const CONFIG_NAMESPACED_ASSIGNMENT_REDACT_PATTERN = String.raw`/(^|[\s,{])[a-z0-9_.-]{1,80}\.(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=]\s*([^\s#"'\x60<>]+)/g`;
-const STRUCTURED_JSON_SECRET_REDACT_PATTERN = String.raw`"(?:apiKey|api_key|apiToken|api_token|bearerToken|bearer_token|token|secret|password|passwd|${AWS_SECRET_ACCESS_KEY_FIELD_KEYS}|credential|authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token|accessToken|access_token|refreshToken|refresh_token|idToken|id_token|authToken|auth_token|clientSecret|client_secret|privateKey|private_key|secret_value|raw_secret|secret_input|key_material)"\s*:\s*"([^"]+)"`;
-const STRUCTURED_JSON_PAYMENT_REDACT_PATTERN = String.raw`"(?:${PAYMENT_CREDENTIAL_JSON_KEYS})"\s*:\s*"([^"]+)"`;
-const AMBIGUOUS_QUOTED_SECRET_FIELD_REDACT_PATTERN = String.raw`(^|[\s,{])["']?(?:api[-_]key|access[-_]token|refresh[-_]token|id[-_]token|authToken|auth[-_]token|clientSecret|client[-_]secret|appSecret|app[-_]secret|private[-_]key|credential|authorization|secret[-_]value|raw[-_]secret|secret[-_]input|key[-_]material)["']?\s*[:=]\s*(["'])([^"'\r\n]+)\2`;
-const AMBIGUOUS_QUOTED_AUTH_FIELD_REDACT_PATTERN = String.raw`(^|[\s,{])["']?(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-auth-token)["']?\s*[:=]\s*(["'])([^"'\r\n]+)\2`;
-const BASE64_SAFE_TOKEN_BOUNDARY = String.raw`(^|[^A-Za-z0-9])`;
-const base64SafeToken = (token) => String.raw`${BASE64_SAFE_TOKEN_BOUNDARY}(?=${token})(?<!;base64,[A-Za-z0-9+/=]*)(${token})`;
-const IDENTIFIER_SAFE_TOKEN_BOUNDARY = String.raw`(^|[^A-Za-z0-9_])`;
-function isAwsValueCharacter(char) {
-	const code = char.charCodeAt(0);
-	return code >= 65 && code <= 90 || code >= 97 && code <= 122 || code >= 48 && code <= 57 || char === "/" || char === "+" || char === "=";
-}
-const AWS_SECRET_ACCESS_KEY_VALUE_RE = /(?=[A-Za-z0-9/+=]{0,39}[A-Z])(?=[A-Za-z0-9/+=]{0,39}[a-z])(?=[A-Za-z0-9/+=]{0,39}[0-9/+=])(?=[A-Za-z0-9/+=]{0,39}[G-Zg-z/+=])[A-Za-z0-9/+=]{40}/u;
-function couldMatchAwsSecretAccessKey(text) {
-	for (let end = 39; end < text.length;) {
-		let cursor = end;
-		while (cursor > end - 40 && isAwsValueCharacter(text[cursor])) cursor--;
-		if (cursor === end - 40) return AWS_SECRET_ACCESS_KEY_VALUE_RE.test(text);
-		end = cursor + 40;
-	}
-	return false;
-}
-const AWS_VALUE_WHITESPACE_RE = /\s/;
-const AWS_URL_SCHEME_CHARACTER_RE = /[A-Za-z0-9+.-]/;
-const AWS_URL_SCHEME_START_RE = /[A-Za-z]/;
-function* matchAwsSecretAccessKeys(text) {
-	if (!couldMatchAwsSecretAccessKey(text)) return;
-	const closingDelimiters = {
-		"\"": "\"",
-		"'": "'",
-		"`": "`",
-		"<": ">",
-		"(": ")",
-		"[": "]",
-		"{": "}"
-	};
-	let runStart = -1;
-	let schemeStart = -1;
-	let url;
-	let backslashes = 0;
-	const runs = [];
-	for (let index = 0; index <= text.length; index++) {
-		const char = text[index] ?? "";
-		const whitespace = index === text.length || AWS_VALUE_WHITESPACE_RE.test(char);
-		const escapeDepth = backslashes;
-		backslashes = char === "\\" ? backslashes + 1 : 0;
-		if (char && isAwsValueCharacter(char)) {
-			if (runStart === -1) runStart = index;
-		} else if (runStart !== -1) {
-			if (index - runStart === 40) runs.push({
-				start: runStart,
-				end: index,
-				origin: runStart,
-				url
-			});
-			else if (index - runStart > 40 && char === "@" && text[index - 41] === "/") runs.push({
-				start: index - 40,
-				end: index,
-				origin: runStart,
-				url
-			});
-			runStart = -1;
-		}
-		if (whitespace) {
-			if (url) url.end = Math.min(url.end, index);
-			for (const run of runs) {
-				const context = run.url;
-				const publicUrl = context && !context.hasAt && context.portValid && (context.portStart === -1 || (context.authorityEnd === -1 ? context.end : context.authorityEnd) > context.portStart + 1);
-				const before = text[run.start - 1] ?? "";
-				const after = text[run.end] ?? "";
-				const slashCredential = run.start !== run.origin;
-				const portCredential = context && context.portStart !== -1 && run.origin === context.portStart + 1 && context.authorityEnd > run.origin && run.end > context.authorityEnd && after === "@";
-				if (!slashCredential && (before === "_" || isAwsValueCharacter(before)) || after === "_" || text.slice(run.origin - 8, run.origin) === ";base64," || publicUrl && !portCredential && run.start >= context.start && run.end <= context.end) continue;
-				const match = text.slice(run.start, run.end);
-				if (AWS_SECRET_ACCESS_KEY_VALUE_RE.test(match)) yield {
-					match,
-					groups: [match],
-					input: text,
-					offset: run.start
-				};
-			}
-			runs.length = 0;
-			schemeStart = -1;
-			url = void 0;
-			continue;
-		}
-		if (url && index >= url.start) {
-			if (char === url.closing && escapeDepth === url.closingEscapeDepth) {
-				url.end = Math.min(url.end, index);
-				url = void 0;
-			} else {
-				if ("?#\"'<>`|()[]{}".includes(char)) url.end = Math.min(url.end, index);
-				url.queryOrFragment ||= char === "?" || char === "#";
-				if (url.authorityEnd === -1) {
-					url.hasAt ||= char === "@";
-					if ("/?#".includes(char)) url.authorityEnd = index;
-					else if (index < url.end) {
-						if (char === ":") {
-							url.portValid &&= url.portStart === -1;
-							url.portStart = index;
-						} else if (url.portStart !== -1 && (char < "0" || char > "9")) url.portValid = false;
-					}
-				}
-			}
-		}
-		if (AWS_URL_SCHEME_CHARACTER_RE.test(char)) {
-			if (schemeStart === -1) schemeStart = index;
-		} else {
-			if ((!url || index >= url.end && !url.queryOrFragment) && char === ":" && text.startsWith("//", index + 1) && schemeStart !== -1 && AWS_URL_SCHEME_START_RE.test(text[schemeStart])) {
-				const opening = text[schemeStart - 1];
-				let closingEscapeDepth = 0;
-				for (let offset = schemeStart - 2; offset >= 0 && text[offset] === "\\"; offset--) closingEscapeDepth++;
-				url = {
-					start: index + 3,
-					end: text.length,
-					authorityEnd: -1,
-					portStart: -1,
-					portValid: true,
-					hasAt: false,
-					queryOrFragment: false,
-					closing: opening ? closingDelimiters[opening] : void 0,
-					closingEscapeDepth
-				};
-			}
-			schemeStart = -1;
-		}
-	}
-}
-const AWS_SECRET_ACCESS_KEY_MATCHER = Object.freeze({
-	source: "aws-secret-access-key",
-	exec: matchAwsSecretAccessKeys,
-	couldMatch: couldMatchAwsSecretAccessKey
-});
-const BARE_PASS_KEY_RE = new RegExp(String.raw`(?<![A-Za-z0-9])(pass|${CONFIG_COLON_ASSIGNMENT_SECRET_KEYS})\s*:\s*`, "gi");
-const BARE_PASS_VALUE_RE = /[^\s#"'\x60<>]+/y;
-const ASCII_WORD_CHAR_RE = /[A-Za-z0-9]/;
-const INLINE_WHITESPACE_RE = /[ \t\r\n]/;
-function* matchBarePassAssignments(text) {
-	if (!/pass\s*:/.test(text)) return;
-	const keys = [...text.matchAll(BARE_PASS_KEY_RE)];
-	if (keys.length === 0) return;
-	let next = 0;
-	let assignmentSeen = false;
-	for (let index = 0; index < text.length; index++) {
-		const key = keys[next];
-		if (!key) return;
-		if (index === key.index) {
-			next++;
-			const before = text[index - 1] ?? "";
-			const owned = key[1] !== "pass" || before === "." || before === "-" || before === "_";
-			if (!(!owned && !assignmentSeen && before === " " && ASCII_WORD_CHAR_RE.test(text[index - 2] ?? ""))) {
-				assignmentSeen = true;
-				let end = index + key[0].length;
-				if (!owned) {
-					BARE_PASS_VALUE_RE.lastIndex = end;
-					const value = BARE_PASS_VALUE_RE.exec(text)?.[0];
-					if (value) {
-						end += value.length;
-						yield {
-							match: text.slice(index, end),
-							groups: [value],
-							input: text,
-							offset: index
-						};
-					}
-				}
-				let following = keys[next];
-				while (following && following.index < end) {
-					next++;
-					following = keys[next];
-				}
-				index = end - 1;
-				continue;
-			}
-		}
-		const char = text[index];
-		if (char === "\n" || char === "\r") assignmentSeen = false;
-		else if (char === "=") assignmentSeen = true;
-		else if (char === ":" && !INLINE_WHITESPACE_RE.test(text[index + 1] ?? " ")) assignmentSeen = true;
-	}
-}
-const BARE_PASS_ASSIGNMENT_MATCHER = Object.freeze({
-	source: "bare-pass-assignment",
-	exec: matchBarePassAssignments
-});
-const TELEGRAM_BOT_TOKEN_REDACT_PATTERN = String.raw`\bbot(\d{6,}:[A-Za-z0-9_-]{20,})\b`;
-const TELEGRAM_TOKEN_REDACT_PATTERN = String.raw`\b(\d{6,}:[A-Za-z0-9_-]{20,})\b`;
-const CREDENTIAL_STYLE_HEADER_KEYS = "x-goog-api-key|api-key|apikey|x-api-token|x-access-token";
-const GATEWAY_SECURITY_HEADER_KEYS = "X-OpenClaw-Token|x-pomerium-jwt-assertion|X-Api-Key|X-Auth-Token";
-const CREDENTIAL_HEADER_FIELD_RE = new RegExp(`^(?:${CREDENTIAL_STYLE_HEADER_KEYS}|${GATEWAY_SECURITY_HEADER_KEYS})$`, "i");
-const LOG_HEADER_BOUNDARY_PATTERN = String.raw`(^|[^A-Za-z0-9_?&-]|\\{1,64}[rn])`;
-const CREDENTIAL_STYLE_COLON_HEADER_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${CREDENTIAL_STYLE_HEADER_KEYS})${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*:${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}([^\s\\"',;]+)`;
-const CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${CREDENTIAL_STYLE_HEADER_KEYS})${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*=${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}([^\s\\"',;]+)`;
-const GATEWAY_SECURITY_COLON_HEADER_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${GATEWAY_SECURITY_HEADER_KEYS})\s*:\s*([^\s"',;]+)`;
-const GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${GATEWAY_SECURITY_HEADER_KEYS})\s*=\s*([^\s"',;]+)`;
-const FORM_AWARE_EQUALS_ASSIGNMENT_PATTERN_SOURCES = /* @__PURE__ */ new Set([CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN, GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN]);
-const HTTP_AUTH_HEADER_REDACT_PATTERNS = [
-	String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}Proxy-Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}${HTTP_AUTH_SCHEME_PATTERN}${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`,
-	String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}Proxy-Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})[ \t]*(?=${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(?:$|[,;)}\]]|\r?\n(?![ \t])))`,
-	String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(?!(?:Bearer|Basic|Bot)(?=${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}))${HTTP_AUTH_SCHEME_PATTERN}${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`,
-	String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(?!(?:Bearer|Basic|Bot)(?=${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}))(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})[ \t]*(?=${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(?:$|[,;)}\]]|\r?\n(?![ \t])))`,
-	CREDENTIAL_STYLE_COLON_HEADER_REDACT_PATTERN,
-	CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN
-];
-const AUTHORIZATION_BEARER_REDACT_PATTERN = String.raw`Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_LEGACY_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}Bearer${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`;
-const AUTHORIZATION_BASIC_REDACT_PATTERN = String.raw`Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_LEGACY_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}Basic${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`;
-const AUTHORIZATION_BOT_REDACT_PATTERN = String.raw`Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_LEGACY_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}Bot${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`;
-const STANDALONE_BEARER_REDACT_PATTERN = String.raw`\bBearer\s+([-A-Za-z0-9._~+/=]{18,})(?![-A-Za-z0-9._~+/=])`;
-const SHELL_REFERENCE_PRESERVING_PATTERN_SOURCES = /* @__PURE__ */ new Set([
-	ENV_ASSIGNMENT_REDACT_PATTERN,
-	ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN,
-	STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN,
-	STANDALONE_ASSIGNMENT_REDACT_PATTERN
-]);
-const DEFAULT_REDACT_FIELD_PATTERNS = [
-	ENV_ASSIGNMENT_REDACT_PATTERN,
-	ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN,
-	STRUCTURED_JSON_SECRET_REDACT_PATTERN,
-	STRUCTURED_JSON_PAYMENT_REDACT_PATTERN,
-	AMBIGUOUS_QUOTED_SECRET_FIELD_REDACT_PATTERN,
-	AMBIGUOUS_QUOTED_AUTH_FIELD_REDACT_PATTERN,
-	String.raw`--(?:${CLI_SECRET_FLAG_KEYS})=([^\s"']+)`,
-	String.raw`--(?:${CLI_SECRET_FLAG_KEYS})\s+(?!(?:or|and)\b(?=\s+--))(["']?)([^\s"']+)\1`,
-	AUTHORIZATION_BEARER_REDACT_PATTERN,
-	AUTHORIZATION_BASIC_REDACT_PATTERN,
-	AUTHORIZATION_BOT_REDACT_PATTERN,
-	...HTTP_AUTH_HEADER_REDACT_PATTERNS,
-	GATEWAY_SECURITY_COLON_HEADER_REDACT_PATTERN,
-	GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN,
-	STANDALONE_BEARER_REDACT_PATTERN,
-	String.raw`\b(?:https?|wss?|ftp):\/\/[^\/\s:@]*:([^\/\s@]+)@`,
-	String.raw`\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|rediss?|amqps?):\/\/[^:\s/@]*:([^@\s]+)@`,
-	String.raw`(^|[\s,;])(?:${FORM_BODY_FIRST_PAIR_KEYS})=([^&\s]+)(?=&[A-Za-z_][A-Za-z0-9_.-]*=)`,
-	STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN,
-	STANDALONE_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_ASSIGNMENT_REDACT_PATTERN,
-	BARE_PASS_ASSIGNMENT_MATCHER,
-	CONFIG_DIRECT_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_NAMESPACED_ASSIGNMENT_REDACT_PATTERN,
-	PEM_REDACT_PATTERN_SOURCE,
-	String.raw`(^|[\s,{])["']?(?:${AWS_SECRET_ACCESS_KEY_FIELD_KEYS})["']?\s*[:=]\s*(["']?)([A-Za-z0-9/+=]{40})(?![A-Za-z0-9/+=])\2`
-];
-const CONFIG_KEY_PROBE = new RegExp(String.raw`[:=](?<=(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])`);
-const CONFIG_QUOTED_PROBE = new RegExp(String.raw`[:=](?<=(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])\s*["'\x60]`);
-const CONFIG_NAMESPACED_PROBE = new RegExp(String.raw`[:=](?<=\.(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])`);
-const STANDALONE_ASSIGNMENT_PROBE = new RegExp(String.raw`=(?<=(?:^|[\s,;({\["])(?:${STANDALONE_ASSIGNMENT_SECRET_KEYS})=)`, "i");
-const REDACT_PATTERN_PREFILTERS = new Map([
-	[ENV_ASSIGNMENT_REDACT_PATTERN, (text) => /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CARD|CVC|CVV|SECURITY|PAYMENT/.test(text)],
-	[ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN, (text) => text.includes("\\")],
-	[STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN, (text) => /[=]["'`]/.test(text)],
-	[STANDALONE_ASSIGNMENT_REDACT_PATTERN, (text) => STANDALONE_ASSIGNMENT_PROBE.test(text)],
-	[CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN, (text) => /["'`]/.test(text) && CONFIG_QUOTED_PROBE.test(text)],
-	[CONFIG_ASSIGNMENT_REDACT_PATTERN, (text) => (text.includes(":") || text.includes("=")) && CONFIG_KEY_PROBE.test(text)],
-	[CONFIG_DIRECT_ASSIGNMENT_REDACT_PATTERN, (text) => text.includes("=")],
-	[CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_REDACT_PATTERN, (text) => /[-_](?:password|passphrase|pass|passwd)\s*[:=]/.test(text)],
-	[CONFIG_NAMESPACED_ASSIGNMENT_REDACT_PATTERN, (text) => CONFIG_NAMESPACED_PROBE.test(text)],
-	[AMBIGUOUS_QUOTED_SECRET_FIELD_REDACT_PATTERN, (text) => /["']/.test(text)],
-	[AMBIGUOUS_QUOTED_AUTH_FIELD_REDACT_PATTERN, (text) => /["']/.test(text)],
-	...HTTP_AUTH_HEADER_REDACT_PATTERNS.slice(0, 4).map((raw) => [raw, (text) => /authorization/i.test(text)]),
-	[CREDENTIAL_STYLE_COLON_HEADER_REDACT_PATTERN, (text) => /api-key|apikey|api-token|access-token/i.test(text)],
-	[CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN, (text) => /api-key|apikey|api-token|access-token/i.test(text)],
-	[STRUCTURED_JSON_SECRET_REDACT_PATTERN, (text) => text.includes("\"")],
-	[STRUCTURED_JSON_PAYMENT_REDACT_PATTERN, (text) => text.includes("\"")],
-	[GATEWAY_SECURITY_COLON_HEADER_REDACT_PATTERN, (text) => /x-openclaw-token|x-pomerium-jwt-assertion|x-api-key|x-auth-token/i.test(text)],
-	[GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN, (text) => /x-openclaw-token|x-pomerium-jwt-assertion|x-api-key|x-auth-token/i.test(text)]
-]);
-const VENDOR_TOKEN_REDACT_PATTERNS = [
-	String.raw`\b(sk-[A-Za-z0-9_-]{8,})\b`,
-	String.raw`(ghp_[A-Za-z0-9]{10,})`,
-	String.raw`(github_pat_[A-Za-z0-9_]{10,})`,
-	String.raw`(gho_[A-Za-z0-9]{10,})`,
-	String.raw`(ghu_[A-Za-z0-9]{10,})`,
-	String.raw`(ghs_[A-Za-z0-9]{10,})`,
-	String.raw`(ghr_[A-Za-z0-9]{10,})`,
-	String.raw`(glpat-[A-Za-z0-9._=\-]{20,})`,
-	String.raw`(gloas-(?:[A-Fa-f0-9]{65,}|[A-Za-z0-9_-]{64}|[A-Fa-f0-9]{32,}))`,
-	String.raw`(gldt-[A-Za-z0-9_-]{20,})`,
-	String.raw`(glcbt-[A-Za-z0-9]{1,5}_[A-Za-z0-9_-]{20,})`,
-	String.raw`(glptt-[A-Za-z0-9_-]{40,})`,
-	String.raw`(glft-(?:[A-Za-z0-9_-]{20,}|[a-h0-9]+-[0-9]+_))`,
-	String.raw`(glimt-[A-Za-z0-9_-]{25,})`,
-	String.raw`(glagent-[A-Za-z0-9_-]{50,})`,
-	String.raw`(glwt-[A-Za-z0-9_-]{20,})`,
-	String.raw`(glsoat-[A-Za-z0-9_-]{20,})`,
-	String.raw`(glffct-[A-Za-z0-9_-]{20,})`,
-	String.raw`(glrt-[A-Za-z0-9._-]{20,})`,
-	String.raw`(glrtr?-[A-Za-z0-9_-]{27,300}\.[0-9a-z]{2}\.[0-9a-z]{9})`,
-	String.raw`(GR1348941[A-Za-z0-9_-]{20,})`,
-	String.raw`(_gitlab_session=[A-Za-z0-9%._-]{20,})`,
-	String.raw`(xox[baprs]-[A-Za-z0-9-]{10,})`,
-	String.raw`(xapp-[A-Za-z0-9-]{10,})`,
-	String.raw`(https:\/\/hooks\.slack\.com\/(?:services\/T[A-Z0-9]+\/B[A-Z0-9]+|workflows\/T[A-Z0-9]+\/A[A-Z0-9]+\/[0-9]{17,19})\/[A-Za-z0-9]{20,})`,
-	String.raw`(https:\/\/discord(?:app)?\.com\/api\/webhooks\/[0-9]{17,20}\/[A-Za-z0-9_-]{60,})`,
-	String.raw`discord(?:.|\n|\r){0,40}?\b([A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27})\b`,
-	String.raw`(gsk_[A-Za-z0-9_-]{10,})`,
-	String.raw`(AIza[0-9A-Za-z\-_]{20,})`,
-	String.raw`(ya29\.[0-9A-Za-z_\-./+=]{10,})`,
-	String.raw`(1//0[0-9A-Za-z_\-./+=]{10,})`,
-	String.raw`(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})`,
-	String.raw`(pplx-[A-Za-z0-9_-]{10,})`,
-	String.raw`(fal_[A-Za-z0-9_-]{10,})`,
-	String.raw`${IDENTIFIER_SAFE_TOKEN_BOUNDARY}(fc-[A-Za-z0-9]{10,})`,
-	String.raw`(bb_live_[A-Za-z0-9_-]{10,})`,
-	base64SafeToken(String.raw`gAAAA[A-Za-z0-9_=-]{20,}`),
-	String.raw`(sk_live_[A-Za-z0-9]{10,})`,
-	String.raw`(sk_test_[A-Za-z0-9]{10,})`,
-	String.raw`(rk_live_[A-Za-z0-9]{10,})`,
-	String.raw`(SG\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})`,
-	String.raw`(npm_[A-Za-z0-9]{10,})`,
-	String.raw`(pypi-[A-Za-z0-9_-]{10,})`,
-	String.raw`(dop_v1_[A-Za-z0-9]{10,})`,
-	String.raw`(doo_v1_[A-Za-z0-9]{10,})`,
-	String.raw`(dor_v1_[A-Za-z0-9]{10,})`,
-	String.raw`(dp\.(?:ct|pt|sa|scim|audit)\.[A-Za-z0-9]{40,44})`,
-	String.raw`(dp\.st\.[A-Za-z0-9]{40,44})`,
-	String.raw`(dp\.st\.[a-z0-9_-]{2,35}\.[A-Za-z0-9]{40,44})`,
-	String.raw`(dckr_(?:pat|oat)_[A-Za-z0-9_-]{27,32})`,
-	String.raw`(bkua_[a-z0-9]{40})`,
-	String.raw`(CCIPAT_[A-Za-z0-9]{22}_[A-Fa-f0-9]{40})`,
-	String.raw`(sbp_[a-z0-9]{40})`,
-	base64SafeToken(String.raw`dapi[0-9a-f]{32}(?:-\d)?`),
-	String.raw`(dd[pw]_[A-Za-z0-9]{36})`,
-	String.raw`(glsa_[A-Za-z0-9_]{41})`,
-	String.raw`(glc_eyJ[A-Za-z0-9+/=]{60,160})`,
-	String.raw`(nfp_[A-Za-z0-9_]{36})`,
-	String.raw`(CFPAT-[A-Za-z0-9_\-]{40,})`,
-	base64SafeToken(String.raw`ATCTT3xFfG[A-Za-z0-9+/=_-]+=[A-Za-z0-9]{8}`),
-	base64SafeToken(String.raw`ATATT[A-Za-z0-9+/=_-]+=[A-Za-z0-9]{8}`),
-	base64SafeToken(String.raw`ATBB[A-Za-z0-9_=.-]{16,}`),
-	String.raw`(BBDC-[A-Za-z0-9+/@_-]{40,50})`,
-	String.raw`(HRKU-AA[A-Za-z0-9_-]{20,})`,
-	String.raw`(pat-(?:eu|na)1-[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12})`,
-	String.raw`(apify_api_[A-Za-z0-9\-]{20,})`,
-	String.raw`(FlyV1 fm\d+_[A-Za-z0-9+/=,_-]{100,})`,
-	String.raw`(fio-u-[A-Za-z0-9_-]{40,})`,
-	String.raw`(^|[^A-Za-z0-9_])(am_[A-Za-z0-9_-]{10,})`,
-	String.raw`(^|[^A-Za-z0-9_])(sk_[A-Za-z0-9_]{10,})`,
-	String.raw`(tvly-[A-Za-z0-9]{10,})`,
-	String.raw`(exa_[A-Za-z0-9]{10,})`,
-	String.raw`(syt_[A-Za-z0-9]{10,})`,
-	String.raw`(retaindb_[A-Za-z0-9]{10,})`,
-	String.raw`(hsk-[A-Za-z0-9]{10,})`,
-	String.raw`(mem0_[A-Za-z0-9]{10,})`,
-	String.raw`(brv_[A-Za-z0-9]{10,})`,
-	String.raw`(xai-[A-Za-z0-9]{30,})`,
-	String.raw`${IDENTIFIER_SAFE_TOKEN_BOUNDARY}(fw-[A-Za-z0-9]{30,})`,
-	String.raw`${IDENTIFIER_SAFE_TOKEN_BOUNDARY}(fw_[A-Za-z0-9]{30,})`,
-	String.raw`${IDENTIFIER_SAFE_TOKEN_BOUNDARY}(fpk_[A-Za-z0-9]{30,})`,
-	base64SafeToken(String.raw`AKIA[A-Z0-9]{16}`),
-	base64SafeToken(String.raw`ASIA[A-Z0-9]{16}`),
-	String.raw`(AKID[A-Za-z0-9]{10,})`,
-	String.raw`(LTAI[A-Za-z0-9]{10,})`,
-	String.raw`(hf_[A-Za-z0-9]{10,})`,
-	String.raw`(api_org_[A-Za-z0-9]{20,})`,
-	String.raw`(r8_[A-Za-z0-9]{10,})`,
-	TELEGRAM_BOT_TOKEN_REDACT_PATTERN,
-	TELEGRAM_TOKEN_REDACT_PATTERN
-];
-const CHUNK_UNSAFE_PATTERN_SOURCES = /* @__PURE__ */ new Set([
-	TELEGRAM_BOT_TOKEN_REDACT_PATTERN,
-	TELEGRAM_TOKEN_REDACT_PATTERN,
-	AUTHORIZATION_BEARER_REDACT_PATTERN,
-	AUTHORIZATION_BASIC_REDACT_PATTERN,
-	AUTHORIZATION_BOT_REDACT_PATTERN,
-	STANDALONE_BEARER_REDACT_PATTERN,
-	...HTTP_AUTH_HEADER_REDACT_PATTERNS,
-	...VENDOR_TOKEN_REDACT_PATTERNS.filter((source) => source.startsWith(BASE64_SAFE_TOKEN_BOUNDARY))
-]);
-const DEFAULT_REDACT_PATTERNS = [
-	...DEFAULT_REDACT_FIELD_PATTERNS,
-	...VENDOR_TOKEN_REDACT_PATTERNS,
-	AWS_SECRET_ACCESS_KEY_MATCHER
-];
-const TOOL_PAYLOAD_AMBIGUOUS_ASSIGNMENT_PATTERNS = /* @__PURE__ */ new Set([
-	ENV_ASSIGNMENT_REDACT_PATTERN,
-	ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN,
-	STRUCTURED_JSON_SECRET_REDACT_PATTERN,
-	AMBIGUOUS_QUOTED_SECRET_FIELD_REDACT_PATTERN,
-	AMBIGUOUS_QUOTED_AUTH_FIELD_REDACT_PATTERN,
-	STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN,
-	STANDALONE_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_DIRECT_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_NAMESPACED_ASSIGNMENT_REDACT_PATTERN
-]);
-/** Programmatic counterparts of the ambiguous assignment rules: kept out of tool payloads, preserved in source. */
-const AMBIGUOUS_ASSIGNMENT_MATCHERS = /* @__PURE__ */ new Set([BARE_PASS_ASSIGNMENT_MATCHER]);
-const TOOL_PAYLOAD_REDACT_PATTERNS = DEFAULT_REDACT_PATTERNS.filter((pattern) => typeof pattern === "string" ? !TOOL_PAYLOAD_AMBIGUOUS_ASSIGNMENT_PATTERNS.has(pattern) : !AMBIGUOUS_ASSIGNMENT_MATCHERS.has(pattern));
-//#endregion
 //#region src/logging/redact-linear-matchers.ts
 const JS_WHITESPACE_CODES = /* @__PURE__ */ new Set([
 	9,
@@ -4239,11 +4370,21 @@ function* scanPrefixOccurrences(text, prefix) {
 function isDataUrlPrefix(text, runStart) {
 	return runStart >= 8 && text.slice(runStart - 8, runStart).toLowerCase() === ";base64,";
 }
-/** End of the maximal run of `isMember` characters starting at `start`. */
 function runEndOf(text, start, isMember) {
 	let end = start;
 	while (end < text.length && isMember(text[end])) end += 1;
 	return end;
+}
+function makeCachedRunEnd(text, isMember) {
+	let start = -1;
+	let end = -1;
+	return (position) => {
+		if (position < start || position >= end) {
+			start = position;
+			end = runEndOf(text, position, isMember);
+		}
+		return end;
+	};
 }
 /**
 * Shared matcher for the `BASE64_SAFE_TOKEN_BOUNDARY` vendor rules. The boundary group is
@@ -4303,9 +4444,10 @@ function fixedTailTokenEnd(tailStart, tailLength, isMember) {
 	};
 }
 /** `dapi` + 32 hex digits + an optional `-<digit>`; the optional tail is greedy like the regex. */
+const dapiBodyEnd = fixedTailTokenEnd(4, 32, isHexChar);
 function dapiTokenEnd(text, start) {
-	const bodyEnd = start + 4 + 32;
-	for (let index = start + 4; index < bodyEnd; index++) if (!isHexChar(text[index])) return null;
+	const bodyEnd = dapiBodyEnd(text, start);
+	if (bodyEnd === null) return null;
 	if (text[bodyEnd] === "-" && isDigitChar(text[bodyEnd + 1])) return bodyEnd + 2;
 	return bodyEnd;
 }
@@ -4316,21 +4458,21 @@ function dapiTokenEnd(text, start) {
 */
 function makeAtEqualsTokenMatcher(source, prefix) {
 	const prefixLength = prefix.length;
+	const equalsTailEnd = fixedTailTokenEnd(1, 8, isAlnumChar);
 	return makeBase64SafeTokenMatcher(source, prefix, () => {
 		let runStart = -1;
 		let runEnd = -1;
-		let equals = [];
+		let lastEquals;
 		return (text, start) => {
 			const valueStart = start + prefixLength;
 			if (valueStart < runStart || valueStart >= runEnd) {
 				runEnd = runEndOf(text, valueStart, AT_VALUE_CHAR);
 				runStart = valueStart;
-				equals = [];
-				for (let index = valueStart; index < runEnd; index++) if (text[index] === "=" && index + 9 <= text.length && isAlnumChar(text[index + 1]) && isAlnumChar(text[index + 2]) && isAlnumChar(text[index + 3]) && isAlnumChar(text[index + 4]) && isAlnumChar(text[index + 5]) && isAlnumChar(text[index + 6]) && isAlnumChar(text[index + 7]) && isAlnumChar(text[index + 8])) equals.push(index);
+				lastEquals = void 0;
+				for (let index = valueStart; index < runEnd; index++) if (text[index] === "=" && equalsTailEnd(text, index) !== null) lastEquals = index;
 			}
 			const minimum = valueStart + 1;
-			const split = equals[equals.length - 1];
-			return split !== void 0 && split >= minimum ? split + 9 : null;
+			return lastEquals !== void 0 && lastEquals >= minimum ? lastEquals + 9 : null;
 		};
 	});
 }
@@ -4353,33 +4495,17 @@ const JWT_SEGMENT_CHAR = (char) => isAlnumChar(char) || char === "_" || char ===
 const JWT_MATCHER = Object.freeze({
 	source: "jwt (linear)",
 	*exec(text) {
-		const firstRun = {
-			start: -1,
-			end: -1
-		};
-		const secondRun = {
-			start: -1,
-			end: -1
-		};
-		const thirdRun = {
-			start: -1,
-			end: -1
-		};
-		const segmentEnd = (position, run) => {
-			if (position >= run.start && position < run.end) return run.end;
-			const end = runEndOf(text, position, JWT_SEGMENT_CHAR);
-			run.start = position;
-			run.end = end;
-			return end;
-		};
+		const firstSegmentEnd = makeCachedRunEnd(text, JWT_SEGMENT_CHAR);
+		const secondSegmentEnd = makeCachedRunEnd(text, JWT_SEGMENT_CHAR);
+		const thirdSegmentEnd = makeCachedRunEnd(text, JWT_SEGMENT_CHAR);
 		let searchFloor = 0;
 		for (const candidate of scanPrefixOccurrences(text, "eyj")) {
 			if (candidate < searchFloor) continue;
-			const firstEnd = segmentEnd(candidate + 3, firstRun);
+			const firstEnd = firstSegmentEnd(candidate + 3);
 			if (firstEnd - (candidate + 3) < 10 || text[firstEnd] !== ".") continue;
-			const secondEnd = segmentEnd(firstEnd + 1, secondRun);
+			const secondEnd = secondSegmentEnd(firstEnd + 1);
 			if (secondEnd - (firstEnd + 1) < 10 || text[secondEnd] !== ".") continue;
-			const thirdEnd = segmentEnd(secondEnd + 1, thirdRun);
+			const thirdEnd = thirdSegmentEnd(secondEnd + 1);
 			if (thirdEnd - (secondEnd + 1) < 10) continue;
 			const token = text.slice(candidate, thirdEnd);
 			yield {
@@ -4482,15 +4608,7 @@ function isFormPairBoundary(text, ampersand) {
 const FORM_BODY_FIRST_PAIR_MATCHER = Object.freeze({
 	source: "form-body-first-pair (linear)",
 	*exec(text) {
-		let runStart = -1;
-		let runEnd = -1;
-		const valueEnd = (start) => {
-			if (start >= runStart && start < runEnd) return runEnd;
-			const end = runEndOf(text, start, (char) => char !== "&" && !isJsWhitespaceChar(char));
-			runStart = start;
-			runEnd = end;
-			return end;
-		};
+		const valueEnd = makeCachedRunEnd(text, (char) => char !== "&" && !isJsWhitespaceChar(char));
 		let searchFloor = 0;
 		let separator = text.indexOf("=");
 		while (separator !== -1) {
@@ -4599,60 +4717,6 @@ const LINEAR_MATCHER_SOURCES = /* @__PURE__ */ new Map([
 	[CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN, CONFIG_QUOTED_MATCHER]
 ]);
 //#endregion
-//#region src/logging/redact-mask.ts
-const DEFAULT_REDACT_MIN_LENGTH = 18;
-const DEFAULT_REDACT_KEEP_START = 6;
-const SECRET_VALUE_TRAILING_DELIMITER_RE = /(["'`,;)}\]]+)$/u;
-const SECRET_VALUE_SUFFIX_RE = /^["'`,;)}\]]*$/u;
-const SECRET_VALUE_QUOTE_CHARS = /* @__PURE__ */ new Set([
-	"\"",
-	"'",
-	"`"
-]);
-function maskToken(token) {
-	if (token.length < DEFAULT_REDACT_MIN_LENGTH) return "***";
-	return `${sliceUtf16Safe(token, 0, DEFAULT_REDACT_KEEP_START)}…${sliceUtf16Safe(token, -4)}`;
-}
-function splitSecretValueForMask(token) {
-	const openingQuote = token[0] ?? "";
-	const contentStart = SECRET_VALUE_QUOTE_CHARS.has(openingQuote) ? 1 : 0;
-	if (contentStart) {
-		const closingQuoteIndex = token.lastIndexOf(openingQuote);
-		if (closingQuoteIndex > 0) {
-			const suffix = token.slice(closingQuoteIndex + 1);
-			if (SECRET_VALUE_SUFFIX_RE.test(suffix)) return {
-				maskable: token.slice(1, closingQuoteIndex),
-				suffix,
-				maskStart: 0,
-				maskEnd: closingQuoteIndex + 1
-			};
-		}
-	}
-	const content = token.slice(contentStart);
-	const trailingDelimiter = content.match(SECRET_VALUE_TRAILING_DELIMITER_RE)?.[1] ?? "";
-	const maskable = trailingDelimiter && trailingDelimiter.length < content.length ? content.slice(0, -trailingDelimiter.length) : content;
-	return {
-		maskable,
-		suffix: maskable === content ? "" : trailingDelimiter,
-		maskStart: 0,
-		maskEnd: contentStart + maskable.length
-	};
-}
-function splitFormAwareCredentialValue(token) {
-	const pairBoundary = token.search(/&[A-Za-z_][A-Za-z0-9_.-]*=/u);
-	return pairBoundary < 0 ? {
-		secret: token,
-		suffix: ""
-	} : {
-		secret: token.slice(0, pairBoundary),
-		suffix: token.slice(pairBoundary)
-	};
-}
-function maskSecretValue(token, options) {
-	const { maskable, suffix } = splitSecretValueForMask(token);
-	return `${options?.hinted ? maskToken(maskable) : "***"}${suffix}`;
-}
-//#endregion
 //#region src/logging/redact-performance.ts
 const redactionPerformance = channel("openclaw.redaction");
 /** The capture subscriber receives counts and synchronous CPU time, never text or patterns. */
@@ -4679,7 +4743,7 @@ function startRedactionMeasurement(operation) {
 //#endregion
 //#region src/logging/redact-prefilter.ts
 const FIELD_KEY_PREFILTER_RE = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|AUTH|COOKIE|SIGNATURE|CREDENTIAL|CARD|CVC|CVV|PAYMENT|security[-_]?code|\bpass\s*[=:]|\bpassphrase\s*[=:]|_(?:password|pass|passphrase|passwd)\s*[=:]|jwt\s*[=:]|session=|code=|\bsig\s*=/iu;
-const SEPARATED_VENDOR_PREFILTER_RE = /sk-|gh[opsur]_|github_pat_|glpat-|gloas-|gldt-|glcbt-|glptt-|glft-|glimt-|glagent-|glwt-|glsoat-|glffct-|glrt-|glrtr-|_gitlab_session=|xox[baprs]-|xapp-|gsk_|pplx-|fal_|fc-|bb_live_|[sr]k_(?:live|test)_|npm_|pypi-|do[opr]_v1_|dckr_|bkua_|CCIPAT_|sbp_|dd[pw]_|glsa_|nfp_|CFPAT-|BBDC-|HRKU-|pat-(?:eu|na)1-|apify_api_|fio-u-|tvly-|exa_|syt_|retaindb_|mem0_|brv_|xai-|fw-|fw_|fpk_|(?:^|[^A-Za-z0-9_])(?:am_|sk_)|hf_|api_org_|r8_/iu;
+const SEPARATED_VENDOR_PREFILTER_RE = /sk-|GOCSPX-|gh[opsur]_|github_pat_|glpat-|gloas-|gldt-|glcbt-|glptt-|glft-|glimt-|glagent-|glwt-|glsoat-|glffct-|glrt-|glrtr-|_gitlab_session=|xox[baprs]-|xapp-|gsk_|pplx-|fal_|fc-|bb_live_|[sr]k_(?:live|test)_|npm_|pypi-|do[opr]_v1_|dckr_|bkua_|CCIPAT_|sbp_|dd[pw]_|glsa_|nfp_|CFPAT-|BBDC-|HRKU-|pat-(?:eu|na)1-|apify_api_|fio-u-|tvly-|exa_|syt_|retaindb_|mem0_|brv_|xai-|fw-|fw_|fpk_|(?:^|[^A-Za-z0-9_])(?:am_|sk_)|hf_|api_org_|r8_/iu;
 const DEFAULT_REDACT_PREFILTER_RE = /PRIVATE KEY|\bBearer\s+|GR1348941|hooks\.slack\.com|discord|AIza|ya29\.|1\/\/0|eyJ|gAAAA|SG\.|dp\.(?:ct|pt|sa|st|scim|audit)\.|dapi[0-9a-f]|ATCTT3|ATATT|ATBB|FlyV1|A[KS]IA[A-Z0-9]|AKID|LTAI|\bbot\d{6,}:|\b\d{6,}:[A-Za-z0-9_-]{20,}/iu;
 const OBFUSCATED_KEY_CHAR_RE = new RegExp(`[${FORM_BODY_KEY_INVISIBLE_CHARS}+%]`, "u");
 const FULL_CONTEXT_REDACT_EXTRA_TRIGGERS_RE = /JWT|Bearer\s+|am_|sk_|(?<!\d)\d{6,}:[A-Za-z0-9_-]{20,}/i;
@@ -4703,6 +4767,73 @@ function createRedactPrefilter(probe) {
 	};
 }
 //#endregion
+//#region src/logging/secret-redaction-registry.ts
+const MIN_SECRET_VALUE_LENGTH = 6;
+const state$4 = resolveGlobalSingleton(Symbol.for("openclaw.secretRedactionRegistry"), () => ({
+	registeredValues: /* @__PURE__ */ new Map(),
+	registeredValueRedactor: void 0
+}));
+function invalidateMatcher() {
+	state$4.registeredValueRedactor = void 0;
+}
+/** Replaces registered exact values while preserving the caller's mask convention. */
+function redactRegisteredSecretValues(text, mask) {
+	if (!text || state$4.registeredValues.size === 0) return text;
+	state$4.registeredValueRedactor ??= createSecretValueRedactor([...state$4.registeredValues.keys()]);
+	return state$4.registeredValueRedactor(text, mask);
+}
+function createSecretValueRedactor(values) {
+	let compiledMatcher;
+	let firstChars;
+	return (text, mask) => {
+		if (!text || values.length === 0) return text;
+		let couldMatch = false;
+		firstChars ??= new Set(values.map((value) => value.charAt(0)));
+		for (const firstChar of firstChars) if (text.includes(firstChar)) {
+			couldMatch = true;
+			break;
+		}
+		if (!couldMatch) return text;
+		if (!compiledMatcher) {
+			const buckets = /* @__PURE__ */ new Map();
+			for (const value of values.toSorted((left, right) => right.length - left.length)) {
+				const prefix = value.slice(0, MIN_SECRET_VALUE_LENGTH);
+				const bucket = buckets.get(prefix);
+				if (bucket) bucket.push(value);
+				else buckets.set(prefix, [value]);
+			}
+			compiledMatcher = {
+				prefixes: new RegExp([...buckets.keys()].map(escapeRegExp).join("|"), "g"),
+				buckets
+			};
+		}
+		const { prefixes, buckets } = compiledMatcher;
+		const matches = [];
+		prefixes.lastIndex = 0;
+		for (let match = prefixes.exec(text); match; match = prefixes.exec(text)) {
+			const index = match.index;
+			const value = buckets.get(match[0])?.find((candidate) => text.startsWith(candidate, index));
+			if (value !== void 0) matches.push({
+				index,
+				value
+			});
+			prefixes.lastIndex = index + (value?.length ?? 1);
+		}
+		let result = "";
+		let cursor = 0;
+		for (const match of matches) {
+			result += `${text.slice(cursor, match.index)}${mask(match.value, match.index)}`;
+			cursor = match.index + match.value.length;
+		}
+		return result + text.slice(cursor);
+	};
+}
+function resetSecretRedactionRegistryForTest() {
+	state$4.registeredValues.clear();
+	invalidateMatcher();
+}
+if (process.env.VITEST || false) globalThis[Symbol.for("openclaw.secretRedactionRegistryTestApi")] = { resetSecretRedactionRegistryForTest };
+//#endregion
 //#region src/shared/assistant-error-format.ts
 const HTTP_STATUS_DELIMITER_RE = /(?:\s*:\s*|\s+)/;
 new RegExp(`^(?:http\\s*)?(\\d{3})${HTTP_STATUS_DELIMITER_RE.source}(.+)$`, "i");
@@ -4711,35 +4842,22 @@ const CONNECTION_FAILED_MESSAGE = "Couldn't connect to the AI service. Check you
 const TRANSPORT_ERRORS = [
 	{
 		code: /\beconnrefused\b/i,
-		phrases: ["connection refused", "actively refused"],
+		phrases: /connection refused|actively refused/i,
 		message: CONNECTION_FAILED_MESSAGE
 	},
 	{
 		code: /\beconnreset\b|\beconnaborted\b|\benetreset\b|\bepipe\b/i,
-		phrases: [
-			"socket hang up",
-			"connection reset",
-			"connection aborted"
-		],
+		phrases: /socket hang up|connection reset|connection aborted/i,
 		message: "Lost the connection to the AI service. Check the conversation before trying again. For details, open Settings → Logs in the Control UI or run `openclaw logs --follow`."
 	},
 	{
 		code: /\benotfound\b|\beai_again\b|\benetunreach\b|\behostunreach\b|\behostdown\b/i,
-		phrases: [
-			"getaddrinfo",
-			"no such host",
-			"dns",
-			"network is unreachable",
-			"host is unreachable",
-			"fetch failed",
-			"connection error",
-			"network request failed"
-		],
+		phrases: /getaddrinfo|no such host|\bdns\b|network is unreachable|host is unreachable|fetch failed|connection error|network request failed/i,
 		message: CONNECTION_FAILED_MESSAGE
 	}
 ];
 function isKnownTransportErrorCode(value) {
-	return TRANSPORT_ERRORS.some(({ code }) => code?.exec(value)?.[0] === value);
+	return TRANSPORT_ERRORS.some(({ code }) => code.exec(value)?.[0] === value);
 }
 //#endregion
 //#region src/logging/structured-authorization-code.ts
@@ -4758,30 +4876,17 @@ function shouldRedactStructuredAuthorizationCode(normalizedKey, path, transportC
 //#endregion
 //#region src/logging/redact.ts
 const DEFAULT_REDACT_MODE = "tools";
+const backendPatterns = createBackendRedactPatterns();
+const { redactAssignmentValues, redactFormBody } = createFormBodyRedactor(backendPatterns.bodySecretKeys);
 const shellReferencePreservingPatterns = /* @__PURE__ */ new WeakSet();
 const builtInResolvedPatterns = /* @__PURE__ */ new WeakSet();
 const vendorResolvedPatterns = /* @__PURE__ */ new WeakMap();
 const vendorSources = new Set(VENDOR_TOKEN_REDACT_PATTERNS);
 const chunkUnsafePatterns = /* @__PURE__ */ new WeakSet();
-const canonicalBuiltInSources = new Set([...DEFAULT_REDACT_PATTERNS, ...TOOL_PAYLOAD_REDACT_PATTERNS].filter((entry) => typeof entry === "string"));
+const canonicalBuiltInSources = new Set(DEFAULT_REDACT_PATTERNS.filter((entry) => typeof entry === "string"));
 const formAwareEqualsAssignmentPatterns = /* @__PURE__ */ new WeakSet();
-const sourceAssignmentPatterns = /* @__PURE__ */ new WeakSet();
 let defaultResolvedPatterns;
-let toolPayloadResolvedPatterns;
-const FORM_BODY_KEY_OBFUSCATION_RE = new RegExp(String.raw`[${FORM_BODY_KEY_INVISIBLE_CHARS}+]`, "gu");
-const FORM_BODY_KEY_SEPARATOR_RE = /[\p{C}\p{Z}\u115F\u1160\u3164\uFFA0+]/gu;
-const FORM_BODY_PERCENT_ESCAPE_RE = /%[0-9A-Fa-f]{2}/u;
-const FORM_BODY_KEY = String.raw`[${FORM_BODY_KEY_INVISIBLE_CHARS}+]*(?:[A-Za-z_]|%[0-9A-Fa-f]{2})(?:[A-Za-z0-9_.-]|%[0-9A-Fa-f]{2}|[${FORM_BODY_KEY_INVISIBLE_CHARS}+])*`;
-const FORM_BODY_VALUE = "[^&\\s<>]*";
-const URL_QUERY_VALUE = "[^&#\\s<>]*";
-const FORM_BODY_PAIR = String.raw`${FORM_BODY_KEY}=${FORM_BODY_VALUE}`;
-const FORM_BODY_RE = new RegExp(String.raw`^${FORM_BODY_PAIR}(?:&${FORM_BODY_PAIR})+$`, "u");
-const FORM_BODY_SUBSTRING_RE = new RegExp(String.raw`(^|[\s:({\[,="'` + "`" + String.raw`])(${FORM_BODY_PAIR}(?:&${FORM_BODY_PAIR})+)`, "gu");
-const ENCODED_FORM_PAIR_RE = new RegExp(String.raw`(^|[\s:({\[,="'` + "`" + String.raw`&])(${FORM_BODY_KEY})=(${FORM_BODY_VALUE})`, "gu");
-const FORM_BODY_CONTEXT_SINGLE_PAIR_RE = new RegExp(String.raw`(\b(?:body|form(?:[-_\s]?body)?)\s*[:=]\s*(["'\x60]?))(${FORM_BODY_KEY})=(${FORM_BODY_VALUE})(["'\x60]?)`, "giu");
-const URL_QUERY_PAIR_RE = new RegExp(String.raw`([?&])(${FORM_BODY_KEY})=(${URL_QUERY_VALUE})`, "gu");
-const FORM_BODY_LINE_BREAK_SPLIT_RE = /(\r\n|\r|\n)/u;
-const FORM_BODY_LINE_BREAK_SEGMENT_RE = /^(?:\r\n|\r|\n)$/u;
+let warnedInvalidPatterns = false;
 const STRUCTURED_SECRET_FIELD_RE = new RegExp(String.raw`^(?:api[-_]?key|apiKey|api[-_]?token|apiToken|bearer[-_]?token|bearerToken|token|secret|password|passwd|${AWS_SECRET_ACCESS_KEY_FIELD_KEYS}|credential|authorization|private[-_]?key|privateKey|access[-_]?token|accessToken|refresh[-_]?token|refreshToken|id[-_]?token|idToken|auth[-_]?token|authToken|client[-_]?secret|clientSecret|app[-_]?secret|appSecret|secret[-_]?value|secretValue|raw[-_]?secret|rawSecret|secret[-_]?input|secretInput|key|key[-_]?material|keyMaterial|jwt|session|signature|cookie|set[-_]?cookie|${PAYMENT_CREDENTIAL_QUERY_KEYS}|${PAYMENT_CREDENTIAL_JSON_KEYS})$`, "i");
 const STRUCTURED_INTERNAL_SOURCE_PATH_VALUE_RE = /^\$WORKSPACE_DIR\/[A-Za-z0-9._/-]+\.jsonl$/u;
 const STRUCTURED_APP_PASSWORD_FIELD_RE = /^(?:apple|icloud|app[-_]?specific[-_]?password|appSpecificPassword|application[-_]?password|text|content|message|error|errorMessage|detail|details|reason)$/i;
@@ -4799,15 +4904,9 @@ const BENIGN_APP_PASSWORD_WORDS = /* @__PURE__ */ new Set([
 	"test"
 ]);
 const STRUCTURED_SECRET_ENV_FIELD_RE = new RegExp(String.raw`^(?:(?:[A-Z0-9]+[_-])+(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD)|API[_-]?KEY|TOKEN|SECRET|PASSWORD|PASSWD|${PAYMENT_CREDENTIAL_ENV_KEYS})$`, "i");
-function normalizeMode(value) {
-	return value === "off" ? "off" : DEFAULT_REDACT_MODE;
-}
 function parsePattern(raw) {
 	if (raw === PEM_REDACT_PATTERN_SOURCE) return PEM_REDACT_MATCHER;
-	if (typeof raw !== "string" && !(raw instanceof RegExp)) {
-		if (AMBIGUOUS_ASSIGNMENT_MATCHERS.has(raw)) sourceAssignmentPatterns.add(raw);
-		return raw;
-	}
+	if (typeof raw !== "string" && !(raw instanceof RegExp)) return raw !== null && typeof raw === "object" && typeof raw.exec === "function" ? raw : null;
 	let pattern = typeof raw === "string" ? LINEAR_MATCHER_SOURCES.get(raw) ?? null : null;
 	let canPrefilter = true;
 	if (raw instanceof RegExp) {
@@ -4819,10 +4918,9 @@ function parsePattern(raw) {
 		pattern = compileConfigRegex(optimized, flags)?.regex ?? null;
 		canPrefilter = pattern !== null && pattern.source === optimized && pattern.flags === flags && pattern.exec === RegExp.prototype.exec && pattern[Symbol.replace] === RegExp.prototype[Symbol.replace];
 	}
-	if (pattern && typeof raw === "string" && SHELL_REFERENCE_PRESERVING_PATTERN_SOURCES.has(raw)) shellReferencePreservingPatterns.add(pattern);
-	if (pattern && typeof raw === "string" && TOOL_PAYLOAD_AMBIGUOUS_ASSIGNMENT_PATTERNS.has(raw)) sourceAssignmentPatterns.add(pattern);
-	if (pattern && typeof raw === "string" && FORM_AWARE_EQUALS_ASSIGNMENT_PATTERN_SOURCES.has(raw)) formAwareEqualsAssignmentPatterns.add(pattern);
-	if (pattern && typeof raw === "string" && (raw.startsWith(IDENTIFIER_SAFE_TOKEN_BOUNDARY) || CHUNK_UNSAFE_PATTERN_SOURCES.has(raw))) chunkUnsafePatterns.add(pattern);
+	if (pattern && typeof raw === "string" && backendPatterns.shellReferencePreserving.has(raw)) shellReferencePreservingPatterns.add(pattern);
+	if (pattern && typeof raw === "string" && backendPatterns.formAware.has(raw)) formAwareEqualsAssignmentPatterns.add(pattern);
+	if (pattern && typeof raw === "string" && (raw.startsWith(IDENTIFIER_SAFE_TOKEN_BOUNDARY) || backendPatterns.chunkUnsafe.has(raw))) chunkUnsafePatterns.add(pattern);
 	if (pattern && typeof raw === "string") {
 		if (canonicalBuiltInSources.has(raw)) builtInResolvedPatterns.add(pattern);
 		if (canPrefilter && vendorSources.has(raw) && !vendorResolvedPatterns.has(pattern)) {
@@ -4832,132 +4930,37 @@ function parsePattern(raw) {
 			const replace = pattern instanceof RegExp ? pattern[Symbol.replace] : void 0;
 			vendorResolvedPatterns.set(pattern, () => pattern.source === source && pattern.exec === exec && (!(pattern instanceof RegExp) || pattern.flags === flags && pattern[Symbol.replace] === replace));
 		}
-		const probe = REDACT_PATTERN_PREFILTERS.get(raw);
+		const probe = backendPatterns.prefilters.get(raw);
 		if (canPrefilter && probe) setRedactPatternPrefilter(pattern, probe);
 	}
 	return pattern;
 }
 function resolvePatterns(value) {
-	if (value === TOOL_PAYLOAD_REDACT_PATTERNS) {
-		toolPayloadResolvedPatterns ??= TOOL_PAYLOAD_REDACT_PATTERNS.map(parsePattern).filter((re) => Boolean(re));
-		return toolPayloadResolvedPatterns;
-	}
-	if (!value?.length || value === DEFAULT_REDACT_PATTERNS) {
+	if (usesBuiltInRedactPatterns(value)) {
 		defaultResolvedPatterns ??= DEFAULT_REDACT_PATTERNS.map(parsePattern).filter((re) => Boolean(re));
 		return defaultResolvedPatterns;
 	}
-	const seen = /* @__PURE__ */ new Set();
-	const combined = [];
-	for (const raw of value) {
+	const combined = /* @__PURE__ */ new Set();
+	let invalid = !Array.isArray(value);
+	for (const raw of Array.isArray(value) ? value : []) {
 		const resolved = parsePattern(raw);
-		if (resolved !== null && !seen.has(resolved)) {
-			seen.add(resolved);
-			combined.push(resolved);
+		if (resolved) combined.add(resolved);
+		else invalid = true;
+	}
+	if (invalid) {
+		for (const pattern of resolvePatterns()) combined.add(pattern);
+		if (!warnedInvalidPatterns) {
+			warnedInvalidPatterns = true;
+			try {
+				console.warn("[openclaw] Ignoring invalid logging.redactPatterns entries; keeping valid patterns and built-in redaction. Fix logging.redactPatterns in your config.");
+			} catch {}
 		}
 	}
-	if (!seen.has(AWS_SECRET_ACCESS_KEY_MATCHER)) combined.push(AWS_SECRET_ACCESS_KEY_MATCHER);
-	return combined;
+	combined.add(AWS_SECRET_ACCESS_KEY_MATCHER);
+	return [...combined];
 }
 function usesBuiltInRedactPatterns(value) {
-	return !value?.length || value === DEFAULT_REDACT_PATTERNS || value === TOOL_PAYLOAD_REDACT_PATTERNS;
-}
-function normalizeSensitiveKeyName(value) {
-	const stripped = value.replace(FORM_BODY_KEY_SEPARATOR_RE, "");
-	try {
-		return decodeURIComponent(stripped).replace(FORM_BODY_KEY_SEPARATOR_RE, "").toLowerCase().replaceAll("-", "_");
-	} catch {
-		return stripped.toLowerCase().replaceAll("-", "_");
-	}
-}
-function isSensitiveBodyKey(key) {
-	return isSensitiveUrlQueryParamName(key) || BODY_SECRET_KEYS.has(normalizeSensitiveKeyName(key));
-}
-function hasEncodedOrInvisibleFormKey(key) {
-	return FORM_BODY_PERCENT_ESCAPE_RE.test(key) || key.replace(FORM_BODY_KEY_OBFUSCATION_RE, "") !== key;
-}
-function visitSensitiveAssignments(text, kind, visit) {
-	if (!text || kind === "url" && !text.includes("?")) return;
-	if (kind === "encoded" && !text.includes("%") && text.replace(FORM_BODY_KEY_OBFUSCATION_RE, "") === text) return;
-	if (kind === "context" && !/[=:]/u.test(text)) return;
-	const visitPair = (key, token, valueOffset) => {
-		if (kind === "encoded" && !hasEncodedOrInvisibleFormKey(key)) return;
-		if (!isSensitiveBodyKey(key)) return;
-		const { maskable, maskStart, maskEnd } = splitSecretValueForMask(token);
-		visit(valueOffset + maskStart, valueOffset + maskEnd, maskable);
-	};
-	if (kind === "form") {
-		let cursor = 0;
-		for (const pair of text.split("&")) {
-			const equalsIndex = pair.indexOf("=");
-			if (equalsIndex >= 0) visitPair(pair.slice(0, equalsIndex), pair.slice(equalsIndex + 1), cursor + equalsIndex + 1);
-			cursor += pair.length + 1;
-		}
-		return;
-	}
-	const pattern = kind === "url" ? URL_QUERY_PAIR_RE : kind === "encoded" ? ENCODED_FORM_PAIR_RE : FORM_BODY_CONTEXT_SINGLE_PAIR_RE;
-	const keyIndex = kind === "context" ? 3 : 2;
-	pattern.lastIndex = 0;
-	try {
-		for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
-			const prefix = match[1] ?? "";
-			const key = match[keyIndex] ?? "";
-			visitPair(key, match[keyIndex + 1] ?? "", match.index + prefix.length + key.length + 1);
-		}
-	} finally {
-		pattern.lastIndex = 0;
-	}
-}
-function redactAssignmentValues(text, kind, onEdits) {
-	const parts = [];
-	const edits = [];
-	let cursor = 0;
-	visitSensitiveAssignments(text, kind, (start, end, maskable) => {
-		const replacement = kind === "url" ? maskToken(maskable) : "***";
-		parts.push(text.slice(cursor, start), replacement);
-		if (onEdits) edits.push({
-			start,
-			end,
-			replacement
-		});
-		cursor = end;
-	});
-	if (edits.length > 0) onEdits?.(edits);
-	return parts.length > 0 ? parts.join("") + text.slice(cursor) : text;
-}
-function redactFormBodyLine(text, onEdits) {
-	if (!text.includes("=")) return text;
-	const contextRedacted = redactAssignmentValues(redactAssignmentValues(text, "encoded", onEdits), "context", onEdits);
-	if (!contextRedacted.includes("&")) return contextRedacted;
-	if (FORM_BODY_RE.test(contextRedacted)) return redactAssignmentValues(contextRedacted, "form", onEdits);
-	const substringEdits = [];
-	const redacted = contextRedacted.replace(FORM_BODY_SUBSTRING_RE, (match, prefix, body, offset) => {
-		const redactedBody = redactAssignmentValues(body, "form", onEdits ? (edits) => {
-			for (const edit of edits) substringEdits.push({
-				...edit,
-				start: offset + prefix.length + edit.start,
-				end: offset + prefix.length + edit.end
-			});
-		} : void 0);
-		return redactedBody === body ? match : `${prefix}${redactedBody}`;
-	});
-	if (substringEdits.length > 0) onEdits?.(substringEdits);
-	return redactAssignmentValues(redactAssignmentValues(redacted, "encoded", onEdits), "context", onEdits);
-}
-function redactFormBody(text, onEdits) {
-	if (!text.includes("=")) return text;
-	if (FORM_BODY_LINE_BREAK_SPLIT_RE.test(text)) {
-		let offset = 0;
-		return text.split(FORM_BODY_LINE_BREAK_SPLIT_RE).map((segment) => {
-			const result = FORM_BODY_LINE_BREAK_SEGMENT_RE.test(segment) ? segment : redactFormBodyLine(segment, onEdits ? (edits) => onEdits(edits.map((edit) => ({
-				...edit,
-				start: offset + edit.start,
-				end: offset + edit.end
-			}))) : void 0);
-			offset += result.length;
-			return result;
-		}).join("");
-	}
-	return redactFormBodyLine(text, onEdits);
+	return value === void 0 || value === DEFAULT_REDACT_PATTERNS || Array.isArray(value) && value.length === 0;
 }
 function isShellReferenceToKey(key, value) {
 	if (!/^[A-Z_][A-Z0-9_]*$/.test(key)) return false;
@@ -4977,7 +4980,7 @@ function shouldPreserveShellReferenceMatch(match, token) {
 function isEmptyShellParameterExpansionTail(token) {
 	return /^[-=?+]\}$/.test(token);
 }
-function prepareRedactionCapture({ match, groups, input, offset, replacement: policyReplacement }, pattern, preserveSourceAssignment) {
+function prepareRedactionCapture({ match, groups, input, offset, replacement: policyReplacement }, pattern) {
 	if (match.includes("PRIVATE KEY-----")) return {
 		start: offset,
 		end: offset + match.length,
@@ -5000,7 +5003,6 @@ function prepareRedactionCapture({ match, groups, input, offset, replacement: po
 		value: selected.value,
 		redact: (target) => {
 			const token = target.value;
-			if (sourceAssignmentPatterns.has(pattern) && preserveSourceAssignment?.(input, offset + getSecretCaptureStart(pattern, input, match, offset, selected))) return;
 			const formAwareValue = formAwareEqualsAssignmentPatterns.has(pattern) ? splitFormAwareCredentialValue(token) : {
 				secret: token,
 				suffix: ""
@@ -5008,7 +5010,7 @@ function prepareRedactionCapture({ match, groups, input, offset, replacement: po
 			if (splitSecretValueForMask(formAwareValue.secret).maskable === "***") return;
 			const isShellReferencePattern = shellReferencePreservingPatterns.has(pattern);
 			if (isShellReferencePattern && (shouldPreserveShellReferenceMatch(match, token) || isEmptyShellParameterExpansionTail(token))) return;
-			const masked = policyReplacement ?? (preserveSourceAssignment && sourceAssignmentPatterns.has(pattern) ? maskSecretValue(token) : isShellReferencePattern ? maskToken(token) : `${maskSecretValue(formAwareValue.secret, { hinted: true })}${formAwareValue.suffix}`);
+			const masked = policyReplacement ?? (isShellReferencePattern ? maskToken(token) : `${maskSecretValue(formAwareValue.secret, { hinted: true })}${formAwareValue.suffix}`);
 			return {
 				start: target.start,
 				end: target.end,
@@ -5017,8 +5019,8 @@ function prepareRedactionCapture({ match, groups, input, offset, replacement: po
 		}
 	};
 }
-function redactMatch(match, pattern, preserveSourceAssignment) {
-	const capture = prepareRedactionCapture(match, pattern, preserveSourceAssignment);
+function redactMatch(match, pattern) {
+	const capture = prepareRedactionCapture(match, pattern);
 	const edit = capture?.redact(capture);
 	return edit ? match.match.slice(0, edit.start - match.offset) + edit.replacement + match.match.slice(edit.end - match.offset) : match.match;
 }
@@ -5028,7 +5030,7 @@ function redactText(text, patterns, options) {
 	try {
 		let next = redactFormBody(redactAssignmentValues(redactStructuredAuthHeaders(text, "***"), "url"));
 		let pattern;
-		const replace = (match) => redactMatch(match, pattern, options?.preserveSourceAssignment);
+		const replace = (match) => redactMatch(match, pattern);
 		const replaceRegex = (...args) => replace(readRedactMatch(args));
 		let vendorInput;
 		let vendorMatch = false;
@@ -5067,7 +5069,7 @@ function resolveConfigRedaction() {
 }
 function resolveRedactOptions(options) {
 	const resolved = options ?? resolveConfigRedaction();
-	const mode = normalizeMode(resolved.mode);
+	const mode = resolved.mode === "off" ? "off" : DEFAULT_REDACT_MODE;
 	return {
 		mode,
 		patterns: mode === "off" ? [] : resolvePatterns(resolved.patterns)
@@ -5078,7 +5080,7 @@ function redactSensitiveText(text, options) {
 	return redactSensitiveTextWithOptions(redactRegisteredSecretValues(text, maskToken), options ?? resolveConfigRedaction());
 }
 function redactSensitiveTextWithOptions(exactRedacted, resolvedOptions) {
-	if (normalizeMode(resolvedOptions.mode) === "off") return exactRedacted;
+	if (resolvedOptions.mode === "off") return exactRedacted;
 	if (usesBuiltInRedactPatterns(resolvedOptions.patterns) && !couldMatchDefaultRedactPatterns(exactRedacted)) return exactRedacted;
 	return redactText(exactRedacted, resolveRedactOptions(resolvedOptions).patterns);
 }
@@ -5086,20 +5088,14 @@ function resolveToolPayloadRedaction(loggingConfig = readLoggingConfig()) {
 	const userPatterns = loggingConfig?.redactPatterns;
 	return {
 		mode: "tools",
-		patterns: userPatterns && userPatterns.length > 0 ? [...userPatterns, ...DEFAULT_REDACT_PATTERNS] : void 0
+		patterns: Array.isArray(userPatterns) && userPatterns.length > 0 ? [...userPatterns, ...DEFAULT_REDACT_PATTERNS] : userPatterns
 	};
 }
 function redactToolPayloadText(text) {
 	return redactToolPayloadTextWithConfig(text, readLoggingConfig());
 }
-function redactToolPayloadTextWithPolicy(text, loggingConfig, options) {
-	if (!text) return text;
-	if (!isFullContextToolPayloadRedaction(loggingConfig)) return redactSensitiveText(text, options);
-	const resolved = resolveRedactOptions(options);
-	return redactText(redactRegisteredSecretValues(text, maskToken), resolved.patterns, { fullContext: true });
-}
 function redactToolPayloadTextWithConfig(text, loggingConfig) {
-	return redactToolPayloadTextWithPolicy(text, loggingConfig, resolveToolPayloadRedaction(loggingConfig));
+	return redactSensitiveText(text, resolveToolPayloadRedaction(loggingConfig));
 }
 function isSensitiveFieldKey(key) {
 	return STRUCTURED_SECRET_FIELD_RE.test(key) || STRUCTURED_SECRET_ENV_FIELD_RE.test(key);
@@ -5111,13 +5107,9 @@ function isPublicShareIdPath(path) {
 function redactSensitiveFieldValueWithOptions(key, value, options, path = [key], objectPath = true, couldMatch = couldMatchDefaultRedactPatterns) {
 	const exactRedacted = redactRegisteredSecretValues(value, maskToken);
 	if (isPublicShareIdPath(path)) return maskToken(exactRedacted);
-	const fieldOptions = isSensitiveFieldKey(key) && options.sensitiveFieldPatterns ? {
-		...options,
-		patterns: options.sensitiveFieldPatterns
-	} : options;
-	const resolved = resolveRedactOptions(fieldOptions);
+	const resolved = resolveRedactOptions(options);
 	if (resolved.mode === "off") return exactRedacted;
-	const redacted = !usesBuiltInRedactPatterns(fieldOptions.patterns) || couldMatch(exactRedacted) ? redactText(exactRedacted, resolved.patterns) : exactRedacted;
+	const redacted = !usesBuiltInRedactPatterns(options.patterns) || couldMatch(exactRedacted) ? redactText(exactRedacted, resolved.patterns) : exactRedacted;
 	if (redacted !== value || STRUCTURED_APP_PASSWORD_FIELD_RE.test(key)) {
 		const appRedacted = redactAppSpecificPasswords(redacted);
 		if (appRedacted !== value) return appRedacted;
@@ -5173,7 +5165,7 @@ function shouldRedactStructuredStringField(key, value, path, objectPath) {
 	return shouldRedactStructuredAuthorizationCode(key.toLowerCase(), path, objectPath ? value : void 0) || isSensitiveFieldKey(key) && !preservesStructuredReference(key, value);
 }
 function classifyLogFieldProtection(key, path, objectPath, value) {
-	return (value === void 0 ? shouldRedactStructuredPrimitiveField(key, path) : isPublicShareIdPath(path) || shouldRedactStructuredStringField(key, value, path, objectPath)) ? "legacy" : CREDENTIAL_HEADER_FIELD_RE.test(key) ? "header" : void 0;
+	return (value === void 0 ? shouldRedactStructuredPrimitiveField(key, path) : isPublicShareIdPath(path) || shouldRedactStructuredStringField(key, value, path, objectPath)) ? "legacy" : backendPatterns.credentialHeaderField.test(key) ? "header" : void 0;
 }
 function getFieldRecordEdits(field, mode) {
 	const { key, value, path, objectPath } = field;
@@ -5219,10 +5211,11 @@ function getTextRecordEdits(field, mode, fileFields) {
 		replacement: "***"
 	}));
 	receive(headers);
-	redactFormBody(redactAssignmentValues(applyRedactionEdits(registered, headers), "url", receive), receive);
+	const url = redactAssignmentValues(applyRedactionEdits(registered, headers), "url", receive);
+	redactFormBody(url, receive);
 	return combined;
 }
-function getLegacyFieldRecordEdits(field, value, beforeConversion = false) {
+function getLegacyFieldRecordEdits(field, value) {
 	const { key, value: original, path, objectPath } = field;
 	if (field.isKey || !field.origin.structured || !field.string) return [];
 	if (isPublicShareIdPath(path)) return [];
@@ -5235,15 +5228,11 @@ function getLegacyFieldRecordEdits(field, value, beforeConversion = false) {
 		});
 	}
 	if (edits.length > 0 || value !== original) return edits;
-	const protection = classifyLogFieldProtection(key, path, objectPath, value);
-	return protection === "legacy" || beforeConversion && protection === "header" ? [{
+	return classifyLogFieldProtection(key, path, objectPath, value) === "legacy" ? [{
 		start: 0,
 		end: value.length,
 		replacement: maskToken(value)
 	}] : [];
-}
-function resolveFileLogRedactOptions() {
-	return resolveRedactOptions(resolveToolPayloadRedaction());
 }
 function* redactionEditMatches(input, edits) {
 	for (const edit of edits) yield {
@@ -5304,80 +5293,29 @@ const preparationPatterns = [
 	}
 ];
 const CONSOLE_STRUCTURAL_FIELDS = /* @__PURE__ */ new Set(["time", "level"]);
-function prepareFileToJsonReceivers(record, patterns) {
-	const decoded = /* @__PURE__ */ new WeakSet();
-	const active = /* @__PURE__ */ new WeakSet();
-	const visit = (value, key, path, objectPath, decode) => {
-		if (typeof value === "string" && decode) {
-			const field = {
-				key,
-				path,
-				objectPath,
-				value,
-				isKey: false,
-				string: true,
-				origin: {
-					structured: true,
-					primitiveMask: false
-				}
-			};
-			let current = applyRedactionEdits(value, getTextRecordEdits(field, "tools", true));
-			if (!isPublicShareIdPath(path)) for (const pattern of patterns) current = applyRedactionEdits(current, getPatternRedactionEdits(current, pattern, prepareRedactionCapture));
-			return applyRedactionEdits(current, getLegacyFieldRecordEdits(field, current, true));
-		}
-		if (value === null || typeof value !== "object") return decode && [
-			"number",
-			"boolean",
-			"bigint"
-		].includes(typeof value) && classifyLogFieldProtection(key, path, objectPath, void 0) ? "***" : value;
-		if (!Array.isArray(value) && !isPlainRedactableObject(value)) return value;
-		if (active.has(value)) return "[Circular]";
-		active.add(value);
-		let clone;
-		let decodeFields = decode;
-		if (Array.isArray(value)) clone = value.map((entry) => visit(entry, key, path, false, decodeFields));
-		else {
-			const entries = Object.entries(value);
-			decodeFields ||= entries.some(([name, entry]) => name === "toJSON" && typeof entry === "function");
-			clone = Object.fromEntries(entries.map(([name, entry]) => [name, visit(entry, name, [...path, name], objectPath, decodeFields)]));
-		}
-		if (decodeFields) decoded.add(clone);
-		active.delete(value);
-		return clone;
-	};
-	return {
-		record: visit(record, "", [], true, false),
-		decoded
-	};
-}
 /** Converts native values once and applies configured and structural protection before output. */
-function redactLogRecord(record, options, finish) {
+function redactLogRecordForTransport(record, tail) {
 	const finishMeasurement = startRedactionMeasurement("log-record");
 	let outcome = "error";
 	let inputChars;
 	try {
-		const resolved = resolveRedactOptions();
-		const prepared = options.format === "console" ? {
-			record,
-			decoded: /* @__PURE__ */ new WeakSet()
-		} : prepareFileToJsonReceivers(record, options.decodedOptions?.patterns ?? resolved.patterns);
-		const ordinary = {
-			structured: true,
-			primitiveMask: false
-		};
+		const resolved = tail?.redaction ?? resolveRedactOptions();
 		const origins = {
-			value: ordinary,
+			value: {
+				structured: true,
+				primitiveMask: false
+			},
 			children: /* @__PURE__ */ new Map()
 		};
 		const ancestors = [];
-		const json = JSON.stringify(prepared.record, function(key, value) {
+		const json = JSON.stringify(record, function(key, value) {
 			while (ancestors.length > 0 && ancestors.at(-1)?.value !== this) ancestors.pop();
 			const parent = ancestors.at(-1);
 			const array = Array.isArray(this);
 			const fieldKey = array && parent ? parent.key : key;
 			const path = array && parent ? parent.path : parent ? [...parent.path, key] : [];
-			const source = !parent ? prepared.record : parent.structured && options.format !== "console" ? Reflect.get(this, key) : value;
-			const structured = (parent?.structured ?? true) && (source === null || typeof source !== "object" || !prepared.decoded.has(source) && source === value && (Array.isArray(source) || isPlainRedactableObject(source)));
+			const source = value;
+			const structured = (parent?.structured ?? true) && (source === null || typeof source !== "object" || Array.isArray(source) || isPlainRedactableObject(source));
 			const primitiveMask = structured && [
 				"number",
 				"boolean",
@@ -5411,38 +5349,16 @@ function redactLogRecord(record, options, finish) {
 			return emitted;
 		});
 		inputChars = json.length;
-		let materialized = JSON.parse(json);
-		const message = options.deriveMessage?.(materialized);
-		if (message) {
-			origins.children.set("message", {
-				value: ordinary,
-				children: /* @__PURE__ */ new Map()
-			});
-			if (Object.hasOwn(materialized, "message")) materialized.message = message.text;
-			else {
-				const entries = Object.entries(materialized);
-				entries.splice(entries.findIndex(([key]) => key === "hostname") + 1, 0, ["message", message.text]);
-				materialized = Object.fromEntries(entries);
-			}
-		}
-		const serialized = message ? JSON.stringify(materialized) : json;
-		const decodedPatterns = options.decodedOptions?.patterns ?? resolved.patterns;
 		const couldMatch = createRedactPrefilter(couldMatchDefaultFullContextPatterns);
-		const result = finish(redactJsonRecord(serialized, origins, [[{ patterns: decodedPatterns }], [{ patterns: preparationPatterns }, {
+		const result = JSON.parse(redactJsonRecord(json, origins, [[{ patterns: resolved.patterns }], [{ patterns: preparationPatterns }, {
 			patterns: resolved.patterns,
 			...resolved.patterns === defaultResolvedPatterns ? { couldMatch } : {}
-		}]], prepareRedactionCapture, options.format === "console" ? () => [] : getLegacyFieldRecordEdits, (field) => getFieldRecordEdits(field, resolved.mode), (field) => getTextRecordEdits(field, resolved.mode, options.format !== "console"), (field, currentValue) => (options.format === "console" ? field.path.length === 1 && CONSOLE_STRUCTURAL_FIELDS.has(field.key) : !field.origin.structured || field.origin.primitiveMask || isPublicShareIdPath(field.path)) || decodedPatterns === defaultResolvedPatterns && !couldMatch(currentValue), message), message ? serialized : void 0);
+		}]], prepareRedactionCapture, tail ? getLegacyFieldRecordEdits : () => [], (field) => getFieldRecordEdits(field, resolved.mode), (field) => getTextRecordEdits(field, resolved.mode, tail !== void 0), (field, currentValue) => field.path.length === 1 && CONSOLE_STRUCTURAL_FIELDS.has(field.key) || resolved.patterns === defaultResolvedPatterns && !couldMatch(currentValue), tail?.message));
 		outcome = "ok";
 		return result;
 	} finally {
 		finishMeasurement?.(outcome, inputChars);
 	}
-}
-function redactLogRecordForTransport(record, options = {}) {
-	return redactLogRecord(record, options, (redacted) => JSON.parse(redacted));
-}
-function serializeRedactedFileLogRecord(record, options = {}) {
-	return redactLogRecord(record, options, (redacted, canonical) => redacted === canonical ? redacted : JSON.stringify(JSON.parse(redacted)));
 }
 //#endregion
 //#region src/logging/timestamps.ts
@@ -5521,7 +5437,7 @@ function formatJsonConsoleLine(params) {
 		...params.subsystem ? { subsystem: params.subsystem } : {},
 		message: params.message
 	};
-	return JSON.stringify(redactLogRecordForTransport(envelope, { format: "console" }));
+	return JSON.stringify(redactLogRecordForTransport(envelope));
 }
 /** Formats diagnostics that must bypass console capture without bypassing JSON console style. */
 function formatConsoleDiagnosticLine(params) {
@@ -5662,48 +5578,6 @@ function resolveRollingLogFilePathForDate(file, date) {
 	return path.join(path.dirname(file), `${match[1]}-${formatLocalDate(date)}${LOG_SUFFIX}`);
 }
 //#endregion
-//#region src/logging/logger-file-message.ts
-const MAX_FILE_LOG_MESSAGE_CHARS = 4096;
-function clampMessage(text) {
-	return text.length > MAX_FILE_LOG_MESSAGE_CHARS ? `${truncateUtf16Safe(text, MAX_FILE_LOG_MESSAGE_CHARS)}...(truncated)` : text;
-}
-function stringifyFileLogMessagePart(value, json) {
-	if (json) return JSON.stringify(value);
-	if (typeof value === "string") return value;
-	if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
-	if (isRecord(value) && typeof value.message === "string") return value.message;
-}
-function buildFileLogMessage(record, parts) {
-	const text = [];
-	const spans = [];
-	let length = 0;
-	for (const { key, json, primitiveText } of parts) {
-		const value = record[key];
-		const part = primitiveText ?? stringifyFileLogMessagePart(value, json);
-		if (!part?.trim()) continue;
-		if (text.length > 0) length += 1;
-		spans.push({
-			key,
-			json,
-			messageField: !json && isRecord(value),
-			start: length,
-			...primitiveText === void 0 ? {} : { primitiveLength: primitiveText.length }
-		});
-		text.push(part);
-		length += part.length;
-	}
-	if (text.length === 0) return;
-	const joined = text.join(" ");
-	const prefix = truncateUtf16Safe(joined, MAX_FILE_LOG_MESSAGE_CHARS);
-	const textValue = clampMessage(joined);
-	return {
-		text: textValue,
-		contentLength: prefix.length,
-		finish: (value) => value === textValue ? value : clampMessage(value),
-		parts: spans
-	};
-}
-//#endregion
 //#region src/logging/logger-file-transport.ts
 const DEFAULT_MAX_QUEUED_RECORDS = 4096;
 const MAX_APPEND_BATCH_BYTES = 65536;
@@ -5729,9 +5603,27 @@ function rotatedLogPath(file, index) {
 	const ext = path.extname(file);
 	return `${file.slice(0, file.length - ext.length)}.${index}${ext}`;
 }
+/**
+* Creates a log directory and its missing parents with a bounded number of mkdir calls.
+* Node's recursive mkdirSync retries forever when a parent exists but refuses new
+* children (a deleted directory that is still mounted, such as a stale systemd
+* PrivateTmp), which would block the event loop inside the logger.
+*/
+function ensureLogDirectorySync(dir, createParents = true) {
+	try {
+		fs.mkdirSync(dir);
+	} catch (error) {
+		const code = extractErrorCode(error);
+		if (code === "EEXIST" && fs.statSync(dir).isDirectory()) return;
+		const parent = path.dirname(dir);
+		if (!createParents || code !== "ENOENT" || parent === dir) throw error;
+		ensureLogDirectorySync(parent);
+		ensureLogDirectorySync(dir, false);
+	}
+}
 function rotateLogFile(file) {
 	try {
-		fs.mkdirSync(path.dirname(file), { recursive: true });
+		ensureLogDirectorySync(path.dirname(file));
 		fs.rmSync(rotatedLogPath(file, MAX_ROTATED_LOG_FILES), { force: true });
 		for (let index = 4; index >= 1; index -= 1) {
 			const from = rotatedLogPath(file, index);
@@ -5775,7 +5667,7 @@ function buildDroppedMarker(target, count) {
 	};
 	return {
 		...target,
-		payload: `${serializeRedactedFileLogRecord(record)}\n`
+		payload: `${JSON.stringify(record)}\n`
 	};
 }
 function writeFileTransportWarning(message, synchronous) {
@@ -5948,7 +5840,6 @@ function removeProcessHooks() {
 	process.removeListener("exit", handleProcessExit);
 	processHooksInstalled = false;
 }
-if (process.env.VITEST !== "true") installProcessHooks();
 /** Enqueues one serialized record without waiting for filesystem I/O. */
 function enqueueFileLog(entry) {
 	if (processExiting) {
@@ -6010,14 +5901,17 @@ function resetFileLogTransportForTests() {
 	warnedAppendFiles.clear();
 	appendFailureTrackingSaturated = false;
 }
-const fileLogTransport = {
-	drainSync: drainFileLogQueueSync,
-	enqueue: enqueueFileLog,
-	flush: flushFileLogQueue,
-	resetForTests: resetFileLogTransportForTests,
-	setAppenderForTests: setFileLogAppenderForTests,
-	setMaxQueuedRecordsForTests: setFileLogQueueMaxRecordsForTests
-};
+const fileLogTransport = resolveGlobalSingleton(Symbol.for("openclaw.fileLogTransport"), () => {
+	if (process.env.VITEST !== "true") installProcessHooks();
+	return {
+		drainSync: drainFileLogQueueSync,
+		enqueue: enqueueFileLog,
+		flush: flushFileLogQueue,
+		resetForTests: resetFileLogTransportForTests,
+		setAppenderForTests: setFileLogAppenderForTests,
+		setMaxQueuedRecordsForTests: setFileLogQueueMaxRecordsForTests
+	};
+});
 //#endregion
 //#region src/logging/logger.ts
 const DEFAULT_LOG_FILE = `${DEFAULT_POSIX_TMP_ROOT}/openclaw.log`;
@@ -6317,23 +6211,22 @@ function buildLogger() {
 				const nextActiveFile = resolveActiveLogFileWithMode(settings.file, settings.rolling);
 				if (nextActiveFile !== activeFile) {
 					activeFile = nextActiveFile;
-					fs.mkdirSync(path.dirname(activeFile), { recursive: true });
-					if (settings.rolling) pruneOldRollingLogs(path.dirname(activeFile));
+					try {
+						ensureLogDirectorySync(path.dirname(activeFile));
+						if (settings.rolling) pruneOldRollingLogs(path.dirname(activeFile));
+					} catch {}
 				}
 				const time = formatTimestamp(logObj.date ?? /* @__PURE__ */ new Date(), { style: "long" });
 				const { fields, messageParts } = prepareFileLogRecord(logObj);
-				const line = serializeRedactedFileLogRecord({
+				const line = serializeFileLogRecord({
 					...logObj,
-					_meta: withResolvedLogMetaHostname(logObj["_meta"], expectDefined(fields.hostname, "structured log hostname")),
+					_meta: withResolvedLogMetaHostname(logObj["_meta"], fields.hostname),
 					time,
 					...fields
-				}, {
-					deriveMessage: (materialized) => buildFileLogMessage(materialized, messageParts),
-					decodedOptions: resolveFileLogRedactOptions()
-				});
+				}, messageParts);
 				fileLogTransport.enqueue({
 					file: activeFile,
-					hostname: expectDefined(fields.hostname, "structured log hostname"),
+					hostname: fields.hostname,
 					maxFileBytes: settings.maxFileBytes,
 					payload: `${line}\n`
 				});
@@ -6458,7 +6351,6 @@ const SUBSYSTEM_PREFIXES_TO_DROP = /* @__PURE__ */ new Set([
 	"channels",
 	"providers"
 ]);
-const SUBSYSTEM_MAX_SEGMENTS = 2;
 const CHANNEL_SUBSYSTEM_PREFIXES = /* @__PURE__ */ new Set([
 	"clickclack",
 	"discord",
@@ -6502,29 +6394,20 @@ function formatSubsystemForConsole(subsystem) {
 	const first = parts.at(0);
 	if (first === void 0) return original;
 	if (CHANNEL_SUBSYSTEM_PREFIXES.has(normalizeLowercaseStringOrEmpty(first))) return first;
-	if (parts.length > SUBSYSTEM_MAX_SEGMENTS) return parts.slice(-2).join("/");
-	return parts.join("/");
+	return parts.slice(-2).join("/");
 }
 function stripRedundantSubsystemPrefixForConsole(message, displaySubsystem) {
 	if (!displaySubsystem) return message;
 	if (message.startsWith("[")) {
 		const closeIdx = message.indexOf("]");
 		if (closeIdx > 1) {
-			if (normalizeLowercaseStringOrEmpty(message.slice(1, closeIdx)) === normalizeLowercaseStringOrEmpty(displaySubsystem)) {
-				let i = closeIdx + 1;
-				while (message[i] === " ") i += 1;
-				return message.slice(i);
-			}
+			if (normalizeLowercaseStringOrEmpty(message.slice(1, closeIdx)) === normalizeLowercaseStringOrEmpty(displaySubsystem)) return message.slice(closeIdx + 1).replace(/^ */, "");
 		}
 	}
 	if (normalizeLowercaseStringOrEmpty(message.slice(0, displaySubsystem.length)) !== normalizeLowercaseStringOrEmpty(displaySubsystem)) return message;
 	const next = message.slice(displaySubsystem.length, displaySubsystem.length + 1);
 	if (next !== ":" && next !== " ") return message;
-	let i = displaySubsystem.length;
-	while (message[i] === " ") i += 1;
-	if (message[i] === ":") i += 1;
-	while (message[i] === " ") i += 1;
-	return message.slice(i);
+	return message.slice(displaySubsystem.length).replace(/^ *:? */, "");
 }
 function createConsoleLineFormatter(subsystem) {
 	const displaySubsystem = formatSubsystemForConsole(subsystem);
@@ -6567,12 +6450,17 @@ function formatConsoleMetaValue(value) {
 	if (value === null || typeof value === "number" || typeof value === "boolean") return String(value);
 	return JSON.stringify(value);
 }
-/** Keeps an Error's message, which a JSON round-trip would otherwise reduce to `{}`. */
-function prepareConsoleMetaRecord(meta) {
+/** Preserve native error diagnostics before any sink reduces non-enumerable fields to `{}`. */
+function prepareLogMetaRecord(meta, stackHeadOnly = false) {
 	let prepared;
 	for (const [key, value] of Object.entries(meta)) if (value instanceof Error) {
 		prepared ??= { ...meta };
-		prepared[key] = value.message;
+		prepared[key] = {
+			name: value.name,
+			message: value.message,
+			errorCode: extractErrorCode(value),
+			stack: stackHeadOnly ? value.stack?.split("\n").slice(0, 6).join("\n") : value.stack
+		};
 	}
 	return prepared ?? meta;
 }
@@ -6591,7 +6479,7 @@ function prepareConsoleMetaRecord(meta) {
 function formatConsoleMeta(meta) {
 	let redacted;
 	try {
-		redacted = redactLogRecordForTransport(prepareConsoleMetaRecord(meta), { format: "console" });
+		redacted = redactLogRecordForTransport(meta);
 	} catch {
 		return "";
 	}
@@ -6630,26 +6518,28 @@ function createSubsystemLogger(subsystem) {
 		if (!consoleEnabled && !fileEnabled) return;
 		let consoleMessageOverride;
 		let fileMeta = meta;
+		let consoleFields = meta;
 		if (meta && Object.keys(meta).length > 0) {
 			const { consoleMessage, ...rest } = meta;
 			if (typeof consoleMessage === "string") consoleMessageOverride = consoleMessage;
-			fileMeta = Object.keys(rest).length > 0 ? rest : void 0;
+			fileMeta = Object.keys(rest).length > 0 ? prepareLogMetaRecord(rest) : void 0;
+			consoleFields = fileMeta && consoleEnabled ? prepareLogMetaRecord(rest, true) : void 0;
 		}
 		if (fileEnabled) logToFile(getFileLogger(level), level, message, fileMeta);
 		if (!consoleEnabled) return;
-		const consoleMeta = consoleSettings.style !== "json" && consoleMessageOverride === void 0 && fileMeta && CONSOLE_META_LEVELS.has(level) ? formatConsoleMeta(fileMeta) : "";
+		const consoleMeta = consoleSettings.style !== "json" && consoleMessageOverride === void 0 && consoleFields && CONSOLE_META_LEVELS.has(level) ? formatConsoleMeta(consoleFields) : "";
 		const consoleMessage = consoleMessageOverride ?? (consoleMeta ? `${message} ${consoleMeta}` : message);
 		if (shouldSuppressProbeConsoleLine({
 			level,
 			suppressProbeMessages,
 			message: consoleMessage,
-			meta: fileMeta
+			meta: consoleFields
 		})) return;
 		writeConsoleLine(level, consoleSettings.style === "json" ? formatJsonConsoleLine({
 			level,
 			subsystem: resolvedSubsystem,
 			message,
-			meta: fileMeta
+			meta: consoleFields
 		}) : (formatConsoleLine ??= createConsoleLineFormatter(resolvedSubsystem))(level, consoleMessage, consoleSettings.style), { redacted: true });
 	};
 	return {
@@ -6712,21 +6602,27 @@ function resolveEnvironmentValue(env, name, platform = process.platform) {
 }
 /** Merge child environments while preserving Node's platform-specific key semantics. */
 function mergeProcessEnv(sources, platform = process.platform) {
-	const merged = {};
+	const merged = Object.create(null);
+	const mergedKeys = /* @__PURE__ */ new Map();
 	for (const source of sources) {
 		if (!source) continue;
 		const keys = Object.keys(source);
 		const sourceKeys = /* @__PURE__ */ new Set();
 		for (const key of platform === "win32" ? keys.toSorted() : keys) {
-			if (platform === "win32") {
-				const normalizedKey = key.toUpperCase();
+			const normalizedKey = platform === "win32" ? key.toUpperCase() : void 0;
+			if (normalizedKey !== void 0) {
 				if (sourceKeys.has(normalizedKey)) continue;
 				sourceKeys.add(normalizedKey);
-				for (const previousKey of Object.keys(merged)) if (previousKey.toUpperCase() === normalizedKey) delete merged[previousKey];
+				const previousKey = mergedKeys.get(normalizedKey);
+				if (previousKey !== void 0) delete merged[previousKey];
+				mergedKeys.delete(normalizedKey);
 			}
 			const value = source[key];
 			if (value === void 0) delete merged[key];
-			else merged[key] = value;
+			else {
+				merged[key] = value;
+				if (normalizedKey !== void 0 && Object.hasOwn(merged, key)) mergedKeys.set(normalizedKey, key);
+			}
 		}
 	}
 	return merged;
@@ -6787,33 +6683,13 @@ function resolveDiagnosticProcessEnv(env = process.env, platform = process.platf
 const DEFAULT_TIMEOUT_MS = 5e3;
 const DEFAULT_PROCESS_START_TIMEOUT_MS = 1e4;
 const DEFAULT_WINDOWS_SYSTEM_ROOT = "C:\\Windows";
-let nativeProcessStartTime;
-function loadNativeProcessStartTime() {
-	const kernel32 = createRequire(import.meta.url)("koffi").load("kernel32.dll");
-	const openProcess = kernel32.func("void * __stdcall OpenProcess(uint32_t access, int32_t inheritHandle, uint32_t processId)");
-	const getProcessTimes = kernel32.func("int32_t __stdcall GetProcessTimes(void *process, void *creation, void *exit, void *kernel, void *user)");
-	const closeHandle = kernel32.func("int32_t __stdcall CloseHandle(void *handle)");
-	return (pid) => {
-		const handle = openProcess(4096, 0, pid);
-		if (handle === null) return null;
-		try {
-			const creation = Buffer.alloc(8);
-			if (!getProcessTimes(handle, creation, Buffer.alloc(8), Buffer.alloc(8), Buffer.alloc(8))) return null;
-			const ticks = creation.readBigUInt64LE();
-			if (ticks === 0n) return null;
-			return Number(ticks / 10000n - 11644473600000n);
-		} finally {
-			closeHandle(handle);
-		}
-	};
-}
 function readNativeProcessStartTime(pid) {
-	if (process.platform !== "win32" || typeof SEALED_RUNTIME_BUILD === "boolean" && SEALED_RUNTIME_BUILD) return null;
+	if (process.platform !== "win32" || typeof SEALED_RUNTIME_BUILD === "boolean" && SEALED_RUNTIME_BUILD) return;
 	try {
-		nativeProcessStartTime ??= loadNativeProcessStartTime();
-		return nativeProcessStartTime(pid);
+		const identity = readProcessIdentity(pid);
+		return identity && !identity.exited ? Math.floor(identity.startTimeMicros / 1e3) : null;
 	} catch {
-		return null;
+		return;
 	}
 }
 function windowsSystemRoot(env) {
@@ -6847,7 +6723,7 @@ function readWindowsProcessStartTimeSync(pid, timeoutMs = DEFAULT_PROCESS_START_
 	if (!Number.isInteger(pid) || pid <= 0 || pid > 4294967295) return null;
 	const deadline = Date.now() + timeoutMs;
 	const nativeStartTime = readNativeProcessStartTime(pid);
-	if (nativeStartTime !== null) return nativeStartTime;
+	if (nativeStartTime !== void 0) return nativeStartTime;
 	const powershellBudgetMs = deadline - Date.now();
 	if (powershellBudgetMs <= 0) return null;
 	const powershell = spawnSync(windowsPowerShellPath(env), [
@@ -6888,64 +6764,20 @@ function readWindowsProcessStartTimeSync(pid, timeoutMs = DEFAULT_PROCESS_START_
 }
 //#endregion
 //#region src/shared/freebsd-process-identity-native.ts
+let identity;
 /** Normal installations use the dependency's public loader. */
 function loadFreeBsdProcessIdentityNative() {
 	if (typeof SEALED_RUNTIME_BUILD === "boolean" && SEALED_RUNTIME_BUILD) throw new Error("FreeBSD process identity is unavailable in this sealed runtime");
-	return createRequire(import.meta.url)("koffi/indirect");
+	if (!identity) identity = createRequire(import.meta.url)("@openclaw/proc-safe/identity");
+	return identity;
 }
 //#endregion
 //#region src/shared/freebsd-process-identity.ts
-let native;
-function getSysctl() {
-	if (!native) {
-		const library = loadFreeBsdProcessIdentityNative().load(null);
-		native = {
-			library,
-			sysctl: library.func("int sysctl(const int *name, unsigned int namelen, _Out_ void *oldp, _Inout_ size_t *oldlenp, const void *newp, size_t newlen)")
-		};
-	}
-	return native.sysctl;
-}
-function readTimeval(bytes, offset) {
-	const seconds = bytes.readBigInt64LE(offset);
-	const microseconds = bytes.readBigInt64LE(offset + 8);
-	if (seconds < 0n || microseconds < 0n || microseconds >= 1000000n) throw new Error("Invalid FreeBSD process identity timeval");
-	return seconds * 1000000n + microseconds;
-}
 /** Read the kernel's monotonic process start time in microseconds. */
 function readFreeBsdProcessStartTime(pid) {
-	if (process.platform !== "freebsd" || process.arch !== "x64" && process.arch !== "arm64" || endianness() !== "LE" || !Number.isInteger(pid) || pid <= 0 || pid > 2147483647) return null;
+	if (process.platform !== "freebsd" || !Number.isInteger(pid) || pid <= 0 || pid > 2147483647) return null;
 	try {
-		const sysctl = getSysctl();
-		const bytes = Buffer.alloc(1120);
-		for (const [mib, offset, length] of [
-			[
-				[1, 21],
-				0,
-				16
-			],
-			[
-				[
-					1,
-					14,
-					1,
-					pid
-				],
-				16,
-				1088
-			],
-			[
-				[1, 21],
-				1104,
-				16
-			]
-		]) {
-			const actual = [length];
-			if (sysctl(mib, mib.length, bytes.subarray(offset, offset + length), actual, null, 0) !== 0 || actual[0] !== length) return null;
-		}
-		if (bytes.readInt32LE(16) !== 1088 || bytes.readInt32LE(20) !== 0 || bytes.readInt32LE(88) !== pid || !bytes.subarray(0, 16).equals(bytes.subarray(1104))) return null;
-		const start = readTimeval(bytes, 352) - readTimeval(bytes, 0);
-		return start >= 0n && start <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(start) : null;
+		return loadFreeBsdProcessIdentityNative().readProcessIdentity(pid)?.startTimeSinceBootMicros ?? null;
 	} catch {
 		return null;
 	}
@@ -6953,30 +6785,31 @@ function readFreeBsdProcessStartTime(pid) {
 //#endregion
 //#region src/shared/pid-alive.ts
 const PROCESS_START_TIMEOUT_MS = 1e3;
-let darwinNative;
 function readDarwinNativeIdentity(pid) {
-	if (process.platform !== "darwin" || process.arch !== "arm64" || pid > 2147483647 || typeof SEALED_RUNTIME_BUILD === "boolean" && SEALED_RUNTIME_BUILD) return null;
+	if (process.platform !== "darwin" || typeof SEALED_RUNTIME_BUILD === "boolean" && SEALED_RUNTIME_BUILD) return;
 	try {
-		if (!darwinNative) {
-			const library = createRequire(import.meta.url)("koffi").load("/usr/lib/libproc.dylib");
-			darwinNative = {
-				library,
-				query: library.func("int proc_pidinfo(int pid, int flavor, uint64_t arg, _Out_ void *buffer, int buffersize)")
-			};
-		}
-		const bytes = Buffer.alloc(136);
-		if (darwinNative.query(pid, 3, 0, bytes, bytes.length) !== bytes.length) return null;
-		const parentPid = bytes.readUInt32LE(16);
-		const seconds = bytes.readBigUInt64LE(120);
-		const microseconds = bytes.readBigUInt64LE(128);
-		if (bytes.readUInt32LE(12) !== pid || parentPid > 2147483647 || seconds === 0n || seconds > BigInt(Number.MAX_SAFE_INTEGER) || microseconds >= 1000000n) return null;
-		return {
-			parentPid,
-			startedAt: Number(seconds),
-			microseconds: Number(microseconds)
-		};
+		const identity = readProcessIdentity(pid);
+		return identity && !identity.exited ? {
+			startedAt: Math.floor(identity.startTimeMicros / 1e6),
+			startTimeMicros: identity.startTimeMicros
+		} : null;
 	} catch {
-		return null;
+		return;
+	}
+}
+/** Unknown observations never prove death; Linux keeps its thread-aware procfs policy. */
+function readNativeLiveness(pid) {
+	if (![
+		"darwin",
+		"win32",
+		"freebsd"
+	].includes(process.platform) || typeof SEALED_RUNTIME_BUILD === "boolean" && SEALED_RUNTIME_BUILD) return;
+	try {
+		const identity = readProcessIdentity(pid);
+		return identity !== null && !identity.exited;
+	} catch (error) {
+		if (error instanceof ProcSafeError && (error.code === "helper-unavailable" || error.code === "unsupported-platform")) return;
+		return true;
 	}
 }
 let selfStartTime = null;
@@ -6984,7 +6817,7 @@ function isValidPid(pid) {
 	return Number.isInteger(pid) && pid > 0;
 }
 /**
-* Check whether a Linux task is terminal and has no live sibling threads.
+* Reject recycled worker TIDs and terminal leaders without live sibling threads.
 * Missing or reaped procfs snapshots require a fresh existence probe.
 */
 function isExitedLinuxProcess(pid) {
@@ -6993,7 +6826,10 @@ function isExitedLinuxProcess(pid) {
 		const status = fs.readFileSync(`/proc/${pid}/status`, "utf8");
 		const state = status.match(/^State:\s+(\S)/m)?.[1];
 		const threads = status.match(/^Threads:[ \t]+(\d+)[ \t]*$/m)?.[1];
-		if (threads !== "0") return (state === "Z" || state === "X") && threads === "1";
+		if (threads !== "0") {
+			const tgid = status.match(/^Tgid:[ \t]+(\d+)[ \t]*$/m)?.[1];
+			return tgid !== void 0 && Number(tgid) !== pid || (state === "Z" || state === "X") && threads === "1";
+		}
 	} catch {}
 	try {
 		process.kill(pid, 0);
@@ -7002,30 +6838,34 @@ function isExitedLinuxProcess(pid) {
 	}
 	return false;
 }
-/** Returns true only when a positive PID exists and is not a known terminal Linux task. */
+/** Returns true only when a positive PID exists and is not a known terminal task. */
 function isPidAlive(pid) {
 	if (!isValidPid(pid)) return false;
 	try {
 		process.kill(pid, 0);
-	} catch (err) {
-		if (err.code !== "EPERM") return false;
+	} catch (error) {
+		const code = error.code;
+		if (code !== "EPERM") return code === "ESRCH" ? readNativeLiveness(pid) ?? false : false;
 	}
-	return !isExitedLinuxProcess(pid);
+	return readNativeLiveness(pid) ?? !isExitedLinuxProcess(pid);
 }
-/** Returns true only when the PID is invalid, missing, or a known terminal Linux task. */
+/** Returns true only when the PID is invalid, missing, or a known terminal task. */
 function isPidDefinitelyDead(pid) {
 	if (!isValidPid(pid)) return true;
 	try {
 		process.kill(pid, 0);
-	} catch (err) {
-		return err.code === "ESRCH";
+	} catch (error) {
+		if (error.code !== "ESRCH") return false;
+		const native = readNativeLiveness(pid);
+		return native === void 0 ? process.platform !== "freebsd" : !native;
 	}
-	return isExitedLinuxProcess(pid);
+	const native = readNativeLiveness(pid);
+	return native === void 0 ? isExitedLinuxProcess(pid) : !native;
 }
 function getDarwinProcessStartTime(pid, env, timeoutMs) {
 	const started = performance.now();
 	const native = readDarwinNativeIdentity(pid);
-	if (native) return native.startedAt;
+	if (native !== void 0) return native?.startedAt ?? null;
 	const remainingMs = timeoutMs === void 0 ? PROCESS_START_TIMEOUT_MS : Math.ceil(timeoutMs - (performance.now() - started));
 	if (remainingMs <= 0) return null;
 	try {
@@ -7119,7 +6959,7 @@ function createSqliteLifecycleAggregateError(errors, message, cause) {
 }
 //#endregion
 //#region src/infra/sqlite-worker-identity.ts
-const useDatabaseBirthtime = process.platform !== "linux";
+const useDatabaseBirthtime = process.platform !== "linux" && process.platform !== "android";
 function databaseFileIdentityKey(file) {
 	return `${file.dev}:${file.ino}`;
 }
@@ -7143,6 +6983,23 @@ function existingIdentity(file, canonicalFile, canonicalPath) {
 		birthtime: readDatabaseIdentityBirthtime(file)
 	};
 }
+function missingAncestorParent(ancestor, missing, error) {
+	if (!hasErrnoCode(error, "ENOENT")) throw error;
+	missing.unshift(path.basename(ancestor));
+	const parent = path.dirname(ancestor);
+	if (parent === ancestor) throw error;
+	return parent;
+}
+/** In-process owner key only; never rewrite a configured or persisted database locator. */
+function resolveDatabasePathKey(databasePath) {
+	let ancestor = path.resolve(databasePath);
+	const missing = [];
+	while (true) try {
+		return normalizeDatabasePath(path.join(realpathSync.native(ancestor), ...missing));
+	} catch (error) {
+		ancestor = missingAncestorParent(ancestor, missing, error);
+	}
+}
 /** Inspect a native-owner path without replacing its diagnostic for a non-file target. */
 function inspectDatabasePathIdentitySync(databasePath) {
 	const resolvedPath = path.resolve(databasePath);
@@ -7154,24 +7011,14 @@ function inspectDatabasePathIdentitySync(databasePath) {
 	}
 	if (file) {
 		if (!file.isFile()) return;
-		const canonicalPath = realpathSync.native(resolvedPath);
+		const canonicalPath = resolveDatabasePathKey(resolvedPath);
 		return existingIdentity(file, statSync(canonicalPath, { bigint: true }), canonicalPath);
 	}
-	const missing = [];
-	let ancestor = resolvedPath;
-	while (true) try {
-		const canonicalPath = normalizeDatabasePath(path.join(realpathSync.native(ancestor), ...missing));
-		return {
-			key: `path:${canonicalPath}`,
-			canonicalPath
-		};
-	} catch (error) {
-		if (!hasErrnoCode(error, "ENOENT")) throw error;
-		missing.unshift(path.basename(ancestor));
-		const parent = path.dirname(ancestor);
-		if (parent === ancestor) throw error;
-		ancestor = parent;
-	}
+	const canonicalPath = resolveDatabasePathKey(resolvedPath);
+	return {
+		key: `path:${canonicalPath}`,
+		canonicalPath
+	};
 }
 /** Capture identity before yielding; worker admission requires a regular file or absent path. */
 function readDatabasePathIdentitySync(databasePath) {
@@ -7185,11 +7032,35 @@ function assertExistingDatabaseIdentity(databasePath, expected, expectedBirthtim
 		birthtime: expectedBirthtime
 	});
 }
+function isSoleDatabaseFileDescriptor(descriptor, file) {
+	if (process.platform !== "linux") return false;
+	try {
+		for (const name of readdirSync("/proc/self/fd")) {
+			if (!/^\d+$/u.test(name) || Number(name) === descriptor) continue;
+			try {
+				const other = fstatSync(Number(name), { bigint: true });
+				if (other.dev === file.dev && other.ino === file.ino) return false;
+			} catch (error) {
+				if (!hasErrnoCode(error, "EBADF")) return false;
+			}
+		}
+		return true;
+	} catch {
+		return false;
+	}
+}
 //#endregion
 //#region src/shared/deferred.ts
 const promiseWithResolvers = Promise;
 function createDeferredCore() {
 	return promiseWithResolvers.withResolvers();
+}
+//#endregion
+//#region src/state/openclaw-state-db.paths.ts
+/** Resolve the state owner directory for a canonical or explicit shared database path. */
+function resolveOpenClawStateDirForDatabasePath(databasePath) {
+	const databaseDir = path.dirname(path.resolve(databasePath));
+	return path.basename(databaseDir) === "state" ? path.dirname(databaseDir) : databaseDir;
 }
 resolveGlobalSingleton(Symbol.for("openclaw.maintenanceLiveAuthorityReads"), () => /* @__PURE__ */ new WeakMap());
 const maintenanceResources = resolveGlobalSingleton(Symbol.for("openclaw.databaseMaintenanceResources"), () => ({
@@ -7204,6 +7075,7 @@ function getOpenClawDatabaseMaintenanceScope() {
 //#region src/state/openclaw-state-db-contract.ts
 const FIRST_USE_STATE_TABLES = [
 	"user_profile_identities",
+	"user_background_images",
 	"local_workspace_projections",
 	"update_runs",
 	"session_repository_workspaces",
@@ -7219,6 +7091,7 @@ const FIRST_USE_STATE_TABLES = [
 	"execution_identity_contexts",
 	"mcp_oauth_pending_authorizations",
 	"node_worker_launch_containers",
+	"node_worker_launch_boots",
 	"node_worker_launch_cleanup",
 	"node_worker_launch_process_scopes",
 	"node_worker_launches",
@@ -7248,6 +7121,7 @@ const FIRST_USE_STATE_INDEXES = [
 	"idx_operator_approval_standing_grants_binding",
 	"idx_web_push_approval_deliveries_subscription",
 	"execution_identity_contexts_run_created_idx",
+	"execution_decision_facts_cursor_id_idx",
 	"execution_decision_facts_context_occurred_idx",
 	"execution_decision_facts_run_occurred_idx",
 	"outbound_message_execution_bindings_execution_event_idx",
@@ -7256,21 +7130,6 @@ const FIRST_USE_STATE_INDEXES = [
 ];
 [...FIRST_USE_STATE_TABLES];
 [...FIRST_USE_STATE_INDEXES];
-//#endregion
-//#region src/state/openclaw-state-db.paths.ts
-/** Resolve the state owner directory for a canonical or explicit shared database path. */
-function resolveOpenClawStateDirForDatabasePath(databasePath) {
-	const databaseDir = path.dirname(path.resolve(databasePath));
-	return path.basename(databaseDir) === "state" ? path.dirname(databaseDir) : databaseDir;
-}
-//#endregion
-//#region packages/normalization-core/src/node-crypto.ts
-function sha256Hex(input) {
-	return hash("sha256", input, "hex");
-}
-function sha256HexPrefixCore(input, length) {
-	return sha256Hex(input).slice(0, length);
-}
 //#endregion
 //#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/util.js
 function getEnumValues(entries) {
@@ -12681,39 +12540,33 @@ function createManagedHandoffBootIdentityReader(serviceManagerEnv) {
 	return function bootIdentity() {
 		let value;
 		if (process.platform === "linux") value = fs.readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
-		else if (process.platform === "freebsd") {
-			const result = spawnSync("/sbin/sysctl", ["-b", "kern.boot_id"], {
-				env: serviceManagerEnv,
-				timeout: 1e3,
-				maxBuffer: 16,
-				killSignal: "SIGKILL",
-				stdio: [
-					"ignore",
-					"pipe",
-					"ignore"
-				]
-			});
-			if (!result.error && result.status === 0 && Buffer.isBuffer(result.stdout) && result.stdout.length === 16) value = result.stdout.toString("hex");
-		} else if (process.platform === "darwin" || process.platform === "win32") {
+		else if ([
+			"freebsd",
+			"darwin",
+			"win32"
+		].includes(process.platform)) {
+			const freebsd = process.platform === "freebsd";
 			const windows = process.platform === "win32";
-			const result = spawnSync(windows ? "powershell.exe" : "/usr/sbin/sysctl", windows ? [
+			const result = spawnSync(windows ? "powershell.exe" : freebsd ? "/sbin/sysctl" : "/usr/sbin/sysctl", windows ? [
 				"-NoProfile",
 				"-NonInteractive",
 				"-Command",
 				"(Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime.ToUniversalTime().ToString('o')"
-			] : ["-n", "kern.bootsessionuuid"], {
+			] : freebsd ? ["-b", "kern.boot_id"] : ["-n", "kern.bootsessionuuid"], {
 				env: serviceManagerEnv,
-				encoding: "utf8",
+				...freebsd ? { maxBuffer: 16 } : {
+					encoding: "utf8",
+					windowsHide: true
+				},
 				timeout: windows ? 5e3 : 1e3,
 				killSignal: "SIGKILL",
-				windowsHide: true,
 				stdio: [
 					"ignore",
 					"pipe",
 					"ignore"
 				]
 			});
-			if (!result.error && result.status === 0) value = result.stdout.trim();
+			if (!result.error && result.status === 0) value = freebsd ? Buffer.isBuffer(result.stdout) && result.stdout.length === 16 ? result.stdout.toString("hex") : void 0 : result.stdout.toString().trim();
 		}
 		const boot = {
 			platform: process.platform,
@@ -12793,6 +12646,7 @@ function classifyGatewayOwnerProcessNamespace(value, options = {}) {
 	const owner = GatewayProcessNamespaceSchema.safeParse(value).data;
 	const ownerHost = owner?.host ?? options.ownerHost;
 	const foreignHost = ownerHost !== void 0 && ownerHost !== os.hostname();
+	if (!foreignHost && process.platform === "win32" && owner?.platform === "win32") return "same";
 	if (value === void 0 && !foreignHost) return "same";
 	const current = readGatewayLockProcessNamespace();
 	if (owner && current) {
@@ -12814,6 +12668,7 @@ const LockPayloadSchema = object({
 	/** Present when Gateway cron writes use the dynamic-default ownership projection. */
 	cronOwnerProjection: literal("dynamic-default-v1").optional(),
 	createdAt: string(),
+	startupPhase: literal("starting").optional(),
 	configPath: string(),
 	port: number().int().min(1).max(65535).optional(),
 	role: _enum([
@@ -12830,183 +12685,40 @@ function parseGatewayLockPayload(raw) {
 	return safeParseJsonWithSchema(LockPayloadSchema, raw);
 }
 //#endregion
-//#region src/shared/async-work-scope.ts
-const currentWorkScope = resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScope"), () => new AsyncLocalStorage());
-const currentWorkScopeAncestry = resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScopeAncestry"), () => new AsyncLocalStorage());
-resolveGlobalSingleton(Symbol.for("openclaw.detachedAsyncContext"), () => new AsyncResource("openclaw.detached-async-context"));
-/** Joins cooperating descendants even when their caller returns a cached value first. */
-var AsyncWorkScope = class AsyncWorkScope {
-	constructor(failures) {
-		this.failures = failures;
-		this.pending = /* @__PURE__ */ new Set();
-		this.controller = new AbortController();
-		this.phase = "open";
-	}
-	get signal() {
-		return this.controller.signal;
-	}
-	get hasPendingWork() {
-		return this.pending.size > 0;
-	}
-	get isClosing() {
-		return this.phase !== "open";
-	}
-	enter(run) {
-		const owner = currentWorkScope.getStore();
-		const ancestry = currentWorkScopeAncestry.getStore();
-		const parent = owner ? ancestry?.scope === owner ? ancestry : { scope: owner } : void 0;
-		return currentWorkScopeAncestry.run({
-			scope: this,
-			parent
-		}, () => currentWorkScope.run(this, run));
-	}
-	/** Enters synchronous work without inspecting or assimilating its return value. */
-	run(run) {
-		if (this.phase === "closed") throw new Error("Async work scope is closed");
-		const operation = createDeferredCore();
-		this.pending.add(operation.promise);
-		try {
-			return this.enter(run);
-		} finally {
-			operation.resolve();
-			this.pending.delete(operation.promise);
-		}
-	}
-	track(run) {
-		if (this.phase === "closed") return Promise.reject(/* @__PURE__ */ new Error("Async work scope is closed"));
-		const operation = this.registerWork();
-		try {
-			operation.resolve(this.enter(run));
-		} catch (error) {
-			operation.reject(error);
-		}
-		return operation.promise;
-	}
-	registerWork() {
-		const operation = createDeferredCore();
-		this.pending.add(operation.promise);
-		operation.promise.then(() => this.pending.delete(operation.promise), (error) => {
-			this.pending.delete(operation.promise);
-			this.failures?.add(error);
-		});
-		return operation;
-	}
-	beginClose(reason) {
-		if (this.phase !== "open") return;
-		this.phase = "closing";
-		this.controller.abort(reason);
-	}
-	/** Starts the next phase in the same continuation that observes settled pending work. */
-	runWhenIdle(run) {
-		return AsyncWorkScope.runWhenAllIdle(() => [this], () => this.track(run));
-	}
-	/** Reselects owners so work admitted into a later phase is not mistaken for earlier work. */
-	static async runWhenAllIdle(selectScopes, run) {
-		let scopes = selectScopes();
-		while (scopes.some((scope) => scope.pending.size > 0)) {
-			await Promise.allSettled(scopes.flatMap((scope) => Array.from(scope.pending)));
-			scopes = selectScopes();
-		}
-		return run();
-	}
-	async drain() {
-		this.beginClose();
-		while (this.pending.size > 0) await Promise.allSettled(this.pending);
-		this.phase = "closed";
-	}
-};
-/** Outside a managed scope, the returned promise remains the caller's responsibility. */
-async function trackAsyncWork(run) {
-	const scope = currentWorkScope.getStore();
-	return await (scope ? scope.track(run) : run());
+//#region packages/normalization-core/src/node-crypto.ts
+function sha256Hex(input) {
+	return hash("sha256", input, "hex");
 }
+function sha256HexPrefixCore(input, length) {
+	return sha256Hex(input).slice(0, length);
+}
+//#endregion
+//#region src/infra/gateway-state-owner-directory.ts
+/** In-process identity is independent of the on-disk lock spelling used by older versions. */
+function resolveStateOwnerIdentity(databasePath) {
+	const canonicalPath = resolveIdentityPathViaExistingAncestorSync(databasePath);
+	return {
+		canonicalPath,
+		ownerPath: resolveCanonicalStateOwnerPath(canonicalPath),
+		key: process.platform === "win32" ? normalizeWindowsPathForComparison$1(canonicalPath) : canonicalPath
+	};
+}
+function resolveCanonicalStateOwnerPath(canonical) {
+	const uid = process.getuid?.();
+	const directory = process.platform === "win32" ? path.join(os.homedir(), "AppData", "Local", "OpenClaw", "locks", uid === void 0 ? "openclaw-state-owners" : `openclaw-state-owners-${uid}`) : resolveGatewayLockDirForCanonicalStateDir(resolveOpenClawStateDirForDatabasePath(canonical));
+	return path.join(resolveIdentityPathViaExistingAncestorSync(directory), `state.${sha256HexPrefixCore(canonical, 16)}.lock`);
+}
+//#endregion
+//#region src/shared/detached-async-context.ts
+const asyncHooks = typeof process === "undefined" ? void 0 : process.getBuiltinModule("node:async_hooks");
+asyncHooks && resolveGlobalSingleton(Symbol.for("openclaw.detachedAsyncContext"), () => new asyncHooks.AsyncResource("openclaw.detached-async-context"));
 //#endregion
 //#region src/infra/runtime-process-entrypoints.ts
-function runtimeProcessEntrypoint(modulePath) {
-	return {
-		currentModuleUrl: import.meta.url,
-		sourceWorkerName: modulePath.startsWith("infra/") ? modulePath.slice(6) : `../${modulePath}`,
-		distWorkerPath: `${modulePath}.js`
-	};
-}
 var runtimeProcessEntrypoints;
 var init_runtime_process_entrypoints = __esmMin((() => {
-	runtimeProcessEntrypoints = {
-		secretEgressProxy: runtimeProcessEntrypoint("secrets/egress-proxy/proxy.worker"),
-		codeModeNode: runtimeProcessEntrypoint("agents/code-mode-node.worker"),
-		cronReadOnly: runtimeProcessEntrypoint("cron/store/read-only.worker"),
-		stateRead: runtimeProcessEntrypoint("state/openclaw-state-read.worker"),
-		workerNativeLifecycle: runtimeProcessEntrypoint("infra/worker-native-lifecycle.worker"),
-		spawnBroker: runtimeProcessEntrypoint("process/spawn-broker/worker"),
-		cronStreamMatcher: runtimeProcessEntrypoint("gateway/cron-stream-matcher.worker"),
-		controlUiFile: runtimeProcessEntrypoint("gateway/control-ui-file.worker"),
-		nodeBootstrapArtifact: runtimeProcessEntrypoint("gateway/worker-environments/node-bootstrap-artifact.worker"),
-		nativeHookRelayClient: runtimeProcessEntrypoint("agents/harness/native-hook-relay-client.worker"),
-		computerHost: runtimeProcessEntrypoint("gateway/desktop/computer.worker"),
-		imageProcessor: runtimeProcessEntrypoint("media/image-processor.worker"),
-		fileToolPlanning: runtimeProcessEntrypoint("agents/sessions/tools/file-tool-planning.worker"),
-		attachmentProcessor: runtimeProcessEntrypoint("media/attachment-processor.worker"),
-		gitOperations: runtimeProcessEntrypoint("infra/git-operation.worker"),
-		fsSafeCopy: runtimeProcessEntrypoint("infra/fs-safe-copy.worker"),
-		sharedStateStore: runtimeProcessEntrypoint("state/openclaw-state.worker"),
-		authProfileInlineUsage: runtimeProcessEntrypoint("agents/auth-profiles/inline-usage.worker"),
-		pluginModelCatalogCredentials: runtimeProcessEntrypoint("agents/plugin-model-catalog.worker"),
-		agentDatabaseExecution: runtimeProcessEntrypoint("state/openclaw-agent-execution.worker"),
-		workspaceMemory: runtimeProcessEntrypoint("worker/memory-worker-entry"),
-		localAgentAvatar: runtimeProcessEntrypoint("agents/identity-avatar-file.worker"),
-		identityFile: runtimeProcessEntrypoint("agents/identity-file.worker"),
-		workspaceSkills: runtimeProcessEntrypoint("worker/skills-worker-entry"),
-		boardStore: runtimeProcessEntrypoint("boards/sqlite-board-store.worker"),
-		progressCardStore: runtimeProcessEntrypoint("session-cards/progress-card-store.worker"),
-		sessionSharingStore: runtimeProcessEntrypoint("config/sessions/session-sharing-store.worker"),
-		heartbeatOutcomeStore: runtimeProcessEntrypoint("infra/heartbeat-outcome-store.worker"),
-		acpParentStreamStore: runtimeProcessEntrypoint("agents/subagents/spawn/acp-parent-stream-store.worker"),
-		messageToolRunOutcomeStore: runtimeProcessEntrypoint("infra/message-tool-run-outcome-store.worker"),
-		contextEngineTurnOutbox: runtimeProcessEntrypoint("agents/harness/context-engine-turn-outbox.worker"),
-		sqliteStore: runtimeProcessEntrypoint("infra/sqlite-store.worker"),
-		agentSchemaInspection: runtimeProcessEntrypoint("state/openclaw-agent-schema-inspection.worker"),
-		stateMigrationSnapshot: runtimeProcessEntrypoint("infra/state-migrations.snapshot.worker"),
-		githubExec: runtimeProcessEntrypoint("agents/github-exec-launcher"),
-		sqliteReadOnly: runtimeProcessEntrypoint("infra/sqlite-readonly-location.worker"),
-		sqliteSnapshotStaging: runtimeProcessEntrypoint("infra/sqlite-snapshot-staging.worker"),
-		sqliteReadOnlyNativeResource: runtimeProcessEntrypoint("infra/sqlite-readonly-native-resource"),
-		sqliteSourceRevision: runtimeProcessEntrypoint("infra/sqlite-source-revision.worker"),
-		sqliteIntegrity: runtimeProcessEntrypoint("infra/sqlite-integrity.worker"),
-		sqliteCloseProbe: runtimeProcessEntrypoint("infra/bun-sqlite-close-probe.worker"),
-		preparedModelCatalog: runtimeProcessEntrypoint("agents/prepared-model-catalog.worker"),
-		providerPromptState: runtimeProcessEntrypoint("agents/embedded-agent-runner/provider-prompt-state.worker"),
-		updateRepair: runtimeProcessEntrypoint("infra/update-repair.worker"),
-		updateMigratedFinalize: runtimeProcessEntrypoint("infra/update-migrated-finalize.worker"),
-		updateCandidateState: runtimeProcessEntrypoint("infra/update-candidate-state.worker"),
-		doctorLint: runtimeProcessEntrypoint("commands/doctor-lint.worker"),
-		doctor: runtimeProcessEntrypoint("commands/doctor.worker"),
-		databaseVerify: runtimeProcessEntrypoint("state/openclaw-database-verify.worker"),
-		stateOwnership: runtimeProcessEntrypoint("state/openclaw-state-ownership.worker"),
-		stateLeaseHeartbeat: runtimeProcessEntrypoint("state/openclaw-state-lease-heartbeat.worker"),
-		gatewayStateOwnerHeartbeat: runtimeProcessEntrypoint("infra/gateway-state-owner-heartbeat.worker"),
-		sessionTranscriptArchive: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-archive.worker"),
-		sessionTranscript: runtimeProcessEntrypoint("config/sessions/session-transcript.worker"),
-		workerTranscriptCommit: runtimeProcessEntrypoint("gateway/worker-environments/transcript-commit.worker"),
-		sessionManagerMetadata: runtimeProcessEntrypoint("agents/sessions/session-manager-metadata.worker"),
-		sessionTranscriptProjectionPublication: runtimeProcessEntrypoint("config/sessions/session-transcript-projection-publication.worker"),
-		sessionTranscriptReports: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-transcript-reports.worker"),
-		sessionTranscriptReconcile: runtimeProcessEntrypoint("config/sessions/session-transcript-reconcile.worker"),
-		tailscaleRouteOwner: runtimeProcessEntrypoint("infra/tailscale-route-owner.worker"),
-		serviceChildRelay: runtimeProcessEntrypoint("process/supervisor/service-child-relay"),
-		terminalPty: runtimeProcessEntrypoint("process/terminal-pty-worker"),
-		serviceChildGroupAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-group-anchor"),
-		serviceChildWindowsJobAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-windows-job-anchor"),
-		bunSqliteLibrary: runtimeProcessEntrypoint("infra/bun-sqlite-library")
-	};
-}));
-//#endregion
-//#region src/infra/runtime-worker-generation.ts
-init_runtime_process_entrypoints();
-init_src();
-resolveGlobalSingleton(Symbol.for("openclaw.runtimeWorkerGeneration"), () => new AsyncLocalStorage());
-//#endregion
-//#region src/daemon/runtime-binary.ts
-var RUNTIME_MODULE_OPTIONS;
+	init_runtime_process_manifest();
+	runtimeProcessEntrypoints = createRuntimeProcessEntrypoints(import.meta.url);
+})), RUNTIME_MODULE_OPTIONS;
 var init_runtime_binary = __esmMin((() => {
 	RUNTIME_MODULE_OPTIONS = /* @__PURE__ */ new Set([
 		"-r",
@@ -13050,21 +12762,132 @@ var init_runtime_worker_url = __esmMin((() => {
 	init_runtime_binary();
 }));
 //#endregion
-//#region worker-heap-flag.mjs
+//#region src/infra/runtime-process-url.ts
+init_runtime_process_entrypoints();
 init_runtime_worker_url();
+//#endregion
+//#region src/infra/runtime-worker-generation.ts
+init_src();
+resolveGlobalSingleton(Symbol.for("openclaw.runtimeWorkerGeneration"), () => new AsyncLocalStorage());
+//#endregion
+//#region worker-heap-flag.mjs
 const startupFlags = `${process.execArgv.join(" ")} ${process.env.NODE_OPTIONS ?? ""}`;
 const heapFlag = /--max[-_](?:old[-_]space[-_]size(?:[-_]percentage)?|heap[-_]size)(?:=|\s)/u;
-const immutableFlags = /--(?:freeze[-_]flags[-_]after[-_]init|abort[-_]on[-_]contradictory[-_]flags)(?:=(?:true|1))?(?:\s|$)/u;
+const immutableFlags = /--(?:freeze[-_]flags[-_]after[-_]init|(?:abort|exit)[-_]on[-_]contradictory[-_]flags)(?:=(?:true|1))?(?:\s|$)/u;
 if (isMainThread && !process.versions.bun && heapFlag.test(startupFlags)) {
 	if (immutableFlags.test(startupFlags)) process.emitWarning("V8 startup flags prevent enforcing per-worker heap limits.");
 	else setFlagsFromString("--max-old-space-size=0 --max-heap-size=0");
 }
-[...Object.values(runtimeProcessEntrypoints).map((entry) => basename(entry.distWorkerPath))];
+resolveGlobalSingleton(Symbol.for("openclaw.mainThreadTask"), () => ({}));
+//#endregion
+//#region src/infra/worker-message-metrics.ts
+const counters = resolveGlobalSingleton(Symbol.for("openclaw.workerMessageMetrics"), () => /* @__PURE__ */ new Map());
+/** The main endpoint counts each crossing once, using byte lengths already known by its owner. */
+function recordWorkerMessage(kind, direction, payloadBytes) {
+	if (!isMainThread) return;
+	let directions = counters.get(kind);
+	if (!directions) {
+		directions = {};
+		counters.set(kind, directions);
+	}
+	const counter = directions[direction] ??= {
+		kind,
+		direction,
+		messages: 0,
+		payloadBytes: 0,
+		unmeasuredMessages: 0
+	};
+	counter.messages++;
+	if (payloadBytes === void 0) counter.unmeasuredMessages++;
+	else counter.payloadBytes += payloadBytes;
+}
+function messageData(message) {
+	return isRecord(message) && !types.isProxy(message) ? message : void 0;
+}
+function dataProperty(message, key) {
+	return Object.getOwnPropertyDescriptor(message, key)?.value;
+}
+function messageBody(message) {
+	const data = messageData(message);
+	const type = data && dataProperty(data, "type");
+	return data && (type === "post" || type === "message") ? dataProperty(data, "value") : message;
+}
+/** Known payload bytes only: no serialization, graph traversal, or envelope estimate. */
+function workerMessagePayloadBytes(message) {
+	if (!isMainThread) return;
+	const body = messageBody(message);
+	const data = messageData(body);
+	const payload = data && (Object.getOwnPropertyDescriptor(data, "value") ?? Object.getOwnPropertyDescriptor(data, "input"));
+	if (payload && !("value" in payload)) return;
+	const value = payload ? payload.value : body;
+	if (types.isProxy(value)) return;
+	if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) {
+		const preparation = data && dataProperty(data, "type") === "open" ? dataProperty(data, "preparation") : void 0;
+		return value.byteLength + (ArrayBuffer.isView(preparation) ? preparation.byteLength : 0);
+	}
+	if (typeof value === "string") return value.length * 2;
+	if (value === null || value === void 0) return 0;
+}
+function messageKind(message, fallback) {
+	const body = messageData(messageBody(message));
+	if (!body) return fallback;
+	switch (dataProperty(body, "status")) {
+		case "ok":
+		case "failed": return "task_reply";
+		case "request": return "task_request";
+		case "notification": return "task_notification";
+		case "consumed": return "task_consumed";
+		case "memory": return "memory";
+		case "ready": return "lifecycle";
+	}
+	if (typeof dataProperty(body, "taskId") === "number") return "task_input";
+	if (typeof dataProperty(body, "actor") === "number") return "sqlite_request";
+	if (typeof dataProperty(body, "id") === "number" && typeof dataProperty(body, "ok") === "boolean") return "sqlite_reply";
+	if (typeof dataProperty(body, "operationId") === "number") switch (dataProperty(body, "type")) {
+		case "prepare":
+		case "reclaim":
+		case "canonical-validation": return "sqlite_request";
+		case "reclaimed":
+		case "refused":
+		case "checkpoint": return "sqlite_reply";
+		case "admission":
+		case "admission-request":
+		case "admission-release": return "admission";
+		case "commit-request": return "authority";
+	}
+	switch (dataProperty(body, "type")) {
+		case "resource-owner":
+		case "resource-message":
+		case "resource-closed": return "resource";
+		case "cpu":
+		case "heap": return "memory";
+		case "create":
+		case "created":
+		case "stop":
+		case "stopped":
+		case "close":
+		case "closed":
+		case "release":
+		case "ref":
+		case "execution-exit":
+		case "error":
+		case "messageerror":
+		case "create-error":
+		case "stop-error":
+		case "request-error": return "lifecycle";
+	}
+	return dataProperty(body, "closeResource") === true ? "resource" : fallback;
+}
+/** Observe each native boundary once; null preserves a prepared unknown byte count. */
+function observeWorkerMessage(message, direction, fallbackKind = "other", payloadBytes) {
+	if (isMainThread) recordWorkerMessage(messageKind(message, fallbackKind), direction, payloadBytes === void 0 ? workerMessagePayloadBytes(message) : payloadBytes ?? void 0);
+}
 //#endregion
 //#region src/infra/worker-cpu.ts
 const trackedWorkers = resolveGlobalSingleton(Symbol.for("openclaw.workerCpuSources"), () => {
 	process.on("worker", trackWorker);
 	return {
+		gcObserver: void 0,
 		revision: 0,
 		nextPoolId: 0,
 		poolIds: /* @__PURE__ */ new WeakMap(),
@@ -13097,8 +12920,45 @@ function countWorkerStart(source) {
 	}
 	return counts;
 }
+function canObserveWorkerMessages(worker) {
+	if (!Object.isExtensible(worker)) return false;
+	for (const method of ["postMessage", "emit"]) {
+		let owner = worker;
+		while (owner) {
+			const descriptor = Object.getOwnPropertyDescriptor(owner, method);
+			if (descriptor) {
+				if (!descriptor.writable || typeof descriptor.value !== "function") return false;
+				break;
+			}
+			owner = Reflect.getPrototypeOf(owner);
+		}
+		if (!owner) return false;
+	}
+	return true;
+}
 function trackWorker(worker) {
 	if (trackedWorkers.workers.has(worker)) return;
+	if (isMainThread && worker instanceof Worker) recordWorkerMessage("lifecycle", "to_worker");
+	if (isMainThread && worker instanceof Worker && canObserveWorkerMessages(worker)) {
+		const nativePrototype = Object.getPrototypeOf(worker) === Worker.prototype;
+		const postMessage = !nativePrototype || Object.hasOwn(worker, "postMessage") ? worker.postMessage : void 0;
+		worker.postMessage = function(value, transferList) {
+			const bytes = source.internalMessages ? workerMessagePayloadBytes(value) : void 0;
+			(postMessage ?? Worker.prototype.postMessage).call(this, value, transferList);
+			if (source.lifecycleMessages) recordWorkerMessage("lifecycle", "to_worker", bytes);
+			else if (source.internalMessages) observeWorkerMessage(value, "to_worker", "other", bytes ?? null);
+			else recordWorkerMessage("other", "to_worker");
+		};
+		const emit = !nativePrototype || Object.hasOwn(worker, "emit") ? worker.emit : void 0;
+		worker.emit = function(event, ...args) {
+			if (event === "message") {
+				if (source.lifecycleMessages) recordWorkerMessage("lifecycle", "from_worker", workerMessagePayloadBytes(args[0]));
+				else if (source.internalMessages) observeWorkerMessage(args[0], "from_worker");
+				else recordWorkerMessage("other", "from_worker");
+			}
+			return (emit ?? Worker.prototype.emit).call(this, event, ...args);
+		};
+	}
 	let pending = false;
 	const source = {
 		script: "other",
@@ -13121,7 +12981,7 @@ function trackWorker(worker) {
 }
 //#endregion
 //#region src/infra/gateway-state-owner-heartbeat.ts
-init_runtime_process_entrypoints();
+init_runtime_worker_url();
 Date.now.bind(Date);
 //#endregion
 //#region src/infra/stale-lock-file.ts
@@ -13169,14 +13029,38 @@ function isGatewayStateOwnerDefinitelyStale(value, lockPath) {
 		starttime: payload.startTime
 	} : null });
 }
-const StateDatabaseAdmissionPendingError = resolveGlobalSingleton(Symbol.for("openclaw.stateDatabaseAdmissionPendingError"), () => class extends Error {
+var StateDatabaseAccessError = class extends Error {
+	constructor(..._args) {
+		super(..._args);
+		this.name = "StateDatabaseAccessError";
+	}
+};
+const GatewayStateOwnerContentionError = resolveGlobalSingleton(Symbol.for("openclaw.gatewayStateOwnerContentionError"), () => class StateOwnerContentionError extends Error {
+	constructor(databasePath, cause, holderDetail, holder) {
+		super(`OpenClaw state database is busy at ${databasePath}. ${holderDetail ? `${holderDetail} ` : ""}Wait for the other OpenClaw process to finish, then retry. If it persists, run \`openclaw gateway status\` and check for other OpenClaw processes using the same state directory. A running Gateway can hold this ownership until it stops; stop it through its service manager or original terminal before retrying.`);
+		this.databasePath = databasePath;
+		this.cause = cause;
+		this.holderDetail = holderDetail;
+		this.holder = holder;
+		this.name = "GatewayStateOwnerContentionError";
+	}
+});
+/** A local holder exists, but the caller has no live lexical maintenance authority. */
+const StateDatabaseMaintenanceScopeError = resolveGlobalSingleton(Symbol.for("openclaw.stateDatabaseMaintenanceScopeError"), () => class extends StateDatabaseAccessError {
+	constructor(databasePath) {
+		super(`Internal state ownership error at ${databasePath}: this process holds maintenance ownership without an active schema lease or maintenance scope. Retry the command; if it persists, report this error.`);
+		this.databasePath = databasePath;
+		this.name = "StateDatabaseMaintenanceScopeError";
+	}
+});
+const StateDatabaseAdmissionPendingError = resolveGlobalSingleton(Symbol.for("openclaw.stateDatabaseAdmissionPendingError"), () => class extends StateDatabaseAccessError {
 	constructor(databasePath, message) {
 		super(message);
 		this.databasePath = databasePath;
 	}
 });
 /** A live foreign process holds offline-maintenance custody of this database. */
-const StateDatabaseOfflineMaintenanceError = resolveGlobalSingleton(Symbol.for("openclaw.stateDatabaseOfflineMaintenanceError"), () => class extends Error {
+const StateDatabaseOfflineMaintenanceError = resolveGlobalSingleton(Symbol.for("openclaw.stateDatabaseOfflineMaintenanceError"), () => class extends StateDatabaseAccessError {
 	constructor(databasePath, message) {
 		super(message);
 		this.databasePath = databasePath;
@@ -13191,192 +13075,38 @@ function assertPersistedStateDatabaseAccessAllowed(params) {
 		raw = fs.readFileSync(ownerPath, "utf8");
 	} catch (error) {
 		if (extractErrorCode(error) === "ENOENT") return;
-		throw new Error(unavailable, { cause: error });
+		throw new StateDatabaseAccessError(unavailable, { cause: error });
 	}
 	const owner = parseGatewayLockPayload(raw);
 	if (!owner) throw new StateDatabaseAdmissionPendingError(databasePath, unavailable);
-	if (!Number.isSafeInteger(owner.pid) || owner.pid <= 0) throw new Error(unavailable);
+	if (!Number.isSafeInteger(owner.pid) || owner.pid <= 0) throw new StateDatabaseAccessError(unavailable);
 	if (isGatewayStateOwnerDefinitelyStale(owner, ownerPath)) return;
 	if (owner.pid === process.pid && !isMainThread) return;
-	if (!isPidAlive(owner.pid)) throw new Error(unavailable);
+	if (!isPidAlive(owner.pid)) throw new StateDatabaseAccessError(unavailable);
 	const role = owner.role ?? "gateway";
 	if (role === "gateway" || role === "agent-embedded") return;
 	if (owner.pid === process.pid) {
 		assertMaintenance();
 		return;
 	}
-	if (owner.stateOwnerKind === "schema" && owner.role === "sqlite-maintenance") throw new StateDatabaseAdmissionPendingError(databasePath, `OpenClaw state at ${databasePath} is undergoing offline maintenance; retry when it finishes.`);
-	throw new StateDatabaseOfflineMaintenanceError(databasePath, `OpenClaw state at ${databasePath} is undergoing offline maintenance; retry when it finishes.`);
+	const maintenancePending = `OpenClaw state at ${databasePath} is undergoing offline maintenance; retry when it finishes. For update progress, run \`openclaw update status --json\`.`;
+	if (owner.stateOwnerKind === "schema" && owner.role === "sqlite-maintenance") throw new StateDatabaseAdmissionPendingError(databasePath, maintenancePending);
+	throw new StateDatabaseOfflineMaintenanceError(databasePath, maintenancePending);
 }
 //#endregion
-//#region src/infra/sqlite-busy-timeout.ts
-const lockFailureReportingByDatabase = /* @__PURE__ */ new WeakMap();
-function normalizeSqliteNonNegativeInteger(value, label) {
-	if (!Number.isInteger(value) || value < 0) throw new Error(`${label} must be a non-negative integer`);
-	return value;
+//#region src/infra/sql-connection.ts
+const abortedTransactionSymbol$1 = Symbol.for("openclaw.sqliteAbortedTransaction");
+function assertPostgresTransactionUsable(db) {
+	const aborted = db[abortedTransactionSymbol$1];
+	if (aborted) throw aborted.error;
 }
-function readSqliteBusyTimeout(database) {
-	const row = database.prepare("PRAGMA busy_timeout").get();
-	const value = row?.busy_timeout ?? row?.timeout;
-	return typeof value === "bigint" ? Number(value) : Number(value ?? 0);
+const postgresConnectionBrand = Symbol.for("openclaw.postgres-sync-connection");
+function isPostgresSqlConnection(db) {
+	return postgresConnectionBrand in db && db[postgresConnectionBrand] === true;
 }
-function setSqliteBusyTimeout(database, busyTimeoutMs) {
-	const normalizedTimeoutMs = normalizeSqliteNonNegativeInteger(busyTimeoutMs, "busyTimeoutMs");
-	database.exec(`PRAGMA busy_timeout = ${normalizedTimeoutMs}`);
-}
-function shouldReportSqliteLockFailure(database) {
-	return lockFailureReportingByDatabase.get(database) !== "suppress";
-}
-/** Run with a temporary busy policy; restore early when write admission finishes. */
-function runWithSqliteBusyTimeout(database, busyTimeoutMs, operation, options = {}) {
-	const normalizedTimeoutMs = normalizeSqliteNonNegativeInteger(busyTimeoutMs, "busyTimeoutMs");
-	const previousBusyTimeoutMs = readSqliteBusyTimeout(database);
-	const previousLockFailureReporting = lockFailureReportingByDatabase.get(database);
-	if (options.lockFailureReporting) lockFailureReportingByDatabase.set(database, options.lockFailureReporting);
-	if (previousBusyTimeoutMs !== normalizedTimeoutMs) setSqliteBusyTimeout(database, normalizedTimeoutMs);
-	const restore = () => {
-		if (database.isOpen && previousBusyTimeoutMs !== normalizedTimeoutMs) setSqliteBusyTimeout(database, previousBusyTimeoutMs);
-		if (previousLockFailureReporting) lockFailureReportingByDatabase.set(database, previousLockFailureReporting);
-		else lockFailureReportingByDatabase.delete(database);
-	};
-	try {
-		return operation(restore);
-	} finally {
-		restore();
-	}
-}
-//#endregion
-//#region src/infra/gateway-state-owner.ts
-function hasPhysicalOwnership(owner) {
-	try {
-		return verifyOwnerLock(owner, owner.locks.values().next().value);
-	} catch (error) {
-		if (owner.lost.signal.aborted) return false;
-		throw error;
-	}
-}
-function verifyOwnerLock(owner, lock) {
-	owner.verifiedAt = void 0;
-	owner.lost.signal.throwIfAborted();
-	owner.heartbeat?.inspect();
-	owner.lost.signal.throwIfAborted();
-	if (!lock) return false;
-	if (!lock.verifyStillHeld()) {
-		loseOwner(owner, /* @__PURE__ */ new Error(`${lock.lockPath}: no longer current; lock removed/replaced; restart the Gateway.`));
-		return false;
-	}
-	const projection = owner.getProjection?.();
-	if (projection && owner.heartbeat && !owner.heartbeat.paths.has(projection.lockPath)) {
-		const raw = fs.readFileSync(projection.lockPath, "utf8");
-		if (!projection.verifyStillHeld()) return false;
-		owner.heartbeat.worker.postMessage([projection.lockPath, raw], []);
-		owner.heartbeat.paths.add(projection.lockPath);
-	}
-	owner.verifiedAt = performance.now();
-	return true;
-}
-const log = createSubsystemLogger("gateway/state");
-function loseOwner(owner, error) {
-	if (owner.lost.signal.aborted) return;
-	owner.accepting = false;
-	owner.verifiedAt = void 0;
-	readOwnerPaths.clear();
-	owner.heartbeat?.stop();
-	log.error(error.message);
-	owner.lost.abort(error);
-}
-const readOwnerPaths = resolveGlobalSingleton(Symbol.for("openclaw.gatewayStateReadOwnerPaths"), () => /* @__PURE__ */ new Map());
-const owners$1 = resolveGlobalSingleton(Symbol.for("openclaw.gatewayStateOwners"), () => /* @__PURE__ */ new Map());
-const schemaOwners = resolveGlobalSingleton(Symbol.for("openclaw.stateDatabaseSchemaOwners"), () => new AsyncLocalStorage());
-/** The synchronous lexical owner is live authority, not the existence of its sidecar. */
-function getStateDatabaseSchemaLease(databasePath) {
-	const entry = schemaOwners.getStore()?.get(resolveGatewayStateOwnerPath(databasePath));
-	if (entry && !entry.active) throw new Error("State schema maintenance scope is no longer current");
-	entry?.lease.assertCurrent();
-	return entry?.lease;
-}
-const GatewayStateOwnerContentionError = resolveGlobalSingleton(Symbol.for("openclaw.gatewayStateOwnerContentionError"), () => class StateOwnerContentionError extends Error {
-	constructor(databasePath, cause, holderDetail) {
-		super(`OpenClaw state database is busy at ${databasePath}. ${holderDetail ? `${holderDetail} ` : ""}Wait for the other OpenClaw process to finish, then retry. If it persists, run \`openclaw gateway status\` and check for other OpenClaw processes using the same state directory. A running Gateway can hold this ownership until it stops; stop it through its service manager or original terminal before retrying.`);
-		this.databasePath = databasePath;
-		this.cause = cause;
-		this.name = "GatewayStateOwnerContentionError";
-	}
-});
-/** State cleanup preserves this owner until destructive work and native handles settle. */
-function resolveGatewayStateOwnerPath(databasePath) {
-	const canonical = resolveIdentityPathViaExistingAncestorSync(databasePath);
-	const uid = process.getuid?.();
-	const directory = process.platform === "win32" ? path.join(os.homedir(), "AppData", "Local", "OpenClaw", "locks", uid === void 0 ? "openclaw-state-owners" : `openclaw-state-owners-${uid}`) : resolveGatewayLockDirForCanonicalStateDir(resolveOpenClawStateDirForDatabasePath(canonical));
-	return path.join(resolveIdentityPathViaExistingAncestorSync(directory), `state.${sha256HexPrefixCore(canonical, 16)}.lock`);
-}
-/** Ordinary SQLite access observes maintenance; it never borrows schema authority. */
-function assertStateDatabaseAccessAllowed(databasePath, captured) {
-	const assertMaintenance = () => {
-		const schemaLease = captured ? captured.schemaLease : getStateDatabaseSchemaLease(databasePath);
-		if (schemaLease) {
-			schemaLease.assertDatabaseAccess(databasePath);
-			return;
-		}
-		const scope = captured ? captured.maintenanceScope : getOpenClawDatabaseMaintenanceScope();
-		if (!scope) throw new Error(`OpenClaw state at ${databasePath} is undergoing offline maintenance; retry when it finishes.`);
-		scope.assertDatabaseAccess(databasePath);
-	};
-	const pathname = resolveGatewayStateOwnerPath(databasePath);
-	const local = owners$1.get(pathname);
-	if (local) {
-		if (!hasPhysicalOwnership(local)) {
-			local.lost.signal.throwIfAborted();
-			throw new Error(`OpenClaw state ownership at ${databasePath} was lost: owner lock was removed or replaced; restart the Gateway.`);
-		}
-		const role = local.payload.role ?? "gateway";
-		if (!local.accepting || role !== "gateway" && role !== "agent-embedded") assertMaintenance();
-		return;
-	}
-	assertPersistedStateDatabaseAccessAllowed({
-		databasePath,
-		ownerPath: pathname,
-		assertMaintenance
-	});
-}
-resolveGlobalSingleton(Symbol.for("openclaw.sqliteInspectionOperations"), () => /* @__PURE__ */ new WeakMap());
-const nativeOpenFailures = resolveGlobalSingleton(Symbol.for("openclaw.sqliteNativeOpenFailures"), () => /* @__PURE__ */ new WeakSet());
-function markSqliteNativeOpenFailure(error) {
-	if (error !== null && typeof error === "object") nativeOpenFailures.add(error);
-}
-/** Record the native effect without changing its error or tagging surrounding authority checks. */
-function withSqliteNativeOpen(open) {
-	try {
-		return open();
-	} catch (error) {
-		markSqliteNativeOpenFailure(error);
-		throw error;
-	}
-}
-function isSqliteNativeOpenFailure(error) {
-	return error !== null && typeof error === "object" && nativeOpenFailures.has(error);
-}
-const SQLITE_LOCK_ERROR_CODES = /* @__PURE__ */ new Set(["SQLITE_BUSY", "SQLITE_LOCKED"]);
-const SQLITE_BUSY_RESULT_CODE = 5;
-const SQLITE_LOCKED_RESULT_CODE = 6;
-const SQLITE_PRIMARY_RESULT_CODE_MASK = 255;
-function sqliteErrorCode(error) {
-	const code = asOptionalObjectRecord(error)?.code;
-	return typeof code === "string" ? code : void 0;
-}
-function sqliteExtendedResultCode(error) {
-	const errcode = asOptionalObjectRecord(error)?.errcode;
-	return typeof errcode === "number" && Number.isInteger(errcode) ? errcode : void 0;
-}
-function sqlitePrimaryResultCode(error) {
-	const errcode = sqliteExtendedResultCode(error);
-	return errcode === void 0 ? void 0 : errcode & SQLITE_PRIMARY_RESULT_CODE_MASK;
-}
-function isSqliteLockError(error) {
-	const code = sqliteErrorCode(error);
-	if (code !== void 0 && SQLITE_LOCK_ERROR_CODES.has(code)) return true;
-	const primaryCode = sqlitePrimaryResultCode(error);
-	return primaryCode === SQLITE_BUSY_RESULT_CODE || primaryCode === SQLITE_LOCKED_RESULT_CODE;
+/** Publications and receipts must key on the store anchor for every engine. */
+function sqlPublicationAnchor(db) {
+	return isPostgresSqlConnection(db) ? db.anchor : db;
 }
 //#endregion
 //#region src/infra/kysely-sync-cache-state.ts
@@ -13465,6 +13195,7 @@ function queryFitsStatementCache(sql, parameters) {
 	return true;
 }
 function executeWithCachedStatement(db, sql, parameters, execute) {
+	if (isPostgresSqlConnection(db)) return execute(db.prepare(sql));
 	const owner = db;
 	if (!owner[statementCacheEnabledSymbol] || owner[authorizerActiveSymbol] || !queryFitsStatementCache(sql, parameters)) return execute(db.prepare(sql));
 	let cache = owner[statementCacheSymbol];
@@ -13506,25 +13237,2407 @@ function executeWithCachedStatement(db, sql, parameters, execute) {
 	}
 }
 //#endregion
+//#region src/infra/sqlite-busy-timeout.ts
+const lockFailureReportingByDatabase = /* @__PURE__ */ new WeakMap();
+const { busyTimeoutByDatabase, trackedDatabases } = resolveGlobalSingleton(Symbol.for("openclaw.sqliteBusyTimeout"), () => ({
+	busyTimeoutByDatabase: /* @__PURE__ */ new WeakMap(),
+	trackedDatabases: /* @__PURE__ */ new WeakSet()
+}));
+function rememberSqliteBusyTimeout(database, busyTimeoutMs) {
+	if (!trackedDatabases.has(database)) {
+		trackedDatabases.add(database);
+		registerNodeSqliteDisposeCallback(database, () => busyTimeoutByDatabase.delete(database));
+	}
+	busyTimeoutByDatabase.set(database, busyTimeoutMs);
+}
+function normalizeSqliteNonNegativeInteger(value, label) {
+	if (!Number.isInteger(value) || value < 0) throw new Error(`${label} must be a non-negative integer`);
+	return value;
+}
+function readSqliteBusyTimeout(database) {
+	const known = busyTimeoutByDatabase.get(database);
+	if (known !== void 0) return known;
+	const row = database.prepare("PRAGMA busy_timeout").get();
+	const value = row?.busy_timeout ?? row?.timeout;
+	const busyTimeoutMs = typeof value === "bigint" ? Number(value) : Number(value ?? 0);
+	rememberSqliteBusyTimeout(database, busyTimeoutMs);
+	return busyTimeoutMs;
+}
+/** All policy changes on a managed connection go through this owner. */
+function setSqliteBusyTimeout(database, busyTimeoutMs) {
+	const normalizedTimeoutMs = normalizeSqliteNonNegativeInteger(busyTimeoutMs, "busyTimeoutMs");
+	if (busyTimeoutByDatabase.get(database) === normalizedTimeoutMs) return;
+	database.exec(`PRAGMA busy_timeout = ${normalizedTimeoutMs}`);
+	rememberSqliteBusyTimeout(database, normalizedTimeoutMs);
+}
+function shouldReportSqliteLockFailure(database) {
+	return lockFailureReportingByDatabase.get(database) !== "suppress";
+}
+/** Run with a temporary busy policy; restore early when write admission finishes. */
+function runWithSqliteBusyTimeout(database, busyTimeoutMs, operation, options = {}) {
+	const normalizedTimeoutMs = normalizeSqliteNonNegativeInteger(busyTimeoutMs, "busyTimeoutMs");
+	const previousBusyTimeoutMs = readSqliteBusyTimeout(database);
+	const previousLockFailureReporting = lockFailureReportingByDatabase.get(database);
+	if (options.lockFailureReporting) lockFailureReportingByDatabase.set(database, options.lockFailureReporting);
+	setSqliteBusyTimeout(database, normalizedTimeoutMs);
+	let restored = false;
+	const restore = () => {
+		if (restored) return;
+		if (database.isOpen && previousBusyTimeoutMs !== normalizedTimeoutMs) setSqliteBusyTimeout(database, previousBusyTimeoutMs);
+		if (previousLockFailureReporting) lockFailureReportingByDatabase.set(database, previousLockFailureReporting);
+		else lockFailureReportingByDatabase.delete(database);
+		restored = true;
+	};
+	try {
+		return operation(restore);
+	} finally {
+		restore();
+	}
+}
+//#endregion
+//#region src/infra/gateway-state-owner.ts
+function hasPhysicalOwnership(owner) {
+	try {
+		return verifyOwnerLock(owner, owner.locks.values().next().value);
+	} catch (error) {
+		if (owner.lost.signal.aborted) return false;
+		throw error;
+	}
+}
+function verifyOwnerLock(owner, lock) {
+	owner.lost.signal.throwIfAborted();
+	owner.heartbeat?.inspect();
+	owner.lost.signal.throwIfAborted();
+	if (!lock) return false;
+	if (!lock.verifyStillHeld()) {
+		loseOwner(owner, /* @__PURE__ */ new Error(`${lock.lockPath}: no longer current; lock removed/replaced; restart the Gateway.`));
+		return false;
+	}
+	const projection = owner.getProjection?.();
+	if (projection && owner.heartbeat && !owner.heartbeat.paths.has(projection.lockPath)) {
+		const raw = fs.readFileSync(projection.lockPath, "utf8");
+		if (!projection.verifyStillHeld()) return false;
+		owner.heartbeat.worker.postMessage([projection.lockPath, raw], []);
+		owner.heartbeat.paths.add(projection.lockPath);
+	}
+	return true;
+}
+const log$1 = createSubsystemLogger("gateway/state");
+function loseOwner(owner, error) {
+	if (owner.lost.signal.aborted) return;
+	owner.accepting = false;
+	readOwnerPaths.clear();
+	owner.heartbeat?.stop();
+	log$1.error(error.message);
+	owner.lost.abort(error);
+}
+const readOwnerPaths = resolveGlobalSingleton(Symbol.for("openclaw.gatewayStateReadOwnerPaths"), () => /* @__PURE__ */ new Map());
+const owners$1 = resolveGlobalSingleton(Symbol.for("openclaw.gatewayStateOwners"), () => /* @__PURE__ */ new Map());
+const schemaOwners = resolveGlobalSingleton(Symbol.for("openclaw.stateDatabaseSchemaOwners"), () => new AsyncLocalStorage());
+/** The synchronous lexical owner is live authority, not the existence of its sidecar. */
+function getStateDatabaseSchemaLease(databasePath) {
+	const entry = schemaOwners.getStore()?.get(resolveStateOwnerIdentity(databasePath).key);
+	if (entry && !entry.active) throw new Error("State schema maintenance scope is no longer current");
+	entry?.lease.assertCurrent();
+	return entry?.lease;
+}
+/** Ordinary SQLite access observes maintenance; it never borrows schema authority. */
+function assertStateDatabaseAccessAllowed(databasePath, captured) {
+	assertStateDatabaseAccessAtOwnerPath(databasePath, resolveStateOwnerIdentity(databasePath), captured);
+}
+function assertStateDatabaseAccessAtOwnerPath(databasePath, identity, captured) {
+	const assertMaintenance = () => {
+		const schemaLease = captured ? captured.schemaLease : getStateDatabaseSchemaLease(databasePath);
+		if (schemaLease) {
+			schemaLease.assertDatabaseAccess(databasePath);
+			return;
+		}
+		const scope = captured ? captured.maintenanceScope : getOpenClawDatabaseMaintenanceScope();
+		if (!scope) throw new StateDatabaseMaintenanceScopeError(databasePath);
+		scope.assertDatabaseAccess(databasePath);
+	};
+	const local = owners$1.get(identity.key);
+	if (local) {
+		if (!hasPhysicalOwnership(local)) {
+			local.lost.signal.throwIfAborted();
+			throw new Error(`OpenClaw state ownership at ${databasePath} was lost: owner lock was removed or replaced; restart the Gateway.`);
+		}
+		const role = local.payload.role ?? "gateway";
+		if (!local.accepting || role !== "gateway" && role !== "agent-embedded") assertMaintenance();
+		return;
+	}
+	assertPersistedStateDatabaseAccessAllowed({
+		databasePath,
+		ownerPath: identity.ownerPath,
+		assertMaintenance
+	});
+}
+//#endregion
+//#region src/infra/sqlite-database-admission-key.ts
+const SQLITE_DATABASE_ADMISSIONS_KEY = "openclaw.sqliteDatabaseAdmissions.v1";
+//#endregion
+//#region src/infra/sqlite-database-admission-record.ts
+function readSqliteDatabaseAdmissionIdentity(file) {
+	return `${file.dev}:${file.ino}:${readDatabaseIdentityBirthtime(file)}`;
+}
+const SqliteDatabaseGenerationSlot = {
+	schemaRevision: 0,
+	factRevision: 1,
+	publicationRevision: 2,
+	retired: 3,
+	writeRevision: 4,
+	hostRevision: 5,
+	unscopedWriteRevision: 6,
+	writeScopeRevision: 7,
+	sealPresent: 8
+};
+const SQLITE_DATABASE_GENERATION_LENGTH = Object.keys(SqliteDatabaseGenerationSlot).length;
+function readSqliteDatabaseAdmissions(value) {
+	return Array.isArray(value) ? value : void 0;
+}
+function isSqliteDatabaseAdmissionRetired(record) {
+	return readSqliteDatabaseGeneration(record, "retired") !== 0;
+}
+function isSqliteDatabaseAdmissionFactCurrent(record, fact) {
+	return !isSqliteDatabaseAdmissionRetired(record) && Atomics.load(new Int32Array(fact.current), 0) === 1 && fact.revision === readSqliteDatabaseFactRevision(record, fact.schemaDependent);
+}
+function hasSqliteDatabaseSchemaAdmission(record) {
+	const fact = record?.facts.get("sqlite-schema");
+	return Boolean(record && fact && isSqliteDatabaseAdmissionFactCurrent(record, fact));
+}
+function readSqliteDatabaseFactRevision(record, schemaDependent) {
+	return readSqliteDatabaseGeneration(record, schemaDependent ? "schemaRevision" : "factRevision");
+}
+function readSqliteDatabaseGeneration(record, slot) {
+	return Atomics.load(new Int32Array(record.generation), SqliteDatabaseGenerationSlot[slot]);
+}
+function advanceSqliteDatabaseGeneration(record, slot) {
+	return Atomics.add(new Int32Array(record.generation), SqliteDatabaseGenerationSlot[slot], 1);
+}
+function publishSqliteDatabaseFact(record, key, value, revision, publication) {
+	if (revision !== readSqliteDatabaseFactRevision(record, key.schemaDependent)) return false;
+	if (key.writer === "host") advanceSqliteDatabaseGeneration(record, "hostRevision");
+	const previous = record.facts.get(key.name);
+	if (previous) Atomics.store(new Int32Array(previous.current), 0, 0);
+	const current = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
+	Atomics.store(new Int32Array(current), 0, 1);
+	record.facts.set(key.name, {
+		value,
+		revision,
+		schemaDependent: key.schemaDependent === true,
+		publication,
+		current
+	});
+	advanceSqliteDatabaseGeneration(record, "publicationRevision");
+	return true;
+}
+function changedAdmissionEntries(current, previous) {
+	const changed = /* @__PURE__ */ new Map();
+	for (const [key, value] of current) if (previous.get(key) !== value) changed.set(key, value);
+	return changed;
+}
+var SqliteDatabaseAdmissionRegistry = class {
+	constructor() {
+		this.records = /* @__PURE__ */ new Map();
+		this.locations = /* @__PURE__ */ new Map();
+		this.published = /* @__PURE__ */ new Map();
+		this.descriptors = /* @__PURE__ */ new Map();
+		this.revision = 0;
+	}
+	changeReferences(record, change) {
+		let references = record.references.get(threadId);
+		if (!references) {
+			references = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
+			record.references.set(threadId, references);
+		}
+		if (Atomics.add(new Int32Array(references), 0, change) + change !== (change === 1 ? 1 : 0)) return false;
+		if (change === -1) this.retireUnreferenced(record);
+		this.publish(record);
+		return true;
+	}
+	retireUnreferenced(record) {
+		if (threadId !== 0 || [...record.references.values()].some((references) => Atomics.load(new Int32Array(references), 0) > 0)) return;
+		Atomics.compareExchange(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.retired, 0, 2);
+		record.facts.clear();
+		record.writeScopes.clear();
+	}
+	releaseWorker(owner) {
+		for (const record of this.records.values()) {
+			const references = owner > 0 ? record.references.get(owner) : void 0;
+			if (!references) continue;
+			const priorReferences = Atomics.exchange(new Int32Array(references), 0, -1);
+			this.retireUnreferenced(record);
+			if (priorReferences <= 0) continue;
+			advanceSqliteDatabaseGeneration(record, "writeRevision");
+			advanceSqliteDatabaseGeneration(record, "unscopedWriteRevision");
+		}
+		this.publish();
+	}
+	observeLocation(location, identity) {
+		this.locations.set(normalizeDatabasePath(path.resolve(location)), identity);
+	}
+	forLocation(location) {
+		const identity = this.locations.get(normalizeDatabasePath(path.resolve(location)));
+		const record = identity === void 0 ? void 0 : this.records.get(identity);
+		return record && !isSqliteDatabaseAdmissionRetired(record) ? record : void 0;
+	}
+	hasSchemaAdmissionForIdentity(physicalIdentity) {
+		if (!physicalIdentity.key.startsWith("file:") || physicalIdentity.birthtime === void 0) return false;
+		const key = `${physicalIdentity.key.slice(5)}:${physicalIdentity.birthtime}`;
+		return hasSqliteDatabaseSchemaAdmission(this.records.get(key));
+	}
+	forget(identity) {
+		this.records.delete(identity);
+		this.published.delete(identity);
+		for (const [location, observed] of this.locations) if (observed === identity) this.locations.delete(location);
+	}
+	retainDescriptor(location, descriptor, opened) {
+		const record = {
+			identity: readSqliteDatabaseAdmissionIdentity(opened),
+			physicalIdentity: {
+				key: `file:${opened.dev}:${opened.ino}`,
+				birthtime: readDatabaseIdentityBirthtime(opened)
+			},
+			location,
+			descriptor,
+			descriptorOwner: 0,
+			generationId: randomUUID(),
+			generation: new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * SQLITE_DATABASE_GENERATION_LENGTH),
+			writeScopes: /* @__PURE__ */ new Map(),
+			writeScopeRevision: 0,
+			references: /* @__PURE__ */ new Map(),
+			facts: /* @__PURE__ */ new Map()
+		};
+		this.records.set(record.identity, record);
+		this.descriptors.set(record.identity, descriptor);
+		this.observeLocation(location, record.identity);
+		this.publish(record);
+		return record;
+	}
+	/** Only the joined lifecycle owner may release a retained descriptor. */
+	retireDescriptor(identity, options) {
+		const record = this.records.get(identity);
+		const descriptor = this.descriptors.get(identity) ?? record?.descriptor;
+		if (descriptor === void 0) return false;
+		const file = fs.fstatSync(descriptor, { bigint: true });
+		if (file.nlink > 1n || options.requireSoleDescriptor && !isSoleDatabaseFileDescriptor(descriptor, file)) return false;
+		if (record) Atomics.store(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.retired, 1);
+		fs.closeSync(descriptor);
+		this.descriptors.delete(identity);
+		this.forget(identity);
+		this.publish();
+		return true;
+	}
+	publish(record) {
+		if (record && this.records.get(record.identity) !== record) return;
+		for (const current of this.records.values()) {
+			if (isSqliteDatabaseAdmissionRetired(current)) {
+				if (readSqliteDatabaseGeneration(current, "retired") === 1) this.descriptors.delete(current.identity);
+				this.forget(current.identity);
+				continue;
+			}
+			if (record && current !== record) continue;
+			let changed = current === record;
+			for (const [owner, references] of current.references) if (Atomics.load(new Int32Array(references), 0) < 0) {
+				current.references.delete(owner);
+				changed = true;
+			}
+			for (const [key, revision] of current.writeScopes) if (Atomics.load(revision.state, 1) !== 0) {
+				current.writeScopes.delete(key);
+				changed = true;
+			}
+			if (!changed) continue;
+			if (threadId === 0) current.writeScopeRevision = readSqliteDatabaseGeneration(current, "writeScopeRevision");
+			this.published.set(current.identity, {
+				...current,
+				facts: new Map(current.facts),
+				writeScopes: new Map(current.writeScopes),
+				references: new Map(current.references),
+				hostRevision: threadId === 0 ? readSqliteDatabaseGeneration(current, "hostRevision") : current.hostRevision
+			});
+		}
+		this.revision++;
+		setEnvironmentData(SQLITE_DATABASE_ADMISSIONS_KEY, [...this.published.values()]);
+	}
+	capture(cursor, identities) {
+		if (!identities && !cursor) this.publish();
+		if (!identities && cursor?.revision === this.revision) return [];
+		const records = identities ? [...identities].flatMap((identity) => {
+			const record = this.published.get(identity);
+			return record && !isSqliteDatabaseAdmissionRetired(record) ? [record] : [];
+		}) : [...this.published.values()];
+		if (!cursor) return records;
+		if (!identities) cursor.revision = this.revision;
+		return records.flatMap((record) => {
+			const previous = cursor.records.get(record.generation);
+			if (previous === record) return [];
+			cursor.records.set(record.generation, record);
+			return [previous ? {
+				...record,
+				facts: changedAdmissionEntries(record.facts, previous.facts),
+				writeScopes: changedAdmissionEntries(record.writeScopes, previous.writeScopes),
+				references: changedAdmissionEntries(record.references, previous.references)
+			} : record];
+		});
+	}
+	install(admissions) {
+		for (const incoming of admissions) {
+			let record = this.records.get(incoming.identity);
+			if (incoming.descriptorOwner !== 0 || isSqliteDatabaseAdmissionRetired(incoming)) {
+				if (record && isSqliteDatabaseAdmissionRetired(record)) this.publish(record);
+				continue;
+			}
+			let changed = false;
+			if (record && isSqliteDatabaseAdmissionRetired(record)) record = void 0;
+			if (!record) {
+				record = {
+					...incoming,
+					hostRevision: void 0
+				};
+				this.records.set(incoming.identity, record);
+				this.observeLocation(incoming.location, incoming.identity);
+				changed = true;
+			} else if (record.generationId !== incoming.generationId) continue;
+			for (const [key, fact] of incoming.facts) if (isSqliteDatabaseAdmissionFactCurrent(incoming, fact) && record.facts.get(key)?.publication !== fact.publication) {
+				record.facts.set(key, fact);
+				changed = true;
+			}
+			for (const [key, revision] of incoming.writeScopes) {
+				if (Atomics.load(revision.state, 1) !== 0) continue;
+				const previous = record.writeScopes.get(key);
+				if (previous?.identity === revision.identity || threadId === 0 && previous && Atomics.load(previous.state, 1) === 0) continue;
+				if (threadId === 0) advanceSqliteDatabaseGeneration(record, "writeScopeRevision");
+				record.writeScopes.set(key, revision);
+				changed = true;
+			}
+			const writeScopeRevision = readSqliteDatabaseGeneration(record, "writeScopeRevision");
+			if (threadId === 0 || incoming.writeScopeRevision === writeScopeRevision) {
+				changed ||= record.writeScopeRevision !== writeScopeRevision;
+				record.writeScopeRevision = writeScopeRevision;
+			}
+			for (const [owner, references] of incoming.references) if (!record.references.has(owner) && Atomics.load(new Int32Array(references), 0) >= 0) {
+				record.references.set(owner, references);
+				changed = true;
+			}
+			if (threadId !== 0 && incoming.hostRevision !== void 0 && incoming.hostRevision !== record.hostRevision && incoming.hostRevision === readSqliteDatabaseGeneration(record, "hostRevision")) {
+				record.hostRevision = incoming.hostRevision;
+				changed = true;
+			}
+			this.retireUnreferenced(record);
+			if (changed || isSqliteDatabaseAdmissionRetired(record)) this.publish(record);
+		}
+	}
+};
+//#endregion
+//#region src/infra/sqlite-native-admission.ts
+const state$3 = resolveGlobalSingleton(Symbol.for("openclaw.sqliteNativeAdmissions"), () => ({ operations: /* @__PURE__ */ new WeakMap() }));
+function getSqliteNativeAdmissionFacts(database) {
+	return state$3.operations.get(database)?.facts;
+}
+/** Callback-local facts may describe an implicit statement transaction that can still abort. */
+function beginSqliteDatabaseAdmissionOperation(database) {
+	const current = state$3.operations.get(database) ?? {
+		depth: 0,
+		facts: /* @__PURE__ */ new Map()
+	};
+	current.depth += 1;
+	state$3.operations.set(database, current);
+	return () => {
+		current.depth -= 1;
+		if (current.depth === 0) state$3.operations.delete(database);
+	};
+}
+//#endregion
+//#region src/infra/sqlite-database-admission-read.ts
+/** Admission lookups consume the owning registry and transaction-local state. */
+function createSqliteDatabaseAdmissionReader(owner) {
+	const { state, admission, pathAdmission, exchange, publishFact } = owner;
+	function getSqliteDatabaseAdmission(database, key, options = {}) {
+		const anchor = sqlPublicationAnchor(database);
+		if (!anchor.isOpen || state.suspended.has(anchor)) return;
+		const record = admission(anchor, options.existingOnly !== true && !database.isTransaction);
+		if (!record) return;
+		const local = (isPostgresSqlConnection(database) ? void 0 : getSqliteNativeAdmissionFacts(database))?.get(key.name) ?? state.local.get(anchor)?.get(key.name);
+		if (local && local.revision === readSqliteDatabaseFactRevision(record, local.schemaDependent) && (!local.schemaDependent || local.ddlRevision === (state.ddlRevisions.get(anchor) ?? 0))) return key.read(local.value);
+		if (key.schemaDependent && state.schemaDirty.has(anchor)) return;
+		if (state.rolledBack.has(anchor)) {
+			if (database.isTransaction) return;
+			state.rolledBack.delete(anchor);
+		}
+		let fact = record.facts.get(key.name);
+		if (!fact || !isSqliteDatabaseAdmissionFactCurrent(record, fact)) {
+			if (key.writer === "host") {
+				if (database.isTransaction || threadId === 0 || record.hostRevision === readSqliteDatabaseGeneration(record, "hostRevision")) return;
+				exchange(record);
+				fact = record.facts.get(key.name);
+				return fact && isSqliteDatabaseAdmissionFactCurrent(record, fact) ? key.read(fact.value) : void 0;
+			}
+			const revision = readSqliteDatabaseGeneration(record, "publicationRevision");
+			const misses = state.misses.get(record) ?? /* @__PURE__ */ new Map();
+			state.misses.set(record, misses);
+			if (!database.isTransaction && misses.get(key.name) !== revision) {
+				exchange(record);
+				fact = record.facts.get(key.name);
+				misses.set(key.name, readSqliteDatabaseGeneration(record, "publicationRevision"));
+			}
+		}
+		return fact && isSqliteDatabaseAdmissionFactCurrent(record, fact) ? key.read(fact.value) : void 0;
+	}
+	function getOrLoadSqliteDatabaseAdmissionForPath(location, key, load) {
+		const record = pathAdmission(location);
+		const fact = record?.facts.get(key.name);
+		const cached = record && fact && isSqliteDatabaseAdmissionFactCurrent(record, fact) ? key.read(fact.value) : void 0;
+		if (cached !== void 0) return cached;
+		const generation = record ? readSqliteDatabaseFactRevision(record, key.schemaDependent) : void 0;
+		const value = load();
+		if (record && generation !== void 0 && value !== void 0) publishFact(record, key, value, generation);
+		return value;
+	}
+	return {
+		getSqliteDatabaseAdmission,
+		getOrLoadSqliteDatabaseAdmissionForPath
+	};
+}
+//#endregion
+//#region src/infra/sqlite-schema-sql.ts
+const TABLE_CONSTRAINT_KEYWORDS = /* @__PURE__ */ new Set([
+	"CHECK",
+	"FOREIGN",
+	"PRIMARY",
+	"UNIQUE"
+]);
+function readTableConstraintKeyword(sql, first) {
+	let token = first;
+	if (token.keyword === "CONSTRAINT") {
+		const name = readSqlToken(sql, token.end);
+		token = name ? readSqlToken(sql, name.end) : null;
+	}
+	return token?.keyword && TABLE_CONSTRAINT_KEYWORDS.has(token.keyword) ? token.keyword : null;
+}
+function readSqlToken(sql, start) {
+	let index = start;
+	while (index < sql.length && /\s/u.test(sql[index] ?? "")) index += 1;
+	const char = sql[index];
+	if (!char) return null;
+	if (char === "\"" || char === "`" || char === "[") {
+		const end = skipSqlQuoted(sql, index, char);
+		return {
+			end,
+			keyword: null,
+			raw: sql.slice(index, end)
+		};
+	}
+	let end = index;
+	while (end < sql.length && !/[\s(,]/u.test(sql[end] ?? "")) end += 1;
+	const raw = sql.slice(index, end);
+	return {
+		end,
+		keyword: raw.toUpperCase(),
+		raw
+	};
+}
+function normalizeSqlIdentifier(identifier) {
+	if (identifier.startsWith("\"") && identifier.endsWith("\"")) return identifier.slice(1, -1).replaceAll("\"\"", "\"").toLowerCase();
+	if (identifier.startsWith("`") && identifier.endsWith("`")) return identifier.slice(1, -1).replaceAll("``", "`").toLowerCase();
+	if (identifier.startsWith("[") && identifier.endsWith("]")) return identifier.slice(1, -1).toLowerCase();
+	return identifier.toLowerCase();
+}
+function normalizeSchemaSql(sql) {
+	if (sql === null) return null;
+	return normalizeSqlWhitespace(sql).replace(/;\s*$/u, "").trim().replace(/^(CREATE (?:TABLE|VIRTUAL TABLE|UNIQUE INDEX|INDEX|TRIGGER)) IF NOT EXISTS /iu, "$1 ");
+}
+function splitSqlList(sql) {
+	const items = [];
+	let depth = 0;
+	let start = 0;
+	for (const index of unquotedSqlIndexes(sql, 0)) {
+		const char = sql[index];
+		if (char === "(") depth += 1;
+		else if (char === ")") depth -= 1;
+		else if (char === "," && depth === 0) {
+			items.push(sql.slice(start, index));
+			start = index + 1;
+		}
+	}
+	items.push(sql.slice(start));
+	return items;
+}
+function findSqlCharacter(sql, character) {
+	for (const index of unquotedSqlIndexes(sql, 0)) if (sql[index] === character) return index;
+	return -1;
+}
+/** Match SQL keywords without treating quoted payloads, identifiers or comments as code. */
+function hasUnquotedSqlKeyword(sql, keywords) {
+	const starts = /* @__PURE__ */ new Set();
+	for (const match of sql.matchAll(keywords)) starts.add(match.index);
+	if (starts.size === 0) return false;
+	for (const index of unquotedSqlIndexes(sql, 0)) if (starts.has(index)) return true;
+	return false;
+}
+function findSqlClosingParenthesis(sql, open) {
+	let depth = 0;
+	for (const index of unquotedSqlIndexes(sql, open)) {
+		const char = sql[index];
+		if (char === "(") depth += 1;
+		else if (char === ")") {
+			depth -= 1;
+			if (depth === 0) return index;
+		}
+	}
+	throw new Error("SQLite schema contains an unterminated table definition.");
+}
+function normalizeSqlWhitespace(sql) {
+	let normalized = "";
+	let pendingSpace = false;
+	const segments = /[^\s'"`[/-]+|\s+|./gsu;
+	let segment;
+	while (segment = segments.exec(sql)) {
+		const index = segment.index;
+		const char = segment[0][0] ?? "";
+		const quoted = skipSqlQuoted(sql, index, char);
+		let text = segment[0];
+		if (quoted !== index) {
+			text = sql.slice(index, quoted);
+			segments.lastIndex = quoted;
+		} else {
+			const comment = skipSqlComment(sql, index);
+			if (comment !== index) {
+				pendingSpace = true;
+				segments.lastIndex = comment;
+				continue;
+			}
+			if (/\s/u.test(char)) {
+				pendingSpace = true;
+				continue;
+			}
+		}
+		if (pendingSpace && normalized.length > 0) normalized += " ";
+		normalized += text;
+		pendingSpace = false;
+	}
+	return normalized.trim();
+}
+function quoteSqliteIdentifier(identifier) {
+	return `"${identifier.replaceAll("\"", "\"\"")}"`;
+}
+function* unquotedSqlIndexes(sql, start) {
+	let index = start;
+	while (index < sql.length) {
+		const quoted = skipSqlQuoted(sql, index, sql[index] ?? "");
+		const next = quoted !== index ? quoted : skipSqlComment(sql, index);
+		if (next !== index) index = next;
+		else {
+			yield index;
+			index += 1;
+		}
+	}
+}
+function skipSqlQuoted(sql, index, quote) {
+	if (quote !== "'" && quote !== "\"" && quote !== "`" && quote !== "[") return index;
+	const closingQuote = quote === "[" ? "]" : quote;
+	let cursor = index + 1;
+	while (cursor < sql.length) {
+		if (sql[cursor] !== closingQuote) {
+			cursor += 1;
+			continue;
+		}
+		if (quote !== "[" && sql[cursor + 1] === closingQuote) {
+			cursor += 2;
+			continue;
+		}
+		return cursor + 1;
+	}
+	return sql.length;
+}
+function skipSqlComment(sql, index) {
+	if (sql.startsWith("--", index)) {
+		const newline = sql.indexOf("\n", index + 2);
+		return newline === -1 ? sql.length : newline + 1;
+	}
+	if (sql.startsWith("/*", index)) {
+		const close = sql.indexOf("*/", index + 2);
+		return close === -1 ? sql.length : close + 2;
+	}
+	return index;
+}
+//#endregion
+//#region src/infra/sqlite-schema-contract-assembly.ts
+function parseSqliteTableDefinition(sql, tableName) {
+	if (sql === null) throw new Error(`Could not inspect SQLite table definition for ${tableName}.`);
+	const open = findSqlCharacter(sql, "(");
+	if (open === -1) throw new Error(`SQLite table ${tableName} has no column definition.`);
+	const close = findSqlClosingParenthesis(sql, open);
+	const columns = /* @__PURE__ */ new Map();
+	const constraints = [];
+	for (const rawDefinition of splitSqlList(sql.slice(open + 1, close))) {
+		const definition = normalizeSqlWhitespace(rawDefinition);
+		if (!definition) continue;
+		const token = readSqlToken(definition, 0);
+		if (!token) throw new Error(`SQLite table ${tableName} contains an unreadable definition.`);
+		if (readTableConstraintKeyword(definition, token)) {
+			constraints.push(definition);
+			continue;
+		}
+		const columnName = normalizeSqlIdentifier(token.raw);
+		if (columns.has(columnName)) throw new Error(`SQLite table ${tableName} contains duplicate column ${columnName}.`);
+		columns.set(columnName, definition);
+	}
+	return {
+		columns: new Map([...columns].toSorted(([left], [right]) => left.localeCompare(right))),
+		constraints: constraints.toSorted()
+	};
+}
+const STARTUP_ADDITIVE_AGENT_COLUMN_DEFINITIONS = [
+	{
+		tableName: "session_pending_inputs",
+		columnName: "consumed_event_id",
+		dataType: "TEXT"
+	},
+	{
+		tableName: "session_transcript_active_events",
+		columnName: "context_eligible",
+		dataType: "INTEGER"
+	},
+	{
+		tableName: "session_nodes",
+		columnName: "project_id",
+		dataType: "TEXT"
+	},
+	{
+		tableName: "session_windows",
+		columnName: "row_transcript_json",
+		dataType: "TEXT"
+	},
+	{
+		tableName: "session_windows",
+		columnName: "row_transcript_updated_at",
+		dataType: "INTEGER"
+	},
+	{
+		tableName: "session_conversations",
+		columnName: "route_context_json",
+		dataType: "TEXT"
+	}
+];
+/** Missing feature-local tables stay absent; existing tables must satisfy this build's readers. */
+function hasPendingAgentStartupColumns(tableSql) {
+	const columns = /* @__PURE__ */ new Map();
+	return STARTUP_ADDITIVE_AGENT_COLUMN_DEFINITIONS.some(({ tableName, columnName }) => {
+		if (!tableSql.has(tableName)) return false;
+		const sql = tableSql.get(tableName);
+		if (!sql) return true;
+		let parsed = columns.get(tableName);
+		if (!parsed) {
+			parsed = parseSqliteTableDefinition(sql, tableName).columns;
+			columns.set(tableName, parsed);
+		}
+		return !parsed.has(columnName);
+	});
+}
+//#endregion
+//#region src/infra/errors.ts
+function formatErrorMessage(err) {
+	return formatErrorMessage$1(err, { redact: redactSensitiveText });
+}
+//#endregion
+//#region src/infra/git-root.ts
+function walkUpFrom(startDir, opts, resolveAtDir) {
+	let current = path.resolve(startDir);
+	for (let i = 0; opts.maxDepth === void 0 || i < opts.maxDepth; i += 1) {
+		const resolved = resolveAtDir(current);
+		if (resolved !== null && resolved !== void 0) return resolved;
+		const parent = path.dirname(current);
+		if (parent === current) break;
+		current = parent;
+	}
+	return null;
+}
+function readGitMetadataFile(filePath, limit = 1048576) {
+	const fd = fs.openSync(filePath, fs.constants.O_RDONLY | (fs.constants.O_NONBLOCK ?? 0));
+	try {
+		const stat = fs.fstatSync(fd);
+		if (!stat.isFile() || stat.size > limit) throw new Error("Git metadata is not a bounded regular file");
+		const bytes = readFileDescriptorBoundedSync(fd, Math.min(stat.size, limit));
+		if (bytes.length !== stat.size) throw new Error("Git metadata changed during its read");
+		return bytes;
+	} finally {
+		fs.closeSync(fd);
+	}
+}
+function readGitDirectoryPointerTarget(filePath, prefix = "") {
+	const bytes = readGitMetadataFile(filePath);
+	const raw = bytes.toString("utf8").replace(/[\r\n]+$/u, "");
+	if (!isUtf8(bytes) || !raw.startsWith(prefix) || raw.length === prefix.length || raw.includes("\0")) throw new Error("Git directory pointer is incomplete or malformed");
+	const target = raw.slice(prefix.length);
+	return path.isAbsolute(target) ? target : `${path.dirname(filePath)}${path.sep}${target}`;
+}
+function readGitDirectoryPointer(filePath, prefix = "") {
+	return fs.realpathSync.native(readGitDirectoryPointerTarget(filePath, prefix));
+}
+function resolveGitDirFromMarker(repoRoot) {
+	const gitPath = path.join(repoRoot, ".git");
+	try {
+		const stat = fs.statSync(gitPath);
+		if (stat.isDirectory()) return gitPath;
+		if (!stat.isFile()) return null;
+		return readGitDirectoryPointer(gitPath, "gitdir: ");
+	} catch {
+		return null;
+	}
+}
+function resolveGitHeadPath(startDir, opts = {}) {
+	return walkUpFrom(startDir, opts, (repoRoot) => {
+		const gitDir = resolveGitDirFromMarker(repoRoot);
+		return gitDir ? path.join(gitDir, "HEAD") : null;
+	});
+}
+/** Read at most `limit` bytes from Git or build metadata. */
+function readGitMetadataPrefix(filePath, limit = 256) {
+	const fd = fs.openSync(filePath, fs.constants.O_RDONLY | (fs.constants.O_NONBLOCK ?? 0));
+	try {
+		if (!fs.fstatSync(fd).isFile()) throw new Error("Git metadata is not a regular file");
+		const buf = Buffer.alloc(limit);
+		const bytesRead = readFileWindowFullySync(fd, buf, 0);
+		return buf.subarray(0, bytesRead).toString("utf-8");
+	} finally {
+		fs.closeSync(fd);
+	}
+}
+function readGitHead(startDir, opts = {}) {
+	const headPath = resolveGitHeadPath(startDir, opts);
+	if (!headPath) return;
+	const head = readGitMetadataFile(headPath).toString("utf8").trim();
+	if (!head.startsWith("ref:")) return {
+		headPath,
+		ref: null,
+		value: head || null
+	};
+	const ref = head.replace(/^ref:\s*/i, "").trim();
+	const refsBase = resolveGitRefsBase(headPath);
+	return {
+		headPath,
+		ref,
+		value: readGitRefs(refsBase, [ref]).get(ref) ?? null,
+		refsBase
+	};
+}
+function resolveGitRefsBase(headPath) {
+	const gitDir = path.dirname(headPath);
+	const marker = path.join(gitDir, "commondir");
+	try {
+		return readGitDirectoryPointer(marker);
+	} catch (error) {
+		if (!isMissingPathError(error) || fs.lstatSync(marker, { throwIfNoEntry: false })) throw error;
+	}
+	return gitDir;
+}
+/** Raw ref contents, sharing one packed inventory across the requested names. */
+function readGitRefs(refsBase, refs) {
+	const values = new Map(refs.map((ref) => [ref, null]));
+	const missing = /* @__PURE__ */ new Set();
+	for (const ref of refs) {
+		const refPath = resolveRefPath(refsBase, ref);
+		if (!refPath) continue;
+		try {
+			values.set(ref, readGitMetadataPrefix(refPath).trim());
+		} catch (error) {
+			if (!isMissingPathError(error)) throw error;
+			missing.add(ref);
+		}
+	}
+	if (missing.size === 0) return values;
+	try {
+		const packedRefs = readGitMetadataFile(path.join(refsBase, "packed-refs"), Number.MAX_SAFE_INTEGER).toString("utf8");
+		const records = new RegExp(`^(?![#^])[^\\S\\r\\n]*(\\S+)[^\\S\\r\\n]+(${[...missing].map(escapeRegExp).join("|")})(?=\\s|$)`, "gm");
+		for (const [, value, packedRef] of packedRefs.matchAll(records)) if (missing.delete(packedRef)) values.set(packedRef, value);
+	} catch (error) {
+		if (!isMissingPathError(error)) throw error;
+	}
+	return values;
+}
+/** Safely resolve a Git ref path, rejecting traversal from a crafted HEAD file. */
+function resolveRefPath(refsBase, ref) {
+	if (!ref.startsWith("refs/")) return null;
+	if (ref.split(/[/]/).includes("..")) return null;
+	const resolved = path.resolve(refsBase, ref);
+	const rel = path.relative(refsBase, resolved);
+	if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return null;
+	return resolved;
+}
+//#endregion
+//#region src/infra/lru-cache.ts
+/** Process-local LRU storage; callers own freshness and lifecycle. */
+var LruCache = class {
+	#maxEntries;
+	#maxBytes;
+	#sizeOf;
+	#entries = /* @__PURE__ */ new Map();
+	#bytes = 0;
+	constructor(maxEntries, options) {
+		this.#maxEntries = Number.isFinite(maxEntries) && maxEntries > 0 ? Math.max(1, Math.floor(maxEntries)) : 1;
+		this.#maxBytes = options?.maxBytes ?? Number.POSITIVE_INFINITY;
+		this.#sizeOf = options?.sizeOf;
+	}
+	get size() {
+		return this.#entries.size;
+	}
+	clear() {
+		this.#entries.clear();
+		this.#bytes = 0;
+	}
+	keys() {
+		return this.#entries.keys();
+	}
+	delete(cacheKey) {
+		if (!this.#entries.has(cacheKey)) return false;
+		this.#bytes -= this.#sizeOf?.(this.#entries.get(cacheKey)) ?? 0;
+		return this.#entries.delete(cacheKey);
+	}
+	deleteValue(value) {
+		for (const [key, entry] of this.#entries) if (entry === value) this.delete(key);
+	}
+	/** Reads without promoting a value whose revalidation is still pending. */
+	peek(cacheKey) {
+		return this.#entries.get(cacheKey);
+	}
+	/** Returns a cached value and refreshes its recency when present. */
+	get(cacheKey) {
+		if (!this.#entries.has(cacheKey)) return;
+		const cached = this.#entries.get(cacheKey);
+		this.#entries.delete(cacheKey);
+		this.#entries.set(cacheKey, cached);
+		return cached;
+	}
+	/** Stores a value as the newest entry and evicts oldest entries past capacity. */
+	set(cacheKey, value) {
+		this.delete(cacheKey);
+		this.#entries.set(cacheKey, value);
+		this.#bytes += this.#sizeOf?.(value) ?? 0;
+		for (const key of this.#entries.keys()) {
+			if (this.#entries.size <= this.#maxEntries && this.#bytes <= this.#maxBytes) break;
+			this.delete(key);
+		}
+	}
+};
+//#endregion
+//#region src/infra/error-graph-internal.ts
+/** Retained errors must not keep callers alive through V8's lazy stack frames. */
+function materializeErrorStack(failure) {
+	let error = failure;
+	const seen = /* @__PURE__ */ new Set();
+	while (error instanceof Error && !seen.has(error)) {
+		seen.add(error);
+		try {
+			error.stack = String(error.stack);
+		} catch {
+			error.stack = "Stack trace unavailable: custom formatter failed";
+		}
+		error = error.cause;
+	}
+}
+//#endregion
+//#region src/shared/async-work-scope.ts
+const currentWorkScope = resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScope"), () => new AsyncLocalStorage());
+const currentWorkScopeAncestry = resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScopeAncestry"), () => new AsyncLocalStorage());
+/** Joins cooperating descendants even when their caller returns a cached value first. */
+var AsyncWorkScope = class AsyncWorkScope {
+	constructor(failures) {
+		this.failures = failures;
+		this.pending = /* @__PURE__ */ new Set();
+		this.controller = new AbortController();
+		this.phase = "open";
+	}
+	get signal() {
+		return this.controller.signal;
+	}
+	get hasPendingWork() {
+		return this.pending.size > 0;
+	}
+	get isClosing() {
+		return this.phase !== "open";
+	}
+	enter(run) {
+		const owner = currentWorkScope.getStore();
+		const ancestry = currentWorkScopeAncestry.getStore();
+		const parent = owner ? ancestry?.scope === owner ? ancestry : { scope: owner } : void 0;
+		return new AsyncResource("OpenClawAsyncWorkScope").runInAsyncScope(() => {
+			currentWorkScope.enterWith(this);
+			currentWorkScopeAncestry.enterWith({
+				scope: this,
+				parent
+			});
+			return run();
+		});
+	}
+	/** Enters synchronous work without inspecting or assimilating its return value. */
+	run(run) {
+		if (this.phase === "closed") throw new Error("Async work scope is closed");
+		const operation = createDeferredCore();
+		this.pending.add(operation.promise);
+		try {
+			return this.enter(run);
+		} finally {
+			operation.resolve();
+			this.pending.delete(operation.promise);
+		}
+	}
+	track(run) {
+		if (this.phase === "closed") return Promise.reject(/* @__PURE__ */ new Error("Async work scope is closed"));
+		const operation = createDeferredCore();
+		this.pending.add(operation.promise);
+		operation.promise.then(() => this.pending.delete(operation.promise), (error) => {
+			this.pending.delete(operation.promise);
+			this.failures?.add(error);
+		});
+		try {
+			operation.resolve(this.enter(run));
+		} catch (error) {
+			operation.reject(error);
+		}
+		return operation.promise;
+	}
+	beginClose(reason) {
+		if (this.phase !== "open") return;
+		this.phase = "closing";
+		this.controller.abort(reason);
+	}
+	/** Starts the next phase in the same continuation that observes settled pending work. */
+	runWhenIdle(run) {
+		return AsyncWorkScope.runWhenAllIdle(() => [this], () => this.track(run));
+	}
+	/** Reselects owners so work admitted into a later phase is not mistaken for earlier work. */
+	static async runWhenAllIdle(selectScopes, run) {
+		let scopes = selectScopes();
+		while (scopes.some((scope) => scope.pending.size > 0)) {
+			await Promise.allSettled(scopes.flatMap((scope) => Array.from(scope.pending)));
+			scopes = selectScopes();
+		}
+		return run();
+	}
+	async drain() {
+		this.beginClose();
+		while (this.pending.size > 0) await Promise.allSettled(this.pending);
+		this.phase = "closed";
+	}
+};
+/** Starts work its caller does not own, so the caller's scope neither waits for it nor closes under it. */
+function runOutsideAsyncWorkScope(run) {
+	return currentWorkScope.exit(() => currentWorkScopeAncestry.exit(run));
+}
+//#endregion
+//#region src/plugins/host-hook-cleanup-result.ts
+/** Merge raw instance outcomes without duplicating their existing host or instance report. */
+function appendPluginInstanceCleanupFailures(failures, pluginId, result) {
+	for (const error of result.errors) {
+		if (failures.some((failure) => failure.pluginId === pluginId && failure.error === error && (failure.hookId === "instance" || result.hostCleanupErrors?.includes(error)))) continue;
+		failures.push({
+			pluginId,
+			hookId: "instance",
+			error
+		});
+	}
+}
+//#endregion
+//#region src/plugins/plugin-cache-sdk.ts
+/** Derived SDK facts share the plugin cache lifetime; none owns a separate expiry. */
+function createPluginCacheSdk() {
+	return {
+		hosts: /* @__PURE__ */ new Map(),
+		contexts: /* @__PURE__ */ new Map(),
+		packageNames: /* @__PURE__ */ new Map(),
+		packageSearches: /* @__PURE__ */ new Map(),
+		argvDirectories: /* @__PURE__ */ new Map(),
+		devSourceRoots: /* @__PURE__ */ new Map(),
+		runtimeModules: /* @__PURE__ */ new Map(),
+		usableDistArtifacts: /* @__PURE__ */ new Map(),
+		normalizedJitiAliases: /* @__PURE__ */ new Map(),
+		aliasFacts: /* @__PURE__ */ new WeakMap(),
+		native: {
+			sdkProviders: /* @__PURE__ */ new Map(),
+			nextSdkProviderOrder: 0,
+			parents: /* @__PURE__ */ new Map(),
+			aliases: /* @__PURE__ */ new Map(),
+			registeredHosts: /* @__PURE__ */ new Set(),
+			hostRoots: /* @__PURE__ */ new Map(),
+			nearestPackageRoots: /* @__PURE__ */ new Map(),
+			loaderPackageRoots: /* @__PURE__ */ new Map(),
+			allowedParentRoots: /* @__PURE__ */ new Map()
+		}
+	};
+}
+resolveGlobalSingleton(Symbol.for("openclaw.pluginSourceRecoveryUnavailableError"), () => class SourceRecoveryUnavailableError extends Error {
+	constructor(cause) {
+		super("Captured plugin source is missing; its previous code cannot be recovered.", { cause });
+		this.name = "PluginSourceRecoveryUnavailableError";
+	}
+});
+const PluginInstanceDrainTimeoutError = resolveGlobalSingleton(Symbol.for("openclaw.pluginInstanceDrainTimeoutError"), () => class DrainTimeoutError extends Error {
+	constructor(message, settled, options, forcedRetirement) {
+		super(message, options);
+		this.settled = settled;
+		this.forcedRetirement = forcedRetirement;
+		this.name = "PluginInstanceDrainTimeoutError";
+	}
+});
+//#endregion
+//#region src/plugins/plugin-cache.ts
+const state$2 = resolveGlobalSingleton(Symbol.for("openclaw.pluginCache"), () => ({
+	snapshotOwners: /* @__PURE__ */ new WeakMap(),
+	retirements: []
+}));
+const cacheRetainers = resolveGlobalSingleton(Symbol.for("openclaw.pluginCacheRetainers"), () => /* @__PURE__ */ new WeakMap());
+const instanceCacheOwners = resolveGlobalSingleton(Symbol.for("openclaw.pluginInstanceCacheOwners"), () => /* @__PURE__ */ new WeakMap());
+/** A retiring inventory releases its own custody; terminal disposal releases every birth cache. */
+function releasePluginCacheInstance(instance, cache) {
+	const owners = instanceCacheOwners.get(instance);
+	if (cache) {
+		cache.instances.delete(instance);
+		owners?.delete(cache);
+	} else {
+		for (const owner of owners ?? []) owner.instances.delete(instance);
+		owners?.clear();
+	}
+	if (owners?.size === 0) instanceCacheOwners.delete(instance);
+}
+function getPluginCacheRetainers(cache) {
+	let retained = cacheRetainers.get(cache);
+	if (!retained) {
+		retained = {
+			references: /* @__PURE__ */ new Set(),
+			controller: new AbortController(),
+			settled: createDeferredCore()
+		};
+		cacheRetainers.set(cache, retained);
+	}
+	return retained;
+}
+function createPluginMetadataCache() {
+	return {
+		current: {
+			snapshot: void 0,
+			owner: "operation",
+			configFingerprint: void 0,
+			agentWorkspaceFingerprint: void 0,
+			envFingerprint: void 0,
+			defaultDiscoveryCompatible: false,
+			compatiblePolicyHashes: void 0,
+			compatibleConfigFingerprints: void 0,
+			revision: Symbol("plugin-metadata-snapshot"),
+			configIdentities: /* @__PURE__ */ new WeakSet()
+		},
+		snapshots: /* @__PURE__ */ new Map(),
+		discovery: /* @__PURE__ */ new Map(),
+		sharedDiscovery: /* @__PURE__ */ new Map(),
+		projections: /* @__PURE__ */ new WeakMap(),
+		projectionSources: /* @__PURE__ */ new WeakMap(),
+		completions: /* @__PURE__ */ new WeakMap(),
+		indexFacts: /* @__PURE__ */ new WeakMap(),
+		providerPolicyOwners: /* @__PURE__ */ new WeakMap(),
+		channelAdapters: /* @__PURE__ */ new WeakMap(),
+		bundledChannelCatalogs: /* @__PURE__ */ new Map(),
+		bundledProviderPolicySurfaces: /* @__PURE__ */ new WeakMap(),
+		staticCatalogStates: /* @__PURE__ */ new WeakMap(),
+		modelSuppressionResolvers: /* @__PURE__ */ new WeakMap(),
+		mcpAuthDeclarations: /* @__PURE__ */ new WeakMap()
+	};
+}
+/** Each inventory owns its acquired facts and reusable load results; publication owns activation. */
+function createPluginCache(options = {}) {
+	return {
+		async [Symbol.asyncDispose]() {
+			await retirePluginCache(this);
+		},
+		kind: options.kind ?? "operation",
+		roots: /* @__PURE__ */ new Map(),
+		rootAliases: /* @__PURE__ */ new Map(),
+		sdk: createPluginCacheSdk(),
+		setupModules: /* @__PURE__ */ new Map(),
+		instances: /* @__PURE__ */ new Set(),
+		metadata: createPluginMetadataCache(),
+		installRecords: /* @__PURE__ */ new Map(),
+		persistedInstalledIndex: /* @__PURE__ */ new Map(),
+		preparedBundledDiscoveryModes: /* @__PURE__ */ new Map(),
+		dependencyStatus: /* @__PURE__ */ new WeakMap(),
+		moduleLoaders: /* @__PURE__ */ new Map(),
+		sources: /* @__PURE__ */ new Map(),
+		sourceAliases: /* @__PURE__ */ new Map(),
+		runtimeRecordRoots: /* @__PURE__ */ new WeakMap()
+	};
+}
+function getProcessPluginCache() {
+	return state$2.current ??= createPluginCache({ kind: "process" });
+}
+function getScopedPluginCache() {
+	return getPluginExecutionFrame()?.cacheScope?.cache;
+}
+function getPluginCache() {
+	return getScopedPluginCache() ?? getProcessPluginCache();
+}
+/** Stop new setup calls immediately; the owner awaits in-flight calls and graph cleanup. */
+function retirePluginCache(cache, beforeRetire, options) {
+	const retained = getPluginCacheRetainers(cache);
+	if (retained.retirement) return retained.retirement;
+	const completion = createDeferredCore();
+	retained.retirement = completion.promise;
+	const retire = async () => {
+		if (retained.references.size) await retained.settled.promise;
+		const work = new AsyncWorkScope();
+		try {
+			return await work.track(() => beginPluginCacheRetirement(cache, beforeRetire, options));
+		} finally {
+			await work.drain();
+		}
+	};
+	retained.controller.abort();
+	materializeErrorStack(retained.controller.signal.reason);
+	runOutsideAsyncWorkScope(retire).then(completion.resolve, completion.reject);
+	return completion.promise;
+}
+function beginPluginCacheRetirement(cache, beforeRetire, options) {
+	if (cache.retirement) return cache.retirement;
+	const retirement = createDeferredCore();
+	cache.retirement = retirement.promise;
+	const cleanup = async () => {
+		beforeRetire?.();
+		const registries = cache.retireRegistryLoads?.();
+		const resources = /* @__PURE__ */ new Set([...cache.setupModules.values(), ...cache.instances]);
+		for (const resource of resources) resource.quiesce();
+		const [registry] = await Promise.allSettled([registries]);
+		const outcomes = await Promise.allSettled([...resources].map(async (resource) => ({
+			resource,
+			result: await resource.dispose(void 0, options)
+		})));
+		const nativeAdmissions = cache.sourceAdmissions;
+		if (nativeAdmissions) {
+			const pending = outcomes.flatMap((outcome) => outcome.status === "fulfilled" ? outcome.value.result.errors.flatMap((error) => error instanceof PluginInstanceDrainTimeoutError ? [error.settled] : []) : []);
+			if (pending.length > 0) Promise.allSettled(pending).then(() => nativeAdmissions.dispose()).catch((error) => process.emitWarning(`Plugin native capture cleanup failed: ${String(error)}`));
+			else await nativeAdmissions.dispose();
+		}
+		cache.setupModules.clear();
+		for (const instance of cache.instances) releasePluginCacheInstance(instance, cache);
+		const unexpected = [...registry.status === "rejected" ? [registry.reason] : [], ...outcomes.flatMap((result) => result.status === "rejected" ? [result.reason] : [])];
+		if (unexpected.length) throw new AggregateError(unexpected, "Plugin cache resources failed to retire");
+		const host = registry.status === "fulfilled" ? registry.value : void 0;
+		const failures = [...host?.failures ?? []];
+		for (const outcome of outcomes) {
+			if (outcome.status !== "fulfilled") continue;
+			const { resource, result } = outcome.value;
+			appendPluginInstanceCleanupFailures(failures, resource.pluginId, result);
+		}
+		return {
+			cleanupCount: host?.cleanupCount ?? 0,
+			failures
+		};
+	};
+	cleanup().then(retirement.resolve, retirement.reject);
+	return retirement.promise;
+}
+//#endregion
+//#region src/infra/openclaw-root.ts
+function parsePackageName(raw) {
+	const parsed = JSON.parse(raw);
+	return typeof parsed.name === "string" ? parsed.name : null;
+}
+function readPackageNameSync(dir) {
+	const packageNameCache = getPluginCache().sdk.packageNames;
+	const packageJsonPath = path.join(path.resolve(dir), "package.json");
+	if (packageNameCache.has(packageJsonPath)) return packageNameCache.get(packageJsonPath) ?? null;
+	try {
+		const name = parsePackageName(openClawRootFsSync.readFileSync(packageJsonPath, "utf-8"));
+		packageNameCache.set(packageJsonPath, name);
+		return name;
+	} catch {
+		packageNameCache.set(packageJsonPath, null);
+		return null;
+	}
+}
+function findPackageRootSync(startDir, maxDepth = 12) {
+	for (const current of iterAncestorDirs(startDir, maxDepth)) if (readPackageNameSync(current) === "openclaw") return current;
+	return null;
+}
+function* iterAncestorDirs(startDir, maxDepth) {
+	let current = path.resolve(startDir);
+	for (let i = 0; i < maxDepth; i += 1) {
+		yield current;
+		if (path.basename(current) === "node_modules") break;
+		const parent = path.dirname(current);
+		if (parent === current) break;
+		current = parent;
+	}
+}
+function candidateDirsFromArgv1(argv1) {
+	const argv1CandidateCache = getPluginCache().sdk.argvDirectories;
+	const cacheKey = path.resolve(argv1);
+	const cached = argv1CandidateCache.get(cacheKey);
+	if (cached) return [...cached];
+	const normalized = cacheKey;
+	const candidates = [];
+	try {
+		const resolved = openClawRootFsSync.realpathSync(normalized);
+		if (resolved !== normalized) candidates.push(path.dirname(resolved));
+	} catch {}
+	candidates.push(path.dirname(normalized));
+	const parts = normalized.split(path.sep);
+	const binIndex = parts.lastIndexOf(".bin");
+	if (binIndex > 0 && parts[binIndex - 1] === "node_modules") {
+		const binName = path.basename(normalized);
+		const nodeModulesDir = parts.slice(0, binIndex).join(path.sep);
+		candidates.push(path.join(nodeModulesDir, binName));
+	}
+	const deduped = dedupeCandidates(candidates);
+	argv1CandidateCache.set(cacheKey, deduped);
+	return [...deduped];
+}
+function preparePackageRootSearch(opts, preserveInventory) {
+	const candidates = buildCandidates(opts);
+	const cacheKey = candidates.join("\0");
+	const searches = getPluginCache().sdk.packageSearches;
+	const cached = searches.get(cacheKey);
+	return {
+		candidates,
+		first: cached?.all ? cached.all[0] ?? null : cached?.first,
+		complete(first) {
+			searches.set(cacheKey, preserveInventory ? {
+				...searches.get(cacheKey),
+				first
+			} : { first });
+			return first;
+		}
+	};
+}
+function resolveOpenClawPackageRootSync(opts) {
+	const search = preparePackageRootSearch(opts, false);
+	if (search.first !== void 0) return search.first;
+	for (const candidate of search.candidates) {
+		const found = findPackageRootSync(candidate);
+		if (found) return search.complete(found);
+	}
+	return search.complete(null);
+}
+function buildCandidates(opts) {
+	const candidates = [];
+	if (opts.moduleUrl) try {
+		candidates.push(path.dirname(fileURLToPath(opts.moduleUrl)));
+	} catch {}
+	if (opts.argv1) candidates.push(...candidateDirsFromArgv1(opts.argv1));
+	if (opts.cwd) candidates.push(opts.cwd);
+	return dedupeCandidates(candidates);
+}
+function dedupeCandidates(candidates) {
+	return [...new Set(candidates.map((candidate) => path.resolve(candidate)))];
+}
+//#endregion
+//#region src/infra/git-commit.ts
+const formatCommit = (value) => {
+	const match = value?.match(/[0-9a-fA-F]{7,40}/);
+	return match ? normalizeLowercaseStringOrEmpty(match[0].slice(0, 7)) : null;
+};
+const cachedGitCommitBySearchDir = new LruCache(256);
+const resolveCommitSearchDir = (options) => {
+	if (options.cwd) return path.resolve(options.cwd);
+	if (options.moduleUrl) try {
+		return path.dirname(fileURLToPath(options.moduleUrl));
+	} catch {}
+	return process.cwd();
+};
+const cacheGitCommit = (searchDir, commit) => {
+	cachedGitCommitBySearchDir.set(searchDir, commit);
+	return commit;
+};
+const resolveGitLookupDepth = (searchDir, packageRoot) => {
+	if (!packageRoot) return;
+	const relative = path.relative(packageRoot, searchDir);
+	if (relative.startsWith("..") || path.isAbsolute(relative)) return;
+	return (relative ? relative.split(path.sep).filter(Boolean).length : 0) + 1;
+};
+const readCommitFromGit = (searchDir, packageRoot) => {
+	const head = readGitHead(searchDir, { maxDepth: resolveGitLookupDepth(searchDir, packageRoot) });
+	return head === void 0 ? void 0 : formatCommit(head.value);
+};
+const readCommitFromPackageJson = () => {
+	try {
+		const pkg = createRequire(import.meta.url)("../../package.json");
+		return formatCommit(pkg.gitHead ?? pkg.githead ?? null);
+	} catch {
+		return null;
+	}
+};
+const readCommitProbe = (moduleUrl, candidates, field) => {
+	try {
+		for (const candidate of candidates) {
+			const filePath = fileURLToPath(new URL(candidate, moduleUrl));
+			let raw;
+			try {
+				raw = readGitMetadataPrefix(filePath, 1024);
+			} catch (error) {
+				if (isMissingPathError(error)) continue;
+				return null;
+			}
+			try {
+				const value = asNullableRecord(JSON.parse(raw))?.[field];
+				return typeof value === "string" ? formatCommit(value) : null;
+			} catch {
+				return null;
+			}
+		}
+	} catch {}
+};
+const readCommitFromBuildInfo = (moduleUrl = import.meta.url) => {
+	return readCommitProbe(moduleUrl, ["../build-info.json", "./build-info.json"], "commit") ?? null;
+};
+const readLoadedCommit = (moduleUrl) => {
+	const buildStamp = readCommitProbe(moduleUrl, ["../.buildstamp", "./.buildstamp"], "head");
+	const runtimeStamp = readCommitProbe(moduleUrl, ["../.runtime-postbuildstamp", "./.runtime-postbuildstamp"], "head");
+	if (buildStamp !== void 0 || runtimeStamp !== void 0) {
+		if (buildStamp || runtimeStamp) return buildStamp && buildStamp === runtimeStamp ? buildStamp : null;
+		return readCommitFromBuildInfo(moduleUrl);
+	}
+	return readCommitProbe(moduleUrl, ["../build-info.json", "./build-info.json"], "commit");
+};
+const resolveCommitHash = (options = {}) => {
+	const env = options.env ?? process.env;
+	const readers = options.readers ?? {};
+	const readGitCommit = readers.readGitCommit ?? readCommitFromGit;
+	const envCommit = env.GIT_COMMIT?.trim() || env.GIT_SHA?.trim();
+	const normalized = formatCommit(envCommit);
+	if (normalized) return normalized;
+	const searchDir = resolveCommitSearchDir(options);
+	const cached = cachedGitCommitBySearchDir.get(searchDir);
+	if (cached !== void 0) return cached;
+	const packageRoot = resolveOpenClawPackageRootSync({
+		cwd: options.cwd,
+		moduleUrl: options.moduleUrl
+	});
+	try {
+		const gitCommit = readGitCommit(searchDir, packageRoot);
+		if (gitCommit !== void 0) return cacheGitCommit(searchDir, gitCommit);
+	} catch {}
+	const buildInfoCommit = readers.readBuildInfoCommit?.() ?? readCommitFromBuildInfo();
+	if (buildInfoCommit) return cacheGitCommit(searchDir, buildInfoCommit);
+	const pkgCommit = readers.readPackageJsonCommit?.() ?? readCommitFromPackageJson();
+	if (pkgCommit) return cacheGitCommit(searchDir, pkgCommit);
+	try {
+		return cacheGitCommit(searchDir, readGitCommit(searchDir, packageRoot) ?? null);
+	} catch {
+		return cacheGitCommit(searchDir, null);
+	}
+};
+/** Resolve the commit that produced the loaded artifact, not the checkout's current revision. */
+function resolveLoadedCommitHash(options = {}) {
+	const moduleUrl = options.moduleUrl ?? import.meta.url;
+	const loaded = readLoadedCommit(moduleUrl);
+	return loaded === void 0 ? resolveCommitHash({
+		moduleUrl,
+		...options.env ? { env: options.env } : {}
+	}) : loaded;
+}
+//#endregion
+//#region src/version.ts
+const CORE_PACKAGE_NAME = "openclaw";
+const PACKAGE_JSON_CANDIDATES = [
+	"../package.json",
+	"../../package.json",
+	"../../../package.json",
+	"./package.json"
+];
+const BUILD_INFO_CANDIDATES = [
+	"../build-info.json",
+	"../../build-info.json",
+	"./build-info.json"
+];
+function readVersionFromJsonCandidates(moduleUrl, candidates, opts = {}) {
+	try {
+		const require = createRequire(moduleUrl);
+		for (const candidate of candidates) try {
+			const parsed = require(candidate);
+			const version = normalizeOptionalString(parsed.version);
+			if (!version) continue;
+			if (opts.requirePackageName && parsed.name !== CORE_PACKAGE_NAME) continue;
+			return version;
+		} catch {}
+		return null;
+	} catch {
+		return null;
+	}
+}
+function readBuildIdFromJsonCandidates(moduleUrl) {
+	try {
+		const require = createRequire(moduleUrl);
+		for (const candidate of BUILD_INFO_CANDIDATES) try {
+			const buildId = normalizeOptionalString(require(candidate).buildId);
+			if (buildId && buildId.length <= 96) return buildId;
+		} catch {}
+		return null;
+	} catch {
+		return null;
+	}
+}
+function firstNonEmpty(...values) {
+	for (const value of values) {
+		const trimmed = normalizeOptionalString(value);
+		if (trimmed && trimmed.toLowerCase() !== "undefined" && trimmed.toLowerCase() !== "null") return trimmed;
+	}
+}
+function readVersionFromPackageJsonForModuleUrl(moduleUrl) {
+	return readVersionFromJsonCandidates(moduleUrl, PACKAGE_JSON_CANDIDATES, { requirePackageName: true });
+}
+function readVersionFromBuildInfoForModuleUrl(moduleUrl) {
+	return readVersionFromJsonCandidates(moduleUrl, BUILD_INFO_CANDIDATES);
+}
+function readBuildIdFromBuildInfoForModuleUrl(moduleUrl) {
+	return readBuildIdFromJsonCandidates(moduleUrl);
+}
+function resolveVersionFromModuleUrl(moduleUrl) {
+	return readVersionFromBuildInfoForModuleUrl(moduleUrl) || readVersionFromPackageJsonForModuleUrl(moduleUrl);
+}
+function resolveBinaryVersion(params) {
+	return resolveVersionFromModuleUrl(params.moduleUrl) || firstNonEmpty(params.bundledVersion) || params.fallback || "0.0.0";
+}
+readBuildIdFromBuildInfoForModuleUrl(import.meta.url);
+resolveLoadedCommitHash({ moduleUrl: import.meta.url });
+const VERSION = resolveBinaryVersion({
+	moduleUrl: import.meta.url,
+	bundledVersion: process.env.OPENCLAW_BUNDLED_VERSION
+});
+//#endregion
+//#region src/state/openclaw-agent-schema.ts
+const OPENCLAW_AGENT_SCHEMA_SQL = "-- Session storage doctrine: session_nodes.entry_json owns hot logical-session facts;\n-- session_entry_snapshots owns keyed cold values. Promoted node columns are query\n-- indexes; session_windows and their children own transcript generations.\n-- Legacy ACP provenance is private import evidence carried with its logical session.\n\nCREATE TABLE IF NOT EXISTS schema_meta (\n  meta_key TEXT NOT NULL PRIMARY KEY,\n  role TEXT NOT NULL,\n  schema_version INTEGER NOT NULL,\n  agent_id TEXT,\n  app_version TEXT,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS session_nodes (\n  session_key TEXT NOT NULL PRIMARY KEY,\n  current_session_id TEXT NOT NULL,\n  entry_json TEXT NOT NULL,\n  session_started_at INTEGER,\n  has_optional_references INTEGER NOT NULL DEFAULT 0,\n  snapshot_revision INTEGER NOT NULL DEFAULT 0,\n  legacy_acp_migration_json TEXT,\n  entry_valid INTEGER NOT NULL DEFAULT 0 CHECK (entry_valid IN (-1, 0, 1)),\n  updated_at INTEGER NOT NULL,\n  status TEXT CHECK (status IS NULL OR status IN ('running', 'done', 'failed', 'killed', 'timeout')),\n  created_at INTEGER,\n  created_via TEXT CHECK (created_via IS NULL OR created_via IN ('operator', 'spawn', 'channel', 'cron', 'talk', 'run', 'plugin', 'internal')),\n  created_actor_type TEXT CHECK (created_actor_type IS NULL OR created_actor_type IN ('human', 'agent', 'system')),\n  created_actor_id TEXT,\n  owner_actor_type TEXT,\n  owner_actor_id TEXT,\n  owner_assigned_by_type TEXT,\n  owner_assigned_by_id TEXT,\n  owner_assigned_at INTEGER,\n  project_id TEXT,\n  parent_session_key TEXT,\n  spawned_by TEXT,\n  fork_source_session_key TEXT,\n  fork_source_session_id TEXT,\n  fork_source_entry_id TEXT,\n  label TEXT,\n  display_name TEXT,\n  category TEXT,\n  icon TEXT,\n  pinned_at INTEGER,\n  archived_at INTEGER,\n  last_read_at INTEGER,\n  last_interaction_at INTEGER,\n  last_activity_at INTEGER\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS session_entry_snapshots (\n  session_key TEXT NOT NULL,\n  field TEXT NOT NULL CHECK (field IN ('sessionDiffBaseline', 'skillsSnapshot', 'systemPromptReport')),\n  value_json TEXT NOT NULL,\n  PRIMARY KEY (session_key, field),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT, WITHOUT ROWID;\n\nCREATE TRIGGER IF NOT EXISTS session_entry_snapshots_after_insert\nAFTER INSERT ON session_entry_snapshots\nBEGIN\n  UPDATE session_nodes SET snapshot_revision = snapshot_revision + 1\n  WHERE session_key = NEW.session_key;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS session_entry_snapshots_after_update\nAFTER UPDATE OF session_key, field, value_json ON session_entry_snapshots\nWHEN NEW.session_key IS NOT OLD.session_key\n  OR NEW.field IS NOT OLD.field OR NEW.value_json IS NOT OLD.value_json\nBEGIN\n  UPDATE session_nodes SET snapshot_revision = snapshot_revision + 1\n  WHERE session_key IN (OLD.session_key, NEW.session_key);\nEND;\n\nCREATE TRIGGER IF NOT EXISTS session_entry_snapshots_after_delete\nAFTER DELETE ON session_entry_snapshots\nBEGIN\n  UPDATE session_nodes SET snapshot_revision = snapshot_revision + 1\n  WHERE session_key = OLD.session_key;\nEND;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_updated_at\n  ON session_nodes(updated_at DESC, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_last_interaction_at\n  ON session_nodes(last_interaction_at DESC, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_label\n  ON session_nodes(label, session_key)\n  WHERE label IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_parent_session_key\n  ON session_nodes(parent_session_key, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_spawned_by\n  ON session_nodes(spawned_by, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_status\n  ON session_nodes(status, session_key)\n  WHERE status IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_archived_at\n  ON session_nodes(archived_at, session_key)\n  WHERE archived_at IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_active\n  ON session_nodes(session_key)\n  WHERE archived_at IS NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_current_session_id\n  ON session_nodes(current_session_id);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_entry_valid_pending\n  ON session_nodes(session_key)\n  WHERE entry_valid = 0;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_entry_not_valid\n  ON session_nodes(session_key)\n  WHERE entry_valid != 1;\n\nCREATE TABLE IF NOT EXISTS session_participants (\n  session_key TEXT NOT NULL,\n  identity_namespace TEXT NOT NULL,\n  actor_id TEXT NOT NULL,\n  contribution_count INTEGER NOT NULL,\n  first_prompted_at INTEGER,\n  last_prompted_at INTEGER,\n  PRIMARY KEY (session_key, identity_namespace, actor_id),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS session_key_contract (\n  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),\n  main_key TEXT NOT NULL,\n  canonical_ready TEXT,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nINSERT OR IGNORE INTO session_key_contract (id, main_key, updated_at) VALUES (1, 'main', 0);\n\nCREATE TABLE IF NOT EXISTS session_windows (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  session_key TEXT NOT NULL,\n  previous_session_id TEXT,\n  reason TEXT CHECK (reason IS NULL OR reason IN ('initial', 'reset', 'rollover', 'fork', 'rewind', 'switch', 'recovery', 'compaction')),\n  session_scope TEXT NOT NULL DEFAULT 'conversation' CHECK (session_scope IN ('conversation', 'shared-main', 'group', 'channel')),\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  transcript_updated_at INTEGER DEFAULT NULL,\n  row_transcript_json TEXT,\n  row_transcript_updated_at INTEGER,\n  transcript_observed_at INTEGER DEFAULT NULL,\n  session_entry_provenance INTEGER NOT NULL DEFAULT 0 CHECK (session_entry_provenance IN (0, 1)),\n  acp_owned INTEGER NOT NULL DEFAULT 0 CHECK (acp_owned IN (0, 1)),\n  plugin_owner_id TEXT,\n  hook_external_content_source TEXT CHECK (hook_external_content_source IS NULL OR hook_external_content_source IN ('gmail', 'webhook')),\n  started_at INTEGER,\n  ended_at INTEGER,\n  status TEXT CHECK (status IS NULL OR status IN ('running', 'done', 'failed', 'killed', 'timeout')),\n  chat_type TEXT CHECK (chat_type IS NULL OR chat_type IN ('direct', 'group', 'channel')),\n  channel TEXT,\n  account_id TEXT,\n  primary_conversation_id TEXT,\n  model_provider TEXT,\n  model TEXT,\n  agent_harness_id TEXT,\n  parent_session_key TEXT,\n  spawned_by TEXT,\n  display_name TEXT,\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE,\n  FOREIGN KEY (primary_conversation_id) REFERENCES conversations(conversation_id) ON DELETE SET NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_windows_updated_at\n  ON session_windows(updated_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_windows_session_key\n  ON session_windows(session_key, updated_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_windows_created_at\n  ON session_windows(created_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_windows_conversation\n  ON session_windows(primary_conversation_id, updated_at DESC, session_id)\n  WHERE primary_conversation_id IS NOT NULL;\n\n-- Offline imports and repairs queue explicit work; admission also settles keys\n-- removed during repair, so the queue deliberately has no node foreign key.\nCREATE TABLE IF NOT EXISTS session_canonical_validation_pending (\n  session_key TEXT NOT NULL PRIMARY KEY\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS conversations (\n  conversation_id TEXT NOT NULL PRIMARY KEY,\n  channel TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  kind TEXT NOT NULL CHECK (kind IN ('direct', 'group', 'channel')),\n  peer_id TEXT NOT NULL,\n  delivery_target TEXT NOT NULL,\n  parent_conversation_id TEXT,\n  thread_id TEXT,\n  native_channel_id TEXT,\n  native_direct_user_id TEXT,\n  label TEXT,\n  metadata_json TEXT,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_conversations_lookup\n  ON conversations(channel, account_id, kind, peer_id, thread_id);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_agent_conversations_identity\n  ON conversations(\n    channel,\n    account_id,\n    kind,\n    peer_id,\n    IFNULL(parent_conversation_id, ''),\n    IFNULL(thread_id, '')\n  );\n\nCREATE INDEX IF NOT EXISTS idx_agent_conversations_updated\n  ON conversations(updated_at DESC, conversation_id);\n\nCREATE TABLE IF NOT EXISTS conversation_deliveries (\n  operation_id TEXT NOT NULL PRIMARY KEY,\n  operation_kind TEXT NOT NULL CHECK (operation_kind IN ('send', 'turn')),\n  conversation_id TEXT NOT NULL,\n  source_session_key TEXT,\n  message_hash TEXT NOT NULL,\n  status TEXT NOT NULL CHECK (status IN ('created', 'queued', 'sent', 'suppressed', 'rejected', 'unknown', 'replied')),\n  prepared_message_id TEXT,\n  platform_message_id TEXT,\n  queue_id TEXT,\n  rejection_error TEXT,\n  reply_message_id TEXT,\n  reply_to_id TEXT,\n  reply_thread_id TEXT,\n  reply_text TEXT,\n  reply_timestamp INTEGER,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  CHECK (\n    (status = 'rejected' AND rejection_error IS NOT NULL) OR\n    (status != 'rejected' AND rejection_error IS NULL)\n  ),\n  FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_conversation_deliveries_reply\n  ON conversation_deliveries(conversation_id, platform_message_id, prepared_message_id)\n  WHERE status IN ('queued', 'sent', 'replied');\n\nCREATE INDEX IF NOT EXISTS idx_agent_conversation_deliveries_updated\n  ON conversation_deliveries(updated_at DESC, operation_id);\n\nCREATE TABLE IF NOT EXISTS session_conversations (\n  session_id TEXT NOT NULL,\n  conversation_id TEXT NOT NULL,\n  role TEXT NOT NULL DEFAULT 'primary' CHECK (role IN ('primary', 'participant', 'related')),\n  route_context_json TEXT,\n  first_seen_at INTEGER NOT NULL,\n  last_seen_at INTEGER NOT NULL,\n  PRIMARY KEY (session_id, conversation_id, role),\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE,\n  FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id) ON DELETE CASCADE\n) STRICT;\n\n-- Older same-version writers preserve the envelope while updating the association.\nCREATE TRIGGER IF NOT EXISTS session_conversations_route_context_invalidate_after_update\nAFTER UPDATE OF role, last_seen_at ON session_conversations\nWHEN NEW.route_context_json IS OLD.route_context_json\nBEGIN\n  UPDATE session_conversations\n  SET route_context_json = NULL\n  WHERE session_id = NEW.session_id\n    AND conversation_id = NEW.conversation_id\n    AND role = NEW.role;\nEND;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_conversations_conversation\n  ON session_conversations(conversation_id, last_seen_at DESC, session_id);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_agent_session_conversations_primary\n  ON session_conversations(session_id)\n  WHERE role = 'primary';\n\nCREATE TABLE IF NOT EXISTS session_members (\n  session_key TEXT NOT NULL,\n  identity_id TEXT NOT NULL,\n  added_by TEXT NOT NULL,\n  added_at INTEGER NOT NULL,\n  PRIMARY KEY (session_key, identity_id),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_members_identity\n  ON session_members(identity_id, session_key);\n\nCREATE TABLE IF NOT EXISTS session_suggestions (\n  id TEXT PRIMARY KEY,\n  session_key TEXT NOT NULL,\n  author_id TEXT NOT NULL,\n  author_label TEXT,\n  text TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  state TEXT NOT NULL CHECK (state IN ('pending', 'accepted', 'dismissed')),\n  dispatch_token TEXT,\n  dispatch_started_at INTEGER,\n  dispatch_resolution TEXT CHECK (dispatch_resolution IN ('send', 'queue', 'edit', 'dismiss')),\n  CHECK (\n    (dispatch_token IS NULL AND dispatch_started_at IS NULL AND dispatch_resolution IS NULL)\n    OR (dispatch_token IS NOT NULL AND dispatch_started_at IS NOT NULL AND dispatch_resolution IS NOT NULL)\n  ),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_suggestions_session_state_created\n  ON session_suggestions(session_key, state, created_at, id);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_suggestions_author_created\n  ON session_suggestions(author_id, created_at, id);\n\nCREATE TABLE IF NOT EXISTS session_reactions (\n  session_key TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  message_id TEXT NOT NULL,\n  emoji TEXT NOT NULL,\n  identity_id TEXT NOT NULL,\n  identity_label TEXT,\n  created_at INTEGER NOT NULL,\n  PRIMARY KEY (session_key, session_id, message_id, emoji, identity_id),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_reactions_message\n  ON session_reactions(session_key, session_id, message_id);\n\nCREATE TABLE IF NOT EXISTS board_tabs (\n  session_key TEXT NOT NULL,\n  tab_id TEXT NOT NULL,\n  title TEXT NOT NULL,\n  position INTEGER NOT NULL CHECK (position >= 0),\n  chat_dock TEXT NOT NULL DEFAULT 'right' CHECK (chat_dock IN ('left', 'right', 'bottom', 'hidden')),\n  created_by TEXT NOT NULL CHECK (created_by IN ('user', 'agent')),\n  revision INTEGER NOT NULL CHECK (revision >= 0),\n  PRIMARY KEY (session_key, tab_id),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS board_widgets (\n  session_key TEXT NOT NULL,\n  name TEXT NOT NULL,\n  tab_id TEXT NOT NULL,\n  title TEXT,\n  content_kind TEXT NOT NULL CHECK (content_kind IN ('html', 'mcp-app', 'plugin')),\n  html BLOB,\n  descriptor_json TEXT,\n  sha256 TEXT NOT NULL,\n  view_generation TEXT,\n  revision INTEGER NOT NULL CHECK (revision >= 1),\n  size_w INTEGER NOT NULL CHECK (size_w BETWEEN 1 AND 12),\n  size_h INTEGER NOT NULL CHECK (size_h BETWEEN 1 AND 20),\n  position INTEGER NOT NULL CHECK (position >= 0),\n  manifest TEXT NOT NULL DEFAULT '{}',\n  grant_state TEXT NOT NULL DEFAULT 'none' CHECK (grant_state IN ('none', 'pending', 'granted', 'rejected')),\n  granted_sha TEXT,\n  created_by TEXT NOT NULL CHECK (created_by IN ('user', 'agent')),\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (session_key, name),\n  FOREIGN KEY (session_key, tab_id) REFERENCES board_tabs(session_key, tab_id) ON DELETE CASCADE,\n  CHECK (\n    (content_kind = 'html' AND html IS NOT NULL AND descriptor_json IS NULL AND view_generation IS NOT NULL) OR\n    (content_kind = 'mcp-app' AND html IS NULL AND descriptor_json IS NOT NULL AND view_generation IS NULL) OR\n    (content_kind = 'plugin' AND html IS NULL AND descriptor_json IS NOT NULL AND view_generation IS NULL)\n  )\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_board_widgets_tab_position\n  ON board_widgets(session_key, tab_id, position);\n\nCREATE TABLE IF NOT EXISTS session_progress_cards (\n  session_key TEXT NOT NULL PRIMARY KEY,\n  markdown TEXT,\n  steps_json TEXT,\n  revision INTEGER NOT NULL,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS heartbeat_outcomes (\n  session_key TEXT NOT NULL PRIMARY KEY,\n  run_session_key TEXT NOT NULL,\n  outcome TEXT NOT NULL CHECK (outcome IN ('progress', 'done', 'blocked', 'needs_attention')),\n  summary TEXT NOT NULL,\n  response_reason TEXT,\n  priority TEXT CHECK (priority IS NULL OR priority IN ('low', 'normal', 'high')),\n  next_check TEXT,\n  task_names_json TEXT,\n  wake_source TEXT,\n  wake_reason TEXT,\n  occurred_at INTEGER NOT NULL,\n  context_run_id TEXT,\n  context_claimed_at INTEGER,\n  updated_at INTEGER NOT NULL,\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS message_tool_run_outcomes (\n  id INTEGER PRIMARY KEY,\n  run_id TEXT NOT NULL,\n  session_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  provider TEXT NOT NULL,\n  model TEXT NOT NULL,\n  outcome TEXT NOT NULL CHECK (outcome IN ('tool_delivered', 'mute')),\n  run_status TEXT NOT NULL CHECK (run_status IN ('completed', 'errored', 'aborted')),\n  occurred_at INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_message_tool_run_outcomes_occurred\n  ON message_tool_run_outcomes(occurred_at DESC, id DESC);\n\n-- Receipts outlive Goal clear and session reset so a delayed retry cannot recreate a Goal.\n-- They intentionally have no session FK; bounded retention belongs to the operation owner.\nCREATE TABLE IF NOT EXISTS session_goal_operations (\n  session_key TEXT NOT NULL,\n  operation_id TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  request_fingerprint TEXT NOT NULL,\n  result_json TEXT NOT NULL,\n  expires_at INTEGER NOT NULL,\n  PRIMARY KEY (session_key, operation_id)\n) STRICT;\nCREATE INDEX IF NOT EXISTS idx_agent_session_goal_operations_expiry\n  ON session_goal_operations(expires_at);\n\nCREATE TABLE IF NOT EXISTS transcript_events (\n  session_id TEXT NOT NULL,\n  seq INTEGER NOT NULL,\n  event_json TEXT,\n  created_at INTEGER NOT NULL,\n  event_zstd BLOB,\n  event_utf8_bytes INTEGER CHECK (event_utf8_bytes IS NULL OR event_utf8_bytes >= 0),\n  navigation_json TEXT,\n  navigation_type TEXT,\n  navigation_custom_type TEXT,\n  navigation_display INTEGER NOT NULL DEFAULT 0,\n  message_role TEXT,\n  navigation_last_type TEXT,\n  navigation_last_custom_type TEXT,\n  navigation_valid INTEGER NOT NULL DEFAULT 1,\n  PRIMARY KEY (session_id, seq),\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE,\n  CHECK (\n    (event_json IS NOT NULL AND event_zstd IS NULL)\n    OR (\n      event_json IS NULL AND event_zstd IS NOT NULL\n      AND event_utf8_bytes IS NOT NULL\n      AND event_utf8_bytes BETWEEN 1 AND 4194304\n      AND length(event_zstd) BETWEEN 1 AND 4194304\n      AND navigation_json IS NOT NULL\n    )\n  ),\n  CHECK (\n    navigation_json IS NULL OR CASE WHEN json_valid(navigation_json) THEN coalesce(\n      octet_length(navigation_json) <= 16384\n      AND json_type(navigation_json, '$.version') = 'integer'\n      AND json_extract(navigation_json, '$.version') = 1\n      AND json_type(navigation_json, '$.report') = 'object'\n      AND json_extract(navigation_json, '$.report.kind') IN ('canonical', 'leaf', 'link', 'ignored')\n      AND json_type(navigation_json, '$.navigation') = 'object'\n      AND json_type(navigation_json, '$.reset') = 'object'\n      AND json_type(navigation_json, '$.model') = 'object'\n      AND json_type(navigation_json, '$.modelBytes') = 'integer'\n      AND json_extract(navigation_json, '$.modelBytes') BETWEEN 0 AND 4194304\n      AND json_type(navigation_json, '$.modelWithoutCheckpointBytes') = 'integer'\n      AND json_extract(navigation_json, '$.modelWithoutCheckpointBytes') BETWEEN 0 AND 4194304\n      AND json_type(navigation_json, '$.withoutCustomDataBytes') = 'integer'\n      AND json_extract(navigation_json, '$.withoutCustomDataBytes') BETWEEN 0 AND 4194304,\n      0) ELSE 0 END\n  )\n) STRICT;\n\n-- Canonical cold-tier owner for reclaimed transcript generations. The derived\n-- .deleted/.reset file may be recreated from this row after a crash.\nCREATE TABLE IF NOT EXISTS session_transcript_archives (\n  session_id TEXT NOT NULL,\n  generation TEXT NOT NULL,\n  session_key TEXT NOT NULL,\n  reason TEXT NOT NULL CHECK (reason IN ('deleted', 'reset')),\n  encoding TEXT NOT NULL CHECK (encoding IN ('identity', 'zstd')),\n  archive_blob BLOB NOT NULL,\n  archive_sha256 TEXT NOT NULL CHECK (length(archive_sha256) = 64),\n  archive_name TEXT NOT NULL UNIQUE,\n  created_at INTEGER NOT NULL,\n  published_at INTEGER,\n  publish_attempts INTEGER NOT NULL DEFAULT 0 CHECK (publish_attempts >= 0),\n  last_publish_attempt_at INTEGER,\n  last_publish_error TEXT,\n  PRIMARY KEY (session_id, generation),\n  CHECK (archive_name NOT LIKE '%/%' AND archive_name NOT LIKE '%\\%')\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_transcript_archives_pending\n  ON session_transcript_archives(created_at, session_id, generation)\n  WHERE published_at IS NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_transcript_archives_retention\n  ON session_transcript_archives(created_at, session_id, generation);\n\nCREATE TABLE IF NOT EXISTS session_transcript_cold_archives (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  generation TEXT NOT NULL,\n  archive_name TEXT NOT NULL UNIQUE,\n  archive_sha256 TEXT NOT NULL CHECK (length(archive_sha256) = 64),\n  event_count INTEGER NOT NULL CHECK (event_count >= 1),\n  raw_bytes INTEGER NOT NULL CHECK (raw_bytes >= 0),\n  archive_bytes INTEGER NOT NULL CHECK (archive_bytes >= 0),\n  last_seq INTEGER NOT NULL,\n  archived_at INTEGER NOT NULL,\n  storage TEXT NOT NULL CHECK (storage IN ('file', 'sqlite')),\n  archive_blob BLOB,\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE,\n  CHECK (length(archive_name) > 0 AND archive_name NOT IN ('.', '..') AND archive_name NOT LIKE '%/%' AND archive_name NOT LIKE '%\\%'),\n  CHECK ((storage = 'file' AND archive_blob IS NULL) OR (storage = 'sqlite' AND archive_blob IS NOT NULL))\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS transcript_rewrite_watermarks (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  generation TEXT NOT NULL,\n  updated_at INTEGER NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS trajectory_runtime_events (\n  session_id TEXT NOT NULL,\n  seq INTEGER NOT NULL,\n  run_id TEXT,\n  event_json TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  PRIMARY KEY (session_id, seq),\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_trajectory_runtime_run\n  ON trajectory_runtime_events(session_id, run_id, created_at, octet_length(event_json));\n\nCREATE TABLE IF NOT EXISTS acp_parent_stream_events (\n  session_id TEXT NOT NULL,\n  run_id TEXT NOT NULL,\n  seq INTEGER NOT NULL,\n  event_json TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  PRIMARY KEY (session_id, run_id, seq),\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_acp_parent_stream_run\n  ON acp_parent_stream_events(run_id, seq);\n\nCREATE TABLE IF NOT EXISTS transcript_event_identities (\n  session_id TEXT NOT NULL,\n  event_id TEXT NOT NULL,\n  seq INTEGER NOT NULL,\n  event_type TEXT,\n  parent_id TEXT,\n  message_idempotency_key TEXT,\n  created_at INTEGER NOT NULL,\n  PRIMARY KEY (session_id, event_id),\n  FOREIGN KEY (session_id, seq) REFERENCES transcript_events(session_id, seq) ON DELETE CASCADE\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_agent_transcript_message_idempotency\n  ON transcript_event_identities(session_id, message_idempotency_key)\n  WHERE message_idempotency_key IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_transcript_event_identity_sequence\n  ON transcript_event_identities(session_id, seq);\n\nCREATE INDEX IF NOT EXISTS idx_agent_transcript_event_parent\n  ON transcript_event_identities(session_id, parent_id)\n  WHERE parent_id IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_transcript_event_sequence\n  ON transcript_event_identities(session_id, event_type, seq DESC);\n\nCREATE TABLE IF NOT EXISTS context_engine_turn_outbox (\n  enqueue_sequence INTEGER PRIMARY KEY,\n  advancement_key TEXT NOT NULL UNIQUE,\n  engine_id TEXT NOT NULL,\n  owner_plugin_id TEXT,\n  session_id TEXT NOT NULL,\n  payload_json TEXT NOT NULL,\n  payload_state TEXT,\n  attempt_count INTEGER NOT NULL DEFAULT 0,\n  last_attempt_at INTEGER,\n  last_error TEXT,\n  created_at INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_context_engine_turn_outbox_engine\n  ON context_engine_turn_outbox(engine_id, created_at);\n\nCREATE TABLE IF NOT EXISTS cache_entries (\n  scope TEXT NOT NULL,\n  key TEXT NOT NULL,\n  value_json TEXT,\n  blob BLOB,\n  expires_at INTEGER,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (scope, key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_cache_expiry\n  ON cache_entries(scope, expires_at, key)\n  WHERE expires_at IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_cache_updated\n  ON cache_entries(scope, updated_at DESC, key);\n\nCREATE INDEX IF NOT EXISTS idx_agent_voice_session_open_scope\n  ON cache_entries(CASE WHEN json_valid(value_json) THEN json_extract(value_json, '$.agentId') END,\n    CASE WHEN json_valid(value_json) THEN json_extract(value_json, '$.sessionKey') END, CASE WHEN json_valid(value_json) THEN json_extract(value_json, '$.origin') END)\n  WHERE scope = 'talk-client-voice-sessions'\n    AND CASE WHEN json_valid(value_json) THEN json_extract(value_json, '$.status') END = 'open';\n\nCREATE INDEX IF NOT EXISTS idx_agent_voice_session_open_updated\n  ON cache_entries(scope, updated_at)\n  WHERE scope = 'talk-client-voice-sessions'\n    AND CASE WHEN json_valid(value_json) THEN json_extract(value_json, '$.status') END = 'open';\n\nCREATE TABLE IF NOT EXISTS auth_profile_store (\n  store_key TEXT NOT NULL PRIMARY KEY,\n  store_json TEXT NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS auth_profile_state (\n  state_key TEXT NOT NULL PRIMARY KEY,\n  state_json TEXT NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_meta (\n  key TEXT PRIMARY KEY,\n  value TEXT NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_sources (\n  id INTEGER PRIMARY KEY,\n  path TEXT NOT NULL,\n  source TEXT NOT NULL DEFAULT 'memory',\n  hash TEXT NOT NULL,\n  mtime REAL NOT NULL,\n  size INTEGER NOT NULL,\n  UNIQUE (path, source)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_chunks (\n  chunk_rowid INTEGER PRIMARY KEY,\n  id TEXT NOT NULL UNIQUE,\n  path TEXT NOT NULL,\n  source TEXT NOT NULL DEFAULT 'memory',\n  start_line INTEGER NOT NULL,\n  end_line INTEGER NOT NULL,\n  hash TEXT NOT NULL,\n  model TEXT NOT NULL,\n  text TEXT NOT NULL,\n  embedding BLOB NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_chunk_recall_metadata (\n  chunk_id TEXT PRIMARY KEY,\n  importance INTEGER CHECK (importance IS NULL OR importance BETWEEN 1 AND 10),\n  triggers TEXT,\n  project_key TEXT,\n  FOREIGN KEY (chunk_id) REFERENCES memory_index_chunks(id) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_chunk_provenance (\n  chunk_id TEXT PRIMARY KEY,\n  origin_class TEXT NOT NULL CHECK (origin_class IN ('owner', 'agent', 'untrusted', 'system')),\n  session_kind TEXT NOT NULL CHECK (session_kind IN ('interactive', 'cron', 'heartbeat', 'subagent', 'unknown')),\n  observed_at INTEGER NOT NULL,\n  supersedes_key TEXT,\n  FOREIGN KEY (chunk_id) REFERENCES memory_index_chunks(id) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_entry_origins (\n  entry_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  session_key TEXT,\n  origin_class TEXT NOT NULL CHECK (origin_class IN ('owner', 'agent', 'untrusted', 'system')),\n  observed_at INTEGER NOT NULL,\n  PRIMARY KEY (entry_key, agent_id, session_id)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_session_tombstones (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  agent_id TEXT NOT NULL,\n  reason TEXT NOT NULL,\n  created_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_embedding_cache (\n  provider TEXT NOT NULL,\n  model TEXT NOT NULL,\n  provider_key TEXT NOT NULL,\n  hash TEXT NOT NULL,\n  embedding BLOB NOT NULL,\n  dims INTEGER,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (provider, model, provider_key, hash)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_state (\n  id INTEGER PRIMARY KEY CHECK (id = 1),\n  revision INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS standing_intents (\n  intent_key INTEGER PRIMARY KEY,\n  id TEXT NOT NULL UNIQUE,\n  description TEXT NOT NULL,\n  trigger_keywords TEXT NOT NULL,\n  trigger_embedding TEXT,\n  channel_scope TEXT,\n  sender_scope TEXT,\n  creator_sender TEXT CHECK (creator_sender IS NULL OR length(trim(creator_sender)) > 0),\n  status TEXT NOT NULL CHECK (status IN ('pending', 'armed', 'fired', 'done', 'cancelled', 'expired')),\n  expires_at INTEGER NOT NULL,\n  max_fires INTEGER NOT NULL CHECK (max_fires > 0),\n  fire_count INTEGER NOT NULL DEFAULT 0 CHECK (fire_count >= 0),\n  cooldown_seconds INTEGER NOT NULL DEFAULT 86400 CHECK (cooldown_seconds >= 0),\n  last_fired_at INTEGER,\n  created_at INTEGER NOT NULL,\n  source_session_id TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_standing_intents_lifecycle\n  ON standing_intents(status, expires_at, last_fired_at);\n\nCREATE INDEX IF NOT EXISTS idx_standing_intents_scope\n  ON standing_intents(status, channel_scope, sender_scope);\n\nCREATE VIRTUAL TABLE IF NOT EXISTS standing_intents_fts USING fts5(\n  trigger_keywords,\n  content = 'standing_intents',\n  content_rowid = 'intent_key',\n  tokenize = 'unicode61 remove_diacritics 2'\n);\n\nCREATE TRIGGER IF NOT EXISTS standing_intents_fts_after_insert\nAFTER INSERT ON standing_intents\nBEGIN\n  INSERT INTO standing_intents_fts(rowid, trigger_keywords)\n  VALUES (new.intent_key, new.trigger_keywords);\nEND;\n\nCREATE TRIGGER IF NOT EXISTS standing_intents_fts_after_delete\nAFTER DELETE ON standing_intents\nBEGIN\n  INSERT INTO standing_intents_fts(standing_intents_fts, rowid, trigger_keywords)\n  VALUES ('delete', old.intent_key, old.trigger_keywords);\nEND;\n\nCREATE TRIGGER IF NOT EXISTS standing_intents_fts_after_update\nAFTER UPDATE OF trigger_keywords ON standing_intents\nBEGIN\n  INSERT INTO standing_intents_fts(standing_intents_fts, rowid, trigger_keywords)\n  VALUES ('delete', old.intent_key, old.trigger_keywords);\n  INSERT INTO standing_intents_fts(rowid, trigger_keywords)\n  VALUES (new.intent_key, new.trigger_keywords);\nEND;\n\nCREATE TABLE IF NOT EXISTS session_transcript_index_state (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  indexed_seq INTEGER NOT NULL,\n  leaf_event_id TEXT,\n  needs_rebuild INTEGER NOT NULL DEFAULT 0,\n  active_event_count INTEGER NOT NULL DEFAULT 0,\n  active_message_count INTEGER NOT NULL DEFAULT 0,\n  updated_at INTEGER NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES session_windows(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS session_transcript_active_events (\n  session_id TEXT NOT NULL,\n  active_position INTEGER NOT NULL CHECK (active_position >= 0),\n  event_seq INTEGER NOT NULL,\n  message_position INTEGER CHECK (message_position IS NULL OR message_position >= 0),\n  context_eligible INTEGER,\n  PRIMARY KEY (session_id, active_position),\n  FOREIGN KEY (session_id, event_seq) REFERENCES transcript_events(session_id, seq) ON DELETE CASCADE\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_agent_transcript_active_event_seq\n  ON session_transcript_active_events(session_id, event_seq);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_agent_transcript_active_messages\n  ON session_transcript_active_events(session_id, message_position)\n  WHERE message_position IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_transcript_context_pending\n  ON session_transcript_active_events(session_id)\n  WHERE context_eligible IS NULL;\n\nCREATE VIRTUAL TABLE IF NOT EXISTS session_transcript_fts USING fts5(\n  text,\n  session_id UNINDEXED,\n  message_id UNINDEXED,\n  role UNINDEXED,\n  timestamp UNINDEXED,\n  tokenize = 'unicode61 remove_diacritics 2'\n);\n\nCREATE TABLE IF NOT EXISTS session_transcript_fts_rows (\n  id INTEGER PRIMARY KEY,\n  session_id TEXT NOT NULL,\n  message_id TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_session_transcript_fts_rows_session_message\n  ON session_transcript_fts_rows(session_id, message_id);\n\nCREATE TRIGGER IF NOT EXISTS session_transcript_fts_rows_after_delete\nAFTER DELETE ON session_transcript_fts_rows\nBEGIN\n  DELETE FROM session_transcript_fts WHERE rowid = OLD.id;\nEND;\n\nINSERT OR IGNORE INTO memory_index_state (id, revision) VALUES (1, 0);\n\nCREATE TRIGGER IF NOT EXISTS memory_index_sources_revision_after_insert\nAFTER INSERT ON memory_index_sources\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS memory_index_sources_revision_after_update\nAFTER UPDATE ON memory_index_sources\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS memory_index_sources_revision_after_delete\nAFTER DELETE ON memory_index_sources\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS memory_index_chunks_revision_after_insert\nAFTER INSERT ON memory_index_chunks\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS memory_index_chunks_revision_after_update\nAFTER UPDATE ON memory_index_chunks\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS memory_index_chunks_revision_after_delete\nAFTER DELETE ON memory_index_chunks\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE INDEX IF NOT EXISTS idx_memory_embedding_cache_updated_at\n  ON memory_embedding_cache(updated_at);\n\nCREATE INDEX IF NOT EXISTS idx_memory_index_sources_source\n  ON memory_index_sources(source);\n\nCREATE INDEX IF NOT EXISTS idx_memory_index_chunks_path_source\n  ON memory_index_chunks(path, source);\n\nCREATE INDEX IF NOT EXISTS idx_memory_index_chunks_source\n  ON memory_index_chunks(source);\n\n-- Accepted input stays outside the active transcript until its exact turn owns execution.\nCREATE TABLE IF NOT EXISTS session_pending_inputs (\n  seq INTEGER PRIMARY KEY AUTOINCREMENT,\n  input_id TEXT NOT NULL UNIQUE,\n  session_key TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  idempotency_key TEXT NOT NULL,\n  run_id TEXT NOT NULL,\n  request_hash TEXT NOT NULL,\n  message_json TEXT NOT NULL,\n  lifecycle_generation TEXT NOT NULL,\n  state TEXT NOT NULL CHECK (state IN ('queued', 'interrupted', 'cancelled')),\n  accepted_at INTEGER NOT NULL,\n  consumed_event_id TEXT,\n  UNIQUE (session_id, idempotency_key),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE,\n  FOREIGN KEY (session_id) REFERENCES session_windows(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_pending_inputs_session\n  ON session_pending_inputs(session_key, session_id, seq DESC);\n\n-- Processing completion is separate from input consumption; neither schedules replay.\nCREATE TABLE IF NOT EXISTS session_input_completions (\n  session_key TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  idempotency_key TEXT NOT NULL,\n  run_id TEXT NOT NULL,\n  request_hash TEXT NOT NULL,\n  outcome_json TEXT NOT NULL,\n  succeeded INTEGER NOT NULL CHECK (succeeded IN (0, 1)),\n  completed_at INTEGER NOT NULL,\n  PRIMARY KEY (session_id, idempotency_key),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE,\n  FOREIGN KEY (session_id) REFERENCES session_windows(session_id) ON DELETE CASCADE\n) STRICT;\n";
+//#endregion
+//#region src/state/openclaw-state-schema.ts
+const OPENCLAW_STATE_SCHEMA_SQL = "\n\nCREATE TABLE IF NOT EXISTS mcp_oauth_stores (\n  store_key TEXT NOT NULL PRIMARY KEY,\n  format_version INTEGER NOT NULL CHECK (format_version = 1),\n  store_json TEXT NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS mcp_oauth_pending_authorizations (\n  state TEXT NOT NULL PRIMARY KEY,\n  store_key TEXT NOT NULL,\n  create_time INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS diagnostic_events (\n  scope TEXT NOT NULL,\n  event_key TEXT NOT NULL,\n  payload_json TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  sequence INTEGER NOT NULL DEFAULT 0,\n  PRIMARY KEY (scope, event_key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_diagnostic_events_scope_sequence\n  ON diagnostic_events(scope, sequence, event_key);\n\nCREATE TABLE IF NOT EXISTS skill_usage (\n  skill_file TEXT NOT NULL PRIMARY KEY,\n  skill_key TEXT NOT NULL,\n  skill_name TEXT NOT NULL,\n  skill_source TEXT NOT NULL,\n  first_used_at_ms INTEGER NOT NULL,\n  last_used_at_ms INTEGER NOT NULL,\n  use_count INTEGER NOT NULL,\n  last_agent_id TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_skill_usage_key\n  ON skill_usage(skill_key, skill_file);\n\n-- Profile-owned skill library: additive, absent until first publication/import.\nCREATE TABLE IF NOT EXISTS skill_library_entries (\n  skill_id TEXT NOT NULL PRIMARY KEY,\n  owner_profile_id TEXT,\n  author_profile_id TEXT NOT NULL,\n  slug TEXT NOT NULL,\n  current_revision TEXT NOT NULL,\n  shared INT NOT NULL,\n  enabled INT NOT NULL,\n  removed INT NOT NULL,\n  created_at INT NOT NULL,\n  updated_at INT NOT NULL\n) STRICT;\nCREATE TABLE IF NOT EXISTS skill_library_revisions (\n  skill_id TEXT NOT NULL,\n  revision TEXT NOT NULL,\n  description TEXT NOT NULL,\n  files_json TEXT NOT NULL,\n  created_at INT NOT NULL,\n  PRIMARY KEY (skill_id, revision)\n) STRICT;\nCREATE TABLE IF NOT EXISTS skill_library_events (\n  event_id TEXT NOT NULL PRIMARY KEY,\n  skill_id TEXT NOT NULL,\n  revision TEXT NOT NULL,\n  action TEXT NOT NULL,\n  actor_profile_id TEXT NOT NULL,\n  created_at INT NOT NULL\n) STRICT;\nCREATE TABLE IF NOT EXISTS skill_library_uploads (\n  upload_id TEXT NOT NULL PRIMARY KEY,\n  owner_profile_id TEXT NOT NULL,\n  slug TEXT NOT NULL,\n  size_bytes INT NOT NULL,\n  sha256 TEXT NOT NULL,\n  archive_blob BLOB NOT NULL,\n  expires_at INT NOT NULL,\n  published_skill_id TEXT\n) STRICT;\n-- End profile-owned skill library.\n\nCREATE TABLE IF NOT EXISTS skill_workshop_changes (\n  cursor_id INTEGER NOT NULL,\n  change_id TEXT NOT NULL PRIMARY KEY,\n  agent_id TEXT NOT NULL,\n  skill_name TEXT NOT NULL,\n  action TEXT NOT NULL CHECK (action IN ('create', 'patch', 'write_file', 'remove_file', 'archive', 'restore')),\n  actor TEXT NOT NULL CHECK (actor IN ('agent', 'review', 'curator', 'user')),\n  summary TEXT NOT NULL,\n  version_id TEXT,\n  session_key TEXT,\n  run_id TEXT,\n  created_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS skill_workshop_changes_cursor_id_idx\n  ON skill_workshop_changes(cursor_id);\n\nCREATE INDEX IF NOT EXISTS idx_skill_workshop_changes_agent_time\n  ON skill_workshop_changes(agent_id, created_at_ms);\n\nCREATE TABLE IF NOT EXISTS audit_events (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n  event_id TEXT NOT NULL UNIQUE,\n  source_id TEXT NOT NULL UNIQUE,\n  schema_version INTEGER NOT NULL DEFAULT 1,\n  source_sequence INTEGER NOT NULL,\n  occurred_at INTEGER NOT NULL,\n  kind TEXT NOT NULL,\n  action TEXT NOT NULL,\n  status TEXT NOT NULL,\n  error_code TEXT,\n  actor_type TEXT NOT NULL,\n  actor_id TEXT NOT NULL,\n  agent_id TEXT,\n  session_key TEXT,\n  session_id TEXT,\n  run_id TEXT,\n  tool_call_id TEXT,\n  tool_name TEXT,\n  direction TEXT,\n  channel TEXT,\n  conversation_kind TEXT,\n  message_outcome TEXT,\n  reason_code TEXT,\n  delivery_kind TEXT,\n  failure_stage TEXT,\n  duration_ms INTEGER,\n  result_count INTEGER,\n  account_ref TEXT,\n  conversation_ref TEXT,\n  message_ref TEXT,\n  target_ref TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_time\n  ON audit_events(occurred_at DESC, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_agent_sequence\n  ON audit_events(agent_id, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_session_sequence\n  ON audit_events(session_key, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_run_sequence\n  ON audit_events(run_id, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_kind_sequence\n  ON audit_events(kind, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_status_sequence\n  ON audit_events(status, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_channel_sequence\n  ON audit_events(channel, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_direction_sequence\n  ON audit_events(direction, sequence DESC);\n\nCREATE TABLE IF NOT EXISTS outbound_message_execution_bindings (\n  event_id TEXT NOT NULL PRIMARY KEY,\n  context_id TEXT NOT NULL CHECK (length(context_id) BETWEEN 1 AND 256),\n  execution_id TEXT NOT NULL CHECK (length(execution_id) BETWEEN 1 AND 256),\n  run_id TEXT NOT NULL CHECK (length(run_id) BETWEEN 1 AND 256),\n  FOREIGN KEY (event_id) REFERENCES audit_events(event_id) ON DELETE CASCADE\n) STRICT;\nCREATE INDEX IF NOT EXISTS outbound_message_execution_bindings_execution_event_idx\n  ON outbound_message_execution_bindings (context_id, execution_id, run_id, event_id);\n\nCREATE TABLE IF NOT EXISTS outbound_message_progress (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n  progress_id TEXT NOT NULL UNIQUE CHECK (length(progress_id) BETWEEN 1 AND 256),\n  source_id TEXT NOT NULL UNIQUE CHECK (length(source_id) BETWEEN 1 AND 512),\n  source_sequence INTEGER NOT NULL CHECK (source_sequence >= 1),\n  schema_version INTEGER NOT NULL CHECK (schema_version = 1),\n  occurred_at INTEGER NOT NULL CHECK (occurred_at >= 0),\n  action TEXT NOT NULL CHECK (\n    action IN ('message.outbound.queued', 'message.outbound.platform-started')\n  ),\n  outcome TEXT NOT NULL CHECK (outcome IN ('queued', 'platform_started')),\n  actor_type TEXT NOT NULL CHECK (actor_type IN ('agent', 'system')),\n  actor_id TEXT NOT NULL CHECK (length(actor_id) BETWEEN 1 AND 256),\n  agent_id TEXT CHECK (agent_id IS NULL OR length(agent_id) BETWEEN 1 AND 256),\n  run_id TEXT CHECK (run_id IS NULL OR length(run_id) BETWEEN 1 AND 256),\n  context_id TEXT,\n  execution_id TEXT,\n  channel TEXT NOT NULL CHECK (length(channel) BETWEEN 1 AND 256),\n  conversation_kind TEXT NOT NULL CHECK (\n    conversation_kind IN ('direct', 'group', 'channel', 'unknown')\n  ),\n  duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),\n  account_ref TEXT,\n  conversation_ref TEXT,\n  target_ref TEXT,\n  UNIQUE (occurred_at, progress_id)\n) STRICT;\nCREATE INDEX IF NOT EXISTS outbound_message_progress_occurred_idx\n  ON outbound_message_progress (occurred_at, sequence);\nCREATE INDEX IF NOT EXISTS outbound_message_progress_run_occurred_idx\n  ON outbound_message_progress (run_id, occurred_at, sequence);\n\nCREATE TABLE IF NOT EXISTS audit_identity_keys (\n  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),\n  key_id TEXT NOT NULL,\n  key BLOB NOT NULL,\n  created_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS config_revision_keys (\n  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),\n  hmac_key BLOB NOT NULL CHECK (length(hmac_key) = 32)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS execution_identity_contexts (\n  context_id TEXT NOT NULL PRIMARY KEY CHECK (length(context_id) BETWEEN 1 AND 256),\n  execution_id TEXT NOT NULL UNIQUE CHECK (length(execution_id) BETWEEN 1 AND 256),\n  run_id TEXT NOT NULL CHECK (length(run_id) BETWEEN 1 AND 256),\n  created_at INTEGER NOT NULL CHECK (created_at >= 0),\n  coverage_state TEXT NOT NULL CHECK (\n    coverage_state IN ('attribution-only', 'unattributed', 'unknown', 'unsupported')\n  ),\n  context_bytes INTEGER NOT NULL CHECK (context_bytes BETWEEN 1 AND 16384),\n  context_json TEXT NOT NULL CHECK (length(context_json) > 0),\n  UNIQUE (created_at, context_id)\n) STRICT;\nCREATE INDEX IF NOT EXISTS execution_identity_contexts_run_created_idx\n  ON execution_identity_contexts (run_id, created_at, execution_id);\n\nCREATE TABLE IF NOT EXISTS execution_decision_facts (\n  cursor_id INTEGER NOT NULL,\n  receipt_id TEXT NOT NULL PRIMARY KEY CHECK (length(receipt_id) BETWEEN 1 AND 256),\n  context_id TEXT NOT NULL CHECK (length(context_id) BETWEEN 1 AND 256),\n  execution_id TEXT NOT NULL CHECK (length(execution_id) BETWEEN 1 AND 256),\n  run_id TEXT NOT NULL CHECK (length(run_id) BETWEEN 1 AND 256),\n  action_id TEXT CHECK (action_id IS NULL OR length(action_id) BETWEEN 1 AND 256),\n  action_family TEXT NOT NULL CHECK (length(action_family) BETWEEN 1 AND 256),\n  decision_outcome TEXT NOT NULL CHECK (\n    decision_outcome IN ('allowed', 'denied', 'not-applicable', 'unknown')\n  ),\n  coverage_state TEXT NOT NULL CHECK (\n    coverage_state IN ('enforced', 'attribution-only', 'unattributed', 'unknown', 'unsupported')\n  ),\n  reason_code TEXT NOT NULL CHECK (length(reason_code) BETWEEN 1 AND 256),\n  owner TEXT NOT NULL CHECK (length(owner) BETWEEN 1 AND 256),\n  source_ref TEXT NOT NULL CHECK (length(source_ref) BETWEEN 1 AND 256),\n  occurred_at INTEGER NOT NULL CHECK (occurred_at >= 0),\n  receipt_bytes INTEGER NOT NULL CHECK (receipt_bytes BETWEEN 1 AND 16384),\n  receipt_json TEXT NOT NULL CHECK (length(receipt_json) > 0),\n  UNIQUE (occurred_at, receipt_id)\n) STRICT;\nCREATE UNIQUE INDEX IF NOT EXISTS execution_decision_facts_cursor_id_idx\n  ON execution_decision_facts(cursor_id);\n\nCREATE INDEX IF NOT EXISTS execution_decision_facts_context_occurred_idx\n  ON execution_decision_facts (context_id, occurred_at, receipt_id);\nCREATE INDEX IF NOT EXISTS execution_decision_facts_run_occurred_idx\n  ON execution_decision_facts (run_id, occurred_at, receipt_id);\n\n-- Exact admission identity stays separate from owner-native lifecycle rows so\n-- older readers retain byte-compatible cron/task/flow table definitions.\nCREATE TABLE IF NOT EXISTS execution_owner_lifecycle_bindings (\n  owner_kind TEXT NOT NULL,\n  owner_id TEXT NOT NULL,\n  context_id TEXT NOT NULL,\n  execution_id TEXT NOT NULL,\n  PRIMARY KEY (owner_kind, owner_id)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS session_state_events (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n  dedupe_key TEXT UNIQUE,\n  session_key TEXT NOT NULL,\n  session_id TEXT,\n  agent_id TEXT NOT NULL,\n  kind TEXT NOT NULL,\n  actor_type TEXT NOT NULL,\n  actor_id TEXT,\n  run_id TEXT,\n  occurred_at INTEGER NOT NULL,\n  summary TEXT NOT NULL,\n  payload_json TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_session_state_events_session_sequence\n  ON session_state_events(session_key, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_session_state_events_time\n  ON session_state_events(occurred_at DESC, sequence DESC);\n\nCREATE TABLE IF NOT EXISTS session_state_heads (\n  session_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  last_sequence INTEGER NOT NULL,\n  pruned_max_sequence INTEGER NOT NULL DEFAULT 0,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (session_key, agent_id)\n) STRICT;\n\n-- Notifiable watcher identity is the bare session key, matching the process-local\n-- system-event queue it feeds. Provenance distinguishes explicit immediate-wake\n-- watches from ambient queue-only group watches. Other bare keys\n-- (session.scope=\"global\") are ambiguous across agents and excluded until watcher\n-- identity is agent-scoped end-to-end.\nCREATE TABLE IF NOT EXISTS session_watch_cursors (\n  watcher_session_key TEXT NOT NULL,\n  watcher_store_path TEXT,\n  target_session_key TEXT NOT NULL,\n  last_seen_sequence INTEGER NOT NULL DEFAULT 0,\n  notified_sequence INTEGER NOT NULL DEFAULT 0,\n  material_sequence INTEGER NOT NULL DEFAULT 0,\n  provenance TEXT NOT NULL DEFAULT 'explicit' CHECK (provenance IN ('explicit', 'ambient-group')),\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (watcher_session_key, target_session_key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_session_watch_cursors_target\n  ON session_watch_cursors(target_session_key);\n\nCREATE TABLE IF NOT EXISTS session_upstream_links (\n  session_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  catalog_id TEXT NOT NULL,\n  host_id TEXT NOT NULL,\n  thread_id TEXT NOT NULL,\n  upstream_kind TEXT NOT NULL,\n  upstream_ref_json TEXT,\n  last_marker_json TEXT,\n  last_scanned_at INTEGER,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  -- (session_key, agent_id) composite identity: under session.scope=\"global\" agents\n  -- share bare keys; a key-only row would let one agent overwrite another's upstream.\n  PRIMARY KEY (session_key, agent_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_session_upstream_links_catalog_id\n  ON session_upstream_links(catalog_id);\n\nCREATE TABLE IF NOT EXISTS state_leases (\n  scope TEXT NOT NULL,\n  lease_key TEXT NOT NULL,\n  owner TEXT NOT NULL,\n  expires_at INTEGER,\n  heartbeat_at INTEGER,\n  payload_json TEXT,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (scope, lease_key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_state_leases_expiry\n  ON state_leases(expires_at, scope, lease_key)\n  WHERE expires_at IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_state_leases_owner\n  ON state_leases(owner, updated_at DESC);\n\nCREATE TABLE IF NOT EXISTS exec_approvals_config (\n  config_key TEXT NOT NULL PRIMARY KEY,\n  raw_json TEXT NOT NULL,\n  socket_path TEXT,\n  has_socket_token INTEGER NOT NULL,\n  default_security TEXT,\n  default_ask TEXT,\n  default_ask_fallback TEXT,\n  auto_allow_skills INTEGER,\n  agent_count INTEGER NOT NULL,\n  allowlist_count INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS operator_approvals (\n  cursor_id INTEGER NOT NULL,\n  approval_id TEXT NOT NULL PRIMARY KEY CHECK (\n    length(approval_id) > 0 AND approval_id NOT IN ('.', '..')\n  ),\n  resolution_ref TEXT NOT NULL CHECK (\n    length(resolution_ref) = 43 AND resolution_ref NOT GLOB '*[^A-Za-z0-9_-]*'\n  ),\n  kind TEXT NOT NULL CHECK (kind IN ('exec', 'plugin', 'system-agent')),\n  status TEXT NOT NULL CHECK (status IN ('pending', 'allowed', 'denied', 'expired', 'cancelled')),\n  presentation_json TEXT NOT NULL,\n  requested_by_device_id TEXT,\n  requested_by_client_id TEXT,\n  requested_by_device_token_auth INTEGER NOT NULL DEFAULT 0,\n  reviewer_device_ids_json TEXT NOT NULL,\n  source_agent_id TEXT,\n  source_session_key TEXT,\n  source_session_id TEXT,\n  source_run_id TEXT,\n  source_tool_call_id TEXT,\n  source_tool_name TEXT,\n  audience_session_keys_json TEXT NOT NULL,\n  runtime_epoch TEXT NOT NULL,\n  created_at_ms INTEGER NOT NULL,\n  expires_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  decision TEXT CHECK (decision IN ('allow-once', 'allow-always', 'deny')),\n  terminal_reason TEXT CHECK (\n    terminal_reason IN (\n      'user',\n      'timeout',\n      'malformed-verdict',\n      'no-route',\n      'run-aborted',\n      'gateway-restart',\n      'storage-corrupt'\n    )\n  ),\n  resolved_at_ms INTEGER,\n  resolver_kind TEXT CHECK (resolver_kind IN ('device', 'channel', 'runtime', 'system')),\n  resolver_id TEXT,\n  consumed_at_ms INTEGER,\n  consumed_by TEXT,\n  CHECK (expires_at_ms >= created_at_ms),\n  CHECK (updated_at_ms >= created_at_ms),\n  CHECK (resolved_at_ms IS NULL OR resolved_at_ms >= created_at_ms),\n  CHECK (resolved_at_ms IS NULL OR resolved_at_ms <= updated_at_ms),\n  CHECK (consumed_at_ms IS NULL OR consumed_at_ms >= resolved_at_ms),\n  CHECK (consumed_at_ms IS NULL OR consumed_at_ms <= updated_at_ms),\n  CHECK (requested_by_device_token_auth IN (0, 1)),\n  CHECK (\n    (\n      status = 'pending'\n      AND decision IS NULL\n      AND terminal_reason IS NULL\n      AND resolved_at_ms IS NULL\n      AND resolver_kind IS NULL\n      AND resolver_id IS NULL\n      AND consumed_at_ms IS NULL\n      AND consumed_by IS NULL\n    )\n    OR (\n      status = 'allowed'\n      AND decision IN ('allow-once', 'allow-always')\n      AND terminal_reason = 'user'\n      AND resolved_at_ms IS NOT NULL\n      AND resolver_kind IS NOT NULL\n    )\n    OR (\n      status = 'denied'\n      AND decision = 'deny'\n      AND terminal_reason IN ('user', 'malformed-verdict', 'no-route', 'storage-corrupt')\n      AND resolved_at_ms IS NOT NULL\n      AND resolver_kind IS NOT NULL\n      AND consumed_at_ms IS NULL\n      AND consumed_by IS NULL\n    )\n    OR (\n      status = 'expired'\n      AND decision = 'deny'\n      AND terminal_reason = 'timeout'\n      AND resolved_at_ms IS NOT NULL\n      AND resolver_kind IS NOT NULL\n      AND consumed_at_ms IS NULL\n      AND consumed_by IS NULL\n    )\n    OR (\n      status = 'cancelled'\n      AND decision = 'deny'\n      AND terminal_reason IN ('run-aborted', 'gateway-restart')\n      AND resolved_at_ms IS NOT NULL\n      AND resolver_kind IS NOT NULL\n      AND consumed_at_ms IS NULL\n      AND consumed_by IS NULL\n    )\n  ),\n  CHECK (\n    (consumed_at_ms IS NULL AND consumed_by IS NULL)\n    OR (\n      status = 'allowed'\n      AND decision = 'allow-once'\n      AND consumed_at_ms IS NOT NULL\n      AND consumed_by IS NOT NULL\n    )\n  )\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_operator_approvals_cursor_id\n  ON operator_approvals(cursor_id);\n\nCREATE INDEX IF NOT EXISTS idx_operator_approvals_status_expiry\n  ON operator_approvals(status, expires_at_ms, approval_id);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_operator_approvals_resolution_ref\n  ON operator_approvals(resolution_ref);\n\nCREATE INDEX IF NOT EXISTS idx_operator_approvals_source_session_created\n  ON operator_approvals(source_session_key, created_at_ms DESC, approval_id);\n\nCREATE INDEX IF NOT EXISTS idx_operator_approvals_source_run_resolved\n  ON operator_approvals(source_run_id, resolved_at_ms, approval_id)\n  WHERE source_run_id IS NOT NULL AND resolved_at_ms IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_operator_approvals_resolved\n  ON operator_approvals(resolved_at_ms, approval_id)\n  WHERE resolved_at_ms IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_operator_approvals_runtime_pending\n  ON operator_approvals(runtime_epoch, approval_id)\n  WHERE status = 'pending';\n\nCREATE TABLE IF NOT EXISTS operator_approval_execution_identities (\n  approval_id TEXT NOT NULL PRIMARY KEY\n    REFERENCES operator_approvals(approval_id) ON DELETE CASCADE,\n  source_context_id TEXT NOT NULL CHECK (\n    length(source_context_id) BETWEEN 1 AND 256 AND source_context_id = trim(source_context_id)\n  ),\n  source_execution_id TEXT NOT NULL CHECK (\n    length(source_execution_id) BETWEEN 1 AND 256 AND source_execution_id = trim(source_execution_id)\n  )\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS operator_approval_standing_grants (\n  grant_id TEXT NOT NULL PRIMARY KEY CHECK (length(grant_id) > 0),\n  minted_by_approval_id TEXT NOT NULL\n    REFERENCES operator_approvals(approval_id) ON DELETE CASCADE,\n  agent_id TEXT NOT NULL CHECK (length(agent_id) > 0),\n  cron_job_id TEXT NOT NULL CHECK (length(cron_job_id) > 0),\n  job_config_revision TEXT NOT NULL CHECK (length(job_config_revision) > 0),\n  operation_binding TEXT NOT NULL CHECK (length(operation_binding) > 0),\n  created_at_ms INTEGER NOT NULL,\n  expires_at_ms INTEGER CHECK (expires_at_ms IS NULL OR expires_at_ms >= created_at_ms),\n  revoked_at_ms INTEGER,\n  revoked_by TEXT,\n  last_used_at_ms INTEGER,\n  use_count INTEGER NOT NULL DEFAULT 0\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_operator_approval_standing_grants_binding\n  ON operator_approval_standing_grants(agent_id, cron_job_id, operation_binding, created_at_ms DESC);\n\nCREATE TABLE IF NOT EXISTS operator_approval_standing_grant_generations (\n  grant_id TEXT NOT NULL PRIMARY KEY\n    REFERENCES operator_approval_standing_grants(grant_id) ON DELETE CASCADE,\n  job_definition_generation INTEGER NOT NULL CHECK (job_definition_generation >= 1)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS schema_meta (\n  meta_key TEXT NOT NULL PRIMARY KEY,\n  role TEXT NOT NULL,\n  schema_version INTEGER NOT NULL,\n  agent_id TEXT,\n  app_version TEXT,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS config_machine_state (\n  state_key TEXT NOT NULL PRIMARY KEY,\n  value_json TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS device_pairing_pending (\n  request_id TEXT NOT NULL PRIMARY KEY,\n  device_id TEXT NOT NULL,\n  public_key TEXT NOT NULL,\n  display_name TEXT,\n  platform TEXT,\n  device_family TEXT,\n  client_id TEXT,\n  client_mode TEXT,\n  browser_origin TEXT,\n  role TEXT,\n  roles_json TEXT,\n  scopes_json TEXT,\n  remote_ip TEXT,\n  silent INTEGER,\n  is_repair INTEGER,\n  ts INTEGER NOT NULL,\n  refreshed_at_ms INTEGER\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_device_pairing_pending_device\n  ON device_pairing_pending(device_id, ts DESC);\n\nCREATE TABLE IF NOT EXISTS device_pairing_paired (\n  device_id TEXT NOT NULL PRIMARY KEY,\n  public_key TEXT NOT NULL,\n  display_name TEXT,\n  operator_label TEXT,\n  platform TEXT,\n  device_family TEXT,\n  client_id TEXT,\n  client_mode TEXT,\n  browser_origin TEXT,\n  role TEXT,\n  roles_json TEXT,\n  scopes_json TEXT,\n  approved_scopes_json TEXT,\n  remote_ip TEXT,\n  tokens_json TEXT,\n  approved_via TEXT,\n  node_surface_json TEXT,\n  pending_node_surface_json TEXT,\n  created_at_ms INTEGER NOT NULL,\n  approved_at_ms INTEGER NOT NULL,\n  last_seen_at_ms INTEGER,\n  last_seen_reason TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_device_pairing_paired_approved\n  ON device_pairing_paired(approved_at_ms DESC, device_id);\n\nCREATE TABLE IF NOT EXISTS device_bootstrap_tokens (\n  token_key TEXT NOT NULL PRIMARY KEY,\n  token TEXT NOT NULL,\n  setup_id TEXT,\n  ts INTEGER NOT NULL,\n  device_id TEXT,\n  public_key TEXT,\n  profile_json TEXT,\n  redeemed_profile_json TEXT,\n  pending_profile_json TEXT,\n  issued_at_ms INTEGER NOT NULL,\n  last_used_at_ms INTEGER\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_device_bootstrap_tokens_ts\n  ON device_bootstrap_tokens(ts);\n\n-- Terminal outcome of a redeemed setup credential. The bootstrap row is deleted\n-- on redemption, so this is the only durable proof a setup code succeeded; the\n-- presenting client reconciles it when the completion broadcast is missed.\n-- Non-secret only: never the bootstrap token or anything derived from it.\n-- Bounded by retention to a handful of live rows, so the primary key is the\n-- only access path worth having.\nCREATE TABLE IF NOT EXISTS device_pair_setup_completions (\n  setup_id TEXT NOT NULL PRIMARY KEY,\n  device_id TEXT NOT NULL,\n  device_name TEXT,\n  access TEXT NOT NULL,\n  completed_at_ms INTEGER NOT NULL,\n  delivery_state TEXT NOT NULL CHECK (delivery_state IN ('uncertain', 'confirmed')),\n  retain_until_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS device_pairing_join_codes (\n  shortcode TEXT,\n  payload_json TEXT,\n  created_at_ms INTEGER,\n  expires_at_ms INTEGER\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS device_identities (\n  identity_key TEXT NOT NULL PRIMARY KEY,\n  device_id TEXT NOT NULL,\n  public_key_pem TEXT NOT NULL,\n  private_key_pem TEXT NOT NULL,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_device_identities_device\n  ON device_identities(device_id, updated_at_ms DESC);\n\nCREATE TABLE IF NOT EXISTS device_auth_tokens (\n  device_id TEXT NOT NULL,\n  role TEXT NOT NULL,\n  token TEXT NOT NULL,\n  scopes_json TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (device_id, role)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_device_auth_tokens_updated\n  ON device_auth_tokens(updated_at_ms DESC, device_id, role);\n\nCREATE TABLE IF NOT EXISTS gateway_origin_device_tokens (\n  gateway_scope TEXT NOT NULL,\n  device_id TEXT NOT NULL,\n  role TEXT NOT NULL,\n  token TEXT NOT NULL,\n  scopes_json TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (gateway_scope, device_id, role)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS macos_port_guardian_records (\n  pid INTEGER NOT NULL PRIMARY KEY,\n  port INTEGER NOT NULL,\n  command TEXT NOT NULL,\n  mode TEXT NOT NULL,\n  timestamp REAL NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_macos_port_guardian_records_port\n  ON macos_port_guardian_records(port, timestamp DESC);\n\nCREATE TABLE IF NOT EXISTS workspace_setup_state (\n  workspace_key TEXT NOT NULL PRIMARY KEY,\n  -- NULL only for attestation-only rows whose legacy source never recorded a\n  -- path (orphan hashed-key attestations); setup rows always carry one.\n  workspace_path TEXT,\n  -- NULL setup columns mean an attestation-only row: replaceWorkspaceAttestation\n  -- may record hashes before any setup milestone exists for the workspace.\n  version INTEGER,\n  bootstrap_seeded_at TEXT,\n  setup_completed_at TEXT,\n  updated_at INTEGER,\n  attested_at_ms INTEGER,\n  attestation_updated_at_ms INTEGER,\n  CHECK (version IS NULL OR workspace_path IS NOT NULL)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_workspace_setup_state_path\n  ON workspace_setup_state(workspace_path);\n\nCREATE TABLE IF NOT EXISTS workspace_path_aliases (\n  alias_key TEXT NOT NULL PRIMARY KEY,\n  alias_path TEXT NOT NULL,\n  workspace_key TEXT NOT NULL,\n  workspace_path TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_workspace_path_aliases_workspace\n  ON workspace_path_aliases(workspace_key);\n\n\n\nCREATE TABLE IF NOT EXISTS workspace_generated_bootstrap_hashes (\n  workspace_key TEXT NOT NULL,\n  filename TEXT NOT NULL,\n  sha256 TEXT NOT NULL,\n  PRIMARY KEY (workspace_key, filename),\n  FOREIGN KEY (workspace_key) REFERENCES workspace_setup_state(workspace_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS native_hook_relay_bridges (\n  relay_id TEXT NOT NULL PRIMARY KEY,\n  pid INTEGER NOT NULL,\n  hostname TEXT NOT NULL,\n  port INTEGER NOT NULL,\n  token TEXT NOT NULL,\n  expires_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_native_hook_relay_bridges_expires\n  ON native_hook_relay_bridges(expires_at_ms, relay_id);\n\nCREATE TABLE IF NOT EXISTS managed_outgoing_image_records (\n  attachment_id TEXT NOT NULL PRIMARY KEY,\n  session_key TEXT NOT NULL,\n  agent_id TEXT,\n  message_id TEXT,\n  created_at TEXT NOT NULL,\n  updated_at TEXT,\n  retention_class TEXT,\n  alt TEXT NOT NULL,\n  original_media_root TEXT NOT NULL,\n  original_media_id TEXT NOT NULL,\n  original_media_subdir TEXT NOT NULL,\n  original_content_type TEXT NOT NULL,\n  original_width INTEGER,\n  original_height INTEGER,\n  original_size_bytes INTEGER,\n  original_filename TEXT,\n  record_json TEXT NOT NULL,\n  cleanup_pending INTEGER NOT NULL DEFAULT 0 CHECK (cleanup_pending IN (0, 1))\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_managed_outgoing_images_session\n  ON managed_outgoing_image_records(session_key, created_at DESC, attachment_id);\n\nCREATE INDEX IF NOT EXISTS idx_managed_outgoing_images_message\n  ON managed_outgoing_image_records(session_key, message_id, attachment_id)\n  WHERE message_id IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_managed_outgoing_images_agent_session\n  ON managed_outgoing_image_records(session_key, agent_id, created_at DESC, attachment_id);\n\nCREATE INDEX IF NOT EXISTS idx_managed_outgoing_images_agent_message\n  ON managed_outgoing_image_records(session_key, agent_id, message_id, attachment_id)\n  WHERE message_id IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS channel_pairing_requests (\n  channel_key TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  request_id TEXT NOT NULL,\n  code TEXT NOT NULL,\n  created_at TEXT NOT NULL,\n  last_seen_at TEXT NOT NULL,\n  meta_json TEXT,\n  PRIMARY KEY (channel_key, account_id, request_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_channel_pairing_requests_code\n  ON channel_pairing_requests(channel_key, code);\n\nCREATE INDEX IF NOT EXISTS idx_channel_pairing_requests_created\n  ON channel_pairing_requests(channel_key, created_at, request_id);\n\nCREATE TABLE IF NOT EXISTS channel_pairing_allow_entries (\n  channel_key TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  entry TEXT NOT NULL,\n  sort_order INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (channel_key, account_id, entry)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_channel_pairing_allow_account\n  ON channel_pairing_allow_entries(channel_key, account_id, sort_order, entry);\n\nCREATE TABLE IF NOT EXISTS web_push_subscriptions (\n  endpoint_hash TEXT NOT NULL PRIMARY KEY,\n  subscription_id TEXT NOT NULL UNIQUE,\n  endpoint TEXT NOT NULL,\n  p256dh TEXT NOT NULL,\n  auth TEXT NOT NULL,\n  device_id TEXT,\n  user_profile_id TEXT,\n  preferences_json TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_web_push_subscriptions_updated\n  ON web_push_subscriptions(updated_at_ms DESC, subscription_id);\n\nCREATE TABLE IF NOT EXISTS web_push_approval_deliveries (\n  approval_id TEXT NOT NULL\n    REFERENCES operator_approvals(approval_id) ON DELETE CASCADE,\n  subscription_id TEXT NOT NULL\n    REFERENCES web_push_subscriptions(subscription_id) ON DELETE CASCADE,\n  device_id TEXT NOT NULL,\n  user_profile_id TEXT,\n  prepared_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (approval_id, subscription_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_web_push_approval_deliveries_subscription\n  ON web_push_approval_deliveries(subscription_id, approval_id);\n\nCREATE TABLE IF NOT EXISTS apns_registrations (\n  node_id TEXT NOT NULL PRIMARY KEY,\n  transport TEXT NOT NULL,\n  token TEXT,\n  relay_handle TEXT,\n  send_grant TEXT,\n  installation_id TEXT,\n  relay_origin TEXT,\n  topic TEXT NOT NULL,\n  environment TEXT NOT NULL,\n  distribution TEXT,\n  token_debug_suffix TEXT,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_apns_registrations_updated\n  ON apns_registrations(updated_at_ms DESC, node_id);\n\nCREATE TABLE IF NOT EXISTS apns_registration_tombstones (\n  node_id TEXT NOT NULL PRIMARY KEY,\n  deleted_at_ms INTEGER NOT NULL\n) STRICT;\n\n-- Node-host-owned launch journal. The descriptor and its credential remain\n-- process memory only; this table records bounded supervision facts.\nCREATE TABLE IF NOT EXISTS node_worker_launches (\n  launch_id TEXT NOT NULL PRIMARY KEY\n    CHECK (length(launch_id) BETWEEN 1 AND 256 AND instr(launch_id, char(0)) = 0),\n  plan_hash TEXT NOT NULL\n    CHECK (length(plan_hash) = 64 AND plan_hash NOT GLOB '*[^0-9a-f]*'),\n  gateway_namespace TEXT NOT NULL\n    CHECK (\n      length(gateway_namespace) BETWEEN 1 AND 128\n      AND gateway_namespace NOT GLOB '*[^A-Za-z0-9._-]*'\n      AND gateway_namespace GLOB '[A-Za-z0-9]*'\n    ),\n  environment_id TEXT NOT NULL\n    CHECK (length(environment_id) BETWEEN 1 AND 256 AND instr(environment_id, char(0)) = 0),\n  session_id TEXT NOT NULL\n    CHECK (length(session_id) BETWEEN 1 AND 256 AND instr(session_id, char(0)) = 0),\n  owner_epoch INTEGER NOT NULL CHECK (owner_epoch BETWEEN 1 AND 9007199254740991),\n  placement_generation INTEGER NOT NULL\n    CHECK (placement_generation BETWEEN 0 AND 9007199254740991),\n  run_id TEXT NOT NULL\n    CHECK (length(run_id) BETWEEN 1 AND 256 AND instr(run_id, char(0)) = 0),\n  state TEXT NOT NULL\n    CHECK (state IN ('pending', 'running', 'completed', 'failed', 'interrupted', 'cancelled')),\n  supervisor_pid INTEGER NOT NULL CHECK (supervisor_pid BETWEEN 1 AND 2147483647),\n  supervisor_start_time INTEGER NOT NULL\n    CHECK (supervisor_start_time BETWEEN 0 AND 9007199254740991),\n  worker_pid INTEGER CHECK (worker_pid IS NULL OR worker_pid BETWEEN 1 AND 2147483647),\n  worker_start_time INTEGER CHECK (\n    worker_start_time IS NULL OR worker_start_time BETWEEN 0 AND 9007199254740991\n  ),\n  result_json TEXT CHECK (\n    result_json IS NULL\n    OR (\n      length(CAST(result_json AS BLOB)) BETWEEN 1 AND 65536\n      AND instr(result_json, char(0)) = 0\n      AND json_valid(result_json)\n    )\n  ),\n  error_text TEXT CHECK (\n    error_text IS NULL\n    OR (\n      length(CAST(error_text AS BLOB)) BETWEEN 1 AND 4096\n      AND instr(error_text, char(0)) = 0\n      AND instr(error_text, char(10)) = 0\n      AND instr(error_text, char(13)) = 0\n    )\n  ),\n  completed_at_ms INTEGER CHECK (\n    completed_at_ms IS NULL OR completed_at_ms BETWEEN 0 AND 9007199254740991\n  ),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms BETWEEN 0 AND 9007199254740991),\n  updated_at_ms INTEGER NOT NULL CHECK (\n    updated_at_ms BETWEEN created_at_ms AND 9007199254740991\n  ),\n  CHECK ((worker_pid IS NULL) = (worker_start_time IS NULL)),\n  CHECK (\n    (state = 'pending'\n      AND worker_pid IS NULL AND result_json IS NULL AND error_text IS NULL\n      AND completed_at_ms IS NULL)\n    OR\n    (state = 'running'\n      AND worker_pid IS NOT NULL AND result_json IS NULL AND error_text IS NULL\n      AND completed_at_ms IS NULL)\n    OR\n    (state = 'completed'\n      AND result_json IS NOT NULL AND error_text IS NULL\n      AND completed_at_ms BETWEEN created_at_ms AND updated_at_ms)\n    OR\n    (state IN ('failed', 'interrupted', 'cancelled')\n      AND result_json IS NULL AND error_text IS NOT NULL\n      AND completed_at_ms BETWEEN created_at_ms AND updated_at_ms)\n  )\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_node_worker_launches_terminal_completed\n  ON node_worker_launches(completed_at_ms, launch_id)\n  WHERE completed_at_ms IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS node_worker_launch_boots (\n  launch_id TEXT NOT NULL PRIMARY KEY\n    REFERENCES node_worker_launches(launch_id) ON DELETE CASCADE,\n  boot_id TEXT CHECK (boot_id IS NULL OR length(boot_id) BETWEEN 1 AND 128)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS node_worker_launch_containers (\n  launch_id TEXT PRIMARY KEY,\n  container_json TEXT\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS node_worker_launch_cleanup (\n  launch_id TEXT NOT NULL PRIMARY KEY\n    REFERENCES node_worker_launches(launch_id) ON DELETE CASCADE,\n  cleanup_mode TEXT NOT NULL CHECK (cleanup_mode IN ('process-group', 'owned-anchor')),\n  lineage_settled INTEGER CHECK (lineage_settled IS NULL OR lineage_settled = 1)\n) STRICT;\n\n-- Older readers retain owned-anchor custody: lineage EOF is not this certificate.\nCREATE TABLE IF NOT EXISTS node_worker_launch_process_scopes (\n  launch_id TEXT NOT NULL PRIMARY KEY\n    REFERENCES node_worker_launches(launch_id) ON DELETE CASCADE,\n  scope_kind TEXT NOT NULL CHECK (scope_kind = 'linux-subreaper'),\n  descendants_reaped INTEGER CHECK (descendants_reaped IS NULL OR descendants_reaped = 1)\n) STRICT;\n\n-- Turn receipts have a shorter lifetime than their physical worker owner.\n-- Keeping the launch running preserves capacity and predecessor cleanup semantics.\nCREATE TABLE IF NOT EXISTS node_worker_turns (\n  turn_id TEXT NOT NULL PRIMARY KEY\n    CHECK (length(turn_id) BETWEEN 1 AND 256 AND instr(turn_id, char(0)) = 0),\n  owner_launch_id TEXT NOT NULL\n    REFERENCES node_worker_launches(launch_id) ON DELETE CASCADE,\n  plan_hash TEXT NOT NULL\n    CHECK (length(plan_hash) = 64 AND plan_hash NOT GLOB '*[^0-9a-f]*'),\n  run_id TEXT NOT NULL\n    CHECK (length(run_id) BETWEEN 1 AND 256 AND instr(run_id, char(0)) = 0),\n  state TEXT NOT NULL\n    CHECK (state IN ('running', 'completed', 'failed', 'interrupted', 'cancelled')),\n  result_json TEXT CHECK (\n    result_json IS NULL\n    OR (\n      length(CAST(result_json AS BLOB)) BETWEEN 1 AND 65536\n      AND instr(result_json, char(0)) = 0\n      AND json_valid(result_json)\n    )\n  ),\n  error_text TEXT CHECK (\n    error_text IS NULL\n    OR (\n      length(CAST(error_text AS BLOB)) BETWEEN 1 AND 4096\n      AND instr(error_text, char(0)) = 0\n      AND instr(error_text, char(10)) = 0\n      AND instr(error_text, char(13)) = 0\n    )\n  ),\n  completed_at_ms INTEGER CHECK (\n    completed_at_ms IS NULL OR completed_at_ms BETWEEN 0 AND 9007199254740991\n  ),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms BETWEEN 0 AND 9007199254740991),\n  updated_at_ms INTEGER NOT NULL CHECK (\n    updated_at_ms BETWEEN created_at_ms AND 9007199254740991\n  ),\n  CHECK (\n    (state = 'running'\n      AND result_json IS NULL AND error_text IS NULL AND completed_at_ms IS NULL)\n    OR\n    (state = 'completed'\n      AND result_json IS NOT NULL AND error_text IS NULL\n      AND completed_at_ms BETWEEN created_at_ms AND updated_at_ms)\n    OR\n    (state IN ('failed', 'interrupted', 'cancelled')\n      AND result_json IS NULL AND error_text IS NOT NULL\n      AND completed_at_ms BETWEEN created_at_ms AND updated_at_ms)\n  )\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_node_worker_turns_terminal_completed\n  ON node_worker_turns(completed_at_ms, turn_id)\n  WHERE completed_at_ms IS NOT NULL;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_node_worker_turns_active_owner\n  ON node_worker_turns(owner_launch_id)\n  WHERE state = 'running';\n\nCREATE TABLE IF NOT EXISTS config_health_entries (\n  config_path TEXT NOT NULL PRIMARY KEY,\n  last_known_good_json TEXT,\n  last_promoted_good_json TEXT,\n  last_observed_suspicious_signature TEXT,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS clawhub_promotion_claims (\n  slug TEXT NOT NULL PRIMARY KEY,\n  provider TEXT,\n  model_keys_json TEXT NOT NULL,\n  ends_at_ms INTEGER NOT NULL,\n  claimed_at_ms INTEGER NOT NULL\n) STRICT;\n\n\n\nCREATE TABLE IF NOT EXISTS official_external_plugin_catalog_snapshots (\n  feed_url TEXT NOT NULL PRIMARY KEY,\n  body TEXT NOT NULL,\n  status INTEGER NOT NULL,\n  etag TEXT,\n  last_modified TEXT,\n  checksum TEXT NOT NULL,\n  saved_at TEXT NOT NULL,\n  trust_mode TEXT,\n  trust_key_id TEXT,\n  trust_signature_count INTEGER,\n  trust_threshold INTEGER,\n  trust_verified_at TEXT,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_official_external_plugin_catalog_snapshots_updated\n  ON official_external_plugin_catalog_snapshots(updated_at_ms DESC, feed_url);\n\nCREATE TABLE IF NOT EXISTS update_runs (\n  run_id TEXT PRIMARY KEY NOT NULL,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  trigger TEXT NOT NULL CHECK (trigger IN ('chat', 'control-ui', 'cli', 'campaign', 'mac-app', 'api')),\n  phase TEXT NOT NULL CHECK (phase IN ('requested', 'staging', 'validating', 'repairing', 'activating', 'restarting', 'verifying', 'finished')),\n  status TEXT NOT NULL CHECK (status IN ('running', 'succeeded', 'failed', 'rolled-back', 'skipped')),\n  reason TEXT,\n  origin_json TEXT NOT NULL CHECK (length(CAST(origin_json AS BLOB)) <= 16384),\n  target_json TEXT NOT NULL CHECK (length(CAST(target_json AS BLOB)) <= 16384),\n  before_json TEXT NOT NULL CHECK (length(CAST(before_json AS BLOB)) <= 16384),\n  after_json TEXT NOT NULL CHECK (length(CAST(after_json AS BLOB)) <= 16384),\n  steps_json TEXT NOT NULL CHECK (length(CAST(steps_json AS BLOB)) <= 16384),\n  verification_json TEXT NOT NULL CHECK (length(CAST(verification_json AS BLOB)) <= 16384),\n  repair_json TEXT NOT NULL CHECK (length(CAST(repair_json AS BLOB)) <= 16384),\n  confirmed_at_ms INTEGER,\n  finished_at_ms INTEGER,\n  downtime_ms INTEGER,\n  CHECK ((status = 'running' AND phase != 'finished' AND finished_at_ms IS NULL) OR\n    (status != 'running' AND phase = 'finished' AND finished_at_ms IS NOT NULL))\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_update_runs_created\n  ON update_runs(created_at_ms DESC, run_id);\nCREATE INDEX IF NOT EXISTS idx_update_runs_active\n  ON update_runs(status, created_at_ms DESC, run_id);\n\nCREATE TABLE IF NOT EXISTS gateway_restart_sentinel (\n  sentinel_key TEXT NOT NULL PRIMARY KEY,\n  version INTEGER NOT NULL,\n  kind TEXT NOT NULL,\n  status TEXT NOT NULL,\n  ts INTEGER NOT NULL,\n  session_key TEXT,\n  thread_id TEXT,\n  delivery_channel TEXT,\n  delivery_to TEXT,\n  delivery_account_id TEXT,\n  message TEXT,\n  continuation_json TEXT,\n  doctor_hint TEXT,\n  stats_json TEXT,\n  payload_json TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_gateway_restart_sentinel_ts\n  ON gateway_restart_sentinel(ts DESC, sentinel_key);\n\nCREATE TABLE IF NOT EXISTS gateway_restart_intent (\n  intent_key TEXT NOT NULL PRIMARY KEY,\n  kind TEXT NOT NULL,\n  pid INTEGER NOT NULL,\n  created_at INTEGER NOT NULL,\n  reason TEXT,\n  force INTEGER,\n  wait_ms INTEGER,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS gateway_restart_handoff (\n  handoff_key TEXT NOT NULL PRIMARY KEY,\n  kind TEXT NOT NULL,\n  version INTEGER NOT NULL,\n  intent_id TEXT NOT NULL,\n  pid INTEGER NOT NULL,\n  process_instance_id TEXT,\n  created_at INTEGER NOT NULL,\n  expires_at INTEGER NOT NULL,\n  reason TEXT,\n  restart_trace_started_at INTEGER,\n  restart_trace_last_at INTEGER,\n  source TEXT NOT NULL,\n  restart_kind TEXT NOT NULL,\n  supervisor_mode TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_gateway_restart_handoff_expiry\n  ON gateway_restart_handoff(expires_at, pid);\n\nCREATE TABLE IF NOT EXISTS gateway_boot_lifecycle (\n  boot_id TEXT NOT NULL PRIMARY KEY,\n  pid INTEGER NOT NULL,\n  started_at_ms INTEGER NOT NULL,\n  completed_at_ms INTEGER,\n  outcome TEXT,\n  startup_reason TEXT,\n  reason TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_gateway_boot_lifecycle_started\n  ON gateway_boot_lifecycle(started_at_ms);\n\nCREATE TABLE IF NOT EXISTS acp_sessions (\n  session_key TEXT NOT NULL PRIMARY KEY,\n  session_id TEXT,\n  backend TEXT NOT NULL,\n  agent TEXT NOT NULL,\n  runtime_session_name TEXT NOT NULL,\n  identity_json TEXT,\n  resume_agent_session_id TEXT,\n  resume_acpx_session_id TEXT,\n  mode TEXT NOT NULL,\n  runtime_options_json TEXT,\n  cwd TEXT,\n  state TEXT NOT NULL,\n  last_activity_at INTEGER NOT NULL,\n  last_error TEXT,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_acp_sessions_state_activity\n  ON acp_sessions(state, last_activity_at DESC, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_acp_sessions_agent_activity\n  ON acp_sessions(agent, last_activity_at DESC, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_acp_sessions_resume_agent\n  ON acp_sessions(resume_agent_session_id);\n\nCREATE INDEX IF NOT EXISTS idx_acp_sessions_resume_acpx\n  ON acp_sessions(resume_acpx_session_id);\n\nCREATE TABLE IF NOT EXISTS acp_replay_sessions (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  session_key TEXT NOT NULL,\n  cwd TEXT NOT NULL,\n  complete INTEGER NOT NULL,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  next_seq INTEGER NOT NULL,\n  -- Running estimate of this session's ledger footprint (row overhead plus\n  -- all event rows), maintained at insert/trim so budget checks never scan\n  -- acp_replay_events (#100622).\n  estimated_bytes INTEGER NOT NULL DEFAULT 0\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_acp_replay_sessions_key_updated\n  ON acp_replay_sessions(session_key, complete, updated_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_acp_replay_sessions_updated\n  ON acp_replay_sessions(updated_at DESC, session_id);\n\nCREATE TABLE IF NOT EXISTS acp_replay_events (\n  session_id TEXT NOT NULL,\n  seq INTEGER NOT NULL,\n  at INTEGER NOT NULL,\n  session_key TEXT NOT NULL,\n  run_id TEXT,\n  update_json TEXT NOT NULL,\n  estimated_bytes INTEGER NOT NULL DEFAULT 0,\n  PRIMARY KEY (session_id, seq),\n  FOREIGN KEY (session_id) REFERENCES acp_replay_sessions(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_acp_replay_events_session_seq\n  ON acp_replay_events(session_id, seq);\n\nCREATE TABLE IF NOT EXISTS agent_databases (\n  agent_id TEXT NOT NULL,\n  path TEXT NOT NULL,\n  schema_version INTEGER NOT NULL,\n  last_seen_at INTEGER NOT NULL,\n  size_bytes INTEGER,\n  PRIMARY KEY (agent_id, path)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS agent_deletion_journal (\n  agent_id TEXT PRIMARY KEY,\n  operation_id TEXT NOT NULL DEFAULT '',\n  phase TEXT,\n  agent_dir TEXT NOT NULL,\n  workspace_dir TEXT NOT NULL,\n  sessions_dir TEXT NOT NULL,\n  database_paths_json TEXT NOT NULL DEFAULT '[]',\n  cleanup_paths_json TEXT NOT NULL DEFAULT '[]',\n  created_at INTEGER NOT NULL,\n  cleanup_completed INTEGER NOT NULL DEFAULT 0,\n  delete_files INTEGER NOT NULL DEFAULT 1\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS agent_provenance (\n  agent_id TEXT PRIMARY KEY,\n  created_via TEXT NOT NULL CHECK (created_via IN ('operator', 'agent', 'claw')),\n  creator_agent_id TEXT,\n  created_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS agent_database_leases (\n  lease_id TEXT PRIMARY KEY,\n  agent_id TEXT NOT NULL,\n  path TEXT NOT NULL,\n  owner_pid INTEGER NOT NULL,\n  owner_start_time INTEGER,\n  opened_at INTEGER NOT NULL,\n  provenance TEXT\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS plugin_state_entries (\n  plugin_id TEXT NOT NULL,\n  namespace TEXT NOT NULL,\n  entry_key TEXT NOT NULL,\n  value_json TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  expires_at INTEGER,\n  PRIMARY KEY (plugin_id, namespace, entry_key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_plugin_state_expiry\n  ON plugin_state_entries(expires_at)\n  WHERE expires_at IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_plugin_state_listing\n  ON plugin_state_entries(plugin_id, namespace, created_at, entry_key, expires_at);\n\nCREATE TABLE IF NOT EXISTS channel_ingress_events (\n  queue_name TEXT NOT NULL,\n  event_id TEXT NOT NULL,\n  channel_id TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  status TEXT NOT NULL,\n  lane_key TEXT,\n  payload_json TEXT NOT NULL,\n  metadata_json TEXT,\n  received_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  claim_token TEXT,\n  claim_owner TEXT,\n  claimed_at INTEGER,\n  attempts INTEGER NOT NULL DEFAULT 0,\n  last_attempt_at INTEGER,\n  last_error TEXT,\n  failed_reason TEXT,\n  failed_at INTEGER,\n  completed_at INTEGER,\n  completed_metadata_json TEXT,\n  PRIMARY KEY (queue_name, event_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_channel_ingress_pending\n  ON channel_ingress_events(queue_name, status, received_at, event_id);\n\nCREATE INDEX IF NOT EXISTS idx_channel_ingress_claims\n  ON channel_ingress_events(queue_name, status, claimed_at);\n\nCREATE INDEX IF NOT EXISTS idx_channel_ingress_lane\n  ON channel_ingress_events(queue_name, status, lane_key);\n\nCREATE TABLE IF NOT EXISTS plugin_blob_entries (\n  plugin_id TEXT NOT NULL,\n  namespace TEXT NOT NULL,\n  entry_key TEXT NOT NULL,\n  metadata_json TEXT NOT NULL,\n  blob BLOB NOT NULL,\n  created_at INTEGER NOT NULL,\n  expires_at INTEGER,\n  PRIMARY KEY (plugin_id, namespace, entry_key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_plugin_blob_expiry\n  ON plugin_blob_entries(expires_at)\n  WHERE expires_at IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_plugin_blob_listing\n  ON plugin_blob_entries(plugin_id, namespace, created_at, entry_key);\n\nCREATE TABLE IF NOT EXISTS skill_uploads (\n  upload_id TEXT NOT NULL PRIMARY KEY,\n  kind TEXT NOT NULL,\n  slug TEXT NOT NULL,\n  force INTEGER NOT NULL,\n  size_bytes INTEGER NOT NULL,\n  sha256 TEXT,\n  actual_sha256 TEXT,\n  received_bytes INTEGER NOT NULL,\n  archive_blob BLOB NOT NULL,\n  created_at INTEGER NOT NULL,\n  expires_at INTEGER NOT NULL,\n  committed INTEGER NOT NULL,\n  committed_at INTEGER,\n  idempotency_key_hash TEXT UNIQUE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_skill_uploads_expiry\n  ON skill_uploads(expires_at);\n\nCREATE INDEX IF NOT EXISTS idx_skill_uploads_idempotency\n  ON skill_uploads(idempotency_key_hash)\n  WHERE idempotency_key_hash IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS skill_upload_chunks (\n  upload_id TEXT NOT NULL,\n  byte_offset INTEGER NOT NULL CHECK (byte_offset >= 0),\n  size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),\n  chunk_blob BLOB NOT NULL,\n  PRIMARY KEY (upload_id, byte_offset),\n  FOREIGN KEY (upload_id) REFERENCES skill_uploads(upload_id) ON DELETE CASCADE,\n  CHECK (length(chunk_blob) = size_bytes)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS capture_sessions (\n  id TEXT NOT NULL PRIMARY KEY,\n  started_at INTEGER NOT NULL,\n  ended_at INTEGER,\n  mode TEXT NOT NULL,\n  source_scope TEXT NOT NULL,\n  source_process TEXT NOT NULL,\n  proxy_url TEXT\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS capture_blobs (\n  blob_id TEXT NOT NULL PRIMARY KEY,\n  content_type TEXT,\n  encoding TEXT NOT NULL,\n  size_bytes INTEGER NOT NULL,\n  sha256 TEXT NOT NULL,\n  data BLOB NOT NULL,\n  created_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS capture_events (\n  id INTEGER NOT NULL PRIMARY KEY,\n  session_id TEXT NOT NULL,\n  ts INTEGER NOT NULL,\n  source_scope TEXT NOT NULL,\n  source_process TEXT NOT NULL,\n  protocol TEXT NOT NULL,\n  direction TEXT NOT NULL,\n  kind TEXT NOT NULL,\n  flow_id TEXT NOT NULL,\n  method TEXT,\n  host TEXT,\n  path TEXT,\n  status INTEGER,\n  close_code INTEGER,\n  content_type TEXT,\n  headers_json TEXT,\n  data_text TEXT,\n  data_blob_id TEXT,\n  data_sha256 TEXT,\n  error_text TEXT,\n  meta_json TEXT,\n  FOREIGN KEY (session_id) REFERENCES capture_sessions(id) ON DELETE CASCADE,\n  FOREIGN KEY (data_blob_id) REFERENCES capture_blobs(blob_id) ON DELETE SET NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS capture_events_session_ts_idx\n  ON capture_events(session_id, ts);\n\nCREATE INDEX IF NOT EXISTS capture_events_flow_idx\n  ON capture_events(flow_id, ts);\n\nCREATE TABLE IF NOT EXISTS sandbox_registry_entries (\n  registry_kind TEXT NOT NULL,\n  container_name TEXT NOT NULL,\n  session_key TEXT,\n  backend_id TEXT,\n  runtime_label TEXT,\n  image TEXT,\n  created_at_ms INTEGER,\n  last_used_at_ms INTEGER,\n  config_label_kind TEXT,\n  config_hash TEXT,\n  cdp_port INTEGER,\n  no_vnc_port INTEGER,\n  entry_json TEXT NOT NULL,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (registry_kind, container_name)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_sandbox_registry_updated\n  ON sandbox_registry_entries(registry_kind, updated_at DESC, container_name);\n\nCREATE INDEX IF NOT EXISTS idx_sandbox_registry_session\n  ON sandbox_registry_entries(registry_kind, session_key, last_used_at_ms DESC, container_name)\n  WHERE session_key IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_sandbox_registry_last_used\n  ON sandbox_registry_entries(registry_kind, last_used_at_ms DESC, container_name)\n  WHERE last_used_at_ms IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS cron_jobs (\n  store_key TEXT NOT NULL,\n  job_id TEXT NOT NULL,\n  declaration_key TEXT,\n  owner_agent_id TEXT,\n  name TEXT NOT NULL,\n  description TEXT,\n  enabled INTEGER NOT NULL,\n  agent_id TEXT,\n  payload_kind TEXT NOT NULL,\n  job_json TEXT NOT NULL,\n  grant_definition_revision TEXT,\n  grant_definition_generation INTEGER,\n  grant_definition_updated_at INTEGER,\n  state_json TEXT NOT NULL DEFAULT '{}',\n  runtime_updated_at_ms INTEGER,\n  schedule_identity TEXT,\n  sort_order INTEGER NOT NULL DEFAULT 0,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (store_key, job_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_cron_jobs_store_order\n  ON cron_jobs(store_key, sort_order ASC, updated_at ASC, job_id);\n\n-- One owner-native receipt is also the durable execution fence. Receipts\n-- survive job deletion so operators can distinguish a run from log inference.\nCREATE TABLE IF NOT EXISTS cron_run_receipts (\n  cursor_id INTEGER NOT NULL,\n  receipt_id TEXT PRIMARY KEY,\n  store_key TEXT NOT NULL,\n  job_id TEXT NOT NULL,\n  config_revision TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  request_run_id TEXT,\n  delivery_attempt_state TEXT NOT NULL DEFAULT 'unknown' CHECK (delivery_attempt_state IN ('unknown', 'not-started', 'started')),\n  status TEXT NOT NULL,\n  owner_pid INTEGER NOT NULL,\n  owner_start_time INTEGER,\n  started_at_ms INTEGER NOT NULL,\n  finished_at_ms INTEGER,\n  error_text TEXT,\n  CHECK (status IN ('running', 'ok', 'error', 'skipped', 'interrupted', 'superseded')),\n  CHECK (\n    (status = 'running' AND finished_at_ms IS NULL)\n    OR\n    (status != 'running' AND finished_at_ms IS NOT NULL)\n  )\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS cron_run_receipts_cursor_id_idx\n  ON cron_run_receipts(cursor_id);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_cron_run_receipts_active_job\n  ON cron_run_receipts(store_key, job_id)\n  WHERE status = 'running';\n\nCREATE INDEX IF NOT EXISTS idx_cron_run_receipts_job_history\n  ON cron_run_receipts(store_key, job_id, started_at_ms DESC, receipt_id DESC);\n\n-- Retirement follows the receipt's retention without changing its released shape.\nCREATE TABLE IF NOT EXISTS cron_run_trigger_state_retirements (\n  receipt_id TEXT PRIMARY KEY\n    REFERENCES cron_run_receipts(receipt_id) ON DELETE CASCADE\n) STRICT;\n\n-- Runtime-private authority is independent of job_json so downgraded writers\n-- can rewrite recognized job config without erasing or silently widening it.\nCREATE TABLE IF NOT EXISTS cron_job_runtime_authorities (\n  store_key TEXT NOT NULL,\n  job_id TEXT NOT NULL,\n  authority_json TEXT,\n  authority_input_fingerprint TEXT,\n  recovery_required INTEGER NOT NULL,\n  PRIMARY KEY (store_key, job_id),\n  FOREIGN KEY (store_key, job_id)\n    REFERENCES cron_jobs(store_key, job_id) ON DELETE CASCADE,\n  CHECK (recovery_required IN (0, 1)),\n  CHECK (\n    (recovery_required = 0 AND authority_json IS NOT NULL AND authority_input_fingerprint IS NOT NULL)\n    OR\n    (recovery_required = 1 AND authority_json IS NULL AND authority_input_fingerprint IS NULL)\n  )\n) STRICT;\n\n-- Scratch is separate from cron_jobs so scheduler state writes and downgraded\n-- full-row replacement preserve it. New builds prune rows explicitly on job removal.\n-- content NULL is a tombstone: it keeps the revision lineage monotonic across\n-- unset/recreate so stale compare-and-swap writes cannot resurrect old content.\nCREATE TABLE IF NOT EXISTS cron_job_scratch (\n  store_key TEXT NOT NULL,\n  job_id TEXT NOT NULL,\n  content TEXT,\n  revision INTEGER NOT NULL,\n  source_sha256 TEXT,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (store_key, job_id),\n  CHECK (revision >= 1),\n  CHECK (content IS NULL OR length(CAST(content AS BLOB)) <= 262144)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_cron_job_scratch_store_updated\n  ON cron_job_scratch(store_key, updated_at_ms DESC, job_id);\n\nCREATE TABLE IF NOT EXISTS delivery_queue_entries (\n  queue_name TEXT NOT NULL,\n  id TEXT NOT NULL,\n  status TEXT NOT NULL,\n  entry_kind TEXT,\n  session_key TEXT,\n  channel TEXT,\n  target TEXT,\n  account_id TEXT,\n  retry_count INTEGER NOT NULL DEFAULT 0,\n  last_attempt_at INTEGER,\n  last_error TEXT,\n  recovery_state TEXT,\n  platform_send_started_at INTEGER,\n  entry_json TEXT NOT NULL,\n  retention_id_prefix TEXT,\n  retention_max_age_ms INTEGER,\n  retention_max_entries INTEGER,\n  enqueued_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  failed_at INTEGER,\n  PRIMARY KEY (queue_name, id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_delivery_queue_pending\n  ON delivery_queue_entries(queue_name, status, enqueued_at, id);\n\nCREATE INDEX IF NOT EXISTS idx_delivery_queue_failed\n  ON delivery_queue_entries(status, queue_name, failed_at, id);\n\nCREATE INDEX IF NOT EXISTS idx_delivery_queue_session\n  ON delivery_queue_entries(queue_name, status, session_key, enqueued_at, id)\n  WHERE session_key IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_delivery_queue_target\n  ON delivery_queue_entries(queue_name, status, channel, target, enqueued_at, id)\n  WHERE channel IS NOT NULL AND target IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_delivery_queue_bounded_retention\n  ON delivery_queue_entries(queue_name, retention_id_prefix, enqueued_at DESC, id DESC)\n  WHERE status IN ('completed', 'failed') AND recovery_state = 'completed_bounded'\n    AND retention_id_prefix IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS task_runs (\n  task_id TEXT NOT NULL PRIMARY KEY,\n  runtime TEXT NOT NULL,\n  task_kind TEXT,\n  source_id TEXT,\n  requester_session_key TEXT,\n  owner_key TEXT NOT NULL,\n  scope_kind TEXT NOT NULL,\n  child_session_key TEXT,\n  parent_flow_id TEXT,\n  parent_task_id TEXT,\n  agent_id TEXT,\n  requester_agent_id TEXT,\n  run_id TEXT,\n  execution_owner_host TEXT,\n  execution_owner_pid INTEGER,\n  execution_owner_start_identity INTEGER,\n  label TEXT,\n  task TEXT NOT NULL,\n  status TEXT NOT NULL,\n  delivery_status TEXT NOT NULL,\n  notify_policy TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  started_at INTEGER,\n  ended_at INTEGER,\n  last_event_at INTEGER,\n  cleanup_after INTEGER,\n  tool_use_count INTEGER,\n  last_tool_name TEXT,\n  error TEXT,\n  progress_summary TEXT,\n  terminal_summary TEXT,\n  terminal_outcome TEXT,\n  detail_json TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_task_runs_run_id ON task_runs(run_id);\nCREATE INDEX IF NOT EXISTS idx_task_runs_status ON task_runs(status);\nCREATE INDEX IF NOT EXISTS idx_task_runs_runtime_status ON task_runs(runtime, status);\nCREATE INDEX IF NOT EXISTS idx_task_runs_cleanup_after ON task_runs(cleanup_after);\nCREATE INDEX IF NOT EXISTS idx_task_runs_last_event_at ON task_runs(last_event_at);\nCREATE INDEX IF NOT EXISTS idx_task_runs_owner_key ON task_runs(owner_key);\nCREATE INDEX IF NOT EXISTS idx_task_runs_parent_flow_id ON task_runs(parent_flow_id);\nCREATE INDEX IF NOT EXISTS idx_task_runs_child_session_key ON task_runs(child_session_key);\nCREATE INDEX IF NOT EXISTS idx_task_runs_requester_session_key ON task_runs(requester_session_key);\nCREATE INDEX IF NOT EXISTS idx_task_runs_runtime_source_ended\n  ON task_runs(runtime, source_id, ended_at, created_at, task_id);\nCREATE INDEX IF NOT EXISTS idx_task_runs_runtime_ended\n  ON task_runs(runtime, ended_at, created_at, task_id);\n\nCREATE TABLE IF NOT EXISTS subagent_runs (\n  run_id TEXT NOT NULL PRIMARY KEY,\n  child_session_key TEXT NOT NULL,\n  controller_session_key TEXT,\n  controller_store_path TEXT,\n  requester_session_key TEXT NOT NULL,\n  requester_store_path TEXT,\n  created_at INTEGER NOT NULL,\n  payload_json TEXT NOT NULL DEFAULT '{}'\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_subagent_runs_child_session_key\n  ON subagent_runs(child_session_key, created_at DESC, run_id);\nCREATE INDEX IF NOT EXISTS idx_subagent_runs_requester_session_key\n  ON subagent_runs(requester_session_key, created_at DESC, run_id);\nCREATE INDEX IF NOT EXISTS idx_subagent_runs_controller_session_key\n  ON subagent_runs(controller_session_key, created_at DESC, run_id);\n\nCREATE TABLE IF NOT EXISTS current_conversation_bindings (\n  binding_key TEXT NOT NULL PRIMARY KEY,\n  binding_id TEXT NOT NULL,\n  target_session_key TEXT NOT NULL,\n  channel TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  conversation_kind TEXT NOT NULL,\n  parent_conversation_id TEXT,\n  conversation_id TEXT NOT NULL,\n  target_kind TEXT NOT NULL,\n  status TEXT NOT NULL,\n  bound_at INTEGER NOT NULL,\n  expires_at INTEGER,\n  metadata_json TEXT,\n  record_json TEXT NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_current_conversation_bindings_target\n  ON current_conversation_bindings(target_session_key, updated_at DESC, binding_key);\nCREATE INDEX IF NOT EXISTS idx_current_conversation_bindings_conversation\n  ON current_conversation_bindings(channel, account_id, conversation_kind, conversation_id);\nCREATE INDEX IF NOT EXISTS idx_current_conversation_bindings_expires\n  ON current_conversation_bindings(expires_at, binding_key);\n\nCREATE TABLE IF NOT EXISTS plugin_binding_approvals (\n  plugin_root TEXT NOT NULL,\n  channel TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  plugin_id TEXT NOT NULL,\n  plugin_name TEXT,\n  approved_at INTEGER NOT NULL,\n  PRIMARY KEY (plugin_root, channel, account_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_plugin_binding_approvals_plugin\n  ON plugin_binding_approvals(plugin_id, approved_at DESC);\n\nCREATE TABLE IF NOT EXISTS task_delivery_state (\n  task_id TEXT NOT NULL PRIMARY KEY,\n  requester_origin_json TEXT,\n  last_notified_event_at INTEGER,\n  FOREIGN KEY (task_id) REFERENCES task_runs(task_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS flow_runs (\n  flow_id TEXT NOT NULL PRIMARY KEY,\n  shape TEXT,\n  sync_mode TEXT NOT NULL DEFAULT 'managed',\n  owner_key TEXT NOT NULL,\n  requester_origin_json TEXT,\n  controller_id TEXT,\n  revision INTEGER NOT NULL DEFAULT 0,\n  status TEXT NOT NULL,\n  notify_policy TEXT NOT NULL,\n  goal TEXT NOT NULL,\n  current_step TEXT,\n  blocked_task_id TEXT,\n  blocked_summary TEXT,\n  state_json TEXT,\n  wait_json TEXT,\n  cancel_requested_at INTEGER,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  ended_at INTEGER\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_flow_runs_status ON flow_runs(status);\nCREATE INDEX IF NOT EXISTS idx_flow_runs_owner_key ON flow_runs(owner_key);\nCREATE INDEX IF NOT EXISTS idx_flow_runs_updated_at ON flow_runs(updated_at);\n\n-- Durable meeting-capture sessions are gateway-global rather than agent-session\n-- transcripts. JSON/JSONL files are doctor import inputs or explicit CLI exports.\nCREATE TABLE IF NOT EXISTS meeting_transcript_sessions (\n  session_id TEXT NOT NULL,\n  started_at TEXT NOT NULL,\n  selector TEXT NOT NULL UNIQUE,\n  export_key TEXT NOT NULL,\n  session_slug TEXT NOT NULL,\n  provider_id TEXT NOT NULL,\n  title TEXT,\n  source_json TEXT NOT NULL,\n  source_account_id TEXT,\n  source_guild_id TEXT,\n  source_channel_id TEXT,\n  source_meeting_url TEXT,\n  source_thread_ts TEXT,\n  source_file_id TEXT,\n  stopped_at TEXT,\n  metadata_json TEXT,\n  metadata_agent_id TEXT,\n  export_manifest_json TEXT NOT NULL DEFAULT '{}',\n  export_pending_json TEXT NOT NULL DEFAULT '[]',\n  next_utterance_seq INTEGER NOT NULL DEFAULT 0 CHECK (next_utterance_seq >= 0),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= 0),\n  PRIMARY KEY (session_id, started_at)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_started\n  ON meeting_transcript_sessions(started_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_id\n  ON meeting_transcript_sessions(session_id, started_at DESC);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_slug\n  ON meeting_transcript_sessions(session_slug, started_at DESC);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_export_key\n  ON meeting_transcript_sessions(export_key);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_source\n  ON meeting_transcript_sessions(provider_id, source_account_id, source_guild_id,\n    source_channel_id, source_meeting_url, source_thread_ts, source_file_id,\n    stopped_at DESC, started_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_account\n  ON meeting_transcript_sessions(source_account_id);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_agent\n  ON meeting_transcript_sessions(metadata_agent_id);\n\nCREATE TABLE IF NOT EXISTS meeting_transcript_utterances (\n  session_id TEXT NOT NULL,\n  session_started_at TEXT NOT NULL,\n  sequence INTEGER NOT NULL CHECK (sequence >= 0),\n  utterance_id TEXT,\n  started_at TEXT,\n  ended_at TEXT,\n  speaker_id TEXT,\n  speaker_label TEXT,\n  text TEXT NOT NULL,\n  final INTEGER CHECK (final IN (0, 1)),\n  metadata_json TEXT,\n  PRIMARY KEY (session_id, session_started_at, sequence),\n  FOREIGN KEY (session_id, session_started_at)\n    REFERENCES meeting_transcript_sessions(session_id, started_at)\n    ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_utterances_id\n  ON meeting_transcript_utterances(session_id, session_started_at, utterance_id)\n  WHERE utterance_id IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS meeting_transcript_summaries (\n  session_id TEXT NOT NULL,\n  session_started_at TEXT NOT NULL,\n  generated_at TEXT,\n  summary_json TEXT,\n  overview TEXT,\n  markdown TEXT,\n  utterance_count INTEGER NOT NULL CHECK (utterance_count >= 0),\n  PRIMARY KEY (session_id, session_started_at),\n  FOREIGN KEY (session_id, session_started_at)\n    REFERENCES meeting_transcript_sessions(session_id, started_at)\n    ON DELETE CASCADE,\n  CHECK (summary_json IS NOT NULL OR markdown IS NOT NULL)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS migration_runs (\n  id TEXT NOT NULL PRIMARY KEY,\n  started_at INTEGER NOT NULL,\n  finished_at INTEGER,\n  status TEXT NOT NULL,\n  report_json TEXT NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_migration_runs_started\n  ON migration_runs(started_at DESC, id);\n\nCREATE TABLE IF NOT EXISTS migration_sources (\n  source_key TEXT NOT NULL PRIMARY KEY,\n  migration_kind TEXT NOT NULL,\n  source_path TEXT NOT NULL,\n  target_table TEXT NOT NULL,\n  source_sha256 TEXT,\n  source_size_bytes INTEGER,\n  source_record_count INTEGER,\n  last_run_id TEXT NOT NULL,\n  status TEXT NOT NULL,\n  imported_at INTEGER NOT NULL,\n  removed_source INTEGER NOT NULL DEFAULT 0,\n  report_json TEXT NOT NULL,\n  FOREIGN KEY (last_run_id) REFERENCES migration_runs(id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_migration_sources_path\n  ON migration_sources(source_path, migration_kind, target_table);\n\nCREATE INDEX IF NOT EXISTS idx_migration_sources_run\n  ON migration_sources(last_run_id, source_path);\n\nCREATE TABLE IF NOT EXISTS backup_runs (\n  id TEXT NOT NULL PRIMARY KEY,\n  created_at INTEGER NOT NULL,\n  archive_path TEXT NOT NULL,\n  status TEXT NOT NULL,\n  manifest_json TEXT NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_backup_runs_created\n  ON backup_runs(created_at DESC, id);\n\nCREATE TABLE IF NOT EXISTS worktrees (\n  id TEXT NOT NULL PRIMARY KEY,\n  repo_fingerprint TEXT NOT NULL,\n  repo_root TEXT NOT NULL,\n  path TEXT NOT NULL,\n  branch TEXT NOT NULL,\n  base_ref TEXT NOT NULL,\n  owner_kind TEXT NOT NULL CHECK (owner_kind IN ('manual', 'workboard', 'session')),\n  owner_id TEXT,\n  snapshot_ref TEXT,\n  provisioned_paths_json TEXT,\n  created_at INTEGER NOT NULL,\n  last_active_at INTEGER NOT NULL,\n  removed_at INTEGER,\n  run_end_cleanup_json TEXT,\n  gc_protection_json TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_worktrees_repo_fingerprint\n  ON worktrees(repo_fingerprint);\n\nCREATE INDEX IF NOT EXISTS idx_worktrees_removed_at\n  ON worktrees(removed_at);\n\nCREATE TABLE IF NOT EXISTS worktree_provisioned_file_chunks (\n  worktree_id TEXT NOT NULL,\n  path TEXT NOT NULL,\n  chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),\n  data BLOB NOT NULL,\n  PRIMARY KEY (worktree_id, path, chunk_index)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS worktree_templates (\n  cache_key TEXT NOT NULL PRIMARY KEY,\n  id TEXT NOT NULL UNIQUE,\n  repo_root TEXT NOT NULL,\n  common_dir TEXT NOT NULL,\n  worktree_root TEXT NOT NULL,\n  path TEXT NOT NULL,\n  backend TEXT NOT NULL,\n  source_commit TEXT NOT NULL,\n  content_key TEXT NOT NULL,\n  status TEXT NOT NULL CHECK (status IN ('preparing', 'ready')),\n  created_at INTEGER NOT NULL,\n  last_used_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS projects (\n  id TEXT NOT NULL PRIMARY KEY,\n  display_name TEXT NOT NULL,\n  repo_root TEXT NOT NULL,\n  origin_url TEXT,\n  source TEXT NOT NULL CHECK (source IN ('registered', 'cloned')),\n  created_at_ms INT NOT NULL,\n  updated_at_ms INT NOT NULL\n) STRICT;\n\n-- One explicitly retained, normalized private background per durable profile.\nCREATE TABLE IF NOT EXISTS user_background_images (\n  profile_id TEXT NOT NULL PRIMARY KEY REFERENCES user_profiles(id) ON DELETE CASCADE,\n  asset_id TEXT NOT NULL UNIQUE,\n  image BLOB NOT NULL CHECK (length(image) BETWEEN 1 AND 2097152),\n  width INTEGER NOT NULL CHECK (width BETWEEN 1 AND 2560),\n  height INTEGER NOT NULL CHECK (height BETWEEN 1 AND 2560)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS user_preferences (\n  profile_id TEXT NOT NULL,\n  pref_key TEXT NOT NULL,\n  value_json TEXT NOT NULL,\n  updated_at_ms INT NOT NULL,\n  PRIMARY KEY (profile_id, pref_key)\n) STRICT;\n\n-- Gateway-owned custom session group catalog (names + display order).\n-- Membership stays on each session entry's category field; this table only\n-- owns which groups exist and how operator UIs order them.\nCREATE TABLE IF NOT EXISTS session_groups (\n  name TEXT NOT NULL PRIMARY KEY,\n  position INTEGER NOT NULL,\n  created_at INTEGER NOT NULL,\n  cwd TEXT,\n  worktree INTEGER\n) STRICT;\n\n-- Gateway-owned durable cloud worker lifecycle. Provider-specific execution\n-- stays in plugins; this table records only core reconciliation facts.\nCREATE TABLE IF NOT EXISTS worker_environments (\n  environment_id TEXT NOT NULL PRIMARY KEY,\n  provider_id TEXT NOT NULL,\n  profile_id TEXT NOT NULL,\n  profile_snapshot_json TEXT NOT NULL,\n  last_activated_at_ms INTEGER,\n  preparation_key TEXT,\n  preparation_purpose TEXT,\n  preparation_demand_at_ms INTEGER,\n  preparation_expires_at_ms INTEGER,\n  preparation_consumed_at_ms INTEGER CHECK (\n    (preparation_key IS NULL AND preparation_demand_at_ms IS NULL\n      AND preparation_expires_at_ms IS NULL AND preparation_consumed_at_ms IS NULL)\n    OR\n    (preparation_key IS NOT NULL AND length(preparation_key) = 64\n      AND preparation_key NOT GLOB '*[^0-9a-f]*'\n      AND preparation_demand_at_ms IS NOT NULL\n      AND preparation_demand_at_ms BETWEEN 0 AND 9007199254740991\n      AND preparation_expires_at_ms IS NOT NULL\n      AND preparation_expires_at_ms > preparation_demand_at_ms\n      AND preparation_expires_at_ms <= 9007199254740991\n      AND (preparation_consumed_at_ms IS NULL\n        OR (preparation_consumed_at_ms >= preparation_demand_at_ms\n          AND preparation_consumed_at_ms < preparation_expires_at_ms)))\n  ),\n  provision_operation_id TEXT NOT NULL UNIQUE,\n  lease_id TEXT,\n  node_setup_id TEXT,\n  node_device_id TEXT,\n  ssh_host TEXT,\n  ssh_port INTEGER CHECK (ssh_port IS NULL OR (ssh_port >= 1 AND ssh_port <= 65535)),\n  ssh_user TEXT,\n  ssh_host_key TEXT,\n  ssh_key_ref_json TEXT,\n  desktop_json TEXT,\n  state TEXT NOT NULL CHECK (\n    state IN (\n      'requested',\n      'provisioning',\n      'bootstrapping',\n      'ready',\n      'attached',\n      'idle',\n      'draining',\n      'destroying',\n      'destroyed',\n      'failed',\n      'orphaned'\n    )\n  ),\n  bootstrap_bundle_hash TEXT,\n  bootstrap_openclaw_version TEXT,\n  bootstrap_protocol_features_json TEXT,\n  bootstrap_install_kind TEXT,\n  owner_epoch INTEGER NOT NULL DEFAULT 0 CHECK (owner_epoch >= 0),\n  teardown_terminal_state TEXT CHECK (teardown_terminal_state IN ('destroyed', 'failed')),\n  attached_session_ids_json TEXT NOT NULL DEFAULT '[]',\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  state_changed_at_ms INTEGER NOT NULL,\n  idle_since_at_ms INTEGER,\n  destroy_requested_at_ms INTEGER,\n  last_error TEXT,\n  shared_host INTEGER\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_worker_environments_provider_lease\n  ON worker_environments(provider_id, lease_id)\n  WHERE lease_id IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_worker_environments_terminal_changed\n  ON worker_environments(state_changed_at_ms, environment_id);\n\n-- A dedicated node registers its fixed build paths before ready, then binds\n-- them once. The environment belongs to the Gateway's separate database.\nCREATE TABLE IF NOT EXISTS node_worker_prepared_workspaces (\n  preparation_key TEXT NOT NULL PRIMARY KEY CHECK (\n    length(preparation_key) = 64 AND preparation_key NOT GLOB '*[^0-9a-f]*'\n  ),\n  cache_key TEXT NOT NULL CHECK (\n    length(cache_key) = 64 AND cache_key NOT GLOB '*[^0-9a-f]*'\n  ),\n  gateway_namespace TEXT NOT NULL CHECK (length(gateway_namespace) > 0),\n  workspace_dir TEXT NOT NULL UNIQUE CHECK (length(workspace_dir) > 0),\n  home_dir TEXT NOT NULL CHECK (length(home_dir) > 0),\n  source_manifest_ref TEXT NOT NULL CHECK (\n    length(source_manifest_ref) = 71 AND substr(source_manifest_ref, 1, 7) = 'sha256:'\n      AND substr(source_manifest_ref, 8) NOT GLOB '*[^0-9a-f]*'\n  ),\n  prepared_manifest_ref TEXT NOT NULL CHECK (\n    length(prepared_manifest_ref) = 71 AND substr(prepared_manifest_ref, 1, 7) = 'sha256:'\n      AND substr(prepared_manifest_ref, 8) NOT GLOB '*[^0-9a-f]*'\n  ),\n  state TEXT NOT NULL CHECK (state IN ('available', 'bound', 'retiring', 'retired')),\n  environment_id TEXT NOT NULL CHECK (length(environment_id) > 0),\n  session_id TEXT,\n  session_key TEXT,\n  owner_epoch INTEGER CHECK (owner_epoch BETWEEN 1 AND 9007199254740991),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms BETWEEN 0 AND 9007199254740991),\n  bound_at_ms INTEGER CHECK (bound_at_ms BETWEEN created_at_ms AND 9007199254740991),\n  retired_at_ms INTEGER CHECK (\n    retired_at_ms BETWEEN coalesce(bound_at_ms, created_at_ms) AND 9007199254740991\n  ),\n  CHECK (\n    (session_id IS NULL AND session_key IS NULL AND owner_epoch IS NULL AND bound_at_ms IS NULL)\n    OR\n    (session_id IS NOT NULL AND length(session_id) > 0\n      AND session_key IS NOT NULL AND length(session_key) > 0\n      AND owner_epoch IS NOT NULL AND bound_at_ms IS NOT NULL)\n  ),\n  CHECK (\n    (state = 'available' AND bound_at_ms IS NULL AND retired_at_ms IS NULL)\n    OR (state = 'bound' AND bound_at_ms IS NOT NULL AND retired_at_ms IS NULL)\n    OR (state = 'retiring' AND retired_at_ms IS NULL)\n    OR (state = 'retired' AND retired_at_ms IS NOT NULL)\n  )\n) STRICT;\n\n-- Provider-advertised fallback ports preserve stable retry order separately\n-- from the downgrade-sensitive canonical worker environment row.\nCREATE TABLE IF NOT EXISTS worker_environment_ssh_fallback_ports (\n  environment_id TEXT NOT NULL,\n  position INTEGER NOT NULL CHECK (position >= 0 AND position <= 9),\n  port INTEGER NOT NULL CHECK (port >= 1 AND port <= 65535),\n  PRIMARY KEY (environment_id, position),\n  UNIQUE (environment_id, port),\n  FOREIGN KEY (environment_id) REFERENCES worker_environments(environment_id) ON DELETE CASCADE\n) STRICT;\n\n-- Logical sessions own repository intent and accepted artifact references,\n-- independently of the worker or rotating transcript session id.\nCREATE TABLE IF NOT EXISTS session_repository_workspaces (\n  workspace_id TEXT NOT NULL PRIMARY KEY CHECK (length(workspace_id) = 36),\n  agent_id TEXT NOT NULL CHECK (length(agent_id) BETWEEN 1 AND 128),\n  session_key TEXT NOT NULL CHECK (length(session_key) BETWEEN 1 AND 1024),\n  url TEXT NOT NULL CHECK (length(url) BETWEEN 1 AND 4096),\n  requested_ref TEXT CHECK (requested_ref IS NULL OR length(requested_ref) BETWEEN 1 AND 1024),\n  run_setup_script INTEGER NOT NULL DEFAULT 0 CHECK (run_setup_script IN (0, 1)),\n  base_commit TEXT CHECK (base_commit IS NULL OR length(base_commit) IN (40, 64)),\n  base_manifest_hash TEXT,\n  branch TEXT NOT NULL CHECK (length(branch) BETWEEN 1 AND 256),\n  checkpoint_ref TEXT,\n  manifest_hash TEXT,\n  revision INTEGER NOT NULL CHECK (revision >= 0),\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  UNIQUE (agent_id, session_key),\n  CHECK (base_manifest_hash IS NULL OR base_commit IS NOT NULL),\n  CHECK ((checkpoint_ref IS NULL AND manifest_hash IS NULL)\n    OR (checkpoint_ref IS NOT NULL AND manifest_hash IS NOT NULL AND base_manifest_hash IS NOT NULL))\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS github_repository_publication_requests (\n  request_id TEXT NOT NULL PRIMARY KEY,\n  owner_profile_id TEXT,\n  connection_generation TEXT,\n  idempotency_key TEXT NOT NULL,\n  request_digest TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  session_lifecycle_revision TEXT,\n  requester_authority_json TEXT,\n  session_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  workspace_id TEXT NOT NULL,\n  checkpoint_ref TEXT,\n  checkpoint_digest TEXT,\n  claim_id TEXT,\n  run_id TEXT,\n  environment_id TEXT,\n  owner_epoch INTEGER,\n  placement_generation INTEGER,\n  identity_source TEXT NOT NULL CHECK (identity_source IN ('system-detected', 'system-configured', 'agent-override', 'personal')),\n  identity_profile_id TEXT,\n  identity_account_id INTEGER NOT NULL,\n  identity_login TEXT NOT NULL,\n  title TEXT,\n  body TEXT,\n  status TEXT NOT NULL CHECK (status IN ('requested', 'publishing', 'needs_confirmation', 'published', 'failed')),\n  gateway_instance_id TEXT,\n  execution_id TEXT,\n  last_effect TEXT CHECK (last_effect IN ('push', 'pull_request')),\n  effect_state TEXT CHECK (effect_state IN ('dispatched', 'observed')),\n  push_repository TEXT,\n  repository TEXT,\n  branch TEXT NOT NULL,\n  base_branch TEXT,\n  source_head_commit TEXT,\n  source_index_tree TEXT,\n  workspace_tree TEXT,\n  previous_head_commit TEXT,\n  pushed_head_commit TEXT,\n  head_commit TEXT,\n  pull_request_url TEXT,\n  error_code TEXT,\n  next_action TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  reported_at_ms INTEGER,\n  CHECK ((identity_source = 'personal' AND owner_profile_id IS NOT NULL AND connection_generation IS NOT NULL)\n    OR (identity_source <> 'personal' AND owner_profile_id IS NULL AND connection_generation IS NULL)),\n  CHECK ((checkpoint_ref IS NULL AND checkpoint_digest IS NULL) OR (checkpoint_ref IS NOT NULL AND checkpoint_digest IS NOT NULL)),\n  CHECK ((last_effect IS NULL AND effect_state IS NULL) OR (last_effect IS NOT NULL AND effect_state IS NOT NULL))\n) STRICT;\nCREATE UNIQUE INDEX IF NOT EXISTS idx_github_repository_publication_shared_request\n  ON github_repository_publication_requests(session_id, idempotency_key) WHERE owner_profile_id IS NULL;\nCREATE UNIQUE INDEX IF NOT EXISTS idx_github_repository_publication_personal_request\n  ON github_repository_publication_requests(owner_profile_id, session_id, idempotency_key) WHERE owner_profile_id IS NOT NULL;\n\n-- Session placement lives in the shared state database so local admission,\n-- worker admission, and environment attachment use one durable authority.\nCREATE TABLE IF NOT EXISTS worker_session_placements (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  agent_id TEXT NOT NULL,\n  session_key TEXT NOT NULL,\n  execution_mode TEXT CHECK (execution_mode IN ('worker-turn', 'remote-exec')),\n  state TEXT NOT NULL CHECK (\n    state IN (\n      'local',\n      'requested',\n      'provisioning',\n      'syncing',\n      'starting',\n      'active',\n      'draining',\n      'reconciling',\n      'reclaimed',\n      'failed'\n    )\n  ),\n  environment_id TEXT,\n  transition_generation INTEGER NOT NULL DEFAULT 0 CHECK (transition_generation >= 0),\n  active_owner_epoch INTEGER CHECK (active_owner_epoch IS NULL OR active_owner_epoch >= 1),\n  workspace_base_manifest_ref TEXT,\n  remote_workspace_dir TEXT,\n  worker_bundle_hash TEXT,\n  last_transcript_ack_cursor INTEGER CHECK (\n    last_transcript_ack_cursor IS NULL OR last_transcript_ack_cursor >= 0\n  ),\n  last_live_event_ack_cursor INTEGER CHECK (\n    last_live_event_ack_cursor IS NULL OR last_live_event_ack_cursor >= 0\n  ),\n  recovery_error TEXT,\n  turn_claim_owner TEXT CHECK (turn_claim_owner IN ('local', 'worker')),\n  turn_claim_id TEXT,\n  turn_claim_run_id TEXT,\n  turn_claim_generation INTEGER CHECK (\n    turn_claim_generation IS NULL OR turn_claim_generation >= 0\n  ),\n  turn_claim_owner_epoch INTEGER CHECK (\n    turn_claim_owner_epoch IS NULL OR turn_claim_owner_epoch >= 1\n  ),\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  state_changed_at_ms INTEGER NOT NULL,\n  terminal_reason TEXT,\n  terminal_at_ms INTEGER,\n  CHECK (\n    (state IN ('local', 'requested')\n      AND environment_id IS NULL AND active_owner_epoch IS NULL\n      AND workspace_base_manifest_ref IS NULL AND remote_workspace_dir IS NULL\n      AND worker_bundle_hash IS NULL\n      AND last_transcript_ack_cursor IS NULL AND last_live_event_ack_cursor IS NULL\n      AND recovery_error IS NULL)\n    OR\n    (state IS 'provisioning'\n      AND active_owner_epoch IS NULL\n      AND workspace_base_manifest_ref IS NULL AND remote_workspace_dir IS NULL\n      AND worker_bundle_hash IS NULL\n      AND last_transcript_ack_cursor IS NULL AND last_live_event_ack_cursor IS NULL\n      AND recovery_error IS NULL)\n    OR\n    (state IS 'syncing'\n      AND environment_id IS NOT NULL AND active_owner_epoch IS NULL\n      AND workspace_base_manifest_ref IS NULL AND remote_workspace_dir IS NULL\n      AND worker_bundle_hash IS NOT NULL\n      AND last_transcript_ack_cursor IS NULL AND last_live_event_ack_cursor IS NULL\n      AND recovery_error IS NULL)\n    OR\n    (state IS 'starting'\n      AND environment_id IS NOT NULL AND active_owner_epoch IS NULL\n      AND workspace_base_manifest_ref IS NOT NULL AND remote_workspace_dir IS NOT NULL\n      AND worker_bundle_hash IS NOT NULL\n      AND last_transcript_ack_cursor IS NULL AND last_live_event_ack_cursor IS NULL\n      AND recovery_error IS NULL)\n    OR\n    (state IN ('active', 'draining', 'reconciling')\n      AND environment_id IS NOT NULL AND active_owner_epoch IS NOT NULL\n      AND workspace_base_manifest_ref IS NOT NULL AND remote_workspace_dir IS NOT NULL\n      AND worker_bundle_hash IS NOT NULL AND recovery_error IS NULL)\n    OR\n    (state IS 'reclaimed'\n      AND environment_id IS NOT NULL AND active_owner_epoch IS NOT NULL\n      AND workspace_base_manifest_ref IS NOT NULL AND remote_workspace_dir IS NOT NULL\n      AND worker_bundle_hash IS NOT NULL AND recovery_error IS NULL\n      AND turn_claim_owner IS NULL AND turn_claim_id IS NULL AND turn_claim_run_id IS NULL\n      AND turn_claim_generation IS NULL AND turn_claim_owner_epoch IS NULL)\n    OR\n    (state IS 'failed' AND recovery_error IS NOT NULL)\n  ),\n  CHECK (\n    (turn_claim_owner IS NULL AND turn_claim_id IS NULL AND turn_claim_run_id IS NULL\n      AND turn_claim_generation IS NULL AND turn_claim_owner_epoch IS NULL)\n    OR\n    (turn_claim_owner IS 'local' AND turn_claim_id IS NOT NULL\n      AND turn_claim_run_id IS NOT NULL AND turn_claim_generation IS NOT NULL\n      AND turn_claim_owner_epoch IS NULL)\n    OR\n    (turn_claim_owner IS 'worker' AND turn_claim_id IS NOT NULL\n      AND turn_claim_run_id IS NOT NULL AND turn_claim_generation IS NOT NULL\n      AND turn_claim_owner_epoch IS NOT NULL)\n  ),\n  CHECK (\n    turn_claim_owner IS NULL\n    OR\n    (turn_claim_owner IS 'local' AND (\n      state IN ('local', 'requested', 'failed')\n      OR (state IN ('active', 'draining') AND execution_mode IS 'remote-exec')\n    ))\n    OR\n    (turn_claim_owner IS 'worker' AND state IN ('active', 'draining')\n      AND (execution_mode IS NULL OR execution_mode IS 'worker-turn')\n      AND turn_claim_owner_epoch IS active_owner_epoch)\n  )\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_worker_session_placements_session_key\n  ON worker_session_placements(agent_id, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_worker_session_placements_reconcile\n  ON worker_session_placements(updated_at_ms, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_worker_session_placements_environment\n  ON worker_session_placements(environment_id)\n  WHERE environment_id IS NOT NULL;\n\n-- Planned placement moves retain their exact source CAS and bounded target\n-- without widening the stable placement-state vocabulary. The opaque operation\n-- id fences stale asynchronous completion; it is correlation, never authority.\nCREATE TABLE IF NOT EXISTS worker_session_placement_moves (\n  operation_id TEXT NOT NULL PRIMARY KEY,\n  session_id TEXT NOT NULL UNIQUE\n    REFERENCES worker_session_placements(session_id) ON DELETE CASCADE,\n  source_generation INTEGER NOT NULL CHECK (source_generation >= 0),\n  source_environment_id TEXT NOT NULL CHECK (\n    length(source_environment_id) BETWEEN 1 AND 256\n    AND source_environment_id = trim(source_environment_id)\n  ),\n  source_owner_epoch INTEGER NOT NULL CHECK (source_owner_epoch >= 1),\n  target_kind TEXT NOT NULL CHECK (target_kind IN ('gateway', 'profile', 'device')),\n  target_id TEXT,\n  -- Keep these nullable columns constraint-free so lazy ALTER TABLE produces the\n  -- same shape as fresh databases; placement-move code validates their values.\n  target_machine_class TEXT,\n  target_os TEXT,\n  -- Explicit source abandonment is a durable operator decision. Keep the bit\n  -- bare and nullable so same-version older readers can safely omit it.\n  abandon_source INTEGER,\n  last_error TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  CHECK (\n    (target_kind IS 'gateway' AND target_id IS NULL)\n    OR\n    (target_kind IN ('profile', 'device')\n      AND target_id IS NOT NULL\n      AND length(target_id) BETWEEN 1 AND 256\n      AND target_id = trim(target_id))\n  )\n) STRICT;\n\n-- Worker-visible session RPC authority is persisted against the exact turn\n-- claim. The launch descriptor is informative only; Gateway dispatch always\n-- revalidates this record and the live placement claim before executing.\nCREATE TABLE IF NOT EXISTS worker_turn_tool_authorities (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  environment_id TEXT NOT NULL,\n  owner_epoch INTEGER NOT NULL CHECK (owner_epoch >= 1),\n  placement_generation INTEGER NOT NULL CHECK (placement_generation >= 0),\n  claim_id TEXT NOT NULL,\n  run_id TEXT NOT NULL,\n  tool_names_json TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES worker_session_placements(session_id) ON DELETE CASCADE\n) STRICT;\n\n-- Tool-call ids are idempotency keys only within one exact source turn claim.\n-- A running operation from another Gateway instance is ambiguous and is never\n-- replayed. A persisted random seed separates durable downstream identities\n-- from Gateway authentication keys and survives ordinary process restarts.\nCREATE TABLE IF NOT EXISTS worker_session_tool_operations (\n  source_session_id TEXT NOT NULL,\n  source_claim_id TEXT NOT NULL,\n  tool_call_id TEXT NOT NULL,\n  tool_name TEXT NOT NULL CHECK (tool_name IN ('sessions_spawn', 'sessions_send')),\n  request_digest TEXT NOT NULL,\n  operation_seed TEXT NOT NULL,\n  status TEXT NOT NULL CHECK (status IN ('running', 'succeeded', 'failed', 'unknown')),\n  child_session_key TEXT,\n  result_json TEXT,\n  gateway_instance_id TEXT NOT NULL,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (source_session_id, source_claim_id, tool_call_id),\n  FOREIGN KEY (source_session_id)\n    REFERENCES worker_session_placements(session_id) ON DELETE CASCADE\n) STRICT;\n\n-- Local sandbox execution is a projection of a session-owned managed worktree.\n-- No cascade: an older binary must not discard pending edits with a session row.\nCREATE TABLE IF NOT EXISTS local_workspace_projections (\n  worktree_id TEXT NOT NULL PRIMARY KEY,\n  agent_id TEXT NOT NULL,\n  session_key TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  lifecycle_revision TEXT,\n  projection_path TEXT NOT NULL UNIQUE,\n  base_commit TEXT NOT NULL,\n  source_paths_json TEXT NOT NULL,\n  baseline_json TEXT,\n  baseline_ref TEXT,\n  pending_ref TEXT,\n  pending_target TEXT CHECK (pending_target IN ('canonical', 'projection')),\n  paused_runtimes_json TEXT,\n  journal_json TEXT,\n  journal_pack BLOB CHECK (journal_pack IS NULL OR length(journal_pack) <= 268435456),\n  revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),\n  created_at_ms INTEGER NOT NULL,\n  CHECK ((baseline_json IS NULL) = (baseline_ref IS NULL)),\n  CHECK ((journal_json IS NULL) = (journal_pack IS NULL))\n) STRICT;\n\n-- A reconciliation journal is written before managed-worktree mutation. The\n-- bounded Git base snapshot repairs any subset left by an interrupted apply.\nCREATE TABLE IF NOT EXISTS worker_workspace_reconciliations (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  environment_id TEXT NOT NULL,\n  owner_epoch INTEGER NOT NULL CHECK (owner_epoch >= 1),\n  placement_generation INTEGER NOT NULL CHECK (placement_generation >= 0),\n  base_manifest_ref TEXT NOT NULL,\n  current_manifest_ref TEXT NOT NULL,\n  plan_json TEXT NOT NULL,\n  base_pack BLOB NOT NULL CHECK (length(base_pack) <= 268435456),\n  created_at_ms INTEGER NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES worker_session_placements(session_id) ON DELETE CASCADE\n) STRICT;\n\n-- A completed remote turn is fenced from stale-claim teardown until its\n-- workspace result is durably reconciled into the managed worktree.\nCREATE TABLE IF NOT EXISTS worker_workspace_pending_results (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  environment_id TEXT NOT NULL,\n  owner_epoch INTEGER NOT NULL CHECK (owner_epoch >= 1),\n  placement_generation INTEGER NOT NULL CHECK (placement_generation >= 0),\n  claim_id TEXT NOT NULL,\n  run_id TEXT NOT NULL,\n  gateway_instance_id TEXT NOT NULL,\n  recovery_requested_at_ms INTEGER,\n  workspace_accepted_at_ms INTEGER,\n  staged_result_ref TEXT,\n  repository_workspace_id TEXT,\n  created_at_ms INTEGER NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES worker_session_placements(session_id) ON DELETE CASCADE\n) STRICT;\n\n-- GitHub publication intent records the authoritative session worktree. Cloud\n-- requests execute only after the exact turn claim's result is accepted locally.\n-- Secrets stay in the effective Gateway-owned GitHub profile and never enter\n-- this row or the worker protocol.\nCREATE TABLE IF NOT EXISTS github_publication_requests (\n  request_id TEXT NOT NULL PRIMARY KEY,\n  idempotency_key TEXT NOT NULL,\n  request_digest TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  session_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  worktree_id TEXT NOT NULL,\n  repository_fingerprint TEXT NOT NULL,\n  claim_id TEXT,\n  run_id TEXT,\n  environment_id TEXT,\n  owner_epoch INTEGER CHECK (owner_epoch IS NULL OR owner_epoch >= 1),\n  placement_generation INTEGER CHECK (\n    placement_generation IS NULL OR placement_generation >= 0\n  ),\n  identity_source TEXT NOT NULL CHECK (\n    identity_source IN ('system-detected', 'system-configured', 'agent-override')\n  ),\n  identity_profile_id TEXT,\n  identity_account_id INTEGER NOT NULL CHECK (identity_account_id >= 1),\n  identity_login TEXT NOT NULL,\n  title TEXT,\n  body TEXT,\n  status TEXT NOT NULL CHECK (\n    status IN ('requested', 'publishing', 'published', 'failed')\n  ),\n  gateway_instance_id TEXT,\n  repository TEXT,\n  branch TEXT NOT NULL,\n  base_branch TEXT,\n  source_head_commit TEXT,\n  source_index_tree TEXT,\n  workspace_tree TEXT,\n  head_commit TEXT,\n  pull_request_url TEXT,\n  error_code TEXT,\n  next_action TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  reported_at_ms INTEGER,\n  UNIQUE (session_id, idempotency_key),\n  CHECK (\n    (claim_id IS NULL AND run_id IS NULL AND environment_id IS NULL\n      AND owner_epoch IS NULL AND placement_generation IS NULL)\n    OR\n    (claim_id IS NOT NULL AND run_id IS NOT NULL AND placement_generation IS NOT NULL\n      AND ((environment_id IS NULL AND owner_epoch IS NULL)\n        OR (environment_id IS NOT NULL AND owner_epoch IS NOT NULL)))\n  ),\n  CHECK (\n    (identity_source IS 'system-detected' AND identity_profile_id IS NULL)\n    OR\n    (identity_source IN ('system-configured', 'agent-override')\n      AND identity_profile_id IS NOT NULL)\n  ),\n  CHECK (\n    (source_head_commit IS NULL AND source_index_tree IS NULL AND workspace_tree IS NULL)\n    OR\n    (source_head_commit IS NOT NULL AND workspace_tree IS NOT NULL)\n  ),\n  CHECK (\n    (status IS 'published' AND pull_request_url IS NOT NULL AND error_code IS NULL\n      AND next_action IS NULL)\n    OR\n    (status IS 'failed' AND pull_request_url IS NULL AND error_code IS NOT NULL\n      AND next_action IS NOT NULL)\n    OR\n    (status IN ('requested', 'publishing') AND pull_request_url IS NULL\n      AND error_code IS NULL AND next_action IS NULL)\n  )\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_github_publication_requests_pending\n  ON github_publication_requests(status, updated_at_ms, request_id);\n\n-- Personal requests cannot be interpreted or resumed by older shared publishers.\nCREATE TABLE IF NOT EXISTS github_personal_publication_requests (\n  request_id TEXT NOT NULL PRIMARY KEY CHECK (length(request_id) = 36),\n  owner_profile_id TEXT NOT NULL CHECK (length(owner_profile_id) BETWEEN 1 AND 128),\n  connection_generation TEXT NOT NULL CHECK (length(connection_generation) = 36),\n  idempotency_key TEXT NOT NULL CHECK (length(idempotency_key) BETWEEN 1 AND 128),\n  request_digest TEXT NOT NULL CHECK (length(request_digest) = 64),\n  session_id TEXT NOT NULL CHECK (length(session_id) BETWEEN 1 AND 128),\n  session_key TEXT NOT NULL CHECK (length(session_key) BETWEEN 1 AND 1024),\n  agent_id TEXT NOT NULL CHECK (length(agent_id) BETWEEN 1 AND 128),\n  worktree_id TEXT NOT NULL CHECK (length(worktree_id) BETWEEN 1 AND 128),\n  repository_fingerprint TEXT NOT NULL CHECK (length(repository_fingerprint) BETWEEN 1 AND 256),\n  identity_source TEXT NOT NULL CHECK (identity_source = 'personal'),\n  identity_profile_id TEXT NOT NULL CHECK (length(identity_profile_id) = 36),\n  identity_account_id INTEGER NOT NULL CHECK (identity_account_id >= 1),\n  identity_login TEXT NOT NULL CHECK (length(identity_login) BETWEEN 1 AND 39),\n  title TEXT CHECK (title IS NULL OR length(title) BETWEEN 1 AND 256),\n  body TEXT CHECK (body IS NULL OR length(body) BETWEEN 1 AND 8192),\n  status TEXT NOT NULL CHECK (status IN ('requested', 'publishing', 'needs_confirmation', 'published', 'failed')),\n  gateway_instance_id TEXT CHECK (gateway_instance_id IS NULL OR length(gateway_instance_id) BETWEEN 1 AND 128),\n  execution_id TEXT CHECK (execution_id IS NULL OR length(execution_id) = 36),\n  last_effect TEXT CHECK (last_effect IS NULL OR last_effect IN ('push', 'pull_request')),\n  effect_state TEXT CHECK (effect_state IS NULL OR effect_state IN ('dispatched', 'observed')),\n  push_repository TEXT NOT NULL CHECK (length(push_repository) BETWEEN 3 AND 256),\n  repository TEXT NOT NULL CHECK (length(repository) BETWEEN 3 AND 256),\n  branch TEXT NOT NULL CHECK (length(branch) BETWEEN 1 AND 256),\n  base_branch TEXT NOT NULL CHECK (length(base_branch) BETWEEN 1 AND 256),\n  source_head_commit TEXT NOT NULL CHECK (length(source_head_commit) IN (40, 64)),\n  source_index_tree TEXT NOT NULL CHECK (length(source_index_tree) IN (40, 64)),\n  workspace_tree TEXT NOT NULL CHECK (length(workspace_tree) IN (40, 64)),\n  head_commit TEXT CHECK (head_commit IS NULL OR length(head_commit) IN (40, 64)),\n  pull_request_url TEXT CHECK (pull_request_url IS NULL OR length(pull_request_url) BETWEEN 1 AND 2048),\n  error_code TEXT CHECK (error_code IS NULL OR length(error_code) BETWEEN 1 AND 64),\n  next_action TEXT CHECK (next_action IS NULL OR length(next_action) BETWEEN 1 AND 1024),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= created_at_ms),\n  reported_at_ms INTEGER,\n  UNIQUE (owner_profile_id, session_id, idempotency_key),\n  CHECK ((status = 'publishing' AND gateway_instance_id IS NOT NULL AND execution_id IS NOT NULL) OR status <> 'publishing'),\n  CHECK ((last_effect IS NULL AND effect_state IS NULL) OR (last_effect IS NOT NULL AND effect_state IS NOT NULL)),\n  CHECK ((status = 'published' AND pull_request_url IS NOT NULL AND head_commit IS NOT NULL AND error_code IS NULL AND next_action IS NULL)\n    OR (status = 'failed' AND error_code IS NOT NULL AND next_action IS NOT NULL)\n    OR (status IN ('requested', 'publishing', 'needs_confirmation') AND error_code IS NULL AND next_action IS NULL))\n) STRICT;\nCREATE INDEX IF NOT EXISTS idx_github_personal_publication_owner_session\n  ON github_personal_publication_requests(owner_profile_id, session_id, created_at_ms);\nCREATE INDEX IF NOT EXISTS idx_github_personal_publication_pending\n  ON github_personal_publication_requests(status, updated_at_ms, request_id);\n\n-- Older readers validate both local receipt tables exactly. Their immutable\n-- lifecycle binding stays in a first-use companion so those schemas remain readable.\nCREATE TABLE IF NOT EXISTS github_publication_session_lifecycles (\n  publication_kind TEXT NOT NULL CHECK (publication_kind IN ('shared', 'personal')),\n  request_id TEXT NOT NULL,\n  lifecycle_revision TEXT,\n  requester_authority_json TEXT,\n  PRIMARY KEY (publication_kind, request_id)\n) STRICT;\n\n-- One active, opaque admission credential per worker environment. Plaintext\n-- may be retried until delivery acknowledgement but never enters durable state.\nCREATE TABLE IF NOT EXISTS worker_environment_credentials (\n  environment_id TEXT NOT NULL PRIMARY KEY,\n  credential_hash TEXT NOT NULL UNIQUE,\n  bundle_hash TEXT NOT NULL,\n  session_id TEXT,\n  rpc_set_version INTEGER NOT NULL CHECK (rpc_set_version >= 1),\n  owner_epoch INTEGER NOT NULL CHECK (owner_epoch >= 0),\n  expires_at_ms INTEGER NOT NULL CHECK (expires_at_ms >= 0),\n  delivered_at_ms INTEGER CHECK (delivered_at_ms >= 0),\n  FOREIGN KEY (environment_id) REFERENCES worker_environments(environment_id) ON DELETE CASCADE\n) STRICT;\n\n-- One durable sequence cursor per attached session owner epoch. The environment\n-- binding prevents independent workers with coincident epochs from sharing replay state.\nCREATE TABLE IF NOT EXISTS worker_transcript_commit_heads (\n  session_id TEXT NOT NULL,\n  run_epoch INTEGER NOT NULL CHECK (run_epoch >= 0),\n  environment_id TEXT NOT NULL,\n  next_seq INTEGER NOT NULL CHECK (next_seq >= 1),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= 0),\n  PRIMARY KEY (session_id, run_epoch)\n) STRICT;\n\n-- Pending rows preserve a claimed request across gateway restarts. Terminal rows\n-- cache the exact result returned for deterministic at-least-once replay.\nCREATE TABLE IF NOT EXISTS worker_transcript_commits (\n  session_id TEXT NOT NULL,\n  run_epoch INTEGER NOT NULL CHECK (run_epoch >= 0),\n  seq INTEGER NOT NULL CHECK (seq >= 1),\n  request_hash TEXT NOT NULL,\n  state TEXT NOT NULL CHECK (state IN ('pending', 'terminal')),\n  result_json TEXT,\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= 0),\n  PRIMARY KEY (session_id, run_epoch, seq),\n  FOREIGN KEY (session_id, run_epoch)\n    REFERENCES worker_transcript_commit_heads(session_id, run_epoch)\n    ON DELETE CASCADE,\n  CHECK (\n    (state = 'pending' AND result_json IS NULL) OR\n    (state = 'terminal' AND result_json IS NOT NULL)\n  )\n) STRICT;\n\n-- Pending rows preserve a claimed inference turn across gateway restarts.\n-- Terminal rows cache the exact outcome returned for deterministic replay.\nCREATE TABLE IF NOT EXISTS worker_inference_turns (\n  session_id TEXT NOT NULL,\n  run_epoch INTEGER NOT NULL CHECK (run_epoch >= 0),\n  run_id TEXT NOT NULL,\n  turn_id TEXT NOT NULL,\n  environment_id TEXT NOT NULL,\n  request_hash TEXT NOT NULL,\n  state TEXT NOT NULL CHECK (state IN ('pending', 'terminal')),\n  terminal_json TEXT,\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= 0),\n  PRIMARY KEY (session_id, run_epoch, run_id, turn_id),\n  FOREIGN KEY (environment_id) REFERENCES worker_environments(environment_id) ON DELETE CASCADE,\n  CHECK (\n    (state = 'pending' AND terminal_json IS NULL) OR\n    (state = 'terminal' AND terminal_json IS NOT NULL)\n  )\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_worker_inference_turns_pending_run\n  ON worker_inference_turns(session_id, run_epoch, run_id)\n  WHERE state = 'pending';\n\nCREATE TABLE IF NOT EXISTS claw_installs (\n  agent_id TEXT NOT NULL PRIMARY KEY,\n  schema_version TEXT NOT NULL,\n  source_kind TEXT NOT NULL,\n  claw_name TEXT NOT NULL,\n  claw_version TEXT NOT NULL,\n  package_root TEXT NOT NULL,\n  manifest_path TEXT NOT NULL,\n  integrity_kind TEXT NOT NULL,\n  integrity TEXT NOT NULL,\n  source_byte_length INTEGER NOT NULL,\n  manifest_schema_version INTEGER NOT NULL,\n  plan_integrity TEXT NOT NULL,\n  workspace TEXT NOT NULL UNIQUE,\n  agent_config_digest TEXT NOT NULL,\n  agent_owned_paths_json TEXT NOT NULL,\n  bootstrap_source_path TEXT,\n  bootstrap_content_digest TEXT,\n  status TEXT NOT NULL CHECK (\n    status IN ('pending', 'workspace_ready', 'config_committed', 'complete', 'partial')\n  ),\n  added_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS claw_workspace_files (\n  agent_id TEXT NOT NULL,\n  target_path TEXT NOT NULL,\n  schema_version TEXT NOT NULL,\n  workspace TEXT NOT NULL,\n  source_path TEXT NOT NULL,\n  content_digest TEXT NOT NULL,\n  status TEXT NOT NULL,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (agent_id, target_path)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS claw_package_refs (\n  agent_id TEXT NOT NULL,\n  package_kind TEXT NOT NULL,\n  package_source TEXT NOT NULL,\n  package_ref TEXT NOT NULL,\n  package_version TEXT NOT NULL,\n  package_integrity TEXT NOT NULL,\n  schema_version TEXT NOT NULL,\n  claw_name TEXT NOT NULL,\n  package_status TEXT NOT NULL,\n  relationship TEXT NOT NULL CHECK (relationship IN ('managed', 'referenced')),\n  origin TEXT NOT NULL CHECK (origin IN ('claw-introduced', 'pre-existing')),\n  independent_owner INTEGER NOT NULL CHECK (independent_owner IN (0, 1)),\n  extension_id TEXT,\n  extension_format TEXT,\n  extension_detected_format TEXT,\n  extension_mapped_json TEXT,\n  extension_unavailable_json TEXT,\n  extension_adapter_identity TEXT,\n  installed_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (agent_id, package_kind, package_source, package_ref, package_version)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS claw_cron_refs (\n  agent_id TEXT NOT NULL,\n  manifest_id TEXT NOT NULL,\n  schema_version TEXT NOT NULL,\n  declaration_key TEXT NOT NULL UNIQUE,\n  scheduler_job_id TEXT UNIQUE,\n  status TEXT NOT NULL,\n  job_json TEXT NOT NULL,\n  error TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (agent_id, manifest_id)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS claw_mcp_server_refs (\n  agent_id TEXT NOT NULL,\n  name TEXT NOT NULL,\n  schema_version TEXT NOT NULL,\n  config_digest TEXT NOT NULL,\n  relationship TEXT NOT NULL CHECK (relationship IN ('managed', 'referenced')),\n  origin TEXT NOT NULL CHECK (origin IN ('claw-introduced', 'pre-existing')),\n  independent_owner INTEGER NOT NULL DEFAULT 0 CHECK (independent_owner IN (0, 1)),\n  status TEXT NOT NULL,\n  error TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (agent_id, name)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS user_profile_identities (\n  provider TEXT NOT NULL,\n  subject TEXT NOT NULL,\n  profile_id TEXT NOT NULL,\n  canonical_login TEXT,\n  created_at INTEGER NOT NULL,\n  authorization_id TEXT,\n  authorization_basis_json TEXT,\n  PRIMARY KEY (provider, subject)\n) STRICT;\nCREATE INDEX IF NOT EXISTS idx_user_profile_identities_profile_id\n  ON user_profile_identities(profile_id);\nCREATE UNIQUE INDEX IF NOT EXISTS idx_user_profile_identities_authorization\n  ON user_profile_identities(authorization_id);\n\nCREATE TABLE IF NOT EXISTS outbound_media_provenance (\n  realpath TEXT NOT NULL PRIMARY KEY,\n  kind TEXT NOT NULL,\n  version INTEGER NOT NULL,\n  sha256 TEXT NOT NULL,\n  size_bytes INTEGER NOT NULL,\n  created_at_ms INTEGER NOT NULL\n) STRICT;\n\n-- scope_id is non-null because SQLite treats NULLs as distinct in unique indexes/PKs,\n-- which would allow duplicate team rows. This PK also avoids a rebuild for identity scope.\nCREATE TABLE IF NOT EXISTS secret_store_entries (\n  scope_kind TEXT NOT NULL CHECK (scope_kind IN ('team', 'identity')),\n  scope_id TEXT NOT NULL,\n  name TEXT NOT NULL,\n  value TEXT NOT NULL,\n  kind TEXT NOT NULL CHECK (kind IN ('secret', 'env')),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= 0),\n  updated_by TEXT,\n  deleted_at_ms INTEGER,\n  allowed_hosts TEXT,\n  CHECK ((scope_kind = 'team' AND scope_id = '') OR (scope_kind = 'identity' AND length(scope_id) > 0)),\n  PRIMARY KEY (scope_kind, scope_id, name)\n) STRICT;\nCREATE INDEX IF NOT EXISTS secret_store_entries_live_idx\n  ON secret_store_entries (scope_kind, scope_id, name) WHERE deleted_at_ms IS NULL;\n";
+//#endregion
+//#region src/state/openclaw-database-seal-schema.ts
+function sqliteDatabaseSealSchemaFor(version = VERSION) {
+	return createHash("sha256").update(JSON.stringify([2, version])).update(OPENCLAW_AGENT_SCHEMA_SQL).update(OPENCLAW_STATE_SCHEMA_SQL).digest("hex");
+}
+//#endregion
+//#region src/infra/sqlite-clean-close-seal.ts
+const fullVerificationIntervalMs = 6048e5;
+function fileFields(file) {
+	return {
+		dev: file.dev.toString(),
+		ino: file.ino.toString(),
+		birthtime: readDatabaseIdentityBirthtime(file),
+		size: file.size.toString(),
+		mtimeNs: file.mtimeNs.toString()
+	};
+}
+function checksum(payload) {
+	return createHash("sha256").update(payload).digest("hex").slice(0, 16);
+}
+function hasNoJournal(pathname) {
+	return ["-wal", "-journal"].every((suffix) => {
+		try {
+			const file = fs.statSync(`${pathname}${suffix}`, { bigint: true });
+			return file.isFile() && file.size === 0n;
+		} catch (error) {
+			if (hasErrnoCode(error, "ENOENT")) return true;
+			throw error;
+		}
+	});
+}
+/** The caller supplies fstat from its retained descriptor; closing a new one can release SQLite locks. */
+function readSqliteCleanCloseSeal(pathname, schemaIdentity, file) {
+	try {
+		const sealPath = `${pathname}.seal`;
+		if (!fs.lstatSync(sealPath).isFile()) return;
+		const envelope = JSON.parse(fs.readFileSync(sealPath, "utf8"));
+		if (!isRecord(envelope) || typeof envelope.payload !== "string" || envelope.checksum !== checksum(envelope.payload)) return;
+		const payload = JSON.parse(envelope.payload);
+		if (!isRecord(payload) || payload.version !== 1 || payload.schemaIdentity !== schemaIdentity || typeof payload.verifiedAt !== "number" || !Number.isSafeInteger(payload.verifiedAt) || !("facts" in payload) || !file.isFile()) return;
+		const age = Date.now() - payload.verifiedAt;
+		if (age < 0 || age > fullVerificationIntervalMs || !Object.entries(fileFields(file)).every(([key, value]) => payload[key] === value) || !hasNoJournal(pathname)) return;
+		return {
+			verifiedAt: payload.verifiedAt,
+			facts: payload.facts
+		};
+	} catch {
+		return;
+	}
+}
+function invalidateSqliteCleanCloseSeal(pathname) {
+	try {
+		fs.unlinkSync(`${pathname}.seal`);
+	} catch (error) {
+		if (!hasErrnoCode(error, "ENOENT")) throw error;
+	}
+}
+function writeSqliteCleanCloseSeal(pathname, schemaIdentity, file, proof) {
+	try {
+		const sealPath = `${pathname}.seal`;
+		const existing = fs.lstatSync(sealPath, { throwIfNoEntry: false });
+		if (!file.isFile() || existing && !existing.isFile() || !hasNoJournal(pathname)) {
+			invalidateSqliteCleanCloseSeal(pathname);
+			return false;
+		}
+		const payload = JSON.stringify({
+			version: 1,
+			schemaIdentity,
+			...fileFields(file),
+			verifiedAt: proof.verifiedAt,
+			facts: proof.facts
+		});
+		fs.writeFileSync(sealPath, JSON.stringify({
+			payload,
+			checksum: checksum(payload)
+		}));
+		return true;
+	} catch {
+		try {
+			invalidateSqliteCleanCloseSeal(pathname);
+		} catch {}
+		return false;
+	}
+}
+//#endregion
+//#region src/infra/sqlite-database-admission-seal.ts
+const SQLITE_DATABASE_SEAL_SCHEMA = sqliteDatabaseSealSchemaFor();
+const integrityVerificationKey = {
+	name: "sqlite.full-verification",
+	read: (value) => typeof value === "number" && Number.isSafeInteger(value) ? value : void 0
+};
+const sealedKeys = /* @__PURE__ */ new Set([
+	"sqlite-schema",
+	"sqlite.full-verification",
+	"state.schema-version",
+	"state.runtime-schema",
+	"state.integrity",
+	"agent.completed-validation",
+	"agent.canonical-validation-receipt",
+	"agent.schema-metadata"
+]);
+function isSealedKey(name) {
+	return sealedKeys.has(name) || name.startsWith("memory.index-schema:");
+}
+function encodeSealValue(_key, value) {
+	if (value instanceof Map) return {
+		sealType: "map",
+		entries: [...value]
+	};
+	if (value instanceof Set) return {
+		sealType: "set",
+		entries: [...value]
+	};
+	if (value instanceof SharedArrayBuffer) return {
+		sealType: "shared",
+		entries: [...new Int32Array(value)]
+	};
+	return value;
+}
+function decodeSealValue(_key, value) {
+	if (!isRecord(value) || !Array.isArray(value.entries)) return value;
+	if (value.sealType === "map") return new Map(value.entries);
+	if (value.sealType === "set") return new Set(value.entries);
+	if (value.sealType === "shared") {
+		const shared = new SharedArrayBuffer(value.entries.length * Int32Array.BYTES_PER_ELEMENT);
+		new Int32Array(shared).set(value.entries);
+		return shared;
+	}
+	return value;
+}
+var SqliteDatabaseCleanCloseSeals = class {
+	constructor(publishFact, references) {
+		this.publishFact = publishFact;
+		this.references = references;
+		this.loaded = /* @__PURE__ */ new WeakSet();
+	}
+	markCreated(record) {
+		this.loaded.add(record);
+	}
+	load(record) {
+		if (threadId !== 0) return;
+		if (this.loaded.has(record)) return;
+		this.loaded.add(record);
+		const seal = readSqliteCleanCloseSeal(record.location, SQLITE_DATABASE_SEAL_SCHEMA, fs.fstatSync(record.descriptor, { bigint: true }));
+		if (!seal || typeof seal.facts !== "string") return;
+		try {
+			const facts = JSON.parse(seal.facts, decodeSealValue);
+			if (!Array.isArray(facts) || !facts.every((entry) => Array.isArray(entry) && entry.length === 3 && typeof entry[0] === "string" && isSealedKey(entry[0]) && typeof entry[1] === "boolean") || !facts.some(([name, , value]) => name === integrityVerificationKey.name && value === seal.verifiedAt) || !facts.some(([name, , value]) => name === "sqlite-schema" && isRecord(value))) return;
+			const schema = facts.find(([name]) => name === "sqlite-schema")?.[2];
+			if (!(schema.tableSql instanceof Map) || hasPendingAgentStartupColumns(schema.tableSql)) return;
+			for (const [name, schemaDependent, value] of facts) this.publishFact(record, {
+				name,
+				schemaDependent
+			}, value, readSqliteDatabaseFactRevision(record, schemaDependent));
+			Atomics.store(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.sealPresent, 1);
+		} catch {}
+	}
+	invalidate(location, record) {
+		invalidateSqliteCleanCloseSeal(record?.location ?? location);
+		if (record) Atomics.store(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.sealPresent, 0);
+	}
+	prepare(database, record, verifiedAt) {
+		const publish = this.preparePublication(database, record, verifiedAt);
+		if (record) this.references.retain(record);
+		let retained = record;
+		return {
+			publish: () => retained !== void 0 && publish(),
+			[Symbol.dispose]: () => {
+				const released = retained;
+				retained = void 0;
+				if (released) this.references.release(released);
+			}
+		};
+	}
+	preparePublication(database, record, verifiedAt) {
+		if (!record || database.isTransaction) return () => false;
+		if (verifiedAt === void 0) return () => false;
+		const facts = [...record.facts].filter(([name, fact]) => isSealedKey(name) && isSqliteDatabaseAdmissionFactCurrent(record, fact));
+		if (!facts.some(([name]) => name === "sqlite-schema")) return () => false;
+		const serialized = JSON.stringify(facts.map(([name, fact]) => [
+			name,
+			fact.schemaDependent,
+			fact.value
+		]), encodeSealValue);
+		return () => {
+			if (database.isOpen || readSqliteDatabaseGeneration(record, "retired") !== 0 || facts.some(([, fact]) => Atomics.load(new Int32Array(fact.current), 0) !== 1 || fact.revision !== readSqliteDatabaseFactRevision(record, fact.schemaDependent))) return false;
+			try {
+				const file = fs.fstatSync(record.descriptor, { bigint: true });
+				if (readSqliteDatabaseAdmissionIdentity(fs.statSync(record.location, { bigint: true })) !== record.identity) return false;
+				const written = writeSqliteCleanCloseSeal(record.location, SQLITE_DATABASE_SEAL_SCHEMA, file, {
+					verifiedAt,
+					facts: serialized
+				});
+				Atomics.store(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.sealPresent, written ? 1 : 0);
+				return written;
+			} catch {
+				return false;
+			}
+		};
+	}
+};
+//#endregion
 //#region src/infra/sqlite-post-commit.ts
+const log = createSubsystemLogger("sqlite/publication");
+/**
+* Installation is synchronous, including failure fencing. Observers cannot turn a
+* committed write into a failed transaction or prevent another owner's receipt.
+*/
+function installCommittedState(states, publications) {
+	const failures = /* @__PURE__ */ new Map();
+	const install = (state, operation) => {
+		try {
+			operation?.();
+		} catch (error) {
+			failures.set(state, error);
+		}
+	};
+	for (const state of states) install(state, state.commit);
+	const invalidate = () => {
+		let fenced = true;
+		for (const [state, error] of failures) try {
+			if (state.invalidate) state.invalidate(error);
+			else fenced = false;
+		} catch {
+			fenced = false;
+		}
+		return fenced;
+	};
+	invalidate();
+	for (const state of states) if (!failures.has(state)) install(state, state.prepareObservers);
+	const fenced = invalidate();
+	if (failures.size > 0) try {
+		log.error("Committed SQLite facts could not be installed", {
+			count: failures.size,
+			fenced
+		});
+	} catch {}
+	if (!fenced) return;
+	for (const publish of publications) try {
+		publish();
+	} catch {
+		try {
+			log.error("SQLite post-commit notification failed");
+		} catch {}
+	}
+}
 const pendingPublications = resolveGlobalSingleton(Symbol.for("openclaw.sqlitePostCommitPublications"), () => /* @__PURE__ */ new WeakMap());
 const pendingTransactionState = resolveGlobalSingleton(Symbol.for("openclaw.sqliteTransactionState"), () => /* @__PURE__ */ new WeakMap());
-function rollbackTransactionState(states, error) {
+/** Snapshots read within this managed transaction can still roll back. */
+function hasSqlitePostCommitScope(db) {
+	return pendingPublications.has(sqlPublicationAnchor(db));
+}
+/**
+* Stage private transaction-local state that publishes before fallible observers.
+* Observer preparation follows every committed state update. All callbacks must not throw.
+*/
+function stageSqliteTransactionState(db, state) {
+	const pending = pendingTransactionState.get(sqlPublicationAnchor(db));
+	if (!pending) return false;
+	state.stage();
+	pending.push({
+		prepareCommit: state.prepareCommit,
+		commit: state.commit,
+		prepareObservers: state.prepareObservers,
+		invalidate: state.invalidate,
+		rollback: state.rollback
+	});
+	return true;
+}
+/** Tentative native writes stay private until their owner's final commit guard succeeds. */
+function prepareSqliteTransactionCommit(db) {
+	for (const state of pendingTransactionState.get(sqlPublicationAnchor(db)) ?? []) state.prepareCommit?.();
+}
+function rollbackTransactionState(states, error, outcome = "rolled-back") {
 	const failures = [];
 	for (const state of states.toReversed()) try {
-		state.rollback(error);
+		if (outcome === "unknown" && state.invalidate) state.invalidate(error);
+		else state.rollback(error);
 	} catch (failure) {
 		failures.push(failure);
 	}
 	if (failures.length > 0) throw createSqliteLifecycleAggregateError([error, ...failures], "SQLite transaction and rollback observers failed", error);
 }
 /** A lost transaction invalidates every savepoint's staged state and observers. */
-function discardSqliteTransactionState(db, error) {
+function discardSqliteTransactionState(database, error, outcome = "unknown") {
+	const db = sqlPublicationAnchor(database);
 	pendingPublications.get(db)?.splice(0);
 	const rolledBackState = pendingTransactionState.get(db)?.splice(0) ?? [];
 	pendingPublications.delete(db);
 	pendingTransactionState.delete(db);
-	rollbackTransactionState(rolledBackState, error);
+	rollbackTransactionState(rolledBackState, error, outcome);
+}
+/** Nested rollback restores staged state and discards observers; savepoints wait for outer commit. */
+function withSqlitePostCommitPublications(database, transaction) {
+	const db = sqlPublicationAnchor(database);
+	const nested = database.isTransaction || pendingPublications.has(db);
+	const publications = nested ? pendingPublications.get(db) : [];
+	const transactionState = nested ? pendingTransactionState.get(db) : [];
+	const publicationStart = publications?.length ?? 0;
+	const stateStart = transactionState?.length ?? 0;
+	if (!nested && publications && transactionState) {
+		pendingPublications.set(db, publications);
+		pendingTransactionState.set(db, transactionState);
+	}
+	let result;
+	try {
+		result = transaction();
+	} catch (error) {
+		publications?.splice(publicationStart);
+		rollbackTransactionState(transactionState?.splice(stateStart) ?? [], error);
+		throw error;
+	} finally {
+		if (!nested) {
+			pendingPublications.delete(db);
+			pendingTransactionState.delete(db);
+		}
+	}
+	if (!nested) installCommittedState(transactionState ?? [], publications ?? []);
+	return result;
+}
+//#endregion
+//#region src/infra/sqlite-database-write-receipts.ts
+const state$1 = resolveGlobalSingleton(Symbol.for("openclaw.sqliteDatabaseWriteScopes"), () => ({
+	writeScopes: /* @__PURE__ */ new WeakMap(),
+	pendingWriteScopes: /* @__PURE__ */ new WeakMap(),
+	localScopeRevisions: /* @__PURE__ */ new WeakMap(),
+	localUnscopedRevisions: /* @__PURE__ */ new WeakMap()
+}));
+/** Scoped revisions borrow physical admission and publication from their existing owner. */
+function createSqliteDatabaseWriteReceipts(owner) {
+	/** A typed owner certifies all session keys affected by this synchronous kernel. */
+	function withSqliteDatabaseWriteScope(database, scope, run) {
+		const record = owner.admission(database);
+		if (!(record ? readSqliteDatabaseGeneration(record, "writeScopeRevision") > 0 : state$1.localScopeRevisions.has(database))) {
+			const value = run();
+			if (value instanceof Promise) throw new Error("SQLite write scopes cannot await work");
+			return value;
+		}
+		const keys = normalizedWriteScopes(scope);
+		const previous = state$1.writeScopes.get(database);
+		state$1.writeScopes.set(database, keys);
+		try {
+			const value = run();
+			if (value instanceof Promise) throw new Error("SQLite write scopes cannot await work");
+			return value;
+		} finally {
+			if (previous) state$1.writeScopes.set(database, previous);
+			else state$1.writeScopes.delete(database);
+		}
+	}
+	/** Authority and user callbacks cannot borrow their caller's certified mutation scope. */
+	function withoutSqliteDatabaseWriteScope(database, run) {
+		const previous = state$1.writeScopes.get(database);
+		state$1.writeScopes.delete(database);
+		try {
+			return run();
+		} finally {
+			if (previous) state$1.writeScopes.set(database, previous);
+		}
+	}
+	function ensureWriteScopes(record, keys) {
+		let changed = false;
+		for (const key of keys) {
+			const previous = record.writeScopes.get(key);
+			if (!previous || Atomics.load(previous.state, 1) !== 0) {
+				record.writeScopes.set(key, createScopeRevision());
+				if (threadId === 0) advanceSqliteDatabaseGeneration(record, "writeScopeRevision");
+				changed = true;
+			}
+		}
+		if (changed) {
+			advanceSqliteDatabaseGeneration(record, "publicationRevision");
+			owner.publish(record);
+		}
+	}
+	function createScopeRevision() {
+		return {
+			identity: randomUUID(),
+			state: new Int32Array(new SharedArrayBuffer(2 * Int32Array.BYTES_PER_ELEMENT))
+		};
+	}
+	/** Deletion owners retire only scopes whose stored identity has actually been removed. */
+	function retireSqliteDatabaseWriteScopes(database, scope) {
+		const keys = normalizedWriteScopes(scope);
+		const record = owner.admission(database);
+		const retire = () => {
+			if (!record) {
+				const local = state$1.localScopeRevisions.get(database);
+				for (const key of keys) local?.delete(key);
+				return;
+			}
+			if (isSqliteDatabaseAdmissionRetired(record)) return;
+			let changed = false;
+			for (const key of keys) {
+				const revision = record.writeScopes.get(key);
+				if (revision && Atomics.exchange(revision.state, 1, 1) === 0) changed = true;
+			}
+			if (changed) {
+				advanceSqliteDatabaseGeneration(record, "writeScopeRevision");
+				advanceSqliteDatabaseGeneration(record, "publicationRevision");
+				owner.publish(record);
+			}
+		};
+		if (!stageSqliteTransactionState(database, {
+			stage() {},
+			commit: retire,
+			rollback() {}
+		}) && !database.isTransaction) retire();
+	}
+	function scopedWriteToken(record, keys, pending) {
+		return JSON.stringify([
+			record.identity,
+			record.generationId,
+			readSqliteDatabaseGeneration(record, "schemaRevision"),
+			readSqliteDatabaseGeneration(record, "unscopedWriteRevision") + (pending === null ? 1 : 0) | 0,
+			keys.map((key) => [
+				key,
+				record.writeScopes.get(key).identity,
+				Atomics.load(record.writeScopes.get(key).state, 0) + (pending?.has(key) ? 1 : 0) | 0
+			])
+		]);
+	}
+	function localScopedWriteToken(database, keys, pending) {
+		return JSON.stringify([
+			"memory",
+			(state$1.localUnscopedRevisions.get(database) ?? 0) + (pending === null ? 1 : 0),
+			keys.map((key) => [
+				key,
+				state$1.localScopeRevisions.get(database).get(key).identity,
+				Atomics.load(state$1.localScopeRevisions.get(database).get(key).state, 0) + (pending?.has(key) ? 1 : 0) | 0
+			])
+		]);
+	}
+	function normalizedWriteScopes(scope) {
+		return [...new Set((typeof scope === "string" ? [scope] : scope).map((key) => typeof key === "string" ? JSON.stringify(["key", toUSVString(key)]) : JSON.stringify(["session-id", toUSVString(key.sessionId)])))].toSorted();
+	}
+	function ensureLocalWriteScopes(database, keys) {
+		const revisions = state$1.localScopeRevisions.get(database) ?? /* @__PURE__ */ new Map();
+		for (const key of keys) if (!revisions.has(key)) revisions.set(key, createScopeRevision());
+		state$1.localScopeRevisions.set(database, revisions);
+	}
+	function readScopedWriteToken(database, scope, includePending = false) {
+		const keys = normalizedWriteScopes(scope);
+		const record = owner.admission(database);
+		if (record) ensureWriteScopes(record, keys);
+		else ensureLocalWriteScopes(database, keys);
+		if (owner.readRevision(database) === void 0) return;
+		const pending = includePending ? state$1.pendingWriteScopes.get(database) : void 0;
+		return record ? scopedWriteToken(record, keys, pending) : localScopedWriteToken(database, keys, pending);
+	}
+	/** Per-key receipts survive unrelated committed writes. */
+	function readSqliteDatabaseScopedWriteToken(database, scope) {
+		return readScopedWriteToken(database, scope);
+	}
+	function readSqliteDatabaseScopedWriteTokenForPath(location, scope) {
+		const keys = normalizedWriteScopes(scope);
+		const record = owner.pathAdmission(location);
+		if (!record || isSqliteDatabaseAdmissionRetired(record)) return;
+		ensureWriteScopes(record, keys);
+		return scopedWriteToken(record, keys);
+	}
+	/** A cohort discovers all dependency scopes in one admission publication. */
+	function readSqliteDatabaseScopedWriteTokensForPath(location, scopes) {
+		const record = owner.pathAdmission(location);
+		if (!record || isSqliteDatabaseAdmissionRetired(record)) return;
+		const groups = scopes.map(normalizedWriteScopes);
+		ensureWriteScopes(record, groups.flat());
+		return groups.map((keys) => scopedWriteToken(record, keys));
+	}
+	/** Capture the exact post-commit token before any fallible publication executes. */
+	function readSqliteDatabasePendingScopedWriteToken(database, scope) {
+		return readScopedWriteToken(database, scope, true);
+	}
+	/** Host row caches retain a physical identity and receipt without opening SQLite. */
+	function readSqliteDatabaseWriteTokenForPath(location) {
+		const record = owner.pathAdmission(location);
+		if (!record || isSqliteDatabaseAdmissionRetired(record)) return;
+		return `${record.identity}:${record.generationId}:${readSqliteDatabaseGeneration(record, "writeRevision")}`;
+	}
+	/** Predict the token published when the current native mutation settles. */
+	function readSqliteDatabasePendingWriteToken(database) {
+		if (!database.isOpen || !database.isTransaction || !hasSqlitePostCommitScope(database) || owner.suspended(database)) return;
+		const record = owner.writer(database);
+		if (!record || isSqliteDatabaseAdmissionRetired(record)) return;
+		return `${record.identity}:${record.generationId}:${readSqliteDatabaseGeneration(record, "writeRevision") + 1 | 0}`;
+	}
+	return {
+		begin(database, unscoped) {
+			const scope = unscoped ? void 0 : state$1.writeScopes.get(database);
+			const pending = state$1.pendingWriteScopes.get(database);
+			if (!scope || pending === null) state$1.pendingWriteScopes.set(database, null);
+			else {
+				const keys = pending ?? /* @__PURE__ */ new Set();
+				for (const key of scope) keys.add(key);
+				state$1.pendingWriteScopes.set(database, keys);
+			}
+		},
+		finish(database, record) {
+			const keys = state$1.pendingWriteScopes.get(database);
+			state$1.pendingWriteScopes.delete(database);
+			let unscoped = !keys;
+			if (keys) {
+				const local = state$1.localScopeRevisions.get(database);
+				for (const key of keys) {
+					const localRevision = local?.get(key);
+					if (localRevision) Atomics.add(localRevision.state, 0, 1);
+					const revision = record?.writeScopes.get(key);
+					if (revision && Atomics.load(revision.state, 1) === 0) Atomics.add(revision.state, 0, 1);
+					else if (record && (revision || record.writeScopeRevision !== readSqliteDatabaseGeneration(record, "writeScopeRevision"))) unscoped = true;
+				}
+			}
+			if (unscoped) {
+				state$1.localUnscopedRevisions.set(database, (state$1.localUnscopedRevisions.get(database) ?? 0) + 1);
+				if (record) advanceSqliteDatabaseGeneration(record, "unscopedWriteRevision");
+			}
+		},
+		retireSqliteDatabaseWriteScopes,
+		withSqliteDatabaseWriteScope,
+		withoutSqliteDatabaseWriteScope,
+		readSqliteDatabaseScopedWriteToken,
+		readSqliteDatabaseScopedWriteTokenForPath,
+		readSqliteDatabaseScopedWriteTokensForPath,
+		readSqliteDatabasePendingScopedWriteToken,
+		readSqliteDatabaseWriteTokenForPath,
+		readSqliteDatabasePendingWriteToken
+	};
+}
+//#endregion
+//#region src/infra/sqlite-database-admission.ts
+const state = resolveGlobalSingleton(Symbol.for("openclaw.sqliteDatabaseAdmissions"), () => ({
+	registry: new SqliteDatabaseAdmissionRegistry(),
+	connections: /* @__PURE__ */ new WeakMap(),
+	openedIdentities: /* @__PURE__ */ new WeakMap(),
+	unproven: /* @__PURE__ */ new WeakSet(),
+	suspended: /* @__PURE__ */ new WeakSet(),
+	local: /* @__PURE__ */ new WeakMap(),
+	rolledBack: /* @__PURE__ */ new WeakSet(),
+	dataWriters: /* @__PURE__ */ new WeakMap(),
+	localWriteRevisions: /* @__PURE__ */ new WeakMap(),
+	writeListeners: /* @__PURE__ */ new WeakMap(),
+	ddlRevisions: /* @__PURE__ */ new WeakMap(),
+	schemaDirty: /* @__PURE__ */ new WeakSet(),
+	localSchemaRevisions: /* @__PURE__ */ new Map(),
+	misses: /* @__PURE__ */ new WeakMap(),
+	exchange: new AsyncLocalStorage(),
+	exchanging: false,
+	publication: 0,
+	seals: new SqliteDatabaseCleanCloseSeals(publishFact, {
+		retain: (record) => state.registry.changeReferences(record, 1),
+		release: releaseReference
+	})
+}));
+const scopedWrites = createSqliteDatabaseWriteReceipts({
+	admission,
+	pathAdmission,
+	readRevision: readSqliteDatabaseWriteRevision,
+	writer: (database) => state.dataWriters.get(database),
+	suspended: (database) => state.suspended.has(database),
+	publish(record) {
+		state.registry.publish(record);
+		exchange(record);
+	}
+});
+const { retireSqliteDatabaseWriteScopes, withSqliteDatabaseWriteScope, withoutSqliteDatabaseWriteScope, readSqliteDatabaseScopedWriteToken, readSqliteDatabaseScopedWriteTokenForPath, readSqliteDatabaseScopedWriteTokensForPath, readSqliteDatabasePendingScopedWriteToken, readSqliteDatabaseWriteTokenForPath, readSqliteDatabasePendingWriteToken } = scopedWrites;
+function exchange(target, create) {
+	const current = state.exchange.getStore();
+	if (!current || state.exchanging) return;
+	state.exchanging = true;
+	try {
+		const scope = typeof target === "string" ? { location: target } : { admissions: [target] };
+		const retired = typeof target !== "string" && isSqliteDatabaseAdmissionRetired(target);
+		installSqliteDatabaseAdmissions(current(retired ? [target] : captureSqliteDatabaseAdmissions(void 0, scope), retired ? void 0 : typeof target === "string" ? target : target.location, create));
+	} finally {
+		state.exchanging = false;
+	}
+}
+/** Identity descriptors stay open for the process: closing one can release SQLite's POSIX locks. */
+function retainSqliteDatabaseAdmissionLocation(location) {
+	const observed = fs.statSync(location, { bigint: true });
+	if (!observed.isFile()) return;
+	const key = readSqliteDatabaseAdmissionIdentity(observed);
+	const previous = state.registry.records.get(key);
+	if (previous && !isSqliteDatabaseAdmissionRetired(previous)) {
+		state.registry.observeLocation(location, key);
+		state.seals.load(previous);
+		return;
+	}
+	if (threadId !== 0) return;
+	const descriptor = state.registry.descriptors.get(key) ?? fs.openSync(location, "r");
+	const opened = fs.fstatSync(descriptor, { bigint: true });
+	if (!opened.isFile() || readSqliteDatabaseAdmissionIdentity(opened) !== key) throw new Error("SQLite database changed while retaining its admission identity");
+	const record = state.registry.retainDescriptor(fs.realpathSync.native(location), descriptor, opened);
+	state.registry.observeLocation(location, record.identity);
+	state.seals.load(record);
+}
+function pathAdmission(location) {
+	let retained = state.registry.forLocation(location);
+	if (!retained) {
+		exchange(location);
+		retained = state.registry.forLocation(location);
+	}
+	if (retained) {
+		state.seals.load(retained);
+		return retained;
+	}
+	try {
+		retainSqliteDatabaseAdmissionLocation(location);
+		return state.registry.forLocation(location);
+	} catch (error) {
+		if (hasErrnoCode(error, "ENOENT")) return;
+		throw error;
+	}
+}
+/** Resolve SQLite's absolute URLs and encoded filename form at filesystem boundaries. */
+function resolveSqliteDatabaseFilePath(location) {
+	if (!location.startsWith("file:")) return location;
+	const [uriFilename = ""] = location.slice(5).split(/[?#]/u, 1);
+	return uriFilename.startsWith("/") ? fileURLToPath(location) : decodeURIComponent(uriFilename);
+}
+/** Bracket native open so a pathname swap cannot lend the replacement file's admission. */
+function prepareSqliteDatabaseAdmission(location, options = {}) {
+	let filename = location;
+	let create = options.create;
+	if (!filename || filename === ":memory:") return;
+	if (filename.startsWith("file:")) {
+		const url = new URL(filename);
+		if (url.searchParams.get("mode") === "memory") return;
+		if (["ro", "rw"].includes(url.searchParams.get("mode") ?? "")) create = false;
+		filename = resolveSqliteDatabaseFilePath(filename);
+		if (!filename || filename === ":memory:") return;
+	}
+	try {
+		const file = fs.statSync(filename, { bigint: true });
+		if (!file.isFile()) return;
+		const observed = readSqliteDatabaseAdmissionIdentity(file);
+		state.registry.observeLocation(filename, observed);
+		return observed;
+	} catch (error) {
+		if (hasErrnoCode(error, "ENOENT")) {
+			if (!create) return;
+			if (threadId !== 0) {
+				const managed = state.exchange.getStore() !== void 0;
+				exchange(filename, true);
+				const opened = prepareSqliteDatabaseAdmission(filename);
+				if (managed && opened === void 0) throw new Error(`SQLite worker file creation requires host authority: ${filename}`, { cause: error });
+				return opened;
+			}
+			let descriptor;
+			try {
+				descriptor = fs.openSync(filename, "wx", 420);
+			} catch (creationError) {
+				if (hasErrnoCode(creationError, "EEXIST")) return prepareSqliteDatabaseAdmission(filename);
+				throw creationError;
+			}
+			const opened = fs.fstatSync(descriptor, { bigint: true });
+			const record = state.registry.retainDescriptor(fs.realpathSync.native(filename), descriptor, opened);
+			state.seals.markCreated(record);
+			if (prepareSqliteDatabaseAdmission(filename) !== record.identity) throw new Error("SQLite database changed identity during file creation", { cause: error });
+			return record.identity;
+		}
+		throw error;
+	}
+}
+function bindSqliteDatabaseAdmission(database, expected) {
+	state.connections.delete(database);
+	state.openedIdentities.delete(database);
+	state.unproven.delete(database);
+	const location = database.location();
+	if (!location || location === ":memory:") return;
+	const observed = prepareSqliteDatabaseAdmission(location);
+	if (expected !== void 0 && observed !== expected) throw new Error("SQLite database changed identity during native open");
+	if (!observed) return;
+	state.openedIdentities.set(database, observed);
+	if (expected === void 0) {
+		state.unproven.add(database);
+		return;
+	}
+	const record = state.registry.records.get(observed);
+	if (record && !isSqliteDatabaseAdmissionRetired(record)) retainConnection(database, record);
+}
+function admission(database, create = true) {
+	const expected = state.openedIdentities.get(database);
+	if (!database.isOpen || expected === void 0 || state.unproven.has(database)) return;
+	const retained = state.connections.get(database);
+	if (retained) return isSqliteDatabaseAdmissionRetired(retained) ? void 0 : retained;
+	const location = database.location();
+	if (!location || location === ":memory:") return;
+	const record = create && !database.isTransaction ? pathAdmission(location) : state.registry.records.get(expected);
+	if (record && record.identity !== expected) throw new Error("SQLite database changed identity before admission");
+	return record && !isSqliteDatabaseAdmissionRetired(record) ? retainConnection(database, record) : void 0;
+}
+function retainConnection(database, record) {
+	const expected = record.identity;
+	let current = record;
+	try {
+		for (;;) {
+			if (current.identity !== expected) throw new Error("SQLite database changed identity during native open");
+			const publish = state.registry.changeReferences(current, 1);
+			let retained = false;
+			try {
+				if (publish) exchange(current);
+				const retirement = readSqliteDatabaseGeneration(current, "retired");
+				if (retirement === 0) {
+					state.connections.set(database, current);
+					retained = true;
+					return current;
+				}
+				if (retirement !== 2) throw new Error("SQLite database admission retired during native open");
+			} finally {
+				if (!retained) state.registry.changeReferences(current, -1);
+			}
+			const location = database.location();
+			const replacement = database.isTransaction ? state.registry.records.get(expected) : location ? pathAdmission(location) : void 0;
+			if (!replacement || isSqliteDatabaseAdmissionRetired(replacement)) throw new Error("SQLite database admission unavailable during native open");
+			current = replacement;
+		}
+	} catch (error) {
+		state.openedIdentities.delete(database);
+		throw error;
+	}
+}
+/** Native close has settled; keep only descriptor custody, never the closed database's payloads. */
+function releaseSqliteDatabaseAdmission(database) {
+	const record = state.connections.get(database);
+	if (state.openedIdentities.delete(database) && record) {
+		state.local.delete(database);
+		releaseReference(record);
+	}
+}
+function releaseReference(record) {
+	if (state.registry.changeReferences(record, -1)) {
+		state.localSchemaRevisions.delete(record.identity);
+		exchange(record);
+	}
+}
+const { getSqliteDatabaseAdmission, getOrLoadSqliteDatabaseAdmissionForPath } = createSqliteDatabaseAdmissionReader({
+	state,
+	admission,
+	pathAdmission,
+	exchange,
+	publishFact
+});
+function publishFact(record, key, value, revision) {
+	if (key.writer === "host" && threadId !== 0) throw new Error("SQLite host-owned admission facts require the host publisher");
+	if (!publishSqliteDatabaseFact(record, key, value, revision, `${threadId}:${++state.publication}`)) return;
+	state.registry.publish(record);
+	exchange(record);
+}
+/** Publish one row-cache revision when a local native write settles. */
+function beginSqliteDatabaseWrite(database, unscoped = false) {
+	const record = admission(database);
+	if (record && Atomics.load(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.sealPresent) === 1) state.seals.invalidate(record.location, record);
+	scopedWrites.begin(database, unscoped);
+	if (state.dataWriters.has(database)) return;
+	state.dataWriters.set(database, admission(database));
+}
+/** Native settlement invalidates row caches, including failed or rolled-back writes. */
+function finishSqliteDatabaseWrite(database) {
+	if (!state.dataWriters.has(database)) return;
+	const record = state.dataWriters.get(database);
+	state.dataWriters.delete(database);
+	state.localWriteRevisions.set(database, (state.localWriteRevisions.get(database) ?? 0) + 1);
+	scopedWrites.finish(database, record);
+	if (record) {
+		advanceSqliteDatabaseGeneration(record, "writeRevision");
+		const listeners = state.writeListeners.get(record);
+		if (listeners) notifyListeners(listeners, void 0);
+	}
+}
+/** Ordinary reads consume the last committed writer revision without a writer census. */
+function readSqliteDatabaseWriteRevision(connection) {
+	const database = sqlPublicationAnchor(connection);
+	if (!database.isOpen || state.suspended.has(database)) return;
+	const record = admission(database);
+	if (!record) {
+		const location = database.location();
+		return !location || location === ":memory:" ? state.localWriteRevisions.get(database) ?? 0 : void 0;
+	}
+	return readSqliteDatabaseGeneration(record, "writeRevision");
+}
+function publishSqliteDatabaseAdmission(database, key, value, options = {}) {
+	const anchor = sqlPublicationAnchor(database);
+	const record = admission(anchor, !database.isTransaction);
+	if (!record || isSqliteDatabaseAdmissionRetired(record) || state.suspended.has(anchor)) return;
+	if (key.writer === "host" && threadId !== 0) throw new Error("SQLite host-owned admission facts require the host publisher");
+	const revision = (key.schemaDependent ? options.schemaRevision : void 0) ?? readSqliteDatabaseFactRevision(record, key.schemaDependent);
+	const native = isPostgresSqlConnection(database) ? void 0 : getSqliteNativeAdmissionFacts(database);
+	if (!native && !database.isTransaction) {
+		publishFact(record, key, value, revision);
+		return;
+	}
+	const staged = {
+		value,
+		revision,
+		schemaDependent: key.schemaDependent === true,
+		ddlRevision: state.ddlRevisions.get(anchor) ?? 0
+	};
+	if (native) {
+		native.set(key.name, staged);
+		return;
+	}
+	const local = state.local.get(anchor) ?? /* @__PURE__ */ new Map();
+	state.local.set(anchor, local);
+	const previous = local.get(key.name);
+	const restore = () => {
+		if (state.local.get(anchor) !== local) return;
+		if (previous === void 0) local.delete(key.name);
+		else local.set(key.name, previous);
+	};
+	stageSqliteTransactionState(anchor, {
+		stage: () => local.set(key.name, staged),
+		rollback: restore,
+		commit: () => {
+			if (state.local.get(anchor) === local && local.get(key.name) === staged) {
+				local.delete(key.name);
+				if (staged.revision === readSqliteDatabaseFactRevision(record, staged.schemaDependent) && (!staged.schemaDependent || staged.ddlRevision === (state.ddlRevisions.get(anchor) ?? 0))) publishFact(record, key, value, staged.revision);
+			}
+		}
+	});
+}
+/** Track uncommitted DDL separately so it cannot revive a receipt validated before a later change. */
+function invalidateLocalSqliteSchemaAdmissions(database) {
+	const anchor = sqlPublicationAnchor(database);
+	const revision = state.ddlRevisions.get(anchor) ?? 0;
+	const dirty = state.schemaDirty.has(anchor);
+	const stage = () => {
+		state.ddlRevisions.set(anchor, revision + 1);
+		state.schemaDirty.add(anchor);
+	};
+	if (!stageSqliteTransactionState(anchor, {
+		stage,
+		commit: () => {},
+		rollback: () => {
+			state.ddlRevisions.set(anchor, revision);
+			if (!dirty) state.schemaDirty.delete(anchor);
+		}
+	})) stage();
+}
+/** Raw rollback cannot restore staging boundaries; require new facts in any remaining transaction. */
+function discardSqliteDatabaseTransactionAdmissions(database) {
+	const anchor = sqlPublicationAnchor(database);
+	const record = admission(anchor, false);
+	for (const pending of [isPostgresSqlConnection(database) ? void 0 : getSqliteNativeAdmissionFacts(database), state.local.get(anchor)]) {
+		for (const key of pending?.keys() ?? []) {
+			const previous = record?.facts.get(key);
+			if (previous) Atomics.store(new Int32Array(previous.current), 0, 0);
+		}
+		pending?.clear();
+	}
+	state.local.delete(anchor);
+	state.rolledBack.add(anchor);
+	if (!database.isTransaction) state.schemaDirty.delete(anchor);
+}
+/** The DDL owner advances committed format and acknowledges only its final validated receipts. */
+function publishSqliteDatabaseSchemaChange(database) {
+	const anchor = sqlPublicationAnchor(database);
+	const record = admission(anchor, false);
+	if (record) {
+		const previous = advanceSqliteDatabaseGeneration(record, "schemaRevision");
+		const ddlRevision = state.ddlRevisions.get(anchor) ?? 0;
+		for (const fact of state.local.get(anchor)?.values() ?? []) if (fact.schemaDependent && fact.revision === previous && fact.ddlRevision === ddlRevision) fact.revision = previous + 1;
+	} else {
+		const fileIdentity = state.openedIdentities.get(anchor);
+		if (fileIdentity) state.localSchemaRevisions.set(fileIdentity, (state.localSchemaRevisions.get(fileIdentity) ?? 0) + 1);
+	}
+	if (!database.isTransaction) state.schemaDirty.delete(anchor);
+}
+function getSqliteDatabaseSchemaRevision(connection) {
+	const database = sqlPublicationAnchor(connection);
+	const record = admission(database);
+	if (record) return readSqliteDatabaseGeneration(record, "schemaRevision");
+	const fileIdentity = state.openedIdentities.get(database);
+	return fileIdentity ? state.localSchemaRevisions.get(fileIdentity) ?? 0 : void 0;
+}
+function suspendSqliteDatabaseAdmission(database, suspended) {
+	if (suspended) state.suspended.add(database);
+	else state.suspended.delete(database);
+}
+function captureSqliteDatabaseAdmissions(cursor, scope) {
+	if (!scope) return state.registry.capture(cursor);
+	const identities = new Set(scope.admissions?.map((record) => record.identity));
+	if (scope.location !== void 0) {
+		const observed = state.registry.forLocation(scope.location)?.identity;
+		if (observed) identities.add(observed);
+	}
+	return state.registry.capture(cursor, identities);
+}
+function installSqliteDatabaseAdmissions(admissions) {
+	state.registry.install(admissions);
+}
+function withSqliteDatabaseAdmissionExchange(exchangeOwner, operation) {
+	return state.exchange.run(exchangeOwner, operation);
+}
+const inherited = readSqliteDatabaseAdmissions(getEnvironmentData(SQLITE_DATABASE_ADMISSIONS_KEY));
+if (inherited) installSqliteDatabaseAdmissions(inherited);
+resolveGlobalSingleton(Symbol.for("openclaw.sqliteInspectionOperations"), () => /* @__PURE__ */ new WeakMap());
+const nativeOpenFailures = resolveGlobalSingleton(Symbol.for("openclaw.sqliteNativeOpenFailures"), () => /* @__PURE__ */ new WeakSet());
+function markSqliteNativeOpenFailure(error) {
+	if (error !== null && typeof error === "object") nativeOpenFailures.add(error);
+}
+/** Record the native effect without changing its error or tagging surrounding authority checks. */
+function withSqliteNativeOpen(open) {
+	try {
+		return open();
+	} catch (error) {
+		markSqliteNativeOpenFailure(error);
+		throw error;
+	}
+}
+function isSqliteNativeOpenFailure(error) {
+	return error !== null && typeof error === "object" && nativeOpenFailures.has(error);
+}
+const SQLITE_LOCK_ERROR_CODES = /* @__PURE__ */ new Set(["SQLITE_BUSY", "SQLITE_LOCKED"]);
+const SQLITE_BUSY_RESULT_CODE = 5;
+const SQLITE_LOCKED_RESULT_CODE = 6;
+const SQLITE_PRIMARY_RESULT_CODE_MASK = 255;
+function sqliteErrorCode(error) {
+	const code = asOptionalObjectRecord(error)?.code;
+	return typeof code === "string" ? code : void 0;
+}
+function sqliteExtendedResultCode(error) {
+	const errcode = asOptionalObjectRecord(error)?.errcode;
+	return typeof errcode === "number" && Number.isInteger(errcode) ? errcode : void 0;
+}
+function sqlitePrimaryResultCode(error) {
+	const errcode = sqliteExtendedResultCode(error);
+	return errcode === void 0 ? void 0 : errcode & SQLITE_PRIMARY_RESULT_CODE_MASK;
+}
+function isSqliteLockError(error) {
+	const code = sqliteErrorCode(error);
+	if (code !== void 0 && SQLITE_LOCK_ERROR_CODES.has(code)) return true;
+	const primaryCode = sqlitePrimaryResultCode(error);
+	return primaryCode === SQLITE_BUSY_RESULT_CODE || primaryCode === SQLITE_LOCKED_RESULT_CODE;
 }
 //#endregion
 //#region src/infra/sqlite-reader-lifecycle.ts
@@ -13549,7 +15662,13 @@ function boundedOperation(operation) {
 }
 function captureSqliteReaderOwner() {
 	const owner = readerOwners.getStore();
-	return owner ? { ...owner } : void 0;
+	if (!owner) return;
+	const { timing: _, ...identity } = owner;
+	return identity;
+}
+/** Mutable diagnostic counters only; never source or write authority. */
+function currentSqliteOperationTiming() {
+	return readerOwners.getStore()?.timing;
 }
 function currentOwner(fallbackOperation, capturedOwner) {
 	const inherited = capturedOwner ?? readerOwners.getStore();
@@ -13615,15 +15734,12 @@ function retainSqliteReader(database, fallbackOperation, capturedOwner) {
 	const pathReaders = databasePath ? activeReaders.byPath.get(databasePath) ?? /* @__PURE__ */ new Map() : void 0;
 	pathReaders?.set(token, reader);
 	if (databasePath && pathReaders) activeReaders.byPath.set(databasePath, pathReaders);
-	let released = false;
 	return {
 		progress() {
-			if (!released) reader.lastProgressAtMs = Date.now();
+			if (databaseReaders.has(token)) reader.lastProgressAtMs = Date.now();
 		},
 		release() {
-			if (released) return;
-			released = true;
-			databaseReaders.delete(token);
+			if (!databaseReaders.delete(token)) return;
 			if (databaseReaders.size === 0 && activeReaders.byDatabase.get(database) === databaseReaders) activeReaders.byDatabase.delete(database);
 			pathReaders?.delete(token);
 			if (databasePath && pathReaders?.size === 0 && activeReaders.byPath.get(databasePath) === pathReaders) activeReaders.byPath.delete(databasePath);
@@ -13631,11 +15747,822 @@ function retainSqliteReader(database, fallbackOperation, capturedOwner) {
 	};
 }
 //#endregion
+//#region src/infra/sqlite-schema-mutation.ts
+function schemaStatement(sql) {
+	if (/^(?:CREATE|ALTER|DROP|REINDEX|VACUUM)\b/iu.test(sql)) return true;
+	const catalogWrite = /^(?:INSERT(?: OR \w+)? INTO|UPDATE(?: OR \w+)?|DELETE FROM|REPLACE INTO)\s+/iu.exec(sql);
+	if (catalogWrite) {
+		const target = readSqlToken(sql, catalogWrite[0].length)?.raw ?? "";
+		const name = target.slice(findSqlCharacter(target, ".") + 1);
+		return ["sqlite_schema", "sqlite_master"].includes(normalizeSqlIdentifier(name));
+	}
+	if (!/^PRAGMA\b/iu.test(sql)) return false;
+	const argumentsAt = [findSqlCharacter(sql, "="), findSqlCharacter(sql, "(")].filter((position) => position >= 0);
+	if (argumentsAt.length === 0) return false;
+	const qualified = sql.slice(6, Math.min(...argumentsAt)).trim();
+	const name = qualified.slice(findSqlCharacter(qualified, ".") + 1).trim();
+	const pragma = name.startsWith("'") && name.endsWith("'") ? name.slice(1, -1).toLowerCase() : normalizeSqlIdentifier(name);
+	return ["user_version", "schema_version"].includes(pragma);
+}
+function changesSchema(sql) {
+	if (!/\b(?:CREATE|ALTER|DROP|REINDEX|VACUUM|PRAGMA|INSERT|UPDATE|DELETE|REPLACE)\b/iu.test(sql)) return false;
+	let remaining = normalizeSqlWhitespace(sql);
+	while (remaining) {
+		remaining = remaining.replace(/^[\s;]+/u, "");
+		const end = findSqlCharacter(remaining, ";");
+		if (schemaStatement(end < 0 ? remaining : remaining.slice(0, end))) return true;
+		remaining = end < 0 ? "" : remaining.slice(end + 1);
+	}
+	return false;
+}
+function createsOnlyTemporaryObject(sql) {
+	let remaining = normalizeSqlWhitespace(sql);
+	const kind = /^\s*CREATE\s+(?:TEMP|TEMPORARY)\s+(TABLE|TRIGGER)\b/iu.exec(remaining)?.[1]?.toUpperCase();
+	if (!kind) return false;
+	let end = findSqlCharacter(remaining, ";");
+	if (kind === "TABLE") return end < 0 || remaining.slice(end + 1).trim() === "";
+	while (end >= 0) {
+		remaining = remaining.slice(end + 1).trim();
+		end = findSqlCharacter(remaining, ";");
+		const step = (end < 0 ? remaining : remaining.slice(0, end)).trim();
+		if (/^END$/iu.test(step)) return end < 0 || remaining.slice(end + 1).trim() === "";
+	}
+	return false;
+}
+function changesOnlyTemporaryTable(sql) {
+	const normalized = normalizeSqlWhitespace(sql);
+	const end = findSqlCharacter(normalized, ";");
+	if (end >= 0 && normalized.slice(end + 1).trim() !== "") return false;
+	return /^CREATE\s+(?:TEMP|TEMPORARY)\s+TABLE\b/iu.test(normalized) || /^DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:temp|"temp"|`temp`|\[temp\])\s*\./iu.test(normalized);
+}
+function changesData(sql) {
+	return hasUnquotedSqlKeyword(sql, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/giu);
+}
+function temporaryWriteTables(sql) {
+	const tables = [];
+	let remaining = normalizeSqlWhitespace(sql);
+	while (remaining) {
+		remaining = remaining.replace(/^[\s;]+/u, "");
+		const end = findSqlCharacter(remaining, ";");
+		const statement = end < 0 ? remaining : remaining.slice(0, end);
+		if (changesData(statement)) {
+			const table = /^(?:INSERT(?: OR \w+)? INTO|REPLACE INTO|UPDATE(?: OR \w+)?|DELETE FROM)\s+(?:temp|"temp"|`temp`|\[temp\])\s*\.\s*("(?:[^"]|"")+"|`(?:[^`]|``)+`|\[[^\]]+\]|[a-z_]\w*)(?=\s|\(|$)/iu.exec(statement)?.[1];
+			if (table === void 0) return;
+			tables.push(normalizeSqlIdentifier(table));
+		}
+		remaining = end < 0 ? "" : remaining.slice(end + 1);
+	}
+	return tables;
+}
+const sqlLeadingTrivia = /^(?:\s|;|--[^\n]*(?:\n|$)|\/\*(?:[^*]|\*(?!\/))*(?:\*\/|$))*/u;
+const transactionControlPrefix = /^(BEGIN|SAVEPOINT|COMMIT|END|RELEASE|ROLLBACK)\b/i;
+function readTransactionControl(sql, mode) {
+	let control;
+	let outerRollback = false;
+	let otherChanges = false;
+	let statements = 0;
+	let remaining = sql;
+	while (remaining) {
+		remaining = remaining.replace(sqlLeadingTrivia, "");
+		if (!remaining) break;
+		statements += 1;
+		const end = remaining.includes(";") ? findSqlCharacter(remaining, ";") : -1;
+		const statement = end < 0 ? remaining : remaining.slice(0, end);
+		const next = transactionControlPrefix.exec(statement)?.[1]?.toUpperCase();
+		if (next === "ROLLBACK") {
+			control = next;
+			otherChanges ||= outerRollback;
+			outerRollback = !/^ROLLBACK(?: TRANSACTION)? TO\b/iu.test(normalizeSqlWhitespace(statement));
+			otherChanges ||= !outerRollback;
+		} else if (next || !/^SELECT\b/iu.test(statement) && (changesSchema(statement) || changesData(statement))) otherChanges = true;
+		control ||= next;
+		if (end < 0 || mode === "statement") break;
+		remaining = remaining.slice(end + 1);
+	}
+	return control ? {
+		kind: control,
+		single: statements === 1,
+		outerRollback: outerRollback && !otherChanges
+	} : void 0;
+}
+function canPreserveTransactionSnapshot(control, inTransaction) {
+	return Boolean(inTransaction && control?.single && (control.kind === "SAVEPOINT" || control.kind === "RELEASE" || control.kind === "ROLLBACK"));
+}
+function classifySqliteMutation(sql, mode) {
+	const schemaChange = changesSchema(sql);
+	const dataChange = changesData(sql);
+	const temporaryTableSchemaChange = schemaChange && changesOnlyTemporaryTable(sql);
+	return {
+		schemaChange,
+		mainSchemaChange: schemaChange && !temporaryTableSchemaChange && !createsOnlyTemporaryObject(sql),
+		temporaryTableSchemaChange,
+		dataChange,
+		temporaryWriteTables: dataChange ? temporaryWriteTables(sql) : void 0,
+		control: readTransactionControl(sql, mode)
+	};
+}
+//#endregion
+//#region src/infra/sqlite-native-observer.ts
+/** The runtime owner reuses its prepared one-row library probe, once per process load. */
+function probeSqliteIteratorBehavior(statement) {
+	const previous = statement.iterate();
+	previous.next();
+	previous.next();
+	const nextAfterDoneIsTerminal = previous.next().done === true;
+	previous.return?.();
+	const current = statement.iterate();
+	try {
+		current.next();
+		previous.return?.();
+		return {
+			nextAfterDoneIsTerminal,
+			returnAfterDoneIsInert: current.next().done === true
+		};
+	} finally {
+		current.return?.();
+	}
+}
+const pending = resolveGlobalSingleton(Symbol.for("openclaw.sqliteNativeExecution"), () => /* @__PURE__ */ new WeakMap());
+const iteratorFinalizer = new FinalizationRegistry((lifetimes) => {
+	for (const lifetime of lifetimes) lifetime.finish(false, true);
+});
+function createIteratorLifetime(active, activeIterators) {
+	const lifetime = {
+		finished: false,
+		invalidated: false,
+		pause: () => lifetime.stopObservation(),
+		invalidate: () => {
+			lifetime.invalidated = true;
+			lifetime.finish();
+		},
+		stopObservation: (succeeded = false, abandoned = false) => {
+			const previous = lifetime.observed;
+			lifetime.observed = void 0;
+			activeIterators.delete(lifetime);
+			previous?.finish(succeeded, abandoned);
+		},
+		finish: (succeeded = false, abandoned = false) => {
+			if (!lifetime.finished) {
+				lifetime.finished = true;
+				active.delete(lifetime);
+				lifetime.stopObservation(succeeded, abandoned);
+			}
+		}
+	};
+	active.add(lifetime);
+	return lifetime;
+}
+const bindingMutation = {
+	schemaChange: false,
+	mainSchemaChange: false,
+	temporaryTableSchemaChange: false,
+	dataChange: false,
+	temporaryWriteTables: void 0,
+	control: void 0
+};
+/** Dispose callbacks may refuse close; native custody expires only after SQLite has closed. */
+function observeSqliteNativeClose(database, onClose) {
+	for (const method of ["close", Symbol.dispose]) {
+		if (typeof database[method] !== "function") continue;
+		const close = database[method].bind(database);
+		database[method] = () => {
+			try {
+				close();
+			} finally {
+				if (!database.isOpen) onClose();
+			}
+		};
+	}
+}
+function callStatement(method, bindings) {
+	return Reflect.apply(method, void 0, bindings);
+}
+/** Native callbacks can mutate from any SQL, including SELECT and retained prepared statements. */
+function observeSqliteNativeOperations(database, native, observe) {
+	const begin = (mutation, phase) => {
+		const observed = observe(mutation, phase);
+		pending.set(database, (pending.get(database) ?? 0) + 1);
+		return {
+			...observed,
+			finish(succeeded, abandoned) {
+				try {
+					observed.finish(succeeded, abandoned);
+				} finally {
+					const remaining = (pending.get(database) ?? 1) - 1;
+					if (remaining === 0) pending.delete(database);
+					else pending.set(database, remaining);
+				}
+			}
+		};
+	};
+	const activeIterators = /* @__PURE__ */ new Set();
+	const execute = (operation, mutation, phase = "execute") => {
+		const observed = begin(mutation, phase);
+		let succeeded = false;
+		try {
+			const result = operation();
+			if (phase !== "bind") observed.stepped?.();
+			succeeded = true;
+			return result;
+		} finally {
+			observed.finish(succeeded);
+		}
+	};
+	database.exec = (sql) => execute(() => native.DatabaseSync.prototype.exec.call(database, sql), classifySqliteMutation(sql, "batch"), "exec");
+	database.prepare = (...prepareArgs) => {
+		const statement = native.DatabaseSync.prototype.prepare.call(database, ...prepareArgs);
+		const mutation = classifySqliteMutation(prepareArgs[0], "statement");
+		const run = Object.hasOwn(statement, "run") ? statement.run.bind(statement) : void 0;
+		const get = Object.hasOwn(statement, "get") ? statement.get.bind(statement) : void 0;
+		const all = Object.hasOwn(statement, "all") ? statement.all.bind(statement) : void 0;
+		const iterate = Object.hasOwn(statement, "iterate") ? statement.iterate.bind(statement) : void 0;
+		const active = /* @__PURE__ */ new Set();
+		let registered = false;
+		const reset = (operation, kind = "reuse") => {
+			if (active.size === 0) return operation();
+			const previous = [...active];
+			const result = operation();
+			for (const lifetime of previous) if (kind === "return") lifetime.pause();
+			else lifetime.invalidate();
+			return result;
+		};
+		const wrap = (resolve) => (...bindings) => execute(() => reset(() => callStatement(resolve(), bindings)), mutation);
+		statement.run = wrap(() => run ?? native.StatementSync.prototype.run.bind(statement));
+		statement.get = wrap(() => get ?? native.StatementSync.prototype.get.bind(statement));
+		statement.all = wrap(() => all ?? native.StatementSync.prototype.all.bind(statement));
+		statement.iterate = (...bindings) => {
+			if (!registered) {
+				iteratorFinalizer.register(statement, active);
+				registered = true;
+			}
+			const rows = execute(() => reset(() => callStatement(iterate ?? native.StatementSync.prototype.iterate.bind(statement), bindings)), bindingMutation, "bind");
+			const reference = new WeakRef(rows);
+			let done = false;
+			const lifetime = createIteratorLifetime(active, activeIterators);
+			const nativeNext = rows.next;
+			const nativeReturn = rows.return;
+			rows.next = function(...args) {
+				if (this !== reference.deref() || lifetime.invalidated || done || !database.isOpen) return nativeNext.apply(this, args);
+				if (lifetime.finished) {
+					lifetime.finished = false;
+					active.add(lifetime);
+				}
+				lifetime.observed ??= begin(mutation, "iterate");
+				activeIterators.add(lifetime);
+				const result = nativeNext.apply(this, args);
+				if (result.done) {
+					done = native.iteratorBehavior.nextAfterDoneIsTerminal;
+					if (done) lifetime.finish(true);
+					else lifetime.stopObservation(true);
+				} else lifetime.observed?.stepped?.();
+				return result;
+			};
+			if (nativeReturn) rows.return = function(...args) {
+				if (this !== reference.deref() || done && native.iteratorBehavior.returnAfterDoneIsInert || !database.isOpen) return nativeReturn.apply(this, args);
+				const result = execute(() => lifetime.finished || lifetime.invalidated ? nativeReturn.apply(this, args) : reset(() => nativeReturn.apply(this, args), "return"), bindingMutation, "bind");
+				done = result.done === true;
+				lifetime.finish();
+				return result;
+			};
+			return rows;
+		};
+		for (const method of ["close", Symbol.dispose]) {
+			const close = statement[method]?.bind(statement);
+			if (close) statement[method] = () => reset(close, "finalize");
+		}
+		return statement;
+	};
+	observeSqliteNativeClose(database, () => {
+		for (const lifetime of activeIterators) lifetime.invalidate();
+	});
+	return execute;
+}
+//#endregion
+//#region src/infra/sqlite-pinned-read-snapshot.ts
+const snapshots = resolveGlobalSingleton(Symbol.for("openclaw.sqlitePinnedReadSnapshots"), () => /* @__PURE__ */ new WeakMap());
+function getSqlitePinnedReadSnapshot(db) {
+	return snapshots.get(db);
+}
+/** First schema admission consumes the same cookie that pins its catalog capture. */
+function runSqliteSchemaReadSnapshotSync(db, operation) {
+	const parent = snapshots.get(db);
+	snapshots.set(db, parent ?? {});
+	try {
+		return executeWithCachedStatement(db, "PRAGMA schema_version", [], (statement) => {
+			const snapshot = statement.iterate();
+			try {
+				const first = snapshot.next();
+				if (first.done) throw new Error("SQLite schema_version query returned no row");
+				return operation(Number(first.value.schema_version));
+			} finally {
+				snapshot.return?.();
+			}
+		});
+	} finally {
+		if (!parent) snapshots.delete(db);
+	}
+}
+//#endregion
+//#region src/infra/sqlite-schema-admission.ts
+const schemaAdmission = {
+	name: "sqlite-schema",
+	schemaDependent: true,
+	read: (value) => {
+		return isRecord(value) ? value : void 0;
+	}
+};
+const textEncodingAdmission = {
+	name: "sqlite-text-encoding",
+	read: (value) => typeof value === "string" ? value : void 0
+};
+/** Native metadata read shared by admission and pre-admission migrations. */
+function readSqliteTextEncoding(database) {
+	const retained = getSqliteDatabaseAdmission(database, textEncodingAdmission);
+	if (retained !== void 0) return retained;
+	const encoding = executeWithCachedStatement(database, "PRAGMA encoding", [], (s) => s.get());
+	if (typeof encoding?.encoding !== "string") throw new Error("SQLite did not report its text encoding");
+	return encoding.encoding;
+}
+/** Capture the physical catalog for admission or pre-admission schema maintenance. */
+function captureSqliteSchemaFacts(database, revision = 0, validateUserVersion) {
+	const retainedTextEncoding = getSqliteDatabaseAdmission(database, textEncodingAdmission);
+	const captured = runSqliteSchemaReadSnapshotSync(database, (schemaVersion) => {
+		const version = executeWithCachedStatement(database, "PRAGMA user_version", [], (s) => s.get());
+		const userVersion = Number(version?.user_version ?? 0);
+		validateUserVersion?.(userVersion);
+		const textEncoding = retainedTextEncoding ?? readSqliteTextEncoding(database);
+		const objects = executeWithCachedStatement(database, "SELECT type, name, tbl_name, sql FROM main.sqlite_schema WHERE type IN ('table', 'view', 'index', 'trigger')", [], (s) => s.all());
+		const facts = {
+			admissionId: randomUUID(),
+			revision,
+			userVersion,
+			textEncoding,
+			schemaVersion,
+			tables: /* @__PURE__ */ new Set(),
+			views: /* @__PURE__ */ new Set(),
+			tableSql: /* @__PURE__ */ new Map(),
+			indexes: /* @__PURE__ */ new Set(),
+			indexDefinitions: /* @__PURE__ */ new Map(),
+			triggers: /* @__PURE__ */ new Map()
+		};
+		for (const row of objects) {
+			if (typeof row.name !== "string") continue;
+			const sql = typeof row.sql === "string" ? row.sql : null;
+			switch (row.type) {
+				case "table":
+					facts.tables.add(row.name);
+					facts.tableSql.set(row.name, sql);
+					break;
+				case "view":
+					facts.views.add(row.name);
+					break;
+				case "index":
+					facts.indexes.add(row.name);
+					if (typeof row.tbl_name === "string") facts.indexDefinitions.set(row.name, {
+						table: row.tbl_name,
+						sql
+					});
+					break;
+				case "trigger": if (typeof row.tbl_name === "string") facts.triggers.set(row.name, {
+					table: row.tbl_name,
+					sql
+				});
+			}
+		}
+		return facts;
+	});
+	if (retainedTextEncoding === void 0 && (captured.tables.size > 0 || captured.views.size > 0)) publishSqliteDatabaseAdmission(database, textEncodingAdmission, captured.textEncoding);
+	return captured;
+}
+function captureTrackedSqliteSchemaFacts(database, owner, validateUserVersion) {
+	owner.capturing = true;
+	try {
+		return captureSqliteSchemaFacts(database, owner.revision, validateUserVersion);
+	} finally {
+		owner.capturing = false;
+	}
+}
+function invalidateTrackedSqliteSchemaFacts(owner) {
+	owner.revision += 1;
+	owner.facts = void 0;
+}
+//#endregion
+//#region src/infra/sqlite-schema-lifetime.ts
+function observeSchemaLifetime(database, owner, snapshot) {
+	if (owner.snapshot && owner.snapshot !== snapshot) {
+		if (!database.isTransaction || !owner.transactionCatalogBound) invalidateTrackedSqliteSchemaFacts(owner);
+		owner.snapshot = void 0;
+		owner.qualifiedSnapshot = void 0;
+	}
+	const processRevision = getSqliteDatabaseSchemaRevision(database);
+	const scopeChanged = owner.processRevision !== void 0 && owner.processRevision !== processRevision;
+	if (scopeChanged && !owner.transactionalSchema && (database.isTransaction && owner.transactionCatalogBound || owner.facts && snapshot && owner.qualifiedSnapshot === snapshot)) {
+		owner.transactionalFacts ||= database.isTransaction;
+		owner.snapshot = snapshot;
+		return false;
+	}
+	owner.processRevision = processRevision;
+	if (scopeChanged) invalidateTrackedSqliteSchemaFacts(owner);
+	if ((owner.transactionalSchema || owner.transactionalTempSchema || owner.transactionalFacts) && !database.isTransaction) {
+		if (owner.transactionalSchema) publishSqliteDatabaseSchemaChange(database);
+		invalidateTrackedSqliteSchemaFacts(owner);
+		owner.transactionalSchema = false;
+		owner.transactionalTempSchema = false;
+		owner.transactionalFacts = false;
+	}
+	return scopeChanged;
+}
+//#endregion
+//#region src/infra/sqlite-schema-scope.ts
+function observeSqliteTransactionState(database, owner) {
+	const inTransaction = database.isTransaction;
+	if (owner.transactionOpen !== inTransaction) {
+		if (owner.transactionOpen) owner.mutationRevision += 1;
+		owner.transactionOpen = inTransaction;
+		owner.transactionMutationRevision = void 0;
+		owner.transactionSnapshot = void 0;
+		owner.transactionRead = false;
+		owner.transactionCatalogBound = false;
+	}
+}
+function finishSqliteReadScope(database, owner, wasTransaction, expiresRead, succeeded, openingMutationRevision) {
+	const inTransaction = database.isTransaction;
+	if (!succeeded && wasTransaction && !inTransaction) owner.mutationRevision += 1;
+	owner.transactionOpen = inTransaction;
+	if (!wasTransaction || !inTransaction) owner.transactionMutationRevision = inTransaction ? openingMutationRevision : void 0;
+	if (wasTransaction !== inTransaction || expiresRead) {
+		owner.transactionSnapshot = void 0;
+		owner.transactionRead = false;
+		owner.transactionCatalogBound = false;
+	}
+}
+//#endregion
+//#region src/infra/sqlite-temp-generation-schema.ts
+function prepareSqliteTempTrackingSchema(database, schema) {
+	const { createSql, objects } = prepareTranscriptIndexSchema(schema);
+	const definitions = new Map(objects.map((object) => [object.name.toLowerCase(), object]));
+	const names = objects.map((object) => object.name);
+	const tableNames = objects.filter((object) => object.type === "table").map((object) => object.name);
+	const parameters = [...names, ...tableNames];
+	const existing = executeWithCachedStatement(database, `SELECT type, name, tbl_name, sql FROM temp.sqlite_schema
+     WHERE name COLLATE NOCASE IN (${names.map(() => "?").join(",")})
+       OR (type = 'trigger' AND tbl_name COLLATE NOCASE IN (${tableNames.map(() => "?").join(",")}))`, parameters, (statement) => statement.all(...parameters));
+	const unexpected = existing.some((row) => {
+		const declared = typeof row.name === "string" ? definitions.get(row.name.toLowerCase()) : void 0;
+		return !declared || row.type !== declared.type || row.tbl_name !== declared.table || typeof row.sql !== "string" || normalizeSchemaSql(row.sql) !== normalizeSchemaSql(declared.sql);
+	});
+	return {
+		sql: createSql(new Set(existing.flatMap((row) => row.type === "trigger" && typeof row.name === "string" ? [row.name.toLowerCase()] : []))),
+		unexpected
+	};
+}
+function prepareTranscriptIndexSchema(schema) {
+	const status = quoteSqliteIdentifier(schema.statusTable);
+	const pending = quoteSqliteIdentifier(schema.pendingTable);
+	const index = quoteSqliteIdentifier(schema.pendingIndex);
+	const statusTable = `${status} (
+    id INTEGER PRIMARY KEY CHECK (id = 1), sibling_write_revision INTEGER NOT NULL,
+    schema_version INTEGER NOT NULL, complete INTEGER NOT NULL, after_session TEXT,
+    completed_traversals INTEGER NOT NULL
+  ) STRICT`;
+	const pendingTable = `${pending} (session_id TEXT PRIMARY KEY, state INTEGER NOT NULL) STRICT`;
+	const pendingIndex = `${index} ON ${pending}(state, session_id)`;
+	const triggers = schema.observedTables.flatMap((table) => [
+		"INSERT",
+		"UPDATE",
+		"DELETE"
+	].map((operation) => {
+		const name = `openclaw_${table}_projection_${operation.toLowerCase()}`;
+		const sources = operation === "UPDATE" ? ["OLD", "NEW"] : [operation === "DELETE" ? "OLD" : "NEW"];
+		return {
+			name,
+			table,
+			definition: `TRIGGER ${quoteSqliteIdentifier(name)} AFTER ${operation} ON main.${quoteSqliteIdentifier(table)}
+          WHEN ${sources.map((source) => `NOT EXISTS (
+                SELECT 1 FROM ${pending}
+                WHERE session_id = ${source}.session_id AND state = 0
+              )`).join(" OR ")} BEGIN
+            ${sources.map((source) => `
+                  UPDATE ${pending} SET state = 0 WHERE session_id = ${source}.session_id;
+                  INSERT INTO ${pending}
+                    SELECT ${source}.session_id, 0 WHERE NOT EXISTS (
+                      SELECT 1 FROM ${pending} WHERE session_id = ${source}.session_id
+                    );`).join("\n")}
+          END`
+		};
+	}));
+	const createSql = (existingTriggers) => `
+    CREATE TEMP TABLE IF NOT EXISTS ${statusTable};
+    INSERT OR IGNORE INTO temp.${status} VALUES (1, -1, -1, 0, NULL, 0);
+    UPDATE temp.${status} SET sibling_write_revision = -1;
+    CREATE TEMP TABLE IF NOT EXISTS ${pendingTable};
+    CREATE INDEX IF NOT EXISTS temp.${pendingIndex};
+    ${triggers.map(({ name, definition }) => {
+		return `${existingTriggers.has(name.toLowerCase()) ? `DROP TRIGGER IF EXISTS temp.${quoteSqliteIdentifier(name)};` : ""}CREATE TEMP ${definition};`;
+	}).join("\n")}
+  `;
+	return {
+		createSql,
+		objects: [
+			{
+				name: schema.statusTable,
+				type: "table",
+				table: schema.statusTable,
+				sql: `CREATE TABLE ${statusTable}`
+			},
+			{
+				name: schema.pendingTable,
+				type: "table",
+				table: schema.pendingTable,
+				sql: `CREATE TABLE ${pendingTable}`
+			},
+			{
+				name: schema.pendingIndex,
+				type: "index",
+				table: schema.pendingTable,
+				sql: `CREATE INDEX ${pendingIndex}`
+			},
+			...triggers.map((trigger) => ({
+				name: trigger.name,
+				type: "trigger",
+				table: trigger.table,
+				sql: `CREATE ${trigger.definition}`
+			}))
+		]
+	};
+}
+//#endregion
+//#region src/infra/sqlite-schema-facts.ts
+const owners = resolveGlobalSingleton(Symbol.for("openclaw.sqliteSchemaFacts"), () => /* @__PURE__ */ new WeakMap());
+/** Schema publications outside DDL (such as a deferred version marker) share this revision. */
+function invalidateSqliteSchemaFacts(database) {
+	invalidateSchemaFacts(database, true);
+}
+function invalidateSchemaFacts(database, publish, change = "main", notify = change !== "temp") {
+	const owner = owners.get(database);
+	if (owner) {
+		const changesMain = change === "main";
+		owner.isolatedTempTables.clear();
+		if (database.isTransaction) owner.transactionMutationRevision = void 0;
+		if (changesMain) invalidateLocalSqliteSchemaAdmissions(database);
+		if (changesMain && database.isTransaction && !owner.transactionalSchema) owner.transactionBaseFacts = owner.facts;
+		if (notify) for (const listener of owner.mutationListeners ?? []) listener(void 0);
+		invalidateTrackedSqliteSchemaFacts(owner);
+		owner.transactionalSchema ||= changesMain && database.isTransaction;
+		owner.transactionalTempSchema ||= change === "temp" && database.isTransaction;
+		owner.pendingSchema ||= changesMain && owner.nativeDepth > 0;
+		if (publish && changesMain && !database.isTransaction && owner.nativeDepth === 0) publishSqliteDatabaseSchemaChange(database);
+	}
+}
+function trackSchemaChanges(database, owner, native, writable) {
+	const settle = (boundary = false, rolledBack = false) => {
+		if (rolledBack) {
+			const snapshot = getSqlitePinnedReadSnapshot(database);
+			const facts = snapshot && (owner.transactionalSchema ? owner.transactionBaseFacts : owner.facts);
+			discardSqliteDatabaseTransactionAdmissions(database);
+			invalidateTrackedSqliteSchemaFacts(owner);
+			owner.transactionalSchema = false;
+			owner.transactionalTempSchema = false;
+			owner.transactionalFacts = false;
+			if (snapshot && owner.admitted && !owner.authorizerActive) {
+				owner.facts = facts ? {
+					...facts,
+					revision: owner.revision
+				} : captureTrackedSqliteSchemaFacts(database, owner);
+				owner.snapshot = snapshot;
+				owner.qualifiedSnapshot = snapshot;
+			}
+			owner.transactionBaseFacts = void 0;
+			return;
+		}
+		if ((boundary || !database.isTransaction) && (owner.transactionalSchema || owner.transactionalTempSchema || owner.transactionalFacts)) {
+			if (owner.transactionalSchema) publishSqliteDatabaseSchemaChange(database);
+			invalidateTrackedSqliteSchemaFacts(owner);
+			owner.transactionalSchema &&= database.isTransaction;
+			owner.transactionalTempSchema &&= database.isTransaction;
+			owner.transactionalFacts = false;
+		}
+	};
+	const execute = observeSqliteNativeOperations(database, native, (mutation, phase) => {
+		if (owner.settling) return { finish: () => {} };
+		const { control, dataChange } = mutation;
+		const schemaChange = control?.outerRollback === true ? false : mutation.schemaChange;
+		const mainSchemaChange = mutation.mainSchemaChange && control?.outerRollback !== true;
+		observeSqliteTransactionState(database, owner);
+		const snapshot = phase === "bind" ? void 0 : getSqlitePinnedReadSnapshot(database);
+		const iterator = phase !== "bind" && !snapshot && !owner.capturing ? {} : void 0;
+		if (snapshot && snapshot !== owner.snapshot && !owner.capturing) {
+			if (database.isTransaction && (owner.transactionRead || owner.transactionCatalogBound) && owner.processRevision !== getSqliteDatabaseSchemaRevision(database)) {
+				if (!owner.transactionCatalogBound) invalidateTrackedSqliteSchemaFacts(owner);
+				owner.transactionalFacts = true;
+			} else {
+				observeSchemaLifetime(database, owner, void 0);
+				if (!owner.facts && !owner.transactionalSchema) {
+					const retained = getSqliteDatabaseAdmission(database, schemaAdmission);
+					if (retained) owner.facts = {
+						...retained,
+						revision: owner.revision
+					};
+				}
+			}
+			owner.snapshot = snapshot;
+			owner.qualifiedSnapshot = snapshot;
+		}
+		if (owner.nativeDepth === 0) settle();
+		const wasTransaction = database.isTransaction;
+		if (writable && !wasTransaction && (control?.kind === "BEGIN" || control?.kind === "SAVEPOINT")) getSqliteDatabaseSchemaRevision(database);
+		const openingMutationRevision = !wasTransaction && control?.kind === "BEGIN" && control.single ? owner.mutationRevision : void 0;
+		if (!wasTransaction && control?.kind === "BEGIN" && owner.admitted) getAdmittedSqliteSchemaFacts(database);
+		const expiresRead = Boolean(control) && !canPreserveTransactionSnapshot(control, wasTransaction);
+		const rollback = control?.kind === "ROLLBACK";
+		const rollsBackSchema = rollback && owner.transactionalSchema && !control.outerRollback;
+		const notifySchema = schemaChange && !mutation.temporaryTableSchemaChange || rollback && owner.transactionalSchema;
+		const schemaInvalidation = mainSchemaChange || rollsBackSchema ? "main" : rollback ? owner.transactionalTempSchema && !owner.transactionalSchema ? "temp" : "rollback" : mutation.temporaryTableSchemaChange ? "temp" : "local";
+		if (rollback) discardSqliteDatabaseTransactionAdmissions(database);
+		if (schemaChange || rollback) invalidateSchemaFacts(database, false, schemaInvalidation, notifySchema);
+		if (dataChange || mutation.temporaryTableSchemaChange || control?.kind === "ROLLBACK") owner.mutationRevision += 1;
+		if (phase !== "bind" && wasTransaction && !control && owner.readDepth === 0 && !owner.transactionCatalogBound) owner.transactionRead = true;
+		const changesReadScope = schemaChange || dataChange || control !== void 0;
+		const temporaryWrite = mutation.temporaryWriteTables?.every((table) => owner.isolatedTempTables.has(table));
+		if (dataChange && !temporaryWrite || mainSchemaChange) beginSqliteDatabaseWrite(database, mainSchemaChange || owner.nativeDepth > 0);
+		if (changesReadScope) owner.mutationDepth += 1;
+		owner.nativeDepth += 1;
+		const finishAdmissions = beginSqliteDatabaseAdmissionOperation(database);
+		const pendingBefore = owner.schemaMutationRevision;
+		if (mainSchemaChange) owner.schemaMutationRevision += 1;
+		owner.pendingSchema ||= mainSchemaChange;
+		if (iterator) owner.unmanagedSnapshots.add(iterator);
+		return {
+			stepped: () => {
+				if (database.isTransaction && !control && !owner.transactionRead && !owner.transactionCatalogBound && owner.facts && owner.processRevision === getSqliteDatabaseSchemaRevision(database)) owner.transactionCatalogBound = true;
+			},
+			finish: (succeeded, abandoned) => {
+				if (iterator && owner.unmanagedSnapshots.delete(iterator) && owner.iteratorFacts) {
+					invalidateTrackedSqliteSchemaFacts(owner);
+					owner.iteratorFacts = false;
+				}
+				finishAdmissions();
+				owner.nativeDepth -= 1;
+				if (changesReadScope) owner.mutationDepth -= 1;
+				if (!database.isOpen) return;
+				if (schemaChange || rollback) {
+					if (rollback) discardSqliteDatabaseTransactionAdmissions(database);
+					invalidateSchemaFacts(database, false, schemaInvalidation, notifySchema);
+				}
+				const rolledBack = succeeded && wasTransaction && control?.outerRollback === true && !database.isTransaction && !mainSchemaChange && owner.schemaMutationRevision === pendingBefore;
+				if (rolledBack) {
+					settle(false, true);
+					owner.pendingSchema = false;
+				}
+				if (owner.nativeDepth === 0) {
+					owner.settling = true;
+					try {
+						const changedSchema = owner.pendingSchema || owner.transactionalSchema;
+						if (!rolledBack && owner.pendingSchema && !database.isTransaction && !owner.transactionalSchema) publishSqliteDatabaseSchemaChange(database);
+						if (!rolledBack) settle(expiresRead);
+						if (changedSchema && !database.isTransaction && !rolledBack) {
+							invalidateTrackedSqliteSchemaFacts(owner);
+							if (!succeeded) discardSqliteDatabaseTransactionAdmissions(database);
+							if (owner.admitted && !owner.authorizerActive && !abandoned) {
+								getAdmittedSqliteSchemaFacts(database);
+								owner.transactionBaseFacts = void 0;
+							}
+						}
+						owner.pendingSchema = false;
+					} finally {
+						owner.settling = false;
+					}
+				}
+				finishSqliteReadScope(database, owner, wasTransaction, expiresRead, succeeded, openingMutationRevision);
+				if (owner.mutationDepth === 0 && !database.isTransaction) finishSqliteDatabaseWrite(database);
+				owner.transactionRead ||= database.isTransaction && Boolean(control && !control.single);
+			}
+		};
+	});
+	observeSqliteNativeClose(database, () => {
+		finishSqliteDatabaseWrite(database);
+		releaseSqliteDatabaseAdmission(database);
+	});
+	owner.installTempTrackingSchema = (schema) => {
+		const { sql, unexpected } = prepareSqliteTempTrackingSchema(database, schema);
+		try {
+			execute(() => native.DatabaseSync.prototype.exec.call(database, sql), {
+				schemaChange: unexpected,
+				mainSchemaChange: unexpected,
+				temporaryTableSchemaChange: false,
+				dataChange: true,
+				temporaryWriteTables: [],
+				control: void 0
+			});
+			if (!unexpected) for (const table of [schema.statusTable, schema.pendingTable]) owner.isolatedTempTables.add(table.toLowerCase());
+		} catch (error) {
+			invalidateSqliteSchemaFacts(database);
+			throw error;
+		}
+	};
+	if (typeof database.setAuthorizer === "function") database.setAuthorizer = (callback) => {
+		native.DatabaseSync.prototype.setAuthorizer.call(database, callback);
+		owner.authorizerActive = callback !== null;
+		suspendSqliteDatabaseAdmission(database, owner.authorizerActive);
+		invalidateTrackedSqliteSchemaFacts(owner);
+	};
+	registerNodeSqliteDisposeCallback(database, () => {
+		invalidateTrackedSqliteSchemaFacts(owner);
+		owner.readRevision = void 0;
+		owner.transactionSnapshot = void 0;
+	});
+}
+/** Reuse row facts only inside an admitted synchronous operation. */
+function runSqliteReadOperationSync(database, operation) {
+	if (isPostgresSqlConnection(database)) return operation();
+	const owner = owners.get(database);
+	if (!owner || owner.authorizerActive) return operation();
+	owner.readDepth += 1;
+	try {
+		if (owner.admitted) getAdmittedSqliteSchemaFacts(database);
+		return operation();
+	} finally {
+		owner.readDepth -= 1;
+	}
+}
+/** Install at native open, before callers can retain statements or install an authorizer. */
+function trackSqliteSchema(database, native, writable = true) {
+	if (!owners.has(database)) {
+		const owner = {
+			admitted: false,
+			revision: 0,
+			readDepth: 0,
+			mutationRevision: 0,
+			mutationDepth: 0,
+			transactionOpen: database.isOpen && database.isTransaction,
+			transactionRead: false,
+			transactionCatalogBound: false,
+			nativeDepth: 0,
+			pendingSchema: false,
+			schemaMutationRevision: 0,
+			settling: false,
+			capturing: false,
+			transactionalSchema: false,
+			transactionalTempSchema: false,
+			transactionalFacts: false,
+			authorizerActive: false,
+			unmanagedSnapshots: /* @__PURE__ */ new Set(),
+			isolatedTempTables: /* @__PURE__ */ new Set(),
+			iteratorFacts: false
+		};
+		owners.set(database, owner);
+		trackSchemaChanges(database, owner, native, writable);
+		const retained = getSqliteDatabaseAdmission(database, schemaAdmission, { existingOnly: true });
+		if (retained) {
+			owner.admitted = true;
+			owner.facts = {
+				...retained,
+				revision: owner.revision
+			};
+			owner.processRevision = getSqliteDatabaseSchemaRevision(database);
+		}
+	}
+}
+/** Consume the physical database's admitted facts and owner-published schema changes. */
+function getAdmittedSqliteSchemaFacts(database, validateUserVersion) {
+	if (isPostgresSqlConnection(database)) return;
+	const owner = owners.get(database);
+	if (!owner?.admitted || owner.authorizerActive) return;
+	const snapshot = getSqlitePinnedReadSnapshot(database);
+	const unknownSnapshot = database.isTransaction && (owner.transactionRead || owner.transactionCatalogBound) && owner.processRevision !== getSqliteDatabaseSchemaRevision(database) || owner.unmanagedSnapshots.size > 0;
+	const scopeChanged = observeSchemaLifetime(database, owner, snapshot);
+	if (!owner.facts) {
+		owner.snapshot = snapshot;
+		owner.transactionalFacts ||= database.isTransaction && (owner.readDepth === 0 || scopeChanged);
+		const localSnapshot = unknownSnapshot || Boolean(snapshot) || owner.transactionalSchema;
+		const retained = owner.transactionalSchema || localSnapshot ? void 0 : getSqliteDatabaseAdmission(database, schemaAdmission);
+		if (retained) {
+			validateUserVersion?.(retained.userVersion);
+			owner.facts = {
+				...retained,
+				revision: owner.revision
+			};
+			return owner.facts;
+		}
+		const schemaRevision = getSqliteDatabaseSchemaRevision(database);
+		owner.facts = captureTrackedSqliteSchemaFacts(database, owner, validateUserVersion);
+		owner.iteratorFacts ||= owner.unmanagedSnapshots.size > 0;
+		owner.qualifiedSnapshot = snapshot;
+		owner.transactionCatalogBound ||= database.isTransaction;
+		if (!localSnapshot) publishSqliteDatabaseAdmission(database, schemaAdmission, owner.facts, { schemaRevision });
+	} else validateUserVersion?.(owner.facts.userVersion);
+	return owner.facts;
+}
+//#endregion
 //#region src/infra/sqlite-transaction.ts
 const DEFAULT_SLOW_BUSY_WAIT_MS = 1e3;
 const DEFAULT_SLOW_TRANSACTION_HOLD_MS = 1e3;
 const abortedTransactionSymbol = Symbol.for("openclaw.sqliteAbortedTransaction");
 function assertTransactionUsable(db) {
+	if (isPostgresSqlConnection(db)) {
+		assertPostgresTransactionUsable(db);
+		return;
+	}
 	const aborted = db[abortedTransactionSymbol];
 	if (aborted) throw aborted.error;
 }
@@ -13708,8 +16635,17 @@ function logSlowTransactionHold(params) {
 	if (params.elapsedMs < (params.options?.slowTransactionHoldMs ?? DEFAULT_SLOW_TRANSACTION_HOLD_MS)) return;
 	(params.options?.logger ?? transactionLog).warn("slow SQLite transaction hold", {
 		async: false,
+		callbackKind: "application-transaction",
 		...transactionDiagnosticLabels(params.db, params.options),
 		elapsedMs: params.elapsedMs,
+		phases: {
+			prepareMs: params.prepareMs,
+			beginMs: params.beginMs,
+			sqlMs: Math.max(0, params.elapsedMs - params.hostAdmissionWaitMs - params.databaseAdmissionWaitMs - params.commitMs),
+			hostAdmissionWaitMs: params.hostAdmissionWaitMs,
+			databaseAdmissionWaitMs: params.databaseAdmissionWaitMs,
+			commitMs: params.commitMs
+		},
 		isMainThread,
 		mode: params.mode,
 		pid: process.pid,
@@ -13717,19 +16653,27 @@ function logSlowTransactionHold(params) {
 		thresholdMs: params.options?.slowTransactionHoldMs ?? DEFAULT_SLOW_TRANSACTION_HOLD_MS
 	});
 }
-function logSlowTransactionStep(params) {
-	if (params.elapsedMs < slowBusyWaitThresholdMs(params.options)) return;
-	(params.options?.logger ?? transactionLog).warn("slow SQLite transaction step", {
-		async: false,
-		...params.options?.busyTimeoutMs !== void 0 ? { busyTimeoutMs: params.options.busyTimeoutMs } : {},
-		...transactionDiagnosticLabels(params.db, params.options),
-		elapsedMs: params.elapsedMs,
-		isMainThread,
-		pid: process.pid,
-		step: params.step,
-		threadId,
-		...params.beginAdmission ? { beginAdmission: { ...params.beginAdmission } } : {}
-	});
+function logTransactionStep(params, failure) {
+	try {
+		if (!failure && params.elapsedMs < slowBusyWaitThresholdMs(params.options)) return;
+		const sqliteErrcode = failure ? sqliteExtendedResultCode(failure.error) : void 0;
+		const sqlitePrimaryCode = failure ? sqlitePrimaryResultCode(failure.error) : void 0;
+		(params.options?.logger ?? transactionLog).warn(failure ? "SQLite transaction lock wait failed" : "slow SQLite transaction step", {
+			async: false,
+			...params.options?.busyTimeoutMs !== void 0 ? { busyTimeoutMs: params.options.busyTimeoutMs } : {},
+			...transactionDiagnosticLabels(params.db, params.options),
+			...failure ? { code: sqliteErrorCode(failure.error) } : {},
+			elapsedMs: params.elapsedMs,
+			...failure ? { failureKind: "lock-contention" } : {},
+			isMainThread,
+			pid: process.pid,
+			...sqliteErrcode !== void 0 ? { sqliteErrcode } : {},
+			...sqlitePrimaryCode !== void 0 ? { sqlitePrimaryCode } : {},
+			step: params.step,
+			threadId,
+			...params.beginAdmission ? { beginAdmission: { ...params.beginAdmission } } : {}
+		});
+	} catch {}
 }
 function execTimedTransactionStep(params) {
 	const startedAt = Date.now();
@@ -13743,7 +16687,7 @@ function execTimedTransactionStep(params) {
 		if (beginAdmission) beginImmediateTransaction(params.db, beginAdmission);
 		else params.db.exec(params.sql);
 		const elapsedMs = Date.now() - startedAt;
-		logSlowTransactionStep({
+		logTransactionStep({
 			beginAdmission,
 			db: params.db,
 			elapsedMs,
@@ -13753,35 +16697,15 @@ function execTimedTransactionStep(params) {
 		return elapsedMs;
 	} catch (error) {
 		const elapsedMs = Date.now() - startedAt;
-		if (isSqliteLockError(error) && shouldReportSqliteLockFailure(params.db)) {
-			const sqliteErrcode = sqliteExtendedResultCode(error);
-			const sqlitePrimaryCode = sqlitePrimaryResultCode(error);
-			(params.options?.logger ?? transactionLog).warn("SQLite transaction lock wait failed", {
-				async: false,
-				...params.options?.busyTimeoutMs !== void 0 ? { busyTimeoutMs: params.options.busyTimeoutMs } : {},
-				...transactionDiagnosticLabels(params.db, params.options),
-				code: sqliteErrorCode(error),
-				elapsedMs,
-				failureKind: "lock-contention",
-				isMainThread,
-				pid: process.pid,
-				...sqliteErrcode !== void 0 ? { sqliteErrcode } : {},
-				...sqlitePrimaryCode !== void 0 ? { sqlitePrimaryCode } : {},
-				step: params.step,
-				threadId,
-				...beginAdmission ? { beginAdmission: { ...beginAdmission } } : {}
-			});
-		}
+		if (isSqliteLockError(error) && shouldReportSqliteLockFailure(params.db) && !(params.step === "begin" && params.options?.beginLockFailureReporting === "suppress")) logTransactionStep({
+			beginAdmission,
+			db: params.db,
+			elapsedMs,
+			options: params.options,
+			step: params.step
+		}, { error });
 		throw error;
 	}
-}
-function commitImmediateTransaction(db, options) {
-	execTimedTransactionStep({
-		db,
-		options,
-		sql: "COMMIT",
-		step: "commit"
-	});
 }
 function discardUnsafeConnection(db, error) {
 	const aborted = { error };
@@ -13801,7 +16725,7 @@ function discardUnsafeConnection(db, error) {
 function abortImmediateTransaction(db, error, commitStarted) {
 	if (db[abortedTransactionSymbol]) return;
 	if (!commitStarted && db.isOpen && !db.isTransaction) {
-		discardSqliteTransactionState(db, error);
+		discardSqliteTransactionState(db, error, "rolled-back");
 		return;
 	}
 	try {
@@ -13811,11 +16735,10 @@ function abortImmediateTransaction(db, error, commitStarted) {
 	}
 }
 function runSqliteTransactionSync(db, operation, mode, options) {
-	assertTransactionUsable(db);
 	if (db.isTransaction) {
 		db.exec("SAVEPOINT openclaw_tx_nested");
 		try {
-			const result = operation();
+			const result = runSqliteReadOperationSync(db, operation);
 			assertSyncTransactionResult(result);
 			assertTransactionUsable(db);
 			db.exec("RELEASE SAVEPOINT openclaw_tx_nested");
@@ -13832,21 +16755,46 @@ function runSqliteTransactionSync(db, operation, mode, options) {
 			throw error;
 		}
 	}
-	execTimedTransactionStep({
+	const timing = currentSqliteOperationTiming();
+	const prepareMs = timing ? Date.now() - timing.preparedAtMs : void 0;
+	const beginMs = execTimedTransactionStep({
 		db,
 		options,
 		sql: mode === "immediate" ? "BEGIN IMMEDIATE" : "BEGIN",
 		step: "begin"
 	});
+	if (timing) timing.transactions.count += 1;
+	return settleSqliteTransactionSync(db, operation, mode, beginMs, prepareMs, options);
+}
+function settleSqliteTransactionSync(db, operation, mode, beginMs, prepareMs, options, reservedSourceFence = false) {
+	const timing = currentSqliteOperationTiming();
 	const transactionStartedAt = Date.now();
+	const admissionWaitBefore = timing?.hostAdmissionWaitMs ?? 0;
+	const databaseAdmissionWaitBefore = timing?.databaseAdmissionWaitMs ?? 0;
+	let commitMs = 0;
+	const commit = () => {
+		const startedAt = Date.now();
+		const databaseAdmissionWaitBeforeCommit = timing?.databaseAdmissionWaitMs ?? 0;
+		try {
+			prepareSqliteTransactionCommit(db);
+			execTimedTransactionStep({
+				db,
+				options,
+				sql: "COMMIT",
+				step: "commit"
+			});
+		} finally {
+			commitMs += Date.now() - startedAt - ((timing?.databaseAdmissionWaitMs ?? 0) - databaseAdmissionWaitBeforeCommit);
+		}
+	};
 	let commitStarted = false;
 	try {
-		const result = operation();
+		const result = reservedSourceFence ? operation() : runSqliteReadOperationSync(db, operation);
 		assertSyncTransactionResult(result);
 		assertTransactionUsable(db);
 		commitStarted = true;
-		if (options?.withCommit) assertSyncTransactionResult(options.withCommit(() => commitImmediateTransaction(db, options)));
-		else commitImmediateTransaction(db, options);
+		if (options?.withCommit) assertSyncTransactionResult(options.withCommit(commit));
+		else commit();
 		return result;
 	} catch (error) {
 		abortImmediateTransaction(db, error, commitStarted);
@@ -13858,13 +16806,92 @@ function runSqliteTransactionSync(db, operation, mode, options) {
 				db,
 				elapsedMs: Date.now() - transactionStartedAt,
 				mode,
-				options
+				options,
+				prepareMs,
+				beginMs,
+				hostAdmissionWaitMs: (timing?.hostAdmissionWaitMs ?? 0) - admissionWaitBefore,
+				databaseAdmissionWaitMs: (timing?.databaseAdmissionWaitMs ?? 0) - databaseAdmissionWaitBefore,
+				commitMs
 			});
-		} catch {}
+		} catch {} finally {
+			if (timing) timing.preparedAtMs = Date.now();
+		}
 	}
 }
 function runSqliteImmediateTransactionSync(db, operation, options) {
-	return runSqliteTransactionSync(db, operation, "immediate", options);
+	if (isPostgresSqlConnection(db)) return db.runTransaction(operation, options);
+	assertTransactionUsable(db);
+	return withSqlitePostCommitPublications(db, () => runSqliteTransactionSync(db, operation, "immediate", options));
+}
+function runSqliteSingleStatementSync(db, statement) {
+	if (isPostgresSqlConnection(db)) return db.runTransaction(statement);
+	assertTransactionUsable(db);
+	return withSqlitePostCommitPublications(db, () => {
+		if (db.isTransaction) return runSqliteTransactionSync(db, statement, "immediate");
+		const result = runSqliteReadOperationSync(db, statement);
+		assertSyncTransactionResult(result);
+		return result;
+	});
+}
+process.hrtime;
+const retainedWorkerErrorCode = Symbol.for("openclaw.sqliteWorkerErrorCode");
+resolveGlobalSingleton(Symbol.for("openclaw.sqliteWorkerOpenRefusedError"), () => class OpenRefusedError extends Error {
+	constructor(originalError) {
+		super("SQLite worker admission was refused before agent open", { cause: originalError });
+		this.originalError = originalError;
+		this.name = "SqliteWorkerOpenRefusedError";
+	}
+});
+resolveGlobalSingleton(Symbol.for("openclaw.sqliteWorkerAdmissionTimeoutError"), () => class AdmissionTimeoutError extends Error {
+	constructor() {
+		super("SQLite host admission timed out; retry after transaction rollback");
+		this.code = "admission-timeout";
+		this.name = "SqliteWorkerAdmissionTimeoutError";
+	}
+});
+var SqliteWorkerError = class extends Error {
+	constructor(message, code) {
+		super(message);
+		this.code = code;
+		this.name = "SqliteWorkerError";
+		Object.defineProperty(this, retainedWorkerErrorCode, { value: code });
+	}
+};
+//#endregion
+//#region src/infra/sqlite-worker-database-admission-relay.ts
+const REQUESTED = 0;
+const GRANTED = 1;
+resolveGlobalSingleton(Symbol.for("openclaw.sqliteDatabaseAdmissionUpstream"), () => ({}));
+/** Format facts use this private channel independently of transaction authority. */
+function exchangeSqliteDatabaseAdmissions(port, admissions, location, create) {
+	return exchangeDatabaseAdmissions(port, admissions, location, create);
+}
+function exchangeDatabaseAdmissions(port, admissions, location, create) {
+	const { port1, port2 } = new MessageChannel();
+	const decision = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+	const timing = currentSqliteOperationTiming();
+	const startedAt = Date.now();
+	try {
+		port.postMessage({
+			kind: "sqlite-database-admissions",
+			admissions,
+			location,
+			create,
+			port: port2,
+			decision: decision.buffer
+		}, [port2]);
+		while (Atomics.load(decision, 0) === REQUESTED) Atomics.wait(decision, 0, REQUESTED);
+		const outcome = Atomics.load(decision, 0);
+		if (outcome === 4 && location && create === true) throw new StateDatabaseAdmissionPendingError(location, `OpenClaw state at ${location} is undergoing schema admission; retry when it finishes.`);
+		if (outcome !== GRANTED) throw new SqliteWorkerError("SQLite admission facts exchange failed", "unavailable");
+		const reply = readSqliteDatabaseAdmissions(receiveMessageOnPort(port1)?.message);
+		if (!reply) throw new SqliteWorkerError("SQLite admission facts reply is unavailable", "unavailable");
+		return reply;
+	} finally {
+		if (timing) timing.databaseAdmissionWaitMs += Date.now() - startedAt;
+		port1.close();
+		port2.close();
+	}
 }
 //#endregion
 //#region src/infra/diagnostic-flags-env.ts
@@ -14000,7 +17027,7 @@ async function cleanupProbe(worker, directory, background) {
 		if (worker) {
 			if (background) worker.unref();
 			await raceWithTimeout(worker.terminate(), 5e3, () => {
-				throw new Error("SQLite close probe termination timed out after 5000ms");
+				throw new Error("SQLite close check termination timed out after 5000ms");
 			}, { ref: !background });
 			await setImmediate$1(void 0, { ref: !background });
 		}
@@ -14010,7 +17037,7 @@ async function cleanupProbe(worker, directory, background) {
 		});
 	} catch (error) {
 		worker?.unref();
-		const reason = `SQLite close probe cleanup failed: ${String(error)}; retained ${directory}`;
+		const reason = `SQLite close check cleanup failed: ${String(error)}; retained ${directory}`;
 		process.emitWarning(reason, { code: "SQLITE_CLOSE_PROBE_CLEANUP" });
 		return reason;
 	}
@@ -14032,17 +17059,17 @@ async function probeSqliteNativeClose() {
 		result = await new Promise((resolve, reject) => {
 			running.once("message", (value) => {
 				if (typeof value !== "string") {
-					reject(/* @__PURE__ */ new Error("Invalid SQLite close probe reply"));
+					reject(/* @__PURE__ */ new Error("Invalid SQLite close check reply"));
 					return;
 				}
 				resolve({
 					explicitSqliteCloseReleasesNativeResources: value === "",
-					reason: value || "Native close probe passed"
+					reason: value || "Native close check passed"
 				});
 			});
 			running.once("error", reject);
-			running.once("exit", (code) => reject(/* @__PURE__ */ new Error(`SQLite close probe exited before its reply (${code})`)));
-			deadline = setTimeout(() => reject(/* @__PURE__ */ new Error("SQLite close probe timed out after 10000ms")), 1e4);
+			running.once("exit", (code) => reject(/* @__PURE__ */ new Error(`SQLite close check exited before its reply (${code})`)));
+			deadline = setTimeout(() => reject(/* @__PURE__ */ new Error("SQLite close check timed out after 10000ms")), 1e4);
 		});
 	} catch (error) {
 		result = {
@@ -14071,7 +17098,8 @@ var init_bun_sqlite_close_probe = __esmMin((() => {
 //#region src/infra/bun-sqlite-library.ts
 const WORKER_SELECTION_KEY = "openclaw.bunSqliteLibrarySelection";
 const WORKER_CAPABILITIES_KEY = "openclaw.sqliteRuntimeCapabilities";
-function createCapabilities(deps) {
+const SQLITE_NATIVE_RUNTIME_ADMISSION_KEY = "openclaw.sqliteNativeRuntimeAdmission";
+function createCapabilities(select) {
 	let decision;
 	let initialization;
 	let earlyTopologyOwners = 0;
@@ -14083,8 +17111,8 @@ function createCapabilities(deps) {
 	function decide(value) {
 		if (!decision) {
 			decision = Object.freeze(value);
-			deps.publish(decision);
-			if (decision.explicitSqliteCloseReleasesNativeResources && earlyTopologyOwners > 0) deps.warn(`SQLite close became capable after ${earlyTopologyOwners} topology owners were created; those owners remain conservative`);
+			setEnvironmentData(WORKER_CAPABILITIES_KEY, decision);
+			if (decision.explicitSqliteCloseReleasesNativeResources && earlyTopologyOwners > 0) process.emitWarning(`SQLite close became capable after ${earlyTopologyOwners} topology owners were created; those owners remain conservative`, { code: "SQLITE_EARLY_TOPOLOGY" });
 		}
 		return decision;
 	}
@@ -14097,16 +17125,16 @@ function createCapabilities(deps) {
 	}
 	function settled() {
 		if (decision) return decision;
-		if (!deps.isBun) return decide({
+		if (!process.versions.bun) return decide({
 			explicitSqliteCloseReleasesNativeResources: true,
 			decided: true,
 			reason: "Node runtime"
 		});
-		if (deps.platform === "win32") return decide(conservative("Bun Windows native-close conformance is not qualified"));
-		if (!deps.isMainThread) return decide({
+		if (process.platform === "win32") return decide(conservative("Bun Windows native-close conformance is not qualified"));
+		if (!isMainThread) return decide({
 			...pending,
 			reason: "Parent did not complete SQLite close admission",
-			...deps.inherited
+			...getEnvironmentData(WORKER_CAPABILITIES_KEY)
 		});
 	}
 	return {
@@ -14120,17 +17148,18 @@ function createCapabilities(deps) {
 		},
 		initialize() {
 			initialization ??= (async () => {
-				deps.select();
+				select();
 				const ready = settled();
 				if (ready) return ready;
 				try {
-					if (deps.forceConservative) return decide(conservative("SQLite close optimization disabled by internal diagnostic flag"));
+					if (parseDiagnosticEnvFlags(process.env.OPENCLAW_DIAGNOSTICS).flags.some((flag) => flag.toLowerCase() === "sqlite.close.conservative")) return decide(conservative("SQLite close optimization disabled by internal diagnostic flag"));
+					const { probeSqliteNativeClose } = await Promise.resolve().then(() => (init_bun_sqlite_close_probe(), bun_sqlite_close_probe_exports));
 					return decide({
-						...await deps.probe(),
+						...await probeSqliteNativeClose(),
 						decided: true
 					});
 				} catch (error) {
-					return decide(conservative(`SQLite close probe failed: ${String(error)}`));
+					return decide(conservative(`SQLite close check failed: ${String(error)}`));
 				}
 			})();
 			return initialization;
@@ -14162,44 +17191,50 @@ function selectLibrary(path) {
 	const { Database } = createRequire(import.meta.url)("bun:sqlite");
 	Database.setCustomSQLite(path);
 }
-function createSelector(deps) {
+function createSelector() {
 	let selection;
 	let failure;
 	return (options = {}) => {
 		if (failure) throw failure;
 		if (selection) return selection;
-		const override = options.explicitPath ?? (deps.env.OPENCLAW_SQLITE_LIBRARY?.trim() || void 0);
-		if (!deps.isBun || deps.platform !== "darwin") {
+		const override = options.explicitPath ?? (process.env.OPENCLAW_SQLITE_LIBRARY?.trim() || void 0);
+		if (!process.versions.bun || process.platform !== "darwin") {
 			selection = override ? {
 				source: "runtime",
 				ignoredOverride: "OPENCLAW_SQLITE_LIBRARY requires Bun on macOS"
 			} : { source: "runtime" };
 			return selection;
 		}
-		const prefix = deps.env.HOMEBREW_PREFIX?.trim();
+		const prefix = process.env.HOMEBREW_PREFIX?.trim();
 		const candidates = override !== void 0 ? [override] : [.../* @__PURE__ */ new Set([
 			...prefix ? [posix.join(prefix, "opt/sqlite/lib/libsqlite3.dylib")] : [],
 			"/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib",
 			"/usr/local/opt/sqlite/lib/libsqlite3.dylib",
 			"/opt/local/lib/libsqlite3.dylib"
 		])];
+		const unusable = [];
 		for (const path of candidates) {
 			let probe;
+			let present = true;
 			try {
 				try {
-					probe = deps.probe(path);
+					probe = probeLibrary(path);
 				} catch (error) {
-					throw deps.exists(path) ? error : new Error("missing file", { cause: error });
+					present = existsSync(path);
+					throw present ? error : new Error("missing file", { cause: error });
 				}
 				if (!isSqliteWalResetSafeVersion(probe.version)) throw new Error(`SQLite version ${probe.version} below the WAL safety floor`);
 				if (!probe.extensionLoadingSupported) throw new Error("built with SQLITE_OMIT_LOAD_EXTENSION");
 			} catch (error) {
-				if (override === void 0) continue;
+				if (override === void 0) {
+					if (present) unusable.push(`${path} (${error instanceof Error ? error.message : String(error)})`);
+					continue;
+				}
 				failure = selectionError(path, error);
 				throw failure;
 			}
 			try {
-				deps.select(path);
+				selectLibrary(path);
 			} catch (error) {
 				failure = selectionError(path, error);
 				throw failure;
@@ -14212,8 +17247,8 @@ function createSelector(deps) {
 			};
 			return selection;
 		}
-		selection = { source: "runtime" };
-		return selection;
+		failure = /* @__PURE__ */ new Error(`No supported SQLite library for Bun on macOS (${process.arch})` + (unusable.length > 0 ? `; unusable: ${unusable.join(", ")}` : "") + `. Apple's system SQLite fails OpenClaw's read-only database connections. Install one with brew install sqlite, or set OPENCLAW_SQLITE_LIBRARY to a libsqlite3.dylib built for ${process.arch}.`);
+		throw failure;
 	};
 }
 function selectionError(path, error) {
@@ -14238,17 +17273,9 @@ function inheritedSelection() {
 	throw new Error("Invalid inherited SQLite library selection");
 }
 function createRuntimeSelector() {
-	const isBun = Boolean(process.versions.bun);
-	const sharedLibrary = isBun && process.platform === "darwin";
+	const sharedLibrary = Boolean(process.versions.bun) && process.platform === "darwin";
 	const inherited = sharedLibrary && !isMainThread ? inheritedSelection() : void 0;
-	const select = createSelector({
-		isBun,
-		platform: process.platform,
-		env: process.env,
-		exists: existsSync,
-		probe: probeLibrary,
-		select: selectLibrary
-	});
+	const select = createSelector();
 	let published = false;
 	return (options) => {
 		const selection = inherited ?? select(options);
@@ -14262,38 +17289,16 @@ function createRuntimeSelector() {
 function runtimeSelector() {
 	return resolveGlobalSingleton(Symbol.for("openclaw.bunSqliteLibrarySelection"), createRuntimeSelector);
 }
-function capabilities(options) {
-	const deps = options?.internals;
-	if (deps) return deps.owner ??= createCapabilities(deps);
+function capabilities() {
 	const select = runtimeSelector();
-	return select.capabilities ??= createCapabilities({
-		isBun: Boolean(process.versions.bun),
-		platform: process.platform,
-		isMainThread,
-		get inherited() {
-			return getEnvironmentData(WORKER_CAPABILITIES_KEY);
-		},
-		select,
-		probe: async () => (await Promise.resolve().then(() => (init_bun_sqlite_close_probe(), bun_sqlite_close_probe_exports))).probeSqliteNativeClose(),
-		publish: (value) => setEnvironmentData(WORKER_CAPABILITIES_KEY, value),
-		warn: (message) => process.emitWarning(message, { code: "SQLITE_EARLY_TOPOLOGY" }),
-		get forceConservative() {
-			return parseDiagnosticEnvFlags(process.env.OPENCLAW_DIAGNOSTICS).flags.some((flag) => flag.toLowerCase() === "sqlite.close.conservative");
-		}
-	});
+	return select.capabilities ??= createCapabilities(select);
 }
-function getSqliteRuntimeCapabilities(options) {
-	return capabilities(options).get();
+function getSqliteRuntimeCapabilities() {
+	return capabilities().get();
 }
 /** Select once, before any SQLite open; shared across CLI and bundled SDK module graphs. */
 function ensureSqliteLibrarySelected(options) {
-	const dependencies = options?.internals;
-	return (dependencies ? dependencies.selector ??= createSelector(dependencies) : runtimeSelector())(options);
-}
-//#endregion
-//#region src/infra/errors.ts
-function formatErrorMessage(err) {
-	return formatErrorMessage$1(err, { redact: redactSensitiveText });
+	return runtimeSelector()(options);
 }
 //#endregion
 //#region src/infra/semver.ts
@@ -14301,208 +17306,6 @@ function compareValidSemver(left, right) {
 	const parsedLeft = parse(left);
 	const parsedRight = parse(right);
 	return parsedLeft && parsedRight ? parsedLeft.compare(parsedRight) : null;
-}
-resolveGlobalSingleton(Symbol.for("openclaw.sqlitePinnedReadSnapshots"), () => /* @__PURE__ */ new WeakMap());
-//#endregion
-//#region src/infra/sqlite-schema-sql.ts
-function findSqlCharacter(sql, character) {
-	let index = 0;
-	while (index < sql.length) {
-		const next = skipSqlQuotedOrComment(sql, index);
-		if (next !== index) {
-			index = next;
-			continue;
-		}
-		if (sql[index] === character) return index;
-		index += 1;
-	}
-	return -1;
-}
-function skipSqlQuotedOrComment(sql, index) {
-	const quoted = skipSqlQuoted(sql, index, sql[index] ?? "");
-	return quoted !== index ? quoted : skipSqlComment(sql, index);
-}
-function skipSqlQuoted(sql, index, quote) {
-	if (quote !== "'" && quote !== "\"" && quote !== "`" && quote !== "[") return index;
-	const closingQuote = quote === "[" ? "]" : quote;
-	let cursor = index + 1;
-	while (cursor < sql.length) {
-		if (sql[cursor] !== closingQuote) {
-			cursor += 1;
-			continue;
-		}
-		if (quote !== "[" && sql[cursor + 1] === closingQuote) {
-			cursor += 2;
-			continue;
-		}
-		return cursor + 1;
-	}
-	return sql.length;
-}
-function skipSqlComment(sql, index) {
-	if (sql.startsWith("--", index)) {
-		const newline = sql.indexOf("\n", index + 2);
-		return newline === -1 ? sql.length : newline + 1;
-	}
-	if (sql.startsWith("/*", index)) {
-		const close = sql.indexOf("*/", index + 2);
-		return close === -1 ? sql.length : close + 2;
-	}
-	return index;
-}
-//#endregion
-//#region src/infra/sqlite-schema-facts.ts
-const scopes = resolveGlobalSingleton(Symbol.for("openclaw.sqliteSchemaScopes"), () => {
-	const byIdentity = /* @__PURE__ */ new Map();
-	const release = (scope) => {
-		scope.users -= 1;
-		if (scope.users === 0 && scope.key && byIdentity.get(scope.key) === scope) byIdentity.delete(scope.key);
-	};
-	return {
-		byIdentity,
-		release,
-		finalizer: new FinalizationRegistry(release)
-	};
-});
-const owners = resolveGlobalSingleton(Symbol.for("openclaw.sqliteSchemaFacts"), () => /* @__PURE__ */ new WeakMap());
-function invalidate(owner) {
-	owner.revision += 1;
-	owner.facts = void 0;
-}
-function bindScope(database, owner) {
-	if (owner.scope) return owner.scope;
-	const location = database.location();
-	const key = location ? readDatabasePathIdentitySync(location).key : void 0;
-	const scope = key && scopes.byIdentity.get(key) || {
-		key,
-		revision: 0,
-		users: 0
-	};
-	if (key) scopes.byIdentity.set(key, scope);
-	scope.users += 1;
-	owner.scope = scope;
-	owner.scopeRevision = scope.revision;
-	scopes.finalizer.register(database, scope, owner);
-	return scope;
-}
-function publishSchemaChange(database, owner) {
-	const scope = bindScope(database, owner);
-	scope.revision += 1;
-	owner.scopeRevision = scope.revision;
-}
-/** Schema publications outside DDL (such as a deferred version marker) share this revision. */
-function invalidateSqliteSchemaFacts(database) {
-	const owner = owners.get(database);
-	if (owner) {
-		bindScope(database, owner);
-		invalidate(owner);
-		owner.transactionalSchema ||= database.isTransaction;
-		if (!database.isTransaction) publishSchemaChange(database, owner);
-	}
-}
-function changesSchema(sql) {
-	return /\b(?:CREATE|ALTER|DROP|REINDEX|VACUUM)\b|\bPRAGMA\b[\s\S]*\b(?:user_version|schema_version|writable_schema)\b[\s\S]*[=(]/i.test(sql);
-}
-const transactionControlPrefix = /^(?:\s|;|--[^\n]*(?:\n|$)|\/\*(?:[^*]|\*(?!\/))*\*\/)*(BEGIN|SAVEPOINT|COMMIT|END|RELEASE|ROLLBACK)\b/i;
-function batchTransactionControl(sql) {
-	let control;
-	let remaining = sql;
-	while (remaining) {
-		const next = transactionControlPrefix.exec(remaining)?.[1]?.toUpperCase();
-		if (next === "ROLLBACK") return next;
-		control ||= next;
-		const end = remaining.includes(";") ? findSqlCharacter(remaining, ";") : -1;
-		if (end < 0) break;
-		remaining = remaining.slice(end + 1);
-	}
-	return control;
-}
-function callStatement(method, [first, ...remaining]) {
-	if (first === void 0) return method();
-	if (typeof first === "object" && first !== null && !ArrayBuffer.isView(first)) return method(first, ...remaining);
-	return method(first, ...remaining);
-}
-function trackSchemaChanges(database, owner, native) {
-	const settle = (boundary = false) => {
-		if ((boundary || !database.isTransaction) && (owner.transactionalSchema || owner.transactionalFacts)) {
-			if (owner.transactionalSchema) publishSchemaChange(database, owner);
-			invalidate(owner);
-			owner.transactionalSchema &&= database.isTransaction;
-			owner.transactionalFacts = false;
-		}
-	};
-	const execute = (operation, schemaChange, control) => {
-		if (owner.transactionalSchema && !owner.scope) bindScope(database, owner);
-		settle();
-		const invalidates = schemaChange || control === "ROLLBACK" && owner.transactionalSchema;
-		if (invalidates) invalidateSqliteSchemaFacts(database);
-		try {
-			return operation();
-		} finally {
-			if (invalidates) invalidateSqliteSchemaFacts(database);
-			settle(Boolean(control));
-		}
-	};
-	database.exec = (sql) => execute(() => native.DatabaseSync.prototype.exec.call(database, sql), changesSchema(sql), batchTransactionControl(sql));
-	database.prepare = (...prepareArgs) => {
-		const [sql] = prepareArgs;
-		const statement = native.DatabaseSync.prototype.prepare.call(database, ...prepareArgs);
-		const schemaChange = changesSchema(sql);
-		const control = transactionControlPrefix.exec(sql)?.[1]?.toUpperCase();
-		if (schemaChange || control) {
-			const run = Object.hasOwn(statement, "run") ? statement.run.bind(statement) : void 0;
-			const get = Object.hasOwn(statement, "get") ? statement.get.bind(statement) : void 0;
-			const all = Object.hasOwn(statement, "all") ? statement.all.bind(statement) : void 0;
-			const iterate = Object.hasOwn(statement, "iterate") ? statement.iterate.bind(statement) : void 0;
-			statement.run = (...bindings) => execute(() => callStatement(run ?? native.StatementSync.prototype.run.bind(statement), bindings), schemaChange, control);
-			statement.get = (...bindings) => execute(() => callStatement(get ?? native.StatementSync.prototype.get.bind(statement), bindings), schemaChange, control);
-			statement.all = (...bindings) => execute(() => callStatement(all ?? native.StatementSync.prototype.all.bind(statement), bindings), schemaChange, control);
-			statement.iterate = function* (...bindings) {
-				if (owner.transactionalSchema && !owner.scope) bindScope(database, owner);
-				settle();
-				const invalidates = schemaChange || control === "ROLLBACK" && owner.transactionalSchema;
-				if (invalidates) invalidateSqliteSchemaFacts(database);
-				try {
-					yield* callStatement(iterate ?? native.StatementSync.prototype.iterate.bind(statement), bindings);
-				} finally {
-					if (invalidates) invalidateSqliteSchemaFacts(database);
-					settle(Boolean(control));
-				}
-			};
-		}
-		return statement;
-	};
-	if (typeof database.setAuthorizer === "function") database.setAuthorizer = (callback) => {
-		native.DatabaseSync.prototype.setAuthorizer.call(database, callback);
-		owner.authorizerActive = callback !== null;
-		invalidate(owner);
-	};
-	registerNodeSqliteDisposeCallback(database, () => {
-		invalidate(owner);
-		owner.dataVersion = void 0;
-		owner.readDataVersion = void 0;
-		if (owner.scope) {
-			scopes.finalizer.unregister(owner);
-			scopes.release(owner.scope);
-			owner.scope = void 0;
-			owner.scopeRevision = void 0;
-		}
-	});
-}
-/** Install at native open, before callers can retain statements or install an authorizer. */
-function trackSqliteSchema(database, native) {
-	if (!owners.has(database)) {
-		const owner = {
-			admitted: false,
-			revision: 0,
-			readDepth: 0,
-			transactionalSchema: false,
-			transactionalFacts: false,
-			authorizerActive: false
-		};
-		owners.set(database, owner);
-		trackSchemaChanges(database, owner, native);
-	}
 }
 //#endregion
 //#region src/infra/warning-filter.ts
@@ -14585,21 +17388,72 @@ function assertSqliteWalResetSafeVersion(version, nodeVersion) {
 	if (isSqliteWalResetSafeVersion(version)) return;
 	const variables = process.config?.variables;
 	const isShared = variables?.node_shared_sqlite === true || variables?.node_shared_sqlite === "true";
-	throw new Error(`OpenClaw requires SQLite 3.51.3+, 3.50.7+ within 3.50.x, or 3.44.6+ within 3.44.x for WAL safety; Node ${nodeVersion} ${isShared ? "uses shared system" : "embeds"} SQLite ${version}, which is affected by the upstream WAL-reset database corruption bug. ${isShared ? "Upgrade the system SQLite library to one of those safe versions, or use a Node build embedding a safe version." : "Upgrade to Node 24.16.0+ or 26.1.0+ before retrying."}`);
+	throw new Error(`OpenClaw requires SQLite 3.51.3+, 3.50.7+ within 3.50.x, or 3.44.6+ within 3.44.x for WAL safety; Node ${nodeVersion} ${isShared ? "uses shared system" : "embeds"} SQLite ${version}, which is affected by the upstream WAL-reset database corruption bug. ${isShared ? "Upgrade the system SQLite library to one of those safe versions, or use a Node build embedding a safe version." : "Upgrade to Node 24.22.1+ or 26.12.1+ before retrying."}`);
+}
+function sqliteNativeRuntimeIdentity() {
+	return {
+		pid: process.pid,
+		executable: process.execPath,
+		nodeVersion: process.versions.node,
+		bunVersion: process.versions.bun,
+		library: ensureSqliteLibrarySelected()
+	};
+}
+function parseSqliteNativeRuntimeAdmission(value) {
+	if (!isRecord(value) || value.format !== 1 || typeof value.version !== "string" || typeof value.extensionLoadingSupported !== "boolean" || !isRecord(value.iteratorBehavior) || typeof value.iteratorBehavior.nextAfterDoneIsTerminal !== "boolean" || typeof value.iteratorBehavior.returnAfterDoneIsInert !== "boolean") return;
+	const runtime = sqliteNativeRuntimeIdentity();
+	if (!isDeepStrictEqual(value.runtime, runtime)) return;
+	return {
+		format: 1,
+		runtime,
+		version: value.version,
+		extensionLoadingSupported: value.extensionLoadingSupported,
+		iteratorBehavior: {
+			nextAfterDoneIsTerminal: value.iteratorBehavior.nextAfterDoneIsTerminal,
+			returnAfterDoneIsInert: value.iteratorBehavior.returnAfterDoneIsInert
+		}
+	};
 }
 function assertSafeSqliteRuntime(sqlite) {
-	if (validatedSqliteModule === sqlite) return;
+	if (validatedSqliteModule?.sqlite === sqlite) return validatedSqliteModule.iteratorBehavior;
+	const inherited = isMainThread ? void 0 : parseSqliteNativeRuntimeAdmission(getEnvironmentData(SQLITE_NATIVE_RUNTIME_ADMISSION_KEY));
+	if (inherited) {
+		assertSqliteWalResetSafeVersion(inherited.version, process.versions.node);
+		compareValidSemver(inherited.version, "3.45.0");
+		inherited.extensionLoadingSupported;
+		validatedSqliteModule = {
+			sqlite,
+			iteratorBehavior: inherited.iteratorBehavior
+		};
+		return inherited.iteratorBehavior;
+	}
 	const database = new sqlite.DatabaseSync(":memory:");
+	let version;
+	let extensions;
+	let iteratorBehavior;
 	try {
-		const row = database.prepare("SELECT sqlite_version() AS version").get();
-		const version = typeof row?.version === "string" ? row.version : "unknown";
+		const statement = database.prepare("SELECT sqlite_version() AS version, sqlite_compileoption_used('OMIT_LOAD_EXTENSION') AS omitted");
+		const row = statement.get();
+		version = typeof row?.version === "string" ? row.version : "unknown";
 		assertSqliteWalResetSafeVersion(version, process.versions.node);
-		compareValidSemver(version, "3.45.0");
-		database.prepare("SELECT sqlite_compileoption_used('OMIT_LOAD_EXTENSION') AS omitted").get()?.omitted;
-		validatedSqliteModule = sqlite;
+		extensions = row?.omitted === 0;
+		iteratorBehavior = probeSqliteIteratorBehavior(statement);
 	} finally {
 		database.close();
 	}
+	compareValidSemver(version, "3.45.0");
+	validatedSqliteModule = {
+		sqlite,
+		iteratorBehavior
+	};
+	setEnvironmentData(SQLITE_NATIVE_RUNTIME_ADMISSION_KEY, {
+		format: 1,
+		runtime: sqliteNativeRuntimeIdentity(),
+		version,
+		extensionLoadingSupported: extensions,
+		iteratorBehavior
+	});
+	return iteratorBehavior;
 }
 /** Load node:sqlite after installing the process warning filter. */
 function requireNodeSqlite() {
@@ -14618,14 +17472,37 @@ function requireNodeSqlite() {
 function openNodeSqliteDatabase(location, options) {
 	const sqlite = requireNodeSqlite();
 	const resolvedLocation = resolveNodeSqliteLocation(location);
+	const identity = options?.open === false ? void 0 : prepareSqliteDatabaseAdmission(resolvedLocation, { create: options?.readOnly !== true });
 	const database = new sqlite.DatabaseSync(resolvedLocation, options ?? {});
-	trackSqliteSchema(database, sqlite);
+	if (database.isOpen) try {
+		bindSqliteDatabaseAdmission(database, identity);
+	} catch (error) {
+		database.close();
+		throw error;
+	}
+	database.open = () => {
+		const reopenedIdentity = prepareSqliteDatabaseAdmission(resolvedLocation, { create: options?.readOnly !== true });
+		sqlite.DatabaseSync.prototype.open.call(database);
+		try {
+			bindSqliteDatabaseAdmission(database, reopenedIdentity);
+		} catch (error) {
+			database.close();
+			throw error;
+		}
+	};
+	trackSqliteSchema(database, {
+		DatabaseSync: sqlite.DatabaseSync,
+		StatementSync: sqlite.StatementSync,
+		iteratorBehavior: assertSafeSqliteRuntime(sqlite)
+	}, options?.readOnly !== true);
 	if (!getSqliteRuntimeCapabilities().explicitSqliteCloseReleasesNativeResources) registerNodeSqliteDisposeCallback(database, () => {});
 	registerSqliteReaderConnection(database);
 	return database;
 }
+resolveGlobalSingleton(Symbol.for("openclaw.sqliteWalWriteAdmissions"), () => /* @__PURE__ */ new WeakMap());
 //#endregion
 //#region src/state/openclaw-state-db-handle.ts
+const identities = resolveGlobalSingleton(Symbol.for("openclaw.stateNativeIdentities"), () => /* @__PURE__ */ new WeakMap());
 function openTrackedStateDatabase(pathname, options) {
 	const result = openTrackedStateDatabaseResult(pathname, options);
 	if (result.status === "unavailable") throw result.error;
@@ -14641,9 +17518,19 @@ function openTrackedStateDatabaseResult(pathname, options) {
 			readOnly: true,
 			timeout: options.timeout
 		} : { enableForeignKeyConstraints: options?.enableForeignKeyConstraints };
+		const openingIdentity = readDatabasePathIdentitySync(pathname);
 		const database = withSqliteNativeOpen(() => openNodeSqliteDatabase(location, nativeOptions));
 		try {
 			assertStateDatabaseAccessAllowed(pathname);
+			if (openingIdentity.key.startsWith("file:")) assertExistingDatabaseIdentity(pathname, openingIdentity.key, openingIdentity.birthtime);
+			const identity = openingIdentity.key.startsWith("file:") ? openingIdentity : readDatabasePathIdentitySync(pathname);
+			if (identity.key.startsWith("file:")) {
+				identities.set(database, identity);
+				const unregister = registerNodeSqliteDisposeCallback(database, () => {
+					identities.delete(database);
+					unregister();
+				});
+			}
 		} catch (error) {
 			database.close();
 			throw error;
@@ -29827,7 +32714,7 @@ var SqliteConnection = class {
 };
 //#endregion
 //#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/sqlite/sqlite-query-compiler.js
-const ID_WRAP_REGEX = /"/g;
+const ID_WRAP_REGEX$1 = /"/g;
 const JSON_PATH_MEMBER_ESCAPE_REGEX = /[\\'"]/g;
 var SqliteQueryCompiler = class extends DefaultQueryCompiler {
 	visitOrAction(node) {
@@ -29853,7 +32740,7 @@ var SqliteQueryCompiler = class extends DefaultQueryCompiler {
 		return "autoincrement";
 	}
 	sanitizeIdentifier(identifier) {
-		return identifier.replace(ID_WRAP_REGEX, "\"\"");
+		return identifier.replace(ID_WRAP_REGEX$1, "\"\"");
 	}
 	sanitizeJSONPathMemberValue(value) {
 		return value.replace(JSON_PATH_MEMBER_ESCAPE_REGEX, (char) => char === "\\" ? "\\\\" : char === "'" ? "''" : "\\\"");
@@ -29988,6 +32875,328 @@ var SqliteDialect = class {
 	}
 };
 //#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/util/stack-trace-utils.js
+function extendStackTrace(err, stackError) {
+	if (isStackHolder(err) && stackError.stack) {
+		const stackExtension = stackError.stack.split("\n").slice(1).join("\n");
+		err.stack += `\n${stackExtension}`;
+		return err;
+	}
+	return err;
+}
+function isStackHolder(obj) {
+	return isObject(obj) && isString(obj.stack);
+}
+//#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/postgres/postgres-driver.js
+const PRIVATE_RELEASE_METHOD = Symbol();
+var PostgresDriver = class {
+	#config;
+	#connections = /* @__PURE__ */ new WeakMap();
+	#pool;
+	constructor(config) {
+		this.#config = freeze({ ...config });
+	}
+	async init(options) {
+		this.#pool = isFunction(this.#config.pool) ? await this.#config.pool(options) : this.#config.pool;
+	}
+	async acquireConnection(options) {
+		const client = await this.#pool.connect();
+		let connection = this.#connections.get(client);
+		if (!connection) {
+			connection = new PostgresConnection(client, {
+				controlClient: this.#config.controlClient || this.#pool.Client,
+				cursor: this.#config.cursor ?? null,
+				poolOptions: this.#pool.options
+			});
+			this.#connections.set(client, connection);
+			if (this.#config.onCreateConnection) await this.#config.onCreateConnection(connection, options);
+		}
+		if (this.#config.onReserveConnection) await this.#config.onReserveConnection(connection, options);
+		return connection;
+	}
+	async beginTransaction(connection, settings) {
+		let sql = "begin";
+		if (settings.isolationLevel || settings.accessMode) {
+			sql = "start transaction";
+			if (settings.isolationLevel) sql += ` isolation level ${settings.isolationLevel}`;
+			if (settings.accessMode) sql += ` ${settings.accessMode}`;
+		}
+		await connection.executeQuery(CompiledQuery.raw(sql));
+	}
+	async commitTransaction(connection) {
+		await connection.executeQuery(CompiledQuery.raw("commit"));
+	}
+	async rollbackTransaction(connection) {
+		await connection.executeQuery(CompiledQuery.raw("rollback"));
+	}
+	async savepoint(connection, savepointName, compileQuery) {
+		await connection.executeQuery(compileQuery(parseSavepointCommand("savepoint", savepointName), createQueryId()));
+	}
+	async rollbackToSavepoint(connection, savepointName, compileQuery) {
+		await connection.executeQuery(compileQuery(parseSavepointCommand("rollback to", savepointName), createQueryId()));
+	}
+	async releaseSavepoint(connection, savepointName, compileQuery) {
+		await connection.executeQuery(compileQuery(parseSavepointCommand("release", savepointName), createQueryId()));
+	}
+	async releaseConnection(connection) {
+		connection[PRIVATE_RELEASE_METHOD]();
+	}
+	async destroy() {
+		if (this.#pool) {
+			const pool = this.#pool;
+			this.#pool = void 0;
+			await pool.end();
+		}
+	}
+};
+var PostgresConnection = class {
+	#client;
+	#options;
+	#queryId;
+	#pid;
+	constructor(client, options) {
+		this.#client = client;
+		this.#options = options;
+	}
+	async cancelQuery(controlConnectionProvider) {
+		return await this.#executeControlQuery(`select pg_cancel_backend(${this.#pid})`, controlConnectionProvider);
+	}
+	async collectSessionInfo() {
+		if (this.#pid) return;
+		const { processID } = this.#client;
+		if (processID) this.#pid = processID;
+		else {
+			const { rows: [{ pid }] } = await this.#client.query("select pg_backend_pid() as pid", []);
+			this.#pid = Number(pid);
+		}
+	}
+	async executeQuery(compiledQuery) {
+		try {
+			this.#queryId = compiledQuery.queryId;
+			const { command, rowCount, rows } = await this.#client.query(compiledQuery.sql, compiledQuery.parameters);
+			return {
+				numAffectedRows: command === "INSERT" || command === "UPDATE" || command === "DELETE" || command === "MERGE" ? BigInt(rowCount) : void 0,
+				rows: rows ?? []
+			};
+		} catch (err) {
+			throw extendStackTrace(err, /* @__PURE__ */ new Error());
+		} finally {
+			this.#queryId = void 0;
+		}
+	}
+	async killSession(controlConnectionProvider) {
+		return await this.#executeControlQuery(`select pg_terminate_backend(${this.#pid})`, controlConnectionProvider);
+	}
+	async *streamQuery(compiledQuery, chunkSize) {
+		if (!this.#options.cursor) throw new Error("`cursor` is not present in your postgres dialect config. It's required to make streaming work in postgres.");
+		this.#queryId = compiledQuery.queryId;
+		const cursor = this.#client.query(new this.#options.cursor(compiledQuery.sql, compiledQuery.parameters.slice()));
+		try {
+			while (true) {
+				const rows = await cursor.read(chunkSize);
+				if (rows.length === 0) break;
+				yield { rows };
+			}
+		} finally {
+			await cursor.close();
+			this.#queryId = void 0;
+		}
+	}
+	[PRIVATE_RELEASE_METHOD]() {
+		this.#client.release();
+	}
+	async #executeControlQuery(query, controlConnectionProvider) {
+		if (!this.#queryId) return;
+		const { controlClient: Client, poolOptions } = this.#options;
+		const queryIdToCancel = this.#queryId;
+		if (!Client) return await controlConnectionProvider(async (controlConnection) => {
+			if (queryIdToCancel.queryId === this.#queryId?.queryId) await controlConnection.executeQuery(CompiledQuery.raw(query, []));
+		});
+		const controlClient = new Client({
+			...poolOptions,
+			password: "password" in poolOptions ? poolOptions.password : void 0
+		});
+		try {
+			await controlClient.connect();
+			if (queryIdToCancel.queryId !== this.#queryId.queryId) return;
+			await controlClient.query(query, []);
+		} finally {
+			controlClient.end();
+		}
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/postgres/postgres-introspector.js
+var PostgresIntrospector = class {
+	#db;
+	constructor(db) {
+		this.#db = db;
+	}
+	async getSchemas() {
+		return (await this.#db.selectFrom("pg_catalog.pg_namespace").select("nspname").$castTo().execute()).map((it) => ({ name: it.nspname }));
+	}
+	async getTables(options = { withInternalKyselyTables: false }) {
+		let query = this.#db.selectFrom("pg_catalog.pg_attribute as a").innerJoin("pg_catalog.pg_class as c", "a.attrelid", "c.oid").innerJoin("pg_catalog.pg_namespace as ns", "c.relnamespace", "ns.oid").innerJoin("pg_catalog.pg_type as typ", "a.atttypid", "typ.oid").innerJoin("pg_catalog.pg_namespace as dtns", "typ.typnamespace", "dtns.oid").select([
+			"a.attname as column",
+			"a.attnotnull as not_null",
+			"a.atthasdef as has_default",
+			"c.relname as table",
+			"c.relkind as table_type",
+			"ns.nspname as schema",
+			"typ.typname as type",
+			"dtns.nspname as type_schema",
+			sql`col_description(a.attrelid, a.attnum)`.as("column_description"),
+			sql`pg_get_serial_sequence(quote_ident(ns.nspname) || '.' || quote_ident(c.relname), a.attname)`.as("auto_incrementing")
+		]).where("c.relkind", "in", [
+			"r",
+			"v",
+			"p",
+			"f"
+		]).where("ns.nspname", "!~", "^pg_").where("ns.nspname", "!=", "information_schema").where("ns.nspname", "!=", "crdb_internal").where(sql`has_schema_privilege(ns.nspname, 'USAGE')`).where("a.attnum", ">=", 0).where("a.attisdropped", "!=", true).orderBy("ns.nspname").orderBy("c.relname").orderBy("a.attnum").$castTo();
+		if (!options.withInternalKyselyTables) query = query.where("c.relname", "!=", DEFAULT_MIGRATION_TABLE).where("c.relname", "!=", DEFAULT_MIGRATION_LOCK_TABLE);
+		const rawColumns = await query.execute();
+		return this.#parseTableMetadata(rawColumns);
+	}
+	#parseTableMetadata(columns) {
+		const tables = [];
+		const schemas = /* @__PURE__ */ new Map();
+		for (const column of columns) {
+			let schema = schemas.get(column.schema);
+			if (!schema) {
+				schema = /* @__PURE__ */ new Map();
+				schemas.set(column.schema, schema);
+			}
+			let table = schema.get(column.table);
+			if (!table) {
+				table = freeze({
+					columns: [],
+					isForeign: column.table_type === "f",
+					isView: column.table_type === "v",
+					name: column.table,
+					schema: column.schema
+				});
+				schema.set(column.table, table);
+				tables.push(table);
+			}
+			table.columns.push(freeze({
+				comment: column.column_description ?? void 0,
+				dataType: column.type,
+				dataTypeSchema: column.type_schema,
+				hasDefaultValue: column.has_default,
+				isAutoIncrementing: column.auto_incrementing !== null,
+				isNullable: !column.not_null,
+				name: column.column
+			}));
+		}
+		return tables;
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/postgres/postgres-query-compiler.js
+const ID_WRAP_REGEX = /"/g;
+var PostgresQueryCompiler = class extends DefaultQueryCompiler {
+	sanitizeIdentifier(identifier) {
+		return identifier.replace(ID_WRAP_REGEX, "\"\"");
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/postgres/postgres-adapter.js
+const LOCK_ID = BigInt("3853314791062309107");
+const LOCK_TIMEOUT_MILLISECONDS = 36e5;
+var PostgresAdapter = class extends DialectAdapterBase {
+	get supportsTransactionalDdl() {
+		return true;
+	}
+	get supportsReturning() {
+		return true;
+	}
+	async acquireMigrationLock(db, _opt) {
+		await sql`
+    with set_timeout as (
+      select set_config('lock_timeout', '${sql.lit(LOCK_TIMEOUT_MILLISECONDS)}', true) as config_val
+    )
+    select pg_advisory_lock(${sql.lit(LOCK_ID)})
+    from set_timeout`.execute(db);
+	}
+	async releaseMigrationLock(db, _opt) {
+		await sql`select pg_advisory_unlock(${sql.lit(LOCK_ID)})`.execute(db);
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/postgres/postgres-dialect.js
+/**
+* PostgreSQL dialect that uses the [pg](https://node-postgres.com/) library.
+*
+* The constructor takes an instance of {@link PostgresDialectConfig}.
+*
+* ```ts
+* import { Pool } from 'pg'
+*
+* new PostgresDialect({
+*   pool: new Pool({
+*     database: 'some_db',
+*     host: 'localhost',
+*   })
+* })
+* ```
+*
+* If you want the pool to only be created once it's first used, `pool`
+* can be a function:
+*
+* ```ts
+* import { Pool } from 'pg'
+*
+* new PostgresDialect({
+*   pool: async () => new Pool({
+*     database: 'some_db',
+*     host: 'localhost',
+*   })
+* })
+* ```
+*/
+var PostgresDialect = class {
+	#config;
+	constructor(config) {
+		this.#config = config;
+	}
+	createDriver() {
+		return new PostgresDriver(this.#config);
+	}
+	createQueryCompiler() {
+		return new PostgresQueryCompiler();
+	}
+	createAdapter() {
+		return new PostgresAdapter();
+	}
+	createIntrospector(db) {
+		return new PostgresIntrospector(db);
+	}
+};
+//#endregion
+//#region src/infra/sql-query-compiler.ts
+const templateFragments = (fragments, _value) => fragments;
+const sqliteStringSetFragments = templateFragments`(SELECT value FROM json_each(${0}))`;
+const sqliteStringSetEntriesFragments = templateFragments`json_each(${0})`;
+/** Lower only the shared string-set primitive; arbitrary raw SQL stays caller-owned. */
+var OpenClawPostgresQueryCompiler = class extends PostgresQueryCompiler {
+	visitRaw(node) {
+		const values = node.sqlFragments === sqliteStringSetFragments;
+		if (!values && node.sqlFragments !== sqliteStringSetEntriesFragments) {
+			super.visitRaw(node);
+			return;
+		}
+		this.append(values ? "(SELECT value FROM json_array_elements_text(" : "(SELECT ordinality - 1 AS key, value FROM json_array_elements_text(");
+		this.compileList(node.parameters);
+		this.append(values ? "::json) AS value)" : "::json) WITH ORDINALITY AS entries(value, ordinality))");
+	}
+};
+var OpenClawPostgresDialect = class extends PostgresDialect {
+	createQueryCompiler() {
+		return new OpenClawPostgresQueryCompiler();
+	}
+};
+//#endregion
 //#region src/infra/kysely-sync.ts
 const nodeVersion = parseNodeReleaseVersion(process.versions.node);
 const supportsRepreparedAll = !process.versions.bun && (nodeVersion?.major === 24 && isNodeVersionAtLeast(nodeVersion, {
@@ -30002,7 +33211,19 @@ const supportsRepreparedAll = !process.versions.bun && (nodeVersion?.major === 2
 const compileOnlySqliteDialect = new SqliteDialect({ database: async () => {
 	throw new Error("getNodeSqliteKysely() returns a compile-only Kysely facade; use executeSqliteQuerySync() to execute node:sqlite queries.");
 } });
+const postgresKyselyByDatabase = /* @__PURE__ */ new WeakMap();
+const compileOnlyPostgresDialect = new OpenClawPostgresDialect({ pool: async () => {
+	throw new Error("getNodeSqliteKysely() returns a compile-only Kysely facade.");
+} });
 function getNodeSqliteKysely(db) {
+	if (isPostgresSqlConnection(db)) {
+		let kysely = postgresKyselyByDatabase.get(db);
+		if (!kysely) {
+			kysely = new Kysely({ dialect: compileOnlyPostgresDialect });
+			postgresKyselyByDatabase.set(db, kysely);
+		}
+		return kysely;
+	}
 	const existing = kyselyByDatabase.get(db);
 	if (existing) return existing;
 	const kysely = new Kysely({ dialect: compileOnlySqliteDialect });
@@ -30014,8 +33235,26 @@ function reportNodeSqliteKyselyQueryError(db, error) {
 		queryErrorHandlerByDatabase.get(db)?.(error);
 	} catch {}
 }
+function releaseSqliteIterator(iterator, reader, failed, cleanupErrorMessage) {
+	let cleanupError;
+	try {
+		iterator.return?.();
+	} catch (error) {
+		cleanupError = error;
+	}
+	reader.release();
+	if (!failed && cleanupError !== void 0) throw toErrorObject(cleanupError, cleanupErrorMessage);
+}
 /** Execute a compiled Kysely query synchronously against node:sqlite. */
 function executeCompiledSqliteQuerySync(db, compiledQuery, firstRowOnly = false, parameters = compiledQuery.parameters) {
+	if (isPostgresSqlConnection(db)) {
+		const result = db.query(compiledQuery.sql, parameters);
+		const rows = firstRowOnly ? result.rows.slice(0, 1) : result.rows;
+		return result.columns.length > 0 ? { rows } : {
+			rows: [],
+			numAffectedRows: BigInt(result.rowCount)
+		};
+	}
 	try {
 		const sql = compiledQuery.sql;
 		installStatementInvalidation(db);
@@ -30028,7 +33267,6 @@ function executeCompiledSqliteQuerySync(db, compiledQuery, firstRowOnly = false,
 				if (supportsRepreparedAll) return { rows: statement.all(...parameters) };
 				const iterator = statement.iterate(...parameters);
 				const reader = retainSqliteReader(db, "kysely eager query");
-				let cleanupError;
 				let failed = false;
 				let failure;
 				const rows = [];
@@ -30041,14 +33279,8 @@ function executeCompiledSqliteQuerySync(db, compiledQuery, firstRowOnly = false,
 					failed = true;
 					failure = error;
 				}
-				try {
-					iterator.return?.();
-				} catch (error) {
-					cleanupError = error;
-				}
-				reader.release();
+				releaseSqliteIterator(iterator, reader, failed, "SQLite query cleanup failed");
 				if (failed) throw toErrorObject(failure, "SQLite query failed");
-				if (cleanupError !== void 0) throw toErrorObject(cleanupError, "SQLite query cleanup failed");
 				return { rows };
 			}
 			statement.setReadBigInts(true);
@@ -30081,6 +33313,94 @@ function executeSqliteQuerySync(db, query) {
 /** Execute a Kysely query synchronously and return its first row. */
 function executeSqliteQueryTakeFirstSync(db, query) {
 	return executeCompiledSqliteQuerySync(db, query.compile(), true).rows[0];
+}
+//#endregion
+//#region src/state/openclaw-state-lease-renewal.worker.ts
+function identityKey(identity) {
+	return JSON.stringify([
+		identity.scope,
+		identity.key,
+		identity.owner
+	]);
+}
+/** One deadline and one conditional write serve the physical database's due leases. */
+function createStateLeaseRenewalScheduler(db) {
+	const pending = /* @__PURE__ */ new Map();
+	let timer;
+	let running = false;
+	const arm = () => {
+		if (running) return;
+		clearTimeout(timer);
+		timer = void 0;
+		if (pending.size > 0) {
+			timer = setTimeout(run, Math.max(1, Math.min(...pending.values()) - Date.now()));
+			timer.unref();
+		}
+	};
+	function run() {
+		timer = void 0;
+		const now = Date.now();
+		const due = [...pending].filter(([, deadline]) => deadline <= now).map(([entry]) => entry);
+		for (const entry of due) pending.delete(entry);
+		const first = due[0];
+		if (!first) {
+			arm();
+			return;
+		}
+		running = true;
+		try {
+			first.execute(() => {
+				const renewedAt = Date.now();
+				const query = getNodeSqliteKysely(db).updateTable("state_leases").set((eb) => {
+					const predicate = (entry) => eb.and([
+						eb("scope", "=", entry.identity.scope),
+						eb("lease_key", "=", entry.identity.key),
+						eb("owner", "=", entry.identity.owner)
+					]);
+					let expiry = eb.case().when(predicate(first)).then(eb.val(renewedAt + first.leaseMs));
+					for (const entry of due.slice(1)) expiry = expiry.when(predicate(entry)).then(eb.val(renewedAt + entry.leaseMs));
+					return {
+						expires_at: expiry.else(eb.ref("expires_at")).end(),
+						heartbeat_at: renewedAt,
+						updated_at: renewedAt
+					};
+				}).where("expires_at", ">", renewedAt).where((eb) => eb.or(due.map((entry) => eb.and([
+					eb("scope", "=", entry.identity.scope),
+					eb("lease_key", "=", entry.identity.key),
+					eb("owner", "=", entry.identity.owner)
+				])))).returning([
+					"scope",
+					"lease_key",
+					"owner",
+					"expires_at"
+				]);
+				const rows = runWithSqliteBusyTimeout(db, 0, () => runSqliteSingleStatementSync(db, () => executeSqliteQuerySync(db, query).rows), { lockFailureReporting: "suppress" });
+				const expiries = new Map(rows.map((row) => [identityKey({
+					scope: row.scope,
+					key: row.lease_key,
+					owner: row.owner
+				}), row.expires_at ?? void 0]));
+				for (const entry of due) entry.complete({ expiresAt: expiries.get(identityKey(entry.identity)) });
+			});
+		} catch (error) {
+			for (const entry of due) entry.complete({ error });
+		} finally {
+			running = false;
+			arm();
+		}
+	}
+	return {
+		schedule(entry, expiresAt) {
+			let deadline = Math.min(expiresAt, expiresAt - entry.leaseMs + entry.intervalMs);
+			for (const [sibling, siblingDeadline] of pending) if (sibling.intervalMs === entry.intervalMs) deadline = Math.min(deadline, siblingDeadline);
+			pending.set(entry, deadline);
+			arm();
+		},
+		cancel(entry) {
+			pending.delete(entry);
+			arm();
+		}
+	};
 }
 //#endregion
 //#region src/infra/state-lease-process-owner.ts
@@ -30157,6 +33477,18 @@ function readOpenClawStateDatabaseFailurePath(error) {
 //#region src/agents/agent-create-error.ts
 var DuplicateAgentError = class extends Error {};
 //#endregion
+//#region src/agents/auth-profiles/store-unreadable-error.ts
+const AUTH_PROFILE_MIGRATION_COMMAND = "openclaw doctor --fix";
+var AuthProfileStoreUnreadableError = class extends Error {
+	constructor(databasePath) {
+		super(`Auth profile store ${shortenHomePath(databasePath)} is unreadable; run ${AUTH_PROFILE_MIGRATION_COMMAND}.`);
+		this.databasePath = databasePath;
+		this.code = "AUTH_PROFILE_STORE_UNREADABLE";
+		this.action = AUTH_PROFILE_MIGRATION_COMMAND;
+		this.name = "AuthProfileStoreUnreadableError";
+	}
+};
+//#endregion
 //#region src/agents/mcp-oauth-store-error.ts
 var McpOAuthStoreCorruptionError = class extends Error {
 	constructor(storeKey, detail, options) {
@@ -30178,12 +33510,45 @@ var WorkspaceAliasRepointedError = class extends Error {
 	}
 };
 //#endregion
+//#region src/agents/worktrees/errors.ts
+var WorktreeRemovalContentionError = class extends Error {
+	constructor(kind, message, blockedByRun) {
+		super(message);
+		this.kind = kind;
+		this.blockedByRun = blockedByRun;
+		this.name = "WorktreeRemovalContentionError";
+	}
+};
+var WorktreeRemovalLockError = class extends Error {
+	constructor(kind, message) {
+		super(message);
+		this.kind = kind;
+		this.name = "WorktreeRemovalLockError";
+	}
+};
+var SessionWorktreeSourceChangedError = class extends Error {};
+var SessionWorktreeLifecycleError = class extends Error {
+	constructor(message, reason) {
+		super(message);
+		this.reason = reason;
+	}
+};
+//#endregion
 //#region src/config/sessions/goals-operations.types.ts
 var SessionGoalOperationError = class extends Error {
 	constructor(code, message) {
 		super(message);
 		this.code = code;
 		this.name = "SessionGoalOperationError";
+	}
+};
+//#endregion
+//#region src/config/sessions/session-canonical-key-error.ts
+var SessionCanonicalKeyMigrationRequiredError = class extends Error {
+	constructor(detail) {
+		super(`${detail}; stop the Gateway and run openclaw doctor --fix`);
+		this.code = "SESSION_CANONICAL_KEY_MIGRATION_REQUIRED";
+		this.name = "SessionCanonicalKeyMigrationRequiredError";
 	}
 };
 //#endregion
@@ -30195,10 +33560,68 @@ var SqliteSessionMutationConflictError = class extends Error {
 		this.name = "SqliteSessionMutationConflictError";
 	}
 };
+var SqliteTranscriptMutationConflictError = class extends Error {
+	constructor(sessionId) {
+		super(`SQLite transcript changed while preparing rewrite for ${sessionId}`);
+		this.sessionId = sessionId;
+		this.name = "SqliteTranscriptMutationConflictError";
+	}
+};
+var SessionEntryLifecycleUpsertConflictError = class extends Error {
+	constructor(sessionKey) {
+		super(`SQLite session entry changed before lifecycle upsert for ${sessionKey}`);
+		this.sessionKey = sessionKey;
+		this.name = "SessionEntryLifecycleUpsertConflictError";
+	}
+};
 //#endregion
 //#region src/config/sessions/session-pending-input-custody-error.ts
 /** Custody refusal must not release already accepted input for another dispatch. */
 var SessionPendingInputCustodyError = class extends Error {};
+//#endregion
+//#region src/config/sessions/session-transcript-read-fence-error.ts
+var SessionTranscriptReadFenceError = class extends Error {
+	constructor(message) {
+		super(message);
+		this.name = "SessionTranscriptReadFenceError";
+	}
+};
+//#endregion
+//#region src/config/sessions/session-transcript-writer-claim-error.ts
+function isRedactedIdentifier(value) {
+	return typeof value === "string" && /^(?:-|sha256:[0-9a-f]{12})$/.test(value);
+}
+/** Transport only the refusal owner's redacted identifiers, never incidental cause fields. */
+function parseTranscriptAppendRefusal(value) {
+	if (!isRecord(value) || !isRedactedIdentifier(value.agentIdHash) || !isRedactedIdentifier(value.expectedSessionIdHash) || !isRedactedIdentifier(value.sessionKeyHash)) return;
+	const identity = {
+		agentIdHash: value.agentIdHash,
+		expectedSessionIdHash: value.expectedSessionIdHash,
+		sessionKeyHash: value.sessionKeyHash
+	};
+	if (value.code === "session-entry-missing") return {
+		...identity,
+		code: value.code
+	};
+	if (value.code === "session-rebound" && isRedactedIdentifier(value.actualSessionIdHash)) return {
+		...identity,
+		code: value.code,
+		actualSessionIdHash: value.actualSessionIdHash
+	};
+}
+var SessionTranscriptWriterClaimReboundError = class extends Error {
+	constructor(cause) {
+		super("session writer claim changed before transcript persistence", { cause });
+		this.name = "SessionTranscriptWriterClaimReboundError";
+	}
+};
+//#endregion
+//#region src/gateway/model-account-connect-errors.ts
+var ModelAccountConnectAuthorityError = class extends Error {
+	constructor() {
+		super("This account action requires a current authorized connection; reconnect and try again.");
+	}
+};
 //#endregion
 //#region src/gateway/worker-environments/session-attachment.ts
 var WorkerSessionAlreadyAttachedError = class extends Error {
@@ -30208,718 +33631,6 @@ var WorkerSessionAlreadyAttachedError = class extends Error {
 		this.environmentId = environmentId;
 	}
 };
-//#endregion
-//#region src/infra/git-root.ts
-function walkUpFrom(startDir, opts, resolveAtDir) {
-	let current = path.resolve(startDir);
-	for (let i = 0; opts.maxDepth === void 0 || i < opts.maxDepth; i += 1) {
-		const resolved = resolveAtDir(current);
-		if (resolved !== null && resolved !== void 0) return resolved;
-		const parent = path.dirname(current);
-		if (parent === current) break;
-		current = parent;
-	}
-	return null;
-}
-function resolveGitDirFromMarker(repoRoot) {
-	const gitPath = path.join(repoRoot, ".git");
-	try {
-		const stat = fs.statSync(gitPath);
-		if (stat.isDirectory()) return gitPath;
-		if (!stat.isFile()) return null;
-		const match = fs.readFileSync(gitPath, "utf-8").match(/gitdir:\s*(.+)/i);
-		if (!match?.[1]) return null;
-		return path.resolve(repoRoot, match[1].trim());
-	} catch {
-		return null;
-	}
-}
-function resolveGitHeadPath(startDir, opts = {}) {
-	return walkUpFrom(startDir, opts, (repoRoot) => {
-		const gitDir = resolveGitDirFromMarker(repoRoot);
-		return gitDir ? path.join(gitDir, "HEAD") : null;
-	});
-}
-/** Read at most `limit` bytes from Git or build metadata. */
-function readGitMetadataPrefix(filePath, limit = 256) {
-	const fd = fs.openSync(filePath, "r");
-	try {
-		const buf = Buffer.alloc(limit);
-		const bytesRead = readFileWindowFullySync(fd, buf, 0);
-		return buf.subarray(0, bytesRead).toString("utf-8");
-	} finally {
-		fs.closeSync(fd);
-	}
-}
-function readGitHead(startDir, opts = {}) {
-	const headPath = resolveGitHeadPath(startDir, opts);
-	if (!headPath) return;
-	const head = fs.readFileSync(headPath, "utf-8").trim();
-	if (!head.startsWith("ref:")) return {
-		headPath,
-		ref: null,
-		value: head || null
-	};
-	const ref = head.replace(/^ref:\s*/i, "").trim();
-	const refsBase = resolveGitRefsBase(headPath);
-	return {
-		headPath,
-		ref,
-		value: readGitRefs(refsBase, [ref]).get(ref) ?? null,
-		refsBase
-	};
-}
-function resolveGitRefsBase(headPath) {
-	const gitDir = path.dirname(headPath);
-	try {
-		const commonDir = readGitMetadataPrefix(path.join(gitDir, "commondir")).trim();
-		if (commonDir) return path.resolve(gitDir, commonDir);
-	} catch (error) {
-		if (!isMissingPathError(error)) throw error;
-	}
-	return gitDir;
-}
-/** Raw ref contents, sharing one packed inventory across the requested names. */
-function readGitRefs(refsBase, refs) {
-	const values = new Map(refs.map((ref) => [ref, null]));
-	const missing = /* @__PURE__ */ new Set();
-	for (const ref of refs) {
-		const refPath = resolveRefPath(refsBase, ref);
-		if (!refPath) continue;
-		try {
-			values.set(ref, readGitMetadataPrefix(refPath).trim());
-		} catch (error) {
-			if (!isMissingPathError(error)) throw error;
-			missing.add(ref);
-		}
-	}
-	if (missing.size === 0) return values;
-	try {
-		const packedRefs = fs.readFileSync(path.join(refsBase, "packed-refs"), "utf-8");
-		for (const line of packedRefs.split("\n")) {
-			if (!line || line.startsWith("#") || line.startsWith("^")) continue;
-			const [value, packedRef] = line.trim().split(/\s+/, 2);
-			if (packedRef && missing.delete(packedRef)) values.set(packedRef, value ?? null);
-		}
-	} catch (error) {
-		if (!isMissingPathError(error)) throw error;
-	}
-	return values;
-}
-/** Safely resolve a Git ref path, rejecting traversal from a crafted HEAD file. */
-function resolveRefPath(refsBase, ref) {
-	if (!ref.startsWith("refs/")) return null;
-	if (path.isAbsolute(ref)) return null;
-	if (ref.split(/[/]/).includes("..")) return null;
-	const resolved = path.resolve(refsBase, ref);
-	const rel = path.relative(refsBase, resolved);
-	if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return null;
-	return resolved;
-}
-//#endregion
-//#region src/infra/lru-cache.ts
-/** Process-local LRU storage; callers own freshness and lifecycle. */
-var LruCache = class {
-	#maxEntries;
-	#maxBytes;
-	#sizeOf;
-	#entries = /* @__PURE__ */ new Map();
-	#bytes = 0;
-	constructor(maxEntries, options) {
-		this.#maxEntries = Number.isFinite(maxEntries) && maxEntries > 0 ? Math.max(1, Math.floor(maxEntries)) : 1;
-		this.#maxBytes = options?.maxBytes ?? Number.POSITIVE_INFINITY;
-		this.#sizeOf = options?.sizeOf;
-	}
-	get size() {
-		return this.#entries.size;
-	}
-	clear() {
-		this.#entries.clear();
-		this.#bytes = 0;
-	}
-	keys() {
-		return this.#entries.keys();
-	}
-	delete(cacheKey) {
-		if (!this.#entries.has(cacheKey)) return false;
-		this.#bytes -= this.#sizeOf?.(this.#entries.get(cacheKey)) ?? 0;
-		return this.#entries.delete(cacheKey);
-	}
-	deleteValue(value) {
-		for (const [key, entry] of this.#entries) if (entry === value) this.delete(key);
-	}
-	/** Reads without promoting a value whose revalidation is still pending. */
-	peek(cacheKey) {
-		return this.#entries.get(cacheKey);
-	}
-	/** Returns a cached value and refreshes its recency when present. */
-	get(cacheKey) {
-		if (!this.#entries.has(cacheKey)) return;
-		const cached = this.#entries.get(cacheKey);
-		this.#entries.delete(cacheKey);
-		this.#entries.set(cacheKey, cached);
-		return cached;
-	}
-	/** Stores a value as the newest entry and evicts oldest entries past capacity. */
-	set(cacheKey, value) {
-		this.delete(cacheKey);
-		this.#entries.set(cacheKey, value);
-		this.#bytes += this.#sizeOf?.(value) ?? 0;
-		for (const key of this.#entries.keys()) {
-			if (this.#entries.size <= this.#maxEntries && this.#bytes <= this.#maxBytes) break;
-			this.delete(key);
-		}
-	}
-};
-//#endregion
-//#region src/plugins/host-hook-cleanup-result.ts
-/** Merge raw instance outcomes without duplicating their existing host or instance report. */
-function appendPluginInstanceCleanupFailures(failures, pluginId, result) {
-	for (const error of result.errors) {
-		if (failures.some((failure) => failure.pluginId === pluginId && failure.error === error && (failure.hookId === "instance" || result.hostCleanupErrors?.includes(error)))) continue;
-		failures.push({
-			pluginId,
-			hookId: "instance",
-			error
-		});
-	}
-}
-//#endregion
-//#region src/plugins/plugin-cache-artifacts.ts
-function createPluginCacheArtifacts() {
-	return {
-		moduleLoaders: /* @__PURE__ */ new Map(),
-		sources: /* @__PURE__ */ new Map(),
-		sourceAliases: /* @__PURE__ */ new Map(),
-		runtimeRecordRoots: /* @__PURE__ */ new WeakMap()
-	};
-}
-//#endregion
-//#region src/plugins/plugin-cache-sdk.ts
-/** Derived SDK facts share the plugin cache lifetime; none owns a separate expiry. */
-function createPluginCacheSdk() {
-	return {
-		hosts: /* @__PURE__ */ new Map(),
-		contexts: /* @__PURE__ */ new Map(),
-		packageNames: /* @__PURE__ */ new Map(),
-		packageSearches: /* @__PURE__ */ new Map(),
-		argvDirectories: /* @__PURE__ */ new Map(),
-		devSourceRoots: /* @__PURE__ */ new Map(),
-		runtimeModules: /* @__PURE__ */ new Map(),
-		usableDistArtifacts: /* @__PURE__ */ new Map(),
-		normalizedJitiAliases: /* @__PURE__ */ new Map(),
-		aliasFacts: /* @__PURE__ */ new WeakMap(),
-		native: {
-			sdkProviders: /* @__PURE__ */ new Map(),
-			nextSdkProviderOrder: 0,
-			aliases: /* @__PURE__ */ new Map(),
-			registeredHosts: /* @__PURE__ */ new Set(),
-			hostRoots: /* @__PURE__ */ new Map(),
-			nearestPackageRoots: /* @__PURE__ */ new Map(),
-			loaderPackageRoots: /* @__PURE__ */ new Map(),
-			allowedParentRoots: /* @__PURE__ */ new Map()
-		}
-	};
-}
-resolveGlobalSingleton(Symbol.for("openclaw.pluginSourceRecoveryUnavailableError"), () => class SourceRecoveryUnavailableError extends Error {
-	constructor(cause) {
-		super("Captured plugin source is missing; its previous code cannot be recovered.", { cause });
-		this.name = "PluginSourceRecoveryUnavailableError";
-	}
-});
-const PluginInstanceDrainTimeoutError = resolveGlobalSingleton(Symbol.for("openclaw.pluginInstanceDrainTimeoutError"), () => class DrainTimeoutError extends Error {
-	constructor(message, settled, options, forcedRetirement) {
-		super(message, options);
-		this.settled = settled;
-		this.forcedRetirement = forcedRetirement;
-		this.name = "PluginInstanceDrainTimeoutError";
-	}
-});
-//#endregion
-//#region src/plugins/plugin-instance-invocation.ts
-var InvocationFrame = class InvocationFrame {
-	constructor(scopes, invocation = scopes.invocation) {
-		this.invocation = invocation;
-		this.metadataScope = scopes.metadataScope;
-		this.cacheScope = scopes.cacheScope;
-		this.sourceCaptureStorage = scopes.sourceCaptureStorage;
-	}
-	withScopes(scopes) {
-		return new InvocationFrame(scopes);
-	}
-};
-/** Copy core scopes through the current owner so runtime-only fields survive. */
-function createPluginExecutionFrame(scopes, current) {
-	return current ? current.withScopes(scopes) : new InvocationFrame(scopes);
-}
-const pluginExecutionContext = resolveGlobalSingleton(Symbol.for("openclaw.pluginInstanceInvocation"), () => {
-	const frames = new AsyncLocalStorage();
-	return {
-		invocation: {
-			getStore() {
-				return frames.getStore()?.invocation;
-			},
-			run(invocation, run) {
-				const current = frames.getStore();
-				return frames.run(current?.invocation === invocation ? current : createPluginExecutionFrame({
-					...current,
-					invocation
-				}, current), run);
-			},
-			exit(run) {
-				const current = frames.getStore();
-				return current?.invocation ? frames.run(current.withScopes({
-					...current,
-					invocation: void 0
-				}), run) : run();
-			}
-		},
-		getFrame() {
-			return frames.getStore();
-		},
-		runFrame(frame, run) {
-			return frames.run(frame, run);
-		}
-	};
-});
-pluginExecutionContext.invocation;
-const getPluginExecutionFrame = pluginExecutionContext.getFrame;
-pluginExecutionContext.runFrame;
-//#endregion
-//#region src/plugins/plugin-cache.ts
-/** Cached diagnostics must not retain the caller through V8's lazy stack frames. */
-function materializePluginCacheError(failure) {
-	let error = failure;
-	const seen = /* @__PURE__ */ new Set();
-	while (error instanceof Error && !seen.has(error)) {
-		seen.add(error);
-		try {
-			error.stack = String(error.stack);
-		} catch {
-			error.stack = "Stack trace unavailable: custom formatter failed";
-		}
-		error = error.cause;
-	}
-}
-const state = resolveGlobalSingleton(Symbol.for("openclaw.pluginCache"), () => ({
-	snapshotOwners: /* @__PURE__ */ new WeakMap(),
-	retirements: []
-}));
-const cacheRetainers = resolveGlobalSingleton(Symbol.for("openclaw.pluginCacheRetainers"), () => /* @__PURE__ */ new WeakMap());
-const instanceCacheOwners = resolveGlobalSingleton(Symbol.for("openclaw.pluginInstanceCacheOwners"), () => /* @__PURE__ */ new WeakMap());
-/** A retiring inventory releases its own custody; terminal disposal releases every birth cache. */
-function releasePluginCacheInstance(instance, cache) {
-	const owners = instanceCacheOwners.get(instance);
-	if (cache) {
-		cache.instances.delete(instance);
-		owners?.delete(cache);
-	} else {
-		for (const owner of owners ?? []) owner.instances.delete(instance);
-		owners?.clear();
-	}
-	if (owners?.size === 0) instanceCacheOwners.delete(instance);
-}
-function getPluginCacheRetainers(cache) {
-	let retained = cacheRetainers.get(cache);
-	if (!retained) {
-		retained = {
-			references: /* @__PURE__ */ new Set(),
-			controller: new AbortController(),
-			settled: createDeferredCore()
-		};
-		cacheRetainers.set(cache, retained);
-	}
-	return retained;
-}
-function createPluginMetadataCache() {
-	return {
-		current: {
-			snapshot: void 0,
-			owner: "operation",
-			configFingerprint: void 0,
-			agentWorkspaceFingerprint: void 0,
-			envFingerprint: void 0,
-			defaultDiscoveryCompatible: false,
-			compatiblePolicyHashes: void 0,
-			compatibleConfigFingerprints: void 0,
-			revision: Symbol("plugin-metadata-snapshot"),
-			configIdentities: /* @__PURE__ */ new WeakSet()
-		},
-		snapshots: /* @__PURE__ */ new Map(),
-		discovery: /* @__PURE__ */ new Map(),
-		sharedDiscovery: /* @__PURE__ */ new Map(),
-		projections: /* @__PURE__ */ new WeakMap(),
-		projectionSources: /* @__PURE__ */ new WeakMap(),
-		completions: /* @__PURE__ */ new WeakMap(),
-		indexFacts: /* @__PURE__ */ new WeakMap(),
-		providerPolicyOwners: /* @__PURE__ */ new WeakMap(),
-		channelAdapters: /* @__PURE__ */ new WeakMap(),
-		bundledChannelCatalogs: /* @__PURE__ */ new Map(),
-		bundledProviderPolicySurfaces: /* @__PURE__ */ new Map(),
-		staticCatalogStates: /* @__PURE__ */ new WeakMap(),
-		modelSuppressionResolvers: /* @__PURE__ */ new WeakMap(),
-		mcpAuthDeclarations: /* @__PURE__ */ new WeakMap()
-	};
-}
-/** Each inventory owns its acquired facts and reusable load results; publication owns activation. */
-function createPluginCache(options = {}) {
-	return {
-		async [Symbol.asyncDispose]() {
-			await retirePluginCache(this);
-		},
-		kind: options.kind ?? "operation",
-		roots: /* @__PURE__ */ new Map(),
-		rootAliases: /* @__PURE__ */ new Map(),
-		sdk: createPluginCacheSdk(),
-		setupModules: /* @__PURE__ */ new Map(),
-		instances: /* @__PURE__ */ new Set(),
-		metadata: createPluginMetadataCache(),
-		installRecords: /* @__PURE__ */ new Map(),
-		persistedInstalledIndex: /* @__PURE__ */ new Map(),
-		preparedBundledDiscoveryModes: /* @__PURE__ */ new Map(),
-		dependencyStatus: /* @__PURE__ */ new WeakMap(),
-		...createPluginCacheArtifacts()
-	};
-}
-function getProcessPluginCache() {
-	return state.current ??= createPluginCache({ kind: "process" });
-}
-function getScopedPluginCache() {
-	return getPluginExecutionFrame()?.cacheScope?.cache;
-}
-function getPluginCache() {
-	return getScopedPluginCache() ?? getProcessPluginCache();
-}
-/** Stop new setup calls immediately; the owner awaits in-flight calls and graph cleanup. */
-function retirePluginCache(cache, beforeRetire) {
-	const retained = getPluginCacheRetainers(cache);
-	if (retained.retirement) return retained.retirement;
-	const completion = createDeferredCore();
-	retained.retirement = completion.promise;
-	const trackRetirement = async (run) => {
-		const work = new AsyncWorkScope();
-		try {
-			return await work.track(run);
-		} finally {
-			await work.run(() => work.drain());
-		}
-	};
-	retained.beginRetirement = (track = trackAsyncWork) => {
-		let admitted = false;
-		track(() => {
-			admitted = true;
-			retained.beginRetirement = void 0;
-			return beginPluginCacheRetirement(cache, beforeRetire);
-		}).then(completion.resolve, (error) => {
-			if (admitted) completion.reject(error);
-			else retained.beginRetirement?.(trackRetirement);
-		});
-	};
-	retained.controller.abort();
-	materializePluginCacheError(retained.controller.signal.reason);
-	if (retained.references.size === 0) retained.beginRetirement?.();
-	else retained.settled.promise.then(() => {
-		retained.beginRetirement?.(trackRetirement);
-	});
-	return completion.promise;
-}
-function beginPluginCacheRetirement(cache, beforeRetire) {
-	if (cache.retirement) return cache.retirement;
-	const retirement = createDeferredCore();
-	cache.retirement = retirement.promise;
-	const cleanup = async () => {
-		beforeRetire?.();
-		const registries = cache.retireRegistryLoads?.();
-		const resources = /* @__PURE__ */ new Set([...cache.setupModules.values(), ...cache.instances]);
-		for (const resource of resources) resource.quiesce();
-		const [registry] = await Promise.allSettled([registries]);
-		const outcomes = await Promise.allSettled([...resources].map(async (resource) => ({
-			resource,
-			result: await resource.dispose()
-		})));
-		const nativeAdmissions = cache.sourceAdmissions;
-		if (nativeAdmissions) {
-			const pending = outcomes.flatMap((outcome) => outcome.status === "fulfilled" ? outcome.value.result.errors.flatMap((error) => error instanceof PluginInstanceDrainTimeoutError ? [error.settled] : []) : []);
-			if (pending.length > 0) Promise.allSettled(pending).then(() => nativeAdmissions.dispose()).catch((error) => process.emitWarning(`Plugin native capture cleanup failed: ${String(error)}`));
-			else await nativeAdmissions.dispose();
-		}
-		cache.setupModules.clear();
-		for (const instance of cache.instances) releasePluginCacheInstance(instance, cache);
-		const unexpected = [...registry.status === "rejected" ? [registry.reason] : [], ...outcomes.flatMap((result) => result.status === "rejected" ? [result.reason] : [])];
-		if (unexpected.length) throw new AggregateError(unexpected, "Plugin cache resources failed to retire");
-		const host = registry.status === "fulfilled" ? registry.value : void 0;
-		const failures = [...host?.failures ?? []];
-		for (const outcome of outcomes) {
-			if (outcome.status !== "fulfilled") continue;
-			const { resource, result } = outcome.value;
-			appendPluginInstanceCleanupFailures(failures, resource.pluginId, result);
-		}
-		return {
-			cleanupCount: host?.cleanupCount ?? 0,
-			failures
-		};
-	};
-	cleanup().then(retirement.resolve, retirement.reject);
-	return retirement.promise;
-}
-//#endregion
-//#region src/infra/openclaw-root.ts
-function parsePackageName(raw) {
-	const parsed = JSON.parse(raw);
-	return typeof parsed.name === "string" ? parsed.name : null;
-}
-function readPackageNameSync(dir) {
-	const packageNameCache = getPluginCache().sdk.packageNames;
-	const packageJsonPath = path.join(path.resolve(dir), "package.json");
-	if (packageNameCache.has(packageJsonPath)) return packageNameCache.get(packageJsonPath) ?? null;
-	try {
-		const name = parsePackageName(openClawRootFsSync.readFileSync(packageJsonPath, "utf-8"));
-		packageNameCache.set(packageJsonPath, name);
-		return name;
-	} catch {
-		packageNameCache.set(packageJsonPath, null);
-		return null;
-	}
-}
-function findPackageRootSync(startDir, maxDepth = 12) {
-	for (const current of iterAncestorDirs(startDir, maxDepth)) if (readPackageNameSync(current) === "openclaw") return current;
-	return null;
-}
-function* iterAncestorDirs(startDir, maxDepth) {
-	let current = path.resolve(startDir);
-	for (let i = 0; i < maxDepth; i += 1) {
-		yield current;
-		if (path.basename(current) === "node_modules") break;
-		const parent = path.dirname(current);
-		if (parent === current) break;
-		current = parent;
-	}
-}
-function candidateDirsFromArgv1(argv1) {
-	const argv1CandidateCache = getPluginCache().sdk.argvDirectories;
-	const cacheKey = path.resolve(argv1);
-	const cached = argv1CandidateCache.get(cacheKey);
-	if (cached) return [...cached];
-	const normalized = cacheKey;
-	const candidates = [];
-	try {
-		const resolved = openClawRootFsSync.realpathSync(normalized);
-		if (resolved !== normalized) candidates.push(path.dirname(resolved));
-	} catch {}
-	candidates.push(path.dirname(normalized));
-	const parts = normalized.split(path.sep);
-	const binIndex = parts.lastIndexOf(".bin");
-	if (binIndex > 0 && parts[binIndex - 1] === "node_modules") {
-		const binName = path.basename(normalized);
-		const nodeModulesDir = parts.slice(0, binIndex).join(path.sep);
-		candidates.push(path.join(nodeModulesDir, binName));
-	}
-	const deduped = dedupeCandidates(candidates);
-	argv1CandidateCache.set(cacheKey, deduped);
-	return [...deduped];
-}
-function resolveOpenClawPackageRootSync(opts) {
-	const candidates = buildCandidates(opts);
-	const cacheKey = candidates.join("\0");
-	const searches = getPluginCache().sdk.packageSearches;
-	const cached = searches.get(cacheKey);
-	if (cached?.all) return cached.all[0] ?? null;
-	if (cached?.first !== void 0) return cached.first;
-	for (const candidate of candidates) {
-		const found = findPackageRootSync(candidate);
-		if (found) {
-			searches.set(cacheKey, { first: found });
-			return found;
-		}
-	}
-	searches.set(cacheKey, { first: null });
-	return null;
-}
-function buildCandidates(opts) {
-	const candidates = [];
-	if (opts.moduleUrl) try {
-		candidates.push(path.dirname(fileURLToPath(opts.moduleUrl)));
-	} catch {}
-	if (opts.argv1) candidates.push(...candidateDirsFromArgv1(opts.argv1));
-	if (opts.cwd) candidates.push(opts.cwd);
-	return dedupeCandidates(candidates);
-}
-function dedupeCandidates(candidates) {
-	return [...new Set(candidates.map((candidate) => path.resolve(candidate)))];
-}
-//#endregion
-//#region src/infra/git-commit.ts
-const formatCommit = (value) => {
-	const match = value?.match(/[0-9a-fA-F]{7,40}/);
-	return match ? normalizeLowercaseStringOrEmpty(match[0].slice(0, 7)) : null;
-};
-const cachedGitCommitBySearchDir = new LruCache(256);
-const resolveCommitSearchDir = (options) => {
-	if (options.cwd) return path.resolve(options.cwd);
-	if (options.moduleUrl) try {
-		return path.dirname(fileURLToPath(options.moduleUrl));
-	} catch {}
-	return process.cwd();
-};
-const cacheGitCommit = (searchDir, commit) => {
-	cachedGitCommitBySearchDir.set(searchDir, commit);
-	return commit;
-};
-const resolveGitLookupDepth = (searchDir, packageRoot) => {
-	if (!packageRoot) return;
-	const relative = path.relative(packageRoot, searchDir);
-	if (relative.startsWith("..") || path.isAbsolute(relative)) return;
-	return (relative ? relative.split(path.sep).filter(Boolean).length : 0) + 1;
-};
-const readCommitFromGit = (searchDir, packageRoot) => {
-	const head = readGitHead(searchDir, { maxDepth: resolveGitLookupDepth(searchDir, packageRoot) });
-	return head === void 0 ? void 0 : formatCommit(head.value);
-};
-const readCommitFromPackageJson = () => {
-	try {
-		const pkg = createRequire(import.meta.url)("../../package.json");
-		return formatCommit(pkg.gitHead ?? pkg.githead ?? null);
-	} catch {
-		return null;
-	}
-};
-const readCommitProbe = (moduleUrl, candidates, field) => {
-	try {
-		for (const candidate of candidates) {
-			const filePath = fileURLToPath(new URL(candidate, moduleUrl));
-			let raw;
-			try {
-				raw = readGitMetadataPrefix(filePath, 1024);
-			} catch (error) {
-				if (isMissingPathError(error)) continue;
-				return null;
-			}
-			try {
-				const value = asNullableRecord(JSON.parse(raw))?.[field];
-				return typeof value === "string" ? formatCommit(value) : null;
-			} catch {
-				return null;
-			}
-		}
-	} catch {}
-};
-const readCommitFromBuildInfo = (moduleUrl = import.meta.url) => {
-	return readCommitProbe(moduleUrl, ["../build-info.json", "./build-info.json"], "commit") ?? null;
-};
-const readLoadedCommit = (moduleUrl) => {
-	const buildStamp = readCommitProbe(moduleUrl, ["../.buildstamp", "./.buildstamp"], "head");
-	const runtimeStamp = readCommitProbe(moduleUrl, ["../.runtime-postbuildstamp", "./.runtime-postbuildstamp"], "head");
-	if (buildStamp !== void 0 || runtimeStamp !== void 0) {
-		if (buildStamp || runtimeStamp) return buildStamp && buildStamp === runtimeStamp ? buildStamp : null;
-		return readCommitFromBuildInfo(moduleUrl);
-	}
-	return readCommitProbe(moduleUrl, ["../build-info.json", "./build-info.json"], "commit");
-};
-const resolveCommitHash = (options = {}) => {
-	const env = options.env ?? process.env;
-	const readers = options.readers ?? {};
-	const readGitCommit = readers.readGitCommit ?? readCommitFromGit;
-	const envCommit = env.GIT_COMMIT?.trim() || env.GIT_SHA?.trim();
-	const normalized = formatCommit(envCommit);
-	if (normalized) return normalized;
-	const searchDir = resolveCommitSearchDir(options);
-	const cached = cachedGitCommitBySearchDir.get(searchDir);
-	if (cached !== void 0) return cached;
-	const packageRoot = resolveOpenClawPackageRootSync({
-		cwd: options.cwd,
-		moduleUrl: options.moduleUrl
-	});
-	try {
-		const gitCommit = readGitCommit(searchDir, packageRoot);
-		if (gitCommit !== void 0) return cacheGitCommit(searchDir, gitCommit);
-	} catch {}
-	const buildInfoCommit = readers.readBuildInfoCommit?.() ?? readCommitFromBuildInfo();
-	if (buildInfoCommit) return cacheGitCommit(searchDir, buildInfoCommit);
-	const pkgCommit = readers.readPackageJsonCommit?.() ?? readCommitFromPackageJson();
-	if (pkgCommit) return cacheGitCommit(searchDir, pkgCommit);
-	try {
-		return cacheGitCommit(searchDir, readGitCommit(searchDir, packageRoot) ?? null);
-	} catch {
-		return cacheGitCommit(searchDir, null);
-	}
-};
-/** Resolve the commit that produced the loaded artifact, not the checkout's current revision. */
-function resolveLoadedCommitHash(options = {}) {
-	const moduleUrl = options.moduleUrl ?? import.meta.url;
-	const loaded = readLoadedCommit(moduleUrl);
-	return loaded === void 0 ? resolveCommitHash({
-		moduleUrl,
-		...options.env ? { env: options.env } : {}
-	}) : loaded;
-}
-//#endregion
-//#region src/version.ts
-const CORE_PACKAGE_NAME = "openclaw";
-const PACKAGE_JSON_CANDIDATES = [
-	"../package.json",
-	"../../package.json",
-	"../../../package.json",
-	"./package.json"
-];
-const BUILD_INFO_CANDIDATES = [
-	"../build-info.json",
-	"../../build-info.json",
-	"./build-info.json"
-];
-function readVersionFromJsonCandidates(moduleUrl, candidates, opts = {}) {
-	try {
-		const require = createRequire(moduleUrl);
-		for (const candidate of candidates) try {
-			const parsed = require(candidate);
-			const version = normalizeOptionalString(parsed.version);
-			if (!version) continue;
-			if (opts.requirePackageName && parsed.name !== CORE_PACKAGE_NAME) continue;
-			return version;
-		} catch {}
-		return null;
-	} catch {
-		return null;
-	}
-}
-function readBuildIdFromJsonCandidates(moduleUrl) {
-	try {
-		const require = createRequire(moduleUrl);
-		for (const candidate of BUILD_INFO_CANDIDATES) try {
-			const buildId = normalizeOptionalString(require(candidate).buildId);
-			if (buildId && buildId.length <= 96) return buildId;
-		} catch {}
-		return null;
-	} catch {
-		return null;
-	}
-}
-function firstNonEmpty(...values) {
-	for (const value of values) {
-		const trimmed = normalizeOptionalString(value);
-		if (trimmed && trimmed.toLowerCase() !== "undefined" && trimmed.toLowerCase() !== "null") return trimmed;
-	}
-}
-function readVersionFromPackageJsonForModuleUrl(moduleUrl) {
-	return readVersionFromJsonCandidates(moduleUrl, PACKAGE_JSON_CANDIDATES, { requirePackageName: true });
-}
-function readVersionFromBuildInfoForModuleUrl(moduleUrl) {
-	return readVersionFromJsonCandidates(moduleUrl, BUILD_INFO_CANDIDATES);
-}
-function readBuildIdFromBuildInfoForModuleUrl(moduleUrl) {
-	return readBuildIdFromJsonCandidates(moduleUrl);
-}
-function resolveVersionFromModuleUrl(moduleUrl) {
-	return readVersionFromBuildInfoForModuleUrl(moduleUrl) || readVersionFromPackageJsonForModuleUrl(moduleUrl);
-}
-function resolveBinaryVersion(params) {
-	return resolveVersionFromModuleUrl(params.moduleUrl) || firstNonEmpty(params.bundledVersion) || params.fallback || "0.0.0";
-}
-readBuildIdFromBuildInfoForModuleUrl(import.meta.url);
-resolveLoadedCommitHash({ moduleUrl: import.meta.url });
-const VERSION = resolveBinaryVersion({
-	moduleUrl: import.meta.url,
-	bundledVersion: process.env.OPENCLAW_BUNDLED_VERSION
-});
 //#endregion
 //#region src/infra/startup-maintenance-required.ts
 const GATEWAY_STARTUP_MAINTENANCE_REQUIRED_REASON = "gateway.maintenance_required";
@@ -31036,6 +33747,16 @@ var SecretStoreValidationError = class extends Error {
 	}
 };
 //#endregion
+//#region src/sessions/model-selection-error.ts
+const MODEL_SELECTION_LOCKED_MESSAGE = "Model selection is locked for this session.";
+/** Retains the caller-visible refusal across the database worker boundary. */
+var ModelSelectionLockedError = class extends Error {
+	constructor(message = MODEL_SELECTION_LOCKED_MESSAGE) {
+		super(message);
+		this.name = "ModelSelectionLockedError";
+	}
+};
+//#endregion
 //#region src/skills/lifecycle/upload-store-error.ts
 var SkillUploadRequestError = class extends Error {
 	constructor(..._args) {
@@ -31086,8 +33807,13 @@ var SessionMetadataUnavailableError = class extends Error {
 //#endregion
 //#region src/state/openclaw-state-worker-error-identity.ts
 const MESSAGE_ONLY_ERRORS = {
+	"worktree-source-changed": SessionWorktreeSourceChangedError,
+	"model-account-authority": ModelAccountConnectAuthorityError,
 	"duplicate-agent": DuplicateAgentError,
+	"model-selection-locked": ModelSelectionLockedError,
+	"session-canonical-key-migration": SessionCanonicalKeyMigrationRequiredError,
 	"session-pending-input-custody": SessionPendingInputCustodyError,
+	"session-transcript-read-fence": SessionTranscriptReadFenceError,
 	"skill-upload-request": SkillUploadRequestError,
 	coordinator: SqliteCoordinatorError,
 	ownership: OpenClawStateOwnershipError,
@@ -31097,12 +33823,33 @@ const MESSAGE_ONLY_ERRORS = {
 	"type-error": TypeError
 };
 function identifyError(error) {
+	if (error instanceof AuthProfileStoreUnreadableError) return {
+		type: "auth-profile-store-unreadable",
+		databasePath: error.databasePath
+	};
+	if (error instanceof SessionWorktreeLifecycleError && error.reason === "owner-mismatch") return { type: "session-worktree-owner-mismatch" };
+	if (error instanceof WorktreeRemovalContentionError) return {
+		type: "worktree-removal-contention",
+		kind: error.kind,
+		...error.blockedByRun ? { blockedByRun: {
+			worktreeId: error.blockedByRun.worktreeId,
+			pid: error.blockedByRun.pid
+		} } : {}
+	};
+	if (error instanceof WorktreeRemovalLockError) return {
+		type: "worktree-removal-lock",
+		kind: error.kind
+	};
 	if (error instanceof PluginStateStoreError) return {
 		type: "plugin-state",
 		stateCode: error.code,
 		operation: error.operation,
 		path: error.path,
-		owner: error.owner
+		owner: {
+			pid: error.owner.pid,
+			threadId: error.owner.threadId,
+			version: error.owner.version
+		}
 	};
 	if (error instanceof SkillLibraryError) return {
 		type: "skill-library",
@@ -31135,9 +33882,24 @@ function identifyError(error) {
 		type: "session-goal-operation",
 		goalCode: error.code
 	};
+	if (error instanceof SessionEntryLifecycleUpsertConflictError) return {
+		type: "session-lifecycle-upsert-conflict",
+		sessionKey: error.sessionKey
+	};
+	if (error instanceof SessionTranscriptWriterClaimReboundError) {
+		const refusal = parseTranscriptAppendRefusal(error.cause);
+		return {
+			type: "session-transcript-writer-claim-rebound",
+			...refusal ? { refusal } : {}
+		};
+	}
 	if (error instanceof SqliteSessionMutationConflictError) return {
 		type: "session-mutation-conflict",
 		operationLabel: error.operationLabel
+	};
+	if (error instanceof SqliteTranscriptMutationConflictError) return {
+		type: "session-transcript-mutation-conflict",
+		sessionId: error.sessionId
 	};
 	if (error instanceof SessionMetadataUnavailableError) return {
 		type: "session-metadata",
@@ -31204,23 +33966,28 @@ function encodeOpenClawStateWorkerError(error, options = {}) {
 	try {
 		encodeValue(error);
 		for (const current of errors) {
+			const { name, message } = current;
+			if (typeof name !== "string" || typeof message !== "string") return;
 			const identity = identifyError(current);
+			if (Object.entries(identity).some(([key, value]) => {
+				return (key === "owner" || key === "blockedByRun" || key === "refusal" ? Object.values(value) : key === "missingTables" && Array.isArray(value) ? value : [value]).some((field) => field !== void 0 && !isScalar(field));
+			})) return;
 			const nativeOpen = isSqliteNativeOpenFailure(current);
 			const stateDatabasePath = readOpenClawStateDatabaseFailurePath(current);
-			canonical ||= stateDatabasePath !== void 0 || nativeOpen || isSqliteLockError(current) || current instanceof OpenClawQuarantineReadCleanupError || identity.type !== "error" && identity.type !== "aggregate";
-			const code = "code" in current ? current.code : void 0;
 			const errcode = "errcode" in current ? current.errcode : void 0;
+			canonical ||= stateDatabasePath !== void 0 || nativeOpen || isNativeErrorCode(errcode) || isSqliteLockError(current) || current instanceof OpenClawQuarantineReadCleanupError || identity.type !== "error" && identity.type !== "aggregate";
+			const code = "code" in current ? current.code : void 0;
 			const errno = "errno" in current ? current.errno : void 0;
 			nodes.push({
 				...identity,
-				name: current.name,
-				message: current.message,
+				name,
+				message,
 				...typeof code === "string" || typeof code === "number" && Number.isFinite(code) ? { code } : {},
 				...isNativeErrorCode(errcode) ? { errcode } : {},
 				...typeof errno === "number" && Number.isInteger(errno) ? { errno } : {},
 				...nativeOpen ? { nativeOpen: true } : {},
 				...stateDatabasePath === void 0 ? {} : { stateDatabasePath },
-				..."cause" in current ? { cause: encodeValue(current.cause) } : {},
+				..."cause" in current && !(identity.type === "session-transcript-writer-claim-rebound" && identity.refusal) ? { cause: encodeValue(current.cause) } : {},
 				...current instanceof AggregateError ? { errors: current.errors.map(encodeValue) } : {}
 			});
 		}
@@ -31233,189 +34000,284 @@ function encodeOpenClawStateWorkerError(error, options = {}) {
 		return;
 	}
 }
+resolveGlobalSingleton(Symbol.for("openclaw.sharedStateWorkerErrorPayloads"), () => /* @__PURE__ */ new WeakMap());
 //#endregion
 //#region src/state/openclaw-state-lease-heartbeat.worker.ts
-const params = workerData;
-const shared = new BigInt64Array(params.shared);
-const renewalProgress = new BigInt64Array(params.renewalProgress);
-Atomics.store(shared, leaseHeartbeatState.startupPhase, leaseHeartbeatStartupPhase["body-entry"]);
-function observeDurableExpiry(expiresAt) {
-	Atomics.store(shared, leaseHeartbeatState.expiresAt, BigInt(expiresAt ?? 0));
-	return expiresAt;
-}
-function openHeartbeatDatabase() {
-	const deadline = Date.now() + LEASE_HEARTBEAT_START_TIMEOUT_MS;
-	const remaining = () => Math.min(deadline, Number(Atomics.load(shared, leaseHeartbeatState.expiresAt))) - Date.now();
-	while (remaining() > 0 && Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.starting) {
-		try {
-			return openTrackedStateDatabase(params.path, {
-				existingOnly: true,
-				expectedIdentity: params.expectedIdentity
-			});
-		} catch (error) {
-			if (!isSqliteLockError(error)) throw error;
-		}
-		Atomics.wait(shared, leaseHeartbeatState.status, leaseHeartbeatState.starting, Math.max(1, Math.min(25, remaining())));
+const databases = /* @__PURE__ */ new Map();
+function startHeartbeat(params, port, primary = false) {
+	let retainedDatabase;
+	const databaseKey = JSON.stringify([params.path, params.expectedIdentity]);
+	function withDatabaseAdmission(operation) {
+		return withSqliteDatabaseAdmissionExchange((admissions, location, create) => exchangeSqliteDatabaseAdmissions(params.databaseAdmissionPort, admissions, location, create), operation);
 	}
-	throw new Error("state lease heartbeat startup deadline expired or owner stopped");
-}
-const db = openHeartbeatDatabase();
-Atomics.store(shared, leaseHeartbeatState.startupPhase, leaseHeartbeatStartupPhase["open-complete"]);
-let processOwner = params.processOwner;
-let heartbeat;
-let attempt = 0;
-let firstLoss;
-const recordLoss = (loss) => {
-	if (firstLoss || Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.closed) return;
-	firstLoss = loss;
-	parentPort?.postMessage({ loss }, []);
-};
-const lose = (loss) => {
-	Atomics.compareExchange(shared, leaseHeartbeatState.status, leaseHeartbeatState.starting, leaseHeartbeatState.lost);
-	Atomics.compareExchange(shared, leaseHeartbeatState.status, leaseHeartbeatState.ready, leaseHeartbeatState.lost);
-	recordLoss(loss);
-	Atomics.notify(shared, leaseHeartbeatState.ack);
-	clearTimeout(heartbeat);
-	closeTrackedStateDatabase(db);
-	parentPort?.close();
-};
-const renewInWorker = (explicit, path) => {
-	if (Atomics.load(shared, leaseHeartbeatState.status) >= leaseHeartbeatState.closed) return;
-	let expiresAt;
-	let contentionError;
-	attempt += 1;
-	try {
-		if (processOwner?.identity.startedAt === null && Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.ready) processOwner.identity.startedAt = getFileLockProcessStartTime(processOwner.identity.pid, processOwner.env);
-		expiresAt = runWithSqliteBusyTimeout(db, 0, () => runSqliteImmediateTransactionSync(db, () => {
+	const shared = new BigInt64Array(params.shared);
+	const renewalProgress = new BigInt64Array(params.renewalProgress);
+	const completedRequest = new BigInt64Array(params.completedRequest);
+	Atomics.store(shared, leaseHeartbeatState.startupPhase, leaseHeartbeatStartupPhase["body-entry"]);
+	function observeDurableExpiry(expiresAt) {
+		Atomics.store(shared, leaseHeartbeatState.expiresAt, BigInt(expiresAt ?? 0));
+		return expiresAt;
+	}
+	function openHeartbeatDatabase() {
+		const deadline = Date.now() + LEASE_HEARTBEAT_START_TIMEOUT_MS;
+		const remaining = () => Math.min(deadline, Number(Atomics.load(shared, leaseHeartbeatState.expiresAt))) - Date.now();
+		while (remaining() > 0 && Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.starting) {
+			try {
+				return openTrackedStateDatabase(params.path, {
+					existingOnly: true,
+					expectedIdentity: params.expectedIdentity
+				});
+			} catch (error) {
+				if (!isSqliteLockError(error)) throw error;
+			}
+			Atomics.wait(shared, leaseHeartbeatState.status, leaseHeartbeatState.starting, Math.max(1, Math.min(25, remaining())));
+		}
+		throw new Error("state lease heartbeat startup deadline expired or owner stopped");
+	}
+	let db;
+	let processOwner = params.processOwner;
+	let heartbeat;
+	let closed = false;
+	const scheduledRenewal = {
+		identity: params.identity,
+		leaseMs: params.leaseMs,
+		intervalMs: params.heartbeatMs,
+		execute: (operation) => withRenewalProgress(() => {
 			assertStateDatabaseAccessAllowed(params.path);
-			if (Atomics.load(shared, leaseHeartbeatState.status) >= leaseHeartbeatState.closed) return;
-			return renewOpenClawStateLeaseInTransaction(db, params.identity, params.leaseMs, processOwner?.identity);
-		}, { logger: { warn() {} } }), { lockFailureReporting: "suppress" });
-		if (expiresAt !== void 0) Atomics.store(shared, leaseHeartbeatState.lastRenewedAt, BigInt(expiresAt - params.leaseMs));
-		if (expiresAt !== void 0 && processOwner?.identity.startedAt != null) processOwner = void 0;
-	} catch (error) {
-		if (!isSqliteLockError(error)) {
-			parentPort?.postMessage({
-				name: error instanceof Error ? error.name : "Error",
-				message: coerceErrorMessage(error),
-				code: sqliteErrorCode(error),
-				errcode: sqliteExtendedResultCode(error),
-				attempt,
-				elapsedMs: Date.now() - params.acquiredAt
-			}, []);
-			if (explicit) throw error;
-			lose({
+			return operation();
+		}),
+		complete: (outcome) => runAutomatic(() => renewInWorker(false, "automatic-renewal", outcome), "automatic-renewal")
+	};
+	const close = () => {
+		if (closed) return;
+		clearTimeout(heartbeat);
+		retainedDatabase?.renewals.cancel(scheduledRenewal);
+		try {
+			if (retainedDatabase) {
+				if (retainedDatabase.references === 1) {
+					closeTrackedStateDatabase(retainedDatabase.database);
+					databases.delete(databaseKey);
+				} else retainedDatabase.references--;
+				retainedDatabase = void 0;
+			}
+		} catch (error) {
+			port.postMessage({ startupError: coerceErrorMessage(error) }, []);
+			return;
+		}
+		closed = true;
+		params.databaseAdmissionPort.close();
+		port.off("message", receiveMessage);
+		if (primary) port.postMessage({ closed: true }, []);
+		else port.close();
+	};
+	let attempt = 0;
+	let firstLoss;
+	const recordLoss = (loss) => {
+		if (firstLoss || Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.closed) return;
+		firstLoss = loss;
+		port.postMessage({ loss }, []);
+	};
+	const lose = (loss) => {
+		Atomics.compareExchange(shared, leaseHeartbeatState.status, leaseHeartbeatState.starting, leaseHeartbeatState.lost);
+		Atomics.compareExchange(shared, leaseHeartbeatState.status, leaseHeartbeatState.ready, leaseHeartbeatState.lost);
+		recordLoss(loss);
+		Atomics.notify(shared, leaseHeartbeatState.ack);
+		close();
+	};
+	const renewInWorker = (explicit, path, outcome) => {
+		if (Atomics.load(shared, leaseHeartbeatState.status) >= leaseHeartbeatState.closed) return;
+		let expiresAt;
+		let contentionError;
+		attempt += 1;
+		try {
+			if (outcome && "error" in outcome) throw outcome.error;
+			if (processOwner?.identity.startedAt === null && Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.ready) processOwner.identity.startedAt = getFileLockProcessStartTime(processOwner.identity.pid, processOwner.env);
+			expiresAt = outcome ? outcome.expiresAt : runWithSqliteBusyTimeout(db, 0, () => runSqliteImmediateTransactionSync(db, () => {
+				assertStateDatabaseAccessAllowed(params.path);
+				if (Atomics.load(shared, leaseHeartbeatState.status) >= leaseHeartbeatState.closed) return;
+				return renewOpenClawStateLeaseInTransaction(db, params.identity, params.leaseMs, processOwner?.identity);
+			}, {
+				operationLabel: "state.lease.renew",
+				logger: { warn() {} }
+			}), { lockFailureReporting: "suppress" });
+			if (expiresAt !== void 0) Atomics.store(shared, leaseHeartbeatState.lastRenewedAt, BigInt(expiresAt - params.leaseMs));
+			if (expiresAt !== void 0 && processOwner?.identity.startedAt != null) processOwner = void 0;
+		} catch (error) {
+			if (!isSqliteLockError(error)) {
+				port.postMessage({
+					name: error instanceof Error ? error.name : "Error",
+					message: coerceErrorMessage(error),
+					code: sqliteErrorCode(error),
+					errcode: sqliteExtendedResultCode(error),
+					attempt,
+					elapsedMs: Date.now() - params.acquiredAt
+				}, []);
+				if (explicit) throw error;
+				lose({
+					path,
+					outcome: "operation-error"
+				});
+				return;
+			}
+			contentionError = error;
+			expiresAt = readOpenClawStateLeaseExpiry(db, params.identity);
+		}
+		observeDurableExpiry(expiresAt);
+		if (expiresAt === void 0) {
+			if (!explicit) lose({
 				path,
+				outcome: "no-current-owned-unexpired-row"
+			});
+			return;
+		}
+		clearTimeout(heartbeat);
+		retainedDatabase?.renewals.cancel(scheduledRenewal);
+		if (contentionError === void 0 && processOwner === void 0 && (!params.deferActivation || Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.ready)) {
+			retainedDatabase?.renewals.schedule(scheduledRenewal, expiresAt);
+			return expiresAt;
+		}
+		heartbeat = setTimeout(() => {
+			if (params.deferActivation && Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.starting) runAutomatic(activateHeartbeat, "activation");
+			else runAutomatic(renew, "automatic-renewal");
+		}, Math.max(1, Math.min(contentionError === void 0 ? params.heartbeatMs : 25, expiresAt - Date.now())));
+		heartbeat.unref();
+		if (explicit && contentionError !== void 0) throw toErrorObject(contentionError, "state lease heartbeat renewal was delayed");
+		return expiresAt;
+	};
+	function withRenewalProgress(operation) {
+		Atomics.add(renewalProgress, 0, 1n);
+		Atomics.notify(shared, leaseHeartbeatState.ack);
+		try {
+			return withDatabaseAdmission(operation);
+		} finally {
+			Atomics.add(renewalProgress, 0, 1n);
+			Atomics.notify(shared, leaseHeartbeatState.ack);
+		}
+	}
+	const renew = (explicit = false, path = "automatic-renewal") => withRenewalProgress(() => renewInWorker(explicit, path));
+	function activateHeartbeat() {
+		let expiresAt;
+		try {
+			Atomics.store(shared, leaseHeartbeatState.startupPhase, leaseHeartbeatStartupPhase["initial-renew-start"]);
+			expiresAt = renew(params.deferActivation === true, "activation");
+			Atomics.store(shared, leaseHeartbeatState.startupPhase, leaseHeartbeatStartupPhase["initial-renew-returned"]);
+		} catch (error) {
+			if (params.deferActivation && isSqliteLockError(error)) {
+				clearTimeout(heartbeat);
+				heartbeat = setTimeout(() => runAutomatic(activateHeartbeat, "activation"), Math.max(1, Math.min(25, Number(Atomics.load(shared, leaseHeartbeatState.expiresAt)) - Date.now())));
+				return;
+			}
+			lose({
+				path: "activation",
 				outcome: "operation-error"
 			});
 			return;
 		}
-		contentionError = error;
-		expiresAt = readOpenClawStateLeaseExpiry(db, params.identity);
-	}
-	observeDurableExpiry(expiresAt);
-	if (expiresAt === void 0) {
-		if (!explicit) lose({
-			path,
-			outcome: "no-current-owned-unexpired-row"
-		});
-		return;
-	}
-	clearTimeout(heartbeat);
-	heartbeat = setTimeout(() => {
-		if (params.deferActivation && Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.starting) activateHeartbeat();
-		else renew();
-	}, Math.max(1, Math.min(contentionError === void 0 ? params.heartbeatMs : 25, expiresAt - Date.now())));
-	if (explicit && contentionError !== void 0) throw toErrorObject(contentionError, "state lease heartbeat renewal was delayed");
-	return expiresAt;
-};
-const renew = (explicit = false, path = "automatic-renewal") => {
-	Atomics.add(renewalProgress, 0, 1n);
-	Atomics.notify(shared, leaseHeartbeatState.ack);
-	try {
-		return renewInWorker(explicit, path);
-	} finally {
-		Atomics.add(renewalProgress, 0, 1n);
-		Atomics.notify(shared, leaseHeartbeatState.ack);
-	}
-};
-function activateHeartbeat() {
-	let expiresAt;
-	try {
-		Atomics.store(shared, leaseHeartbeatState.startupPhase, leaseHeartbeatStartupPhase["initial-renew-start"]);
-		expiresAt = renew(params.deferActivation === true, "activation");
-		Atomics.store(shared, leaseHeartbeatState.startupPhase, leaseHeartbeatStartupPhase["initial-renew-returned"]);
-	} catch (error) {
-		if (params.deferActivation && isSqliteLockError(error)) {
-			clearTimeout(heartbeat);
-			heartbeat = setTimeout(activateHeartbeat, Math.max(1, Math.min(25, Number(Atomics.load(shared, leaseHeartbeatState.expiresAt)) - Date.now())));
+		if (expiresAt === void 0) {
+			lose({
+				path: "activation",
+				outcome: "no-current-owned-unexpired-row"
+			});
 			return;
 		}
-		lose({
-			path: "activation",
-			outcome: "operation-error"
-		});
-		throw error;
+		if (Atomics.compareExchange(shared, leaseHeartbeatState.status, leaseHeartbeatState.starting, leaseHeartbeatState.ready) === leaseHeartbeatState.starting) port.postMessage(null, []);
 	}
-	if (expiresAt === void 0) {
-		lose({
-			path: "activation",
-			outcome: "no-current-owned-unexpired-row"
-		});
-		return;
-	}
-	if (Atomics.compareExchange(shared, leaseHeartbeatState.status, leaseHeartbeatState.starting, leaseHeartbeatState.ready) === leaseHeartbeatState.starting) parentPort?.postMessage(null, []);
-}
-parentPort?.on("message", (request) => {
-	if (request !== null && "startup" in request) {
-		if (params.deferActivation && Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.starting) activateHeartbeat();
-		return;
-	}
-	if (Atomics.load(shared, leaseHeartbeatState.status) !== leaseHeartbeatState.ready) return;
-	if (request !== null) {
-		let reply;
-		let lost = false;
-		let outcome = "operation-error";
-		const path = request.operation === "renew" ? "explicit-renew" : "explicit-verify";
-		try {
-			const expiresAt = request.operation === "renew" ? renew(true, path) : observeDurableExpiry(readOpenClawStateLeaseExpiry(db, params.identity));
-			if (expiresAt === void 0) {
-				outcome = "no-current-owned-unexpired-row";
-				throw new OpenClawStateLeaseError("state lease heartbeat no longer owns its lease", { code: "OPENCLAW_STATE_LEASE_LOST" });
-			}
-			reply = {
-				id: request.id,
-				ok: true,
-				expiresAt
-			};
-		} catch (cause) {
-			lost = !isSqliteLockError(cause);
-			const error = cause instanceof OpenClawStateLeaseError ? cause : new OpenClawStateLeaseError(`failed to ${request.operation} state lease heartbeat`, {
-				code: "OPENCLAW_STATE_LEASE_STORAGE_FAILED",
-				cause
-			});
-			reply = {
-				id: request.id,
-				ok: false,
-				message: error.message,
-				payload: encodeOpenClawStateWorkerError(error)
-			};
+	const receive = (request) => {
+		if (request !== null && "registration" in request) return;
+		if (request !== null && "close" in request) {
+			Atomics.store(shared, leaseHeartbeatState.status, leaseHeartbeatState.closed);
+			Atomics.notify(shared, leaseHeartbeatState.ack);
+			close();
+			return;
 		}
-		if (lost) recordLoss({
-			path,
-			outcome
-		});
-		parentPort?.postMessage(reply, []);
-		if (lost) lose({
-			path,
-			outcome
-		});
-		return;
+		if (request !== null && "startup" in request) {
+			if (params.deferActivation && Atomics.load(shared, leaseHeartbeatState.status) === leaseHeartbeatState.starting) activateHeartbeat();
+			return;
+		}
+		if (Atomics.load(shared, leaseHeartbeatState.status) !== leaseHeartbeatState.ready) return;
+		if (request !== null) {
+			let reply;
+			let lost = false;
+			let outcome = "operation-error";
+			const path = request.operation === "renew" ? "explicit-renew" : "explicit-verify";
+			try {
+				const expiresAt = request.operation === "renew" ? renew(true, path) : withDatabaseAdmission(() => observeDurableExpiry(readOpenClawStateLeaseExpiry(db, params.identity)));
+				if (expiresAt === void 0) {
+					outcome = "no-current-owned-unexpired-row";
+					throw new OpenClawStateLeaseError("state lease heartbeat no longer owns its lease", { code: "OPENCLAW_STATE_LEASE_LOST" });
+				}
+				reply = {
+					id: request.id,
+					ok: true,
+					expiresAt
+				};
+			} catch (cause) {
+				lost = !isSqliteLockError(cause);
+				const error = cause instanceof OpenClawStateLeaseError ? cause : new OpenClawStateLeaseError(`failed to ${request.operation} state lease heartbeat`, {
+					code: "OPENCLAW_STATE_LEASE_STORAGE_FAILED",
+					cause
+				});
+				reply = {
+					id: request.id,
+					ok: false,
+					message: error.message,
+					payload: encodeOpenClawStateWorkerError(error)
+				};
+			}
+			if (lost) recordLoss({
+				path,
+				outcome
+			});
+			Atomics.store(completedRequest, 0, BigInt(request.id));
+			port.postMessage(reply, []);
+			if (lost) lose({
+				path,
+				outcome
+			});
+			return;
+		}
+		Atomics.store(shared, leaseHeartbeatState.ack, Atomics.load(shared, leaseHeartbeatState.request));
+		Atomics.notify(shared, leaseHeartbeatState.ack);
+	};
+	function runAutomatic(run, path) {
+		try {
+			run();
+		} catch {
+			lose({
+				path,
+				outcome: "operation-error"
+			});
+		}
 	}
-	Atomics.store(shared, leaseHeartbeatState.ack, Atomics.load(shared, leaseHeartbeatState.request));
-	Atomics.notify(shared, leaseHeartbeatState.ack);
+	function receiveMessage(request) {
+		runAutomatic(() => receive(request), "automatic-renewal");
+	}
+	try {
+		retainedDatabase = databases.get(databaseKey);
+		if (retainedDatabase) retainedDatabase.references++;
+		else {
+			const database = withDatabaseAdmission(openHeartbeatDatabase);
+			retainedDatabase = {
+				database,
+				renewals: createStateLeaseRenewalScheduler(database),
+				references: 1
+			};
+			databases.set(databaseKey, retainedDatabase);
+		}
+		db = retainedDatabase.database;
+		Atomics.store(shared, leaseHeartbeatState.startupPhase, leaseHeartbeatStartupPhase["open-complete"]);
+		port.on("message", receiveMessage);
+		if (params.deferActivation) port.postMessage({ startup: "prepared" }, []);
+		else runAutomatic(activateHeartbeat, "activation");
+	} catch (error) {
+		port.postMessage({ startupError: coerceErrorMessage(error) }, []);
+		close();
+	}
+}
+if (!parentPort) throw new Error("State lease heartbeat requires its parent port");
+parentPort.on("message", (message) => {
+	if (message !== null && "registration" in message) startHeartbeat(message.registration, message.port);
 });
-if (params.deferActivation) parentPort?.postMessage({ startup: "prepared" }, []);
-else activateHeartbeat();
+startHeartbeat(workerData, parentPort, true);
 //#endregion
 export {};

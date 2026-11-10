@@ -1,4 +1,5 @@
 import { SYNTHETIC_BASE_URL, SYNTHETIC_MODEL_CATALOG, buildSyntheticModelDefinition } from "./models.js";
+import { resolveDefaultModelMaxTokens } from "openclaw/plugin-sdk/provider-model-shared";
 import { asOptionalRecord, asPositiveSafeInteger, filterStringEntries, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/synthetic/provider-catalog.ts
 function buildSyntheticProvider() {
@@ -33,7 +34,7 @@ function projectSyntheticModels(rows, fallback) {
 			reasoning: features.includes("reasoning") || efforts.some((effort) => effort !== "none"),
 			input: input.includes("image") ? ["text", "image"] : ["text"],
 			contextWindow,
-			maxTokens: Math.min(asPositiveSafeInteger(record.max_output_length) ?? seed?.maxTokens ?? 8192, contextWindow),
+			maxTokens: Math.min(asPositiveSafeInteger(record.max_output_length) ?? seed?.maxTokens ?? resolveDefaultModelMaxTokens(contextWindow), contextWindow),
 			cost: {
 				input: readTokenPrice(pricing?.prompt) ?? seed?.cost.input ?? 0,
 				output: readTokenPrice(pricing?.completion) ?? seed?.cost.output ?? 0,

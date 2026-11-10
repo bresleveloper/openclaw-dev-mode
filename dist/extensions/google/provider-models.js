@@ -1,2 +1,2 @@
-import { a as resolveGoogleStaticModelId, i as resolveGoogleGeminiForwardCompatModel, n as isGoogleTextGenerationModelId, r as isModernGoogleModel, t as isGoogleNativeVideoModelId } from "../../provider-models-BsL1EQ6B.mjs";
-export { isGoogleNativeVideoModelId, isGoogleTextGenerationModelId, isModernGoogleModel, resolveGoogleGeminiForwardCompatModel, resolveGoogleStaticModelId };
+import { a as resolveGoogleGeminiForwardCompatModel, i as isModernGoogleModel, n as isGoogleNativeVideoModelId, o as resolveGoogleModelApi, r as isGoogleTextGenerationModelId, s as resolveGoogleStaticModelId, t as isGoogleFlashTextModelId } from "../../provider-models-D-n-Hu1B.mjs";
+export { isGoogleFlashTextModelId, isGoogleNativeVideoModelId, isGoogleTextGenerationModelId, isModernGoogleModel, resolveGoogleGeminiForwardCompatModel, resolveGoogleModelApi, resolveGoogleStaticModelId };

@@ -42,7 +42,7 @@ import {
   messageAuditEvents,
   globalBeforeAll0,
   describe0BeforeEach0,
-} from "./dispatch-from-config.test-harness.js";
+} from "./dispatch-from-config.test-support.js";
 import { withDispatchProcessedOutcomeSink } from "./dispatch-processed-outcome.js";
 import { buildTestCtx } from "./test-ctx.js";
 
@@ -231,7 +231,7 @@ describe("dispatchReplyFromConfig", () => {
     });
 
     const replyResolver = async (_ctx: MsgContext, opts?: GetReplyOptions) => {
-      await opts?.onToolResult?.({ text: "🛠️ `pwd (agent)`" });
+      await opts?.onToolResult?.({ text: "`pwd (agent)`" });
       return { text: "done" } satisfies ReplyPayload;
     };
 
@@ -246,7 +246,7 @@ describe("dispatchReplyFromConfig", () => {
     });
 
     expect(result.sourceReplyDeliveryMode).toBe("message_tool_only");
-    expect(dispatcher.sendToolResult).toHaveBeenCalledWith({ text: "🛠️ `pwd (agent)`" });
+    expect(dispatcher.sendToolResult).toHaveBeenCalledWith({ text: "`pwd (agent)`" });
     expect(dispatcher.sendFinalReply).not.toHaveBeenCalled();
   });
 
@@ -267,7 +267,7 @@ describe("dispatchReplyFromConfig", () => {
     });
 
     const replyResolver = async (_ctx: MsgContext, opts?: GetReplyOptions) => {
-      await opts?.onToolResult?.({ text: "🛠️ `pwd (agent)`" });
+      await opts?.onToolResult?.({ text: "`pwd (agent)`" });
       return { text: "done" } satisfies ReplyPayload;
     };
 
@@ -303,7 +303,7 @@ describe("dispatchReplyFromConfig", () => {
     });
 
     const replyResolver = async (_ctx: MsgContext, opts?: GetReplyOptions) => {
-      await opts?.onToolResult?.({ text: "🛠️ `pwd (agent)`" });
+      await opts?.onToolResult?.({ text: "`pwd (agent)`" });
       return { text: "done" } satisfies ReplyPayload;
     };
 
@@ -318,7 +318,7 @@ describe("dispatchReplyFromConfig", () => {
     });
 
     expect(result.sourceReplyDeliveryMode).toBe("message_tool_only");
-    expect(dispatcher.sendToolResult).toHaveBeenCalledWith({ text: "🛠️ `pwd (agent)`" });
+    expect(dispatcher.sendToolResult).toHaveBeenCalledWith({ text: "`pwd (agent)`" });
     expect(dispatcher.sendFinalReply).not.toHaveBeenCalled();
   });
 
@@ -966,14 +966,6 @@ describe("dispatchReplyFromConfig", () => {
       (_configuredPath?: unknown, options?: { agentId?: string }) =>
         options?.agentId === "opencode" ? targetStorePath : sourceStorePath,
     );
-    sessionStoreMocks.loadSessionStore.mockImplementation(
-      (storePath?: string) => (storePath ? stores[storePath] : undefined) ?? {},
-    );
-    sessionStoreMocks.resolveSessionStoreEntry.mockImplementation(
-      (params?: { store: Record<string, Record<string, unknown>>; sessionKey: string }) => ({
-        existing: params?.store[params.sessionKey],
-      }),
-    );
     sessionStoreMocks.loadSessionEntry.mockImplementation((paramsUnknown: unknown) => {
       const params = paramsUnknown as { sessionKey: string; storePath: string };
       return stores[params.storePath]?.[params.sessionKey];
@@ -1075,6 +1067,7 @@ describe("dispatchReplyFromConfig", () => {
     expect(result.queuedFinal).toBe(true);
     expect(preparedLookup).toHaveBeenCalledWith({
       agentId: "main",
+      demand: "interactive",
       onRuntimeLease: expect.any(Function),
     });
     expect(sessionBindingMocks.resolveByConversation).toHaveBeenCalledWith({

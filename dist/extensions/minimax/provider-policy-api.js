@@ -1,5 +1,5 @@
-import { t as resolveMinimaxFastModelId } from "../../minimax-fast-mode-ChePImzI.mjs";
-import "../../provider-model-metadata-fSBArSt7.mjs";
+import { t as resolveMinimaxFastModelId } from "../../minimax-fast-mode-BajGBCwZ.mjs";
+import "../../provider-model-metadata-DkObn07R.mjs";
 import { i as resolveMinimaxThinkingProfile } from "../../thinking-Dg9lPaiN.mjs";
 //#region extensions/minimax/provider-policy-api.ts
 function resolveFastModeSupport(ctx) {

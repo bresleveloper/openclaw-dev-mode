@@ -32,7 +32,12 @@ import { assertAgentRunLifecycleGenerationCurrent } from "../../infra/agent-even
 import { claimAgentRunContext } from "../../infra/agent-run-registry.js";
 import { runWithGatewayDetachedWorkContinuation } from "../../process/gateway-work-admission.js";
 import { isSubagentCoordinationInputProvenance } from "../../sessions/input-provenance.js";
-import { registerChatAbortController, resolveAgentRunExpiresAtMs } from "../chat-abort.js";
+import { createChatAbortOps } from "../chat-abort-ops.js";
+import {
+  abortChatRunById,
+  registerChatAbortController,
+  resolveAgentRunExpiresAtMs,
+} from "../chat-abort.js";
 import { readInProcessSubagentResume } from "../in-process-subagent-resume.js";
 import { retainGatewayOperatorRun } from "../operator-run-cancellation.js";
 import { resolveGatewayCronCreatorAuthorityAdmission } from "../server-methods/cron-creator-authority-admission.js";
@@ -170,6 +175,12 @@ export async function prepareAgentRunDispatch(
           }),
           isAbortable: () => isEmbeddedAgentRunAbortableForRunId(params.runId),
           onRemoved: () => clearEmbeddedAgentRunAbortabilityForRunId(params.runId),
+          onQueueTimeout: (entry) =>
+            void abortChatRunById(createChatAbortOps(params.context), {
+              runId: params.runId,
+              sessionKey: entry.sessionKey,
+              stopReason: "timeout",
+            }),
           controlUiVisible,
           kind: "agent",
           lifecycleGeneration: params.lifecycleGeneration,
@@ -431,7 +442,16 @@ export async function prepareAgentRunDispatch(
   let subagentAdmission: Awaited<ReturnType<typeof prepareGatewaySubagentRun>>;
   try {
     subagentAdmission = await prepareGatewaySubagentRun({
-      ...params,
+      cfg: params.cfg,
+      client: params.client,
+      resolvedSessionKey: params.resolvedSessionKey,
+      activeSessionAgentId: params.activeSessionAgentId,
+      inputProvenance: params.inputProvenance,
+      request: params.request,
+      isOneShotModelRun: params.isOneShotModelRun,
+      runId: params.runId,
+      getAdmittedSessionId: params.getAdmittedSessionId,
+      context: params.context,
       onParentResumeAdopted: (entry) => {
         adoptedParentResume = entry;
       },
@@ -507,6 +527,7 @@ export async function prepareAgentRunDispatch(
   try {
     assertInputAdmissionCurrent?.();
     userTurn = await prepareAgentRunUserTurn({
+      ...params,
       assertCurrent: () => {
         assertInputOwnerCurrent();
         activeRunAbort.controller.signal.throwIfAborted();
@@ -515,30 +536,8 @@ export async function prepareAgentRunDispatch(
       abortSignal: activeRunAbort.controller.signal,
       getAbortStopReason: () => activeRunAbort.entry?.abortStopReason ?? "rpc",
       deferTimeoutCompletion: activeRunAbort.deferTimeoutCompletion,
-      privateCompletion: params.privateCompletion,
-      settleWakeReplay: params.settleWakeReplay,
-      request: params.request,
-      cfg: params.cfg,
-      cfgForAgent: params.cfgForAgent,
-      sessionEntry: params.sessionEntry,
-      resolvedSessionKey: params.resolvedSessionKey,
-      requestedSessionKeyRaw: params.requestedSessionKeyRaw,
       admittedSessionId: params.getAdmittedSessionId(),
-      activeSessionAgentId: params.activeSessionAgentId,
       resolvedThreadId,
-      suppressVisibleSessionEffects: params.suppressVisibleSessionEffects,
-      requestedPromptPersistenceSuppression: params.requestedPromptPersistenceSuppression,
-      restoredCronContinuation: params.restoredCronContinuation,
-      canUseInternalRuntimeHandoff: params.canUseInternalRuntimeHandoff,
-      execApprovalFollowupApprovalId: params.execApprovalFollowupApprovalId,
-      message: params.message,
-      effectiveTranscriptInputText: params.effectiveTranscriptInputText,
-      images: params.images,
-      offloadedRefs: params.offloadedRefs,
-      inputProvenance: params.inputProvenance,
-      runId: params.runId,
-      client: params.client,
-      context: params.context,
     });
     if (userTurn.recorder) {
       // Accepted input owns these media references before it enters the transcript.
@@ -573,7 +572,19 @@ export async function prepareAgentRunDispatch(
   }
   try {
     // The transport request ends at acceptance; execution retains this exact caller.
-    capturedOperator = await retainGatewayOperatorRun({ ...params, entry: activeRunAbort.entry });
+    capturedOperator = await retainGatewayOperatorRun({
+      ...params,
+      entry: activeRunAbort.entry,
+      abortSession: params.resolvedSessionKey
+        ? {
+            cfg: params.cfg,
+            storePath: params.lifecycleStorePath,
+            entry: params.sessionEntry,
+            canonicalKey: params.resolvedSessionKey,
+            agentId: params.activeSessionAgentId,
+          }
+        : undefined,
+    });
     const operatorAdmission = revalidateAdmission(userTurn);
     if (operatorAdmission !== true) {
       return await operatorAdmission;

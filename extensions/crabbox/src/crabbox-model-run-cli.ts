@@ -1,3 +1,4 @@
+import { parseStrictPositiveInteger } from "openclaw/plugin-sdk/number-runtime";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveCrabboxBinary } from "./crabbox-binary.js";
 import { runCrabboxModelCommand } from "./crabbox-model-run.js";
@@ -19,7 +20,7 @@ export function registerCrabboxModelRunCommand({
     .requiredOption("--id <lease>", "Existing, exclusively owned Crabbox lease")
     .requiredOption("--model <provider/model>", "Configured OpenAI-compatible API-key model")
     .option("--provider <provider>", "Crabbox backend override; otherwise use the lease's provider")
-    .option("--binary <path>", "Crabbox binary with upstream proxy support")
+    .option("--binary <path>", "Preferred Crabbox binary (managed release used if outdated)")
     .option("--timeout <seconds>", "Total command and setup deadline in seconds", "600")
     .argument("<command...>", "Remote executable and arguments, following --")
     .action(
@@ -33,8 +34,8 @@ export function registerCrabboxModelRunCommand({
           timeout: string;
         },
       ) => {
-        const seconds = Number(options.timeout);
-        if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > 86_400) {
+        const seconds = parseStrictPositiveInteger(options.timeout);
+        if (seconds === undefined || seconds > 86_400) {
           throw new Error("--timeout must be an integer between 1 and 86400 seconds");
         }
         const controller = new AbortController();

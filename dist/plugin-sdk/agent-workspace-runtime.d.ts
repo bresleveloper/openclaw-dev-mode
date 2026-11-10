@@ -1,130 +1,12 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { c as MemoryEntryProvenance, d as MemoryReadResult, l as MemoryExtraPath } from "../paths-BfUTg5dU.js";
-import { Ot as UserTurnTranscriptRecorder } from "../reply-payload-DazZPys5.js";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { Db as SandboxFsBridge, TC as PluginHookSkillChangedEvent, ck as UserTurnTranscriptRecorder, jr as createWorkspaceBootstrapFilePolicy, wC as PluginHookSkillArtifact } from "../config-contracts-CY87ANNp.js";
 import { t as SkillLibraryFile } from "../skill-library-DVzEZ7Hi.js";
-import "../index-B4F-ENEv.js";
-import { Sl as EmbeddingInput, Yo as SandboxFsBridge } from "../agent-harness-runtime-DZjstJNb.js";
-import { n as MediaFact } from "../media-facts-BUTxYH1x.js";
-import { t as Skill } from "../skill-contract-B-d775sU.js";
-import { a as SkillInstallSpec, i as SkillEntry, o as SkillResourceSourceReader, u as SkillsInstallPreferences } from "../types-D0Cawybo.js";
-import "../common-K-HB_vKp.js";
-import { R as PluginHookSkillArtifact, V as PluginHookSkillChangedEvent } from "../hook-runner-global-Jvv9WFUW.js";
-import "../agent-scope-CQBriA71.js";
-import { a as MemoryMultimodalSettings, i as MemoryMultimodalModality, t as ResolvedMemorySearchConfig } from "../memory-search-Cw2OPp4i.js";
-import { r as createWorkspaceBootstrapFilePolicy } from "../workspace-BKLUW5Z-.js";
+import "../index-8f56f6LD.js";
+import { n as MediaFact } from "../media-facts-DFJC5G1o.js";
+import { a as SkillInstallSpec, d as Skill, i as SkillEntry, o as SkillResourceSourceReader, u as SkillsInstallPreferences } from "../types-CeA70ktN.js";
+import { t as MemoryWorkspaceFiles } from "../workspace-files-OMI5Gbjs.js";
 import { a as ArchiveLogger } from "../archive-DSpJVZFx.js";
 import { Static, Type } from "typebox";
-//#region packages/memory-host-sdk/src/host/markdown-chunks.d.ts
-type MemoryChunk = {
-  startLine: number;
-  endLine: number;
-  entryStartLine?: number;
-  entryEndLine?: number;
-  text: string;
-  hash: string;
-  embeddingInput?: EmbeddingInput;
-  provenance?: MemoryEntryProvenance;
-};
-//#endregion
-//#region packages/memory-host-sdk/src/host/internal.d.ts
-type MemoryFileEntry = {
-  path: string;
-  absPath: string;
-  mtimeMs: number;
-  size: number;
-  hash: string;
-  dataHash?: string;
-  kind?: "markdown" | "multimodal";
-  contentText?: string;
-  modality?: MemoryMultimodalModality;
-  mimeType?: string;
-};
-type MultimodalMemoryChunk = {
-  chunk: MemoryChunk;
-  structuredInputBytes: number;
-};
-declare function listMemoryFiles(workspaceDir: string, extraPaths?: MemoryExtraPath[], multimodal?: MemoryMultimodalSettings, onSkippedSymlinkRoot?: (root: string) => void): Promise<string[]>;
-declare function buildFileEntry(absPath: string, workspaceDir: string, multimodal?: MemoryMultimodalSettings): Promise<MemoryFileEntry | null>;
-declare function buildMultimodalChunkForIndexing(entry: Pick<MemoryFileEntry, "absPath" | "contentText" | "mimeType" | "kind" | "hash" | "size" | "dataHash">): Promise<MultimodalMemoryChunk | null>;
-//#endregion
-//#region packages/memory-host-sdk/src/host/read-file.d.ts
-/** Read a validated memory markdown file from workspace or configured extra paths. */
-declare function readMemoryFile(params: {
-  workspaceDir: string;
-  extraPaths?: MemoryExtraPath[];
-  relPath: string;
-  from?: number;
-  lines?: number;
-  defaultLines?: number;
-  maxChars?: number;
-}): Promise<MemoryReadResult>;
-//#endregion
-//#region packages/memory-host-sdk/src/host/workspace-files.d.ts
-type MemoryFileMetadata = {
-  isFile: boolean;
-  isDirectory: boolean;
-  isSymbolicLink: boolean;
-  size: number;
-  mtimeMs: number;
-  mode: number;
-};
-type MemoryFileCommit = {
-  filePath: string;
-  tempPrefix: string;
-  expectedHash?: string;
-  allowInPlaceFallback?: boolean;
-  conflictMessage?: string;
-} & ({
-  content: string;
-  expectedContent?: string;
-} | {
-  content: null;
-  expectedContent: string;
-});
-/** File operations used by existing Gateway maintenance, without its state or locks. */
-type MemoryWorkspaceMaintenance = {
-  readFile: (filePath: string) => Promise<Buffer>;
-  stat: (filePath: string, followSymlinks: boolean) => Promise<MemoryFileMetadata>;
-  listDirectory: (directory: string) => Promise<Array<Pick<MemoryFileMetadata, "isFile" | "isDirectory" | "isSymbolicLink"> & {
-    name: string;
-  }>>;
-  mkdir: (directory: string) => Promise<void>;
-  rename: (from: string, to: string) => Promise<void>;
-  resolveWritePath: (filePath: string) => Promise<string>;
-  /** Preserve native publication errors; a lost reply must report publication: "uncertain". */
-  commitContent: (params: MemoryFileCommit) => Promise<void>;
-  resolveDreamsPath: () => Promise<string>;
-  readDreams: (filePath: string) => Promise<string>;
-  writeDreams: (filePath: string, content: string) => Promise<void>;
-  replaceReport: (filePath: string, content: string) => Promise<void>;
-  appendCorpus: (filePath: string, content: string) => Promise<number>;
-};
-type MemoryWorkspaceWatchRequest = {
-  agentId: string;
-  settings: Pick<ResolvedMemorySearchConfig, "extraPaths" | "multimodal"> & {
-    sync: Pick<ResolvedMemorySearchConfig["sync"], "watchDebounceMs">;
-  };
-};
-/** File operations only. The Gateway retains the index, embeddings and sessions. */
-type MemoryWorkspaceFiles = {
-  maintenance?: MemoryWorkspaceMaintenance;
-  listFiles: typeof listMemoryFiles;
-  inspectFile: typeof buildFileEntry;
-  readFile: typeof readMemoryFile;
-  readForIndexing: (filePath: string) => Promise<{
-    content: string;
-    /** Canonical source from the read on the host, not a Gateway realpath lookup. */
-    canonicalRelativePath?: string;
-  }>;
-  buildMultimodalChunk: (entry: Parameters<typeof buildMultimodalChunkForIndexing>[0]) => Promise<(NonNullable<Awaited<ReturnType<typeof buildMultimodalChunkForIndexing>>> & {
-    canonicalRelativePath?: string;
-  }) | null>;
-  /** Subscription ends when aborted. A lost subscription must report unavailable. */
-  watch: (request: MemoryWorkspaceWatchRequest, onChange: (event: "change" | "unavailable") => void, signal: AbortSignal) => Promise<void>;
-  /** Bound by the workspace registration owner, including retained managers. */
-  assertCurrent: () => void;
-};
-//#endregion
 //#region src/infra/clawhub-artifacts.d.ts
 type ClawHubDownloadResult = {
   archivePath: string;
@@ -164,8 +46,13 @@ type ClawHubSkillVerificationResponse = {
   signature: unknown;
 };
 //#endregion
+//#region src/infra/install-package-dir.d.ts
+type PackageDirInstallTransaction = {
+  commit(assertCurrent?: () => void): Promise<void>;
+  rollback(assertCurrent?: () => void): Promise<void>;
+};
+//#endregion
 //#region src/skills/lifecycle/install-types.d.ts
-/** Normalized output returned by skill install flows and command wrappers. */
 type SkillInstallSkipReason = "brew" | "go" | "uv";
 type SkillInstallResult = {
   ok: boolean;
@@ -191,11 +78,13 @@ type ClawHubSkillFileState = {
 type SkillArchiveInstallResult = {
   ok: true;
   targetDir: string;
+  transaction?: PackageDirInstallTransaction;
 } | {
   ok: false;
   error: string;
   failureKind: SkillArchiveInstallFailureKind;
   replacementBlocked?: string;
+  recoveryIncomplete?: boolean;
 };
 type SkillArchiveInstallFailureKind = "invalid-request" | "unavailable";
 type SkillRootInstallFiles = {
@@ -208,8 +97,12 @@ type SkillRootInstallFiles = {
   rootMarkers?: readonly string[];
   /** Revalidate the caller at the workspace host's final filesystem publication. */
   beforePersistentApply?: () => void;
+  /** Keep a deferred replacement bound to its current package lifecycle owner. */
+  assertOwned?: () => void;
   /** Undefined skips the native update guard; null means the install was absent. */
   expectedClawHubState?: ClawHubSkillFileState | null;
+  /** Retain the previous directory until the package install settles. */
+  deferCommit?: boolean;
 };
 type SkillRootApplyResult = {
   ok: true;
@@ -217,6 +110,7 @@ type SkillRootApplyResult = {
   mode: "install" | "update";
   before?: PluginHookSkillArtifact;
   after?: PluginHookSkillArtifact;
+  transaction?: PackageDirInstallTransaction;
 } | Extract<SkillArchiveInstallResult, {
   ok: false;
 }>;
@@ -291,6 +185,8 @@ type ClawHubSkillInstallPreflightResult = {
   ok: false;
   code: string;
   error: string;
+  integrity?: string;
+  warning?: string;
 };
 type TrackedUpdateTarget = (ClawHubSkillRef & {
   ok: true;
@@ -335,7 +231,6 @@ type CommittedSkillChange = {
   workspaceDir: string;
   before?: PluginHookSkillArtifact;
   after?: PluginHookSkillArtifact;
-  proposal?: PluginHookSkillChangedEvent["proposal"];
   logger?: {
     warn?: (message: string) => void;
   };
@@ -393,6 +288,7 @@ type WorkspaceSkillLifecycle = {
     skillDir: string;
     origin: ClawHubSkillOrigin;
     verification?: ClawHubSkillVerificationLock;
+    beforePersistentApply?: () => void;
   }) => Promise<void>;
   assertClawHubSkillInstallState: (params: {
     workspaceDir: string;
@@ -609,8 +505,8 @@ export declare function createWorkspaceMemoryFileClient(options: {
   /** POSIX workspace path on the remote host. */
   remoteWorkspaceDir: string;
   signal: AbortSignal;
-  /** Deliver one JSON request on stdin and return stdout; reject incomplete replies. */
-  request: (request: string, signal: AbortSignal) => Promise<string>;
+  /** Recheck supplied caller authority at dispatch; reject incomplete replies. */
+  request: (request: string, signal: AbortSignal, assertCurrent?: () => void) => Promise<string>;
   /** Deliver one JSON line, stream reply lines, and close the remote worker on abort. */
   subscribe: (request: string, onLine: (line: string) => void, signal: AbortSignal) => Promise<void>;
 }): MemoryWorkspaceFiles;

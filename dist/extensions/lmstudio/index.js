@@ -1,44 +1,73 @@
-import { d as asPositiveSafeInteger } from "../../number-coercion-CuVhdCBs.mjs";
-import { n as createLazyRuntimeMethodBinder, r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
+import { d as asPositiveSafeInteger, h as finiteSecondsToTimerSafeMilliseconds, p as clampPositiveTimerTimeoutMs } from "../../number-coercion-CkhMiRw8.mjs";
+import { d as toErrorObject } from "../../error-coercion-BwMr25F8.mjs";
 import { c as isRecord, o as asRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { n as filterStringEntries, y as uniqueStrings } from "../../string-normalization-CECOqf64.mjs";
-import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
-import "../../llm-BoijNIT8.mjs";
-import { h as ssrfPolicyFromHttpBaseUrlAllowedHostname } from "../../ssrf-v45DW-yR.mjs";
+import { n as filterStringEntries, y as uniqueStrings } from "../../string-normalization-D6DKCpwE.mjs";
+import { o as racePromiseWithAbortSignal } from "../../src-Bzfi3cQM.mjs";
+import { t as createSubsystemLogger } from "../../subsystem-mStysHHC.mjs";
+import { n as createLazyRuntimeMethodBinder, r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
 import { t as normalizeOptionalSecretInput } from "../../normalize-secret-input-DBJvdk-L.mjs";
-import { n as CUSTOM_LOCAL_AUTH_MARKER } from "../../model-auth-markers-Cuz_bq6T.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { i as streamSimple } from "../../stream-CL_UFGCU.mjs";
-import { d as createOpenAICompatibleCompletionsThinkingOffWrapper, p as createPlainTextToolCallCompatWrapper } from "../../provider-stream-shared-CU7Z6wj0.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../ssrf-runtime-BzkFo_VJ.mjs";
-import "../../logging-core-e269L3HU.mjs";
-import "../../provider-auth-BGYKg9mW.mjs";
-import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DajrfQK1.mjs";
-import { A as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, B as LMSTUDIO_PROVIDER_ID, S as normalizeLmstudioProviderConfig, V as LMSTUDIO_PROVIDER_LABEL, b as normalizeLmstudioConfiguredCatalogEntries, d as resolveLmstudioRuntimeApiKey, g as shouldUseLmstudioSyntheticAuth, i as prepareLmstudioModelForInference, l as resolveLmstudioProviderHeaders, w as resolveLmstudioInferenceBase } from "../../models.fetch-CPNwI0Xc.mjs";
-import { t as lmstudioMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-BR-xjIU4.mjs";
+import { S as createAssistantMessageEventStream } from "../../llm-YCnSGJtn.mjs";
+import { n as CUSTOM_LOCAL_AUTH_MARKER } from "../../model-auth-markers-Clx9vUna.mjs";
+import { h as ssrfPolicyFromHttpBaseUrlAllowedHostname } from "../../ssrf-K50Tjeok.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../number-runtime-D3v2w3D4.mjs";
+import "../../time-runtime-D6GzEQJ4.mjs";
+import { i as streamSimple } from "../../stream-NAsW_bVF.mjs";
+import { t as buildAssistantMessage } from "../../stream-message-shared-CYuIJ_XF.mjs";
+import { f as createOpenAICompatibleCompletionsThinkingOffWrapper, m as createPlainTextToolCallCompatWrapper } from "../../provider-stream-shared-Ond8mlRx.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../ssrf-runtime-z2wN0VZP.mjs";
+import "../../logging-core-CsXmxYo2.mjs";
+import "../../provider-auth-JCvgbsWg.mjs";
+import { s as createEmptyTransportUsage } from "../../provider-transport-runtime-DyX8vIBV.mjs";
+import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DynDHTtQ.mjs";
+import { C as normalizeLmstudioModelKey, E as resolveLmstudioInferenceBase, H as LMSTUDIO_PROVIDER_ID, M as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, U as LMSTUDIO_PROVIDER_LABEL, a as prepareLmstudioModelForInference, f as resolveLmstudioRuntimeApiKey, m as resolveLmstudioProviderAuthMode, p as hasLmstudioAuthorizationHeader, s as buildLmstudioAuthHeaders, t as LmstudioModelLoadError, u as resolveLmstudioProviderHeaders, v as getUnlistedLmstudioConfiguredModelIds, w as normalizeLmstudioProviderConfig, x as normalizeLmstudioConfiguredCatalogEntries } from "../../models.fetch-B9hVA3qO.mjs";
+import { t as lmstudioMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-BRc0eRbp.mjs";
+import { createHash } from "node:crypto";
+//#region extensions/lmstudio/provider-discovery.ts
+var provider_discovery_default = {
+	id: LMSTUDIO_PROVIDER_ID,
+	label: "LM Studio",
+	docsPath: "/providers/lmstudio",
+	envVars: [LMSTUDIO_DEFAULT_API_KEY_ENV_VAR],
+	auth: [],
+	catalog: {
+		order: "late",
+		getUnlistedConfiguredModelIds: getUnlistedLmstudioConfiguredModelIds,
+		run: async (ctx) => {
+			const { discoverLmstudioProvider } = await import("../../catalog-lIqiO1uC.mjs");
+			return await discoverLmstudioProvider(ctx, { discoveryMode: "strict" });
+		}
+	},
+	resolveSyntheticAuth: ({ providerConfig }) => {
+		if (!providerConfig || resolveLmstudioProviderAuthMode(providerConfig.apiKey) || hasLmstudioAuthorizationHeader(providerConfig.headers)) return;
+		return {
+			apiKey: CUSTOM_LOCAL_AUTH_MARKER,
+			source: "models.providers.lmstudio (synthetic local key)",
+			mode: "api-key"
+		};
+	}
+};
+//#endregion
 //#region extensions/lmstudio/src/stream.ts
 const log = createSubsystemLogger("extensions/lmstudio/stream");
 const preloadInFlight = /* @__PURE__ */ new Map();
 const preloadCooldown = /* @__PURE__ */ new Map();
 const PRELOAD_BACKOFF_BASE_MS = 5e3;
 const PRELOAD_BACKOFF_MAX_MS = 3e5;
-function recordPreloadFailure(preloadKey, now, resolvedModelKey) {
+function recordPreloadFailure(preloadKey, now, error) {
 	const existing = preloadCooldown.get(preloadKey);
 	const consecutiveFailures = (existing?.consecutiveFailures ?? 0) + 1;
-	const persistedResolvedModelKey = resolvedModelKey ?? existing?.resolvedModelKey;
+	const persistedResolvedModelKey = error instanceof LmstudioModelLoadError ? error.resolvedModelKey : existing?.resolvedModelKey;
 	const entry = {
 		consecutiveFailures,
+		error: existing?.error instanceof LmstudioModelLoadError && existing.error.requiredContextLength !== void 0 ? existing.error : error,
 		untilMs: now + Math.min(PRELOAD_BACKOFF_MAX_MS, PRELOAD_BACKOFF_BASE_MS * 2 ** Math.max(0, consecutiveFailures - 1)),
 		...persistedResolvedModelKey ? { resolvedModelKey: persistedResolvedModelKey } : {}
 	};
 	preloadCooldown.set(preloadKey, entry);
 	return entry;
-}
-function normalizeLmstudioModelKey(modelId) {
-	const trimmed = modelId.trim();
-	if (trimmed.toLowerCase().startsWith("lmstudio/")) return trimmed.slice(9).trim();
-	return trimmed;
 }
 function withLmstudioUsageCompat(model) {
 	const compat = model.compat && typeof model.compat === "object" ? model.compat : {};
@@ -53,36 +82,7 @@ function withLmstudioUsageCompat(model) {
 		compat: normalizedCompat
 	};
 }
-function resolveLmstudioModelKeyFromError(error) {
-	let current = error;
-	const seen = /* @__PURE__ */ new Set();
-	while (current && typeof current === "object" && !seen.has(current)) {
-		seen.add(current);
-		const record = current;
-		const resolvedModelKey = typeof record.resolvedModelKey === "string" ? record.resolvedModelKey.trim() : "";
-		if (resolvedModelKey) return resolvedModelKey;
-		current = record.cause;
-	}
-}
-function toLmstudioPreloadError(reason, message) {
-	return reason instanceof Error ? reason : new Error(message, { cause: reason });
-}
-function waitForLmstudioPreload(preload, signal) {
-	if (!signal) return preload;
-	if (signal.aborted) return Promise.reject(toLmstudioPreloadError(signal.reason, "LM Studio preload aborted"));
-	return new Promise((resolve, reject) => {
-		const onAbort = () => reject(toLmstudioPreloadError(signal.reason, "LM Studio preload aborted"));
-		signal.addEventListener("abort", onAbort, { once: true });
-		preload.then((modelKey) => {
-			signal.removeEventListener("abort", onAbort);
-			resolve(modelKey);
-		}, (error) => {
-			signal.removeEventListener("abort", onAbort);
-			reject(toLmstudioPreloadError(error, "LM Studio model preload failed"));
-		});
-	});
-}
-async function ensureLmstudioModelLoadedBestEffort(params) {
+async function resolveLmstudioPreloadRequest(params) {
 	const providerHeaders = {
 		...(params.ctx.config?.models?.providers?.[LMSTUDIO_PROVIDER_ID])?.headers,
 		...params.modelHeaders
@@ -97,14 +97,15 @@ async function ensureLmstudioModelLoadedBestEffort(params) {
 		agentDir: params.ctx.agentDir,
 		headers: providerHeaders
 	});
-	return await prepareLmstudioModelForInference({
+	return {
 		baseUrl: params.baseUrl,
 		apiKey: runtimeApiKey ?? configuredApiKey,
 		headers,
 		ssrfPolicy: ssrfPolicyFromHttpBaseUrlAllowedHostname(params.baseUrl),
 		modelKey: params.modelKey,
-		requestedContextLength: params.requestedContextLength
-	});
+		requestedContextLength: params.requestedContextLength,
+		timeoutMs: params.timeoutMs ?? 12e4
+	};
 }
 function wrapLmstudioInferencePreload(ctx) {
 	const underlying = ctx.streamFn ?? streamSimple;
@@ -119,53 +120,80 @@ function wrapLmstudioInferencePreload(ctx) {
 		const providerBaseUrl = providerConfig?.baseUrl;
 		const resolvedBaseUrl = resolveLmstudioInferenceBase(typeof model.baseUrl === "string" ? model.baseUrl : providerBaseUrl);
 		const requestedContextLength = asPositiveSafeInteger(model.contextTokens) ?? asPositiveSafeInteger(model.contextWindow);
-		const preloadKey = `${resolvedBaseUrl}::${modelKey}::${requestedContextLength ?? "default"}`;
-		const cooldown = preloadCooldown.get(preloadKey);
-		const cooldownEntry = cooldown && cooldown.untilMs > Date.now() ? cooldown : void 0;
-		const preloadPromise = preloadInFlight.get(preloadKey) ?? (cooldownEntry ? void 0 : (() => {
-			const created = ensureLmstudioModelLoadedBestEffort({
-				baseUrl: resolvedBaseUrl,
-				modelKey,
-				requestedContextLength,
-				options,
-				ctx,
-				modelHeaders: isRecord(model.headers) ? model.headers : void 0
-			}).then((preparedModel) => {
-				preloadCooldown.delete(preloadKey);
-				return preparedModel;
-			}, (error) => {
-				const resolvedModelKey = resolveLmstudioModelKeyFromError(error);
-				const entry = recordPreloadFailure(preloadKey, Date.now(), resolvedModelKey);
-				throw Object.assign(/* @__PURE__ */ new Error("preload-failed"), {
-					cause: error,
-					consecutiveFailures: entry.consecutiveFailures,
-					cooldownMs: entry.untilMs - Date.now(),
-					resolvedModelKey
-				});
-			}).finally(() => {
-				preloadInFlight.delete(preloadKey);
-			});
-			preloadInFlight.set(preloadKey, created);
-			return created;
-		})());
 		return (async () => {
-			let preparedModel;
-			if (preloadPromise) try {
-				preparedModel = await waitForLmstudioPreload(preloadPromise, options?.signal);
+			let request;
+			try {
+				request = await resolveLmstudioPreloadRequest({
+					baseUrl: resolvedBaseUrl,
+					modelKey,
+					requestedContextLength,
+					timeoutMs: clampPositiveTimerTimeoutMs(options?.timeoutMs ?? asRecord(model).requestTimeoutMs) ?? finiteSecondsToTimerSafeMilliseconds(providerConfig?.timeoutSeconds),
+					options,
+					ctx,
+					modelHeaders: isRecord(model.headers) ? model.headers : void 0
+				});
 			} catch (error) {
 				options?.signal?.throwIfAborted();
-				const annotated = error;
-				const resolvedModelKey = resolveLmstudioModelKeyFromError(error);
-				preparedModel = resolvedModelKey ? { modelKey: resolvedModelKey } : void 0;
-				const cause = annotated.cause ?? error;
-				const failures = annotated.consecutiveFailures ?? 1;
-				const cooldownSec = Math.max(0, Math.round((annotated.cooldownMs ?? 0) / 1e3));
-				log.warn(`LM Studio inference preload failed for "${modelKey}" (${failures} consecutive failure${failures === 1 ? "" : "s"}, next preload attempt skipped for ~${cooldownSec}s); continuing without preload: ${String(cause)}`);
+				log.warn(`LM Studio inference preload failed for "${modelKey}": ${String(error)}`);
+				return streamWithThinkingLevel(withLmstudioUsageCompat(model), context, options);
 			}
-			else if (cooldownEntry) {
-				const resolvedModelKey = cooldownEntry.resolvedModelKey;
+			options?.signal?.throwIfAborted();
+			const preloadKey = createHash("sha256").update(JSON.stringify([
+				resolvedBaseUrl,
+				modelKey,
+				requestedContextLength ?? null,
+				ctx.agentDir ?? null,
+				request.timeoutMs,
+				[...new Headers(buildLmstudioAuthHeaders(request)).entries()]
+			])).digest("hex");
+			const cooldown = preloadCooldown.get(preloadKey);
+			const cooldownEntry = cooldown && cooldown.untilMs > Date.now() ? cooldown : void 0;
+			const preloadPromise = preloadInFlight.get(preloadKey) ?? (cooldownEntry ? void 0 : (() => {
+				const created = prepareLmstudioModelForInference(request).then((preparedModel) => {
+					preloadCooldown.delete(preloadKey);
+					return preparedModel;
+				}, (error) => {
+					recordPreloadFailure(preloadKey, Date.now(), error);
+					throw error;
+				}).finally(() => {
+					preloadInFlight.delete(preloadKey);
+				});
+				preloadInFlight.set(preloadKey, created);
+				return created;
+			})());
+			let preparedModel;
+			let failure = cooldownEntry;
+			if (preloadPromise) try {
+				preparedModel = await racePromiseWithAbortSignal(preloadPromise, options?.signal, (signal) => toErrorObject(signal.reason, "LM Studio preload aborted"));
+			} catch {
+				options?.signal?.throwIfAborted();
+				failure = preloadCooldown.get(preloadKey);
+			}
+			if (failure) {
+				const error = failure.error;
+				if (preloadPromise) log.warn(`LM Studio inference preload failed for "${modelKey}": ${String(error)}`);
+				if (error instanceof LmstudioModelLoadError && error.requiredContextLength !== void 0) {
+					const stream = createAssistantMessageEventStream();
+					stream.push({
+						type: "error",
+						reason: "error",
+						error: {
+							...buildAssistantMessage({
+								model,
+								content: [],
+								stopReason: "error",
+								usage: createEmptyTransportUsage()
+							}),
+							errorMessage: error.message,
+							errorCode: "model_load_failed",
+							errorBody: JSON.stringify({ requestedContextLength: error.requiredContextLength })
+						}
+					});
+					stream.end();
+					return stream;
+				}
+				const resolvedModelKey = failure.resolvedModelKey;
 				preparedModel = resolvedModelKey ? { modelKey: resolvedModelKey } : void 0;
-				log.debug(`LM Studio inference preload for "${modelKey}" skipped while backoff active (${cooldownEntry.consecutiveFailures} prior failures)`);
 			}
 			const modelId = preparedModel?.modelKey;
 			const streamModel = modelId && modelId !== model.id ? {
@@ -188,7 +216,7 @@ function wrapLmstudioInferencePreload(ctx) {
 //#endregion
 //#region extensions/lmstudio/index.ts
 const PROVIDER_ID = "lmstudio";
-const loadSetup = createLazyRuntimeModule(() => import("../../setup-CrAkq9i-.mjs"));
+const loadSetup = createLazyRuntimeModule(() => import("../../setup-CGxleAjA.mjs"));
 const setupMethod = createLazyRuntimeMethodBinder(loadSetup);
 function resolveLmstudioAugmentedCatalogEntries(config) {
 	return normalizeLmstudioConfiguredCatalogEntries(config?.models?.providers?.lmstudio?.models).map((entry) => Object.assign({}, entry, {
@@ -207,10 +235,7 @@ var lmstudio_default = definePluginEntry({
 	register(api) {
 		api.registerEmbeddingProvider(lmstudioMemoryEmbeddingProviderAdapter);
 		api.registerProvider({
-			id: PROVIDER_ID,
-			label: "LM Studio",
-			docsPath: "/providers/lmstudio",
-			envVars: [LMSTUDIO_DEFAULT_API_KEY_ENV_VAR],
+			...provider_discovery_default,
 			auth: [{
 				id: "custom",
 				label: LMSTUDIO_PROVIDER_LABEL,
@@ -250,20 +275,6 @@ var lmstudio_default = definePluginEntry({
 				validateNonInteractive: setupMethod((setup) => setup.validateLmstudioNonInteractive),
 				runNonInteractive: setupMethod((setup) => setup.configureLmstudioNonInteractive)
 			}],
-			catalog: {
-				order: "late",
-				run: async (ctx) => {
-					return await (await loadSetup()).discoverLmstudioProvider(ctx, { discoveryMode: "strict" });
-				}
-			},
-			resolveSyntheticAuth: ({ providerConfig }) => {
-				if (!shouldUseLmstudioSyntheticAuth(providerConfig)) return;
-				return {
-					apiKey: CUSTOM_LOCAL_AUTH_MARKER,
-					source: "models.providers.lmstudio (synthetic local key)",
-					mode: "api-key"
-				};
-			},
 			shouldDeferSyntheticProfileAuth: ({ resolvedApiKey }) => resolvedApiKey?.trim() === "lmstudio-local" || resolvedApiKey?.trim() === "custom-local",
 			normalizeConfig: ({ providerConfig }) => normalizeLmstudioProviderConfig(providerConfig),
 			prepareDynamicModel: setupMethod((setup) => setup.prepareLmstudioDynamicModel),

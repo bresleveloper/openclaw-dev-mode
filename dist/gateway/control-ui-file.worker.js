@@ -1,5 +1,5 @@
 import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
-import { n as serveWorkerTasks } from "../worker-task-server-BC_7U18u.mjs";
+import { n as serveWorkerTasks } from "../worker-task-server-sMsYUF1K.mjs";
 import fs from "node:fs";
 import { matchRootFileOpenFailure, openRootFileSync, readFileWindowFullySync } from "@openclaw/fs-safe/advanced";
 //#region src/gateway/control-ui-file.ts

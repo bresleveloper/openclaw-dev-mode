@@ -28,7 +28,6 @@ export const GATEWAY_CLIENT_IDS = {
   PROBE: "openclaw-probe",
 } as const;
 
-/** Stable gateway client ids used on the wire during hello/connect handshakes. */
 export type GatewayClientId = (typeof GATEWAY_CLIENT_IDS)[keyof typeof GATEWAY_CLIENT_IDS];
 
 // Back-compat naming (internal): these values are IDs, not display names.
@@ -48,12 +47,22 @@ export const GATEWAY_CLIENT_MODES = {
   TEST: "test",
 } as const;
 
-/** Coarse client category used for gateway policy and diagnostics. */
+export function isNativeAppUiClient(client?: {
+  id?: string | null;
+  mode?: string | null;
+}): boolean {
+  return (
+    client?.mode === GATEWAY_CLIENT_MODES.UI &&
+    (client.id === GATEWAY_CLIENT_IDS.MACOS_APP ||
+      client.id === GATEWAY_CLIENT_IDS.LINUX_APP ||
+      client.id === GATEWAY_CLIENT_IDS.IOS_APP ||
+      client.id === GATEWAY_CLIENT_IDS.ANDROID_APP)
+  );
+}
+
 export type GatewayClientMode = (typeof GATEWAY_CLIENT_MODES)[keyof typeof GATEWAY_CLIENT_MODES];
 
-/** Client metadata sent during gateway connection setup. */
 export type GatewayClientInfo = {
-  /** Stable product/client identifier from `GATEWAY_CLIENT_IDS`. */
   id: GatewayClientId;
   /** Human-readable label for diagnostics; not used for policy decisions. */
   displayName?: string;
@@ -69,7 +78,6 @@ export type GatewayClientInfo = {
   modelIdentifier?: string;
   /** Self-reported IANA time zone, such as `Europe/Vienna`, for presence display. */
   timeZone?: string;
-  /** Coarse category from `GATEWAY_CLIENT_MODES` for policy and diagnostics. */
   mode: GatewayClientMode;
   /** Per-installation or per-process id used to distinguish same-product clients. */
   instanceId?: string;
@@ -86,19 +94,18 @@ export const GATEWAY_CLIENT_CAPS = {
   MODEL_SELECTION_POLICY: "model-selection-policy",
   RUN_TOOL_BINDINGS: "run-tool-bindings",
   SESSION_SCOPED_EVENTS: "session-scoped-events",
-  SKILL_CURATOR_LIVE_INVENTORY: "skill-curator-live-inventory",
   PLUGIN_APPROVALS: "plugin-approvals",
   TASK_SUGGESTIONS: "task-suggestions",
   TERMINAL_OFFSET_SEQ: "terminal-offset-seq",
   TERMINAL_SESSION_METADATA: "terminal-session-metadata",
   TERMINAL_UPLOAD_PATH_STYLE: "terminal-upload-path-style",
   TOOL_EVENTS: "tool-events",
+  UI_AGENT_GITHUB_SETTINGS: "ui-agent-github-settings",
   UI_COMMANDS: "ui-commands",
   ULTRAFAST: "ultrafast",
   USAGE_REFRESHING: "usage-refreshing",
 } as const;
 
-/** Optional capability advertised by clients during gateway handshake. */
 export type GatewayClientCap = (typeof GATEWAY_CLIENT_CAPS)[keyof typeof GATEWAY_CLIENT_CAPS];
 
 const GATEWAY_CLIENT_ID_SET = new Set<GatewayClientId>(Object.values(GATEWAY_CLIENT_IDS));

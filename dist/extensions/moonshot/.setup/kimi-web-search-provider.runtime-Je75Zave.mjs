@@ -1,0 +1,142 @@
+import { MOONSHOT_BASE_URL, MOONSHOT_CN_BASE_URL, isNativeMoonshotBaseUrl } from "../provider-policy-api.js";
+import "../provider-catalog.js";
+import { asNonArrayRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { createProviderHttpError, normalizeBaseUrl, readProviderJsonObjectResponse } from "openclaw/plugin-sdk/provider-http";
+import { DEFAULT_SEARCH_COUNT, MAX_SEARCH_COUNT, buildSearchCacheKey, buildUnsupportedSearchFilterResponse, mergeScopedSearchConfig, readCachedSearchPayload, readConfiguredSecretString, readPositiveIntegerParam, readProviderEnvValue, readStringParam, resolveProviderWebSearchPluginConfig, resolveSearchCacheTtlMs, resolveSearchCount, resolveSearchTimeoutSeconds, resolveSiteName, setProviderWebSearchPluginConfigValue, withTrustedWebSearchEndpoint, wrapWebContent, writeCachedSearchPayload } from "openclaw/plugin-sdk/provider-web-search";
+//#region extensions/moonshot/src/kimi-web-search-provider.runtime.ts
+const DEFAULT_KIMI_BASE_URL = MOONSHOT_BASE_URL;
+function resolveKimiApiKey(kimi) {
+	return readConfiguredSecretString(kimi?.apiKey, "plugins.entries.moonshot.config.webSearch.apiKey") ?? readProviderEnvValue(["KIMI_API_KEY", "MOONSHOT_API_KEY"]);
+}
+function resolveKimiBaseUrl(kimi, openClawConfig) {
+	const explicitBaseUrl = normalizeOptionalString(kimi?.baseUrl);
+	if (explicitBaseUrl) return normalizeBaseUrl(explicitBaseUrl) || DEFAULT_KIMI_BASE_URL;
+	const moonshotBaseUrl = openClawConfig?.models?.providers?.moonshot?.baseUrl;
+	if (typeof moonshotBaseUrl === "string") {
+		const normalizedMoonshotBaseUrl = normalizeBaseUrl(moonshotBaseUrl);
+		if (normalizedMoonshotBaseUrl && isNativeMoonshotBaseUrl(normalizedMoonshotBaseUrl)) return normalizedMoonshotBaseUrl;
+	}
+	return DEFAULT_KIMI_BASE_URL;
+}
+async function runKimiSearch(params) {
+	return withTrustedWebSearchEndpoint({
+		url: `${params.baseUrl}/tools/search`,
+		timeoutSeconds: params.timeoutSeconds,
+		signal: params.signal,
+		init: {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${params.apiKey}`
+			},
+			body: JSON.stringify({
+				text_query: params.query,
+				limit: params.count
+			})
+		}
+	}, async (res) => {
+		if (!res.ok) throw await createProviderHttpError(res, "Kimi API error");
+		const data = await readProviderJsonObjectResponse(res, "Kimi API error");
+		if (!Array.isArray(data.search_results)) throw new Error("Kimi API error: malformed JSON response");
+		return data.search_results.slice(0, params.count).map((entry) => {
+			const result = asNonArrayRecord(entry);
+			const title = normalizeOptionalString(result.title);
+			const url = normalizeOptionalString(result.url) ?? "";
+			const description = normalizeOptionalString(result.snippet);
+			return {
+				title: title ? wrapWebContent(title, "web_search") : "",
+				url,
+				description: description ? wrapWebContent(description, "web_search") : "",
+				published: normalizeKimiResultDate(result.date),
+				siteName: resolveSiteName(url) || void 0
+			};
+		});
+	});
+}
+function normalizeKimiResultDate(value) {
+	const date = normalizeOptionalString(value);
+	return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : void 0;
+}
+async function executeKimiWebSearchProviderTool(ctx, args, opts) {
+	opts?.signal?.throwIfAborted();
+	const searchConfig = mergeScopedSearchConfig(ctx.searchConfig, "kimi", resolveProviderWebSearchPluginConfig(ctx.config, "moonshot"));
+	const unsupportedResponse = buildUnsupportedSearchFilterResponse(args, "kimi");
+	if (unsupportedResponse) return unsupportedResponse;
+	const kimiConfig = asNonArrayRecord(searchConfig?.kimi);
+	const apiKey = resolveKimiApiKey(kimiConfig);
+	if (!apiKey) return {
+		error: "missing_kimi_api_key",
+		message: "web_search (kimi) needs a Moonshot API key. Set KIMI_API_KEY or MOONSHOT_API_KEY in the Gateway environment, or configure plugins.entries.moonshot.config.webSearch.apiKey. If you do not want to configure a search API key, use web_fetch for a specific URL or the browser tool for interactive pages.",
+		docs: "https://docs.openclaw.ai/tools/web"
+	};
+	const query = readStringParam(args, "query", { required: true });
+	const count = resolveSearchCount(readPositiveIntegerParam(args, "count", {
+		max: MAX_SEARCH_COUNT,
+		message: `count must be an integer from 1 to ${MAX_SEARCH_COUNT}.`
+	}) ?? searchConfig?.maxResults, DEFAULT_SEARCH_COUNT);
+	const baseUrl = resolveKimiBaseUrl(kimiConfig, ctx.config);
+	const cacheKey = buildSearchCacheKey([
+		"kimi",
+		query,
+		baseUrl,
+		count
+	]);
+	const cacheTtlMs = resolveSearchCacheTtlMs(searchConfig);
+	const cached = readCachedSearchPayload(cacheKey, cacheTtlMs);
+	if (cached) return cached;
+	const start = Date.now();
+	const results = await runKimiSearch({
+		query,
+		count,
+		apiKey,
+		baseUrl,
+		timeoutSeconds: resolveSearchTimeoutSeconds(searchConfig),
+		signal: opts?.signal
+	});
+	opts?.signal?.throwIfAborted();
+	const payload = {
+		query,
+		provider: "kimi",
+		count: results.length,
+		tookMs: Date.now() - start,
+		externalContent: {
+			untrusted: true,
+			source: "web_search",
+			provider: "kimi",
+			wrapped: true
+		},
+		results
+	};
+	writeCachedSearchPayload(cacheKey, payload, cacheTtlMs);
+	return payload;
+}
+async function runKimiSearchProviderSetup(ctx) {
+	const existingPluginConfig = resolveProviderWebSearchPluginConfig(ctx.config, "moonshot");
+	const normalizedBaseUrl = normalizeBaseUrl(normalizeOptionalString(existingPluginConfig?.baseUrl));
+	const isCustomBaseUrl = normalizedBaseUrl && !isNativeMoonshotBaseUrl(normalizedBaseUrl);
+	const regionOptions = [];
+	if (isCustomBaseUrl) regionOptions.push({
+		value: normalizedBaseUrl,
+		label: `Keep current (${normalizedBaseUrl})`,
+		hint: "custom endpoint"
+	});
+	regionOptions.push({
+		value: MOONSHOT_BASE_URL,
+		label: "Moonshot API key (.ai)",
+		hint: "api.moonshot.ai"
+	}, {
+		value: MOONSHOT_CN_BASE_URL,
+		label: "Moonshot API key (.cn)",
+		hint: "api.moonshot.cn"
+	});
+	const baseUrl = await ctx.prompter.select({
+		message: "Kimi API region",
+		options: regionOptions,
+		initialValue: normalizedBaseUrl || "https://api.moonshot.ai/v1"
+	});
+	const next = { ...ctx.config };
+	setProviderWebSearchPluginConfigValue(next, "moonshot", "baseUrl", baseUrl);
+	return next;
+}
+//#endregion
+export { executeKimiWebSearchProviderTool, runKimiSearchProviderSetup };

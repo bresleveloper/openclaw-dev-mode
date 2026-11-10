@@ -19,6 +19,9 @@ active-path row outside the current view opens that original closed interval and
 not mix later post-reset turns.
 
 Anchored reads use `limit` to bound the surrounding messages. Omit `offset` when using an anchor.
+Large transcript windows may return fewer messages to stay within the source byte limit.
+Jump-to-message reads retain the requested message, and directional history cursors continue
+through adjacent large messages without skipping them or reporting a false end of history.
 For SQLite transcript history, a missing or off-path message returns empty history rather than
 the newest tail; a `sessionId` that does not belong to the selected session key is rejected.
 These rules also apply in local embedded mode, without a running Gateway.
@@ -37,8 +40,14 @@ applied. Sandboxed agents remain limited to sessions they spawned when spawned-s
 is enabled. Incognito sessions remain excluded; narrowing visibility from `all` blocks ordinary
 cross-agent access.
 
-Excerpts are redacted before they return to the model. Results are also bounded by count, excerpt
+Excerpts preserve transcript text, including credentials. Results are bounded by count, excerpt
 length, and total response size.
+
+Each transcript search request allows up to 90 seconds, leaving dispatch and
+authorization headroom around the reader's 60-second budget, including worker admission.
+If it times out, retry `sessions_search` with a `sessionKey` to search one session
+or more specific query keywords. A timeout does not mean that no matching
+conversation exists.
 
 ## Control UI search
 

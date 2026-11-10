@@ -52,9 +52,13 @@ type InputDependencies = {
   knownChildren: ReadonlyMap<string, KnownChild>;
   children: ReadonlyMap<string, ChildState>;
   isCurrent: (state: ParentState) => boolean;
-  retainTargetRevision: (threadId: string) => { isCurrent: () => boolean; release: () => void };
   currentModelExecution: (threadId: string) => ParentOwner | undefined;
   admissions: ReadonlyMap<string, NativeChildAdmissionEvidence[]>;
+  canPrepareReceiver: (state: ParentState, threadId: string) => boolean;
+  /** The child that held a canonical path under this native parent before its registration ended. */
+  retiredChildForAgentPath: (nativeParentThreadId: string, agentPath: string) => string | undefined;
+  /** Native child thread IDs an earlier registration of this native parent observed. */
+  retiredChildThreadIds: (nativeParentThreadId: string) => Iterable<string>;
   prepareReceiver: (state: ParentState, threadId: string, nativeParentThreadId?: string) => boolean;
   registerChildThread: AdmissionDrainDependencies["registerChildThread"];
   admit: (
@@ -67,16 +71,20 @@ type InputDependencies = {
   interruptModelExecution?: (threadId: string, turnId: string) => void;
 };
 
+/** Codex agent paths: `/root` plus lowercase task-name segments (codex-protocol agent_path.rs). */
+function isCodexCanonicalAgentPath(path: string): boolean {
+  return /^\/root(?:\/[a-z0-9_]+)*$/.test(path);
+}
+
 function nativeAgentPath(known: KnownChild | undefined): string | undefined {
-  const paths = [...(known?.agentPaths ?? [])].filter((path) =>
-    /^\/root(?:\/[a-z0-9_]+)*$/.test(path),
-  );
+  const paths = [...(known?.agentPaths ?? [])].filter(isCodexCanonicalAgentPath);
   return paths.length === 1 ? paths[0] : undefined;
 }
 
 function nativeRootThreadId(
   threadId: string,
   knownChildren: ReadonlyMap<string, KnownChild>,
+  parent?: ParentState,
 ): string | undefined {
   const visited = new Set<string>();
   let current = threadId;
@@ -85,7 +93,12 @@ function nativeRootThreadId(
     visited.add(current);
     const known = knownChildren.get(current);
     const path = nativeAgentPath(known);
-    if (!known || !path || (expectedPath && path !== expectedPath)) {
+    if (
+      !known ||
+      (parent && known.parent !== parent) ||
+      !path ||
+      (expectedPath && path !== expectedPath)
+    ) {
       return undefined;
     }
     if (path === "/root") {
@@ -98,6 +111,25 @@ function nativeRootThreadId(
     current = known.nativeParentThreadId;
   }
   return undefined;
+}
+
+/** Codex resolves only agent IDs and registered task paths; name the IDs the model can use. */
+function unidentifiedTargetError(
+  message: string,
+  request: NativeModelToolInputRequest,
+  dependencies: InputDependencies,
+): Error {
+  const ids = new Set(dependencies.retiredChildThreadIds(request.threadId));
+  for (const [threadId, known] of dependencies.knownChildren) {
+    if (known.nativeParentThreadId === request.threadId) {
+      ids.add(threadId);
+    }
+  }
+  return new Error(
+    ids.size > 0
+      ? `${message}. Pass the exact agent ID as the target; agent IDs for this thread: ${[...ids].join(", ")}`
+      : `${message}; use its exact thread ID`,
+  );
 }
 
 function resolveInputTarget(
@@ -120,15 +152,22 @@ function resolveInputTarget(
         return path ? [path.slice(0, path.lastIndexOf("/"))] : [];
       }),
   );
+  // A registered parent that is not itself a native child is the conversation's root thread,
+  // even when this registration has not yet observed any of its children.
+  const senderIsRegisteredRoot =
+    dependencies.parents.has(request.threadId) && !dependencies.knownChildren.has(request.threadId);
   const senderPath =
     nativeAgentPath(dependencies.knownChildren.get(request.threadId)) ??
-    (childParentPaths.size === 1 ? childParentPaths.values().next().value : undefined);
+    (childParentPaths.size === 1 ? childParentPaths.values().next().value : undefined) ??
+    (senderIsRegisteredRoot ? "/root" : undefined);
   const nativeRoot =
     nativeRootThreadId(request.threadId, dependencies.knownChildren) ??
     (senderPath === "/root" ? request.threadId : undefined);
   if (!senderPath || !nativeRoot) {
-    throw new Error(
-      "Codex native target lineage is not currently identified; use its exact thread ID",
+    throw unidentifiedTargetError(
+      "Codex native target lineage is not currently identified",
+      request,
+      dependencies,
     );
   }
   const path = target.startsWith("/") ? target : `${senderPath}/${target}`;
@@ -140,10 +179,22 @@ function resolveInputTarget(
       known.agentPaths.has(path) &&
       nativeRootThreadId(threadId, dependencies.knownChildren) === nativeRoot,
   );
-  if (matches.length !== 1) {
-    throw new Error("Codex native target is not currently identified; use its exact thread ID");
+  if (matches.length === 1) {
+    return matches[0]![0];
   }
-  return matches[0]![0];
+  // An earlier registration of this sender saw the child under that canonical path.
+  const retired =
+    matches.length === 0
+      ? dependencies.retiredChildForAgentPath(request.threadId, path)
+      : undefined;
+  if (!retired) {
+    throw unidentifiedTargetError(
+      "Codex native target is not currently identified",
+      request,
+      dependencies,
+    );
+  }
+  return retired;
 }
 
 /** Qualification is read before the native handler; source custody remains with its existing call. */
@@ -151,18 +202,22 @@ export async function prepareNativeModelToolInput(
   request: NativeModelToolInputRequest,
   dependencies: InputDependencies,
 ): Promise<void> {
-  const state =
-    dependencies.parents.get(request.threadId) ??
-    dependencies.knownChildren.get(request.threadId)?.parent;
-  const owner =
-    state &&
-    resolveNativeModelParentOwner(
-      state,
-      request.turnId,
-      request.threadId,
-      dependencies.children,
-      dependencies.knownChildren,
-    );
+  const resolveSender = () => {
+    const state =
+      dependencies.parents.get(request.threadId) ??
+      dependencies.knownChildren.get(request.threadId)?.parent;
+    const owner =
+      state &&
+      resolveNativeModelParentOwner(
+        state,
+        request.turnId,
+        request.threadId,
+        dependencies.children,
+        dependencies.knownChildren,
+      );
+    return { state, owner };
+  };
+  const { state, owner } = resolveSender();
   const capture = owner?.modelSource?.capture();
   if (
     !state ||
@@ -175,9 +230,7 @@ export async function prepareNativeModelToolInput(
     throw new Error("Codex native input requires its exact admitted sender turn");
   }
   let preparedSource: NativeModelSourceOwner | undefined;
-  let captureTransferred = false;
   let pendingBinding: NativeModelBinding | undefined;
-  let targetRevision: ReturnType<InputDependencies["retainTargetRevision"]> | undefined;
   let assertTargetCurrent: (() => void) | undefined;
   const assertCurrent = () => {
     request.signal?.throwIfAborted();
@@ -196,16 +249,34 @@ export async function prepareNativeModelToolInput(
   try {
     assertCurrent();
     const targetThreadId = resolveInputTarget(request, dependencies);
-    targetRevision = dependencies.retainTargetRevision(targetThreadId);
     const targetParent = dependencies.parents.get(targetThreadId);
     const targetChild = dependencies.knownChildren.get(targetThreadId);
+    const targetLoad = (targetParent ?? targetChild)?.nativeLoad;
     const targetConfiguration = targetChild?.configurationQualification;
     const targetRouting = request.readQualification(targetThreadId);
+    let metadataRead = false;
     assertTargetCurrent = () => {
+      const nativeRoot = nativeRootThreadId(request.threadId, dependencies.knownChildren, state);
+      // A settled child's monitor entry may have been collected. Only native
+      // metadata linking it to a currently admitted parent can restore it; an
+      // arbitrary UUID or compatible provider is never sufficient.
+      const inScope = targetParent
+        ? (targetParent === state || nativeRoot === targetThreadId) &&
+          dependencies.canPrepareReceiver(state, targetThreadId)
+        : targetChild
+          ? dependencies.canPrepareReceiver(state, targetThreadId)
+          : !metadataRead ||
+            nativeRoot === targetThreadId ||
+            nativeParentThreadId === state.parentThreadId ||
+            (nativeParentThreadId !== undefined &&
+              dependencies.knownChildren.get(nativeParentThreadId)?.parent === state);
+      if (!inScope) {
+        throw new Error("Codex native input target is outside the sender's admitted tree");
+      }
       if (
-        !targetRevision?.isCurrent() ||
         dependencies.parents.get(targetThreadId) !== targetParent ||
         dependencies.knownChildren.get(targetThreadId) !== targetChild ||
+        (targetParent ?? targetChild)?.nativeLoad !== targetLoad ||
         targetChild?.configurationQualification !== targetConfiguration ||
         request.readQualification(targetThreadId) !== targetRouting
       ) {
@@ -229,6 +300,8 @@ export async function prepareNativeModelToolInput(
         assertCurrent,
       },
     );
+    const nativeParentThreadId = readThreadParentThreadId(thread);
+    metadataRead = true;
     assertCurrent();
     if (
       thread.id !== targetThreadId ||
@@ -308,11 +381,12 @@ export async function prepareNativeModelToolInput(
         },
         () => {},
       );
-      captureTransferred = true;
       preparedOwner.modelSource = preparedSource;
     }
     assertCurrent();
-    const nativeParentThreadId = readThreadParentThreadId(thread);
+    if (targetChild && nativeParentThreadId !== targetChild.nativeParentThreadId) {
+      throw new Error("Codex native input receiver lineage changed during preparation");
+    }
     if (!dependencies.prepareReceiver(state, thread.id, nativeParentThreadId)) {
       throw new Error("Codex native input receiver cannot retain this sender's admitted source");
     }
@@ -322,18 +396,7 @@ export async function prepareNativeModelToolInput(
         agentPath: readString(readThreadSpawnSource(thread), "agent_path"),
       });
     }
-    const currentState =
-      dependencies.parents.get(request.threadId) ??
-      dependencies.knownChildren.get(request.threadId)?.parent;
-    const currentOwner =
-      currentState &&
-      resolveNativeModelParentOwner(
-        currentState,
-        request.turnId,
-        request.threadId,
-        dependencies.children,
-        dependencies.knownChildren,
-      );
+    const { state: currentState, owner: currentOwner } = resolveSender();
     if (
       !currentOwner ||
       currentOwner.modelExecutionSettled ||
@@ -358,9 +421,8 @@ export async function prepareNativeModelToolInput(
       preparedOwner,
     );
   } finally {
-    targetRevision?.release();
     preparedSource?.release();
-    if (!captureTransferred) {
+    if (!preparedSource) {
       capture.release();
     }
   }
@@ -378,11 +440,7 @@ type AdmissionDrainDependencies = {
     threadId: string,
     options: { agentPath?: string; directOwner?: ParentOwner; nativeParentThreadId?: string },
   ) => ChildState | undefined;
-  admitFollowupChild: (
-    known: KnownChild,
-    threadId: string,
-    owner?: ParentOwner,
-  ) => ChildState | undefined;
+  admitFollowupChild: (known: KnownChild, owner?: ParentOwner) => ChildState | undefined;
   observeActivity: (child: ChildState) => void;
 };
 
@@ -395,17 +453,15 @@ export function drainNativeChildModelAdmissions(
 ): void {
   const pending = dependencies.admissions.get(turnId);
   const ownerIsCurrent = [...state.owners.values()].includes(owner);
+  const admittedByOwner = (entry: NativeChildAdmissionEvidence) =>
+    entry.kind === "interaction" &&
+    (entry.admittedOwner === owner ||
+      entry.modelSource?.owner === owner ||
+      (entry.owner === owner && entry.modelSource));
   if (
     !pending ||
     !dependencies.isCurrent(state) ||
-    (!ownerIsCurrent &&
-      !pending.some(
-        (entry) =>
-          entry.kind === "interaction" &&
-          (entry.admittedOwner === owner ||
-            entry.modelSource?.owner === owner ||
-            (entry.owner === owner && entry.modelSource)),
-      ))
+    (!ownerIsCurrent && !pending.some(admittedByOwner))
   ) {
     return;
   }
@@ -417,12 +473,7 @@ export function drainNativeChildModelAdmissions(
       continue;
     }
     if (evidence.kind === "interaction") {
-      if (
-        !ownerIsCurrent &&
-        evidence.admittedOwner !== owner &&
-        evidence.modelSource?.owner !== owner &&
-        !(evidence.owner === owner && evidence.modelSource)
-      ) {
+      if (!ownerIsCurrent && !admittedByOwner(evidence)) {
         remaining.push(evidence);
         continue;
       }
@@ -504,11 +555,7 @@ export function drainNativeChildModelAdmissions(
       continue;
     }
     const previous = dependencies.currentChild(threadId);
-    const child = dependencies.admitFollowupChild(
-      known,
-      threadId,
-      ownerIsCurrent ? owner : undefined,
-    );
+    const child = dependencies.admitFollowupChild(known, ownerIsCurrent ? owner : undefined);
     if (observeActivity && child && child !== previous && child.nativeTurnState === "active") {
       dependencies.observeActivity(child);
     }

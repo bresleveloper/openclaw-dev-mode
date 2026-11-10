@@ -1,7 +1,7 @@
-import { F as resolveTimerTimeoutMs } from "../number-coercion-CuVhdCBs.mjs";
-import { d as sleepWithAbort } from "../src-D1BHGNTj.mjs";
+import { F as resolveTimerTimeoutMs } from "../number-coercion-CkhMiRw8.mjs";
+import { d as sleepWithAbort } from "../src-Bzfi3cQM.mjs";
+import "../backoff-N5Hi0doU.mjs";
 import { r as theme } from "../theme-DzaUZY4q.mjs";
-import "../backoff-BrzXG7iD.mjs";
 //#region src/infra/transport-ready.ts
 /** Polls until ready, timed out, or aborted, with bounded logging through the runtime sink. */
 async function waitForTransportReady(params) {
@@ -13,6 +13,7 @@ async function waitForTransportReady(params) {
 	const pollIntervalMs = resolveTimerTimeoutMs(params.pollIntervalMs, 150, 50);
 	let nextLogAt = started + logAfterMs;
 	let lastError = null;
+	const logNotReady = (elapsedMs) => params.runtime.error?.(theme.error(`${params.label} not ready after ${elapsedMs}ms (${lastError ?? "unknown error"})`));
 	while (true) {
 		if (params.abortSignal?.aborted) return;
 		const res = await params.check();
@@ -21,8 +22,7 @@ async function waitForTransportReady(params) {
 		const now = Date.now();
 		if (now >= deadline) break;
 		if (now >= nextLogAt) {
-			const elapsedMs = now - started;
-			params.runtime.error?.(theme.error(`${params.label} not ready after ${elapsedMs}ms (${lastError ?? "unknown error"})`));
+			logNotReady(now - started);
 			nextLogAt = now + logIntervalMs;
 		}
 		try {
@@ -32,7 +32,7 @@ async function waitForTransportReady(params) {
 			throw err;
 		}
 	}
-	params.runtime.error?.(theme.error(`${params.label} not ready after ${timeoutMs}ms (${lastError ?? "unknown error"})`));
+	logNotReady(timeoutMs);
 	throw new Error(`${params.label} not ready (${lastError ?? "unknown error"})`);
 }
 //#endregion

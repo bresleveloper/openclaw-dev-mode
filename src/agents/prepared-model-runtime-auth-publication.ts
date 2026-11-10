@@ -25,13 +25,14 @@ export type PreparedModelRuntimeAuthMutation = {
   agentDir?: string;
   affectsInheritedStores: boolean;
   profileSetChanged: boolean;
+  availabilityOnly?: boolean;
 };
 
 type PreparedModelRuntimeAuthTransaction = {
   adoptedBy?: PreparedModelRuntimeReplacementGateId;
   ownerGates: Map<
     PreparedModelRuntimeOwner,
-    Deferred<PreparedModelRuntimeSnapshot> & { retried?: boolean }
+    Deferred<PreparedModelRuntimeSnapshot> & { retries?: number }
   >;
   publicationQueued: boolean;
   profileSetChanged: boolean;
@@ -146,14 +147,10 @@ export class PreparedModelRuntimeAuthPublicationOwner {
     if (this.#transaction !== transaction) {
       return false;
     }
-    if (transaction.adoptedBy) {
-      this.#transaction = undefined;
-    } else if (transaction.ownerGates.size === 0) {
-      this.#transaction = undefined;
-      return true;
-    } else {
+    if (!transaction.adoptedBy && transaction.ownerGates.size > 0) {
       return false;
     }
+    this.#transaction = undefined;
     this.clearOwnerGates(transaction);
     for (const [owner, gate] of transaction.ownerGates) {
       const published =
@@ -185,21 +182,27 @@ export class PreparedModelRuntimeAuthPublicationOwner {
       const gate = transaction.ownerGates.get(owner);
       return gate && !queuedOwners.has(owner) ? [{ owner, gate }] : [];
     });
-    const completed = unsettled.flatMap(({ owner, gate }) =>
-      owner.pending === gate.promise &&
-      owners.get(ownerKey(owner.input)) === owner &&
-      owner.snapshot &&
-      !owner.needsRefresh
-        ? [{ owner, gate, snapshot: owner.snapshot }]
-        : [],
-    );
+    const completed = unsettled.flatMap(({ owner, gate }) => {
+      const published =
+        owners.get(ownerKey(owner.input)) ?? resolveConfiguredOwner(owners, owner.input);
+      return published?.snapshot &&
+        !published.needsRefresh &&
+        (!published.pending || published.pending === gate.promise)
+        ? [{ owner, gate, published, snapshot: published.snapshot }]
+        : [];
+    });
     // Dispatch projection must become visible before exact-gate waiters resume.
-    for (const { owner } of completed) {
-      owner.pending = undefined;
+    for (const { owner, gate, published } of completed) {
+      if (owner.pending === gate.promise) {
+        owner.pending = undefined;
+      }
+      if (published.pending === gate.promise) {
+        published.pending = undefined;
+      }
     }
     try {
       if (completed.length > 0) {
-        publishOwners(completed.map(({ owner }) => owner));
+        publishOwners(completed.map(({ published }) => published));
       }
     } catch (error) {
       for (const { owner, gate } of completed) {
@@ -270,14 +273,55 @@ export class PreparedModelRuntimeAuthPublicationOwner {
           owners.filter((owner) => owner.pluginGeneration !== undefined),
         );
         const gates = owners.flatMap((owner) => this.#transaction?.ownerGates.get(owner) ?? []);
-        const retrying = gates.some((gate) => gate.retried);
+        const retries = Math.max(0, ...gates.map((gate) => gate.retries ?? 0));
+        const retrying = retries > 0;
         for (const gate of gates) {
-          gate.retried = retrying;
+          gate.retries = retries;
         }
         try {
           if (owners.length > 0) {
-            const publish = () =>
-              params.publish(owners, this.#transaction?.profileSetChanged === true, !retrying);
+            const publish = async () => {
+              try {
+                await params.publish(
+                  owners,
+                  this.#transaction?.profileSetChanged === true,
+                  !retrying,
+                );
+              } catch (error) {
+                const transaction = this.#transaction;
+                if (
+                  !(error instanceof PreparedModelRuntimePublicationSupersededError) ||
+                  !transaction ||
+                  transaction.adoptedBy
+                ) {
+                  throw error;
+                }
+                const authGates = new Set(
+                  [...transaction.ownerGates.values()].map((gate) => gate.promise),
+                );
+                const replacements = componentOwners.flatMap((owner) => {
+                  const published =
+                    params.owners.get(ownerKey(owner.input)) ??
+                    resolveConfiguredOwner(params.owners, owner.input);
+                  const gate = transaction.ownerGates.get(owner);
+                  if (!published || !gate) {
+                    return [];
+                  }
+                  if (published.pending && !authGates.has(published.pending)) {
+                    return [published.pending];
+                  }
+                  return published.snapshot && !published.needsRefresh
+                    ? [Promise.resolve(published.snapshot)]
+                    : [];
+                });
+                if (replacements.length !== componentOwners.length) {
+                  throw error;
+                }
+                // Join one current publication; do not spend another generation retry or
+                // wait on our own auth gates. Settlement rechecks the registered owners.
+                await Promise.all(replacements);
+              }
+            };
             await (retrying
               ? runOutsidePreparedModelRuntimePluginGenerationScope(() =>
                   runOutsidePluginRuntimeGenerationScope(publish),
@@ -290,6 +334,14 @@ export class PreparedModelRuntimeAuthPublicationOwner {
           }
         } catch (error) {
           if (this.#transaction?.adoptedBy) {
+            if (
+              error instanceof PreparedModelRuntimePublicationSupersededError &&
+              this.#events.some((event) => event.some((owner) => componentOwners.includes(owner)))
+            ) {
+              // The queued mutation owns the next build; preserve its entire atomic component.
+              this.#events.push(componentOwners);
+              continue;
+            }
             // The replacement transaction exclusively settles adopted gates from its own result.
             throw error;
           }
@@ -300,28 +352,30 @@ export class PreparedModelRuntimeAuthPublicationOwner {
               params.owners.get(ownerKey(owner.input)) === owner &&
               transaction?.ownerGates.get(owner)?.promise === owner.pending,
           );
+          const superseded = error instanceof PreparedModelRuntimePublicationSupersededError;
           if (
             transaction &&
-            !retrying &&
+            retries < (superseded ? 2 : 1) &&
             isPreparedModelRuntimePluginLifecycleFailure(error) &&
-            currentOwners.some((owner) => reusedOwners.has(owner))
+            currentOwners.some((owner) => superseded || reusedOwners.has(owner))
           ) {
             for (const owner of currentOwners) {
-              transaction.ownerGates.get(owner)!.retried = true;
+              transaction.ownerGates.get(owner)!.retries = retries + 1;
             }
             // Preserve the exact gates and atomic component, including superseded members.
             this.#events.push(componentOwners);
             continue;
           }
+          const Failure = superseded ? PreparedModelRuntimePublicationSupersededError : Error;
           const failure = retrying
-            ? new Error(
-                `Auth-triggered model runtime refresh failed after 1 fresh-generation retry: ${toStringifiedError(error).message}`,
+            ? new Failure(
+                `Auth-triggered model runtime refresh failed after ${retries} fresh-generation ${retries === 1 ? "retry" : "retries"}: ${toStringifiedError(error).message}${superseded ? "; retry the request" : ""}`,
                 { cause: error },
               )
             : error;
           if (
             transaction &&
-            this.rejectComponentOwners(transaction, componentOwners, failure, retrying) > 0
+            this.rejectComponentOwners(transaction, componentOwners, failure, true) > 0
           ) {
             params.onOwnerFailure?.(failure);
           }
@@ -355,6 +409,10 @@ export class PreparedModelRuntimeAuthPublicationOwner {
   ): number {
     const queuedOwners = new Set(this.#events.flat());
     let rejected = 0;
+    const recovery =
+      error instanceof PreparedModelRuntimePublicationSupersededError
+        ? { error, scheduledAttempted: false, retryAfter: 0 }
+        : undefined;
     for (const owner of componentOwners) {
       if (queuedOwners.has(owner)) {
         continue;
@@ -365,8 +423,16 @@ export class PreparedModelRuntimeAuthPublicationOwner {
       }
       if (owner.pending === gate.promise) {
         owner.pending = undefined;
-        if (recordRefreshError && owner.needsRefresh) {
-          owner.refreshError = toStringifiedError(error);
+        if (recordRefreshError) {
+          owner.refreshError = error instanceof Error ? error : toStringifiedError(error);
+          owner.needsRefresh = true;
+          if (owner.provenance === "configured") {
+            owner.catalogRecovery = recovery ?? {
+              error: owner.refreshError,
+              scheduledAttempted: false,
+              retryAfter: 0,
+            };
+          }
         }
       }
       transaction.ownerGates.delete(owner);
@@ -379,11 +445,15 @@ export class PreparedModelRuntimeAuthPublicationOwner {
 
 export function invalidatePreparedModelRuntimeOwnersForAuthMutation(
   owners: Map<string, PreparedModelRuntimeOwner>,
-  normalizedEvent: PreparedModelRuntimeAuthMutation,
+  event: PreparedModelRuntimeAuthMutation,
 ): {
   invalidatedOwners: PreparedModelRuntimeOwner[];
   invalidatedConfiguredAgentIds: Set<string>;
 } {
+  if (event.availabilityOnly) {
+    return { invalidatedOwners: [], invalidatedConfiguredAgentIds: new Set<string>() };
+  }
+  const agentDir = normalizeOptionalDir(event.agentDir);
   const staleError = new Error("prepared model runtime owner is stale after auth mutation");
   const invalidatedOwners: PreparedModelRuntimeOwner[] = [];
   const invalidatedConfiguredAgentIds = new Set<string>();
@@ -398,9 +468,9 @@ export function invalidatePreparedModelRuntimeOwnersForAuthMutation(
           normalizeOptionalDir(
             resolveLegacyInheritedAuthDir(owner.input.config, owner.input.env),
           )) ||
-      (!normalizedEvent.affectsInheritedStores &&
-        owner.input.agentDir !== normalizedEvent.agentDir &&
-        owner.input.inheritedAuthDir !== normalizedEvent.agentDir)
+      (!event.affectsInheritedStores &&
+        owner.input.agentDir !== agentDir &&
+        owner.input.inheritedAuthDir !== agentDir)
     ) {
       continue;
     }
@@ -409,7 +479,7 @@ export function invalidatePreparedModelRuntimeOwnersForAuthMutation(
     retirePreparedModelRuntimeGeneration(owner);
     owner.needsRefresh = true;
     owner.refreshError = staleError;
-    if (normalizedEvent.profileSetChanged) {
+    if (event.profileSetChanged) {
       owner.catalogStale = true;
     }
     if (owner.provenance === "configured" && owner.input.agentId) {

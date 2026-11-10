@@ -4,7 +4,6 @@ import { responseWithRelease } from "openclaw/plugin-sdk/fetch-runtime";
 import {
   buildHostnameAllowlistPolicyFromSuffixAllowlist as resolveMediaSsrfPolicy,
   isHttpsUrlAllowedByHostnameSuffixAllowlist as isUrlAllowed,
-  isPrivateIpAddress,
   normalizeHostnameSuffixAllowlist,
 } from "openclaw/plugin-sdk/ssrf-policy";
 import { fetchWithSsrFGuard, type LookupFn } from "openclaw/plugin-sdk/ssrf-runtime";
@@ -34,8 +33,58 @@ type InlineImageReference =
 
 const IMAGE_EXT_RE = /\.(avif|bmp|gif|heic|heif|jpe?g|png|tiff?|webp)$/i;
 
-export const IMG_SRC_RE = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-export const ATTACHMENT_TAG_RE = /<attachment[^>]+id=["']([^"']+)["'][^>]*>/gi;
+/**
+ * Values of `attr` on each `<tag ...>` in document order, matching the captures of
+ * `/<tag[^>]+attr=["']([^"']+)["'][^>]*>/gi`: the last attribute spelling inside the
+ * tag wins, and a quoted value may contain `>`. Each `<tag` start is resolved from
+ * precomputed next-`>` and next-quote positions in one forward pass.
+ */
+export function htmlTagAttributeValues(
+  html: string,
+  tag: "img" | "attachment",
+  attr: "src" | "id",
+): string[] {
+  const length = html.length;
+  const nextGt = new Int32Array(length + 1).fill(length);
+  const nextQuote = new Int32Array(length + 1).fill(length);
+  for (let index = length - 1; index >= 0; index -= 1) {
+    const char = html[index];
+    nextGt[index] = char === ">" ? index : nextGt[index + 1]!;
+    nextQuote[index] = char === '"' || char === "'" ? index : nextQuote[index + 1]!;
+  }
+  // An attribute spelling is usable when a non-empty value, a closing quote and a
+  // later `>` follow it, whichever tag it ends up inside.
+  const candidates: Array<{ start: number; valueStart: number; valueEnd: number; end: number }> =
+    [];
+  for (const match of html.matchAll(new RegExp(`${attr}=["']`, "gi"))) {
+    const valueStart = match.index + match[0].length;
+    const valueEnd = nextQuote[valueStart]!;
+    if (valueEnd > valueStart && valueEnd < length && nextGt[valueEnd + 1]! < length) {
+      candidates.push({ start: match.index, valueStart, valueEnd, end: nextGt[valueEnd + 1]! + 1 });
+    }
+  }
+  const values: string[] = [];
+  let resumeAt = 0;
+  let pastWindow = 0;
+  for (const open of html.matchAll(new RegExp(`<${tag}`, "gi"))) {
+    if (open.index < resumeAt) {
+      continue;
+    }
+    // The attribute starts at least one character after the tag name (`[^>]+` is
+    // non-empty) and no later than the first `>`, so the window only moves forward.
+    const nameEnd = open.index + open[0].length;
+    const lastStart = nextGt[nameEnd]!;
+    while (pastWindow < candidates.length && candidates[pastWindow]!.start <= lastStart) {
+      pastWindow += 1;
+    }
+    const candidate = candidates[pastWindow - 1];
+    if (candidate && candidate.start > nameEnd) {
+      values.push(html.slice(candidate.valueStart, candidate.valueEnd));
+      resumeAt = candidate.end;
+    }
+  }
+  return values;
+}
 const GRAPH_HOSTED_CONTENT_SRC_RE = /\/hostedContents\/([^/?#]+)/i;
 
 function resolveInlineImageSourceId(src: string): string {
@@ -116,10 +165,8 @@ const GRAPH_SHARED_LINK_HOST_SUFFIXES = [
 ] as const;
 
 function isGraphSharedLinkUrl(url: string): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
+  const parsed = URL.parse(url);
+  if (!parsed) {
     return false;
   }
   const host = normalizeLowercaseStringOrEmpty(parsed.hostname);
@@ -167,9 +214,9 @@ export function resolveMSTeamsMediaKind(params: {
   fileName?: string;
   fileType?: string;
 }): MSTeamsInboundMedia["kind"] {
-  const mime = normalizeLowercaseStringOrEmpty(params.contentType ?? "");
-  const name = normalizeLowercaseStringOrEmpty(params.fileName ?? "");
-  const fileType = normalizeLowercaseStringOrEmpty(params.fileType ?? "");
+  const mime = normalizeLowercaseStringOrEmpty(params.contentType);
+  const name = normalizeLowercaseStringOrEmpty(params.fileName);
+  const fileType = normalizeLowercaseStringOrEmpty(params.fileType);
 
   const looksLikeImage =
     mime.startsWith("image/") || IMAGE_EXT_RE.test(name) || IMAGE_EXT_RE.test(`x.${fileType}`);
@@ -255,13 +302,7 @@ export function extractHtmlFromAttachment(att: MSTeamsAttachmentLike): string | 
 }
 
 function fileHintFromUrl(src: string): string | undefined {
-  try {
-    const url = new URL(src);
-    const name = url.pathname.split("/").pop();
-    return name || undefined;
-  } catch {
-    return undefined;
-  }
+  return URL.parse(src)?.pathname.split("/").pop() || undefined;
 }
 
 export function extractInlineImageReferences(
@@ -280,9 +321,8 @@ export function extractInlineImageReferences(
     if (!html) {
       continue;
     }
-    IMG_SRC_RE.lastIndex = 0;
-    for (const match of html.matchAll(IMG_SRC_RE)) {
-      const src = match[1]?.trim();
+    for (const value of htmlTagAttributeValues(html, "img", "src")) {
+      const src = value.trim();
       if (src) {
         if (src.startsWith("data:")) {
           out.push({ kind: "data", src });
@@ -309,11 +349,8 @@ export function extractInlineImageReferences(
 }
 
 export function safeHostForUrl(url: string): string {
-  try {
-    return normalizeLowercaseStringOrEmpty(new URL(url).hostname);
-  } catch {
-    return "invalid-url";
-  }
+  const parsed = URL.parse(url);
+  return parsed ? normalizeLowercaseStringOrEmpty(parsed.hostname) : "invalid-url";
 }
 
 export type MSTeamsAttachmentFetchPolicy = {
@@ -332,20 +369,12 @@ function isMockFetchFn(fetchFn: typeof fetch): boolean {
   return Boolean(candidate.mock || Object.hasOwn(candidate, "_isMockFunction"));
 }
 
-function resolveGuardedFetchImpl(params: {
-  fetchFn?: typeof fetch;
-  fetchFnSupportsDispatcher?: boolean;
-}): typeof fetch | undefined {
-  if (!params.fetchFn) {
+function resolveGuardedFetchImpl(fetchFn?: typeof fetch): typeof fetch | undefined {
+  if (!fetchFn) {
     return undefined;
   }
-  if (
-    params.fetchFnSupportsDispatcher === true ||
-    params.fetchFn === fetch ||
-    params.fetchFn === globalThis.fetch ||
-    isMockFetchFn(params.fetchFn)
-  ) {
-    return params.fetchFn;
+  if (fetchFn === fetch || fetchFn === globalThis.fetch || isMockFetchFn(fetchFn)) {
+    return fetchFn;
   }
   throw new Error(
     "MSTeams attachment fetchFn must set fetchFnSupportsDispatcher to use guarded DNS pinning",
@@ -390,22 +419,6 @@ export function applyAuthorizationHeaderForUrl(params: {
   }
 }
 
-async function resolveAndValidateIP(
-  hostname: string,
-  resolveFn?: MSTeamsAttachmentResolveFn,
-): Promise<void> {
-  const resolve = resolveFn ?? lookup;
-  let resolved: { address: string };
-  try {
-    resolved = await resolve(hostname);
-  } catch {
-    throw new Error(`DNS resolution failed for "${hostname}"`);
-  }
-  if (isPrivateIpAddress(resolved.address)) {
-    throw new Error(`Hostname "${hostname}" resolves to private/reserved IP (${resolved.address})`);
-  }
-}
-
 const MAX_SAFE_REDIRECTS = 5;
 export function isRedirectStatus(status: number): boolean {
   return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
@@ -423,14 +436,12 @@ export async function safeFetchWithPolicy(params: {
   url: string;
   policy: MSTeamsAttachmentFetchPolicy;
   fetchFn?: typeof fetch;
-  fetchFnSupportsDispatcher?: boolean;
   requestInit?: RequestInit;
   resolveFn?: MSTeamsAttachmentResolveFn;
   timeoutMs?: number;
 }): Promise<Response> {
   const { allowHosts, authAllowHosts } = params.policy;
   const resolveFn = params.resolveFn ?? lookup;
-  const hasDispatcher = params.requestInit && "dispatcher" in params.requestInit;
   const currentHeaders = new Headers(params.requestInit?.headers);
   const currentUrl = params.url;
 
@@ -439,78 +450,30 @@ export async function safeFetchWithPolicy(params: {
   }
 
   // Authorization is only allowed on explicitly auth-allowlisted hosts, including
-  // the first hop. Redirect hops apply the same rule below or in fetchWithSsrFGuard.
+  // the first hop. Redirect hops apply the same rule in fetchWithSsrFGuard.
   if (currentHeaders.has("authorization") && !isUrlAllowed(currentUrl, authAllowHosts)) {
     currentHeaders.delete("authorization");
   }
 
-  if (!hasDispatcher) {
-    const lookupFn: LookupFn = async (hostname) => {
-      const resolved = await resolveFn(hostname);
-      return [{ ...resolved, family: resolved.address.includes(":") ? 6 : 4 }];
-    };
-    const guarded = await fetchWithSsrFGuard({
-      url: currentUrl,
-      fetchImpl: resolveGuardedFetchImpl({
-        fetchFn: params.fetchFn,
-        fetchFnSupportsDispatcher: params.fetchFnSupportsDispatcher,
-      }),
-      init: {
-        ...params.requestInit,
-        headers: currentHeaders,
-      },
-      maxRedirects: MAX_SAFE_REDIRECTS,
-      requireHttps: true,
-      policy: resolveMediaSsrfPolicy(allowHosts),
-      lookupFn,
-      retainAuthorizationRedirectHostnameAllowlist:
-        resolveRetainedAuthorizationRedirectHostnameAllowlist(authAllowHosts),
-      auditContext: "msteams.attachment",
-      timeoutMs: params.timeoutMs ?? MSTEAMS_REQUEST_TIMEOUT_MS,
-    });
-    return responseWithRelease(guarded.response, guarded.release);
-  }
-
-  try {
-    const initialHost = new URL(currentUrl).hostname;
-    await resolveAndValidateIP(initialHost, resolveFn);
-  } catch {
-    throw new Error(`Initial download URL blocked: ${currentUrl}`);
-  }
-
-  const res = await (params.fetchFn ?? fetch)(currentUrl, {
-    ...params.requestInit,
-    headers: currentHeaders,
-    redirect: "manual",
+  const lookupFn: LookupFn = async (hostname) => {
+    const resolved = await resolveFn(hostname);
+    return [{ ...resolved, family: resolved.address.includes(":") ? 6 : 4 }];
+  };
+  const guarded = await fetchWithSsrFGuard({
+    url: currentUrl,
+    fetchImpl: resolveGuardedFetchImpl(params.fetchFn),
+    init: {
+      ...params.requestInit,
+      headers: currentHeaders,
+    },
+    maxRedirects: MAX_SAFE_REDIRECTS,
+    requireHttps: true,
+    policy: resolveMediaSsrfPolicy(allowHosts),
+    lookupFn,
+    retainAuthorizationRedirectHostnameAllowlist:
+      resolveRetainedAuthorizationRedirectHostnameAllowlist(authAllowHosts),
+    auditContext: "msteams.attachment",
+    timeoutMs: params.timeoutMs ?? MSTEAMS_REQUEST_TIMEOUT_MS,
   });
-
-  if (!isRedirectStatus(res.status)) {
-    return res;
-  }
-
-  const location = res.headers.get("location");
-  if (!location) {
-    return res;
-  }
-
-  let redirectUrl: string;
-  try {
-    redirectUrl = new URL(location, currentUrl).toString();
-  } catch {
-    throw new Error(`Invalid redirect URL: ${location}`);
-  }
-
-  if (!isUrlAllowed(redirectUrl, allowHosts)) {
-    throw new Error(`Media redirect target blocked by allowlist: ${redirectUrl}`);
-  }
-
-  // Prevent credential bleed: only keep Authorization on redirect hops that
-  // are explicitly auth-allowlisted.
-  if (currentHeaders.has("authorization") && !isUrlAllowed(redirectUrl, authAllowHosts)) {
-    currentHeaders.delete("authorization");
-  }
-
-  // A pinned dispatcher is already injected by an upstream guard; let it own
-  // redirect handling after this allowlist validation step.
-  return res;
+  return responseWithRelease(guarded.response, guarded.release);
 }

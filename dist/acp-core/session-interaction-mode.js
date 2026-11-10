@@ -1,2 +1,2 @@
-import { n as isRequesterParentOfBackgroundAcpSession, t as isParentOwnedBackgroundAcpSession } from "../session-interaction-mode-DcsaFg6n.mjs";
+import { n as isRequesterParentOfBackgroundAcpSession, t as isParentOwnedBackgroundAcpSession } from "../session-interaction-mode-CEQJGOLB.mjs";
 export { isParentOwnedBackgroundAcpSession, isRequesterParentOfBackgroundAcpSession };

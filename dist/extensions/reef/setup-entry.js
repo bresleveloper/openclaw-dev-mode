@@ -4,7 +4,7 @@ import { defineBundledChannelSetupEntry } from "openclaw/plugin-sdk/channel-entr
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/channel-plugin-api-CU3ITSWL.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/channel-plugin-api-BUIz9qeQ.mjs", import.meta.url).href),
 		exportName: "reefPlugin"
 	},
 	runtime: {

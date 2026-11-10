@@ -124,15 +124,27 @@ openclaw_e2e_maybe_timeout() {
 }
 openclaw_e2e_print_log() {
   local path="$1"
-  local max_bytes max_lines redactor_module
+  local max_bytes max_lines redactor_module trusted_redactor
   max_bytes="$(openclaw_e2e_read_nonnegative_int_env OPENCLAW_E2E_LOG_TAIL_BYTES 262144)" || return $?
   max_lines="$(openclaw_e2e_read_nonnegative_int_env OPENCLAW_E2E_LOG_TAIL_LINES 120)" || return $?
   [ -f "$path" ] || return 0
   echo "--- $path ---"
   [ -s "$path" ] || return 0
   redactor_module="${OPENCLAW_E2E_REDACTOR_MODULE:-$(openclaw_e2e_package_root)/dist/plugin-sdk/logging-core.js}"
-  [ -f "$redactor_module" ] || redactor_module="$PWD/dist/plugin-sdk/logging-core.js"
-  if [ ! -f "$redactor_module" ]; then
+  trusted_redactor="$PWD/dist/plugin-sdk/logging-core.js"
+  [ -f "$redactor_module" ] || redactor_module="$trusted_redactor"
+  if [ -f "$redactor_module" ] && ! node --input-type=module -e '
+    import { pathToFileURL } from "node:url";
+    const { redactSensitiveText } = await import(pathToFileURL(process.argv[1]).href);
+    if (typeof redactSensitiveText !== "function") process.exit(1);
+  ' "$redactor_module" >/dev/null 2>&1; then
+    if [ "$redactor_module" != "$trusted_redactor" ] && [ -f "$trusted_redactor" ]; then
+      redactor_module="$trusted_redactor"
+    else
+      redactor_module=""
+    fi
+  fi
+  if [ -z "$redactor_module" ] || [ ! -f "$redactor_module" ]; then
     echo "[failure log omitted: canonical redactor unavailable]"
     return 0
   fi
@@ -294,9 +306,14 @@ openclaw_e2e_signal_process() {
   kill "-$signal" "$pid" >/dev/null 2>&1 || true
 }
 openclaw_e2e_process_alive() {
-  local pid="${1:-}"
+  local pid="${1:-}" state=""
   [ -n "$pid" ] || return 1
-  kill -0 "$pid" >/dev/null 2>&1 || kill -0 -- "-$pid" >/dev/null 2>&1
+  kill -0 "$pid" >/dev/null 2>&1 || kill -0 -- "-$pid" >/dev/null 2>&1 || return 1
+  if [ -r "/proc/$pid/stat" ]; then
+    state="$(sed -nE 's/^.*\) ([A-Z]) .*/\1/p' "/proc/$pid/stat" 2>/dev/null || true)"
+    [ "$state" != "Z" ] || return 1
+  fi
+  return 0
 }
 openclaw_e2e_stop_process() {
   local pid="${1:-}" _
@@ -358,7 +375,7 @@ openclaw_e2e_gateway_log_port_from_text() {
 openclaw_e2e_wait_gateway_ready() {
   local pid="$1" log="$2" attempts="${3:-300}" ready_port="${4:-}" readiness_mode="${5:-strict}" _ saw_ready_log=false
   local ready_scan_offset=0 ready_scan_carry="" ready_scan_carry_chars=256
-  local ready_log_pattern='\[gateway\] ready'
+  local ready_log_pattern='\[gateway\] (ready|http server listening)'
   # Published baselines logged their listener before the modern ready marker existed.
   if [ "$readiness_mode" = "legacy-ready-log-ok" ]; then
     ready_log_pattern='\[gateway\] (ready|listening on)'
@@ -401,11 +418,13 @@ openclaw_e2e_wait_gateway_ready() {
     fi
     if [ "$saw_ready_log" = "true" ]; then
       [ -n "$ready_port" ] || ready_port="${OPENCLAW_E2E_GATEWAY_READY_PORT:-18789}"
-      if [ "$readiness_mode" = "legacy-ready-log-ok" ]; then
-        openclaw_e2e_probe_tcp 127.0.0.1 "$ready_port" 400 && return 0
-      else
-        openclaw_e2e_probe_http "http://127.0.0.1:${ready_port}/readyz" ok 400 && return 0
-      fi
+    fi
+    if [ "$readiness_mode" = "legacy-ready-log-ok" ]; then
+      [ "$saw_ready_log" = "true" ] && openclaw_e2e_probe_tcp 127.0.0.1 "$ready_port" 400 && openclaw_e2e_process_alive "$pid" && return 0
+    elif [ -n "$ready_port" ]; then
+      # Deferred admission can settle after the one-time startup log check.
+      # The owned port's modern readiness JSON is authoritative, not any HTTP 200.
+      openclaw_e2e_probe_http "http://127.0.0.1:${ready_port}/readyz" gateway-ready 400 && openclaw_e2e_process_alive "$pid" && return 0
     fi
     sleep 0.25
   done
@@ -440,7 +459,9 @@ openclaw_e2e_probe_http() {
     let response;
     try {
       response = await fetch(process.argv[1], { signal: controller.signal });
-      const passed = expected === "ok" ? response.ok : response.status === Number(expected);
+      const passed = expected === "gateway-ready"
+        ? response.status === 200 && (await response.json())?.ready === true
+        : expected === "ok" ? response.ok : response.status === Number(expected);
       exitCode = passed ? 0 : 1;
     } catch {
       exitCode = 1;

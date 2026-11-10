@@ -1,2 +1,2 @@
-import { t as handleDiscordAction } from "./.setup/runtime-CESTexGn.mjs";
+import { t as handleDiscordAction } from "./.setup/runtime-RWnuJgWB.mjs";
 export { handleDiscordAction };

@@ -1,10 +1,10 @@
-import { d as toStringifiedError, u as toErrorObject } from "../../error-coercion-CvJK4lmH.mjs";
-import { i as resolveRuntimeWorkerUrl, n as resolveRuntimeWorkerArgv } from "../../runtime-worker-url-DoBSDhBS.mjs";
-import { n as createCpuTrackedWorker } from "../../worker-cpu-DU6Cf6Aq.mjs";
-import "../../error-runtime-BmospGvZ.mjs";
-import "../../process-runtime-CYiH_oPH.mjs";
-import { a as createDeferred } from "../../extension-shared-GoQu59iC.mjs";
-import { a as OpenAIQuicksilverPendingAudio } from "../../realtime-quicksilver-audio-buffer-BQ7ahbkO.mjs";
+import { d as toErrorObject, f as toStringifiedError } from "../../error-coercion-BwMr25F8.mjs";
+import { i as resolveRuntimeWorkerUrl, n as resolveRuntimeWorkerArgv } from "../../runtime-worker-url-CvMrvFI1.mjs";
+import { n as createCpuTrackedWorker } from "../../worker-cpu-c5lFIb1t.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import "../../process-runtime-CG9_3L3N.mjs";
+import { a as createDeferred } from "../../extension-shared-Bp_Ziw8S.mjs";
+import { a as OpenAIQuicksilverPendingAudio } from "../../realtime-quicksilver-audio-buffer-D3gKGDMC.mjs";
 //#region extensions/openai/realtime-quicksilver-peer.runtime.ts
 var OpenAIQuicksilverAudioPeer = class OpenAIQuicksilverAudioPeer {
 	static async create(params) {

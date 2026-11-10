@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-IQf3eJtA.mjs";function chunkItems(e,t){if(t<=0)return[Array.from(e)];let n=[];for(let r=0;r<e.length;r+=t)n.push(e.slice(r,r+t));return n}function init_chunk_items(){return(init_chunk_items=e((()=>{})))()}export{init_chunk_items as n,chunkItems as t};

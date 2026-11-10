@@ -120,7 +120,10 @@ function restoreEvent(event, state) {
 	if ("partial" in restored && restored.partial) restored.partial = restoreMessage(restored.partial, state);
 	if (restored.type === "toolcall_delta") {
 		const call = restored.partial.content[restored.contentIndex];
-		if (call?.type === "toolCall" && (state.fields.get(call.name)?.length ?? 0) > 0) restored.delta = "";
+		if (call?.type === "toolCall" && (state.fields.get(call.name)?.length ?? 0) > 0) {
+			restored.delta = "";
+			delete call.partialJson;
+		}
 	} else if (restored.type === "toolcall_end") {
 		restored.toolCall = { ...restored.toolCall };
 		transformCall(restored.toolCall, state, false);

@@ -45,9 +45,6 @@
     "additionalProperties": false,
     "properties": {}
   },
-  "controlUi": {
-    "entry": "dist/control-ui/2afbdab1d3aa65a789d8a3eba666f4b1ec5df07073538fe30d6cf32093a1fb2d/index.js"
-  },
   "channelConfigs": {
     "discord": {
       "schema": {
@@ -3741,11 +3738,11 @@
         },
         "streaming": {
           "label": "Discord Streaming Mode",
-          "help": "Discord preview streaming is off by default. Set mode to \"partial\", \"block\", or \"progress\" to opt in. Run openclaw doctor --fix to migrate legacy keys."
+          "help": "Discord shows useful work status by default without streaming answer text. Set mode to \"off\" for quiet final-only delivery, or \"partial\"/\"block\" for answer previews. Run openclaw doctor --fix to migrate legacy keys."
         },
         "streaming.mode": {
           "label": "Discord Streaming Mode",
-          "help": "Discord preview mode: \"off\" | \"partial\" | \"block\" | \"progress\". Default: \"off\"."
+          "help": "Discord preview mode: \"off\" | \"partial\" | \"block\" | \"progress\". Default: \"progress\"; \"off\" explicitly disables progress drafts."
         },
         "streaming.chunkMode": {
           "label": "Discord Chunk Mode",
@@ -3797,7 +3794,7 @@
         },
         "streaming.progress.toolProgress": {
           "label": "Discord Progress Tool Lines",
-          "help": "Show individual tool activity, including intermediate failures, in progress drafts (default: false). Quiet drafts retain plans, approval requests, and authored progress text. Terminal task errors remain visible."
+          "help": "Show the detailed rolling tool log (default: false). Work status, delegated-task states, plans, and authored progress remain visible without it. Set streaming.mode to off for quiet final-only delivery."
         },
         "streaming.progress.commentary": {
           "label": "Discord Progress Commentary",

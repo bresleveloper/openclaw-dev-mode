@@ -1,10 +1,23 @@
+import { d as resolveMatrixAuthContext } from "./.setup/client-BEl7PU1_.mjs";
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
-import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
+import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/matrix/src/plugin-entry.runtime.ts
-const loadMatrixVerificationRuntime = createLazyRuntimeModule(() => import("./.setup/verification-kMlFYUn0.mjs").then((n) => n.y));
+const loadMatrixVerificationRuntime = createLazyRuntimeModule(() => import("./.setup/verification-CuT5ZBDO.mjs").then((n) => n.y));
 function sendError(respond, err) {
 	respond(false, { error: formatErrorMessage(err) });
+}
+function respondVerification(request, result, success) {
+	if (request.params.expectedOwnerId !== void 0) {
+		const accountId = resolveMatrixAuthContext({
+			cfg: request.context.getRuntimeConfig(),
+			accountId: normalizeOptionalString(request.params.accountId)
+		}).accountId;
+		request.respond(true, {
+			result,
+			accountId
+		});
+	} else request.respond(success, result);
 }
 async function handleVerifyRecoveryKey({ params, respond, context }) {
 	try {
@@ -18,7 +31,11 @@ async function handleVerifyRecoveryKey({ params, respond, context }) {
 			accountId: normalizeOptionalString(params?.accountId),
 			cfg: context.getRuntimeConfig()
 		});
-		respond(result.success, result);
+		respondVerification({
+			params,
+			respond,
+			context
+		}, result, result.success);
 	} catch (err) {
 		sendError(respond, err);
 	}
@@ -35,7 +52,11 @@ async function handleVerificationBootstrap({ params, respond, context }) {
 			recoveryKey,
 			forceResetCrossSigning
 		});
-		respond(result.success, result);
+		respondVerification({
+			params,
+			respond,
+			context
+		}, result, result.success);
 	} catch (err) {
 		sendError(respond, err);
 	}
@@ -43,11 +64,17 @@ async function handleVerificationBootstrap({ params, respond, context }) {
 async function handleVerificationStatus({ params, respond, context }) {
 	try {
 		const { getMatrixVerificationStatus } = await loadMatrixVerificationRuntime();
-		respond(true, await getMatrixVerificationStatus({
+		const status = await getMatrixVerificationStatus({
 			accountId: normalizeOptionalString(params?.accountId),
 			includeRecoveryKey: params?.includeRecoveryKey === true,
+			...params.allowDegradedLocalState === true ? { readiness: "none" } : {},
 			cfg: context.getRuntimeConfig()
-		}));
+		});
+		respondVerification({
+			params,
+			respond,
+			context
+		}, status, true);
 	} catch (err) {
 		sendError(respond, err);
 	}

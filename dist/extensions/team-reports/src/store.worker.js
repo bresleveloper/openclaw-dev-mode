@@ -1,10 +1,10 @@
 import { a as periodSchema, n as DAY_MS } from "../.setup/limits-iMrGeJ-3.mjs";
-import { i as itemKey, n as aggregateDays, t as aggregateDay } from "../.setup/aggregate-l0KMm8Hi.mjs";
+import { i as itemKey, n as aggregateDays, t as aggregateDay } from "../.setup/aggregate-KniOgsu_.mjs";
 import path from "node:path";
-import { z } from "zod";
 import fs from "node:fs";
+import { z } from "zod";
 import { configureSqliteConnectionPragmas, migrateSqliteSchemaToStrict } from "openclaw/plugin-sdk/plugin-state-runtime";
-import { enableNodeSqliteKyselyStatementCache, executeSqliteQuerySync, executeSqliteQueryTakeFirstSync, getNodeSqliteKysely, iterateSqliteQuerySync, openNodeSqliteDatabase, runSqliteDeferredTransactionSync, runSqliteImmediateTransactionSync } from "openclaw/plugin-sdk/sqlite-worker-runtime";
+import { enableNodeSqliteKyselyStatementCache, executeSqliteQuerySync, executeSqliteQueryTakeFirstSync, getNodeSqliteKysely, getSqliteDatabaseAdmission, iterateSqliteQuerySync, openNodeSqliteDatabase, publishSqliteDatabaseAdmission, runSqliteDeferredTransactionSync, runSqliteImmediateTransactionSync } from "openclaw/plugin-sdk/sqlite-worker-runtime";
 //#region extensions/team-reports/src/store-schema.ts
 const TEAM_REPORTS_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS team_reports_schema_migrations (
@@ -190,6 +190,11 @@ const runStatsSchema = z.record(z.string(), z.unknown());
 //#endregion
 //#region extensions/team-reports/src/store.worker.ts
 const PERSON_DAY_INSERT_BATCH_SIZE = 64;
+const schemaAdmission = {
+	name: "teamReports.schema",
+	schemaDependent: true,
+	read: (value) => value === true ? true : void 0
+};
 function readPeriod(row) {
 	return {
 		report: reportDocumentSchema.parse(JSON.parse(row.data_json)),
@@ -494,14 +499,16 @@ function openTeamReportsDatabase(dbPath) {
 			foreignKeys: true,
 			synchronous: "NORMAL"
 		});
-		db.exec(TEAM_REPORTS_SCHEMA_SQL);
-		const query = getNodeSqliteKysely(db);
-		if (!executeSqliteQueryTakeFirstSync(db, query.selectFrom("team_reports_schema_migrations").select("id").where("id", "=", "schema-1"))) {
-			migrateSqliteSchemaToStrict(db, TEAM_REPORTS_SCHEMA_SQL, { databaseLabel: "team-reports database" });
-			executeSqliteQuerySync(db, query.insertInto("team_reports_schema_migrations").values({
-				id: "schema-1",
-				applied_at: Date.now()
-			}).onConflict((conflict) => conflict.column("id").doNothing()));
+		if (!getSqliteDatabaseAdmission(db, schemaAdmission)) {
+			db.exec(TEAM_REPORTS_SCHEMA_SQL);
+			const query = getNodeSqliteKysely(db);
+			if (!executeSqliteQueryTakeFirstSync(db, query.selectFrom("team_reports_schema_migrations").select("id").where("id", "=", "schema-1"))) {
+				migrateSqliteSchemaToStrict(db, TEAM_REPORTS_SCHEMA_SQL, { databaseLabel: "team-reports database" });
+				executeSqliteQuerySync(db, query.insertInto("team_reports_schema_migrations").values({
+					id: "schema-1",
+					applied_at: Date.now()
+				}).onConflict((conflict) => conflict.column("id").doNothing()));
+			}
 		}
 		for (const file of [
 			dbPath,
@@ -509,7 +516,9 @@ function openTeamReportsDatabase(dbPath) {
 			`${dbPath}-shm`,
 			`${dbPath}-journal`
 		]) chmodIfExists(file);
-		return new TeamReportsDatabase(db, maintenance);
+		const database = new TeamReportsDatabase(db, maintenance);
+		publishSqliteDatabaseAdmission(db, schemaAdmission, true);
+		return database;
 	} catch (error) {
 		try {
 			maintenance?.close();

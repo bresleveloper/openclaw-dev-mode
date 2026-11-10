@@ -1,42 +1,43 @@
 import { c as normalizeOptionalLowercaseString, h as readNonEmptyStringPreservingWhitespace, l as normalizeOptionalString, m as readNonBlankString } from "../string-coerce-1VuiLaaR.mjs";
-import { P as resolvePositiveTimerTimeoutMs, a as addTimerTimeoutGraceMs, f as asSafeIntegerInRange, u as asPositiveFiniteNumber } from "../number-coercion-CuVhdCBs.mjs";
-import { t as coerceErrorMessage } from "../error-coercion-CvJK4lmH.mjs";
+import { P as resolvePositiveTimerTimeoutMs, a as addTimerTimeoutGraceMs, f as asSafeIntegerInRange, u as asPositiveFiniteNumber } from "../number-coercion-CkhMiRw8.mjs";
+import { n as coerceErrorMessage } from "../error-coercion-BwMr25F8.mjs";
 import { t as createDeferredCore } from "../deferred-D0La5CRk.mjs";
-import { r as createLazyRuntimeModule } from "../lazy-runtime-CJrzFzqU.mjs";
 import { a as asOptionalRecord, o as asRecord } from "../record-coerce-TIsquoVR.mjs";
-import { s as normalizeOptionalTrimmedStringList, y as uniqueStrings } from "../string-normalization-CECOqf64.mjs";
+import { s as normalizeOptionalTrimmedStringList, y as uniqueStrings } from "../string-normalization-D6DKCpwE.mjs";
 import { r as truncateUtf16Safe } from "../utf16-slice-D_ngcYKd.mjs";
-import { h as sleep } from "../utils-DgZn2dLu.mjs";
-import { s as raceWithTimeout } from "../src-D1BHGNTj.mjs";
-import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
-import { Fn as object, Jn as string, Lt as boolean, Nt as array, Pn as number, Sn as looseObject, or as union, sr as unknown } from "../schemas-BOYIvvln.mjs";
-import { a as PluginStateStoreError } from "../openclaw-state-worker-error-Cmtk9G4_.mjs";
+import "../utils-gjJ-tD2q.mjs";
+import { s as raceWithTimeout } from "../src-Bzfi3cQM.mjs";
+import { t as sleep } from "../sleep-BJ5slSa3.mjs";
+import { t as formatErrorMessage } from "../errors-DPfGDWk1.mjs";
+import { Fn as object, Jn as string, Lt as boolean, Nt as array, Pn as number, Sn as looseObject, sr as unknown } from "../schemas-BOYIvvln.mjs";
 import { n as truncateUtf8Suffix } from "../utf8-truncate-_hf7tp13.mjs";
-import { t as KeyedAsyncQueue } from "../keyed-async-queue-CTreGrmR.mjs";
 import { n as normalizeAgentId } from "../agent-id-D1-Q6vR4.mjs";
-import { g as resolveDefaultAgentId } from "../agent-scope-config-CDYpzA0r.mjs";
-import { M as parseAgentSessionKey } from "../session-key-C09ow4h0.mjs";
-import { n as callGatewayFromCli } from "../gateway-rpc-Cl_Z2Z7Q.mjs";
-import { r as onDecodedOutput } from "../decoded-output-QlGZ46Aj.mjs";
-import "../plugin-state-store.kernel-DUORZ5yM.mjs";
-import { t as ErrorCodes } from "../gateway-error-details-DIefe7Zy.mjs";
-import { f as errorShape } from "../error-codes-Dh56LniQ.mjs";
-import { t as canonicalizeBase64 } from "../base64-CU53EX1R.mjs";
+import { t as PluginStateStoreError } from "../plugin-state-error-Wxkh7e3f.mjs";
+import { r as createLazyRuntimeModule } from "../lazy-runtime-CJrzFzqU.mjs";
+import { M as parseAgentSessionKey } from "../session-key-CSDERtm3.mjs";
+import { _ as resolveDefaultAgentId } from "../agent-scope-config-fjA2T9Gz.mjs";
+import { Ng as errorShape } from "../src-pLJQA6J5.mjs";
+import { t as KeyedAsyncQueue } from "../keyed-async-queue-CTreGrmR.mjs";
+import { t as ErrorCodes } from "../gateway-error-details-Cl-eEOTQ.mjs";
 import { t as jsonResult } from "../tool-results-BCM3fdVS.mjs";
-import { c as readNonNegativeIntegerParam, u as readPositiveIntegerParam } from "../common-Dyxcwsy8.mjs";
+import { c as readNonNegativeIntegerParam, u as readPositiveIntegerParam } from "../common-BofcG96e.mjs";
+import { t as canonicalizeBase64 } from "../base64-CU53EX1R.mjs";
+import "../plugin-state-store.types-CLUTlkgE.mjs";
+import { r as onDecodedOutput } from "../decoded-output-Pq9RWQJS.mjs";
+import { n as callGatewayFromCli } from "../gateway-rpc-Wcwajg7Y.mjs";
 import { t as resolveTranscriptsConfig } from "../config-B42acf6V.mjs";
-import { n as getRealtimeTranscriptionProvider, r as listRealtimeTranscriptionProviders } from "../provider-registry-Dq_aj-ar.mjs";
-import { S as resolveRealtimeVoiceBargeIn, d as resolveConfiguredRealtimeVoiceProvider, t as createRealtimeVoiceSessionHarness, y as consultRealtimeVoiceAgent } from "../realtime-session-harness-CZgnZGxB.mjs";
-import { A as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, D as resolveRealtimeVoiceAgentConsultTools, E as resolveRealtimeVoiceAgentConsultToolPolicy, O as resolveRealtimeVoiceAgentConsultToolsAllow, k as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, x as buildRealtimeVoiceAgentConsultWorkingResponse } from "../agent-run-control-shared-HQwazRP4.mjs";
-import { a as convertPcmToMulaw8k, i as readPcm16AudioStats, l as resamplePcm, n as createSpeechThresholdGate, r as isRealtimeVoiceAudioAudible, s as mulawToPcm } from "../audio-energy-DXFUFDyy.mjs";
-import { a as createMeetingStatusCallSource, i as createMeetingStatusPreludeSource, n as createMeetingPageScripts } from "../page-script-source-BCpP1rNj.mjs";
-import { a as snapshotMeetingObservation, i as normalizeMeetingObservationProvenance, o as snapshotMeetingTranscript, r as meetingCaptionParticipationSources, s as meetingCaptionSourceSchema, t as MeetingSessionTranscriptStore } from "../session-transcript-store-FjmK_UEB.mjs";
-import { t as createMeetingTranscriptSourceProvider } from "../transcripts-bridge-BhkdwJIv.mjs";
-import { t as registerMeetingPluginCli } from "../plugin-cli-B8jd8x_k.mjs";
-import { spawn, spawnSync } from "node:child_process";
+import { n as getRealtimeTranscriptionProvider, r as listRealtimeTranscriptionProviders } from "../provider-registry-ChkIAbrd.mjs";
+import { C as resolveRealtimeVoiceBargeIn, f as resolveConfiguredRealtimeVoiceProviderAsync, t as createRealtimeVoiceSessionHarness, x as consultRealtimeVoiceAgent } from "../realtime-session-harness-C96O9S-p.mjs";
+import { D as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, E as resolveRealtimeVoiceAgentConsultToolsAllow, O as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, T as resolveRealtimeVoiceAgentConsultTools, w as resolveRealtimeVoiceAgentConsultToolPolicy, y as buildRealtimeVoiceAgentConsultWorkingResponse } from "../agent-run-control-shared-CErtQzFX.mjs";
+import { a as resamplePcm, r as mulawToPcm, t as convertPcmToMulaw8k } from "../audio-codec-CZcvtjIg.mjs";
+import { i as readPcm16AudioStats, n as createSpeechThresholdGate, r as isRealtimeVoiceAudioAudible } from "../audio-energy-D6TOXih8.mjs";
+import { a as createMeetingStatusCallSource, i as createMeetingStatusPreludeSource, n as createMeetingPageScripts } from "../page-script-source-DR8Kv2H5.mjs";
+import { a as snapshotMeetingObservation, i as normalizeMeetingObservationProvenance, o as snapshotMeetingTranscript, r as meetingCaptionParticipationSources, s as meetingCaptionSourceSchema, t as MeetingSessionTranscriptStore } from "../session-transcript-store-BM6pXUni.mjs";
+import { t as registerMeetingPluginCli } from "../plugin-cli-B0yB4g_i.mjs";
 import { createHash, randomUUID } from "node:crypto";
-import { Readable } from "node:stream";
+import { spawn, spawnSync } from "node:child_process";
 import { Type } from "typebox";
+import { Readable } from "node:stream";
 //#region src/meeting-bot/realtime-audio-format.ts
 function resolveMeetingRealtimeAudioFormat(audioFormat) {
 	return audioFormat === "g711-ulaw-8khz" ? REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ : REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ;
@@ -81,13 +82,45 @@ function alawByteToLinear(value) {
 }
 //#endregion
 //#region src/meeting-bot/realtime-engine-support.ts
-const MEETING_REALTIME_CANCELLATION_RACE_DETAIL = "Cancellation failed: no active response found";
+const MEETING_AGENT_TRANSCRIPT_DEBOUNCE_MS = 900;
+const MEETING_OUTPUT_ECHO_SUPPRESSION_TAIL_MS = 3e3;
+const MEETING_TRANSCRIPT_ECHO_LOOKBACK_MS = 45e3;
+function createMeetingRealtimeHarness(params, options) {
+	const harness = createRealtimeVoiceSessionHarness({
+		talk: options.talk,
+		talkPayloads: options.talkPayloads,
+		echoSuppression: params.transport.inputAudioIsolated ? void 0 : {
+			bytesPerMs: meetingOutputBytesPerMs(params.config.chrome.audioFormat),
+			tailMs: MEETING_OUTPUT_ECHO_SUPPRESSION_TAIL_MS,
+			transcriptLookbackMs: MEETING_TRANSCRIPT_ECHO_LOOKBACK_MS
+		},
+		talkback: {
+			debounceMs: MEETING_AGENT_TRANSCRIPT_DEBOUNCE_MS,
+			logger: params.logger,
+			logPrefix: options.logPrefix,
+			responseStyle: "Brief, natural spoken answer for a live meeting.",
+			fallbackText: "I hit an error while checking that. Please try again.",
+			consult: ({ question, responseStyle, signal }) => params.consultAgent({
+				meetingSessionId: params.meetingSessionId,
+				requesterSessionKey: params.requesterSessionKey,
+				args: {
+					question,
+					responseStyle
+				},
+				transcript: harness.transcript,
+				abortSignal: signal
+			}),
+			deliver: options.deliver
+		}
+	});
+	return harness;
+}
 function meetingOutputBytesPerMs(audioFormat) {
 	return audioFormat === "g711-ulaw-8khz" ? 8 : 48;
 }
-function resolveMeetingRealtimeProvider(params) {
+async function resolveMeetingRealtimeProvider(params) {
 	const providerId = params.config.realtime.voiceProvider ?? params.config.realtime.provider;
-	return resolveConfiguredRealtimeVoiceProvider({
+	return resolveConfiguredRealtimeVoiceProviderAsync({
 		configuredProviderId: providerId,
 		providerConfigs: params.config.realtime.providers,
 		cfg: params.fullConfig,
@@ -99,7 +132,7 @@ function resolveMeetingRealtimeProvider(params) {
 		noRegisteredProviderMessage: "No configured realtime voice provider registered"
 	});
 }
-function resolveMeetingRealtimeTranscriptionProvider(params) {
+async function resolveMeetingRealtimeTranscriptionProvider(params) {
 	const providers = params.providers ?? listRealtimeTranscriptionProviders(params.fullConfig);
 	if (providers.length === 0) throw new Error("No configured realtime transcription provider registered");
 	const providerId = params.config.realtime.transcriptionProvider ?? params.config.realtime.provider;
@@ -110,10 +143,13 @@ function resolveMeetingRealtimeTranscriptionProvider(params) {
 		cfg: params.fullConfig,
 		rawConfig
 	}) : rawConfig;
-	if (!provider.isConfigured({
+	if (!(provider.isConfiguredAsync ? await provider.isConfiguredAsync({
 		cfg: params.fullConfig,
 		providerConfig
-	})) throw new Error(`Realtime transcription provider "${provider.id}" is not configured`);
+	}) : provider.isConfigured?.({
+		cfg: params.fullConfig,
+		providerConfig
+	}) ?? false)) throw new Error(`Realtime transcription provider "${provider.id}" is not configured`);
 	return {
 		provider,
 		providerConfig
@@ -164,68 +200,6 @@ function normalizeMeetingTtsPromptText(text) {
 	if (sayExactly) return sayExactly.replace(/^["']|["']$/g, "").trim() || trimmed;
 	return trimmed;
 }
-function createMeetingRealtimeLifecycleHandlers(params) {
-	const onEvent = (event) => {
-		if (event.direction === "server" && event.type === "session.created") params.lifecycle.continuityResetActive = false;
-		if (event.direction === "client" && event.type === "session.continuity.reset") {
-			if (params.lifecycle.continuityResetActive) return;
-			params.lifecycle.continuityResetActive = true;
-			params.lifecycle.realtimeReady = false;
-			params.outputOwner.reset();
-			params.lifecycle.outputGenerationActive = false;
-			params.resetToolContinuity(event.type);
-			const turnId = params.harness.talk.activeTurnId;
-			params.invalidateOutputPlayback();
-			params.harness.flushOutput(params.clearOutputPlayback);
-			params.harness.finishOutputAudio(event.type);
-			if (turnId) params.harness.talk.cancelTurn({
-				turnId,
-				payload: {
-					...params.outputTalkPayload,
-					reason: event.type
-				}
-			});
-			return;
-		}
-		params.outputOwner.noteEvent(event);
-		if (event.type === "input_audio_buffer.speech_started") params.harness.ensureTurn();
-		else if (event.type === "input_audio_buffer.speech_stopped") {
-			const turnId = params.harness.talk.activeTurnId;
-			if (!turnId) return;
-			params.harness.emit({
-				type: "input.audio.committed",
-				turnId,
-				payload: {
-					...params.outputTalkPayload,
-					source: event.type
-				},
-				final: true
-			});
-		} else if (event.type === "error" && event.detail === MEETING_REALTIME_CANCELLATION_RACE_DETAIL) {
-			if (params.outputOwner.clearBlocked()) {
-				params.lifecycle.outputGenerationActive = false;
-				params.harness.finishOutputAudio(event.type);
-			}
-		} else if (event.type === "error") params.harness.emit({
-			type: "session.error",
-			payload: { message: event.detail ?? "Realtime provider error" },
-			final: true
-		});
-		if (event.type === "error" || event.type === "response.done" || event.type === "input_audio_buffer.speech_started" || event.type === "input_audio_buffer.speech_stopped" || event.type === "conversation.item.input_audio_transcription.completed" || event.type === "conversation.item.input_audio_transcription.failed") {
-			const detail = event.detail ? ` ${event.detail}` : "";
-			params.logger.info(`${params.logScope} ${params.realtimeLogScope} ${event.direction}:${event.type}${detail}`);
-		}
-	};
-	const onResponseDone = (outcome) => {
-		if (!params.outputOwner.terminal(outcome.responseId)) return;
-		params.lifecycle.outputGenerationActive = false;
-		if (outcome.status === "failed" || outcome.status === "incomplete") params.logger.warn(`${params.logScope} ${params.realtimeLogScope} response ${outcome.status}: ${outcome.message}`);
-	};
-	return {
-		onEvent,
-		onResponseDone
-	};
-}
 //#endregion
 //#region src/meeting-bot/realtime-output-owner.ts
 const STALE_RESPONSE_LIMIT = 16;
@@ -234,14 +208,18 @@ const AUDIO_DELTA_EVENTS = /* @__PURE__ */ new Set([
 	"response.audio.delta",
 	"response.output_audio.delta"
 ]);
-const OUTPUT_MAX_PENDING_MS = 2e3;
+const OUTPUT_MAX_PENDING_MS = 12e4;
+const OUTPUT_MAX_PENDING_FRAMES = 6e3;
 const OUTPUT_MAX_WRITE_MS = 500;
-const OUTPUT_MAX_PENDING_FRAMES = 256;
+const OUTPUT_STALL_MS = 5e3;
+const OUTPUT_STALL_PENDING_MS = 2e3;
 /** Serializes native playback writes and fences queued audio across interruption. */
 function createMeetingRealtimeOutputQueue(params) {
 	let stopped = false;
 	let generation = 0;
 	let writePhase = "idle";
+	let writeStartedAt = 0;
+	let stallTimer;
 	let clearPending = 0;
 	let clearAfterActive = false;
 	let pendingBytes = 0;
@@ -254,8 +232,12 @@ function createMeetingRealtimeOutputQueue(params) {
 	let clearTail = Promise.resolve();
 	const queue = [];
 	const maxPendingBytes = params.bytesPerMs * OUTPUT_MAX_PENDING_MS;
+	const stallPendingBytes = params.bytesPerMs * OUTPUT_STALL_PENDING_MS;
 	const maxWriteBytes = params.bytesPerMs * OUTPUT_MAX_WRITE_MS;
+	const isStalled = (incomingBytes = 0) => writePhase === "writing" && Date.now() - writeStartedAt >= OUTPUT_STALL_MS && pendingBytes + incomingBytes > stallPendingBytes;
 	const reset = () => {
+		clearTimeout(stallTimer);
+		stallTimer = void 0;
 		generation += 1;
 		queue.length = 0;
 		pendingBytes = 0;
@@ -299,6 +281,10 @@ function createMeetingRealtimeOutputQueue(params) {
 			if (stopped || next.generation !== generation) return;
 			if (next.beginsOutput) params.transport.beginOutput?.();
 			writePhase = "writing";
+			writeStartedAt = Date.now();
+			stallTimer = setTimeout(() => {
+				if (isStalled()) params.onStall();
+			}, OUTPUT_STALL_MS);
 			await params.transport.writeOutput(audio);
 			if (!stopped && next.generation === generation) {
 				playableUntilMs = Math.max(Date.now(), playableUntilMs);
@@ -310,6 +296,8 @@ function createMeetingRealtimeOutputQueue(params) {
 		}).catch((error) => {
 			if (!stopped && next.generation === generation) params.onFailure("audio output", error);
 		}).finally(() => {
+			clearTimeout(stallTimer);
+			stallTimer = void 0;
 			writePhase = "idle";
 			if (next.generation === generation) {
 				pendingBytes -= batchBytes;
@@ -326,7 +314,7 @@ function createMeetingRealtimeOutputQueue(params) {
 	};
 	return {
 		enqueue(audio, audible, beginsOutput) {
-			if (stopped || audio.byteLength > maxPendingBytes - pendingBytes || pendingFrames >= OUTPUT_MAX_PENDING_FRAMES) return false;
+			if (stopped || isStalled(audio.byteLength) || audio.byteLength > maxPendingBytes - pendingBytes || pendingFrames >= OUTPUT_MAX_PENDING_FRAMES) return false;
 			pendingBytes += audio.byteLength;
 			pendingFrames += 1;
 			pendingAudibleFrames += Number(audible);
@@ -463,10 +451,8 @@ function readMeetingRealtimeToolAbortSignal(session) {
 	return meetingRealtimeToolAbortSignals.get(session);
 }
 function createMeetingRealtimeToolContinuity(handleToolCall) {
-	let epoch = 0;
 	const activeControllers = /* @__PURE__ */ new Set();
 	const reset = (reason) => {
-		epoch += 1;
 		for (const controller of activeControllers) controller.abort(reason);
 		activeControllers.clear();
 	};
@@ -487,10 +473,9 @@ function createMeetingRealtimeToolContinuity(handleToolCall) {
 		}
 	};
 	const run = (params) => {
-		const callEpoch = epoch;
 		const controller = new AbortController();
 		activeControllers.add(controller);
-		const isActive = () => !controller.signal.aborted && callEpoch === epoch;
+		const isActive = () => !controller.signal.aborted;
 		const turnId = params.harness.ensureTurn();
 		params.harness.emit({
 			type: "tool.call",
@@ -530,8 +515,8 @@ function createMeetingRealtimeToolContinuity(handleToolCall) {
 		runConsult
 	};
 }
-const MEETING_OUTPUT_ECHO_SUPPRESSION_TAIL_MS = 3e3;
-const MEETING_TRANSCRIPT_ECHO_LOOKBACK_MS = 45e3;
+//#endregion
+//#region src/meeting-bot/realtime-engine.ts
 async function startMeetingRealtimeEngine(params) {
 	let stopped = false;
 	let stopPromise;
@@ -539,11 +524,9 @@ async function startMeetingRealtimeEngine(params) {
 	let transportStopped = false;
 	let transportDisposed = false;
 	let bridge;
-	const lifecycle = {
-		realtimeReady: false,
-		outputGenerationActive: false,
-		continuityResetActive: false
-	};
+	let realtimeReady = false;
+	let outputGenerationActive = false;
+	let continuityResetActive = false;
 	const outputOwner = createMeetingRealtimeOutputOwner();
 	const toolContinuity = createMeetingRealtimeToolContinuity(params.handleToolCall);
 	const realtimeLogScope = params.logPrefix ? `${params.logPrefix} realtime` : "realtime";
@@ -554,14 +537,15 @@ async function startMeetingRealtimeEngine(params) {
 		onFailure: (source, error) => {
 			params.logger.warn(`${params.platform.logScope} ${realtimeLogScope} ${source} failed: ${formatErrorMessage(error)}`);
 			stopAfterFailure(source);
-		}
+		},
+		onStall: () => handleOutputBackpressure()
 	});
 	const stop = async () => {
 		if (!stopped) {
 			stopped = true;
 			outputOwner.reset();
 			outputQueue.stop();
-			lifecycle.outputGenerationActive = false;
+			outputGenerationActive = false;
 			toolContinuity.reset("meeting realtime stopped");
 			harness.talkback?.close();
 			harness.forcedConsults.clear();
@@ -608,7 +592,7 @@ async function startMeetingRealtimeEngine(params) {
 	};
 	const invalidateOutputPlayback = () => {
 		outputQueue.invalidate();
-		lifecycle.outputGenerationActive = false;
+		outputGenerationActive = false;
 	};
 	const invalidateAndClearOutputPlayback = () => {
 		blockOutput();
@@ -653,7 +637,7 @@ async function startMeetingRealtimeEngine(params) {
 			return true;
 		});
 	};
-	const resolved = resolveMeetingRealtimeProvider({
+	const resolved = await resolveMeetingRealtimeProvider({
 		config: params.config,
 		fullConfig: params.fullConfig,
 		providers: params.providers
@@ -676,7 +660,7 @@ async function startMeetingRealtimeEngine(params) {
 		bridgeId: params.talkContext.bridgeId,
 		reason
 	} : { reason };
-	const harness = createRealtimeVoiceSessionHarness({
+	const harness = createMeetingRealtimeHarness(params, {
 		talk: {
 			sessionId: params.talkSessionId ?? `${params.platform.sessionIdPrefix}:${params.meetingSessionId}:command-realtime`,
 			mode: "realtime",
@@ -692,30 +676,9 @@ async function startMeetingRealtimeEngine(params) {
 			outputAudioDelta: (audio) => ({ byteLength: audio.byteLength }),
 			outputAudioDone: reasonTalkPayload
 		},
-		echoSuppression: params.transport.inputAudioIsolated ? void 0 : {
-			bytesPerMs: meetingOutputBytesPerMs(params.config.chrome.audioFormat),
-			tailMs: MEETING_OUTPUT_ECHO_SUPPRESSION_TAIL_MS,
-			transcriptLookbackMs: MEETING_TRANSCRIPT_ECHO_LOOKBACK_MS
-		},
-		talkback: {
-			debounceMs: 900,
-			logger: params.logger,
-			logPrefix: `${params.platform.logScope} ${realtimeLogScope} agent`,
-			responseStyle: "Brief, natural spoken answer for a live meeting.",
-			fallbackText: "I hit an error while checking that. Please try again.",
-			consult: ({ question, responseStyle, signal }) => params.consultAgent({
-				meetingSessionId: params.meetingSessionId,
-				requesterSessionKey: params.requesterSessionKey,
-				args: {
-					question,
-					responseStyle
-				},
-				transcript: harness.transcript,
-				abortSignal: signal
-			}),
-			deliver: (text) => {
-				bridge?.sendUserMessage(buildMeetingSpeakExactUserMessage(text));
-			}
+		logPrefix: `${params.platform.logScope} ${realtimeLogScope} agent`,
+		deliver: (text) => {
+			bridge?.sendUserMessage(buildMeetingSpeakExactUserMessage(text));
 		}
 	});
 	harness.emit({
@@ -729,18 +692,6 @@ async function startMeetingRealtimeEngine(params) {
 		stopAfterFailure("audio transport");
 	});
 	if (stopped) throw new Error(`${params.platform.displayName} audio transport failed before realtime provider setup`);
-	const lifecycleHandlers = createMeetingRealtimeLifecycleHandlers({
-		clearOutputPlayback: outputQueue.clear,
-		lifecycle,
-		harness,
-		invalidateOutputPlayback,
-		logger: params.logger,
-		logScope: params.platform.logScope,
-		outputOwner,
-		outputTalkPayload,
-		realtimeLogScope,
-		resetToolContinuity: (reason) => toolContinuity.reset(reason)
-	});
 	try {
 		const requireIsolatedInput = () => {
 			if (!params.transport.inputAudioIsolated) throw new Error(`${params.platform.displayName} native live voice requires isolated meeting audio input. Remove chrome.audioInputCommand to use managed browser capture, which must be available before connecting.`);
@@ -779,18 +730,18 @@ async function startMeetingRealtimeEngine(params) {
 					const continuous = bridge?.bridge.outputAudioMode === "continuous";
 					const audible = !continuous || isRealtimeVoiceAudioAudible(audio, audioFormat);
 					if (!audible && !outputQueue.hasUnplayedAudibleAudio()) {
-						if (lifecycle.outputGenerationActive) {
-							lifecycle.outputGenerationActive = false;
+						if (outputGenerationActive) {
+							outputGenerationActive = false;
 							harness.finishOutputAudio("silence");
 						}
 						return;
 					}
 					if (stopped || !continuous && !outputOwner.accept(responseId)) return;
-					if (!outputQueue.enqueue(audio, audible, !lifecycle.outputGenerationActive)) {
+					if (!outputQueue.enqueue(audio, audible, !outputGenerationActive)) {
 						handleOutputBackpressure();
 						return;
 					}
-					lifecycle.outputGenerationActive = true;
+					outputGenerationActive = true;
 					harness.outputActivity.markPlaybackStarted();
 					harness.recordOutputAudio(audio);
 				},
@@ -831,8 +782,62 @@ async function startMeetingRealtimeEngine(params) {
 				}
 				if (!stopped) harness.talkback?.enqueue(text);
 			},
-			onEvent: lifecycleHandlers.onEvent,
-			onResponseDone: lifecycleHandlers.onResponseDone,
+			onEvent: (event) => {
+				if (event.direction === "server" && event.type === "session.created") continuityResetActive = false;
+				if (event.direction === "client" && event.type === "session.continuity.reset") {
+					if (continuityResetActive) return;
+					continuityResetActive = true;
+					realtimeReady = false;
+					outputOwner.reset();
+					outputGenerationActive = false;
+					toolContinuity.reset(event.type);
+					const turnId = harness.talk.activeTurnId;
+					invalidateOutputPlayback();
+					harness.flushOutput(outputQueue.clear);
+					harness.finishOutputAudio(event.type);
+					if (turnId) harness.talk.cancelTurn({
+						turnId,
+						payload: {
+							...outputTalkPayload,
+							reason: event.type
+						}
+					});
+					return;
+				}
+				outputOwner.noteEvent(event);
+				if (event.type === "input_audio_buffer.speech_started") harness.ensureTurn();
+				else if (event.type === "input_audio_buffer.speech_stopped") {
+					const turnId = harness.talk.activeTurnId;
+					if (!turnId) return;
+					harness.emit({
+						type: "input.audio.committed",
+						turnId,
+						payload: {
+							...outputTalkPayload,
+							source: event.type
+						},
+						final: true
+					});
+				} else if (event.type === "error" && event.detail === "Cancellation failed: no active response found") {
+					if (outputOwner.clearBlocked()) {
+						outputGenerationActive = false;
+						harness.finishOutputAudio(event.type);
+					}
+				} else if (event.type === "error") harness.emit({
+					type: "session.error",
+					payload: { message: event.detail ?? "Realtime provider error" },
+					final: true
+				});
+				if (event.type === "error" || event.type === "response.done" || event.type === "input_audio_buffer.speech_started" || event.type === "input_audio_buffer.speech_stopped" || event.type === "conversation.item.input_audio_transcription.completed" || event.type === "conversation.item.input_audio_transcription.failed") {
+					const detail = event.detail ? ` ${event.detail}` : "";
+					params.logger.info(`${params.platform.logScope} ${realtimeLogScope} ${event.direction}:${event.type}${detail}`);
+				}
+			},
+			onResponseDone: (outcome) => {
+				if (!outputOwner.terminal(outcome.responseId)) return;
+				outputGenerationActive = false;
+				if (outcome.status === "failed" || outcome.status === "incomplete") params.logger.warn(`${params.platform.logScope} ${realtimeLogScope} response ${outcome.status}: ${outcome.message}`);
+			},
 			onToolCall: (event, session) => {
 				if (stopped) return Promise.resolve();
 				return toolContinuity.run({
@@ -856,8 +861,8 @@ async function startMeetingRealtimeEngine(params) {
 				params.logger.warn(`${params.platform.logScope} ${realtimeLogScope} voice bridge failed: ${formatErrorMessage(error)}`);
 			},
 			onClose: (reason) => {
-				lifecycle.outputGenerationActive = false;
-				lifecycle.realtimeReady = false;
+				outputGenerationActive = false;
+				realtimeReady = false;
 				harness.finishOutputAudio(reason);
 				harness.emit({
 					type: "session.closed",
@@ -867,8 +872,8 @@ async function startMeetingRealtimeEngine(params) {
 				stopAfterFailure("voice bridge close");
 			},
 			onReady: () => {
-				lifecycle.realtimeReady = true;
-				lifecycle.continuityResetActive = false;
+				realtimeReady = true;
+				continuityResetActive = false;
 				harness.emit({
 					type: "session.ready",
 					payload: outputTalkPayload
@@ -905,7 +910,7 @@ async function startMeetingRealtimeEngine(params) {
 		getHealth: () => ({
 			...harness.getHealth({
 				providerConnected: bridge?.bridge.isConnected() ?? false,
-				realtimeReady: lifecycle.realtimeReady
+				realtimeReady
 			}),
 			...bridge?.bridge.outputAudioMode === "continuous" ? { audioOutputActive: outputQueue.hasUnplayedAudibleAudio() } : {},
 			...params.transport.getHealth?.(),
@@ -924,7 +929,7 @@ async function startMeetingAgentRealtimeEngine(params) {
 	let realtimeReady = false;
 	let ttsQueue = Promise.resolve();
 	const agentLogScope = params.logPrefix ? `${params.logPrefix} agent` : "agent";
-	const resolved = resolveMeetingRealtimeTranscriptionProvider({
+	const resolved = await resolveMeetingRealtimeTranscriptionProvider({
 		config: params.config,
 		fullConfig: params.fullConfig,
 		providers: params.providers
@@ -1009,7 +1014,7 @@ async function startMeetingAgentRealtimeEngine(params) {
 			params.logger.warn(`${params.platform.logScope} ${agentLogScope} TTS failed: ${formatErrorMessage(error)}`);
 		});
 	};
-	const harness = createRealtimeVoiceSessionHarness({
+	const harness = createMeetingRealtimeHarness(params, {
 		talk: {
 			sessionId: `${params.platform.sessionIdPrefix}:${params.meetingSessionId}:agent`,
 			mode: "stt-tts",
@@ -1032,29 +1037,8 @@ async function startMeetingAgentRealtimeEngine(params) {
 			}),
 			outputAudioDone: () => ({ meetingSessionId: params.meetingSessionId })
 		},
-		echoSuppression: params.transport.inputAudioIsolated ? void 0 : {
-			bytesPerMs: meetingOutputBytesPerMs(params.config.chrome.audioFormat),
-			tailMs: MEETING_OUTPUT_ECHO_SUPPRESSION_TAIL_MS,
-			transcriptLookbackMs: MEETING_TRANSCRIPT_ECHO_LOOKBACK_MS
-		},
-		talkback: {
-			debounceMs: 900,
-			logger: params.logger,
-			logPrefix: `${params.platform.logScope} ${agentLogScope}`,
-			responseStyle: "Brief, natural spoken answer for a live meeting.",
-			fallbackText: "I hit an error while checking that. Please try again.",
-			consult: ({ question, responseStyle, signal }) => params.consultAgent({
-				meetingSessionId: params.meetingSessionId,
-				requesterSessionKey: params.requesterSessionKey,
-				args: {
-					question,
-					responseStyle
-				},
-				transcript: harness.transcript,
-				abortSignal: signal
-			}),
-			deliver: enqueueSpeakText
-		}
+		logPrefix: `${params.platform.logScope} ${agentLogScope}`,
+		deliver: enqueueSpeakText
 	});
 	params.transport.onFatal(() => {
 		stopAfterFailure("audio transport");
@@ -1148,30 +1132,51 @@ async function startMeetingAgentRealtimeEngine(params) {
 }
 //#endregion
 //#region src/meeting-bot/bridge-process.ts
-function writeMeetingOutputChunk(waiters, process, stdin, audio) {
-	return new Promise((resolve, reject) => {
-		let settled = false;
-		const finish = (error) => {
-			if (settled) return;
-			settled = true;
-			waiters.delete(waiter);
-			if (error) reject(error);
-			else resolve();
-		};
-		const waiter = {
-			process,
-			release: () => finish()
-		};
-		waiters.add(waiter);
-		try {
-			stdin.write(audio, (error) => finish(error ?? void 0));
-		} catch (error) {
-			finish(error instanceof Error ? error : new Error(formatErrorMessage(error)));
-			return;
-		}
-		if (stdin.destroyed || stdin.writableEnded) finish(/* @__PURE__ */ new Error("audio output stream is closed"));
-	});
-}
+var MeetingOutputProcessOwner = class {
+	#waiters = /* @__PURE__ */ new Set();
+	#retiredStops = /* @__PURE__ */ new Set();
+	constructor(graceMs) {
+		this.graceMs = graceMs;
+	}
+	write(process, stdin, audio) {
+		return new Promise((resolve, reject) => {
+			let settled = false;
+			const finish = (error) => {
+				if (settled) return;
+				settled = true;
+				this.#waiters.delete(waiter);
+				if (error) reject(error);
+				else resolve();
+			};
+			const waiter = {
+				process,
+				release: () => finish()
+			};
+			this.#waiters.add(waiter);
+			try {
+				stdin.write(audio, (error) => finish(error ?? void 0));
+			} catch (error) {
+				finish(error instanceof Error ? error : new Error(formatErrorMessage(error)));
+				return;
+			}
+			if (stdin.destroyed || stdin.writableEnded) finish(/* @__PURE__ */ new Error("audio output stream is closed"));
+		});
+	}
+	release(process) {
+		for (const waiter of this.#waiters) if (!process || waiter.process === process) waiter.release();
+	}
+	retire(process, initialSignal) {
+		const stopped = terminateMeetingBridgeProcess(process, {
+			graceMs: this.graceMs,
+			initialSignal
+		});
+		this.#retiredStops.add(stopped);
+		stopped.finally(() => this.#retiredStops.delete(stopped));
+	}
+	async stop(...processes) {
+		await Promise.all([...processes.map((process) => terminateMeetingBridgeProcess(process, { graceMs: this.graceMs })), ...this.#retiredStops]);
+	}
+};
 function hasExited(proc) {
 	return proc.exitCode !== null || proc.signalCode !== null;
 }
@@ -1202,9 +1207,8 @@ async function terminateMeetingBridgeProcess(proc, options) {
 	} catch {
 		return;
 	}
-	const forceKillWaitMs = options.forceKillWaitMs ?? 1e3;
 	if (initialSignal === "SIGKILL") {
-		await waitForExit(proc, forceKillWaitMs);
+		await waitForExit(proc, 1e3);
 		return;
 	}
 	if (await waitForExit(proc, options.graceMs)) return;
@@ -1213,7 +1217,7 @@ async function terminateMeetingBridgeProcess(proc, options) {
 	} catch {
 		return;
 	}
-	await waitForExit(proc, forceKillWaitMs);
+	await waitForExit(proc, 1e3);
 }
 //#endregion
 //#region src/meeting-bot/command-argv.ts
@@ -1348,17 +1352,8 @@ function createMeetingOutputLoopbackVerifier(options) {
 	};
 	const consumePendingOutput = () => {
 		const pendingBytes = pendingOutputPcm.byteLength;
-		for (let end = pendingBytes; end >= fullReferenceBytes; end -= fullReferenceBytes) {
-			const fingerprint = createOutputFingerprint(pendingOutputPcm.subarray(end - fullReferenceBytes, end), fullReferenceBytes);
-			if (fingerprint) {
-				pendingOutputPcm = Buffer.alloc(0);
-				refreshFingerprint(fingerprint);
-				return;
-			}
-		}
-		const residualBytes = pendingBytes % fullReferenceBytes;
-		if (residualBytes > 0) {
-			const fingerprint = createOutputFingerprint(pendingOutputPcm.subarray(0, residualBytes), fullReferenceBytes);
+		for (let end = pendingBytes; end > 0; end -= fullReferenceBytes) {
+			const fingerprint = createOutputFingerprint(pendingOutputPcm.subarray(Math.max(0, end - fullReferenceBytes), end), fullReferenceBytes);
 			if (fingerprint) {
 				pendingOutputPcm = Buffer.alloc(0);
 				refreshFingerprint(fingerprint);
@@ -1483,8 +1478,7 @@ function createLocalMeetingRealtimeAudioTransport(params) {
 	let fatalSignaled = false;
 	let fatalHandler;
 	let stopPromise;
-	const retiredOutputStops = /* @__PURE__ */ new Set();
-	const outputWriteWaiters = /* @__PURE__ */ new Set();
+	const outputOwner = new MeetingOutputProcessOwner(LOCAL_BRIDGE_TERMINATION_GRACE_MS);
 	const outputLoopbackVerifier = createMeetingOutputLoopbackVerifier({ audioFormat: params.audioFormat ?? "pcm16-24khz" });
 	const signalFatal = () => {
 		if (!fatalSignaled) {
@@ -1499,59 +1493,38 @@ function createLocalMeetingRealtimeAudioTransport(params) {
 		params.logger.warn(`${params.logScope} ${label} failed: ${formatErrorMessage(error)}`);
 		signalFatal();
 	};
-	const attachOutputProcessHandlers = (proc) => {
-		const onOutputError = (error) => {
-			if (proc === outputProcess) fail("audio output command")(error);
+	const attachAudioProcessHandlers = (proc, role) => {
+		const isCurrent = () => role === "input" || proc === outputProcess;
+		const onError = (suffix = "") => (error) => {
+			if (isCurrent()) fail(`audio ${role} command${suffix}`)(error);
 		};
-		proc.on("error", onOutputError);
-		proc.stdin?.on?.("error", onOutputError);
+		proc.on("error", onError());
+		if (role === "output") proc.stdin?.on?.("error", onError());
+		else proc.stdout?.on("error", onError(" stdout"));
+		proc.stderr?.on("error", onError(" stderr"));
 		proc.on("exit", (code, signal) => {
-			if (proc === outputProcess && !stopped) {
-				params.logger.warn(`${params.logScope} audio output command exited (${code ?? signal ?? "done"})`);
+			if (isCurrent() && !stopped) {
+				params.logger.warn(`${params.logScope} audio ${role} command exited (${code ?? signal ?? "done"})`);
 				signalFatal();
 			}
 		});
 		attachStderrLineLogger({
 			stderr: proc.stderr,
 			logger: params.logger,
-			prefix: `${params.logScope} audio output`
+			prefix: `${params.logScope} audio ${role}`
 		});
-		proc.stderr?.on("error", (error) => {
-			if (proc === outputProcess) fail("audio output command stderr")(error);
-		});
-	};
-	const releaseOutputWriteWaiters = (proc) => {
-		for (const waiter of outputWriteWaiters) if (!proc || waiter.process === proc) waiter.release();
 	};
 	const stop = () => {
 		stopPromise ??= (async () => {
 			stopped = true;
 			outputLoopbackVerifier.cancelOutput();
-			releaseOutputWriteWaiters();
-			await Promise.all([
-				terminateMeetingBridgeProcess(inputProcess, { graceMs: LOCAL_BRIDGE_TERMINATION_GRACE_MS }),
-				terminateMeetingBridgeProcess(outputProcess, { graceMs: LOCAL_BRIDGE_TERMINATION_GRACE_MS }),
-				terminateMeetingBridgeProcess(bargeInInputProcess, { graceMs: LOCAL_BRIDGE_TERMINATION_GRACE_MS }),
-				...retiredOutputStops
-			]);
+			outputOwner.release();
+			await outputOwner.stop(inputProcess, outputProcess, bargeInInputProcess);
 		})();
 		return stopPromise;
 	};
-	attachOutputProcessHandlers(outputProcess);
-	inputProcess.on("error", fail("audio input command"));
-	inputProcess.on("exit", (code, signal) => {
-		if (!stopped) {
-			params.logger.warn(`${params.logScope} audio input command exited (${code ?? signal ?? "done"})`);
-			signalFatal();
-		}
-	});
-	attachStderrLineLogger({
-		stderr: inputProcess.stderr,
-		logger: params.logger,
-		prefix: `${params.logScope} audio input`
-	});
-	inputProcess.stdout?.on("error", fail("audio input command stdout"));
-	inputProcess.stderr?.on("error", fail("audio input command stderr"));
+	attachAudioProcessHandlers(outputProcess, "output");
+	attachAudioProcessHandlers(inputProcess, "input");
 	const transport = {
 		onFatal: (handler) => {
 			fatalHandler = handler;
@@ -1577,7 +1550,7 @@ function createLocalMeetingRealtimeAudioTransport(params) {
 			if (!stdin) return;
 			outputLoopbackVerifier.recordOutput(audio);
 			try {
-				await writeMeetingOutputChunk(outputWriteWaiters, proc, stdin, audio);
+				await outputOwner.write(proc, stdin, audio);
 			} catch (error) {
 				if (stopped || proc !== outputProcess || fatalSignaled) return;
 				fail("audio output command")(error instanceof Error ? error : new Error(formatErrorMessage(error)));
@@ -1588,17 +1561,10 @@ function createLocalMeetingRealtimeAudioTransport(params) {
 			outputLoopbackVerifier.cancelOutput();
 			const previousOutput = outputProcess;
 			outputProcess = spawnOutputProcess();
-			attachOutputProcessHandlers(outputProcess);
-			releaseOutputWriteWaiters(previousOutput);
+			attachAudioProcessHandlers(outputProcess, "output");
+			outputOwner.release(previousOutput);
 			params.logger.debug?.(`${params.logScope} cleared realtime audio output buffer by restarting playback command`);
-			const retiredOutputStop = terminateMeetingBridgeProcess(previousOutput, {
-				graceMs: LOCAL_BRIDGE_TERMINATION_GRACE_MS,
-				initialSignal: "SIGKILL"
-			});
-			retiredOutputStops.add(retiredOutputStop);
-			retiredOutputStop.finally(() => {
-				retiredOutputStops.delete(retiredOutputStop);
-			});
+			outputOwner.retire(previousOutput, "SIGKILL");
 		},
 		dispose: async () => {
 			await transport.stop();
@@ -2163,31 +2129,6 @@ var MeetingSessionCleanupTracker = class {
 			unpublished
 		};
 	}
-	async retryBrowserAfterFailedJoin(params) {
-		const state = this.#states.get(params.sessionId)?.cleanup;
-		if (!state) return {
-			browserLeft: params.browserLeft,
-			complete: true,
-			incomplete: false
-		};
-		if (!params.hasBrowserTab()) state.browserSettled = true;
-		else if (!state.browserSettled) try {
-			state.browserLeft = await params.releaseBrowser();
-			state.browserSettled = state.browserLeft !== false;
-		} catch (error) {
-			return {
-				browserLeft: state.browserLeft,
-				complete: false,
-				error,
-				incomplete: params.hasBrowserTab()
-			};
-		}
-		return {
-			browserLeft: state.browserLeft,
-			complete: this.#completeIfSettled(params.sessionId, state),
-			incomplete: params.hasBrowserTab()
-		};
-	}
 	async rollbackFailedJoin(params) {
 		try {
 			await params.leave();
@@ -2199,11 +2140,28 @@ var MeetingSessionCleanupTracker = class {
 				params.warn(`replacement cleanup retry failed: ${params.formatError(retryError)}`);
 			}
 		}
-		const retry = await this.retryBrowserAfterFailedJoin(params);
-		params.onBrowserResult(retry.browserLeft);
-		if (retry.error) params.warn(`replacement browser cleanup retry failed: ${params.formatError(retry.error)}`);
-		if (retry.complete) params.onComplete();
-		if (retry.incomplete) params.warn("replacement browser cleanup incomplete after failed join");
+		const state = this.#states.get(params.sessionId)?.cleanup;
+		if (!state) {
+			params.onBrowserResult(params.browserLeft);
+			params.onComplete();
+			return;
+		}
+		let failed = false;
+		let retryError;
+		if (!params.hasBrowserTab()) state.browserSettled = true;
+		else if (!state.browserSettled) try {
+			state.browserLeft = await params.releaseBrowser();
+			state.browserSettled = state.browserLeft !== false;
+		} catch (error) {
+			failed = true;
+			retryError = error;
+		}
+		const complete = !failed && this.#completeIfSettled(params.sessionId, state);
+		const incomplete = params.hasBrowserTab();
+		params.onBrowserResult(state.browserLeft);
+		if (retryError) params.warn(`replacement browser cleanup retry failed: ${params.formatError(retryError)}`);
+		if (complete) params.onComplete();
+		if (incomplete) params.warn("replacement browser cleanup incomplete after failed join");
 	}
 	#completeIfSettled(sessionId, state) {
 		if (!state.stopSettled || !state.browserSettled || this.hasRuntime(sessionId)) return false;
@@ -2304,7 +2262,7 @@ var MeetingSessionDurableTranscripts = class {
 	}
 	async #getBridge() {
 		if (!this.options.config) return;
-		this.#bridge ??= import("../transcripts-bridge.runtime-CN70LTuy.mjs").then(({ createMeetingDurableTranscriptBridge }) => createMeetingDurableTranscriptBridge({
+		this.#bridge ??= import("../transcripts-bridge.runtime-CyKM742f.mjs").then(({ createMeetingDurableTranscriptBridge }) => createMeetingDurableTranscriptBridge({
 			isEnabled: () => this.#enabled,
 			logger: this.options.logger,
 			options: this.options.config
@@ -2431,7 +2389,6 @@ const nowIso$1 = () => (/* @__PURE__ */ new Date()).toISOString();
 var MeetingSessionRuntime = class {
 	#sessions = /* @__PURE__ */ new Map();
 	#participation;
-	#sessionLeaves = /* @__PURE__ */ new Map();
 	#sessionCleanup = new MeetingSessionCleanupTracker();
 	#meetingLock = new KeyedAsyncQueue();
 	#sessionSpeakers = /* @__PURE__ */ new Map();
@@ -2795,8 +2752,6 @@ var MeetingSessionRuntime = class {
 		};
 	}
 	async #leaveUnlocked(sessionId, options) {
-		const inFlight = this.#sessionLeaves.get(sessionId);
-		if (inFlight) return await inFlight;
 		const session = this.#sessions.get(sessionId);
 		if (!session) return { found: false };
 		if (session.state === "ended" && !this.#sessionCleanup.isPending(sessionId) && !this.#sessionCleanup.hasRuntime(sessionId)) return {
@@ -2804,13 +2759,7 @@ var MeetingSessionRuntime = class {
 			session,
 			...session.browserLeft === void 0 ? {} : { browserLeft: session.browserLeft }
 		};
-		const leave = this.#leaveSession(session, options);
-		this.#sessionLeaves.set(sessionId, leave);
-		try {
-			return await leave;
-		} finally {
-			if (this.#sessionLeaves.get(sessionId) === leave) this.#sessionLeaves.delete(sessionId);
-		}
+		return await this.#leaveSession(session, options);
 	}
 	async #leaveSession(session, options) {
 		this.#participation?.close(session.id);
@@ -2818,9 +2767,7 @@ var MeetingSessionRuntime = class {
 		session.state = "ended";
 		session.updatedAt = nowIso$1();
 		this.#dropRuntimeHandles(session.id);
-		const transcribe = this.options.isTranscribeMode(session.mode);
 		let transcriptStopped = false;
-		if (transcribe) this.#transcriptStore.startFinalizing(session.id);
 		try {
 			transcriptStopped = await this.#durableTranscripts.stop(session, { allowFallback: firstAttempt });
 			const cleanup = await this.#sessionCleanup.cleanup({
@@ -2851,7 +2798,6 @@ var MeetingSessionRuntime = class {
 			};
 		} finally {
 			if (transcriptStopped) this.#transcriptStore.retire(session.id);
-			if (transcribe) this.#transcriptStore.finishFinalizing(session.id);
 		}
 	}
 	#meetingKey(transport, url) {
@@ -2937,6 +2883,22 @@ async function runMeetingBrowserAct(params) {
 		throw new Error(BROWSER_ACT_TIMEOUT_MESSAGE);
 	});
 	return await queued;
+}
+function evaluateMeetingBrowser(params) {
+	return runMeetingBrowserAct({
+		deadline: params.deadline,
+		targetId: params.targetId,
+		operation: (timeoutMs) => params.callBrowser({
+			method: "POST",
+			path: "/act",
+			body: {
+				kind: "evaluate",
+				targetId: params.targetId,
+				fn: params.script()
+			},
+			timeoutMs
+		})
+	});
 }
 //#endregion
 //#region src/meeting-bot/browser-navigation-errors.ts
@@ -3101,25 +3063,17 @@ async function openMeetingWithBrowser(params) {
 			const adoptSession = allowSessionAdoption;
 			allowSessionAdoption = false;
 			const actionTimeoutMs = Math.min(timeoutMs, 1e4);
-			const evaluated = await runMeetingBrowserAct({
+			const evaluated = await evaluateMeetingBrowser({
+				callBrowser: params.callBrowser,
 				deadline: performance.now() + actionTimeoutMs,
 				targetId,
-				operation: async (remainingMs) => await params.callBrowser({
-					method: "POST",
-					path: "/act",
-					body: {
-						kind: "evaluate",
-						targetId,
-						fn: params.adapter.browser.buildStatusJoinScript({
-							...params.session,
-							allowSessionAdoption: adoptSession,
-							autoJoin: params.config.autoJoin,
-							captureCaptions: params.session.captureCaptions ?? params.adapter.browser.captions.enabled(params.session.mode),
-							guestName: params.config.guestName,
-							waitForInCallMs: params.config.waitForInCallMs
-						})
-					},
-					timeoutMs: remainingMs
+				script: () => params.adapter.browser.buildStatusJoinScript({
+					...params.session,
+					allowSessionAdoption: adoptSession,
+					autoJoin: params.config.autoJoin,
+					captureCaptions: params.session.captureCaptions ?? params.adapter.browser.captions.enabled(params.session.mode),
+					guestName: params.config.guestName,
+					waitForInCallMs: params.config.waitForInCallMs
 				})
 			});
 			browser = mergeBrowserNotes(params.adapter.browser.parseStatus(evaluated) ?? browser, permissionNotes);
@@ -3171,95 +3125,6 @@ function findRecoverableTab(params) {
 	const accountCandidates = accountHint ? candidates.filter((tab) => params.adapter.urls.accountHint(tab.url) === accountHint) : candidates;
 	return accountCandidates.find((tab) => params.adapter.urls.isPreferredJoinUrl(tab.url)) ?? accountCandidates[0];
 }
-async function inspectRecoverableTab(params) {
-	const allowMicrophone = params.adapter.browser.allowsMicrophone(params.mode);
-	const focusTimeoutMs = params.deadline === void 0 ? params.timeoutMs : Math.floor(params.deadline - performance.now());
-	if (focusTimeoutMs <= 0) throw new Error("Meeting browser recovery timed out.");
-	await params.callBrowser({
-		method: "POST",
-		path: "/tabs/focus",
-		body: { targetId: params.targetId },
-		timeoutMs: Math.min(focusTimeoutMs, 5e3)
-	});
-	const localeAction = params.adapter.urls.localeAction(params.tab);
-	if (localeAction) return {
-		found: true,
-		targetId: params.targetId,
-		tab: params.tab,
-		browser: {
-			status: "browser-control",
-			browserUrl: params.tab.url,
-			browserTitle: params.tab.title,
-			manualAction: {
-				reason: localeAction.reason,
-				message: localeAction.message
-			}
-		},
-		message: localeAction.message
-	};
-	const permissionNotes = params.readOnly ? [] : await prepareMeetingBrowserTab({
-		adapter: params.adapter,
-		allowMicrophone,
-		callBrowser: params.callBrowser,
-		meetingUrl: params.requestedMeetingUrl ?? params.tab.url ?? "",
-		targetId: params.targetId,
-		timeoutMs: params.deadline === void 0 ? params.timeoutMs : Math.max(1, Math.floor(params.deadline - performance.now()))
-	});
-	const navigationNotes = [];
-	const inspectionDeadline = params.deadline ?? performance.now() + Math.min(params.timeoutMs, 1e4);
-	let allowSessionAdoption = params.allowSessionAdoption ?? false;
-	let evaluated;
-	for (;;) try {
-		const adoptSession = allowSessionAdoption;
-		allowSessionAdoption = false;
-		evaluated = await runMeetingBrowserAct({
-			deadline: inspectionDeadline,
-			targetId: params.targetId,
-			operation: async (remainingMs) => await params.callBrowser({
-				method: "POST",
-				path: "/act",
-				body: {
-					kind: "evaluate",
-					targetId: params.targetId,
-					fn: params.adapter.browser.buildStatusJoinScript({
-						allowSessionAdoption: adoptSession,
-						meetingSessionId: params.meetingSessionId ?? "",
-						mode: params.mode,
-						url: params.requestedMeetingUrl ?? params.tab.url ?? "",
-						autoJoin: params.autoJoin ?? false,
-						captureCaptions: params.captureCaptions ?? params.adapter.browser.captions.enabled(params.mode),
-						guestName: params.config.guestName,
-						readOnly: params.readOnly,
-						waitForInCallMs: params.config.waitForInCallMs
-					})
-				},
-				timeoutMs: remainingMs
-			})
-		});
-		break;
-	} catch (error) {
-		const remainingMs = inspectionDeadline - performance.now();
-		if (!isMeetingBrowserTransientNavigationError(error) || remainingMs <= 0) throw error;
-		navigationNotes.push(`${params.adapter.browserLabel} navigated while recovering; retrying browser inspection.`);
-		await sleep(Math.min(250, remainingMs));
-		if (performance.now() >= inspectionDeadline) throw error;
-	}
-	const browser = mergeBrowserNotes(params.adapter.browser.parseStatus(evaluated) ?? {
-		status: "browser-control",
-		browserUrl: params.tab.url,
-		browserTitle: params.tab.title
-	}, [...permissionNotes, ...navigationNotes]);
-	const manual = browser ? params.adapter.browser.classifyManualAction(browser) : void 0;
-	const recoveredBrowser = applyMeetingManualAction(browser, manual);
-	const message = manual?.message ?? (recoveredBrowser?.inCall ? `Existing ${params.adapter.browserLabel} tab is in-call.` : `Existing ${params.adapter.browserLabel} tab focused.`);
-	return {
-		found: true,
-		targetId: params.targetId,
-		tab: params.tab,
-		browser: recoveredBrowser,
-		message
-	};
-}
 async function recoverMeetingBrowserTab(params) {
 	const configuredTimeoutMs = Math.max(1e3, params.config.joinTimeoutMs);
 	const timeoutMs = params.timeoutMs === void 0 ? configuredTimeoutMs : Math.max(1, Math.min(configuredTimeoutMs, params.timeoutMs));
@@ -3284,13 +3149,84 @@ async function recoverMeetingBrowserTab(params) {
 		tab,
 		message: params.requestedMeetingUrl ? `No existing ${params.adapter.browserLabel} tab matched ${params.requestedMeetingUrl}.` : `No existing ${params.adapter.browserLabel} tab found ${params.locationLabel}.`
 	};
-	return await inspectRecoverableTab({
-		...params,
-		...deadline === void 0 ? {} : { deadline },
-		timeoutMs,
-		tab,
-		targetId
+	const allowMicrophone = params.adapter.browser.allowsMicrophone(params.mode);
+	const focusTimeoutMs = deadline === void 0 ? timeoutMs : Math.floor(deadline - performance.now());
+	if (focusTimeoutMs <= 0) throw new Error("Meeting browser recovery timed out.");
+	await params.callBrowser({
+		method: "POST",
+		path: "/tabs/focus",
+		body: { targetId },
+		timeoutMs: Math.min(focusTimeoutMs, 5e3)
 	});
+	const localeAction = params.adapter.urls.localeAction(tab);
+	if (localeAction) return {
+		found: true,
+		targetId,
+		tab,
+		browser: {
+			status: "browser-control",
+			browserUrl: tab.url,
+			browserTitle: tab.title,
+			manualAction: {
+				reason: localeAction.reason,
+				message: localeAction.message
+			}
+		},
+		message: localeAction.message
+	};
+	const permissionNotes = params.readOnly ? [] : await prepareMeetingBrowserTab({
+		adapter: params.adapter,
+		allowMicrophone,
+		callBrowser: params.callBrowser,
+		meetingUrl: params.requestedMeetingUrl ?? tab.url ?? "",
+		targetId,
+		timeoutMs: deadline === void 0 ? timeoutMs : Math.max(1, Math.floor(deadline - performance.now()))
+	});
+	const navigationNotes = [];
+	const inspectionDeadline = deadline ?? performance.now() + Math.min(timeoutMs, 1e4);
+	let allowSessionAdoption = params.allowSessionAdoption ?? false;
+	let evaluated;
+	for (;;) try {
+		const adoptSession = allowSessionAdoption;
+		allowSessionAdoption = false;
+		evaluated = await evaluateMeetingBrowser({
+			callBrowser: params.callBrowser,
+			deadline: inspectionDeadline,
+			targetId,
+			script: () => params.adapter.browser.buildStatusJoinScript({
+				allowSessionAdoption: adoptSession,
+				meetingSessionId: params.meetingSessionId ?? "",
+				mode: params.mode,
+				url: params.requestedMeetingUrl ?? tab.url ?? "",
+				autoJoin: params.autoJoin ?? false,
+				captureCaptions: params.captureCaptions ?? params.adapter.browser.captions.enabled(params.mode),
+				guestName: params.config.guestName,
+				readOnly: params.readOnly,
+				waitForInCallMs: params.config.waitForInCallMs
+			})
+		});
+		break;
+	} catch (error) {
+		const remainingMs = inspectionDeadline - performance.now();
+		if (!isMeetingBrowserTransientNavigationError(error) || remainingMs <= 0) throw error;
+		navigationNotes.push(`${params.adapter.browserLabel} navigated while recovering; retrying browser inspection.`);
+		await sleep(Math.min(250, remainingMs));
+		if (performance.now() >= inspectionDeadline) throw error;
+	}
+	const browser = mergeBrowserNotes(params.adapter.browser.parseStatus(evaluated) ?? {
+		status: "browser-control",
+		browserUrl: tab.url,
+		browserTitle: tab.title
+	}, [...permissionNotes, ...navigationNotes]);
+	const manual = browser ? params.adapter.browser.classifyManualAction(browser) : void 0;
+	const recoveredBrowser = applyMeetingManualAction(browser, manual);
+	return {
+		found: true,
+		targetId,
+		tab,
+		browser: recoveredBrowser,
+		message: manual?.message ?? (recoveredBrowser?.inCall ? `Existing ${params.adapter.browserLabel} tab is in-call.` : `Existing ${params.adapter.browserLabel} tab focused.`)
+	};
 }
 //#endregion
 //#region src/meeting-bot/browser-session-control.ts
@@ -3441,22 +3377,14 @@ async function leaveMeetingWithBrowser(params) {
 	}
 }
 async function readMeetingTranscriptWithBrowser(params) {
-	const result = await runMeetingBrowserAct({
+	const result = await evaluateMeetingBrowser({
+		callBrowser: params.callBrowser,
 		deadline: performance.now() + Math.max(1, params.timeoutMs),
 		targetId: params.tab.targetId,
-		operation: async (remainingMs) => await params.callBrowser({
-			method: "POST",
-			path: "/act",
-			body: {
-				kind: "evaluate",
-				targetId: params.tab.targetId,
-				fn: params.adapter.browser.captions.buildTranscriptScript({
-					finalize: params.finalize,
-					meetingSessionId: params.meetingSessionId,
-					meetingUrl: params.meetingUrl
-				})
-			},
-			timeoutMs: remainingMs
+		script: () => params.adapter.browser.captions.buildTranscriptScript({
+			finalize: params.finalize,
+			meetingSessionId: params.meetingSessionId,
+			meetingUrl: params.meetingUrl
 		})
 	});
 	const snapshot = params.adapter.browser.captions.parseTranscript(result);
@@ -3583,24 +3511,14 @@ function withBuffer(executable, bufferBytes, args) {
 }
 function buildMeetingSoxAudioCommands(params) {
 	const wire = formatArgs(params.format);
-	if (!params.device) return {
-		inputCommand: withBuffer(params.inputExecutable ?? "rec", params.bufferBytes, wire),
-		outputCommand: withBuffer(params.outputExecutable ?? "play", params.bufferBytes, wire)
-	};
-	const deviceType = params.deviceType ?? "coreaudio";
+	const device = params.device ? [
+		"-t",
+		params.deviceType ?? "coreaudio",
+		params.device
+	] : [];
 	return {
-		inputCommand: withBuffer(params.inputExecutable ?? "sox", params.bufferBytes, [
-			"-t",
-			deviceType,
-			params.device,
-			...wire
-		]),
-		outputCommand: withBuffer(params.outputExecutable ?? "sox", params.bufferBytes, [
-			...wire,
-			"-t",
-			deviceType,
-			params.device
-		])
+		inputCommand: withBuffer(params.inputExecutable ?? (params.device ? "sox" : "rec"), params.bufferBytes, [...device, ...wire]),
+		outputCommand: withBuffer(params.outputExecutable ?? (params.device ? "sox" : "play"), params.bufferBytes, [...wire, ...device])
 	};
 }
 //#endregion
@@ -3636,31 +3554,24 @@ function resolveMeetingAudioRuntimeForFormat(params) {
 	const backend = resolveMeetingAudioBackend(params.backend, params.platform);
 	const bytesPerSecond = format.sampleRate * format.channels * Math.ceil(format.bits / 8);
 	const pulseLatencyMs = Math.max(1, Math.ceil(params.bufferBytes / bytesPerSecond * 1e3));
+	const pulseCommand = (command, device) => [
+		command,
+		"--raw",
+		...command === "pacat" ? ["--playback"] : [],
+		`--device=${device}`,
+		`--format=${format.encoding === "mu-law" ? "ulaw" : "s16le"}`,
+		`--rate=${format.sampleRate}`,
+		`--channels=${format.channels}`,
+		`--latency-msec=${pulseLatencyMs}`
+	];
 	const defaults = backend === "blackhole-2ch" ? buildMeetingSoxAudioCommands({
 		bufferBytes: params.bufferBytes,
 		device: BLACKHOLE_MEETING_AUDIO_DEVICE_LABEL,
 		deviceType: "coreaudio",
 		format
 	}) : {
-		inputCommand: [
-			"parec",
-			"--raw",
-			`--device=${PIPEWIRE_SOURCE_NAME}`,
-			`--format=${format.encoding === "mu-law" ? "ulaw" : "s16le"}`,
-			`--rate=${format.sampleRate}`,
-			`--channels=${format.channels}`,
-			`--latency-msec=${pulseLatencyMs}`
-		],
-		outputCommand: [
-			"pacat",
-			"--raw",
-			"--playback",
-			`--device=${PIPEWIRE_SINK_NAME}`,
-			`--format=${format.encoding === "mu-law" ? "ulaw" : "s16le"}`,
-			`--rate=${format.sampleRate}`,
-			`--channels=${format.channels}`,
-			`--latency-msec=${pulseLatencyMs}`
-		]
+		inputCommand: pulseCommand("parec", PIPEWIRE_SOURCE_NAME),
+		outputCommand: pulseCommand("pacat", PIPEWIRE_SINK_NAME)
 	};
 	return {
 		backend,
@@ -3865,36 +3776,6 @@ function createMeetingPluginConfigSchema(options) {
 		}
 	};
 	const defaultAudioRuntime = buildAudioCommands("auto", DEFAULT_AUDIO_FORMAT, DEFAULT_AUDIO_BUFFER_BYTES);
-	const defaults = {
-		enabled: true,
-		defaultMode: "agent",
-		chrome: {
-			audioBackend: "auto",
-			audioFormat: DEFAULT_AUDIO_FORMAT,
-			audioBufferBytes: DEFAULT_AUDIO_BUFFER_BYTES,
-			launch: true,
-			guestName: "OpenClaw Agent",
-			reuseExistingTab: true,
-			autoJoin: true,
-			joinTimeoutMs: 3e4,
-			waitForInCallMs: 6e4,
-			audioInputCommand: defaultAudioRuntime.inputCommand,
-			audioOutputCommand: defaultAudioRuntime.outputCommand,
-			bargeInRmsThreshold: 650,
-			bargeInPeakThreshold: 2500,
-			bargeInCooldownMs: 900
-		},
-		chromeNode: {},
-		realtime: {
-			strategy: "agent",
-			provider: "openai",
-			transcriptionProvider: "openai",
-			instructions: options.defaultRealtimeInstructions,
-			introMessage: "Say exactly: I'm here and listening.",
-			toolPolicy: "safe-read-only",
-			providers: {}
-		}
-	};
 	const resolveConfig = (input) => {
 		const raw = asRecord(input);
 		const chrome = asRecord(raw.chrome);
@@ -3906,41 +3787,40 @@ function createMeetingPluginConfigSchema(options) {
 		const generatedCommands = buildAudioCommands(audioBackend, audioFormat, audioBufferBytes);
 		const audioInputCommandOverride = normalizeOptionalTrimmedStringList(chrome.audioInputCommand);
 		const audioOutputCommandOverride = normalizeOptionalTrimmedStringList(chrome.audioOutputCommand);
-		const provider = normalizeOptionalString(realtime.provider) ?? defaults.realtime.provider;
 		return {
-			enabled: resolveBoolean(raw.enabled, defaults.enabled),
+			enabled: resolveBoolean(raw.enabled, true),
 			defaultMode: resolveMode(raw.defaultMode),
 			chrome: {
 				audioBackend,
 				audioFormat,
 				audioBufferBytes,
-				launch: resolveBoolean(chrome.launch, defaults.chrome.launch),
+				launch: resolveBoolean(chrome.launch, true),
 				browserProfile: normalizeOptionalString(chrome.browserProfile),
-				guestName: normalizeOptionalString(chrome.guestName) ?? defaults.chrome.guestName,
-				reuseExistingTab: resolveBoolean(chrome.reuseExistingTab, defaults.chrome.reuseExistingTab),
-				autoJoin: resolveBoolean(chrome.autoJoin, defaults.chrome.autoJoin),
-				joinTimeoutMs: resolvePositiveTimerTimeoutMs(chrome.joinTimeoutMs, defaults.chrome.joinTimeoutMs),
-				waitForInCallMs: resolvePositiveTimerTimeoutMs(chrome.waitForInCallMs, defaults.chrome.waitForInCallMs),
+				guestName: normalizeOptionalString(chrome.guestName) ?? "OpenClaw Agent",
+				reuseExistingTab: resolveBoolean(chrome.reuseExistingTab, true),
+				autoJoin: resolveBoolean(chrome.autoJoin, true),
+				joinTimeoutMs: resolvePositiveTimerTimeoutMs(chrome.joinTimeoutMs, 3e4),
+				waitForInCallMs: resolvePositiveTimerTimeoutMs(chrome.waitForInCallMs, 6e4),
 				audioInputCommand: audioInputCommandOverride ?? generatedCommands.inputCommand,
 				audioOutputCommand: audioOutputCommandOverride ?? generatedCommands.outputCommand,
 				audioInputCommandOverride,
 				audioOutputCommandOverride,
 				bargeInInputCommand: normalizeOptionalTrimmedStringList(chrome.bargeInInputCommand),
-				bargeInRmsThreshold: resolvePositiveNumber(chrome.bargeInRmsThreshold, defaults.chrome.bargeInRmsThreshold),
-				bargeInPeakThreshold: resolvePositiveNumber(chrome.bargeInPeakThreshold, defaults.chrome.bargeInPeakThreshold),
-				bargeInCooldownMs: resolvePositiveTimerTimeoutMs(chrome.bargeInCooldownMs, defaults.chrome.bargeInCooldownMs)
+				bargeInRmsThreshold: resolvePositiveNumber(chrome.bargeInRmsThreshold, 650),
+				bargeInPeakThreshold: resolvePositiveNumber(chrome.bargeInPeakThreshold, 2500),
+				bargeInCooldownMs: resolvePositiveTimerTimeoutMs(chrome.bargeInCooldownMs, 900)
 			},
 			chromeNode: { node: normalizeOptionalString(chromeNode.node) },
 			realtime: {
 				strategy: normalizeOptionalLowercaseString(realtime.strategy) === "bidi" ? "bidi" : "agent",
-				provider,
-				transcriptionProvider: normalizeOptionalString(realtime.transcriptionProvider) ?? defaults.realtime.transcriptionProvider,
+				provider: normalizeOptionalString(realtime.provider) ?? "openai",
+				transcriptionProvider: normalizeOptionalString(realtime.transcriptionProvider) ?? "openai",
 				voiceProvider: normalizeOptionalString(realtime.voiceProvider),
 				model: normalizeOptionalString(realtime.model),
-				instructions: normalizeOptionalString(realtime.instructions) ?? defaults.realtime.instructions,
-				introMessage: typeof realtime.introMessage === "string" ? realtime.introMessage.trim() : defaults.realtime.introMessage,
+				instructions: normalizeOptionalString(realtime.instructions) ?? options.defaultRealtimeInstructions,
+				introMessage: typeof realtime.introMessage === "string" ? realtime.introMessage.trim() : "Say exactly: I'm here and listening.",
 				agentId: normalizeOptionalString(realtime.agentId),
-				toolPolicy: resolveRealtimeVoiceAgentConsultToolPolicy(realtime.toolPolicy, defaults.realtime.toolPolicy),
+				toolPolicy: resolveRealtimeVoiceAgentConsultToolPolicy(realtime.toolPolicy, "safe-read-only"),
 				providers: resolveProviders(realtime.providers)
 			}
 		};
@@ -4046,10 +3926,6 @@ function createMeetingRealtimeEngineBindings(params) {
 		}
 	};
 }
-async function submitMeetingConsultWorkingResponse(params) {
-	if (params.abortSignal?.aborted || !params.session.bridge.supportsToolResultContinuation) return;
-	await params.session.submitToolResult(params.callId, buildRealtimeVoiceAgentConsultWorkingResponse(params.label), { willContinue: true });
-}
 async function consultMeetingAgent(params) {
 	const agentId = params.agentId ? normalizeAgentId(params.agentId) : resolveDefaultAgentId(params.config);
 	const requesterSessionKey = normalizeOptionalString(params.requesterSessionKey) ?? `agent:${agentId}:main`;
@@ -4096,12 +3972,7 @@ async function handleMeetingRealtimeConsultToolCall(params) {
 		await submitError(unavailableToolError);
 		return;
 	}
-	await submitMeetingConsultWorkingResponse({
-		session: params.session,
-		abortSignal: params.abortSignal,
-		callId,
-		label: params.surface.workingResponseLabel
-	});
+	await (params.abortSignal?.aborted || !params.session.bridge.supportsToolResultContinuation ? void 0 : params.session.submitToolResult(callId, buildRealtimeVoiceAgentConsultWorkingResponse(params.surface.workingResponseLabel), { willContinue: true }));
 	if (params.abortSignal?.aborted) return;
 	params.onTalkEvent({
 		type: "tool.progress",
@@ -4329,15 +4200,15 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 		});
 		return audio;
 	}
-	async function assertAudioDeviceAvailable(params) {
-		await prepareAudioRuntime(params);
-	}
 	async function startRealtimeEngine(params, transport, node) {
 		const bindings = options.runtime.createBindings({
 			platform: options.platform,
 			...params
 		});
 		const engineContext = {
+			config: params.config,
+			fullConfig: params.fullConfig,
+			runtime: params.runtime,
 			meetingSessionId: params.meetingSessionId,
 			requesterSessionKey: params.requesterSessionKey,
 			...node ? { logPrefix: "node" } : {},
@@ -4345,14 +4216,12 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 			logger: params.logger
 		};
 		if (params.mode === "agent") return await options.runtime.startAgentRealtimeEngine({
-			config: params.config,
-			fullConfig: params.fullConfig,
-			runtime: params.runtime,
 			platform: bindings.platform,
 			...engineContext,
 			consultAgent: bindings.consultAgent
 		});
 		return await options.runtime.startRealtimeEngine({
+			...engineContext,
 			config: {
 				...params.config,
 				realtime: {
@@ -4360,10 +4229,7 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 					strategy: "bidi"
 				}
 			},
-			fullConfig: params.fullConfig,
-			runtime: params.runtime,
 			...bindings,
-			...engineContext,
 			...node ? {
 				talkSessionId: `${options.platform.id}:${params.meetingSessionId}:${node.bridgeId}:node-realtime`,
 				talkContext: node
@@ -4393,21 +4259,25 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 			logScope: options.platform.logScope
 		});
 		try {
-			transport = await createBrowserMeetingRealtimeAudioTransport({
-				...params,
-				nativeTransport: transport,
-				hasConfiguredInputCommand: params.config.chrome.audioInputCommandOverride !== void 0,
-				buildCaptureScript: options.platform.browser.buildAudioCaptureScript?.bind(options.platform.browser),
-				meetingUrl: params.url,
-				targetId: params.tab?.targetId,
-				audioFormat: params.config.chrome.audioFormat
-			});
+			transport = await captureBrowserAudio(params, transport, params.callBrowser, params.tab);
 			const engine = await startRealtimeEngine(params, transport);
 			return audioBridge.local(engine, params.audio);
 		} catch (error) {
 			await transport.dispose().catch(() => {});
 			throw error;
 		}
+	}
+	function captureBrowserAudio(params, nativeTransport, callBrowser, tab) {
+		return createBrowserMeetingRealtimeAudioTransport({
+			...params,
+			nativeTransport,
+			callBrowser,
+			hasConfiguredInputCommand: params.config.chrome.audioInputCommandOverride !== void 0,
+			buildCaptureScript: options.platform.browser.buildAudioCaptureScript?.bind(options.platform.browser),
+			meetingUrl: params.url,
+			targetId: tab?.targetId,
+			audioFormat: params.config.chrome.audioFormat
+		});
 	}
 	async function launchInChrome(params) {
 		const audio = options.isTalkBackMode(params.mode) ? await prepareAudioRuntime({
@@ -4464,6 +4334,13 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 			runtime: params.runtime,
 			requestedNode: params.config.chromeNode.node
 		});
+		const audioParams = {
+			audioBackend: params.config.chrome.audioBackend,
+			audioFormat: params.config.chrome.audioFormat,
+			audioBufferBytes: params.config.chrome.audioBufferBytes,
+			...params.config.chrome.audioInputCommandOverride ? { audioInputCommand: params.config.chrome.audioInputCommandOverride } : {},
+			...params.config.chrome.audioOutputCommandOverride ? { audioOutputCommand: params.config.chrome.audioOutputCommandOverride } : {}
+		};
 		try {
 			await params.runtime.nodes.invoke({
 				nodeId,
@@ -4483,11 +4360,7 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 			command: options.nodeCommandName,
 			params: {
 				action: "setup",
-				audioBackend: params.config.chrome.audioBackend,
-				audioFormat: params.config.chrome.audioFormat,
-				audioBufferBytes: params.config.chrome.audioBufferBytes,
-				...params.config.chrome.audioInputCommandOverride ? { audioInputCommand: params.config.chrome.audioInputCommandOverride } : {},
-				...params.config.chrome.audioOutputCommandOverride ? { audioOutputCommand: params.config.chrome.audioOutputCommandOverride } : {}
+				...audioParams
 			},
 			timeoutMs: 12e3
 		})) : void 0;
@@ -4517,11 +4390,7 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 					launch: false,
 					browserProfile: params.config.chrome.browserProfile,
 					joinTimeoutMs: params.config.chrome.joinTimeoutMs,
-					...params.config.chrome.audioInputCommandOverride ? { audioInputCommand: params.config.chrome.audioInputCommandOverride } : {},
-					...params.config.chrome.audioOutputCommandOverride ? { audioOutputCommand: params.config.chrome.audioOutputCommandOverride } : {},
-					audioBackend: params.config.chrome.audioBackend,
-					audioFormat: params.config.chrome.audioFormat,
-					audioBufferBytes: params.config.chrome.audioBufferBytes,
+					...audioParams,
 					...audioBridge.external ? {
 						audioBridgeCommand: params.config.chrome.audioBridgeCommand,
 						audioBridgeHealthCommand: params.config.chrome.audioBridgeHealthCommand
@@ -4552,16 +4421,7 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 			});
 			audioTransport = transport;
 			Reflect.set(transport, Symbol.for("openclaw.internal.meeting-node-output-generation.v1"), result.audioBridge.outputGeneration === true);
-			transport = await createBrowserMeetingRealtimeAudioTransport({
-				...params,
-				nativeTransport: transport,
-				hasConfiguredInputCommand: params.config.chrome.audioInputCommandOverride !== void 0,
-				callBrowser,
-				buildCaptureScript: options.platform.browser.buildAudioCaptureScript?.bind(options.platform.browser),
-				meetingUrl: params.url,
-				targetId: browser.tab?.targetId,
-				audioFormat: params.config.chrome.audioFormat
-			});
+			transport = await captureBrowserAudio(params, transport, callBrowser, browser.tab);
 			audioTransport = transport;
 			const engine = await startRealtimeEngine(params, transport, {
 				nodeId,
@@ -4658,7 +4518,9 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 		});
 	}
 	return {
-		assertAudioDeviceAvailable,
+		assertAudioDeviceAvailable: async (params) => {
+			await prepareAudioRuntime(params);
+		},
 		launchInChrome,
 		launchOnNode,
 		leaveInBrowser,
@@ -4762,7 +4624,7 @@ function readOutputGeneration(value) {
 	if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return value;
 	throw new Error("outputGeneration must be a non-negative integer");
 }
-function runCommandWithTimeout(argv, timeoutMs) {
+function runCommandWithTimeout(argv, timeoutMs, failureMessage) {
 	const { command, args } = splitCommandArgv(argv, "command");
 	const result = spawnSync(command, args, {
 		encoding: "utf8",
@@ -4770,13 +4632,10 @@ function runCommandWithTimeout(argv, timeoutMs) {
 	});
 	const errorMessage = result.error ? formatErrorMessage(result.error) : "";
 	const stderr = errorMessage && result.stderr ? `${errorMessage}: ${result.stderr}` : errorMessage || result.stderr || (result.signal ? `terminated by ${result.signal}` : "");
-	return {
-		code: typeof result.status === "number" ? result.status : 1,
-		stdout: result.stdout ?? "",
-		stderr
-	};
+	const code = typeof result.status === "number" ? result.status : 1;
+	if (code !== 0) throw new Error(`${failureMessage}: ${stderr || result.stdout || code}`);
 }
-function waitForInputDrain(stream, timeoutMs) {
+function waitForInputDrain(stream) {
 	if (!stream || stream.readableEnded || stream.destroyed) return Promise.resolve();
 	return new Promise((resolve) => {
 		let settled = false;
@@ -4788,7 +4647,7 @@ function waitForInputDrain(stream, timeoutMs) {
 			stream.off("close", finish);
 			resolve();
 		};
-		const timeout = setTimeout(finish, timeoutMs);
+		const timeout = setTimeout(finish, NODE_BRIDGE_INPUT_DRAIN_MS);
 		timeout.unref?.();
 		stream.once("end", finish);
 		stream.once("close", finish);
@@ -4802,16 +4661,6 @@ function createMeetingNodeHost(options) {
 		activeProcesses.add(child);
 		child.once("close", () => activeProcesses.delete(child));
 		return child;
-	};
-	const releaseOutputWriteWaiters = (session, output) => {
-		for (const waiter of session.outputWriteWaiters) if (!output || waiter.process === output) waiter.release();
-	};
-	const retireOutputProcess = (session, outputProcess) => {
-		const stopPromise = terminateMeetingBridgeProcess(outputProcess, { graceMs: NODE_BRIDGE_TERMINATION_GRACE_MS });
-		session.retiredOutputStops.add(stopPromise);
-		stopPromise.finally(() => {
-			session.retiredOutputStops.delete(stopPromise);
-		});
 	};
 	const deleteSession = (session) => {
 		if (session.terminalEvictionTimer) {
@@ -4839,22 +4688,17 @@ function createMeetingNodeHost(options) {
 			}
 			session.chunks.length = 0;
 			session.queuedInputBytes = 0;
-			if (!session.closed) session.closed = true;
+			session.closed = true;
 			session.waiters.wake();
 		}
-		releaseOutputWriteWaiters(session);
+		session.outputOwner.release();
 		if (session.stopPromise) return session.stopPromise;
-		const terminalReady = session.discardQueuedAudioOnStop ? Promise.resolve() : waitForInputDrain(session.input?.stdout, NODE_BRIDGE_INPUT_DRAIN_MS).then(() => {
+		const terminalReady = session.discardQueuedAudioOnStop ? Promise.resolve() : waitForInputDrain(session.input?.stdout).then(() => {
 			if (session.discardQueuedAudioOnStop || session.closed) return;
 			session.closed = true;
 			session.waiters.wake();
 		});
-		session.stopPromise = Promise.all([
-			terminateMeetingBridgeProcess(session.input, { graceMs: NODE_BRIDGE_TERMINATION_GRACE_MS }),
-			terminateMeetingBridgeProcess(session.output, { graceMs: NODE_BRIDGE_TERMINATION_GRACE_MS }),
-			...session.retiredOutputStops,
-			terminalReady
-		]).then(() => {
+		session.stopPromise = Promise.all([session.outputOwner.stop(session.input, session.output), terminalReady]).then(() => {
 			if (session.discardQueuedAudioOnStop) {
 				deleteSession(session);
 				return;
@@ -4894,8 +4738,7 @@ function createMeetingNodeHost(options) {
 			lastOutputBytes: 0,
 			clearCount: 0,
 			outputGeneration: 0,
-			outputWriteWaiters: /* @__PURE__ */ new Set(),
-			retiredOutputStops: /* @__PURE__ */ new Set(),
+			outputOwner: new MeetingOutputProcessOwner(NODE_BRIDGE_TERMINATION_GRACE_MS),
 			stopping: false,
 			discardQueuedAudioOnStop: false
 		};
@@ -4974,7 +4817,7 @@ function createMeetingNodeHost(options) {
 		if (!output?.stdin) throw new Error(`bridge is not open: ${bridgeId}`);
 		const audio = decodeMeetingAudioBase64(base64, "pushAudio");
 		try {
-			await writeMeetingOutputChunk(session.outputWriteWaiters, output, output.stdin, audio);
+			await session.outputOwner.write(output, output.stdin, audio);
 		} catch {
 			if (session.output !== output || requestedGeneration !== void 0 && requestedGeneration !== session.outputGeneration) return staleOutputResult(session);
 			stopSession(session);
@@ -5002,10 +4845,10 @@ function createMeetingNodeHost(options) {
 		session.output = outputProcess;
 		session.outputGeneration = nextGeneration;
 		attachOutputProcessHandlers(session, outputProcess);
-		releaseOutputWriteWaiters(session, previousOutput);
+		session.outputOwner.release(previousOutput);
 		session.clearCount += 1;
 		session.lastClearAt = (/* @__PURE__ */ new Date()).toISOString();
-		retireOutputProcess(session, previousOutput);
+		session.outputOwner.retire(previousOutput);
 		return {
 			bridgeId,
 			ok: true,
@@ -5022,15 +4865,11 @@ function createMeetingNodeHost(options) {
 		if (mode && options.talkBackModes.has(mode)) {
 			audioRuntime = await prepareMeetingNodeAudio(params, Math.min(timeoutMs, 1e4), options);
 			const healthCommand = readMeetingNodeCommand(params.audioBridgeHealthCommand);
-			if (healthCommand) {
-				const health = runCommandWithTimeout(healthCommand, timeoutMs);
-				if (health.code !== 0) throw new Error(`Chrome audio bridge health check failed: ${health.stderr || health.stdout || health.code}`);
-			}
+			if (healthCommand) runCommandWithTimeout(healthCommand, timeoutMs, "Chrome audio bridge health check failed");
 			const bridgeCommand = readMeetingNodeCommand(params.audioBridgeCommand);
 			if (bridgeCommand) {
 				if (mode === options.agentMode) throw new Error("Chrome agent mode requires audioInputCommand and audioOutputCommand so OpenClaw can run STT and regular TTS directly.");
-				const bridge = runCommandWithTimeout(bridgeCommand, timeoutMs);
-				if (bridge.code !== 0) throw new Error(`failed to start Chrome audio bridge: ${bridge.stderr || bridge.stdout || bridge.code}`);
+				runCommandWithTimeout(bridgeCommand, timeoutMs, "failed to start Chrome audio bridge");
 				audioBridge = { type: "external-command" };
 			} else {
 				bridgeId = startCommandPair({
@@ -5055,8 +4894,7 @@ function createMeetingNodeHost(options) {
 			const browserProfile = readNonEmptyStringPreservingWhitespace(params.browserProfile);
 			if (browserProfile) argv.push(...options.browser.buildProfileArgs(browserProfile));
 			try {
-				const result = runCommandWithTimeout(argv, timeoutMs);
-				if (result.code !== 0) throw new Error(`failed to launch Chrome for ${options.browserLabel}: ${result.stderr || result.stdout || result.code}`);
+				runCommandWithTimeout(argv, timeoutMs, `failed to launch Chrome for ${options.browserLabel}`);
 			} catch (error) {
 				if (bridgeId) {
 					const session = sessions.get(bridgeId);
@@ -5136,11 +4974,7 @@ function createMeetingNodeHost(options) {
 	};
 	const stopBrowser = async (params) => {
 		const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
-		if (!bridgeId) return {
-			ok: true,
-			stopped: false
-		};
-		const session = sessions.get(bridgeId);
+		const session = bridgeId ? sessions.get(bridgeId) : void 0;
 		if (!session) return {
 			ok: true,
 			stopped: false
@@ -5152,6 +4986,24 @@ function createMeetingNodeHost(options) {
 			stopped: !wasStopped
 		};
 	};
+	const actions = new Map(Object.entries({
+		setup: async (params) => {
+			const audioRuntime = await prepareMeetingNodeAudio(params, 1e4, options);
+			return {
+				ok: true,
+				audioBackend: audioRuntime.backend,
+				audioDeviceLabel: audioRuntime.deviceLabel
+			};
+		},
+		start: startBrowser,
+		status: bridgeStatus,
+		list: listSessions,
+		stopByUrl: stopSessionsByUrl,
+		pullAudio,
+		pushAudio,
+		clearAudio,
+		stop: stopBrowser
+	}));
 	return {
 		hasActiveWork: () => sessions.size > 0 || activeProcesses.size > 0,
 		async handleCommand(paramsJSON) {
@@ -5162,46 +5014,9 @@ function createMeetingNodeHost(options) {
 				throw new Error(`${options.displayName} node host received malformed params JSON.`);
 			}
 			const params = asOptionalRecord(raw) ?? {};
-			const action = readNonEmptyStringPreservingWhitespace(params.action);
-			let result;
-			switch (action) {
-				case "setup":
-					{
-						const audioRuntime = await prepareMeetingNodeAudio(params, 1e4, options);
-						result = {
-							ok: true,
-							audioBackend: audioRuntime.backend,
-							audioDeviceLabel: audioRuntime.deviceLabel
-						};
-					}
-					break;
-				case "start":
-					result = await startBrowser(params);
-					break;
-				case "status":
-					result = bridgeStatus(params);
-					break;
-				case "list":
-					result = listSessions(params);
-					break;
-				case "stopByUrl":
-					result = await stopSessionsByUrl(params);
-					break;
-				case "pullAudio":
-					result = await pullAudio(params);
-					break;
-				case "pushAudio":
-					result = await pushAudio(params);
-					break;
-				case "clearAudio":
-					result = clearAudio(params);
-					break;
-				case "stop":
-					result = await stopBrowser(params);
-					break;
-				default: throw new Error(`unsupported ${options.commandName} action`);
-			}
-			return JSON.stringify(result);
+			const action = actions.get(readNonEmptyStringPreservingWhitespace(params.action) ?? "");
+			if (!action) throw new Error(`unsupported ${options.commandName} action`);
+			return JSON.stringify(await action(params));
 		}
 	};
 }
@@ -5325,7 +5140,7 @@ function denied(options, message) {
 }
 function approved(params) {
 	return {
-		approved: true,
+		ok: true,
 		params
 	};
 }
@@ -5334,16 +5149,10 @@ function buildStartParams(params, options) {
 	try {
 		url = options.normalizeUrl(params.url);
 	} catch (error) {
-		return {
-			approved: false,
-			result: denied(options, error instanceof Error ? error.message : `${options.commandName} start requires url`)
-		};
+		return denied(options, error instanceof Error ? error.message : `${options.commandName} start requires url`);
 	}
 	const mode = readNonEmptyStringPreservingWhitespace(params.mode);
-	if (mode && !options.supportedModes.has(mode)) return {
-		approved: false,
-		result: denied(options, `${options.commandName} start mode is unsupported: ${mode}`)
-	};
+	if (mode && !options.supportedModes.has(mode)) return denied(options, `${options.commandName} start mode is unsupported: ${mode}`);
 	const startParams = {
 		action: "start",
 		url,
@@ -5356,10 +5165,7 @@ function buildStartParams(params, options) {
 	return approved(startParams);
 }
 function denyMissing(options, action, field) {
-	return {
-		approved: false,
-		result: denied(options, `${options.commandName} ${action} requires ${field}`)
-	};
+	return denied(options, `${options.commandName} ${action} requires ${field}`);
 }
 function buildForwardParams(params, options) {
 	const action = readNonEmptyStringPreservingWhitespace(params.action);
@@ -5383,44 +5189,35 @@ function buildForwardParams(params, options) {
 			if (url) try {
 				forwarded.url = options.normalizeUrl(url);
 			} catch (error) {
-				return {
-					approved: false,
-					result: denied(options, error instanceof Error ? error.message : `${options.commandName} ${action} url`)
-				};
+				return denied(options, error instanceof Error ? error.message : `${options.commandName} ${action} url`);
 			}
 			if (mode) forwarded.mode = mode;
 			if (exceptBridgeId) forwarded.exceptBridgeId = exceptBridgeId;
 			return approved(forwarded);
 		}
-		case "pullAudio": {
-			const forwarded = { action };
-			const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
-			const timeoutMs = asPositiveFiniteNumber(params.timeoutMs);
-			if (!bridgeId) return denyMissing(options, action, "bridgeId");
-			forwarded.bridgeId = bridgeId;
-			if (timeoutMs) forwarded.timeoutMs = timeoutMs;
-			return approved(forwarded);
-		}
+		case "pullAudio":
 		case "pushAudio":
 		case "clearAudio": {
 			const forwarded = { action };
 			const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
 			const base64 = action === "pushAudio" ? readNonEmptyStringPreservingWhitespace(params.base64) : void 0;
 			if (!bridgeId) return denyMissing(options, action, "bridgeId");
+			if (action === "pullAudio") {
+				const timeoutMs = asPositiveFiniteNumber(params.timeoutMs);
+				return approved({
+					action,
+					bridgeId,
+					...timeoutMs ? { timeoutMs } : {}
+				});
+			}
 			if (action === "pushAudio") {
 				if (!base64) return denyMissing(options, action, "base64");
-				if (!isMeetingAudioBase64(base64)) return {
-					approved: false,
-					result: denied(options, "base64 must be a valid audio payload")
-				};
+				if (!isMeetingAudioBase64(base64)) return denied(options, "base64 must be a valid audio payload");
 			}
 			forwarded.bridgeId = bridgeId;
 			if (base64) forwarded.base64 = base64;
 			const outputGeneration = asSafeIntegerInRange(params.outputGeneration, { min: 0 });
-			if (params.outputGeneration !== void 0 && outputGeneration === void 0) return {
-				approved: false,
-				result: denied(options, "outputGeneration must be a non-negative safe integer")
-			};
+			if (params.outputGeneration !== void 0 && outputGeneration === void 0) return denied(options, "outputGeneration must be a non-negative safe integer");
 			if (outputGeneration !== void 0) forwarded.outputGeneration = outputGeneration;
 			return approved(forwarded);
 		}
@@ -5440,13 +5237,22 @@ function createMeetingBrowserNodeInvokePolicy(options) {
 				copyConfiguredAudio(setupParams, options.start);
 				return await ctx.invokeNode({ params: setupParams });
 			}
-			const decision = action === "start" ? buildStartParams(params, options) : buildForwardParams(params, options) ?? {
-				approved: false,
-				result: denied(options, `unsupported ${options.commandName} action`)
-			};
-			if (!decision.approved) return decision.result;
+			const decision = action === "start" ? buildStartParams(params, options) : buildForwardParams(params, options) ?? denied(options, `unsupported ${options.commandName} action`);
+			if (!decision.ok) return decision;
 			return await ctx.invokeNode({ params: decision.params });
 		}
+	};
+}
+//#endregion
+//#region src/meeting-bot/transcripts-bridge.ts
+function createMeetingTranscriptSourceProvider(params) {
+	return {
+		id: params.id,
+		aliases: params.aliases,
+		name: params.name,
+		sourceKinds: ["live-caption"],
+		start: async (request) => await (await params.runtime()).startTranscriptSource(request),
+		stop: async (request) => await (await params.runtime()).stopTranscriptSource(request)
 	};
 }
 //#endregion
@@ -5782,14 +5588,11 @@ function createMeetingPluginTypes() {
 //#region src/meeting-bot/runtime-facade.ts
 const nowIso = () => (/* @__PURE__ */ new Date()).toISOString();
 function createMeetingRuntimeFacade(options) {
-	return class MeetingRuntimeFacade {
+	return class MeetingRuntimeFacade extends MeetingSessionRuntime {
 		#defaultAgentId;
-		#sessions;
 		#requesterSessionKeys = /* @__PURE__ */ new Map();
 		constructor(params) {
-			this.params = params;
-			this.#defaultAgentId = normalizeAgentId(params.config.realtime.agentId ?? resolveDefaultAgentId(params.fullConfig));
-			this.#sessions = new MeetingSessionRuntime({
+			super({
 				logger: params.logger,
 				logScope: options.platform.logScope,
 				formatError: formatErrorMessage,
@@ -5847,25 +5650,15 @@ function createMeetingRuntimeFacade(options) {
 					...options.messages.durableTranscripts
 				}
 			});
-		}
-		list() {
-			return this.#sessions.list();
-		}
-		async startTranscriptSource(request) {
-			return await this.#sessions.startTranscriptSource(request);
-		}
-		reconcileTranscriptPolicy(enabled) {
-			return this.#sessions.reconcileTranscriptPolicy(enabled);
-		}
-		async stopTranscriptSource(request) {
-			return await this.#sessions.stopTranscriptSource(request);
+			this.params = params;
+			this.#defaultAgentId = normalizeAgentId(params.config.realtime.agentId ?? resolveDefaultAgentId(params.fullConfig));
 		}
 		ownsSession(agentId, sessionId) {
 			return this.list().some((session) => session.id === sessionId && session.agentId === agentId);
 		}
 		async join(request) {
 			try {
-				return await this.#sessions.join(options.hooks?.normalizeJoinRequest?.(request, this.#hookContext()) ?? request);
+				return await super.join(options.hooks?.normalizeJoinRequest?.(request, this.#hookContext()) ?? request);
 			} catch (error) {
 				const activeIds = new Set(this.list().map((session) => session.id));
 				for (const sessionId of this.#requesterSessionKeys.keys()) if (!activeIds.has(sessionId)) this.#requesterSessionKeys.delete(sessionId);
@@ -5874,28 +5667,19 @@ function createMeetingRuntimeFacade(options) {
 		}
 		async leave(sessionId) {
 			try {
-				return await this.#sessions.leave(sessionId);
+				return await super.leave(sessionId);
 			} finally {
 				this.#requesterSessionKeys.delete(sessionId);
 			}
 		}
-		async status(sessionId) {
-			return await this.#sessions.status(sessionId);
-		}
 		async statusForAgent(agentId, sessionId) {
-			if (sessionId) return this.ownsSession(agentId, sessionId) ? await this.#sessions.status(sessionId) : { found: false };
+			if (sessionId) return this.ownsSession(agentId, sessionId) ? await this.status(sessionId) : { found: false };
 			const sessions = this.list().filter((session) => session.agentId === agentId);
-			await Promise.all(sessions.map((session) => this.#sessions.status(session.id)));
+			await Promise.all(sessions.map((session) => this.status(session.id)));
 			return {
 				found: true,
 				sessions
 			};
-		}
-		async transcript(sessionId, transcriptOptions = {}) {
-			return await this.#sessions.transcript(sessionId, transcriptOptions);
-		}
-		async speak(sessionId, instructions) {
-			return await this.#sessions.speak(sessionId, instructions);
 		}
 		async setupStatus(setupOptions) {
 			return await options.probes.setupStatus({
@@ -5921,11 +5705,11 @@ function createMeetingRuntimeFacade(options) {
 			return {
 				deleteRequesterSessionKey: (sessionId) => this.#requesterSessionKeys.delete(sessionId),
 				endSession: async (sessionId, leaveOptions) => {
-					await this.#sessions.leave(sessionId, leaveOptions);
+					await super.leave(sessionId, leaveOptions);
 					this.#requesterSessionKeys.delete(sessionId);
 				},
 				noteSession: (session, note) => this.#noteSession(session, note),
-				refreshBrowserHealth: async (session, refreshOptions) => await this.#sessions.refreshBrowserHealth(session, refreshOptions),
+				refreshBrowserHealth: async (session, refreshOptions) => await this.refreshBrowserHealth(session, refreshOptions),
 				resolvedJoin: (request) => this.#resolveJoin(request)
 			};
 		}
@@ -5935,9 +5719,9 @@ function createMeetingRuntimeFacade(options) {
 				resolveAgentId: (request) => normalizeAgentId(request.agentId ?? this.#defaultAgentId),
 				list: () => this.list(),
 				join: async (request) => await this.join(request),
-				isReusable: (session, resolved) => this.#sessions.isReusableSession(session, resolved),
-				hasHealthHandle: (sessionId) => this.#sessions.hasHealthHandle(sessionId),
-				refreshHealth: (sessionId) => this.#sessions.refreshHealth(sessionId),
+				isReusable: (session, resolved) => this.isReusableSession(session, resolved),
+				hasHealthHandle: (sessionId) => this.hasHealthHandle(sessionId),
+				refreshHealth: (sessionId) => this.refreshHealth(sessionId),
 				refreshCaptionHealth: async (session, timeoutMs) => await this.#refreshBrowserHealth(session, { timeoutMs })
 			};
 		}
@@ -5974,7 +5758,7 @@ function createMeetingRuntimeFacade(options) {
 			const handles = this.#attachAudioBridge(session, result.audioBridge);
 			if (handles) context.attachRuntimeHandles(session, handles);
 			session.notes.push(result.audioBridge ? session.transport === "chrome-node" ? options.messages.joined.node : options.messages.joined.local : session.mode === "transcribe" ? options.messages.joined.transcribe : options.messages.joined.waiting);
-			this.#sessions.refreshSpeechReadiness(session);
+			this.refreshSpeechReadiness(session);
 			return {};
 		}
 		#attachAudioBridge(session, audioBridge) {
@@ -6030,7 +5814,7 @@ function createMeetingRuntimeFacade(options) {
 			return this.#attachAudioBridge(session, result.audioBridge);
 		}
 		async #refreshStatus(session) {
-			await this.#sessions.refreshBrowserHealth(session, {
+			await this.refreshBrowserHealth(session, {
 				force: true,
 				readOnly: !(options.hooks?.isAwaitingAdmission?.(session) ?? false)
 			});
@@ -6082,7 +5866,7 @@ function createMeetingRuntimeFacade(options) {
 			}
 		}
 		async #captureTranscript(session, captureOptions = {}) {
-			await this.#sessions.refreshCaptionHealth(session);
+			await this.refreshCaptionHealth(session);
 			const tab = session.chrome?.browserTab;
 			if (!tab) return;
 			return await options.transport.readTranscript({
@@ -6498,7 +6282,7 @@ function defineBrowserMeetingPlugin(spec) {
 		return probeTimeoutMs === void 0 ? operationTimeoutMs : addTimerTimeoutGraceMs(operationTimeoutMs, probeTimeoutMs) ?? 1;
 	};
 	const loadCli = async () => {
-		const { registerBrowserMeetingCli } = await import("../browser-plugin-cli-CMTMlBDY.mjs");
+		const { registerBrowserMeetingCli } = await import("../browser-plugin-cli-DyYS3YK6.mjs");
 		return (params) => registerBrowserMeetingCli({
 			...params,
 			callGateway: spec.cli.callGateway,
@@ -6579,7 +6363,6 @@ function browserResultString(result) {
 const optionalBrowserString = string().optional().catch(void 0);
 const optionalBrowserBoolean = boolean().optional().catch(void 0);
 const optionalBrowserNumber = number().optional().catch(void 0);
-const invalidBrowserArrayItemSchema = unknown().transform(() => null);
 const meetingTranscriptLineSchema = object({
 	at: optionalBrowserString,
 	speaker: optionalBrowserString,
@@ -6591,8 +6374,8 @@ const meetingTranscriptLineSchema = object({
 	text,
 	...provenance !== void 0 ? { provenance } : {}
 }));
-const meetingTranscriptLinesSchema = array(union([meetingTranscriptLineSchema, invalidBrowserArrayItemSchema])).transform((lines) => lines.filter((line) => line !== null));
-const meetingCaptionLinesSchema = array(union([meetingTranscriptLineSchema.and(object({ source: unknown().optional() })), invalidBrowserArrayItemSchema])).transform((lines) => lines.filter((line) => line !== null));
+const meetingTranscriptLinesSchema = array(meetingTranscriptLineSchema.nullable().catch(null)).transform((lines) => lines.filter((line) => line !== null));
+const meetingCaptionLinesSchema = array(meetingTranscriptLineSchema.and(object({ source: unknown().optional() })).nullable().catch(null)).transform((lines) => lines.filter((line) => line !== null));
 const meetingBrowserStatusSchema = looseObject({
 	inCall: optionalBrowserBoolean,
 	micMuted: optionalBrowserBoolean,
@@ -6619,7 +6402,7 @@ const meetingBrowserStatusSchema = looseObject({
 	}).optional().catch(void 0),
 	url: optionalBrowserString,
 	title: optionalBrowserString,
-	notes: array(union([string(), invalidBrowserArrayItemSchema])).transform((notes) => notes.filter((note) => note !== null)).optional().catch(void 0)
+	notes: array(string().nullable().catch(null)).transform((notes) => notes.filter((note) => note !== null)).optional().catch(void 0)
 });
 function parseMeetingBrowserStatus(result, adapterId, options) {
 	const raw = browserResultString(result);

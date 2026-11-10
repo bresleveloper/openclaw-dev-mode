@@ -1,4 +1,4 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-D7BLeoIa.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-5ywdmEQ1.mjs";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/deepinfra/media-models.ts
 const DEEPINFRA_BASE_URL = openclaw_plugin_default.modelCatalog.providers.deepinfra.baseUrl;
@@ -78,7 +78,7 @@ const DEEPINFRA_VIDEO_FALLBACK_MODELS = [
 ];
 const DEEPINFRA_STT_FALLBACK_MODELS = ["openai/whisper-large-v3-turbo", "openai/whisper-large-v3"];
 const DEEPINFRA_EMBED_FALLBACK_MODELS = ["BAAI/bge-m3"];
-const DEEPINFRA_VLM_FALLBACK_MODELS = ["moonshotai/Kimi-K2.5"];
+const DEEPINFRA_VLM_FALLBACK_MODELS = ["moonshotai/Kimi-K2.6"];
 function normalizeDeepInfraModelRef(model, fallback) {
 	const value = normalizeOptionalString(model) ?? fallback;
 	return value.startsWith("deepinfra/") ? value.slice(10) : value;

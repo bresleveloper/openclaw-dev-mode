@@ -1,9 +1,7 @@
 import { isRecord } from "../utils.js";
-import type { ConfigHealthEntry, ConfigHealthFingerprint } from "./io.health-state.types.js";
 
 type ConfigObserveSuspiciousBaseline = {
   bytes: number;
-  hasMeta: boolean;
   gatewayMode: string | null;
 };
 
@@ -25,7 +23,6 @@ function isUpdateChannelOnlyRoot(value: unknown): boolean {
 
 export function resolveConfigObserveSuspiciousReasons(params: {
   bytes: number;
-  hasMeta: boolean;
   gatewayMode: string | null;
   parsed: unknown;
   lastKnownGood?: ConfigObserveSuspiciousBaseline;
@@ -38,9 +35,7 @@ export function resolveConfigObserveSuspiciousReasons(params: {
   if (baseline.bytes >= 512 && params.bytes < Math.floor(baseline.bytes * 0.5)) {
     reasons.push(`size-drop-vs-last-good:${baseline.bytes}->${params.bytes}`);
   }
-  if (baseline.hasMeta && !params.hasMeta) {
-    reasons.push("missing-meta-vs-last-good");
-  }
+  // ConfigMap seeds and operator-authored configs need not contain writer metadata.
   if (baseline.gatewayMode && !params.gatewayMode) {
     reasons.push("gateway-mode-missing-vs-last-good");
   }
@@ -48,27 +43,4 @@ export function resolveConfigObserveSuspiciousReasons(params: {
     reasons.push("update-channel-only-root");
   }
   return reasons;
-}
-
-export function resolveConfigReadRecoveryContext(params: {
-  current: ConfigHealthFingerprint;
-  parsed: unknown;
-  entry: ConfigHealthEntry;
-  backupBaseline?: ConfigHealthFingerprint;
-}): { suspicious: string[]; suspiciousSignature: string } | null {
-  const suspicious = resolveConfigObserveSuspiciousReasons({
-    bytes: params.current.bytes,
-    hasMeta: params.current.hasMeta,
-    gatewayMode: params.current.gatewayMode,
-    parsed: params.parsed,
-    lastKnownGood: params.backupBaseline,
-  });
-  if (suspicious.length === 0) {
-    return null;
-  }
-  const suspiciousSignature = `${params.current.hash}:${suspicious.join(",")}`;
-  if (params.entry.lastObservedSuspiciousSignature === suspiciousSignature) {
-    return null;
-  }
-  return { suspicious, suspiciousSignature };
 }

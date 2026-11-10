@@ -1,4 +1,5 @@
 import { sanitizeForPlainText } from "openclaw/plugin-sdk/channel-outbound";
+import { formatTextWithAttachmentLinks } from "openclaw/plugin-sdk/reply-payload";
 import {
   FormatCapabilityProfile,
   markdownToIR,
@@ -36,17 +37,13 @@ const GOOGLE_CHAT_LITERAL_FALLBACKS = new Map([
   ["|", "｜"],
 ]);
 
-type GoogleChatMarkers = {
-  blockquoteClose: string;
-  blockquoteOpen: string;
-  list: string;
-};
+type GoogleChatMarkers = ReturnType<typeof createGoogleChatMarkers>;
 
-function createPrivateMarkerGenerator(text: string): () => string {
+function createGoogleChatMarkers(text: string) {
   const used = new Set<string>();
   let candidate = 0;
   const rangeSize = 0x1900;
-  return () => {
+  const nextMarker = () => {
     while (true) {
       const marker = String.fromCharCode(
         0xe000 + Math.floor(candidate / rangeSize),
@@ -59,10 +56,6 @@ function createPrivateMarkerGenerator(text: string): () => string {
       }
     }
   };
-}
-
-function createGoogleChatMarkers(text: string): GoogleChatMarkers {
-  const nextMarker = createPrivateMarkerGenerator(text);
   return {
     list: nextMarker(),
     blockquoteOpen: nextMarker(),
@@ -77,16 +70,37 @@ export function sanitizeGoogleChatText(text: string): string {
   });
 }
 
-function projectDecodedGoogleChatResources(ir: MarkdownIR): MarkdownIR {
-  const characters = ir.text.includes("<") ? ir.text.split("") : [];
-  let changed = false;
-  for (const match of ir.text.matchAll(/<(?:users|customEmojis)\/[^<>\s]+>/giu)) {
-    const start = match.index ?? 0;
-    characters[start] = "＜";
-    characters[start + match[0].length - 1] = "＞";
-    changed = true;
+export function formatGoogleChatMediaText(
+  text: string | undefined,
+  mediaUrls: readonly string[],
+): string {
+  const remoteUrls = mediaUrls.filter((value) => {
+    // Controls are ASCII; check code units before URL parsing strips them.
+    if (
+      value.split("").some((character) => character <= " " || character === "\u007f") ||
+      !/^https?:\/\//iu.test(value)
+    ) {
+      return false;
+    }
+    try {
+      return Boolean(new URL(value).hostname);
+    } catch {
+      return false;
+    }
+  });
+  if (remoteUrls.length !== mediaUrls.length) {
+    throw new Error("Google Chat outbound attachments require remote HTTP(S) URLs.");
   }
-  return changed ? { ...ir, text: characters.join("") } : ir;
+  // Preserve Markdown indentation; the shared plain-text formatter trims captions.
+  return [text, formatTextWithAttachmentLinks(undefined, remoteUrls)].filter(Boolean).join("\n\n");
+}
+
+function projectDecodedGoogleChatResources(ir: MarkdownIR): MarkdownIR {
+  const text = ir.text.replace(
+    /<(?:users|customEmojis)\/[^<>\s]+>/giu,
+    (match) => `＜${match.slice(1, -1)}＞`,
+  );
+  return text === ir.text ? ir : { ...ir, text };
 }
 
 function projectGoogleChatLinkLabels(ir: MarkdownIR): MarkdownIR {
@@ -260,10 +274,7 @@ function emitGoogleChatBlockquotes(text: string, markers: GoogleChatMarkers): st
   return rendered;
 }
 
-function prepareGoogleChatIR(text: string): {
-  ir: MarkdownIR;
-  markers: GoogleChatMarkers;
-} {
+function prepareGoogleChatIR(text: string) {
   const sanitized = sanitizeGoogleChatText(text);
   const parsed = markdownToIR(sanitized, {
     enableSpoilers: true,

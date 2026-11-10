@@ -1,5 +1,5 @@
 import { classifyQwenFailoverReason } from "./failover.js";
-import { B as isQwen38ModelId, D as QWEN_TOKEN_PLAN_LEGACY_PROVIDER_ID, H as isQwenStandardOnlyModelId, J as supportsQwenTokenPlanGlmMaxThinking, K as isQwenTokenPlanThinkingOnlyModelId, T as QWEN_TOKEN_PLAN_DEFAULT_MODEL_REF, U as isQwenTokenPlanDeepSeekV4ModelId, V as isQwenCodingPlanBaseUrl, W as isQwenTokenPlanGlmModelId, k as QWEN_TOKEN_PLAN_PROVIDER_ID, v as QWEN_DEFAULT_MODEL_REF } from "./.setup/models-NTrSBQ85.mjs";
+import { B as isQwenStandardOnlyModelId, D as QWEN_TOKEN_PLAN_LEGACY_PROVIDER_ID, H as isQwenTokenPlanGlmModelId, K as supportsQwenTokenPlanGlmMaxThinking, R as isQwen38ModelId, T as QWEN_TOKEN_PLAN_DEFAULT_MODEL_REF, V as isQwenTokenPlanDeepSeekV4ModelId, W as isQwenTokenPlanThinkingOnlyModelId, k as QWEN_TOKEN_PLAN_PROVIDER_ID, v as QWEN_DEFAULT_MODEL_REF, z as isQwenCodingPlanBaseUrl } from "./.setup/models-BRg9bCBV.mjs";
 import { buildQwenMediaUnderstandingProvider } from "./media-understanding-provider.js";
 import { buildQwenProvider, buildQwenTokenPlanProvider } from "./provider-catalog.js";
 import { applyQwenConfig, applyQwenConfigCn, applyQwenStandardConfig, applyQwenStandardConfigCn, applyQwenTokenPlanConfig } from "./onboard.js";
@@ -28,6 +28,19 @@ function resolveConfiguredQwenBaseUrl(config, providerIds) {
 		const baseUrl = provider?.baseUrl?.trim();
 		if (baseUrl) return baseUrl;
 	}
+}
+async function resolveQwenCatalog(ctx, providerId) {
+	const auth = ctx.resolveProviderApiKey(providerId);
+	if (!auth.apiKey) return null;
+	const baseUrl = resolveConfiguredQwenBaseUrl(ctx.config, providerId === PROVIDER_ID ? [PROVIDER_ID, LEGACY_PROVIDER_ID] : [providerId]);
+	return await buildOpenAICompatibleLiveProviderCatalog({
+		discoveryMode: "strict",
+		providerId,
+		providerConfig: (providerId === PROVIDER_ID ? buildQwenProvider : buildQwenTokenPlanProvider)({ baseUrl }),
+		apiKey: auth.apiKey,
+		discoveryApiKey: auth.discoveryApiKey,
+		profileId: auth.profileId
+	});
 }
 function createQwenAuthMethod(plan, region) {
 	const isStandard = plan === "standard";
@@ -125,6 +138,7 @@ var qwen_default = defineSingleProviderPluginEntry({
 		label: "Qwen Cloud",
 		docsPath: "/providers/qwen",
 		aliases: ["modelstudio", "qwencloud"],
+		hookAliases: ["dashscope", "modelstudio-native"],
 		auth: [
 			createQwenAuthMethod("standard", "cn"),
 			createQwenAuthMethod("standard", "global"),
@@ -132,19 +146,7 @@ var qwen_default = defineSingleProviderPluginEntry({
 			createQwenAuthMethod("coding", "global")
 		],
 		catalog: {
-			run: async (ctx) => {
-				const auth = ctx.resolveProviderApiKey(PROVIDER_ID);
-				if (!auth.apiKey) return null;
-				const baseUrl = resolveConfiguredQwenBaseUrl(ctx.config, [PROVIDER_ID, LEGACY_PROVIDER_ID]) ?? "https://coding-intl.dashscope.aliyuncs.com/v1";
-				return await buildOpenAICompatibleLiveProviderCatalog({
-					discoveryMode: "strict",
-					providerId: PROVIDER_ID,
-					providerConfig: buildQwenProvider({ baseUrl }),
-					apiKey: auth.apiKey,
-					discoveryApiKey: auth.discoveryApiKey,
-					profileId: auth.profileId
-				});
-			},
+			run: (ctx) => resolveQwenCatalog(ctx, PROVIDER_ID),
 			staticRun: async () => ({ provider: buildQwenProvider() })
 		},
 		wrapStreamFn: wrapQwenProviderStream,
@@ -169,19 +171,7 @@ var qwen_default = defineSingleProviderPluginEntry({
 			auth: [createQwenTokenPlanAuthMethod("global"), createQwenTokenPlanAuthMethod("cn")],
 			catalog: {
 				order: "simple",
-				run: async (ctx) => {
-					const auth = ctx.resolveProviderApiKey(QWEN_TOKEN_PLAN_PROVIDER_ID);
-					if (!auth.apiKey) return null;
-					const baseUrl = resolveConfiguredQwenBaseUrl(ctx.config, [QWEN_TOKEN_PLAN_PROVIDER_ID]);
-					return await buildOpenAICompatibleLiveProviderCatalog({
-						discoveryMode: "strict",
-						providerId: QWEN_TOKEN_PLAN_PROVIDER_ID,
-						providerConfig: buildQwenTokenPlanProvider({ baseUrl }),
-						apiKey: auth.apiKey,
-						discoveryApiKey: auth.discoveryApiKey,
-						profileId: auth.profileId
-					});
-				}
+				run: (ctx) => resolveQwenCatalog(ctx, QWEN_TOKEN_PLAN_PROVIDER_ID)
 			},
 			staticCatalog: {
 				order: "simple",

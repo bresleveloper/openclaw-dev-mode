@@ -1,15 +1,16 @@
 import { i as asOptionalObjectRecord } from "../../../record-coerce-TIsquoVR.mjs";
-import { a as getNodeSqliteKysely, c as prepareSqliteQuerySync, i as executeSqliteQueryTakeFirstSync, r as executeSqliteQuerySync } from "../../../kysely-sync-K7ftY-g4.mjs";
-import { r as enableNodeSqliteKyselyStatementCache } from "../../../kysely-sync-cache-state-eUau8Jaa.mjs";
-import { t as openNodeSqliteDatabase } from "../../../node-sqlite-XIcwmOrl.mjs";
-import { a as runSqliteImmediateTransactionSync } from "../../../sqlite-transaction-DsZ3X6nD.mjs";
-import { t as configureSqliteConnectionPragmas } from "../../../sqlite-wal-DUSYRhyv.mjs";
-import { t as migrateSqliteSchemaToStrict } from "../../../sqlite-strict-CYeSH78z.mjs";
-import "../../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../../sqlite-worker-runtime-BFi6Nryt.mjs";
+import { r as enableNodeSqliteKyselyStatementCache } from "../../../kysely-sync-cache-state-Dc7tna9E.mjs";
+import { b as publishSqliteDatabaseAdmission, c as getSqliteDatabaseAdmission } from "../../../sqlite-database-admission-CqdNF9iE.mjs";
+import { r as openNodeSqliteDatabase } from "../../../node-sqlite-CYaq-2Hb.mjs";
+import { a as executeSqliteQueryTakeFirstSync, i as executeSqliteQuerySync, l as prepareSqliteQuerySync, o as getNodeSqliteKysely } from "../../../kysely-sync-9fPQaMlh.mjs";
+import { t as configureSqliteConnectionPragmas } from "../../../sqlite-wal-D2XTertL.mjs";
+import { a as runSqliteImmediateTransactionSync } from "../../../sqlite-transaction-CpDyZPQ0.mjs";
+import { n as migrateSqliteSchemaToStrict } from "../../../sqlite-strict-CTENSqnV.mjs";
+import "../../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../../sqlite-worker-runtime-Da3qtgYL.mjs";
 import { t as expectDefined } from "../../../expect-runtime-CJBt0Gq2.mjs";
-import "../../../plugin-state-runtime-CD-7t-B7.mjs";
-import { i as pickKeyframeId } from "../../../analyze-BRtMrrch.mjs";
+import "../../../plugin-state-runtime-BZ82Ol4-.mjs";
+import { i as pickKeyframeId } from "../../../analyze-Dh2JSzjn.mjs";
 import { chmodSync, mkdirSync, rmSync, rmdirSync } from "node:fs";
 import path from "node:path";
 //#region extensions/logbook/src/store-frame-queries.ts
@@ -160,6 +161,11 @@ function toCard(row) {
 //#region extensions/logbook/src/store.worker.ts
 const LOGBOOK_SQLITE_BUSY_TIMEOUT_MS = 5e3;
 const FRAME_PRUNE_BATCH_SIZE = 64;
+const schemaAdmission = {
+	name: "logbook.schema",
+	schemaDependent: true,
+	read: (value) => value === true ? true : void 0
+};
 var LogbookDatabaseStore = class {
 	constructor(dataDir, dbPath) {
 		mkdirSync(dataDir, {
@@ -185,13 +191,16 @@ var LogbookDatabaseStore = class {
 				foreignKeys: true,
 				synchronous: "NORMAL"
 			});
-			const versionRow = db.prepare("PRAGMA user_version").get();
-			const schemaVersion = Number(versionRow?.user_version ?? 0);
-			if (schemaVersion > 1) throw new Error(`Logbook database uses newer schema version ${schemaVersion}; this build supports 1`);
-			db.exec(SCHEMA);
-			if (schemaVersion < 1) {
-				migrateSqliteSchemaToStrict(db, SCHEMA, { databaseLabel: dbPath });
-				db.exec(`PRAGMA user_version = 1;`);
+			if (!getSqliteDatabaseAdmission(db, schemaAdmission)) {
+				const versionRow = db.prepare("PRAGMA user_version").get();
+				const schemaVersion = Number(versionRow?.user_version ?? 0);
+				if (schemaVersion > 1) throw new Error(`Logbook database uses newer schema version ${schemaVersion}; this build supports 1`);
+				db.exec(SCHEMA);
+				if (schemaVersion < 1) {
+					migrateSqliteSchemaToStrict(db, SCHEMA, { databaseLabel: dbPath });
+					db.exec(`PRAGMA user_version = 1;`);
+				}
+				publishSqliteDatabaseAdmission(db, schemaAdmission, true);
 			}
 			this.db = db;
 			this.walMaintenance = walMaintenance;

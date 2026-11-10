@@ -1,10 +1,14 @@
-import { o as runSqliteWorkerTransactionSync, r as runSqliteDeferredTransactionSync, t as assertTransactionUsable } from "../../sqlite-transaction-DsZ3X6nD.mjs";
-import { t as encodeOpenClawStateWorkerError } from "../../openclaw-state-worker-error-Cmtk9G4_.mjs";
-import { i as inspectAuthProfileJsonCell, s as writeAuthProfileJsonCell } from "../../sqlite-json-P6pbG3re.mjs";
-import { f as resolveInlineProviderApiKeyUsageId } from "../../profile-usage-stats-BLwxBqRR.mjs";
-import { s as mergePersistedAuthProfileState, u as AuthProfileStoreUnreadableError, w as reportCommittedInlineAuthFailure } from "../../persisted-BVyWmvfF.mjs";
-import { t as prepareAuthProfileStateMutation } from "../../store-mutation-Cscq8qp1.mjs";
-import { t as computeNextProfileUsageStats } from "../../usage-failure-state-DUw1b0dj.mjs";
+import { c as withSqlitePostCommitPublications } from "../../sqlite-post-commit-22SfWsLt.mjs";
+import { l as runSqliteWorkerTransactionSync, r as runSqliteDeferredTransactionSync, t as assertTransactionUsable } from "../../sqlite-transaction-CpDyZPQ0.mjs";
+import { _ as AuthProfileStoreUnreadableError, t as encodeOpenClawStateWorkerError } from "../../openclaw-state-worker-error-B93Lf_P2.mjs";
+import { U as reportCommittedInlineAuthFailure, j as resolveInlineProviderApiKeyUsageId } from "../../user-model-account-authority-DFFjC5J5.mjs";
+import { o as mergePersistedAuthProfileState } from "../../persisted-DbIYEoQ3.mjs";
+import { w as writeAuthProfileJsonCell } from "../../sqlite-BlFpr2YD.mjs";
+import { s as inspectAuthProfileJsonCell } from "../../sqlite-json-Dyr7VLoH.mjs";
+import { n as prepareAuthProfileStateMutation } from "../../store-save-BIpfhaDX.mjs";
+import { o as computeNextProfileUsageStats } from "../../usage-reduction-CowLLP6a.mjs";
+import { t as enrollAuthProfileAuthorizationInDatabase } from "../../authorization-enrollment-qxIdf8dG.mjs";
+import { n as authProfilePeerGenerationMayMatch, r as updateAuthProfileStoreInDatabase, t as recordAuthProfileUsageInDatabase } from "../../usage-kernel-FASGF1bH.mjs";
 import { isDeepStrictEqual } from "node:util";
 //#region src/agents/auth-profiles/inline-usage-kernel.ts
 /** The admitted agent transaction owns the fresh read, health reduction, and durable cells. */
@@ -66,22 +70,35 @@ function recordInlineAuthFailureInDatabase(database, databasePath, input) {
 function bindSqliteWorkerBackend(_input, context) {
 	return {
 		execute(command) {
+			if (command.type === "authProfiles.enrollAuthorization") return runSqliteWorkerTransactionSync(context, () => enrollAuthProfileAuthorizationInDatabase(context.database, "agent", command.input));
+			if (command.type === "authProfiles.update") {
+				if (!authProfilePeerGenerationMayMatch(context.database, command.input)) return false;
+				withSqlitePostCommitPublications(context.database, () => runSqliteWorkerTransactionSync(context, () => updateAuthProfileStoreInDatabase(context.database, "agent", command.input)));
+				return true;
+			}
 			if (command.type === "authProfiles.inlineSnapshot") return runSqliteDeferredTransactionSync(context.database, () => ({
 				store: inspectAuthProfileJsonCell(context.database, "store", "agent"),
 				state: inspectAuthProfileJsonCell(context.database, "state", "agent"),
 				cacheable: false
 			}));
-			let receipt;
+			let result;
 			let committed = false;
 			try {
 				runSqliteWorkerTransactionSync(context, () => {
-					receipt = recordInlineAuthFailureInDatabase(context.database, context.databasePath, command.input);
+					if (command.type === "authProfiles.usage") result = {
+						ok: true,
+						receipt: recordAuthProfileUsageInDatabase(context.database, context.databasePath, "agent", command.input)
+					};
+					else result = {
+						ok: true,
+						receipt: recordInlineAuthFailureInDatabase(context.database, context.databasePath, command.input)
+					};
 				}, { withCommit(commit) {
 					commit();
 					committed = true;
 				} });
 			} catch (error) {
-				if (!committed || !receipt) {
+				if (!committed || !result) {
 					assertTransactionUsable(context.database);
 					if (!context.database.isOpen || context.database.isTransaction) throw error;
 					const failure = encodeOpenClawStateWorkerError(error, { includeOrdinary: true });
@@ -93,11 +110,8 @@ function bindSqliteWorkerBackend(_input, context) {
 				}
 				reportCommittedInlineAuthFailure("Auth usage committed before transaction cleanup failed", error);
 			}
-			if (!receipt) throw new Error("Auth usage transaction produced no durable result");
-			return {
-				ok: true,
-				receipt
-			};
+			if (!result) throw new Error("Auth usage transaction produced no durable result");
+			return result;
 		},
 		assertSettled() {
 			assertTransactionUsable(context.database);

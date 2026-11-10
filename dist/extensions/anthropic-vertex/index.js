@@ -6,12 +6,7 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { readConfiguredProviderCatalogEntries } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
 //#region extensions/anthropic-vertex/index.ts
-/**
-* Anthropic Vertex provider plugin entry. It registers implicit ADC-backed
-* catalog discovery, Anthropic replay policy, thinking profiles, and auth markers.
-*/
 const PROVIDER_ID = "anthropic-vertex";
-/** Provider entry for Anthropic Claude models served through Google Vertex AI. */
 var anthropic_vertex_default = definePluginEntry({
 	id: PROVIDER_ID,
 	name: "Anthropic Vertex Provider",

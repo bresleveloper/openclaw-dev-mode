@@ -8,7 +8,7 @@ import type {
   RealtimeVoiceCloseDisposition,
   RealtimeVoiceCloseOptions,
 } from "openclaw/plugin-sdk/realtime-voice";
-import WebSocket from "ws";
+import { WebSocket } from "openclaw/plugin-sdk/websocket-runtime";
 import type { OpenAIRealtimeHost } from "./realtime-host.js";
 import {
   assertOpenAIQuicksilverPcmOutput,
@@ -99,7 +99,6 @@ export class OpenAIQuicksilverGatewayBridge implements RealtimeVoiceBridge {
   private delegations: OpenAIQuicksilverDelegationController | undefined;
   private connected = false;
   private closed = false;
-  private closeNotified = false;
   private closingPromise: Promise<void> | undefined;
   private closeReason: "completed" | "error" = "completed";
   private providerSessionClosed = false;
@@ -585,10 +584,6 @@ export class OpenAIQuicksilverGatewayBridge implements RealtimeVoiceBridge {
         clearTimeout(this.timer);
         this.timer = undefined;
       }
-      if (this.providerSessionClosed) {
-        this.finishClose(disposition, beforeClose);
-        return;
-      }
       this.closingPromise = closeOpenAILiveSocket(socket)
         .then((receiptReason) => {
           if (receiptReason === "content" || receiptReason === "connection_lost") {
@@ -618,10 +613,7 @@ export class OpenAIQuicksilverGatewayBridge implements RealtimeVoiceBridge {
       try {
         beforeClose?.();
       } finally {
-        if (!this.closeNotified) {
-          this.closeNotified = true;
-          this.config.onClose?.(this.closeReason);
-        }
+        this.config.onClose?.(this.closeReason);
       }
     }
   }

@@ -10,7 +10,10 @@ import type {
   ExecApprovalsSnapshot,
 } from "./exec-approvals-core.js";
 import { resolveExecApprovalsFromFileInternal } from "./exec-approvals-resolver.js";
-import { ensureExecApprovalsSnapshot, loadExecApprovals } from "./exec-approvals-store.js";
+import {
+  ensureExecApprovalsSnapshot,
+  loadExecApprovalsReadOnlyAsync,
+} from "./exec-approvals-store.js";
 import { expandHomePrefix } from "./home-dir.js";
 
 export * from "./exec-approvals-analysis.js";
@@ -22,7 +25,6 @@ export type { AllowAlwaysPattern, ExecAllowlistEntry } from "./exec-approvals.ty
 export type { ExecApprovalsDefaultOverrides } from "./exec-approvals-contracts.js";
 export {
   DEFAULT_EXEC_APPROVAL_ASK_FALLBACK,
-  mergeExecApprovalsSocketDefaults,
   normalizeExecApprovalsInternal as normalizeExecApprovals,
   resolveExecApprovalsDisplayPath,
 } from "./exec-approvals-config.js";
@@ -31,7 +33,9 @@ export {
   ensureExecApprovalsSnapshot,
   loadExecApprovals,
   loadExecApprovalsReadOnly,
+  loadExecApprovalsReadOnlyAsync,
   readExecApprovalsSnapshot,
+  readExecApprovalsSnapshotAsync,
   restoreExecApprovalsSnapshotLocked,
   updateExecApprovals,
   withAgentExecApprovalsRemoved,
@@ -73,33 +77,25 @@ function shapeResolvedExecApprovals(params: {
   });
 }
 
-function resolveExecApprovalsWithoutSocket(params: {
-  file: ExecApprovalsFile;
-  filePath: string;
-  agentId?: string;
-  overrides?: ExecApprovalsDefaultOverrides;
-}): ExecApprovalsResolved | null {
-  const resolved = shapeResolvedExecApprovals({ ...params, socket: "none" });
-  const noPrompt =
-    (resolved.agent.security === "full" || resolved.agent.security === "deny") &&
-    resolved.agent.ask === "off";
-  return noPrompt && !params.file.socket?.token?.trim() ? resolved : null;
-}
-
 export async function resolveExecApprovalsLocked(
   agentId?: string,
   overrides?: ExecApprovalsDefaultOverrides,
 ): Promise<ExecApprovalsResolved> {
   const filePath = resolveExecApprovalsDisplayPath();
   if (!overrides?.requireSocket) {
-    const file = loadExecApprovals();
-    const resolved = resolveExecApprovalsWithoutSocket({
+    const file = await loadExecApprovalsReadOnlyAsync();
+    const resolved = shapeResolvedExecApprovals({
       file,
       filePath,
       agentId,
       overrides,
+      socket: "none",
     });
-    if (resolved) {
+    if (
+      (resolved.agent.security === "full" || resolved.agent.security === "deny") &&
+      resolved.agent.ask === "off" &&
+      !file.socket?.token?.trim()
+    ) {
       return resolved;
     }
   }

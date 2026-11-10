@@ -1,15 +1,15 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
 import { a as asOptionalRecord, c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { i as readResponseWithLimit } from "../../http-response-body-umfRGZ-E.mjs";
+import { i as readResponseWithLimit } from "../../http-response-body-B70cE6fn.mjs";
 import { n as oauthErrorHtml, r as oauthSuccessHtml } from "../../oauth-page-CdAMKCs_.mjs";
-import { i as generatePKCE, l as withOAuthLoginAbort, o as resolveOAuthTokenExpiresAt, r as generateBase64UrlOAuthState } from "../../provider-oauth-runtime-B6eXjkVx.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../response-limit-runtime-CpfmMF5T.mjs";
-import { s as startProviderOAuthLoopbackCallbackServer } from "../../provider-auth-runtime-B-PBEJIo.mjs";
-import { t as buildOauthProviderAuthResult } from "../../provider-auth-result-BIBiHM9E.mjs";
-import { a as OPENAI_DEFAULT_MODEL } from "../../default-models-CYEf1QuY.mjs";
+import { i as generatePKCE, l as withOAuthLoginAbort, o as resolveOAuthTokenExpiresAt, r as generateBase64UrlOAuthState } from "../../provider-oauth-runtime-CGs7wjl8.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../response-limit-runtime-obgw0EAQ.mjs";
+import { c as startProviderOAuthLoopbackCallbackServer } from "../../provider-auth-runtime-CMRSW7VK.mjs";
+import { t as buildOauthProviderAuthResult } from "../../provider-auth-result-BFX1an2Z.mjs";
+import { a as OPENAI_DEFAULT_MODEL } from "../../default-models-CU9j2AqC.mjs";
 import { i as TOKEN_SHARING_ISSUER, l as isSIWCAuthFlow, n as TOKEN_SHARING_AUTH_FLOW, o as TOKEN_SHARING_REDIRECT_URI, r as TOKEN_SHARING_CLIENT_ID, s as TOKEN_SHARING_RESOURCE, t as IDENTITY_AUTH_FLOW } from "../../token-sharing-CmBELw8t.mjs";
-import { n as withOpenAIOAuthResponse, t as createOpenAIAuthorizationCodeForm } from "../../openai-oauth-http.runtime-BqUOWv-L.mjs";
+import { n as withOpenAIOAuthResponse, t as createOpenAIAuthorizationCodeForm } from "../../openai-oauth-http.runtime-DQsSAofo.mjs";
 import { createHash } from "node:crypto";
 //#region node_modules/.pnpm/jose@6.2.12/node_modules/jose/dist/webapi/lib/buffer_utils.js
 const encoder = new TextEncoder();
@@ -715,9 +715,13 @@ async function readCredential(params) {
 	const { json, previous, clientId, owner } = params;
 	const access = normalizeOptionalString(json.access_token);
 	const refresh = normalizeOptionalString(json.refresh_token) ?? previous?.refresh;
-	const expires = resolveOAuthTokenExpiresAt(json.expires_in);
+	let expires = resolveOAuthTokenExpiresAt(json.expires_in);
 	const idToken = normalizeOptionalString(json.id_token) ?? previous?.idToken;
 	if (!access || !refresh || expires === void 0 || !idToken || typeof json.token_type !== "string" || json.token_type.toLowerCase() !== "bearer") throw new Error("ChatGPT did not return a complete renewable credential. Start sign-in again.");
+	try {
+		const exp = decodeJwt(access).exp;
+		if (typeof exp === "number" && Number.isSafeInteger(exp) && exp > 0 && Number.isSafeInteger(exp * 1e3)) expires = Math.min(expires, exp * 1e3);
+	} catch {}
 	const identity = json.id_token || !previous ? await verifyIdentity(idToken, clientId, owner, params.nonce) : decodeJwt(idToken);
 	const subject = identity.sub;
 	if (!subject || previous?.idToken && decodeJwt(previous.idToken).sub !== subject) throw new Error("ChatGPT account changed during refresh. Sign in again to reconnect.");

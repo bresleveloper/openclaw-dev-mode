@@ -10,7 +10,7 @@ import {
   withServiceInspectionBudget,
 } from "./service-inspection-budget.js";
 import {
-  findServiceOwnershipRefusal,
+  assertServiceInspectionFallbackAllowed,
   ServiceInspectionError,
   type ServiceInspectionReason,
 } from "./service-inspection-error.js";
@@ -32,9 +32,12 @@ const versionArgs = [
   `${manager}.Manager`,
   "Version",
 ];
-export const SYSTEMD_TRANSPORT_DEADLINE = new ServiceInspectionError(
-  "systemd-inspection-deadline-exceeded",
-);
+export class SystemdTransportInspectionTimeout extends ServiceInspectionError {
+  constructor(check: string) {
+    super("systemd-inspection-deadline-exceeded");
+    this.message = `${this.message} Stalled check: ${check}.`;
+  }
+}
 const addressFor = (socket: string) =>
   `unix:path=${encodeURIComponent(socket).replaceAll("%2F", "/")}`;
 const transportKey = (env: GatewayServiceEnv, uid = process.geteuid?.()) => {
@@ -62,11 +65,15 @@ export async function resolveSystemdUserTransport(
 ): Promise<SystemdUserTransport | undefined> {
   return await withServiceInspectionBudget<Promise<SystemdUserTransport | undefined>>(
     async (inspectionBudget) => {
+      let checking = "cached user-manager route";
       const check = () => {
+        if (inspectionBudget.now() >= deadline) {
+          throw new SystemdTransportInspectionTimeout(checking);
+        }
         assertGatewayServiceUpdateCurrent();
         runServiceInspectionGuard(assertCurrent);
         if (inspectionBudget.now() >= deadline) {
-          throw SYSTEMD_TRANSPORT_DEADLINE;
+          throw new SystemdTransportInspectionTimeout("custody/admission guards");
         }
       };
       const uid = process.geteuid?.();
@@ -83,7 +90,11 @@ export async function resolveSystemdUserTransport(
       const explicit = source.DBUS_SESSION_BUS_ADDRESS?.trim();
       const key = transportKey(source, uid);
       const joined = transports.has(key);
-      const discovery = getOrCreatePromise(transports, key, select, { cacheRejections: false });
+      // Discovery and waiters use their own selected clocks; only the initiating
+      // scope accounts for its synchronous admission checks.
+      const discovery = getOrCreatePromise(transports, key, () => Promise.resolve().then(select), {
+        cacheRejections: false,
+      });
       let selected: Selection | typeof ABSOLUTE_DEADLINE_EXPIRED;
       try {
         selected = await awaitWithinDeadline(
@@ -92,21 +103,24 @@ export async function resolveSystemdUserTransport(
           () => inspectionBudget.now(),
         );
       } catch (error) {
+        assertServiceInspectionFallbackAllowed(error);
         check();
-        const refusal = findServiceOwnershipRefusal(error);
-        if (refusal) {
-          throw refusal;
-        }
         // A failed shared discovery does not consume this caller's independent custody/budget.
         if (joined) {
           return await resolveSystemdUserTransport(env, deadline, assertCurrent, purpose);
         }
         throw error;
       }
-      check();
       if (selected === ABSOLUTE_DEADLINE_EXPIRED) {
-        throw SYSTEMD_TRANSPORT_DEADLINE;
+        // The initiating caller owns native cleanup even after its deadline. A
+        // joining waiter must not cancel another caller's independent discovery.
+        if (!joined) {
+          await discovery.catch(assertServiceInspectionFallbackAllowed);
+        }
+        check();
+        throw new SystemdTransportInspectionTimeout(checking);
       }
+      check();
       // A timed-out earlier candidate remains unresolved for a later admission.
       if (joined && purpose === "admission" && selected.timedOut) {
         if (transports.get(key) === discovery) {
@@ -131,7 +145,9 @@ export async function resolveSystemdUserTransport(
         ];
         let reason: ServiceInspectionReason = "systemd-user-bus-unavailable";
         let timedOut = false;
+        let timedOutCheck = checking;
         for (const [index, candidate] of candidates.entries()) {
+          checking = `${candidate.kind} Manager.Version`;
           check();
           const budget = Math.max(
             1,
@@ -142,8 +158,10 @@ export async function resolveSystemdUserTransport(
           try {
             let version: unknown;
             if (candidate.kind === "private") {
+              checking = "private manager connection";
               connection = await openSystemdUserManager(candidate.address, until);
               check();
+              checking = "private Manager.Version";
               [version] = (await connection.query(versionArgs, ["s"], until)) ?? [];
             } else {
               const scope =
@@ -162,9 +180,16 @@ export async function resolveSystemdUserTransport(
                   killSignal: "SIGKILL",
                 },
               );
-              check();
-              if (result.termination === "timeout" || result.termination === "no-output-timeout") {
+              if (
+                result.termination === "timeout" ||
+                result.termination === "no-output-timeout" ||
+                result.errorCode === "ETIMEDOUT"
+              ) {
                 timedOut = true;
+                timedOutCheck =
+                  result.errorCode === "ETIMEDOUT"
+                    ? `${checking} native command admission`
+                    : checking;
               }
               if (result.termination === "exit" && result.code === 0) {
                 [version] = decodeLegacyBusctlOutput(result.stdout, ["s"], false);
@@ -180,25 +205,28 @@ export async function resolveSystemdUserTransport(
               return { transport: candidate, timedOut };
             }
           } catch (error) {
+            assertServiceInspectionFallbackAllowed(error);
             check();
-            const refusal = findServiceOwnershipRefusal(error);
-            if (refusal) {
-              throw refusal;
-            }
-            if (error === SYSTEMD_TRANSPORT_DEADLINE) {
+            if (error instanceof SystemdTransportInspectionTimeout) {
               throw error;
             }
-            timedOut ||= inspectionBudget.now() >= until;
+            if (inspectionBudget.now() >= until) {
+              timedOut = true;
+              timedOutCheck = checking;
+            }
           } finally {
             await connection?.close();
           }
         }
         check();
         if (!timedOut && reason !== "service-manager-access-denied") {
+          checking = "system manager availability";
           reason = await resolveUnavailableSystemdInspectionReason(reason, source, deadline);
           check();
         }
-        throw timedOut ? SYSTEMD_TRANSPORT_DEADLINE : new ServiceInspectionError(reason);
+        throw timedOut
+          ? new SystemdTransportInspectionTimeout(timedOutCheck)
+          : new ServiceInspectionError(reason);
       }
     },
   );

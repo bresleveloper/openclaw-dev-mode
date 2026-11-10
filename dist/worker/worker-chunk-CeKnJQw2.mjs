@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,r as n}from"./worker-chunk-Cx8X5L6G.mjs";function resolveAuthProfileDisplayLabel(e){let{displayName:t,email:r}=n(e),i=t||r;return i?`${e.profileId} (${i})`:e.profileId}var r=e((()=>{t()}));export{resolveAuthProfileDisplayLabel as n,r as t};

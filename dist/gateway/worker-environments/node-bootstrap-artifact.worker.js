@@ -1,60 +1,63 @@
 import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { r as PACKAGE_LIFECYCLE_PENDING_RELATIVE_PATH, t as LEGACY_PACKAGE_INSTALL_GUARD_RELATIVE_PATH } from "../../package-lifecycle-marker-DhfhzqrA.mjs";
-import { O as walkDirectory, w as root } from "../../fs-safe-BUXBSN-4.mjs";
-import { r as collectPackageDistInventory, s as PACKAGE_DIST_INVENTORY_RELATIVE_PATH } from "../../package-dist-inventory-CQca5HwG.mjs";
-import { c as sha256File } from "../../directory-durability-CqSvP1tc.mjs";
-import { t as _usingCtx } from "../../usingCtx-DwOBYOJf.mjs";
+import { O as walkDirectory, w as root } from "../../fs-safe-6Z4UiMS4.mjs";
+import { t as _usingCtx } from "../../usingCtx-BhiZp_rS.mjs";
+import { c as sha256File } from "../../directory-durability-B2RKADOj.mjs";
 import { t as runTasksWithConcurrency } from "../../run-with-concurrency-Dtu208ef.mjs";
-import { n as serveWorkerTasks } from "../../worker-task-server-BC_7U18u.mjs";
-import { t as isRecord$1 } from "../../record-shared-D7QlEuV3.mjs";
-import { o as compareWorkerBundlePaths, s as hashWorkerBundleManifest } from "../../worker-bundle-hash-drgRPFuP.mjs";
 import { n as MAX_WORKER_BUNDLE_ARCHIVE_BYTES, t as DEFAULT_WORKER_BUNDLE_ARCHIVE_LIMITS } from "../../worker-bundle-limits-CF239rpc.mjs";
-import { n as readWorkerBundleArchiveManifest } from "../../worker-bundle-archive-wzW8sYwP.mjs";
+import { o as compareWorkerBundlePaths, s as hashWorkerBundleManifest } from "../../worker-bundle-hash-BynEVGqT.mjs";
+import { r as PACKAGE_LIFECYCLE_PENDING_RELATIVE_PATH, t as LEGACY_PACKAGE_INSTALL_GUARD_RELATIVE_PATH } from "../../package-lifecycle-marker-DhfhzqrA.mjs";
+import { r as collectPackageDistInventory, s as PACKAGE_DIST_INVENTORY_RELATIVE_PATH } from "../../package-dist-inventory-_17OXIG1.mjs";
+import { n as serveWorkerTasks } from "../../worker-task-server-sMsYUF1K.mjs";
+import { t as isRecord$1 } from "../../record-shared-D7QlEuV3.mjs";
+import { n as readWorkerBundleArchiveManifest } from "../../worker-bundle-archive-CrciIVDQ.mjs";
 import { createRequire } from "node:module";
 import fs, { constants, createWriteStream } from "node:fs";
-import path, { isAbsolute, join, win32 } from "node:path";
-import fs$1 from "node:fs/promises";
-import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
+import fs$1 from "node:fs/promises";
+import path, { isAbsolute, join, win32 } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { readFileHandleBounded } from "@openclaw/fs-safe/advanced";
 import { satisfies, valid } from "semver";
-import { Parser } from "acorn";
 import { finished, pipeline } from "node:stream/promises";
+import { Parser } from "acorn";
 import * as tar from "tar";
 //#region scripts/lib/package-bundled-mcp.mts
 const PATCHED_MCP_NAME = "chrome-devtools-mcp";
 const PATCHED_MCP_CLI = "build/src/bin/chrome-devtools-mcp.js";
+function mcpFileHashes(hashes) {
+	return /* @__PURE__ */ new Map([
+		[PATCHED_MCP_CLI, "9f380d06e1ac05b257e27e708c0cc4b4ba190e285ed6eb6c8aa50978d98a12c5"],
+		["build/src/bin/chrome-devtools-mcp-main.js", hashes.main],
+		["LICENSE", "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"],
+		["build/src/third_party/THIRD_PARTY_NOTICES", hashes.notices],
+		["build/src/TextSnapshot.js", "299833ad0e4cfc171a417afaec41df594e4862fe53a7ada6ba160409f979788b"],
+		["build/src/McpPage.js", hashes.page],
+		["build/src/third_party/index.js", hashes.thirdParty],
+		["build/src/OPENCLAW_PATCH_NOTICE.md", hashes.patchNotice]
+	]);
+}
 const MCP_FILE_HASHES = /* @__PURE__ */ new Map([
-	["1.8.0", /* @__PURE__ */ new Map([
-		[PATCHED_MCP_CLI, "9f380d06e1ac05b257e27e708c0cc4b4ba190e285ed6eb6c8aa50978d98a12c5"],
-		["build/src/bin/chrome-devtools-mcp-main.js", "fc383cb3e5db5f18cf1e8c49221212c669825248874ba91c90ba9035e175f5b4"],
-		["LICENSE", "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"],
-		["build/src/third_party/THIRD_PARTY_NOTICES", "8f10277934fe6888173f41f7cbbd9112d208c8c931bf163db59110f69f119e53"],
-		["build/src/TextSnapshot.js", "299833ad0e4cfc171a417afaec41df594e4862fe53a7ada6ba160409f979788b"],
-		["build/src/McpPage.js", "b9e791d758e4d28589525e2d427600e24b271d365a5879893a392043a11cf426"],
-		["build/src/third_party/index.js", "a8f5cb1e02405d347117114141b58572f71c083861fb50ab31a27511e3a279bf"],
-		["build/src/OPENCLAW_PATCH_NOTICE.md", "8f5a32aaedf4bb6f8ad39f226bd343bf804132c11ebc6c3c19f667669856287c"]
-	])],
-	["1.9.0", /* @__PURE__ */ new Map([
-		[PATCHED_MCP_CLI, "9f380d06e1ac05b257e27e708c0cc4b4ba190e285ed6eb6c8aa50978d98a12c5"],
-		["build/src/bin/chrome-devtools-mcp-main.js", "5ca0e81196ab6b6e1481629a2dcae7f416b3b38f74555e3138ad5cdbb055e809"],
-		["LICENSE", "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"],
-		["build/src/third_party/THIRD_PARTY_NOTICES", "975febf536bb1c83c031a7888b90bdf1ffe8dc46000e0698eac364491dca8ac4"],
-		["build/src/TextSnapshot.js", "299833ad0e4cfc171a417afaec41df594e4862fe53a7ada6ba160409f979788b"],
-		["build/src/McpPage.js", "6d83dbd4d79c913664fbfa428d138b22fe4246612ab4dfcd93e9d8e62d5d6b51"],
-		["build/src/third_party/index.js", "7609bb6c575c7c1152b3f4233ad4b98d97885c62ccff7bd9ee29257ca8ffc83f"],
-		["build/src/OPENCLAW_PATCH_NOTICE.md", "0e53a04f337a3760f2f1adab9c20e3b4f07019795f503266c0b68e0f46d55a6c"]
-	])],
-	["1.10.1", /* @__PURE__ */ new Map([
-		[PATCHED_MCP_CLI, "9f380d06e1ac05b257e27e708c0cc4b4ba190e285ed6eb6c8aa50978d98a12c5"],
-		["build/src/bin/chrome-devtools-mcp-main.js", "10603ea8c2ac9f69a42791100701795018ebfaa522a7c93d783ed583cce5cce4"],
-		["LICENSE", "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"],
-		["build/src/third_party/THIRD_PARTY_NOTICES", "6ae0ce181dbc9ba4217b6aad679d7503ed3ab56c45e6f3647e9ab753aa97b67b"],
-		["build/src/TextSnapshot.js", "299833ad0e4cfc171a417afaec41df594e4862fe53a7ada6ba160409f979788b"],
-		["build/src/McpPage.js", "47aa13c6b28cc11e1b0883532edea97cfde7563d78d143035850852d09809975"],
-		["build/src/third_party/index.js", "c988e0684584b75e87ae04b768c4f8ae7064401afe5187ec0d4878b2c6833f12"],
-		["build/src/OPENCLAW_PATCH_NOTICE.md", "4bf44b52a80b5860b2160bc83407a5f0dd09f1801c85d0a2b6e4fec26bd7045d"]
-	])]
+	["1.8.0", mcpFileHashes({
+		main: "fc383cb3e5db5f18cf1e8c49221212c669825248874ba91c90ba9035e175f5b4",
+		notices: "8f10277934fe6888173f41f7cbbd9112d208c8c931bf163db59110f69f119e53",
+		page: "b9e791d758e4d28589525e2d427600e24b271d365a5879893a392043a11cf426",
+		thirdParty: "a8f5cb1e02405d347117114141b58572f71c083861fb50ab31a27511e3a279bf",
+		patchNotice: "8f5a32aaedf4bb6f8ad39f226bd343bf804132c11ebc6c3c19f667669856287c"
+	})],
+	["1.9.0", mcpFileHashes({
+		main: "5ca0e81196ab6b6e1481629a2dcae7f416b3b38f74555e3138ad5cdbb055e809",
+		notices: "975febf536bb1c83c031a7888b90bdf1ffe8dc46000e0698eac364491dca8ac4",
+		page: "6d83dbd4d79c913664fbfa428d138b22fe4246612ab4dfcd93e9d8e62d5d6b51",
+		thirdParty: "7609bb6c575c7c1152b3f4233ad4b98d97885c62ccff7bd9ee29257ca8ffc83f",
+		patchNotice: "0e53a04f337a3760f2f1adab9c20e3b4f07019795f503266c0b68e0f46d55a6c"
+	})],
+	["1.10.1", mcpFileHashes({
+		main: "10603ea8c2ac9f69a42791100701795018ebfaa522a7c93d783ed583cce5cce4",
+		notices: "6ae0ce181dbc9ba4217b6aad679d7503ed3ab56c45e6f3647e9ab753aa97b67b",
+		page: "47aa13c6b28cc11e1b0883532edea97cfde7563d78d143035850852d09809975",
+		thirdParty: "c988e0684584b75e87ae04b768c4f8ae7064401afe5187ec0d4878b2c6833f12",
+		patchNotice: "4bf44b52a80b5860b2160bc83407a5f0dd09f1801c85d0a2b6e4fec26bd7045d"
+	})]
 ]);
 const REQUIRED_MCP_FILES = [
 	"build/src/third_party/devtools-formatter-worker.js",
@@ -141,8 +144,8 @@ function normalizePackagePath(value) {
 function stripSpecifierSuffix(value) {
 	return value.replace(/[?#].*$/u, "");
 }
-function hasJavaScriptFileExtension(value) {
-	return /\.(?:cjs|js|mjs)$/u.test(path.posix.basename(stripSpecifierSuffix(value)));
+function hasRuntimeFileExtension(value) {
+	return /\.(?:cjs|js|mjs|exe)$/u.test(path.posix.basename(stripSpecifierSuffix(value)));
 }
 function literal(node) {
 	if (node?.type === "Literal" && typeof node.value === "string") return node.value;
@@ -203,9 +206,9 @@ function appendImportEdges(source, importerPath, imports, sourceType) {
 				specifier = literal(node.arguments[0]);
 			}
 		}
-		if (specifier?.startsWith(".") && (kind !== "import-meta-url" || hasJavaScriptFileExtension(specifier))) {
+		if (specifier?.startsWith(".") && (kind !== "import-meta-url" || hasRuntimeFileExtension(specifier))) {
 			const importedPath = path.posix.normalize(path.posix.join(path.posix.dirname(importerPath), kind === "require" ? specifier : stripSpecifierSuffix(specifier)));
-			if (!(kind === "import-meta-url" && importerPath === "dist/managed-handoff-runtime.mjs" && importedPath === "dist/node_modules/koffi/indirect.cjs") && (kind !== "import-meta-url" || importedPath.startsWith("dist/"))) imports.push({
+			if (!(kind === "import-meta-url" && importerPath === "dist/managed-handoff-runtime.mjs" && importedPath === "dist/node_modules/@openclaw/proc-safe/dist/identity.js") && (kind !== "import-meta-url" || importedPath.startsWith("dist/"))) imports.push({
 				importerPath,
 				importedPath,
 				...kind === "require" ? { kind } : {}
@@ -583,8 +586,15 @@ function collectPackageRootImports(source, onImport) {
 		if (expression.type === "CallExpression" || expression.type === "OptionalCallExpression") {
 			const specifier = literal(expression.arguments[0]);
 			const namespace = specifier === void 0 ? void 0 : namespaces.get(specifier);
-			const locations = expression.arguments.map((value) => origins(value, new Set(seen), inputScope));
-			return union(...origins(expression.callee, new Set(seen), inputScope).map((loader) => {
+			const callees = origins(expression.callee, new Set(seen), inputScope);
+			const locations = callees.some((loader) => [
+				"factory",
+				"resolve",
+				"realpath",
+				"realpath-async",
+				"join"
+			].includes(loader)) ? expression.arguments.map((value) => origins(value, new Set(seen), inputScope)) : [];
+			return union(...callees.map((loader) => {
 				if (loader === "factory") return (locations[0] ?? ["unknown"]).map((location) => location === "location" ? "root" : callerValues.has(location) ? "caller" : "unlocated");
 				if (loaders.has(loader) || loader === "builtin") return [namespace ?? "unknown"];
 				if (loader === "cwd") return [inputScope && !changedCwd ? "caller-path" : "scalar"];
@@ -826,21 +836,21 @@ async function observeBootstrapModes(root) {
 	}
 	return modes;
 }
-async function collectInstalledBundledFiles(root) {
-	const included = ({ name }) => name !== "node_modules" && !name.startsWith(".");
+async function collectBootstrapFiles(root, plugin = false) {
+	const included = ({ name, relativePath }) => plugin && relativePath.split(path.sep).join("/") === PLUGIN_DIST_SHARED_CHUNK_PREFIX || !name.startsWith(".") && !(plugin ? IGNORED_PLUGIN_DIRECTORIES.has(name) : name === "node_modules");
 	const { entries, failedDirs, truncated } = await walkDirectory(root, {
 		maxEntries: DEFAULT_WORKER_BUNDLE_ARCHIVE_LIMITS.maxEntries,
 		symlinks: "include",
 		include: included,
 		descend: (entry) => {
-			if (entry.depth >= 64) throw new Error("Node bootstrap dependency exceeds its directory depth limit");
+			if (entry.depth >= 64) throw new Error(`Node bootstrap ${plugin ? "plugin" : "dependency"} exceeds its directory depth limit`);
 			return included(entry);
 		}
 	});
 	if (failedDirs.length > 0) throw failedDirs[0].error;
 	if (truncated) throw new Error("Node bootstrap distribution exceeds its artifact limits");
 	return entries.flatMap((entry) => {
-		if (entry.kind === "directory" || entry.relativePath === "package.json") return [];
+		if (entry.kind === "directory" || (plugin ? !/\.(?:[cm]?js|json|wasm)$/u.test(entry.name) : entry.relativePath === "package.json")) return [];
 		if (entry.kind !== "file") throw new Error(`Unsafe bundled node distribution path: ${entry.relativePath}`);
 		return [entry.relativePath.split(path.sep).join("/")];
 	});
@@ -881,10 +891,9 @@ async function prepareNodeBootstrapArtifact(options, temporaryRoot, usePrebuilt 
 		const sourcePackage = await readPackageManifest(packageRoot);
 		if (sourcePackage.name !== "openclaw") throw new Error("Node bootstrap requires the running OpenClaw package root");
 		const buildInfoPath = path.join(packageRoot, "dist", "build-info.json");
-		const buildInfo = await fs$1.readFile(buildInfoPath, "utf8").catch((cause) => {
+		const buildId = requireRunningBuild(options, await fs$1.readFile(buildInfoPath, "utf8").catch((cause) => {
 			throw new Error("Cloud bootstrap requires a built Gateway; run pnpm build and restart the Gateway before provisioning", { cause });
-		});
-		const buildId = requireRunningBuild(options, buildInfo, sourcePackage.version);
+		}), sourcePackage.version);
 		const plugins = await resolvePlugins(options, packageRoot);
 		const packageJson = composePackagePlugins(sourcePackage, plugins);
 		const modes = await observeBootstrapModes(temporaryRoot);
@@ -904,32 +913,28 @@ async function prepareNodeBootstrapArtifact(options, temporaryRoot, usePrebuilt 
 		};
 		let expandedBytes = 0;
 		let reservedEntries = 0;
-		const reserveFile = (relative, bytes) => {
-			bootstrapPath(relative);
+		const reserveFile = (bytes) => {
 			expandedBytes += bytes;
 			reservedEntries += 1;
 			if (reservedEntries > DEFAULT_WORKER_BUNDLE_ARCHIVE_LIMITS.maxEntries || expandedBytes > DEFAULT_WORKER_BUNDLE_ARCHIVE_LIMITS.maxExpandedBytes) throw new Error("Node bootstrap distribution exceeds its artifact limits");
 		};
 		const addGeneratedFile = (relative, contents, scope = mainScope) => {
-			reserveFile(relative, Buffer.byteLength(contents));
+			reserveFile(Buffer.byteLength(contents));
 			planEntry(relative, {
 				contents: Buffer.from(contents),
 				scope
 			});
 		};
 		const addFiles = (root, files, prefix = "", scope = mainScope) => {
-			for (const relative of new Set(files)) {
-				bootstrapPath(relative);
-				planEntry(`${prefix}${relative}`, {
-					source: {
-						root,
-						relative
-					},
-					scope
-				});
-			}
+			for (const relative of new Set(files)) planEntry(`${prefix}${relative}`, {
+				source: {
+					root,
+					relative
+				},
+				scope
+			});
 		};
-		const readEntry = async (destination, entry) => {
+		const readEntry = async (entry) => {
 			if ("contents" in entry) return {
 				contents: entry.contents,
 				mode: modes[0]
@@ -941,7 +946,7 @@ async function prepareNodeBootstrapArtifact(options, temporaryRoot, usePrebuilt 
 			try {
 				const before = await handle.stat();
 				if (!before.isFile()) throw new Error(`Invalid node distribution file: ${relative}`);
-				reserveFile(destination, before.size);
+				reserveFile(before.size);
 				const contents = await readFileHandleBounded(handle, before.size);
 				const current = await fs$1.lstat(source);
 				if (contents.byteLength !== before.size || current.isSymbolicLink() || current.dev !== before.dev || current.ino !== before.ino || await fs$1.realpath(source) !== source) throw new Error(`Node distribution changed while packaging: ${relative}`);
@@ -971,17 +976,7 @@ async function prepareNodeBootstrapArtifact(options, temporaryRoot, usePrebuilt 
 		delete packageJson.devDependencies;
 		for (const plugin of plugins) {
 			if (plugin.bundled) continue;
-			const pluginFiles = [];
-			const visit = async (directory, relativeRoot = "") => {
-				for (const child of await fs$1.readdir(directory, { withFileTypes: true })) {
-					const relative = relativeRoot ? `${relativeRoot}/${child.name}` : child.name;
-					if (!(relative === PLUGIN_DIST_SHARED_CHUNK_PREFIX) && (child.name.startsWith(".") || IGNORED_PLUGIN_DIRECTORIES.has(child.name))) continue;
-					if (relative.split("/").length > 64) throw new Error("Node bootstrap plugin exceeds its directory depth limit");
-					if (child.isDirectory()) await visit(path.join(directory, child.name), relative);
-					else if (/\.(?:[cm]?js|json|wasm)$/u.test(child.name)) pluginFiles.push(relative);
-				}
-			};
-			await visit(plugin.root);
+			const pluginFiles = await collectBootstrapFiles(plugin.root, true);
 			addFiles(plugin.root, pluginFiles, `dist/extensions/${plugin.id}/`);
 		}
 		const bundledNames = /* @__PURE__ */ new Set([...packageJson.bundleDependencies ?? packageJson.bundledDependencies ?? [], ...Object.entries(packageJson.dependencies ?? {}).filter(([, spec]) => spec.startsWith("workspace:")).map(([name]) => name)]);
@@ -996,7 +991,7 @@ async function prepareNodeBootstrapArtifact(options, temporaryRoot, usePrebuilt 
 				rootDependencies: packageJson.dependencies
 			});
 			for (const [dependency, version] of dependencies) packageJson.dependencies[dependency] = version;
-			const bundledFiles = sourcePackage.dependencies?.[name]?.startsWith("workspace:") || !root.endsWith(`${path.sep}node_modules${path.sep}${name.split("/").join(path.sep)}`) ? await collectPackageDistInventory(root) : await collectInstalledBundledFiles(root);
+			const bundledFiles = sourcePackage.dependencies?.[name]?.startsWith("workspace:") || !root.endsWith(`${path.sep}node_modules${path.sep}${name.split("/").join(path.sep)}`) ? await collectPackageDistInventory(root) : await collectBootstrapFiles(root);
 			if (bundledFiles.length === 0) throw new Error(`Bundled node dependency ${name} needs its compiled distribution; rebuild the Gateway`);
 			const scope = {
 				label: name,
@@ -1054,7 +1049,7 @@ async function prepareNodeBootstrapArtifact(options, temporaryRoot, usePrebuilt 
 			for (let offset = 0; offset < ordered.length; offset += READ_CONCURRENCY) {
 				const batch = ordered.slice(offset, offset + READ_CONCURRENCY);
 				const read = await runTasksWithConcurrency({
-					tasks: batch.map(([relative, entry]) => () => readEntry(relative, entry)),
+					tasks: batch.map(([, entry]) => () => readEntry(entry)),
 					limit: READ_CONCURRENCY,
 					errorMode: "stop"
 				});
@@ -1075,7 +1070,6 @@ async function prepareNodeBootstrapArtifact(options, temporaryRoot, usePrebuilt 
 						sha256: createHash("sha256").update(contents).digest("hex")
 					};
 					const inspected = sourceFacts.get(relative);
-					if (inspected && identity.sha256 !== inspected.sha256) throw new Error(`Node distribution changed after import inspection: ${relative}`);
 					if (entry.scope.patchedMcp) entry.scope.patchedMcp.hashes.set(importerPath, identity.sha256);
 					else entry.scope.imports.push(...inspected?.imports ?? collectPackageDistImports({
 						files: [importerPath],
@@ -1103,8 +1097,6 @@ async function prepareNodeBootstrapArtifact(options, temporaryRoot, usePrebuilt 
 				}) : collectPackageDistImportErrors(scope);
 				if (errors.length > 0) throw new Error(`Node distribution ${scope.label} ${scope.patchedMcp ? "has an invalid patched dependency" : "has an incomplete built import closure"}; rebuild and restart the Gateway: ${errors.slice(0, 5).join("; ")}`);
 			}
-			if (!isDeepStrictEqual(await observeBootstrapModes(temporaryRoot), modes)) throw new Error("Node bootstrap file creation policy changed while packaging");
-			if (await fs$1.readFile(buildInfoPath, "utf8") !== buildInfo || !isDeepStrictEqual(await readPackageManifest(packageRoot), sourcePackage)) throw new Error("Gateway build changed while preparing cloud bootstrap; restart the Gateway and retry");
 			pack?.end();
 			await archiveDone;
 		} catch (error) {

@@ -1,16 +1,16 @@
-import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
-import { i as routeLogsToStderr } from "../console-BnFs8ZzT.mjs";
-import { s as resolveCoreToolProfilePolicy } from "../tool-catalog-DyHnjiiS.mjs";
-import { n as pickSandboxToolPolicy } from "../sandbox-tool-policy-BO1puJQ0.mjs";
-import { a as collectExplicitDenylist, i as collectExplicitAllowlist, l as mergeAlsoAllowPolicy } from "../tool-policy-BKvvmcQR.mjs";
-import { r as getRuntimeConfig } from "../io.runtime-BSum32pK.mjs";
-import "../config-9720xhC5.mjs";
-import { i as logWarn } from "../logger-DskmrSVa.mjs";
-import { r as getPluginToolMeta } from "../tool-metadata-DEC0Rqn3.mjs";
-import { n as resolveEffectiveToolPolicy } from "../agent-tools.policy-XJMKA8K7.mjs";
-import { n as buildDefaultToolPolicyPipelineSteps, t as applyToolPolicyPipeline } from "../tool-policy-pipeline-DFP1wzZs.mjs";
-import { n as acquireStandalonePluginToolRegistry } from "../tools-CtzyfSBn.mjs";
-import { a as resolveToolsMcpAgentId, n as createToolsMcpServer, r as serveRegisteredToolsMcpServer, s as resolveToolsMcpSessionContext } from "../tools-stdio-server-DGxPdz2l.mjs";
+import { t as formatErrorMessage } from "../errors-DPfGDWk1.mjs";
+import { i as routeLogsToStderr } from "../console-CML7QnOp.mjs";
+import { s as resolveCoreToolProfilePolicy } from "../tool-catalog-DGlfxTaj.mjs";
+import { n as pickSandboxToolPolicy } from "../sandbox-tool-policy-B4OWlHAG.mjs";
+import { a as collectExplicitDenylist, i as collectExplicitAllowlist, l as mergeAlsoAllowPolicy } from "../tool-policy-14GRhbFd.mjs";
+import { t as captureRuntimeConfigAsyncReader } from "../io.runtime-Ds5uC0Bf.mjs";
+import { r as getPluginToolMeta } from "../tool-metadata-CaNEdKPR.mjs";
+import "../config-B3oiWDlr.mjs";
+import { i as logWarn } from "../logger-DHVmYOKs.mjs";
+import { n as resolveEffectiveToolPolicy } from "../agent-tools.policy-t04F-r_I.mjs";
+import { n as buildDefaultToolPolicyPipelineSteps, t as applyToolPolicyPipeline } from "../tool-policy-pipeline-CUnSsPP_.mjs";
+import { n as acquireStandalonePluginToolRegistry } from "../tools-C33miWSs.mjs";
+import { a as resolveToolsMcpAgentId, n as createToolsMcpServer, r as serveRegisteredToolsMcpServer, s as resolveToolsMcpSessionContext } from "../tools-stdio-server-CzPnTCAD.mjs";
 import { pathToFileURL } from "node:url";
 import "@modelcontextprotocol/sdk/server/index.js";
 //#region src/mcp/plugin-tools-serve.ts
@@ -18,11 +18,13 @@ import "@modelcontextprotocol/sdk/server/index.js";
 * Standalone MCP server that exposes OpenClaw plugin-registered tools
 * (e.g. memory-lancedb's memory_recall, memory_store, memory_forget)
 * so ACP sessions running Claude Code can use them.
-*
-* Run via: node --import tsx src/mcp/plugin-tools-serve.ts
-* Or: bun src/mcp/plugin-tools-serve.ts
 */
-function resolvePluginToolPolicy(config, context) {
+async function acquirePluginToolsForMcp(params) {
+	const { config } = params;
+	const context = {
+		config,
+		...resolveToolsMcpSessionContext(params)
+	};
 	const effective = context.agentId ? resolveEffectiveToolPolicy({
 		config,
 		agentId: context.agentId,
@@ -40,22 +42,10 @@ function resolvePluginToolPolicy(config, context) {
 	const policies = steps?.map((step) => step.policy) ?? [profilePolicy, globalPolicy];
 	const toolAllowlist = collectExplicitAllowlist(policies);
 	const toolDenylist = collectExplicitDenylist(policies);
-	return {
-		...toolAllowlist.length > 0 ? { toolAllowlist } : {},
-		...toolDenylist.length > 0 ? { toolDenylist } : {},
-		steps
-	};
-}
-async function acquirePluginToolsForMcp(params) {
-	const sessionContext = resolveToolsMcpSessionContext(params);
-	const context = {
-		config: params.config,
-		...sessionContext
-	};
-	const { steps, ...pluginToolPolicy } = resolvePluginToolPolicy(params.config, sessionContext);
 	const acquisition = await acquireStandalonePluginToolRegistry({
 		context,
-		...pluginToolPolicy,
+		...toolAllowlist.length > 0 ? { toolAllowlist } : {},
+		...toolDenylist.length > 0 ? { toolDenylist } : {},
 		suppressNameConflicts: true
 	});
 	return {
@@ -80,8 +70,8 @@ function createPluginToolsMcpServer(params) {
 async function servePluginToolsMcp() {
 	routeLogsToStderr();
 	await serveRegisteredToolsMcpServer({
-		acquireRegistry: () => acquirePluginToolsForMcp({
-			config: getRuntimeConfig(),
+		acquireRegistry: async () => acquirePluginToolsForMcp({
+			config: await captureRuntimeConfigAsyncReader()(),
 			agentId: resolveToolsMcpAgentId()
 		}),
 		createServer: (tools, sdkResourceHost) => {
@@ -95,7 +85,7 @@ async function servePluginToolsMcp() {
 }
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) servePluginToolsMcp().catch((err) => {
 	process.stderr.write(`plugin-tools-serve: ${formatErrorMessage(err)}\n`);
-	process.exit(1);
+	process.exitCode = 1;
 });
 //#endregion
 export { acquirePluginToolsForMcp, createPluginToolsMcpServer, servePluginToolsMcp };

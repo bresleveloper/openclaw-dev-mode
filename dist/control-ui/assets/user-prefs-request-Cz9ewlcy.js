@@ -1,0 +1,2 @@
+import{n as e,r as t}from"./rolldown-runtime-8BhlS34s.js";import{Ft as n,Rt as r}from"./control-ui-core-BATTP0p-.js";var i=t({loadUserPreferences:()=>a});function a(e,t,n={}){let i=r.get(e);i||(i=new Map,r.set(e,i));let a=JSON.stringify([t,n.keys?.toSorted()]),o=i.get(a);if(o)return o;let s=e.request(`users.prefs.get`,n);i.set(a,s);let c=()=>{i.delete(a)};return s.then(e=>{e.status!==`ok`&&c()},c),s}function o(){return(o=e((()=>{n()})))()}export{a as n,i as r,o as t};
+//# sourceMappingURL=user-prefs-request-Cz9ewlcy.js.map

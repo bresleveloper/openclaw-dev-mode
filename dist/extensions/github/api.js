@@ -1,11 +1,14 @@
 import { m as readNonBlankString } from "../../string-coerce-1VuiLaaR.mjs";
-import { s as asFiniteNumber } from "../../number-coercion-CuVhdCBs.mjs";
+import { s as asFiniteNumber } from "../../number-coercion-CkhMiRw8.mjs";
+import { t as pruneMapToMaxSize } from "../../map-size-BlrH_CnE.mjs";
 import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
-import { t as pruneMapToMaxSize } from "../../map-size-BlrH_CnE.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { i as parseGitHubItemTarget, o as parseGitHubTarget, r as githubTargetUrl } from "../../targets-RjAEePy1.mjs";
-import { S as withOptionalGitHubAuth, _ as readGitHubGraphQLResponse, a as GITHUB_API_ORIGIN, b as requiredString, c as GitHubGraphQLUnavailableError, d as fetchGitHubJson, f as formatControlUiGitHubPreviewError, g as readBoundedResponse, h as optionalNumber, i as GITHUB_API_BASE_URL, l as discardResponse, m as githubRestApiPath, n as githubPreviewView, o as GITHUB_GRAPHQL_URL, p as githubApiCredentialCacheScope, r as ControlUiGitHubError, s as GITHUB_REQUEST_TIMEOUT_MS, t as githubChangeMetadata, u as fetchGitHubApi, v as readGitHubJsonResponse, x as resolveGitHubApiUrls, y as readOptionalGitHubString } from "../../view-model-BP_nLgQX.mjs";
+import { t as createSubsystemLogger } from "../../subsystem-mStysHHC.mjs";
+import { t as createStaleWhileRevalidateCache } from "../../stale-while-revalidate-cache-DAV-95y_.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../logging-core-CsXmxYo2.mjs";
+import { i as parseGitHubItemTarget, o as parseGitHubTarget, r as githubTargetUrl } from "../../targets-kQjMXg4U.mjs";
+import { S as withOptionalGitHubAuth, _ as readGitHubGraphQLResponse, a as GITHUB_API_ORIGIN, b as requiredString, c as GitHubGraphQLUnavailableError, d as fetchGitHubJson, f as formatControlUiGitHubPreviewError, g as readBoundedResponse, h as optionalNumber, i as GITHUB_API_BASE_URL, l as discardResponse, m as githubRestApiPath, n as githubPreviewView, o as GITHUB_GRAPHQL_URL, p as githubApiCredentialCacheScope, r as ControlUiGitHubError, s as GITHUB_REQUEST_TIMEOUT_MS, t as githubChangeMetadata, u as fetchGitHubApi, v as readGitHubJsonResponse, x as resolveGitHubApiUrls, y as readOptionalGitHubString } from "../../view-model-Bjq8ODUW.mjs";
 //#region extensions/github/src/preview.ts
 const GITHUB_AVATAR_HOST = "avatars.githubusercontent.com";
 const GITHUB_AVATAR_MAX_BYTES = 262144;
@@ -14,11 +17,11 @@ const GITHUB_COMMITS_PAGE_SIZE = 100;
 const GITHUB_COMMITS_MAX_BYTES = 1048576;
 const CO_AUTHOR_FACE_LIMIT = 3;
 const CO_AUTHOR_TRAILER = /^co-authored-by:[^<\r\n\u2028\u2029]*<(?<id>\d{1,12})\+(?<login>[a-z\d](?:[a-z\d-]{0,38}))@users\.noreply\.github\.com>[^\S\r\n\u2028\u2029]*$/gimu;
-const AUTHENTICATED_SUCCESS_CACHE_MS = 3e5;
-const ANONYMOUS_SUCCESS_CACHE_MS = 36e5;
+const SUCCESS_CACHE_MS$1 = 6e4;
 const FAILURE_CACHE_MS = 3e4;
 const CACHE_LIMIT$1 = 200;
-const previewCache = /* @__PURE__ */ new Map();
+const log = createSubsystemLogger("github/preview");
+const previewCaches = /* @__PURE__ */ new WeakMap();
 const parseControlUiGitHubPreviewTarget = parseGitHubItemTarget;
 function isPublicGitHubRepository(value) {
 	return isRecord(value) && value.private === false && value.visibility === "public";
@@ -72,17 +75,11 @@ function safeAvatarUrl(raw) {
 	url.searchParams.set("s", "64");
 	return url;
 }
-async function fetchCoAuthors(authorLogin, loadCommits, fetchImpl, signal) {
+async function fetchCoAuthors(authorLogin, commits, fetchImpl, signal) {
 	const empty = {
 		coAuthors: [],
 		coAuthorCount: 0
 	};
-	let commits;
-	try {
-		commits = await loadCommits();
-	} catch {
-		return empty;
-	}
 	if (!Array.isArray(commits)) return empty;
 	const byLogin = /* @__PURE__ */ new Map();
 	for (const entry of commits) {
@@ -136,8 +133,9 @@ async function fetchAvatarDataUrl(rawUrl, fetchImpl, signal) {
 		return;
 	}
 }
-async function fetchPreview(target, fetchImpl, signal, token, identity) {
-	const request = (url, beforeRedirect) => fetchGitHubApi(url, fetchImpl, token, beforeRedirect, identity, void 0, signal, void 0, GITHUB_API_ORIGIN);
+async function fetchPreview(target, fetchImpl, signal, token, identity, previous) {
+	const startedAt = performance.now();
+	const request = (url, beforeRedirect, etag) => fetchGitHubApi(url, fetchImpl, token, beforeRedirect, identity, etag, signal, void 0, GITHUB_API_ORIGIN);
 	const assertPublicRepository = (url) => assertPublicGitHubRepository(url, fetchImpl, token, identity, signal);
 	const repositoryUrl = `${GITHUB_API_ORIGIN}/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.repo)}`;
 	const itemUrl = `${repositoryUrl}/${target.kind === "pull" ? "pulls" : "issues"}/${target.number}`;
@@ -147,74 +145,99 @@ async function fetchPreview(target, fetchImpl, signal, token, identity) {
 		if (!redirectedRepositoryUrl) throw new ControlUiGitHubError(502, "GitHub item returned an unsafe redirect");
 		await assertPublicRepository(redirectedRepositoryUrl);
 	} : void 0;
-	const readItem = async (url, maxBytes) => readGitHubJsonResponse(await request(url, beforeRedirect), maxBytes);
-	const parsed = await readItem(itemUrl);
+	const credentialScope = githubApiCredentialCacheScope(token);
+	const pages = /* @__PURE__ */ new Map();
+	const readItem = async (url, maxBytes) => {
+		const cached = previous?.credentialScope === credentialScope ? previous.pages.get(url) : void 0;
+		const response = await request(url, beforeRedirect, cached?.etag);
+		if (response.status === 304 && cached?.etag) {
+			await discardResponse(response);
+			pages.set(url, cached);
+			return cached.value;
+		}
+		const value = await readGitHubJsonResponse(response, maxBytes);
+		const etag = response.headers.get("etag");
+		if (etag) pages.set(url, {
+			value,
+			etag
+		});
+		return value;
+	};
+	const item = readItem(itemUrl);
+	const commits = target.kind === "pull" ? readItem(`${itemUrl}/commits?per_page=${GITHUB_COMMITS_PAGE_SIZE}`, GITHUB_COMMITS_MAX_BYTES).catch(() => void 0) : Promise.resolve(void 0);
+	const parsed = await item;
 	if (!isRecord(parsed)) throw new ControlUiGitHubError(502, "GitHub response was not an object");
-	if (token) await assertPublicRepository(previewRepositoryApiUrl(target, parsed));
+	const metadataAt = performance.now();
 	const { preview, avatarUrl } = parseControlUiGitHubPreviewResponse(target, parsed);
-	const [avatarDataUrl, coAuthorFacts] = await Promise.all([fetchAvatarDataUrl(avatarUrl, fetchImpl, signal), target.kind === "pull" ? fetchCoAuthors(preview.login, () => readItem(`${itemUrl}/commits?per_page=${GITHUB_COMMITS_PAGE_SIZE}`, GITHUB_COMMITS_MAX_BYTES), fetchImpl, signal) : Promise.resolve({
-		coAuthors: [],
-		coAuthorCount: 0
-	})]);
+	const renderedAt = performance.now();
+	const [avatarDataUrl, coAuthorFacts] = await Promise.all([
+		fetchAvatarDataUrl(avatarUrl, fetchImpl, signal),
+		commits.then((value) => fetchCoAuthors(preview.login, value, fetchImpl, signal)),
+		token && assertPublicRepository(previewRepositoryApiUrl(target, parsed))
+	]);
+	const finishedAt = performance.now();
+	if (finishedAt - startedAt >= 500) log.info("Slow GitHub preview load", {
+		metadataMs: Math.round(metadataAt - startedAt),
+		renderMs: Math.round(renderedAt - metadataAt),
+		decorationMs: Math.round(finishedAt - renderedAt)
+	});
 	return {
-		...preview,
-		...avatarDataUrl ? { avatarDataUrl } : {},
-		...coAuthorFacts.coAuthorCount > 0 ? {
-			coAuthors: coAuthorFacts.coAuthors,
-			coAuthorCount: coAuthorFacts.coAuthorCount
-		} : {}
+		pages,
+		credentialScope,
+		preview: {
+			...preview,
+			...avatarDataUrl ? { avatarDataUrl } : {},
+			...coAuthorFacts.coAuthorCount > 0 ? {
+				coAuthors: coAuthorFacts.coAuthors,
+				coAuthorCount: coAuthorFacts.coAuthorCount
+			} : {}
+		}
 	};
 }
 function cacheKey(target, credentialScope) {
 	return `${target.kind}:${target.owner.toLowerCase()}/${target.repo.toLowerCase()}#${target.number}\0${credentialScope}`;
 }
-function cachePreview(key, entry) {
-	previewCache.set(key, entry);
-	pruneMapToMaxSize(previewCache, CACHE_LIMIT$1);
-}
 async function loadControlUiGitHubPreview(target, identity, fetchImpl = fetch, refresh = false) {
-	await identity?.revalidate();
+	const startedAt = performance.now();
 	identity?.assertSelected();
 	const { token, cacheScope } = identity ?? {
 		token: void 0,
 		cacheScope: "anonymous"
 	};
-	const key = cacheKey(target, cacheScope);
-	const now = Date.now();
-	let entry = previewCache.get(key);
-	if (entry && (refresh || entry.expiresAt <= now)) {
-		previewCache.delete(key);
-		entry = void 0;
-	}
-	if (entry) {
-		previewCache.delete(key);
-		previewCache.set(key, entry);
-	} else {
-		const successCacheMs = token ? AUTHENTICATED_SUCCESS_CACHE_MS : ANONYMOUS_SUCCESS_CACHE_MS;
+	const key = cacheKey(target, `${cacheScope}\0${githubApiCredentialCacheScope(token)}`);
+	const previewCache = previewCaches.get(fetchImpl) ?? createStaleWhileRevalidateCache({
+		maxEntries: CACHE_LIMIT$1,
+		ttlMs: SUCCESS_CACHE_MS$1,
+		errorTtlMs: (error) => error instanceof ControlUiGitHubError ? FAILURE_CACHE_MS : 0
+	});
+	previewCaches.set(fetchImpl, previewCache);
+	const read = () => previewCache.read(key, (previous) => {
 		const signal = AbortSignal.timeout(GITHUB_PREVIEW_TIMEOUT_MS);
-		const request = identity && !identity.optionalAuth ? fetchPreview(target, fetchImpl, signal, token, identity) : withOptionalGitHubAuth(token, (requestToken) => fetchPreview(target, fetchImpl, signal, requestToken, identity));
-		const pending = {
-			expiresAt: now + successCacheMs,
-			promise: request.then((preview) => {
-				if (identity && !previewCache.has(key)) cachePreview(key, pending);
-				return preview;
-			}, (error) => {
-				if (previewCache.get(key) === (identity ? void 0 : pending)) {
-					if (error instanceof ControlUiGitHubError) {
-						pending.expiresAt = Date.now() + FAILURE_CACHE_MS;
-						cachePreview(key, pending);
-					} else previewCache.delete(key);
-				}
-				throw error;
-			})
-		};
-		entry = pending;
-		if (!identity) cachePreview(key, entry);
+		return identity && !identity.optionalAuth ? fetchPreview(target, fetchImpl, signal, token, identity, previous) : withOptionalGitHubAuth(token, (requestToken) => fetchPreview(target, fetchImpl, signal, requestToken, identity, previous));
+	}, { refresh });
+	let result;
+	try {
+		result = await read();
+	} catch (error) {
+		if (!identity || error instanceof ControlUiGitHubError) throw error;
+		await identity.revalidate();
+		identity.assertSelected();
+		result = await read();
 	}
-	const preview = await entry.promise;
+	const loadedAt = performance.now();
 	await identity?.revalidate();
 	identity?.assertSelected();
-	return preview;
+	const deliveredAt = performance.now();
+	if (deliveredAt - startedAt >= 500) log.info("Slow GitHub preview read", {
+		cacheWaitMs: Math.round(loadedAt - startedAt),
+		deliveryAuthMs: Math.round(deliveredAt - loadedAt),
+		stale: result.stale,
+		refresh
+	});
+	return result.stale || identity?.stale ? {
+		...result.value.preview,
+		stale: true
+	} : result.value.preview;
 }
 //#endregion
 //#region extensions/github/src/detail-checks.ts

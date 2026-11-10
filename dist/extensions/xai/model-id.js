@@ -1,2 +1,2 @@
-import { i as normalizeXaiModelId, n as isXaiGrokReleaseAtLeast, r as isXaiXhighModelId, t as isXaiFrontierModelId } from "../../model-id-BCpLVsfx.mjs";
-export { isXaiFrontierModelId, isXaiGrokReleaseAtLeast, isXaiXhighModelId, normalizeXaiModelId };
+import { a as isXaiXhighModelId, c as resolveXaiIdReasoningEfforts, i as isXaiGrokReleaseAtLeast, n as isXaiFrontierModelId, o as normalizeXaiModelId, r as isXaiGrok43ModelId, s as normalizeXaiReasoningEfforts, t as XAI_REASONING_EFFORTS } from "../../model-id-BJIzSd6n.mjs";
+export { XAI_REASONING_EFFORTS, isXaiFrontierModelId, isXaiGrok43ModelId, isXaiGrokReleaseAtLeast, isXaiXhighModelId, normalizeXaiModelId, normalizeXaiReasoningEfforts, resolveXaiIdReasoningEfforts };

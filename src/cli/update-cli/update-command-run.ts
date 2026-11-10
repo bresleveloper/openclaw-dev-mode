@@ -1,31 +1,31 @@
-import { isDeepStrictEqual } from "node:util";
+import path from "node:path";
 import { detectCurrentSqliteCapabilities, nodeRuntimeFailure } from "../../../node-sqlite.mjs";
-import { formatUnsupportedNodeVersionMessage } from "../../../node-version.mjs";
+import {
+  formatNodeSecurityWarning,
+  formatUnsupportedNodeVersionMessage,
+  SUPPORTED_NODE_VERSION_RANGE,
+} from "../../../node-version.mjs";
 import { assertConfigWriteAllowedInCurrentMode } from "../../config/config.js";
-import { resolveConfigPath } from "../../config/paths.js";
 import { resolveGatewayNativeServiceIdentityConflict } from "../../daemon/constants.js";
 import { disableCurrentOpenClawUpdateLaunchdJob } from "../../daemon/launchd.js";
 import { mergeGatewayServiceEnv } from "../../daemon/service-env-merge.js";
 import { resolveManagedGatewayServiceCommand } from "../../daemon/service-types.js";
-import { resolvePathViaExistingAncestorSync } from "../../infra/boundary-path.js";
 import { formatErrorMessage } from "../../infra/errors.js";
 import {
   formatExternalSupervisorUpdateRequired,
   isGatewayExternallySupervised,
 } from "../../infra/gateway-supervision.js";
 import { resolveOpenClawPackageRootSync } from "../../infra/openclaw-root.js";
-import { normalizeUpdateChannel } from "../../infra/update-channels.js";
+import { settlePendingPackageActivation } from "../../infra/package-update-activation.js";
 import { resolveUpdateInstallKind } from "../../infra/update-check.js";
 import {
   readControlPlaneUpdateSentinelMeta,
   UPDATE_RUN_ID_ENV,
 } from "../../infra/update-control-plane-sentinel.js";
 import { readDevUpdateTarget } from "../../infra/update-dev-target.js";
+import { createUpdatePreflightDiagnostics } from "../../infra/update-failure-facts.js";
 import { normalizeUpdateFailureResult } from "../../infra/update-failure-result.js";
-import {
-  createFreeBsdPkgOwnershipInspection,
-  type FreeBsdPkgOwnershipInspection,
-} from "../../infra/update-freebsd-pkg-ownership.js";
+import { resolveUpdateInstallRoot } from "../../infra/update-install-root.js";
 import { cleanupStaleManagedServiceUpdateHandoffs } from "../../infra/update-managed-service-handoff-cleanup.js";
 import {
   POST_CORE_UPDATE_CHANNEL_ENV,
@@ -40,7 +40,6 @@ import { readUpdateRunDriver } from "../../infra/update-run-driver.js";
 import {
   adoptUpdateRun,
   createUpdateRun,
-  finishInterruptedUpdatePreview,
   finishUpdateRun,
   getUpdateRun,
   heartbeatUpdateRun,
@@ -64,77 +63,51 @@ import {
   UPDATE_RUNNER_TIMEOUT_MS,
 } from "../../infra/update-run-timeouts.js";
 import type { UpdateRunResult, UpdateStepProgress } from "../../infra/update-runner-types.js";
+import {
+  createSystemPackageOwnershipInspection,
+  type SystemPackageOwnershipInspection,
+} from "../../infra/update-system-package-ownership.js";
 import { loadInstalledPluginIndexInstallRecords } from "../../plugins/installed-plugin-index-records.js";
 import { defaultRuntime } from "../../runtime.js";
 import { resolveOpenClawStateSqlitePath } from "../../state/openclaw-state-db.paths.js";
 import { assertOpenClawStateWriteAllowedAtPath } from "../../state/openclaw-state-ownership.js";
 import { VERSION } from "../../version.js";
 import { exitCliAfterOutput } from "../one-shot-exit.js";
-import { registerSignalExitBarrier, waitForSignalExitBarriers } from "../signal-exit-barrier.js";
 import type { UpdateDisplayProgress } from "./progress.js";
 import {
+  parseUpdateChannel,
   parseUpdateTimeoutMs,
   resolveUpdateRoot,
-  usesCandidateUpdateAdmission,
   type UpdateCommandOptions,
 } from "./shared.js";
 import { suppressDeprecations } from "./suppress-deprecations.js";
 import { resolveForegroundUpdateAdmission } from "./update-command-handoff.js";
 import type { UpdateInitializationAdmission } from "./update-command-initialization-types.js";
 import { resolveMutableUpdateInstallKind } from "./update-command-install-kind.js";
-import { revalidateUpdateDatabaseContext } from "./update-command-managed-context.js";
 import {
   admitMutableUpdateSignalRun,
-  retireMutableUpdateSignalRun,
-  withMutableUpdateSignals,
+  retireMutableUpdateSignalLedgerRecording,
 } from "./update-command-mutable-signals.js";
-import {
-  assertUpdatePackageActivationAdmission,
-  settleStalePackageActivationAdmission,
-} from "./update-command-package-activation.js";
+import { assertUpdatePackageActivationAdmission } from "./update-command-package-activation.js";
+import { admitUpdatePreviewSignalRun } from "./update-command-preview-signals.js";
+import { UpdateCommandPendingRecoveryFailure } from "./update-command-result.js";
 import {
   resolveOwnedManagedUpdateEnv,
   withOwnedManagedUpdateEnv,
   resolveServiceRefreshEnv,
 } from "./update-command-service-env.js";
 import {
-  GatewayServiceUpdateOwnershipError,
   assertGatewayServiceManagementAllowedForUpdate,
   isGatewayServiceManagementAllowedForUpdate,
   readManagedGatewayServiceForUpdate,
   resolveManagedServicePackageUpdatePlan,
 } from "./update-command-service-plan.js";
+import { preflightWindowsUpdateTask } from "./update-command-windows-preflight.js";
 
-// Identity in this map is minted only for a new local preview, never reconstructed
-// from a run ID, process absence, or another invocation's diagnostic history.
-const previewAdmissions = new WeakMap<
-  object,
-  { record: UpdateRunRecord; env: NodeJS.ProcessEnv; active?: boolean }
->();
-
-/** Advance preview custody only across this owner's committed target writes. */
-export function recordUpdateCommandTarget(
-  run: UpdateCommandOptions["run"],
-  patch: { target?: UpdateRunRecord["target"]; step?: UpdateRunStep },
-): void {
-  if (!run) {
-    return;
-  }
-  let before: UpdateRunRecord | undefined;
-  const committed = recordUpdateRunPhase(
-    run.runId,
-    "requested",
-    patch,
-    { env: run.env },
-    (record) => {
-      before = record;
-    },
-  );
-  const admission = previewAdmissions.get(run);
-  if (admission && isDeepStrictEqual(before, admission.record)) {
-    admission.record = committed;
-  }
-}
+export {
+  recordUpdateCommandTarget,
+  withUpdatePreviewSignals,
+} from "./update-command-preview-signals.js";
 
 /** Admission follows the managed service root before a redirect or discovered install. */
 export function resolveUpdateCommandAdmissionRoot(
@@ -154,11 +127,11 @@ export async function resolveUpdateCommandAdmissionEnv(params: {
   opts: UpdateCommandOptions;
   root: string;
   invocationCwd?: string;
-  pkgOwnership?: FreeBsdPkgOwnershipInspection;
+  pkgOwnership?: SystemPackageOwnershipInspection;
   expectedForeground?: true;
 }): Promise<NodeJS.ProcessEnv> {
   const pkgOwnership =
-    params.pkgOwnership ?? createFreeBsdPkgOwnershipInspection(UPDATE_RUNNER_TIMEOUT_MS);
+    params.pkgOwnership ?? createSystemPackageOwnershipInspection(UPDATE_RUNNER_TIMEOUT_MS);
   await pkgOwnership.assertUnowned(params.root);
   let env = resolveServiceRefreshEnv(process.env, params.invocationCwd);
   if (
@@ -207,57 +180,29 @@ export async function admitUpdateCommandRun(params: {
   installKind?: "git" | "package" | "unknown";
   serviceRoot?: string;
   invocationCwd?: string;
-  pkgOwnership?: FreeBsdPkgOwnershipInspection;
+  pkgOwnership?: SystemPackageOwnershipInspection;
   expectedForeground?: true;
   initialization?: UpdateInitializationAdmission;
   assertCurrent?: () => void;
 }): Promise<NonNullable<UpdateCommandOptions["run"]>> {
-  const packageAdmission = { serviceRoot: params.serviceRoot, dryRun: params.opts.dryRun };
-  assertUpdatePackageActivationAdmission(params.root, packageAdmission);
+  assertUpdatePackageActivationAdmission(params.root, {
+    serviceRoot: params.serviceRoot,
+    dryRun: params.opts.dryRun,
+  });
   const env = await resolveUpdateCommandAdmissionEnv(params);
   // A previous invocation may have died with a sealed restoration plan. Detect
   // it before any writable owner open or history row creation changes that state.
   // An inherited diagnostic run ID is not a durable continuation claim.
   await assertUpdateRecoveryAdmission({ env });
-  assertUpdatePackageActivationAdmission(params.root, packageAdmission);
+  assertUpdatePackageActivationAdmission(params.root, {
+    serviceRoot: params.serviceRoot,
+    dryRun: params.opts.dryRun,
+  });
   await assertOpenClawStateWriteAllowedAtPath({
     databasePath: resolveOpenClawStateSqlitePath(env),
     env,
     recoverOrphanedSidecars: false,
   });
-  if (params.initialization) {
-    const initialized = params.initialization;
-    if (
-      resolvePathViaExistingAncestorSync(resolveOpenClawStateSqlitePath(env)) !==
-        initialized.databasePath ||
-      resolvePathViaExistingAncestorSync(resolveConfigPath(env)) !== initialized.configPath
-    ) {
-      throw new GatewayServiceUpdateOwnershipError(
-        "Gateway state or configuration selectors changed during target initialization. Retry from the installation's current owning account.",
-        undefined,
-        undefined,
-        "service-context-changed",
-      );
-    }
-    if (initialized.target) {
-      const current = await revalidateUpdateDatabaseContext({
-        env,
-        readEnv: env,
-        config: initialized.target.configSnapshot.sourceConfig,
-        configSnapshot: initialized.target.configSnapshot,
-        ...(initialized.target.updateInstallKind === "package" &&
-        usesCandidateUpdateAdmission(params.opts, params.installKind ?? "unknown")
-          ? { configValidation: "candidate" as const }
-          : {}),
-        ...(initialized.target.legacyConfigPlan
-          ? { legacyConfigPlan: initialized.target.legacyConfigPlan }
-          : {}),
-      });
-      initialized.target.configSnapshot = current.configSnapshot;
-      initialized.target.legacyConfigPlan = current.legacyConfigPlan;
-      initialized.target.configReadFailure = undefined;
-    }
-  }
   const meta = await readControlPlaneUpdateSentinelMeta(env);
   await resolveForegroundUpdateAdmission({
     root: params.root,
@@ -268,7 +213,10 @@ export async function admitUpdateCommandRun(params: {
       params.opts.run?.completionOwner === "gateway-restart" ||
       undefined,
   });
-  assertUpdatePackageActivationAdmission(params.root, packageAdmission);
+  assertUpdatePackageActivationAdmission(params.root, {
+    serviceRoot: params.serviceRoot,
+    dryRun: params.opts.dryRun,
+  });
   const driver = readUpdateRunDriver();
   const ledgerOptions = {
     env,
@@ -326,66 +274,12 @@ export async function admitUpdateCommandRun(params: {
     env[POST_CORE_UPDATE_ENV] !== "1"
   ) {
     if (params.opts.dryRun === true) {
-      previewAdmissions.set(run, { record, env: { ...env } });
+      admitUpdatePreviewSignalRun(run, record, env);
     } else {
       admitMutableUpdateSignalRun(run, record);
     }
   }
   return run;
-}
-
-/** Own diagnostics only for this freshly admitted invocation's lexical lifetime. */
-export async function withUpdatePreviewSignals<T>(
-  opts: UpdateCommandOptions,
-  operation: () => Promise<T>,
-): Promise<T> {
-  const admission = opts.dryRun === true && opts.run ? previewAdmissions.get(opts.run) : undefined;
-  if (!admission || !opts.run || admission.active) {
-    return await withMutableUpdateSignals(opts, operation);
-  }
-  admission.active = true;
-  const { env } = admission;
-  let interrupted = false;
-  let shutdown: Promise<void> | undefined;
-  const unregister = registerSignalExitBarrier(async () => {
-    if (
-      !interrupted ||
-      process.env.OPENCLAW_UPDATE_RUN_HANDOFF === "1" ||
-      process.env[POST_CORE_UPDATE_ENV] === "1"
-    ) {
-      return;
-    }
-    // Missing/displaced canonical state, pending recovery, or a changed row is
-    // not permission to open a writable runtime or dispose of another owner.
-    await assertUpdateRecoveryAdmission({ env });
-    if (!isDeepStrictEqual(getUpdateRun(admission.record.runId, { env }), admission.record)) {
-      return;
-    }
-    finishInterruptedUpdatePreview(admission.record, { env });
-  });
-  const onSignal = (code: number) => {
-    interrupted = true;
-    shutdown ??= waitForSignalExitBarriers()
-      .catch(() => {
-        defaultRuntime.error(
-          "Preview interruption could not be recorded; history remains pending.",
-        );
-      })
-      .finally(() => process.exit(code));
-  };
-  const onSigint = () => onSignal(130);
-  const onSigterm = () => onSignal(143);
-  process.on("SIGINT", onSigint);
-  process.on("SIGTERM", onSigterm);
-  try {
-    return await operation();
-  } finally {
-    await shutdown;
-    previewAdmissions.delete(opts.run);
-    process.off("SIGINT", onSigint);
-    process.off("SIGTERM", onSigterm);
-    unregister();
-  }
 }
 
 export function createUpdateRunProgress(
@@ -437,7 +331,7 @@ export function createUpdateRunProgress(
       // Candidate Doctor can advance SQLite beyond this process's reader. Hold
       // activation receipts until the supported runtime owns ledger writes.
       deferred = true;
-      retireMutableUpdateSignalRun(run);
+      retireMutableUpdateSignalLedgerRecording(run);
     },
     async flushLedgerWrites() {
       if (flushFailure) {
@@ -498,26 +392,22 @@ export function completeUpdateCommandRun(
     inspected?.format === "legacy-serving"
       ? inspected.record
       : loadUpdateRecovery(run.runId, { env: run.env });
-  if (
-    recovery?.terminal &&
-    getUpdateRun(run.runId, { env: run.env })?.status === recovery.terminal.status
-  ) {
-    // Read the atomic durable outcome; diagnostics never authorize retention cleanup.
-    return normalizeUpdateFailureResult({
-      ...result,
-      status: recovery.terminal.status === "succeeded" ? "ok" : "error",
-      reason:
-        recovery.terminal.status === "succeeded"
-          ? undefined
-          : (recovery.primaryFailure?.code ?? "update-rolled-back"),
-      runId: run.runId,
-    });
-  }
   if (recovery) {
+    // Read the atomic durable outcome; diagnostics never authorize retention cleanup.
+    const terminal =
+      recovery.terminal &&
+      getUpdateRun(run.runId, { env: run.env })?.status === recovery.terminal.status
+        ? recovery.terminal
+        : undefined;
+    const succeeded = terminal?.status === "succeeded";
     return normalizeUpdateFailureResult({
       ...result,
-      status: "error",
-      reason: result.reason ?? "update-recovery-pending",
+      status: succeeded ? "ok" : "error",
+      reason: succeeded
+        ? undefined
+        : terminal
+          ? (recovery.primaryFailure?.code ?? "update-rolled-back")
+          : (result.reason ?? "update-recovery-pending"),
       runId: run.runId,
     });
   }
@@ -582,7 +472,17 @@ export async function prepareUpdateCommand(opts: UpdateCommandOptions) {
     ? null
     : nodeRuntimeFailure(process.versions.node, await detectCurrentSqliteCapabilities());
   if (runtimeFailure) {
-    const error = `${runtimeFailure}\n${formatUnsupportedNodeVersionMessage(process.versions.node)}`;
+    const root = await resolveUpdateRoot();
+    const diagnostics = createUpdatePreflightDiagnostics({
+      check: "node-runtime",
+      code: "node-runtime-preflight",
+      required: `Node ${SUPPORTED_NODE_VERSION_RANGE}`,
+      detected: `Node ${process.versions.node} at ${process.execPath}`,
+      installRoot: root,
+      binaryPath: path.join(root, "openclaw.mjs"),
+      remedy: `${formatUnsupportedNodeVersionMessage(process.versions.node)}\n${runtimeFailure}`,
+    });
+    const error = diagnostics.message;
     if (opts.json) {
       defaultRuntime.writeJson({
         status: "error",
@@ -597,6 +497,12 @@ export async function prepareUpdateCommand(opts: UpdateCommandOptions) {
     }
     exitCliAfterOutput(defaultRuntime, 1);
   }
+  const nodeSecurityWarning = process.versions.bun
+    ? null
+    : formatNodeSecurityWarning(process.versions.node);
+  if (nodeSecurityWarning) {
+    defaultRuntime.error(`SECURITY WARNING: ${nodeSecurityWarning}`);
+  }
   const startedAt = Date.now();
   suppressDeprecations();
   const postCoreUpdateResume = process.env[POST_CORE_UPDATE_ENV] === "1";
@@ -604,12 +510,7 @@ export async function prepareUpdateCommand(opts: UpdateCommandOptions) {
 
   const timeoutMs = parseUpdateTimeoutMs(opts.timeout);
   const shouldRestart = opts.restart !== false;
-  const requestedChannel = normalizeUpdateChannel(opts.channel);
-  if (opts.channel !== undefined && !requestedChannel) {
-    throw new Error(
-      `--channel must be "stable", "extended-stable", "beta", or "dev" (got "${opts.channel}")`,
-    );
-  }
+  const requestedChannel = parseUpdateChannel(opts.channel);
   const devTarget = requestedChannel === "dev" ? readDevUpdateTarget() : undefined;
 
   // The shim can move during preparation; the loaded module owns the executing generation.
@@ -629,7 +530,12 @@ export async function prepareUpdateCommand(opts: UpdateCommandOptions) {
       root: discoveredRoot,
       meta: controlPlaneUpdateSentinelMeta,
     }));
-  const pkgOwnership = createFreeBsdPkgOwnershipInspection(timeoutMs ?? UPDATE_RUNNER_TIMEOUT_MS);
+  if (!postCoreUpdateResume && !foreground && opts.dryRun !== true) {
+    preflightWindowsUpdateTask(opts.tag, timeoutMs);
+  }
+  const pkgOwnership = createSystemPackageOwnershipInspection(
+    timeoutMs ?? UPDATE_RUNNER_TIMEOUT_MS,
+  );
   // Inspect the invoking installation before a service can redirect its root,
   // runtime or state. This also covers package-to-Git and preview requests.
   await pkgOwnership.assertUnowned(discoveredRoot);
@@ -637,13 +543,27 @@ export async function prepareUpdateCommand(opts: UpdateCommandOptions) {
   // owner. Check both roots before config/autostart preparation or history.
   const packageActivationNotes: string[] = [];
   const admitPackageActivation = async (root: string) => {
-    const note = postCoreUpdateResume
-      ? undefined
-      : await settleStalePackageActivationAdmission(root, opts.dryRun);
-    if (note && opts.dryRun) {
-      packageActivationNotes.push(note);
-    } else if (note) {
-      defaultRuntime.error(note);
+    if (!postCoreUpdateResume) {
+      const settled = await settlePendingPackageActivation(
+        resolveUpdateInstallRoot(root),
+        undefined,
+        undefined,
+        { automatic: true, dryRun: opts.dryRun },
+      ).catch((cause: unknown) => {
+        throw new UpdateCommandPendingRecoveryFailure(
+          { status: "error", mode: "unknown", root, steps: [], durationMs: 0 },
+          formatErrorMessage(cause),
+          { cause },
+        );
+      });
+      if (settled) {
+        const note = `${opts.dryRun ? "Would settle" : "Settled"} previous package update ${settled.operationId} (${settled.reason}); update can proceed past package recovery admission. Evidence ${opts.dryRun ? "would be retained" : "retained"} at ${settled.retained}.${settled.warning ? ` ${settled.warning}` : ""}`;
+        if (opts.dryRun) {
+          packageActivationNotes.push(note);
+        } else {
+          defaultRuntime.error(note);
+        }
+      }
     }
     assertUpdatePackageActivationAdmission(root, {
       continuation: postCoreUpdateResume ? opts.run?.executorFence : undefined,
@@ -699,6 +619,7 @@ export async function prepareUpdateCommand(opts: UpdateCommandOptions) {
   return {
     startedAt,
     postCoreUpdateResume,
+    ...(nodeSecurityWarning ? { nodeSecurityWarning } : {}),
     postCoreUpdateChannel,
     timeoutMs,
     shouldRestart,

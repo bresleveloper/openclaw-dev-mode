@@ -5,7 +5,6 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 * Lightweight Anthropic Vertex setup entry. It exposes provider auth detection
 * without importing the stream runtime or Vertex SDK.
 */
-/** Setup entry for Anthropic Vertex provider auth probing. */
 var setup_api_default = definePluginEntry({
 	id: "anthropic-vertex",
 	name: "Anthropic Vertex Setup",

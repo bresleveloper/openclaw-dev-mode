@@ -1,0 +1,3784 @@
+import { s as resolveGlobalSingleton } from "./openclaw-state-read-listeners-C6ALBiqg.mjs";
+import "./openclaw-state-read-sqlite-database-admission-BXby_hL9.mjs";
+import { m as InvocationFrame, t as createSubsystemLogger } from "./openclaw-state-read-subsystem-S9LTuPwa.mjs";
+import { u as SkillLibraryError } from "./openclaw-state-read-sqlite-snapshot-staging-owner-DeVv_bRV.mjs";
+import { a as getNodeSqliteKysely, i as executeSqliteQueryTakeFirstSync, r as executeSqliteQuerySync } from "./openclaw-state-read-kysely-sync-DrKJlREt.mjs";
+import { m as getAdmittedSqliteSchemaFacts } from "./openclaw-state-read-sqlite-error-diagnostics-B72btzpi.mjs";
+import { a as tableExists } from "./openclaw-state-read-openclaw-state-db-schema-helpers-Cgf5rJqc.mjs";
+import { r as runSqliteDeferredTransactionSync } from "./openclaw-state-read-sqlite-transaction-gPY-7Ojc.mjs";
+import { _ as createSqliteSchemaEnsurer } from "./openclaw-state-read-openclaw-state-db-Dhtiiltk.mjs";
+import "./openclaw-state-read-session-key-CJdIm256.mjs";
+import "./openclaw-state-read-session-row-changes-CwGi6K3q.mjs";
+import { t as getOpenClawStateFeatureSchemaSql } from "./openclaw-state-read-openclaw-state-feature-schema-XEi5Ut_x.mjs";
+import { t as chunkItems } from "./openclaw-state-read-chunk-items-2QWieLm-.mjs";
+import { a as selectHasMultipleSessionSharingIdentities, c as selectResolvedUserProfile, i as operatorScopeSatisfied, l as selectResolvedUserProfileMetadataById, o as selectUserProfileDisplaysInDatabase, s as selectStoredGitHubIdentities, u as userProfilesDb } from "./openclaw-state-read-openclaw-state-read-handlers-BUnsgff9.mjs";
+import "node:util";
+import "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
+new AsyncLocalStorage();
+new AsyncLocalStorage();
+Object.getOwnPropertyDescriptor(Promise.prototype, "then");
+Object.getOwnPropertyDescriptor(Promise, Symbol.species);
+resolveGlobalSingleton(Symbol.for("openclaw.pluginRuntimeExecutionFrame"), () => class RuntimeFrame extends InvocationFrame {
+	constructor(scopes, gatewayScope, generationRegistry, invocation = scopes.invocation) {
+		super(scopes, invocation);
+		this.gatewayScope = gatewayScope;
+		this.generationRegistry = generationRegistry;
+	}
+	get runtimePluginId() {
+		return this.gatewayScope?.pluginId;
+	}
+	withScopes(scopes) {
+		return new RuntimeFrame(scopes, this.gatewayScope, this.generationRegistry);
+	}
+});
+resolveGlobalSingleton(Symbol.for("openclaw.expiredPluginRegistryScopeError"), () => class extends Error {
+	constructor() {
+		super("Plugin registry scope is no longer available");
+	}
+});
+//#endregion
+//#region src/gateway/methods/read-share-keys.ts
+function operatorReadShareKey(...[caller, params]) {
+	const { client } = caller;
+	if (!client?.authenticatedUserProfile || client.connect.role !== "operator" || client.internal?.syntheticClient || client.internal?.agentToolCaller || client.internal?.agentRuntimeIdentity || client.internal?.operatorRunAuthority || client.internal?.pluginSubagentRequester || client.internal?.nodeInvokeStream) return null;
+	return JSON.stringify([
+		client.authenticatedUserProfile.profileId,
+		client.authenticatedUserId,
+		client.internal?.operatorRoleActor,
+		(client.connect.scopes ?? []).toSorted(),
+		(client.connect.caps ?? []).toSorted(),
+		client.connect.client.id,
+		client.connect.client.mode,
+		params
+	], (_key, value) => value && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).toSorted(([a], [b]) => a.localeCompare(b))) : value);
+}
+const cronListShareKey = (caller, params) => caller.read?.shareable === true ? operatorReadShareKey(caller, params) : null;
+const modelsListShareKey = (caller, params) => params.refresh === true ? null : operatorReadShareKey(caller, params);
+//#endregion
+//#region src/gateway/methods/core-descriptors.ts
+const CONTROL_PLANE_WRITE = { controlPlaneWrite: true };
+const SIDECAR_CONTROL_PLANE_WRITE = {
+	startup: true,
+	controlPlaneWrite: true
+};
+const OBSERVATION = { lifetime: "observation" };
+const SESSION_WRITE = { sessionAccess: { mode: "write" } };
+const PORTAL_SESSION_WRITE = { sessionAccess: {
+	mode: "write",
+	allowOwnSessionScope: true,
+	requiredTool: "portal"
+} };
+//#endregion
+//#region src/gateway/methods/core-method-policy.ts
+const CORE_GATEWAY_METHOD_SPEC_LIST = [
+	[
+		"health",
+		"health",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"diagnostics.stability",
+		"diagnostics",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.status",
+		"doctor",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.dreamDiary",
+		"doctor",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.backfillDreamDiary",
+		"doctor",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.resetDreamDiary",
+		"doctor",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.resetGroundedShortTerm",
+		"doctor",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.repairDreamingArtifacts",
+		"doctor",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.dedupeDreamDiary",
+		"doctor",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"logs.tail",
+		"logs",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"channels.status",
+		"channels",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"channels.start",
+		"channels",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"channels.stop",
+		"channels",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"channels.logout",
+		"channels",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"status",
+		"health",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"usage.status",
+		"usage",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"usage.cost",
+		"usage",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tts.status",
+		"tts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tts.providers",
+		"tts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tts.personas",
+		"tts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tts.enable",
+		"tts",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"tts.disable",
+		"tts",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"tts.convert",
+		"tts",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"tts.setProvider",
+		"tts",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"tts.setPersona",
+		"tts",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"config.get",
+		"config",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"config.set",
+		"config",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"config.apply",
+		"config",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"config.patch",
+		"config",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"config.schema",
+		"config",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"config.schema.lookup",
+		"config",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"exec.approvals.get",
+		"exec-approvals",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"exec.approvals.set",
+		"exec-approvals",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"exec.approvals.node.get",
+		"exec-approvals",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"exec.approvals.node.set",
+		"exec-approvals",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.get",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.list",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.request",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.waitDecision",
+		null,
+		"operator.approvals",
+		"<=2026.7",
+		OBSERVATION
+	],
+	[
+		"exec.approval.resolve",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.grants.list",
+		null,
+		"operator.approvals",
+		"2026.8"
+	],
+	[
+		"exec.approval.grants.revoke",
+		null,
+		"operator.approvals",
+		"2026.8"
+	],
+	[
+		"question.request",
+		null,
+		"operator.questions",
+		"2026.7"
+	],
+	[
+		"question.waitAnswer",
+		null,
+		"operator.questions",
+		"2026.7",
+		OBSERVATION
+	],
+	[
+		"question.resolve",
+		null,
+		"operator.questions",
+		"2026.7"
+	],
+	[
+		"question.get",
+		null,
+		"operator.questions",
+		"2026.7"
+	],
+	[
+		"question.list",
+		null,
+		"operator.questions",
+		"2026.7"
+	],
+	[
+		"plugin.approval.list",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"plugin.approval.request",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"plugin.approval.waitDecision",
+		null,
+		"operator.approvals",
+		"<=2026.7",
+		OBSERVATION
+	],
+	[
+		"plugin.approval.resolve",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"plugins.uiDescriptors",
+		"plugin-host-hooks",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"plugins.sessionAction",
+		"plugin-host-hooks",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"openclaw.chat",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"openclaw.chat.history",
+		"system-agent",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"openclaw.changes.list",
+		"system-changes",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"openclaw.approval.list",
+		"system-agent-approvals",
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"openclaw.setup.detect",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"openclaw.setup.activate",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"openclaw.setup.activate.start",
+		"system-agent",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"openclaw.setup.auth.start",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"openclaw.setup.prepare.start",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"wizard.start",
+		"wizard",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"wizard.next",
+		"wizard",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"wizard.cancel",
+		"wizard",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"wizard.status",
+		"wizard",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"talk.catalog",
+		"talk",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"talk.config",
+		"talk",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"talk.client.create",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.client.transcript",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.client.close",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.client.toolCall",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.client.steer",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.create",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.appendAudio",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.cancelOutput",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.acknowledgeMark",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.submitToolResult",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.steer",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.close",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.speak",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.mode",
+		"talk-mode",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"commands.list",
+		"commands",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"models.list",
+		"models",
+		"operator.read",
+		"<=2026.7",
+		{
+			startup: true,
+			shareKey: modelsListShareKey,
+			shareMaxAgeMs: 1e3,
+			shareInvalidationEvents: ["chat.metadata.changed", "sessions.changed"]
+		}
+	],
+	[
+		"models.authStatus",
+		"models-auth-status",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"models.authLogout",
+		"models-auth-status",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"tools.catalog",
+		"tools-catalog",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tools.effective",
+		"tools-effective",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"tools.invoke",
+		"tools-invoke",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.view",
+		"mcp-app",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.listTools",
+		"mcp-app",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.listResources",
+		"mcp-app",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.listResourceTemplates",
+		"mcp-app",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.readResource",
+		"mcp-app",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.callTool",
+		"mcp-app",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.updateModelContext",
+		"mcp-app",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"board.get",
+		"board",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"board.update",
+		"board",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"board.widget.put",
+		"board",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"board.widget.grant",
+		"board",
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"board.widget.appView",
+		"board",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"board.event",
+		"board",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"audit.list",
+		"audit",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"audit.activity.list",
+		"audit",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"users.list",
+		"users",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"users.self",
+		"users",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"users.linkEmail",
+		"users",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"users.setDisplayName",
+		"users",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"users.setAvatar",
+		"users",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"users.setRole",
+		"users",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"users.listAuthLinks",
+		"users",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"users.listModelAccounts",
+		"users",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"users.selectModelAccount",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.linkAuthProfile",
+		"users",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"users.unlinkAuthProfile",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.authConnect.start",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.authConnect.answer",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.authConnect.status",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.authConnect.cancel",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.authConnect.catalog",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"taskSuggestions.list",
+		"task-suggestions",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"taskSuggestions.create",
+		"task-suggestions",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"taskSuggestions.accept",
+		"task-suggestions",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"taskSuggestions.dismiss",
+		"task-suggestions",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"environments.list",
+		"environments",
+		"dynamic",
+		"2026.7"
+	],
+	[
+		"environments.status",
+		"environments",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"worktrees.list",
+		"worktrees",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"worktrees.branches",
+		"worktrees",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"fs.listDir",
+		"fs",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"worktrees.create",
+		"worktrees",
+		"operator.write",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"worktrees.remove",
+		"worktrees",
+		"operator.admin",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"worktrees.restore",
+		"worktrees",
+		"operator.admin",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"worktrees.gc",
+		"worktrees",
+		"operator.admin",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"agents.list",
+		"agents",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"agents.create",
+		"agents",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"agents.update",
+		"agents",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"agents.delete",
+		"agents",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"agents.files.list",
+		"agents",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"agents.files.get",
+		"agents",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"agents.files.set",
+		"agents",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.files.list",
+		"sessions-files",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.files.get",
+		"sessions-files",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.files.set",
+		"sessions-files",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.files.reveal",
+		"sessions-files",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"artifacts.list",
+		"artifacts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"artifacts.get",
+		"artifacts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"artifacts.download",
+		"artifacts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.status",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.library.list",
+		"skills",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"skills.library.read",
+		"skills",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"skills.library.save",
+		"skills",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"skills.library.mutate",
+		"skills",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"skills.library.activate",
+		"skills",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"skills.library.import",
+		"skills",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"skills.library.upload",
+		"skills",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"skills.search",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.detail",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.securityVerdicts",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.skillCard",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.bins",
+		"skills",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"skills.upload.begin",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.upload.chunk",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.upload.commit",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.install",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.update",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.curator.status",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.curator.pin",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.curator.unpin",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.curator.restore",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.list",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.inspect",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.historyStatus",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.historyScan",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.create",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.update",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.revise",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.requestRevision",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.apply",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.reject",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.quarantine",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"update.status",
+		"update",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"update.run",
+		"update",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"voicewake.get",
+		"voicewake",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"voicewake.set",
+		"voicewake",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"secrets.reload",
+		null,
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"secrets.resolve",
+		null,
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"voicewake.routing.get",
+		"voicewake-routing",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.list",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7",
+		{
+			startup: true,
+			shareKey: operatorReadShareKey,
+			shareMaxAgeMs: 1e3,
+			shareInvalidationEvents: ["sessions.changed", "chat.metadata.changed"]
+		}
+	],
+	[
+		"sessions.subscribe",
+		"sessions-subscriptions",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"sessions.messages.subscribe",
+		"sessions-subscriptions",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.messages.unsubscribe",
+		"sessions-subscriptions",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.viewers.set",
+		"sessions-subscriptions",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"sessions.preview",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.describe",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7",
+		{ lifetime: "observation" }
+	],
+	[
+		"sessions.branches.list",
+		"sessions-rewind",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.branches.switch",
+		"sessions-rewind",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.rewind",
+		"sessions-rewind",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.fork",
+		"sessions-rewind",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"sessions.create",
+		"sessions-create",
+		"dynamic",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"sessions.recover",
+		"sessions-recover",
+		"operator.write",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"sessions.send",
+		"sessions-messaging",
+		"operator.write",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"sessions.abort",
+		"sessions-abort",
+		"operator.write",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"sessions.patch",
+		"sessions-mutations",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"sessions.goal.update",
+		"sessions-goal",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"sessions.goal.clear",
+		"sessions-goal",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"sessions.pluginPatch",
+		"sessions-mutations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.cleanup",
+		"sessions-read",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.reset",
+		"sessions-mutations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.delete",
+		"sessions-delete",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"sessions.compact",
+		"sessions-compact",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.groups.list",
+		"sessions-groups",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.groups.defaults",
+		"sessions-groups",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"sessions.groups.put",
+		"sessions-groups",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"sessions.groups.rename",
+		"sessions-groups",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"sessions.groups.update",
+		"sessions-groups",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"sessions.groups.delete",
+		"sessions-groups",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"last-heartbeat",
+		"system",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"set-heartbeats",
+		"system",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"wake",
+		"cron",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"node.pair.list",
+		"nodes",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"node.pair.approve",
+		"nodes",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"node.pair.reject",
+		"nodes",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"node.pair.remove",
+		"nodes",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.list",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.approve",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.reject",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.remove",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.rename",
+		"devices",
+		"operator.pairing",
+		"2026.7"
+	],
+	[
+		"device.token.rotate",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.token.revoke",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.setupCode",
+		"device-pair-setup",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"device.pair.setupStatus",
+		"device-pair-setup",
+		"operator.admin",
+		"2026.8",
+		{ advertise: false }
+	],
+	[
+		"node.rename",
+		"nodes",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"node.list",
+		"nodes",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"node.describe",
+		"nodes",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"node.pluginSurface.refresh",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.pluginTools.update",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.skills.update",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.runnerInventory.update",
+		"nodes",
+		"node",
+		"2026.8",
+		{ advertise: false }
+	],
+	[
+		"node.pending.drain",
+		"nodes-pending",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.pending.enqueue",
+		"nodes-pending",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"node.invoke",
+		"nodes",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"node.pending.pull",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.pending.ack",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.invoke.progress",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.invoke.result",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.event",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"cron.get",
+		"cron",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"cron.list",
+		"cron",
+		"operator.read",
+		"<=2026.7",
+		{
+			shareKey: cronListShareKey,
+			shareMaxAgeMs: 1e3,
+			shareInvalidationEvents: ["cron", "sessions.changed"]
+		}
+	],
+	[
+		"cron.status",
+		"cron",
+		"operator.read",
+		"<=2026.7",
+		{
+			shareKey: operatorReadShareKey,
+			shareMaxAgeMs: 1e3,
+			shareInvalidationEvents: ["cron"]
+		}
+	],
+	[
+		"cron.scratch.get",
+		"cron",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"cron.scratch.set",
+		"cron",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"cron.add",
+		"cron",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"cron.update",
+		"cron",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"cron.remove",
+		"cron",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"cron.run",
+		"cron",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"cron.runs",
+		"cron",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"gateway.identity.get",
+		"system",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"gateway.restart.preflight",
+		"restart",
+		"operator.read",
+		"<=2026.7",
+		{ compatibilityRestored: true }
+	],
+	[
+		"gateway.restart.request",
+		"restart",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"system-presence",
+		"system",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"system-event",
+		"system",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"message.action",
+		"send",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"conversations.send",
+		"conversations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"conversations.turn",
+		"conversations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"conversations.turn.cancel",
+		"conversations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"send",
+		"send",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"agent",
+		"agent",
+		"dynamic",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"agent.identity.get",
+		"agent-identity",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"agent.wait",
+		"agent",
+		"operator.write",
+		"<=2026.7",
+		{
+			startup: true,
+			lifetime: "observation"
+		}
+	],
+	[
+		"chat.history",
+		"chat",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"chat.startup",
+		"chat",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"chat.metadata",
+		"chat",
+		"operator.read",
+		"<=2026.7",
+		{
+			startup: true,
+			shareKey: operatorReadShareKey,
+			shareMaxAgeMs: 1e3,
+			shareInvalidationEvents: ["chat.metadata.changed", "sessions.changed"]
+		}
+	],
+	[
+		"chat.message.get",
+		"chat",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"chat.abort",
+		"chat-abort",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"chat.send",
+		"chat-send",
+		"operator.write",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"terminal.open",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"terminal.input",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"terminal.resize",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"terminal.close",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"channels.pairing.list",
+		"channel-pairing",
+		"operator.pairing",
+		"2026.7"
+	],
+	[
+		"channels.pairing.approve",
+		"channel-pairing",
+		"dynamic",
+		"2026.7"
+	],
+	[
+		"channels.pairing.dismiss",
+		"channel-pairing",
+		"operator.pairing",
+		"2026.7"
+	],
+	[
+		"assistant.media.get",
+		null,
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.get",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7",
+		{
+			advertise: false,
+			lifetime: "observation"
+		}
+	],
+	[
+		"sessions.resolve",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.usage",
+		"usage",
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.usage.timeseries",
+		"usage",
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.usage.logs",
+		"usage",
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"poll",
+		"send",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.steer",
+		"sessions-messaging",
+		"operator.write",
+		"<=2026.7",
+		{
+			advertise: false,
+			description: "Deprecated alias for chat.send queueMode interrupt; removal per protocol deprecation policy."
+		}
+	],
+	[
+		"push.test",
+		"push",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"attach.grant",
+		"attach",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"attach.revoke",
+		"attach",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"push.web.vapidPublicKey",
+		"push",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"push.web.subscribe",
+		"push",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"push.web.unsubscribe",
+		"push",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"push.web.test",
+		"push",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"push.web.preferences.get",
+		"push",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"push.web.preferences.set",
+		"push",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"config.openFile",
+		"config",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"connect",
+		"connect",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"chat.inject",
+		"chat",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"nativeHook.invoke",
+		"native-hook-relay",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"web.login.start",
+		"web",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"web.login.wait",
+		"web",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"terminal.attach",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"terminal.list",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"controlUi.githubPreview",
+		"control-ui",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"system.info",
+		"system",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"agents.workspace.list",
+		"agents-workspace",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"agents.workspace.get",
+		"agents-workspace",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"tts.speak",
+		"tts",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"plugins.list",
+		"plugins",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"plugins.search",
+		"plugins",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"plugins.install",
+		"plugins-mutations",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"plugins.setEnabled",
+		"plugins-mutations",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"plugins.uninstall",
+		"plugins-mutations",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"plugins.refresh",
+		"plugins-mutations",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"controlUi.sessionPullRequests.subscribe",
+		"control-ui",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"controlUi.sessionPreview",
+		"control-ui",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"gateway.suspend.prepare",
+		"suspend",
+		"operator.admin",
+		"2026.7",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"gateway.suspend.status",
+		"suspend",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"gateway.suspend.resume",
+		"suspend",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"chat.toolTitles",
+		"chat",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"sessions.diff",
+		"sessions-diff",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"openclaw.setup.verify",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"environments.create",
+		"environments",
+		"operator.admin",
+		"2026.7",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"environments.destroy",
+		"environments",
+		"operator.admin",
+		"2026.7",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.catalog.list",
+		"session-catalog",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"sessions.catalog.read",
+		"session-catalog",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"terminal.upload",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"sessions.catalog.continue",
+		"session-catalog",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"sessions.catalog.archive",
+		"session-catalog",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"approval.get",
+		null,
+		"operator.approvals",
+		"2026.7"
+	],
+	[
+		"approval.resolve",
+		null,
+		"operator.approvals",
+		"2026.7"
+	],
+	[
+		"sessions.search",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.dispatch",
+		"sessions-dispatch",
+		"dynamic",
+		"2026.7",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.reclaim",
+		"sessions-dispatch",
+		"operator.write",
+		"2026.7",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"models.probe",
+		"models-probe",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"migrations.memory.plan",
+		"migrations",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"migrations.memory.apply",
+		"migrations",
+		"operator.admin",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"ui.command",
+		"ui-command",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"approval.history",
+		null,
+		"operator.approvals",
+		"2026.7"
+	],
+	[
+		"plugin.surface.refresh",
+		"nodes",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"conversations.list",
+		"conversations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"session.discussion.info",
+		"session-discussion",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"session.discussion.open",
+		"session-discussion",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"board.prompt.authorize",
+		"board",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"board.data.read",
+		"board",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"board.action",
+		"board",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"sessions.observer.visibility",
+		"session-observer-rpc",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"session.visibility.set",
+		"sessions-sharing",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"session.members.list",
+		"sessions-sharing",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"session.members.add",
+		"sessions-sharing",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"session.members.remove",
+		"sessions-sharing",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"session.suggestions.add",
+		"sessions-suggestions",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"session.suggestions.list",
+		"sessions-suggestions",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"session.suggestions.resolve",
+		"sessions-suggestions",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"session.reactions.set",
+		"sessions-reactions",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"session.reactions.list",
+		"sessions-reactions",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"session.typing",
+		"sessions-suggestions",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"sessions.companion.ask",
+		"session-companion-rpc",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"sessions.companion.state",
+		"session-companion-rpc",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"sessions.companion.reset",
+		"session-companion-rpc",
+		"operator.write",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"memory.search",
+		"memory-search",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"skills.proposals.events.list",
+		"skills",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"skills.proposals.evaluate",
+		"skills",
+		"operator.admin",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"hooks.status",
+		"hooks-status",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"audit.run.inspect",
+		"audit",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"sessions.patchMany",
+		"sessions-mutations",
+		"dynamic",
+		"2026.8"
+	],
+	[
+		"update.hold",
+		"update",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.catalog.startTerminal",
+		"session-catalog",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"worker.desktop.observe",
+		"environments",
+		"operator.admin",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"projects.list",
+		"projects",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"projects.register",
+		"projects",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"projects.remove",
+		"projects",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"worker.desktop.launch",
+		"environments",
+		"operator.admin",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"secrets.store.list",
+		null,
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"secrets.store.set",
+		null,
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"secrets.store.delete",
+		null,
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"users.prefs.get",
+		"users",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"users.prefs.set",
+		"users",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"projects.add",
+		"projects",
+		"operator.write",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"projects.searchRemote",
+		"projects",
+		"operator.read",
+		"2026.8",
+		{ description: "Search GitHub repositories that can be cloned as managed projects." }
+	],
+	[
+		"desktop.observe",
+		"environments",
+		"operator.admin",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"desktop.launch",
+		"environments",
+		"operator.admin",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"device.scopes.requestUpgrade",
+		"devices",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"device.scopes.waitUpgrade",
+		"devices",
+		"operator.read",
+		"2026.8",
+		OBSERVATION
+	],
+	[
+		"portal.list",
+		"portals",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"portal.open",
+		"portals",
+		"operator.write",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"portal.close",
+		"portals",
+		"operator.write",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.move",
+		"sessions-dispatch",
+		"dynamic",
+		"2026.8",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.assignOwner",
+		"sessions-mutations",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"progressCard.get",
+		"progress-card",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"progressCard.put",
+		"progress-card",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"tools.github.status",
+		"tools-github",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"tools.github.configure",
+		"tools-github",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"tools.github.authorize.start",
+		"tools-github",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"tools.github.authorize.poll",
+		"tools-github",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"tools.github.authorize.cancel",
+		"tools-github",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.github.publish",
+		"sessions-github",
+		"operator.sessions.write",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"diagnostics.lanes",
+		"diagnostics",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"session.members.listEvidence",
+		"sessions-sharing",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"plugins.inspect",
+		"plugins",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"users.github.status",
+		"users",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"users.github.authorize.start",
+		"users",
+		"operator.read",
+		"2026.8",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"users.github.authorize.poll",
+		"users",
+		"operator.read",
+		"2026.8",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"users.github.authorize.cancel",
+		"users",
+		"operator.read",
+		"2026.8",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"users.github.disconnect",
+		"users",
+		"operator.read",
+		"2026.8",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.github.options",
+		"sessions-github",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"sessions.github.status",
+		"sessions-github",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"sessions.github.confirm",
+		"sessions-github",
+		"operator.write",
+		"2026.8",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.title.prepare",
+		"sessions-title",
+		"operator.write",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"users.mentionable",
+		"users-mentionable",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"mentions.list",
+		"mentions",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"mentions.dismiss",
+		"mentions",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"transcripts.list",
+		"transcripts",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"transcripts.get",
+		"transcripts",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"models.authOrderSet",
+		"models-auth-order",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"canvas.document.view",
+		"canvas",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"plugins.controlUi.list",
+		"plugins-control-ui",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"plugins.controlUi.reload",
+		"plugins-control-ui",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"plugins.controlUi.report",
+		"plugins-control-ui",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"plugins.controlUi.status",
+		"plugins-control-ui",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"update.runs.get",
+		"update",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"update.runs.list",
+		"update",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"gateway.suspend.handoff",
+		"suspend",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"transcripts.export",
+		"transcripts",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"transcripts.status",
+		"transcripts",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"update.report",
+		"update",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"skills.workshop.read",
+		"skills",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"session.publicShare.set",
+		"sessions-sharing",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"claws.monitors",
+		"claws-monitors",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"plugins.catalog.browse",
+		"plugins",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"plugins.catalog.categories",
+		"plugins",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"plugins.catalog.get",
+		"plugins",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"environments.prepare",
+		"environments",
+		"operator.admin",
+		"2026.9",
+		SIDECAR_CONTROL_PLANE_WRITE
+	],
+	[
+		"models.authRefresh",
+		"models-auth-status",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"models.authLogin",
+		"models-auth-login",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"models.authSetApiKey",
+		"models-auth-status",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.storage.status",
+		"sessions-read",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"sessions.storage.run",
+		"sessions-read",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"plugins.reload",
+		"plugins-mutations",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"claws.packages.remove",
+		"claws-packages",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"claws.removalJournal",
+		"claws-removal-journal",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"canvas.document.preview",
+		"canvas",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"computer.status",
+		"computer",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"computer.invoke",
+		"computer",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"sessions.activitySummary.ensure",
+		"session-activity-summary",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"controlUi.sessionPullRequests.checks",
+		"control-ui",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"diagnostics.cpuProfile",
+		"diagnostics",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"talk.voice.get",
+		"talk",
+		"operator.talk",
+		"2026.9"
+	],
+	[
+		"talk.voice.set",
+		"talk",
+		"operator.talk",
+		"2026.9"
+	],
+	[
+		"talk.voice.complete",
+		"talk",
+		"operator.talk",
+		"2026.9"
+	],
+	[
+		"plugins.credentials.inspect",
+		"plugins",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"plugins.skills.read",
+		"plugins",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"diagnostics.heapProfile",
+		"diagnostics",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"desktop.release",
+		"environments",
+		"operator.admin",
+		"2026.9",
+		{ startup: true }
+	],
+	[
+		"mcp.authLogin",
+		"mcp-auth-login",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"environments.session.status",
+		"environments",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"environments.session.create",
+		"environments",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"environments.session.destroy",
+		"environments",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"environments.session.exec",
+		"environments",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"sessions.setInvolvement",
+		"sessions-mutations",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"transcripts.summarize",
+		"transcripts",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"controlUi.linkPreview",
+		"control-ui",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"themes.list",
+		"themes",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"themes.get",
+		"themes",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"themes.set",
+		"themes",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"themes.import",
+		"themes",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"controlUi.githubDetail",
+		"control-ui",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"progressCard.refresh",
+		"progress-card",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"webSearch.status",
+		"web-search",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"webSearch.test",
+		"web-search",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"sessions.providerReview.continue",
+		"sessions-provider-review",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"users.linkChannelIdentity",
+		"users",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"users.unlinkChannelIdentity",
+		"users",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"users.listChannelIdentities",
+		"users",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"users.personalFile.get",
+		"users",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"users.personalFile.set",
+		"users",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"portal.session.list",
+		"portals",
+		"operator.write",
+		"2026.9",
+		PORTAL_SESSION_WRITE
+	],
+	[
+		"portal.session.open",
+		"portals",
+		"operator.write",
+		"2026.9",
+		PORTAL_SESSION_WRITE
+	],
+	[
+		"portal.session.close",
+		"portals",
+		"operator.write",
+		"2026.9",
+		PORTAL_SESSION_WRITE
+	],
+	[
+		"cron.history",
+		"cron",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"presence.activity",
+		"system",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"presence.query",
+		"presence",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"users.merge",
+		"users",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"gateway.stop.request",
+		"restart",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"diagnostics.heapSnapshot",
+		"diagnostics",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"sessions.catalog.import",
+		"session-catalog",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"backup.status",
+		"backup",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"backup.recordOutcome",
+		"backup",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"storage.locations.list",
+		"storage",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"storage.locations.probe",
+		"storage",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"mcp.app.onboard",
+		"mcp-app-onboarding",
+		"operator.write",
+		"2026.9",
+		SESSION_WRITE
+	],
+	[
+		"mcp.app.discover",
+		"mcp-app-extensions",
+		"operator.write",
+		"2026.9",
+		SESSION_WRITE
+	],
+	[
+		"mcp.app.launch",
+		"mcp-app-extensions",
+		"operator.write",
+		"2026.9",
+		SESSION_WRITE
+	],
+	[
+		"mcp.app.settings",
+		"mcp-app-extensions",
+		"operator.write",
+		"2026.9",
+		SESSION_WRITE
+	],
+	[
+		"mcp.app.mention",
+		"mcp-app-extensions",
+		"operator.write",
+		"2026.9",
+		SESSION_WRITE
+	],
+	[
+		"mcp.app.formResource",
+		"mcp-app",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"mcp.app.modelContext",
+		"mcp-app",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"mcp.app.removeModelContext",
+		"mcp-app",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"mcp.app.writeResource",
+		"mcp-app",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"mcp.app.subscribeResource",
+		"mcp-app",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"mcp.app.unsubscribeResource",
+		"mcp-app",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"mcp.app.openFile",
+		"mcp-app",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"memory.get",
+		"memory-search",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"memory.status",
+		"memory-search",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"sessions.files.assets",
+		"sessions-files",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"worktrees.recoverRemoval",
+		"worktrees",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"worktrees.retireSnapshot",
+		"worktrees",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.processes.list",
+		"session-processes",
+		"operator.read",
+		"2026.9",
+		OBSERVATION
+	],
+	[
+		"sessions.processes.stop",
+		"session-processes",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"catalog.browse",
+		"plugins",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"catalog.searchKeywords",
+		"plugins",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"skills.workshop.list",
+		"skills",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"skills.workshop.changes",
+		"skills",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"skills.workshop.archive",
+		"skills",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"skills.workshop.restore",
+		"skills",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"skills.workshop.undo",
+		"skills",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"memory.search.owner",
+		"memory-search",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"secrets.store.import",
+		null,
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"secrets.store.allowedHosts",
+		null,
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"users.background.get",
+		"users",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"users.background.upload",
+		"users",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"users.background.remove",
+		"users",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"debugProxy.capture",
+		"debug-proxy",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"openclaw.setup.auto",
+		"system-agent",
+		"operator.admin",
+		"2026.10"
+	],
+	[
+		"environments.adoptSuggestedProfile",
+		"environments",
+		"operator.admin",
+		"2026.10",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"ui.command.result",
+		"ui-command",
+		"operator.read",
+		"2026.10"
+	],
+	[
+		"mcp.events.list",
+		"mcp-events",
+		"operator.read",
+		"2026.10"
+	],
+	[
+		"projects.checkoutOptions",
+		"projects",
+		"operator.read",
+		"2026.10"
+	]
+].map(([name, family, scope, since, policy]) => Object.assign({
+	name,
+	scope,
+	since,
+	...family ? { family } : {}
+}, policy));
+new Map(CORE_GATEWAY_METHOD_SPEC_LIST.map((spec) => [spec.name, spec]));
+CORE_GATEWAY_METHOD_SPEC_LIST.filter((spec) => spec.startup === true).map((spec) => spec.name);
+//#endregion
+//#region src/gateway/method-scopes.ts
+function authorizeOperatorScopesForRequiredScope(requiredScope, scopes, sessionScope, method) {
+	if (operatorScopeSatisfied(requiredScope, scopes)) return { allowed: true };
+	if ((requiredScope === "operator.read" && sessionScope === "operator.sessions.read" || (requiredScope === "operator.write" || requiredScope === "operator.questions" && method?.startsWith("question.")) && sessionScope === "operator.sessions.write") && operatorScopeSatisfied(sessionScope, scopes)) return {
+		allowed: true,
+		sessionScope
+	};
+	return {
+		allowed: false,
+		missingScope: requiredScope
+	};
+}
+resolveGlobalSingleton(Symbol.for("openclaw.admittedRunOperatorAuthority.issuers"), () => /* @__PURE__ */ new WeakSet());
+//#endregion
+//#region src/gateway/operator-role-policy.ts
+const operatorRoleLog = createSubsystemLogger("gateway/operator-roles");
+const reportedUnknownAssignments = /* @__PURE__ */ new Set();
+const deniedOperatorRole = {
+	sessions: { others: "none" },
+	agents: [],
+	scopes: []
+};
+/** Resolve names once for both authorization and the administrative profile projection. */
+function resolveOperatorRoleSelection(profileId, assignedRole, cfg, githubLogin) {
+	const roles = cfg.gateway?.roles;
+	if (!roles || !profileId || profileId === "gateway-owner") return { roleSource: "default" };
+	if (assignedRole && Object.hasOwn(roles.definitions, assignedRole)) return {
+		effectiveRole: assignedRole,
+		roleSource: "assigned"
+	};
+	const login = githubLogin?.toLowerCase();
+	if (login) {
+		for (const [configuredLogin, role] of Object.entries(roles.assignments?.byGithubLogin ?? {})) if (configuredLogin.trim().toLowerCase() === login && Object.hasOwn(roles.definitions, role)) return {
+			effectiveRole: role,
+			roleSource: "githubLogin"
+		};
+	}
+	return {
+		effectiveRole: roles.default,
+		roleSource: "default"
+	};
+}
+/** Transaction and prepared-profile owners supply the current assignment. */
+function resolveOperatorRolePolicyForAssignment(profileId, assignedRole, cfg, githubLogin) {
+	const roles = cfg.gateway?.roles;
+	if (!roles || profileId === "gateway-owner") return;
+	if (!profileId) return deniedOperatorRole;
+	const selection = resolveOperatorRoleSelection(profileId, assignedRole, cfg, githubLogin);
+	if (assignedRole && selection.roleSource !== "assigned") {
+		const reportKey = `${profileId}:${assignedRole}`;
+		if (!reportedUnknownAssignments.has(reportKey)) {
+			if (reportedUnknownAssignments.size >= 1024) reportedUnknownAssignments.clear();
+			reportedUnknownAssignments.add(reportKey);
+			operatorRoleLog.warn(`User profile ${profileId} references unknown Gateway role "${assignedRole}"; ${selection.effectiveRole ? `applying ${selection.roleSource} role "${selection.effectiveRole}"` : "denying access"}. Update gateway.roles.definitions or clear the assignment with users.setRole.`);
+		}
+	}
+	return (selection.effectiveRole ? roles.definitions[selection.effectiveRole] : void 0) ?? deniedOperatorRole;
+}
+//#endregion
+//#region src/skills/library/command-name.ts
+/** Fits native 32-character limits without truncating the stable 80-bit identity suffix. */
+function managedSkillCommandName(slug, skillId) {
+	return `s_${slug.replace(/-+/g, "_").slice(0, 9).replace(/_+$/, "")}_${skillId.replaceAll("-", "").slice(0, 20)}`;
+}
+//#endregion
+//#region src/skills/library/store.ts
+const skillLibraryDb = (db) => getNodeSqliteKysely(db);
+createSqliteSchemaEnsurer(() => getOpenClawStateFeatureSchemaSql("skill_library_entries"), { tables: [
+	"skill_library_entries",
+	"skill_library_revisions",
+	"skill_library_events",
+	"skill_library_uploads"
+] });
+function resolveSkillLibraryActor(db, authority) {
+	authority.assertCurrent();
+	const config = authority.getConfig();
+	if (authority.profileId) authority.profileDependencies?.add(authority.profileId);
+	const profile = authority.profileId && tableExists(db, "user_profiles") ? selectResolvedUserProfileMetadataById(db, authority.profileId) : void 0;
+	if (authority.profileId && !profile) throw new SkillLibraryError("AUTHORITY_EXPIRED", "Your Gateway profile is no longer available. Sign in again before accessing the library.");
+	if (profile) authority.profileDependencies?.add(profile.id);
+	return resolveSkillLibraryActorFromProfile(authority, config, profile ? {
+		id: profile.id,
+		role: profile.role ?? null,
+		githubLogin: config.gateway?.roles?.assignments?.byGithubLogin ? selectStoredGitHubIdentities(db, [profile.id]).get(profile.id)?.primary?.login ?? null : null
+	} : void 0);
+}
+/** Apply the same role ceiling to current worker rows or the Gateway's committed profile facts. */
+function resolveSkillLibraryActorFromProfile(authority, config, profile) {
+	const ceiling = resolveOperatorRolePolicyForAssignment(profile?.id, profile?.role ?? null, config, profile?.githubLogin ?? null)?.scopes;
+	const permits = (scope) => authorizeOperatorScopesForRequiredScope(scope, [...authority.scopes]).allowed && (!ceiling || authorizeOperatorScopesForRequiredScope(scope, ceiling).allowed);
+	return {
+		profileId: profile?.id,
+		admin: permits("operator.admin"),
+		read: permits("operator.read") || permits("operator.write"),
+		write: Boolean(profile) && permits("operator.write")
+	};
+}
+function requireSkillLibraryProfile(db, authority) {
+	const actor = resolveSkillLibraryActor(db, authority);
+	if (!actor.profileId) throw new SkillLibraryError("IDENTITY_REQUIRED", "Sign in with a durable Gateway profile to use a personal skill library. Shared-token administrators can use workspace skills.");
+	if (!actor.write) throw new SkillLibraryError("FORBIDDEN", "Your current Gateway role cannot change skills.");
+	return actor.profileId;
+}
+function requireSelectedSkillLibraryUpload(db, uploadId, authority, query) {
+	const actor = requireSkillLibraryProfile(db, authority);
+	const upload = executeSqliteQueryTakeFirstSync(db, query.where("upload_id", "=", uploadId));
+	const owner = upload && selectSkillLibraryOwner(db, upload.owner_profile_id)?.id;
+	if (upload) authority.profileDependencies?.add(upload.owner_profile_id);
+	if (owner) authority.profileDependencies?.add(owner);
+	if (!upload || upload.expires_at <= Date.now() || owner !== actor) throw new SkillLibraryError("NOT_FOUND", "Upload not found for your profile, or expired. Start a new import.");
+	return upload;
+}
+function requireSkillLibraryUpload(db, uploadId, authority) {
+	return requireSelectedSkillLibraryUpload(db, uploadId, authority, skillLibraryDb(db).selectFrom("skill_library_uploads").selectAll());
+}
+function skillLibraryRevisionQuery(db, skillId, revision) {
+	return skillLibraryDb(db).selectFrom("skill_library_revisions").where("skill_id", "=", skillId).where("revision", "=", revision);
+}
+function selectSkillLibraryRevision(db, skillId, revision) {
+	return executeSqliteQueryTakeFirstSync(db, skillLibraryRevisionQuery(db, skillId, revision).selectAll());
+}
+function selectSkillLibraryRevisionMetadata(db, skillId, revision) {
+	return executeSqliteQueryTakeFirstSync(db, skillLibraryRevisionQuery(db, skillId, revision).select("description"));
+}
+function selectSkillLibraryOwner(db, profileId) {
+	return selectResolvedUserProfile(db, profileId, userProfilesDb(db).selectFrom("user_profiles").select([
+		"id",
+		"display_name",
+		"merged_into"
+	]));
+}
+function projectSkillLibraryList({ entries: catalog, profileId, defaultSelectionNotice: _notice, ...presentation }, { scope } = {}) {
+	const entries = catalog.filter((entry) => (scope !== "mine" || profileId && entry.ownerProfileId === profileId) && (scope !== "team" || entry.shared || entry.ownerProfileId === null));
+	return {
+		...presentation,
+		entries,
+		profileId,
+		defaultSelectionLimit: 64,
+		...profileId && entries.filter((entry) => entry.enabled && (entry.ownerProfileId === profileId || entry.ownerProfileId === null || entry.shared)).length > 64 ? { defaultSelectionNotice: "New sessions select up to 64 enabled skills, personal skills first and then stable ID order. In a session, detach a selected skill to make room and attach another from the library." } : {}
+	};
+}
+/** Prepared facts live only for this synchronous read in the caller's snapshot. */
+function selectSkillLibraryEntries(db, authority, params = {}, actor = resolveSkillLibraryActor(db, authority)) {
+	let query = skillLibraryDb(db).selectFrom("skill_library_entries as entry").leftJoin("skill_library_revisions as revision", (join) => join.onRef("revision.skill_id", "=", "entry.skill_id").on((eb) => eb("revision.revision", "=", params.revision ?? eb.ref("entry.current_revision")))).selectAll("entry").select(["revision.description", "revision.revision"]);
+	query = params.skillId ? query.where("entry.skill_id", "=", params.skillId) : query.where("entry.removed", "=", 0);
+	if (params.enabledOnly) query = query.where("entry.enabled", "=", 1);
+	const rows = executeSqliteQuerySync(db, query.orderBy("entry.slug").orderBy("entry.skill_id")).rows;
+	const ownerIds = [...new Set(rows.flatMap((row) => row.owner_profile_id ? [row.owner_profile_id] : []))];
+	function readOwners(ids) {
+		const owners = /* @__PURE__ */ new Map();
+		if (tableExists(db, "user_profiles")) for (const batch of chunkItems(ids, 500)) for (const [id, owner] of selectUserProfileDisplaysInDatabase(db, batch)) owners.set(id, owner);
+		return owners;
+	}
+	const owners = readOwners(ownerIds);
+	const labels = readOwners([...new Set([...owners.values()].flatMap((owner) => owner?.merged_into ? [owner.id] : []))]);
+	for (const id of ownerIds) {
+		authority.profileDependencies?.add(id);
+		authority.profileDependencies?.add(owners.get(id)?.id ?? id);
+	}
+	return rows.flatMap((row) => {
+		const profile = row.owner_profile_id === null ? void 0 : owners.get(row.owner_profile_id);
+		const owner = profile?.id ?? row.owner_profile_id;
+		if (!row.revision || row.description === null || !actor.read || !params.selectedBySession && !actor.admin && owner !== actor.profileId && !row.shared && owner !== null) return [];
+		return [{
+			skillId: row.skill_id,
+			slug: row.slug,
+			name: managedSkillCommandName(row.slug, row.skill_id),
+			ownerLabel: owner === null ? "Team" : (labels.get(owner) ?? profile)?.display_name ?? owner,
+			description: row.description,
+			ownerProfileId: owner,
+			authorProfileId: row.author_profile_id,
+			shared: row.shared === 1,
+			enabled: row.enabled === 1,
+			removed: row.removed === 1,
+			revision: row.revision,
+			createdAt: row.created_at,
+			updatedAt: row.updated_at,
+			canEdit: actor.write && (authority.namespace !== "personal" && actor.admin || owner !== null && actor.profileId === owner)
+		}];
+	});
+}
+function requireSkillLibraryEntry(db, skillId, authority, write = false, actor = resolveSkillLibraryActor(db, authority)) {
+	const [entry] = selectSkillLibraryEntries(db, authority, { skillId }, actor);
+	if (!entry) throw new SkillLibraryError("NOT_FOUND", "Skill not found in your accessible library.");
+	if (write && !entry.canEdit) {
+		requireSkillLibraryProfile(db, authority);
+		throw new SkillLibraryError("FORBIDDEN", authority.namespace === "personal" ? "Personal authoring can change only your own skills. Use the administrator UI or CLI for team management." : "Only the skill's owner or a Gateway administrator can change it.");
+	}
+	if (write && entry.removed) throw new SkillLibraryError("NOT_FOUND", "Removed skills cannot be edited or selected again; pinned revisions remain available to their sessions.");
+	return entry;
+}
+//#endregion
+//#region src/skills/library/service.kernel.ts
+function hydrateSkillLibraryWorkerAuthority(input, profileDependencies) {
+	return {
+		...input,
+		profileDependencies,
+		getConfig: () => input.config,
+		assertCurrent() {}
+	};
+}
+function resolveSkillLibraryPresentationInDatabase(db, authority, actor = resolveSkillLibraryActor(db, authority)) {
+	const multipleProfiles = tableExists(db, "user_profiles") && selectHasMultipleSessionSharingIdentities(db);
+	return {
+		profileId: actor.profileId ?? null,
+		multipleProfiles,
+		defaultTarget: actor.profileId && (multipleProfiles || !actor.admin) ? "personal" : actor.admin ? "workspace" : "unavailable",
+		canManageWorkspace: actor.admin
+	};
+}
+function listSkillLibraryInDatabase(db, authority, params = {}) {
+	const actor = resolveSkillLibraryActor(db, authority);
+	return projectSkillLibraryList({
+		entries: tableExists(db, "skill_library_entries") ? selectSkillLibraryEntries(db, authority, {}, actor) : [],
+		...resolveSkillLibraryPresentationInDatabase(db, authority, actor)
+	}, params);
+}
+function readSkillLibraryMetadataInDatabase(db, authority, skillId, revision, selectedRevision) {
+	if (selectedRevision && revision !== selectedRevision) throw new SkillLibraryError("FORBIDDEN", "Only the session's exact selected revision can be read.");
+	const entry = selectedRevision ? selectSkillLibraryEntries(db, authority, {
+		skillId,
+		revision: selectedRevision,
+		selectedBySession: true
+	})[0] : requireSkillLibraryEntry(db, skillId, authority);
+	if (!entry) throw new SkillLibraryError("NOT_FOUND", "Selected revision is unavailable.");
+	const chosenRevision = revision ?? entry.revision;
+	const metadata = selectSkillLibraryRevision(db, skillId, chosenRevision);
+	if (!metadata) throw new SkillLibraryError("NOT_FOUND", "Skill revision not found.");
+	return {
+		manifestJson: metadata.files_json,
+		entry: {
+			...entry,
+			revision: chosenRevision,
+			description: metadata.description,
+			canEdit: !selectedRevision && entry.canEdit
+		},
+		revisions: selectedRevision ? [{
+			revision: selectedRevision,
+			createdAt: metadata.created_at
+		}] : executeSqliteQuerySync(db, skillLibraryDb(db).selectFrom("skill_library_revisions").select(["revision", "created_at"]).where("skill_id", "=", skillId).orderBy("created_at", "desc")).rows.map((row) => ({
+			revision: row.revision,
+			createdAt: row.created_at
+		}))
+	};
+}
+//#endregion
+//#region src/skills/library/read.kernel.ts
+function seed(db, authority, preparedActor) {
+	if (!authority.profileId || !tableExists(db, "skill_library_entries")) return [];
+	const actor = preparedActor ?? resolveSkillLibraryActor(db, authority);
+	const { profileId } = actor;
+	return selectSkillLibraryEntries(db, authority, { enabledOnly: true }, actor).filter((entry) => entry.ownerProfileId === profileId || entry.ownerProfileId === null || entry.shared).toSorted((a, b) => Number(b.ownerProfileId === profileId) - Number(a.ownerProfileId === profileId) || (a.skillId < b.skillId ? -1 : a.skillId > b.skillId ? 1 : 0)).slice(0, 64).map(({ skillId, revision, name, ownerProfileId }) => ({
+		skillId,
+		revision,
+		name,
+		ownerProfileId
+	}));
+}
+function change(db, authority, current, params) {
+	const actor = resolveSkillLibraryActor(db, authority);
+	const next = new Map(current.map((item) => [item.skillId, item]));
+	const ids = params.skillId ? [params.skillId] : current.map((item) => item.skillId);
+	for (const skillId of ids) {
+		const entry = requireSkillLibraryEntry(db, skillId, authority, false, actor);
+		if (entry.removed) throw new SkillLibraryError("NOT_FOUND", "Removed skill cannot be selected. Existing pinned selections remain available.");
+		const revision = params.revision ?? entry.revision;
+		if (!selectSkillLibraryRevisionMetadata(db, skillId, revision)) throw new SkillLibraryError("NOT_FOUND", "Skill revision not found.");
+		next.set(skillId, {
+			skillId,
+			revision,
+			name: entry.name,
+			ownerProfileId: entry.ownerProfileId
+		});
+	}
+	if (next.size > 64) throw new SkillLibraryError("LIMIT", "A session can select at most 64 library skills.");
+	return [...next.values()].toSorted((a, b) => a.skillId < b.skillId ? -1 : a.skillId > b.skillId ? 1 : 0);
+}
+const skillLibraryReadOperations = { "skillLibrary.read": (input, db) => {
+	if (input.kind === "seed" && (!input.authority.profileId || getAdmittedSqliteSchemaFacts(db)?.tables.has("skill_library_entries") === false)) return {
+		type: "skillLibrary.read",
+		kind: "seed",
+		value: [],
+		profileIds: []
+	};
+	const profileIds = /* @__PURE__ */ new Set();
+	const authority = hydrateSkillLibraryWorkerAuthority(input.authority, profileIds);
+	const value = runSqliteDeferredTransactionSync(db, () => {
+		if (![
+			"profile",
+			"presentation",
+			"list",
+			"seed",
+			"session"
+		].includes(input.kind) && !tableExists(db, "skill_library_entries")) {
+			if (input.kind === "pins" && !input.params.length) return [];
+			throw new SkillLibraryError("NOT_FOUND", "Skill not found in your accessible library.");
+		}
+		switch (input.kind) {
+			case "presentation": return resolveSkillLibraryPresentationInDatabase(db, authority);
+			case "list": return listSkillLibraryInDatabase(db, authority, input.params);
+			case "profile": return requireSkillLibraryProfile(db, authority);
+			case "entry": return requireSkillLibraryEntry(db, input.params.skillId, authority, input.params.write);
+			case "read": return readSkillLibraryMetadataInDatabase(db, authority, input.params.skillId, input.params.revision, input.params.selectedRevision);
+			case "upload": return requireSkillLibraryUpload(db, input.params.uploadId, authority);
+			case "seed": return seed(db, authority);
+			case "session": {
+				const actor = resolveSkillLibraryActor(db, authority);
+				return {
+					selections: seed(db, authority, actor),
+					presentation: resolveSkillLibraryPresentationInDatabase(db, authority, actor)
+				};
+			}
+			case "change": return change(db, authority, input.params.current, input.params.params);
+		}
+		const actor = input.params.length ? resolveSkillLibraryActor(db, authority) : void 0;
+		return input.params.map((pin) => {
+			const [entry] = selectSkillLibraryEntries(db, authority, {
+				skillId: pin.skillId,
+				revision: pin.revision,
+				selectedBySession: true
+			}, actor);
+			if (!entry) throw new SkillLibraryError("NOT_FOUND", "A pinned skill revision is unavailable. Restore the library or detach it explicitly.");
+			return {
+				...pin,
+				slug: entry.slug,
+				description: entry.description,
+				ownerLabel: entry.ownerLabel
+			};
+		});
+	});
+	return {
+		type: "skillLibrary.read",
+		kind: input.kind,
+		value,
+		profileIds: [...profileIds]
+	};
+} };
+//#endregion
+export { skillLibraryReadOperations };

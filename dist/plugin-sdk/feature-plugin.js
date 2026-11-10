@@ -1,9 +1,9 @@
 import { t as isPluginJsonValue } from "../host-hook-json-CvItNyy3.mjs";
-import { n as validateJsonSchemaValue } from "../schema-validator-qnYkiHpy.mjs";
+import { n as validateJsonSchemaValue } from "../schema-validator-B9g4ZpIt.mjs";
 import { t as jsonResult } from "../tool-results-BCM3fdVS.mjs";
-import "../common-Dyxcwsy8.mjs";
-import { t as definePluginEntry } from "../plugin-entry-2l_2QeB2.mjs";
-import { r as toolPluginMetadataSymbol } from "../tool-plugin-Ctuy9aFl.mjs";
+import "../common-BofcG96e.mjs";
+import { t as definePluginEntry } from "../plugin-entry-D4OPnFRH.mjs";
+import { r as toolPluginMetadataSymbol } from "../tool-plugin-57isMP90.mjs";
 //#region src/plugin-sdk/feature-plugin.ts
 var FeatureValidationError = class extends Error {
 	constructor(code, message) {

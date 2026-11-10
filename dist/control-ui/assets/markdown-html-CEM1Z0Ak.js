@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Ho as t,So as n,bo as r}from"./ui-CFzBFVbW.js";import{gt as i,vt as a}from"./control-ui-boot-shared-BxV-1cRX.js";function o(e){let n=r(()=>e.as??`div`);return t(n,{get class(){return e.class},get dir(){return e.dir},get style(){return e.style},get innerHTML(){return a(e.markdown,e.options)}})}function s(){return(s=e((()=>{n(),i()})))()}export{s as n,o as t};
+//# sourceMappingURL=markdown-html-CEM1Z0Ak.js.map

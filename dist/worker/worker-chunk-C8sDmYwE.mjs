@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function beginSqliteConnectionExclusion(e){e.exec(`PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE;`)}var t=e((()=>{}));export{t as n,beginSqliteConnectionExclusion as t};

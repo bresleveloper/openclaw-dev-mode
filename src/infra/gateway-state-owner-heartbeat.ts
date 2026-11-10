@@ -1,19 +1,17 @@
 import fs from "node:fs";
 import { MessageChannel } from "node:worker_threads";
 import { coerceErrorMessage } from "@openclaw/normalization-core/error-coercion";
-import { runInDetachedAsyncContext } from "../shared/async-work-scope.js";
+import { runInDetachedAsyncContext } from "../shared/detached-async-context.js";
 import { GATEWAY_OWNER_HEARTBEAT_MS } from "./gateway-lock-payload.js";
 import {
   type GatewayStateOwnerHeartbeatData,
   renewGatewayStateOwnerLock,
 } from "./gateway-state-owner-heartbeat.runtime.js";
-import { runtimeProcessEntrypoints } from "./runtime-process-entrypoints.js";
+import { resolveRuntimeProcessEntrypointUrl } from "./runtime-process-url.js";
 import { captureRuntimeWorkerSource } from "./runtime-worker-generation.js";
-import {
-  resolveRuntimeWorkerThreadExecArgv,
-  resolveRuntimeWorkerUrl,
-} from "./runtime-worker-url.js";
+import { resolveRuntimeWorkerThreadExecArgv } from "./runtime-worker-url.js";
 import { createCpuTrackedWorker } from "./worker-cpu.js";
+import { recordWorkerMessage } from "./worker-message-metrics.js";
 
 const now = Date.now.bind(Date);
 
@@ -35,7 +33,7 @@ export function startGatewayStateOwnerHeartbeat(
   }
   const rootIdentity = fs.statSync(rootPath, { bigint: true });
   const { moduleUrl: url, runtimeGeneration } = captureRuntimeWorkerSource(
-    resolveRuntimeWorkerUrl(runtimeProcessEntrypoints.gatewayStateOwnerHeartbeat),
+    resolveRuntimeProcessEntrypointUrl("gatewayStateOwnerHeartbeat"),
   );
   return runInDetachedAsyncContext(() => {
     const lastBeat = new BigInt64Array(new SharedArrayBuffer(BigInt64Array.BYTES_PER_ELEMENT));
@@ -56,7 +54,7 @@ export function startGatewayStateOwnerHeartbeat(
     });
     worker.unref();
     // Parent expiration checks verify physical custody directly.
-    port1.on("message", () => undefined);
+    port1.on("message", () => recordWorkerMessage("lifecycle", "from_worker"));
     port1.unref();
     worker.on("error", (err) => onLost(new Error(`${coerceErrorMessage(err)}; restart Gateway.`)));
     const inspect = () => {

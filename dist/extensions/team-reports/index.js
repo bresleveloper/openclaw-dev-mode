@@ -1,9 +1,10 @@
 import { a as periodSchema, n as DAY_MS, r as describePeriod } from "./.setup/limits-iMrGeJ-3.mjs";
-import { n as listWorkSessions, t as createTeamReportsHttpHandler } from "./.setup/http-CUibCjNT.mjs";
-import { n as createTeamReportsStore } from "./.setup/store-DqhGhUBl.mjs";
+import { n as listWorkSessions, t as createTeamReportsHttpHandler } from "./.setup/http-Dwalz1yN.mjs";
+import { n as createTeamReportsStore } from "./.setup/store-CDn4D32p.mjs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import { extractErrorCode } from "openclaw/plugin-sdk/error-runtime";
 import { readFileHandleBounded } from "openclaw/plugin-sdk/file-access-runtime";
@@ -65,6 +66,7 @@ const summariesSchema = z.strictObject({
 	agentId: nonempty.optional()
 });
 const scheduleSchema = z.strictObject({
+	enabled: z.boolean().default(true),
 	closedDayUtc: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).default("00:05"),
 	intradayEveryHours: z.number().int().min(0).max(24).default(4),
 	jitterMinutes: z.number().int().min(0).max(59).default(5),
@@ -129,7 +131,7 @@ function parseTeamReportsConfig(value, controlUiBasePath) {
 const peopleFileSchema = z.strictObject({ people: z.array(personSchema) });
 const MAX_PEOPLE_FILE_BYTES = 2097152;
 async function readPeopleFile(filePath) {
-	const handle = await open(filePath, "r");
+	const handle = await open(filePath, constants.O_RDONLY | constants.O_NONBLOCK);
 	const invalidFileMessage = "team-reports.peopleFile must be a regular JSON file of at most 2 MiB.";
 	try {
 		if (!(await handle.stat()).isFile()) throw new Error(invalidFileMessage);
@@ -254,7 +256,7 @@ var TeamReportsRunner = class {
 		this.requests = /* @__PURE__ */ new Set();
 		this.pool = new WorkerTaskPool({
 			workerUrl,
-			maxWorkers: 1,
+			workerClass: "writer",
 			maxPendingTasks: 1
 		});
 	}
@@ -316,6 +318,7 @@ var TeamReportsRunner = class {
 //#endregion
 //#region extensions/team-reports/src/scheduler.ts
 const STOP_TIMEOUT_MS = 3e4;
+const STARTUP_GRACE_MS = 3e5;
 function nextClosedDayDue(nowMs, schedule) {
 	const random = Math.random();
 	const [hours = 0, minutes = 0] = schedule.closedDayUtc.split(":").map(Number);
@@ -349,23 +352,16 @@ var TeamReportsScheduler = class {
 	async start() {
 		if (this.accepting || this.stopPromise || this.options.context.scheduler.signal.aborted) throw new Error("Team Reports scheduler cannot be started again");
 		this.accepting = true;
-		return this.startPromise = this.startOnce().catch((error) => {
+		if (!this.options.config.schedule.enabled) return;
+		const now = Date.now();
+		const notBefore = now + STARTUP_GRACE_MS;
+		this.catchUpDay = describePeriod("day", now - DAY_MS);
+		try {
+			this.armClosedDay(now, notBefore);
+			this.armIntraday(notBefore);
+		} catch (error) {
 			this.accepting = false;
 			throw error;
-		});
-	}
-	async startOnce() {
-		const yesterday = describePeriod("day", Date.now() - DAY_MS);
-		const completed = await this.closedDayCompleted(yesterday.key);
-		if (!this.accepting) return;
-		this.armClosedDay();
-		this.armIntraday();
-		if (!completed) {
-			this.due.catchUp = Date.now() + 6e4;
-			this.schedule("catch-up", this.due.catchUp, () => {
-				delete this.due.catchUp;
-				return this.tick("closed-day", true);
-			});
 		}
 	}
 	orgs() {
@@ -377,6 +373,7 @@ var TeamReportsScheduler = class {
 	async status() {
 		return {
 			running: this.accepting,
+			scheduleEnabled: this.options.config.schedule.enabled,
 			activeRunId: this.active?.id,
 			nextDue: { ...this.due },
 			runs: await this.options.store.listRuns(),
@@ -417,7 +414,6 @@ var TeamReportsScheduler = class {
 		const active = this.active;
 		const timeout = active ? setTimeout(() => active.controller.abort(/* @__PURE__ */ new Error("Team Reports stopped after 30 seconds")), STOP_TIMEOUT_MS) : void 0;
 		try {
-			await this.startPromise?.catch(() => void 0);
 			await this.options.context.scheduler.stop();
 			await active?.done;
 		} finally {
@@ -440,42 +436,42 @@ var TeamReportsScheduler = class {
 			}
 		});
 	}
-	armClosedDay(afterMs = Date.now()) {
-		const due = nextClosedDayDue(afterMs, this.options.config.schedule);
+	armClosedDay(afterMs = Date.now(), notBeforeMs = afterMs) {
+		const scheduled = nextClosedDayDue(afterMs, this.options.config.schedule);
+		const due = Math.max(scheduled, notBeforeMs);
 		this.due.closedDay = due;
 		this.schedule("closed-day", due, async () => {
 			await this.tick("closed-day");
 			if (!this.accepting) return;
-			this.armClosedDay(describePeriod("day", due).untilMs - 1);
+			this.armClosedDay(describePeriod("day", scheduled).untilMs - 1);
 		});
 	}
-	armIntraday() {
-		this.due.intraday = nextIntradayDue(Date.now(), this.options.config.schedule.intradayEveryHours);
+	armIntraday(afterMs = Date.now()) {
+		this.due.intraday = nextIntradayDue(afterMs, this.options.config.schedule.intradayEveryHours);
 		if (this.due.intraday !== void 0) this.schedule("intraday", this.due.intraday, async () => {
 			await this.tick("intraday");
 			if (this.accepting) this.armIntraday();
 		});
 	}
-	async tick(kind, catchUp = false) {
-		if (catchUp && await this.closedDayCompleted(describePeriod("day", Date.now() - 864e5).key)) return;
+	async tick(kind) {
 		if (!this.accepting) return;
 		if (this.active) {
 			if (!this.deferred.has(kind)) {
 				this.deferred.add(kind);
 				this.schedule(`deferred:${kind}`, Date.now() + 6e4, () => {
 					this.deferred.delete(kind);
-					return this.tick(kind, catchUp);
+					return this.tick(kind);
 				});
 			}
 			return;
 		}
+		const catchUpDay = this.catchUpDay;
+		this.catchUpDay = void 0;
+		const runKind = catchUpDay ? "closed-day" : kind;
 		const now = Date.now();
-		const days = kind === "closed-day" ? [describePeriod("day", now - DAY_MS), describePeriod("day", now)] : [describePeriod("day", now)];
-		await this.begin(kind, days, catchUp);
-	}
-	async closedDayCompleted(key) {
-		const untilMs = describePeriod("day", key).untilMs;
-		return (await this.options.store.listRuns(-1, { status: "ok" })).some((run) => run.startedAtMs >= untilMs && run.periods.some((period) => period.period === "day" && period.key === key));
+		const days = runKind === "closed-day" ? [describePeriod("day", now - DAY_MS), describePeriod("day", now)] : [describePeriod("day", now)];
+		if (catchUpDay && !days.some((day) => day.key === catchUpDay.key)) days.unshift(catchUpDay);
+		await this.begin(runKind, days, catchUpDay !== void 0);
 	}
 	async begin(kind, days, reuseCollectedDays = false) {
 		if (!this.accepting || this.options.context.scheduler.signal.aborted) throw new Error("Team Reports service is not running");
@@ -569,21 +565,6 @@ var team_reports_default = definePluginEntry({
 		const initial = parseTeamReportsConfig(api.pluginConfig, api.config.gateway?.controlUi?.basePath);
 		let scheduler;
 		let store;
-		let generation = 0;
-		let retired = false;
-		let stopping;
-		let startingStore;
-		const stop = () => {
-			generation++;
-			const current = scheduler;
-			scheduler = void 0;
-			store = void 0;
-			const pendingStart = startingStore;
-			return stopping ??= (async () => {
-				await pendingStart?.catch(() => void 0);
-				await current?.stop();
-			})();
-		};
 		const requireScheduler = () => {
 			if (!scheduler) throw new Error("Team Reports service is not running; check plugin configuration and reload the plugin");
 			return scheduler;
@@ -596,64 +577,43 @@ var team_reports_default = definePluginEntry({
 			id: "team-reports",
 			apiVersion: 2,
 			async start(ctx) {
-				if (retired) throw new Error("Team Reports runtime has been retired");
-				const currentGeneration = ++generation;
-				await stopping;
-				if (retired || currentGeneration !== generation) return;
-				stopping = void 0;
 				const config = parseTeamReportsConfig(ctx.config.plugins?.entries?.["team-reports"]?.config ?? api.pluginConfig, ctx.config.gateway?.controlUi?.basePath);
 				const resolved = await resolveTeamReportsConfig(config, ctx.config);
-				if (retired || currentGeneration !== generation) return;
 				const policy = ctx.config.plugins?.entries?.["team-reports"]?.llm;
 				const summaryOptions = { ...config.summaries };
 				if (policy?.allowModelOverride !== true) delete summaryOptions.model;
-				startingStore = (async () => {
-					if (!api.runtimeSource) throw new Error("Team Reports requires an OpenClaw host with runtime entrypoint metadata");
-					const nextStore = await createTeamReportsStore({
-						stateDir: ctx.stateDir,
-						workerModuleUrl: new URL(`./src/store.worker${path.extname(api.runtimeSource)}`, pathToFileURL(api.runtimeSource))
-					});
-					if (retired || currentGeneration !== generation) {
-						await nextStore.close();
-						return;
-					}
-					const runner = new TeamReportsRunner(new URL(`./src/run.worker${path.extname(api.runtimeSource)}`, pathToFileURL(api.runtimeSource)));
-					const nextScheduler = new TeamReportsScheduler({
-						config: {
-							...config,
-							summaries: summaryOptions
-						},
-						resolved,
-						store: nextStore,
-						llm: { complete: (params) => api.runtime.llm.complete(params) },
-						context: ctx,
-						runReports: (params) => runner.run(params),
-						closeRunner: () => runner.close()
-					});
-					try {
-						await nextScheduler.start();
-						if (retired || currentGeneration !== generation) {
-							await nextScheduler.stop();
-							return;
-						}
-						store = nextStore;
-						scheduler = nextScheduler;
-					} catch (error) {
-						await nextScheduler.stop();
-						throw error;
-					}
-				})();
-				await startingStore;
-			},
-			stop
-		});
-		api.lifecycle.registerRuntimeLifecycle({
-			id: "team-reports-service",
-			cleanup: ({ reason, sessionKey, runId }) => {
-				if (sessionKey === void 0 && runId === void 0 && (reason === "disable" || reason === "restart")) {
-					retired = true;
-					return stop();
+				if (!api.runtimeSource) throw new Error("Team Reports requires an OpenClaw host with runtime entrypoint metadata");
+				const nextStore = await createTeamReportsStore({
+					stateDir: ctx.stateDir,
+					workerModuleUrl: new URL(`./src/store.worker${path.extname(api.runtimeSource)}`, pathToFileURL(api.runtimeSource))
+				});
+				const runner = new TeamReportsRunner(new URL(`./src/run.worker${path.extname(api.runtimeSource)}`, pathToFileURL(api.runtimeSource)));
+				const nextScheduler = new TeamReportsScheduler({
+					config: {
+						...config,
+						summaries: summaryOptions
+					},
+					resolved,
+					store: nextStore,
+					llm: { complete: (params) => api.runtime.llm.complete(params) },
+					context: ctx,
+					runReports: (params) => runner.run(params),
+					closeRunner: () => runner.close()
+				});
+				try {
+					await nextScheduler.start();
+					store = nextStore;
+					scheduler = nextScheduler;
+				} catch (error) {
+					await nextScheduler.stop();
+					throw error;
 				}
+			},
+			async stop() {
+				const current = scheduler;
+				scheduler = void 0;
+				store = void 0;
+				await current?.stop();
 			}
 		});
 		api.registerHttpRoute({
@@ -695,7 +655,7 @@ var team_reports_default = definePluginEntry({
 			store: requireStore
 		});
 		api.registerCli(async ({ program }) => {
-			const { registerTeamReportsCli } = await import("./.setup/cli-CCCfOFlP.mjs");
+			const { registerTeamReportsCli } = await import("./.setup/cli-DSsgPQT9.mjs");
 			registerTeamReportsCli({ program });
 		}, { descriptors: [{
 			name: "team-reports",

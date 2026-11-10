@@ -1,4 +1,4 @@
-import { createUpstreamProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
+import { buildOpenAICompatibleLiveModels, createUpstreamProviderCatalog, projectProviderCatalogSnapshotRows } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import "openclaw/plugin-sdk/provider-http";
 import { normalizeModelCompat } from "openclaw/plugin-sdk/provider-model-shared";
 import "openclaw/plugin-sdk/provider-thinking-runtime";
@@ -210,13 +210,29 @@ const OPENCODE_GO_SEED_CATALOG = new Map(OPENCODE_GO_MANIFEST_PROVIDER.models.ma
 		..."status" in row && (row.status === "deprecated" || row.status === "preview") ? { status: row.status } : {}
 	}];
 }));
+const OPENCODE_GO_PROVIDER_ROUTE = {
+	api: "openai-completions",
+	baseUrl: OPENCODE_GO_OPENAI_BASE_URL
+};
+function projectOpencodeGoListedRows(rows, snapshot) {
+	const unknown = buildOpenAICompatibleLiveModels(rows, {
+		...OPENCODE_GO_PROVIDER_ROUTE,
+		models: []
+	}).filter((model) => !snapshot.has(model.id.toLowerCase())).map((model) => {
+		return normalizeModelCompat({
+			...model,
+			...OPENCODE_GO_PROVIDER_ROUTE,
+			provider: PROVIDER_ID,
+			input: model.input.includes("image") ? ["text", "image"] : ["text"]
+		});
+	});
+	return [...projectProviderCatalogSnapshotRows(rows, snapshot), ...unknown];
+}
 const { buildStaticProvider: buildStaticOpencodeGoProviderConfig, buildLiveProvider: buildOpencodeGoLiveProviderConfig, resolveStarterModel: resolveOpencodeGoStarterModel } = createUpstreamProviderCatalog({
 	providerId: PROVIDER_ID,
 	seed: OPENCODE_GO_SEED_CATALOG,
-	providerConfig: {
-		api: "openai-completions",
-		baseUrl: OPENCODE_GO_OPENAI_BASE_URL
-	},
+	providerConfig: OPENCODE_GO_PROVIDER_ROUTE,
+	projectRows: projectOpencodeGoListedRows,
 	metadataEndpoint: OPENCODE_UPSTREAM_CATALOG_ENDPOINT,
 	modelsEndpoint: OPENCODE_GO_MODELS_ENDPOINT,
 	anthropicBaseUrl: OPENCODE_GO_ANTHROPIC_BASE_URL,

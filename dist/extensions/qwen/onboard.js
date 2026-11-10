@@ -1,4 +1,4 @@
-import { S as QWEN_STANDARD_GLOBAL_BASE_URL, T as QWEN_TOKEN_PLAN_DEFAULT_MODEL_REF, h as QWEN_CN_BASE_URL, k as QWEN_TOKEN_PLAN_PROVIDER_ID, q as resolveQwenTokenPlanBaseUrl, v as QWEN_DEFAULT_MODEL_REF, x as QWEN_STANDARD_CN_BASE_URL, y as QWEN_GLOBAL_BASE_URL } from "./.setup/models-NTrSBQ85.mjs";
+import { G as resolveQwenTokenPlanBaseUrl, S as QWEN_STANDARD_GLOBAL_BASE_URL, T as QWEN_TOKEN_PLAN_DEFAULT_MODEL_REF, h as QWEN_CN_BASE_URL, k as QWEN_TOKEN_PLAN_PROVIDER_ID, v as QWEN_DEFAULT_MODEL_REF, x as QWEN_STANDARD_CN_BASE_URL, y as QWEN_GLOBAL_BASE_URL } from "./.setup/models-BRg9bCBV.mjs";
 import { buildQwenProvider, buildQwenTokenPlanProvider } from "./provider-catalog.js";
 import { createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/qwen/onboard.ts

@@ -1,0 +1,10 @@
+//#region extensions/x/src/target.ts
+function normalizeXReplyTarget(target) {
+	const normalized = target.trim();
+	const id = /^(?:x:)?(\d+)$/i.exec(normalized)?.[1];
+	if (id) return id;
+	const url = URL.parse(normalized);
+	return url?.protocol === "https:" && url.hostname === "x.com" && !url.username && !url.password ? /^\/[^/]+\/status\/(\d+)\/?$/.exec(url.pathname)?.[1] : void 0;
+}
+//#endregion
+export { normalizeXReplyTarget as t };

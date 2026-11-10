@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-BzqZ1p5g.mjs";function resolveGatewayStartupSourceConfig(e,n){return!t(n)||!e.channels?e:{...e,channels:void 0}}var r=e((()=>{n()}));export{resolveGatewayStartupSourceConfig as n,r as t};

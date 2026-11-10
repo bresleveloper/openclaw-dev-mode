@@ -154,10 +154,6 @@ export function resolveLegacyAcpMetadataSessionStoreTargets(
     }
   };
 
-  // The pre-agent shared store can already be archived by canonical session
-  // import while its ACP metadata still awaits an installed plugin generation.
-  addTarget(DEFAULT_AGENT_ID, path.join(stateDir, "sessions", "sessions.json"));
-
   for (const target of resolveAllAgentSessionStoreTargetsSync(cfg, { env })) {
     addTarget(target.agentId, target.storePath);
   }

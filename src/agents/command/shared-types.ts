@@ -33,13 +33,11 @@ import type { SessionManager } from "../sessions/index.js";
 
 /** Best-effort provider stream parameter overrides for an agent command. */
 export type AgentStreamParams = {
-  /** Provider stream params override (best-effort). */
   temperature?: number;
   topP?: number;
   maxTokens?: number;
   /** Stop sequences forwarded to the provider (best-effort). */
   stop?: string[];
-  /** Provider fast-mode override (best-effort). */
   fastMode?: boolean;
   responseFormat?: Record<string, unknown>;
   frequencyPenalty?: number;
@@ -81,7 +79,6 @@ export type AgentRunMessageContext = {
   currentThreadTs?: string;
   /** Current inbound message id for action fallbacks (e.g. Telegram react). */
   currentMessageId?: string | number;
-  /** True when the current inbound turn carried audio media. */
   currentInboundAudio?: boolean;
   /** Reply-to mode for Slack auto-threading. */
   replyToMode?: "off" | "first" | "all" | "batched";
@@ -91,6 +88,12 @@ export type AgentRunMessageContext = {
   taskSuggestionDeliveryMode?: TaskSuggestionDeliveryMode;
   /** Require explicit message tool targets (no implicit last-route sends). */
   requireExplicitMessageTarget?: boolean;
+  /**
+   * Whether a delivered source send that omits `final` ends the turn. Absent means yes:
+   * a send answers the inbound message. Runs that only deliver to a configured target
+   * set false, so post-send work still runs.
+   */
+  messageToolFinalByDefault?: boolean;
 };
 
 export type AgentRunChannelContext = {
@@ -125,6 +128,8 @@ export type AgentRunModelOptions = {
   /** Outer model-fallback owner facts for this admitted attempt. */
   modelRoutingProvenance?: ModelFallbackAttemptProvenance;
   thinkLevel?: ThinkLevel;
+  /** Run-scoped selection intent for declared chat-template effort. */
+  thinkingExplicit?: boolean;
   fastMode?: FastMode;
   /** Stable outer-run start time for auto fast-mode cutoff across retries/fallbacks. */
   fastModeStartedAtMs?: number;
@@ -132,7 +137,6 @@ export type AgentRunModelOptions = {
   fastModeAutoOnSeconds?: number;
   /** Shared notification state for nested harnesses that can observe the same tool boundary. */
   fastModeAutoProgressState?: FastModeAutoProgressState;
-  /** True when the outer model fallback loop has reached its final candidate. */
   isFinalFallbackAttempt?: boolean;
   authProfileId?: string;
 };
@@ -157,7 +161,10 @@ export type AgentRunInputContext = {
   transcriptPrompt?: string;
   currentInboundEventKind?: InboundEventKind;
   inputProvenance?: InputProvenance;
+  heartbeatEventQueueSessionKey?: string;
   extraSystemPrompt?: string;
+  /** Exact producer-owned transient section; unannotated instructions remain persistent. */
+  extraSystemPromptTurnContext?: { start: number; text: string };
   images?: ImageContent[];
   imageOrder?: PromptImageOrderEntry[];
   /** Ordered facts represented by attachment text in the current prompt. */
@@ -166,9 +173,7 @@ export type AgentRunInputContext = {
   ownerNumbers?: string[];
   /** Seen bootstrap truncation warning signatures for this session (once mode dedupe). */
   bootstrapPromptWarningSignaturesSeen?: string[];
-  /** Last shown bootstrap truncation warning signature for this session. */
   bootstrapPromptWarningSignature?: string;
-  /** Run kind hint for context mode behavior. */
   bootstrapContextRunKind?: BootstrapContextRunKind;
 };
 

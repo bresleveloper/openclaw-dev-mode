@@ -1,1 +1,0 @@
-import{o as e,r as t,s as n}from"./worker-chunk-DPM1O7zu.mjs";n();export{t as getMemoryCapabilityRegistration,e as hasMemoryRuntime};

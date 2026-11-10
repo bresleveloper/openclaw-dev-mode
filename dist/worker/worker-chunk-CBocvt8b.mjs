@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function formatSkillInstructions(e){let t=[`Skill location: ${e.location}`,`Resolve relative resource paths from the directory containing this SKILL.md.`];return e.locationNote&&t.push(e.locationNote),`${t.join(`
+`)}\n\n${e.content}`}var t=e((()=>{}));export{t as n,formatSkillInstructions as t};

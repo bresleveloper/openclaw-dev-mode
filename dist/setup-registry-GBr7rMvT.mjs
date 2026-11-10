@@ -1,0 +1,2 @@
+import { a as runPluginSetupConfigMigrations, i as resolvePluginSetupRegistry, n as resolvePluginSetupCliBackend, r as resolvePluginSetupProviderCore, t as resolvePluginSetupAutoEnableReasons } from "./setup-registry-CGxNMBUk.mjs";
+export { resolvePluginSetupAutoEnableReasons, resolvePluginSetupCliBackend, resolvePluginSetupProviderCore, resolvePluginSetupRegistry, runPluginSetupConfigMigrations };

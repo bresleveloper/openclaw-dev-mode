@@ -41,14 +41,11 @@ export function createDeferredGatewayUpdateCheck(params: {
   isClosing?: () => boolean;
   activeWorkInspectors?: Partial<GatewayActiveWorkInspectors>;
 }): { start: () => void; stop: () => Promise<void> } {
-  // Reserve cancellation before an early RPC can start install discovery.
-  const lifecycle = createGatewayUpdateLifecycle(params.scheduler);
   let stopped = false;
   let started = false;
   let runWatcher: ReturnType<typeof startUpdateRunWatcher> | undefined;
   let owner: ReturnType<typeof createGatewayUpdateCheck> | undefined;
   let ownerReady: Promise<void> | undefined;
-  let initialization: Promise<unknown> | undefined;
   let stopPromise: Promise<void> | undefined;
   let latestUpdateAvailable: GatewayUpdateAvailableEventPayload["updateAvailable"] = null;
   let latestSchedule: GatewayUpdateAvailableEventPayload["schedule"];
@@ -75,6 +72,27 @@ export function createDeferredGatewayUpdateCheck(params: {
     );
   };
 
+  // Early RPC discovery shares the same cancellation and publication owner,
+  // even before the post-ready background factory has been admitted.
+  const lifecycle = createGatewayUpdateLifecycle(params.scheduler, {
+    onUpdateAvailableChange: (updateAvailable) => {
+      latestUpdateAvailable = updateAvailable;
+      const payload: GatewayUpdateAvailableEventPayload = {
+        updateAvailable,
+        ...(latestSchedule ? { schedule: latestSchedule } : {}),
+      };
+      broadcastUpdateAvailable(payload);
+    },
+    onUpdateScheduleChange: (schedule) => {
+      latestSchedule = schedule;
+      const payload: GatewayUpdateAvailableEventPayload = {
+        updateAvailable: latestUpdateAvailable,
+        schedule,
+      };
+      broadcastUpdateAvailable(payload);
+    },
+  });
+
   const stop = () => {
     stopped = true;
     return (stopPromise ??= (async () => {
@@ -83,7 +101,6 @@ export function createDeferredGatewayUpdateCheck(params: {
       const cleanup = Promise.all([lifecycle.stop(), runWatcher?.stop(), owner?.stop()]);
       await ownerReady;
       await cleanup;
-      await initialization;
     })());
   };
 
@@ -121,22 +138,8 @@ export function createDeferredGatewayUpdateCheck(params: {
             ...(params.activeWorkInspectors
               ? { activeWorkInspectors: params.activeWorkInspectors }
               : {}),
-            onUpdateAvailableChange: (updateAvailable) => {
-              latestUpdateAvailable = updateAvailable;
-              const payload: GatewayUpdateAvailableEventPayload = {
-                updateAvailable,
-                ...(latestSchedule ? { schedule: latestSchedule } : {}),
-              };
-              broadcastUpdateAvailable(payload);
-            },
-            onUpdateScheduleChange: (schedule) => {
-              latestSchedule = schedule;
-              const payload: GatewayUpdateAvailableEventPayload = {
-                updateAvailable: latestUpdateAvailable,
-                schedule,
-              };
-              broadcastUpdateAvailable(payload);
-            },
+            onUpdateAvailableChange: lifecycle.onUpdateAvailableChange,
+            onUpdateScheduleChange: lifecycle.onUpdateScheduleChange,
           });
         } catch (err) {
           if (!stopped) {
@@ -146,19 +149,7 @@ export function createDeferredGatewayUpdateCheck(params: {
         }
         if (stopped || params.isClosing?.()) {
           await owner.stop();
-          return;
         }
-        const updateCheck = owner;
-        initialization = (async () => {
-          const result = await updateCheck.initialize();
-          if (result.status.error) {
-            throw new Error(result.status.error.message);
-          }
-        })().catch((err: unknown) => {
-          if (!stopped) {
-            params.log.warn(`gateway update status failed to initialize: ${String(err)}`);
-          }
-        });
       })();
       await ownerReady;
       await nextTurn();

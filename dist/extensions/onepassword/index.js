@@ -1,22 +1,22 @@
 import { g as readStringValue } from "../../string-coerce-1VuiLaaR.mjs";
-import { i as extractErrorCode } from "../../error-coercion-CvJK4lmH.mjs";
+import { a as extractErrorCode } from "../../error-coercion-BwMr25F8.mjs";
 import { c as isRecord, o as asRecord, t as asNonArrayRecord, u as readStringField } from "../../record-coerce-TIsquoVR.mjs";
-import { n as runExec } from "../../exec-DJvyCA0D.mjs";
-import { f as resolveEffectiveEnableState, n as createNormalizedPluginsConfig } from "../../config-state-DY_WJYue.mjs";
-import "../../error-runtime-BmospGvZ.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { f as resolveEffectiveEnableState, n as createNormalizedPluginsConfig } from "../../config-state-DkDfCu7E.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import "../../process-runtime-CYiH_oPH.mjs";
-import { c as tryReadSecretFileSync } from "../../secret-file-B_nJw6pE.mjs";
-import "../../secret-file-runtime-DMbN7rMd.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { n as resolveLivePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
-import { t as resolveTrustedOnePasswordCli } from "../../onepassword-op-path-E5eCu6G9.mjs";
+import { n as runExec } from "../../exec-Bf6uhUA7.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../process-runtime-CG9_3L3N.mjs";
+import { c as tryReadSecretFileSync } from "../../secret-file-B1IW-_m6.mjs";
+import "../../secret-file-runtime-Dqf0GOQ3.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import { n as resolveLivePluginConfigObject } from "../../plugin-config-runtime-Dm1sl1ov.mjs";
+import { t as resolveTrustedOnePasswordCli } from "../../onepassword-op-path-ZE7VHVUQ.mjs";
 import fs from "node:fs";
-import path from "node:path";
+import { createHash, randomUUID } from "node:crypto";
 import fs$1 from "node:fs/promises";
 import os from "node:os";
-import { createHash, randomUUID } from "node:crypto";
+import path from "node:path";
 //#region extensions/onepassword/src/config.ts
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const MAX_DESCRIPTION_LENGTH = 200;
@@ -463,15 +463,6 @@ var OnePasswordBroker = class {
 //#endregion
 //#region extensions/onepassword/src/op-client.ts
 const MAX_STDOUT_BYTES = 1048576;
-async function defaultRunner(file, args, options) {
-	return await runExec(file, args, {
-		baseEnv: {},
-		env: options.env,
-		logOutput: false,
-		maxBuffer: options.maxBufferBytes,
-		timeoutMs: options.timeoutMs
-	});
-}
 function isExecutable(filePath) {
 	try {
 		fs.accessSync(filePath, fs.constants.X_OK);
@@ -480,10 +471,10 @@ function isExecutable(filePath) {
 		return false;
 	}
 }
-function resolveOpBinary(configuredPath, pathEnv) {
+function resolveOpBinary(configuredPath) {
 	if (configuredPath) return isExecutable(configuredPath) ? configuredPath : void 0;
 	const executable = process.platform === "win32" ? "op.exe" : "op";
-	for (const directory of pathEnv.split(path.delimiter)) {
+	for (const directory of (process.env.PATH ?? "").split(path.delimiter)) {
 		if (!directory) continue;
 		const candidate = path.resolve(directory, executable);
 		if (isExecutable(candidate)) return candidate;
@@ -520,11 +511,10 @@ function parseField(stdout, requestedField, itemTitle) {
 var OpClient = class {
 	constructor(options) {
 		this.permissionWarningEmitted = false;
-		this.opBin = resolveOpBinary(options.opBin, options.pathEnv ?? process.env.PATH ?? "");
+		this.opBin = resolveOpBinary(options.opBin);
 		this.tokenFile = options.tokenFile;
 		this.timeoutMs = options.timeoutMs;
-		this.runner = options.runner ?? defaultRunner;
-		this.home = options.home ?? os.homedir();
+		this.home = os.homedir();
 		this.warn = options.warn ?? (() => void 0);
 	}
 	async tokenFilePresent() {
@@ -575,7 +565,8 @@ var OpClient = class {
 			"--cache=false"
 		];
 		try {
-			return parseField((await this.runner(trustedOpBin, args, {
+			return parseField((await runExec(trustedOpBin, args, {
+				baseEnv: {},
 				env: {
 					OP_SERVICE_ACCOUNT_TOKEN: token,
 					HOME: this.home,
@@ -583,7 +574,8 @@ var OpClient = class {
 					OP_BIOMETRIC_UNLOCK_ENABLED: "false"
 				},
 				timeoutMs: this.timeoutMs,
-				maxBufferBytes: MAX_STDOUT_BYTES
+				maxBuffer: MAX_STDOUT_BYTES,
+				logOutput: false
 			})).stdout, params.field, params.item);
 		} catch (error) {
 			throw classifyOpError(error);
@@ -629,24 +621,6 @@ function errorResult(error) {
 			message
 		}
 	});
-}
-function redactPersistedOnePasswordResult(event) {
-	if (event.message.role !== "toolResult" || (event.toolName ?? event.message.toolName) !== "onepassword") return;
-	const details = event.message.details;
-	const contentText = event.message.content.filter((part) => part.type === "text").map((part) => part.text).join("\n");
-	if (!(isRecord(details) && typeof details.value === "string" || /"value"\s*:/.test(contentText))) return;
-	const safeDetails = asNonArrayRecord(details);
-	const persisted = {
-		ok: true,
-		redacted: true,
-		...typeof safeDetails.slug === "string" ? { slug: safeDetails.slug } : {},
-		...typeof safeDetails.itemTitle === "string" ? { itemTitle: safeDetails.itemTitle } : {},
-		...typeof safeDetails.fieldLabel === "string" ? { fieldLabel: safeDetails.fieldLabel } : {}
-	};
-	return { message: {
-		...event.message,
-		...jsonResult(persisted)
-	} };
 }
 function createOnePasswordTool(broker, invocation) {
 	return {
@@ -740,8 +714,8 @@ var onepassword_default = definePluginEntry({
 			}
 		}) : void 0;
 		api.registerCli(async ({ program, config }) => {
-			const { registerOnePasswordCommands } = await import("../../cli-CY63BOmX.mjs");
-			const { registerOnePasswordSecretRefCommands } = await import("../../secret-ref-cli-DE7frNd5.mjs");
+			const { registerOnePasswordCommands } = await import("../../cli-DM77F3-L.mjs");
+			const { registerOnePasswordSecretRefCommands } = await import("../../secret-ref-cli-C82oJk1N.mjs");
 			registerOnePasswordCommands({
 				program,
 				resolveConfig: resolveCurrentConfig,
@@ -761,7 +735,6 @@ var onepassword_default = definePluginEntry({
 		if (!broker) return;
 		api.registerTool((context) => createOnePasswordTool(broker, context), { name: "onepassword" });
 		api.on("before_tool_call", (event, ctx) => broker.beforeToolCall(event, ctx));
-		api.on("tool_result_persist", redactPersistedOnePasswordResult);
 	}
 });
 //#endregion

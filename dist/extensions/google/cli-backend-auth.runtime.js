@@ -1,16 +1,16 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
 import { a as asOptionalRecord, c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-DR7bHNl9.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { r as replaceFileAtomic } from "../../security-runtime-CpTHQYW2.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { r as replaceFileAtomic } from "../../security-runtime-6domDoE8.mjs";
 import { t as tempWorkspace } from "../../fs-safe-compat-Cbx7s6au.mjs";
 import { t as CliBackendAuthProfilePreparationError } from "../../cli-backend-errors-ngojFnXq.mjs";
-import "../../temp-path-C5ZA6ftW.mjs";
-import { n as resolveGeminiCliProfileHome$1, t as GOOGLE_GEMINI_CLI_PROVIDER_ID } from "../../gemini-cli-auth-home-CXgkYWW_.mjs";
-import { a as readGeminiCliJsonObject, i as isolatedCompletionUnsupportedError, n as assertGeminiCliLiteralIsolatedPrompt, o as resolveGeminiCliAmbientAuth, r as isolatedCompletionInputError, s as resolveGeminiCliTrustedTransportEnv, t as GEMINI_CLI_EXACT_TOOL_ENV_BARRIERS } from "../../cli-backend-isolated-auth.runtime-B8ERz4c8.mjs";
-import path from "node:path";
-import fs from "node:fs/promises";
+import "../../temp-path-D_RJiwsA.mjs";
+import { n as resolveGeminiCliProfileHome$1, t as GOOGLE_GEMINI_CLI_PROVIDER_ID } from "../../gemini-cli-auth-home-CLUeR0gG.mjs";
+import { a as readGeminiCliJsonObject, i as isolatedCompletionUnsupportedError, n as assertGeminiCliLiteralIsolatedPrompt, o as resolveGeminiCliAmbientAuth, r as isolatedCompletionInputError, s as resolveGeminiCliTrustedTransportEnv, t as GEMINI_CLI_EXACT_TOOL_ENV_BARRIERS } from "../../cli-backend-isolated-auth.runtime-CYE5olXe.mjs";
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 //#region extensions/google/cli-backend-auth.runtime.ts
 const GOOGLE_PROVIDER_ID = "google";
 const VERCEL_AI_GATEWAY_PROVIDER_ID = "vercel-ai-gateway";

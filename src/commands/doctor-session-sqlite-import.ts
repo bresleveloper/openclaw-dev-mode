@@ -140,33 +140,27 @@ export async function importLegacySessionRecords(
       await setImmediate();
     }
   } catch (error) {
-    const failures = [error];
+    let failure = error;
     report.issues.push({ code: "sqlite_import_failed", message: formatErrorMessage(error) });
     if (activeRun) {
       activeRun.manifest.failedAt = new Date().toISOString();
       try {
         updateMigrationManifestTarget(activeRun, report, report.issues);
       } catch (recordError) {
-        failures.push(recordError);
+        failure = new AggregateError(
+          [error, recordError],
+          `${formatErrorMessage(error)}; could not record session SQLite migration failure: ${formatErrorMessage(recordError)}`,
+          { cause: error },
+        );
       }
     }
-    if (failures.length > 1) {
-      throw new AggregateError(
-        failures,
-        `${formatErrorMessage(error)}; could not record session SQLite migration failure: ${formatErrorMessage(failures[1])}`,
-        { cause: error },
-      );
-    }
-    throw error;
+    throw failure;
   }
 }
 
-function prepareRestoredSessionIndex(params: {
-  target: SessionStoreTarget;
-  env: NodeJS.ProcessEnv;
-  expectedIndexIdentity?: MigrationArtifactIdentity;
-  recoveryInventory?: ReturnType<typeof collectRecoveryInventory>;
-}): (() => void) | undefined {
+function prepareRestoredSessionIndex(
+  params: Parameters<typeof importLegacySessionRecords>[0],
+): (() => void) | undefined {
   const { expectedIndexIdentity, recoveryInventory, target } = params;
   if (!expectedIndexIdentity || !recoveryInventory) {
     return undefined;
@@ -269,7 +263,7 @@ function prepareLegacySessionImport(
   record: LegacySessionRecord,
   report: DoctorSessionSqliteTargetReport,
   importedTranscriptSources: Set<string>,
-  existingSnapshot: ReadOnlySqliteValidationSnapshot | undefined,
+  existingSnapshot: ReadOnlySqliteValidationSnapshot,
   env: NodeJS.ProcessEnv,
   recoveryHistoryUnverified: boolean,
 ) {
@@ -300,7 +294,7 @@ function prepareLegacySessionImport(
       : undefined;
   record.sourceFingerprint = transcriptFingerprint;
   const result = countTranscriptEventsForPath(record.transcriptPath);
-  const currentOwner = existingSnapshot?.sessionKeysBySessionId.get(record.entry.sessionId);
+  const currentOwner = existingSnapshot.sessionKeysBySessionId.get(record.entry.sessionId);
   if (record.preserveCurrentSession && currentOwner && currentOwner !== record.sessionKey) {
     throw new Error(
       `Historical transcript ${record.entry.sessionId} already belongs to ${currentOwner}`,
@@ -309,7 +303,7 @@ function prepareLegacySessionImport(
   if (
     recoveryHistoryUnverified &&
     result.status === "malformed" &&
-    (existingSnapshot?.transcriptEventCountsBySessionId.get(record.entry.sessionId) ?? 0) > 0
+    (existingSnapshot.transcriptEventCountsBySessionId.get(record.entry.sessionId) ?? 0) > 0
   ) {
     throw new Error(result.message);
   }
@@ -340,7 +334,10 @@ function prepareLegacySessionImport(
   };
   let recovery: LegacySessionRecord["recovery"];
   if (result.status === "missing") {
-    if (markAlreadyMigratedTranscript(record, report, existingSnapshot)) {
+    if (existingSnapshot.sessionIdsBySessionKey.get(record.sessionKey) === record.entry.sessionId) {
+      report.validatedEntries += 1;
+      report.validatedTranscriptEvents +=
+        existingSnapshot.transcriptEventCountsBySessionId.get(record.entry.sessionId) ?? 0;
       return undefined;
     }
     return {
@@ -357,7 +354,7 @@ function prepareLegacySessionImport(
     result.status === "ok" &&
     transcriptFingerprint &&
     record.transcriptPath &&
-    (existingSnapshot?.transcriptEventCountsBySessionId.get(record.entry.sessionId) ?? 0) > 0
+    (existingSnapshot.transcriptEventCountsBySessionId.get(record.entry.sessionId) ?? 0) > 0
   ) {
     try {
       const verified = verifyCanonicalSessionTranscriptSources({
@@ -426,23 +423,6 @@ function prepareLegacySessionImport(
       ...(transcriptMtimeMs !== undefined ? { transcriptMtimeMs } : {}),
     },
   };
-}
-
-function markAlreadyMigratedTranscript(
-  record: LegacySessionRecord,
-  report: DoctorSessionSqliteTargetReport,
-  snapshot: ReadOnlySqliteValidationSnapshot | undefined,
-): boolean {
-  if (
-    !snapshot ||
-    snapshot.sessionIdsBySessionKey.get(record.sessionKey) !== record.entry.sessionId
-  ) {
-    return false;
-  }
-  report.validatedEntries += 1;
-  report.validatedTranscriptEvents +=
-    snapshot.transcriptEventCountsBySessionId.get(record.entry.sessionId) ?? 0;
-  return true;
 }
 
 function readLegacyTranscriptMtimeMs(record: LegacySessionRecord): number | undefined {

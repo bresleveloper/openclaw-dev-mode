@@ -1,4 +1,4 @@
-import { i as buildCerebrasCatalogModels, o as openclaw_plugin_default, t as CEREBRAS_BASE_URL } from "./.setup/provider-catalog-DycAcVkn.mjs";
+import { i as buildCerebrasCatalogModels, o as openclaw_plugin_default, t as CEREBRAS_BASE_URL } from "./.setup/provider-catalog-BiNR-qKR.mjs";
 import { readManifestProviderDefaultModelRef } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/cerebras/onboard.ts
@@ -12,7 +12,7 @@ const { applyConfig: applyCerebrasConfig } = createProviderConnectionPresetAppli
 		catalogModels: buildCerebrasCatalogModels,
 		aliases: [{
 			modelRef: CEREBRAS_DEFAULT_MODEL_REF,
-			alias: "Cerebras Gemma 4 31B"
+			alias: "Cerebras GPT OSS 120B"
 		}]
 	})
 });

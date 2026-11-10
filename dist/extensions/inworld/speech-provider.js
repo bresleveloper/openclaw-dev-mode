@@ -81,6 +81,7 @@ function parseDirectiveToken(ctx) {
 	} : { handled: true };
 }
 function buildInworldSpeechProvider() {
+	const isConfigured = ({ providerConfig }) => Boolean(resolveInworldApiKey(readInworldProviderConfig(providerConfig).apiKey));
 	return {
 		id: "inworld",
 		label: "Inworld",
@@ -123,7 +124,8 @@ function buildInworldSpeechProvider() {
 				timeoutMs: req.timeoutMs
 			});
 		},
-		isConfigured: ({ providerConfig }) => Boolean(resolveInworldApiKey(readInworldProviderConfig(providerConfig).apiKey)),
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		synthesize: async (req) => {
 			const useOpus = req.target === "voice-note";
 			const audioEncoding = useOpus ? "OGG_OPUS" : "MP3";

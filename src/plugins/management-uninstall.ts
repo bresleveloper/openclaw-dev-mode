@@ -11,8 +11,10 @@ import {
 import { createConfigIO } from "../config/io.factory.js";
 import { transformConfigFileWithRetry } from "../config/mutate.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { composeConfigWriteAssertions } from "../config/write-authority.js";
 import { withConfigWriteLock } from "../config/write-lock.js";
 import { parseClawHubPluginSpec } from "../infra/clawhub-spec.js";
+import { pathMayExistSync } from "../infra/path-existence.js";
 import { withClawPackageLifecycleLease } from "../state/claw-package-lifecycle-lease.js";
 import { shortenHomePath } from "../utils.js";
 import {
@@ -47,6 +49,7 @@ import {
   tracePluginLifecyclePhase,
   tracePluginLifecyclePhaseAsync,
 } from "./plugin-lifecycle-trace.js";
+import { createPluginRegistryIdNormalizer } from "./plugin-registry-id-normalizer.js";
 import { refreshPluginRegistryAfterConfigMutation } from "./registry-refresh.js";
 import { withPluginSourceCleanup } from "./source-cleanup.js";
 import { buildPluginSnapshotReport } from "./status.js";
@@ -60,7 +63,6 @@ import {
   applyPluginUninstallDirectoryRemoval,
   formatUninstallActionLabels,
   planPluginUninstall,
-  pluginUninstallTargetExists,
 } from "./uninstall.js";
 
 type UninstallRequest = { pluginId: string; env?: NodeJS.ProcessEnv; keepFiles?: boolean };
@@ -126,7 +128,7 @@ export async function preparePluginUninstall(
   );
   const config = withPluginInstallRecords(snapshot.config, installRecords);
   // CLI selection uses its status projection; management retains its broader metadata aliases.
-  const metadata = cli ? undefined : loadFreshManagedPluginMetadata(config, env);
+  const metadata = cli ? undefined : await loadFreshManagedPluginMetadata(config, env);
   const index = metadata?.index ?? loadInstalledPluginIndex({ config, installRecords });
   const plugins = metadata
     ? metadata.index.plugins.map((record) => {
@@ -144,9 +146,9 @@ export async function preparePluginUninstall(
         () => buildPluginSnapshotReport({ config }),
         { command: "uninstall" },
       ).plugins;
-  const requestedId = metadata
-    ? metadata.normalizePluginId(params.pluginId.trim())
-    : params.pluginId;
+  const rawId = params.pluginId.trim();
+  const requestedId =
+    metadata && !Object.hasOwn(installRecords, rawId) ? metadata.normalizePluginId(rawId) : rawId;
   const selection: Result<{ pluginId: string; plugin?: (typeof plugins)[number] }, string> = cli
     ? resolvePluginUninstallId({ rawId: requestedId, config, plugins })
     : ok({ pluginId: requestedId, plugin: plugins.find((plugin) => plugin.id === requestedId) });
@@ -169,7 +171,15 @@ export async function preparePluginUninstall(
     return ownership;
   }
   const { installOwner: pluginId, pluginIds } = ownership.value;
-  const policyPluginIds = pluginIds.length ? pluginIds : [pluginId];
+  let policyPluginIds = pluginIds.length ? pluginIds : [pluginId];
+  if (ownership.value.kind === "orphan") {
+    const normalizeId = metadata?.normalizePluginId ?? createPluginRegistryIdNormalizer(index);
+    const aliasOwnerId = normalizeId(pluginId);
+    // 孤立安装记录不拥有已归属于其他插件的别名配置。
+    if (aliasOwnerId !== pluginId && plugins.some((entry) => entry.id === aliasOwnerId)) {
+      policyPluginIds = [];
+    }
+  }
   let channelIds: string[] | undefined;
   if (cli) {
     if (pluginIds.length === 1 && pluginIds[0] === requestedPluginId) {
@@ -254,11 +264,11 @@ export async function uninstallPluginWithPolicy(
   return await withPluginLifecycleLease(
     { ...(cli ? {} : { env }), signal: params.signal },
     async (lease) => {
-      const beforePersistentApply = () => {
-        params.signal?.throwIfAborted();
-        lease.assertOwned();
-        params.beforePersistentApply?.();
-      };
+      const beforePersistentApply = composeConfigWriteAssertions(
+        () => params.signal?.throwIfAborted(),
+        lease.assertOwned,
+        params.beforePersistentApply,
+      );
       beforePersistentApply();
       if (cli) {
         assertConfigWriteAllowedInCurrentMode();
@@ -279,10 +289,10 @@ export async function uninstallPluginWithPolicy(
           plan: initialPlan,
         } = prepared;
         const snapshot = prepared.snapshot;
-        const assertConfigPathForWrite = () => {
-          snapshot.writeOptions.assertConfigPathForWrite?.();
-          beforePersistentApply();
-        };
+        const assertConfigPathForWrite = composeConfigWriteAssertions(
+          snapshot.writeOptions.assertConfigPathForWrite,
+          beforePersistentApply,
+        );
         let directoryResult: Awaited<ReturnType<typeof applyPluginUninstallDirectoryRemoval>> = {
           directoryRemoved: false,
           warnings: [],
@@ -342,7 +352,7 @@ export async function uninstallPluginWithPolicy(
           }
           if (
             initialPlan.directoryRemoval &&
-            pluginUninstallTargetExists(initialPlan.directoryRemoval.target)
+            pathMayExistSync(initialPlan.directoryRemoval.target)
           ) {
             const message = `Failed to remove plugin directory ${cli ? shortenHomePath(initialPlan.directoryRemoval.target) : initialPlan.directoryRemoval.target}; the plugin remains disabled and tracked so uninstall can be retried.`;
             throw cli
@@ -461,7 +471,11 @@ export async function uninstallPluginWithPolicy(
           },
         });
         if (!cli) {
-          refreshManagedPluginMetadata({ config: nextConfig, env });
+          await refreshManagedPluginMetadata({
+            config: nextConfig,
+            env,
+            assertCurrent: beforePersistentApply,
+          });
         }
         const application = await applyRuntime?.({
           config: nextConfig,

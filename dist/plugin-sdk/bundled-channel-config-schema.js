@@ -1,14 +1,13 @@
 import { Et as _enum, Fn as object, Jn as string, Lt as boolean, Nt as array, Pn as number, Un as record, or as union, qn as strictObject, sr as unknown } from "../schemas-BOYIvvln.mjs";
-import { i as loadBundledPluginPublicSurfaceModuleSyncCore, n as createLazyFacadeObjectValue } from "../facade-loader-B-X-HqBc.mjs";
-import { A as requireOpenAllowFrom, M as DmConfigSchema, a as ContextVisibilityModeSchema, c as GroupPolicySchema, h as ReplyRuntimeConfigSchemaShape, k as requireAllowlistAllowFrom, n as BlockStreamingCoalesceSchema, o as DmPolicySchema, p as MarkdownConfigSchema, r as ChannelDeliveryStreamingConfigSchema } from "../zod-schema.core-MaNAY9dn.mjs";
-import { i as SecretRefSchema, n as sensitive } from "../zod-schema.sensitive-bEFwMmOC.mjs";
-import { o as ToolPolicySchema } from "../zod-schema.agent-runtime-cX-pI-Mt.mjs";
-import { c as buildChannelAccountSchemaParts, d as buildChannelReactionShape, l as buildChannelAllowBotsSchema, m as ChannelBotLoopProtectionSchema, r as ChannelSendReadReceiptsSchema, t as ChannelDangerouslyAllowNameMatchingSchema } from "../zod-schema.channel-messaging-common-D8pVq6y7.mjs";
-import { a as buildGroupEntrySchema, c as buildNestedDmConfigSchema, i as buildChannelConfigSchema, n as ChannelGroupEntrySchema, r as buildCatchallMultiAccountChannelSchema, s as buildMultiAccountChannelSchema, t as AllowFromListSchema, u as refineChannelDmPolicy } from "../config-schema-Be-FohaC.mjs";
-import { t as resolveAccountEntry } from "../account-lookup-D_rRUHd5.mjs";
-import "../channel-config-schema-ByBc0Lp5.mjs";
+import { i as loadBundledPluginPublicSurfaceModuleSyncCore, n as createLazyFacadeObjectValue } from "../facade-loader-CcsJkVh8.mjs";
+import { A as requireOpenAllowFrom, M as DmConfigSchema, a as ContextVisibilityModeSchema, c as GroupPolicySchema, h as ReplyRuntimeConfigSchemaShape, k as requireAllowlistAllowFrom, n as BlockStreamingCoalesceSchema, o as DmPolicySchema, p as MarkdownConfigSchema, r as ChannelDeliveryStreamingConfigSchema } from "../zod-schema.core-BohYkI3l.mjs";
+import { i as SecretRefSchema, n as sensitive } from "../zod-schema.sensitive-CJoPmAiI.mjs";
+import { o as ToolPolicySchema } from "../zod-schema.agent-runtime-B7VQsP09.mjs";
+import { c as buildChannelAccountSchemaParts, d as buildChannelReactionShape, l as buildChannelAllowBotsSchema, m as ChannelBotLoopProtectionSchema, r as ChannelSendReadReceiptsSchema, t as ChannelDangerouslyAllowNameMatchingSchema } from "../zod-schema.channel-messaging-common-CgNlx_0i.mjs";
+import { a as buildGroupEntrySchema, c as buildNestedDmConfigSchema, i as buildChannelConfigSchema, n as ChannelGroupEntrySchema, r as buildCatchallMultiAccountChannelSchema, s as buildMultiAccountChannelSchema, t as AllowFromListSchema, u as refineChannelDmPolicy } from "../config-schema-CJhF0RIe.mjs";
+import { t as resolveAccountEntry } from "../account-lookup-Dm5zJglt.mjs";
+import "../channel-config-schema-D0Su1KqG.mjs";
 //#region src/config/zod-schema.providers-googlechat.ts
-const GoogleChatDmSchema = strictObject({ enabled: boolean().optional() });
 const GoogleChatGroupSchema = strictObject({
 	enabled: boolean().optional(),
 	requireMention: boolean().optional(),
@@ -39,7 +38,7 @@ const GoogleChatAccountSchemaBase = strictObject({
 	webhookPath: string().optional(),
 	webhookUrl: string().optional(),
 	botUser: string().optional(),
-	dm: GoogleChatDmSchema.optional(),
+	dm: strictObject({ enabled: boolean().optional() }).optional(),
 	typingIndicator: _enum([
 		"none",
 		"message",
@@ -70,10 +69,7 @@ const WhatsAppGroupEntrySchema = buildGroupEntrySchema(void 0, { omit: [
 	"enabled",
 	"allowFrom"
 ] }).optional();
-const WhatsAppGroupsSchema = record(string(), WhatsAppGroupEntrySchema).optional();
 const WhatsAppDirectEntrySchema = strictObject({ systemPrompt: string().optional() }).optional();
-const WhatsAppDirectSchema = record(string(), WhatsAppDirectEntrySchema).optional();
-const WhatsAppPluginHooksSchema = strictObject({ messageReceived: boolean().optional() }).optional();
 const { accountShape, rootPolicyShape } = buildChannelAccountSchemaParts({
 	omit: ["name"],
 	allowFrom: array(string()).optional(),
@@ -85,22 +81,21 @@ const WhatsAppCommonShape = {
 	...accountShape,
 	sendReadReceipts: ChannelSendReadReceiptsSchema,
 	selfChatMode: boolean().optional(),
-	groups: WhatsAppGroupsSchema,
-	direct: WhatsAppDirectSchema,
+	groups: record(string(), WhatsAppGroupEntrySchema).optional(),
+	direct: record(string(), WhatsAppDirectEntrySchema).optional(),
 	...buildChannelReactionShape({ reactionLevels: [
 		"off",
 		"ack",
 		"minimal",
 		"extensive"
 	] }),
-	pluginHooks: WhatsAppPluginHooksSchema
+	pluginHooks: strictObject({ messageReceived: boolean().optional() }).optional()
 };
 const WhatsAppAccountSchema = strictObject({
 	...WhatsAppCommonShape,
 	name: string().optional(),
 	/** Override auth directory for this WhatsApp account (Baileys multi-file auth state). */
-	authDir: string().optional(),
-	mediaMaxMb: number().int().positive().optional()
+	authDir: string().optional()
 });
 const WhatsAppConfigSchema = strictObject({
 	...WhatsAppCommonShape,

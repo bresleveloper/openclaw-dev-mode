@@ -60,6 +60,14 @@ function buildReplyDispatchPublication(
   return Object.freeze(runtimes);
 }
 
+type PreparedReplyDispatchLoadParams = {
+  agentId: string;
+  abortSignal?: AbortSignal;
+  demand?: "interactive" | "scheduled";
+  /** Transfers the captured generation to a request preparing execution from these facts. */
+  onRuntimeLease?: (lease: PreparedModelRuntimeLease) => void;
+};
+
 type PreparedReplyDispatchPublicationHost = Readonly<{
   retainOwner: (
     owner: PreparedModelRuntimeOwner,
@@ -67,11 +75,12 @@ type PreparedReplyDispatchPublicationHost = Readonly<{
   ) => PreparedModelRuntimeLease;
   isGatewayLifecycleActive: () => boolean;
   getConfiguredOwner: (agentId: string) => PreparedModelRuntimeOwner | undefined;
-  getPendingReplacement: () => Promise<void> | undefined;
+  getPendingReplacement: (agentId: string) => Promise<void> | undefined;
   isStartupPending: () => boolean;
+  ensureReady: (params: PreparedReplyDispatchLoadParams) => Promise<void>;
 }>;
 
-/** Reads one immutable configured Gateway dispatch generation without activating an owner. */
+/** Reads an immutable dispatch generation after the lifecycle's demand preparation. */
 export class PreparedReplyDispatchPublicationOwner {
   #publication = EMPTY_REPLY_DISPATCH_PUBLICATION;
   #changed = createDeferredCore();
@@ -96,11 +105,7 @@ export class PreparedReplyDispatchPublicationOwner {
   }
 
   rebuild(owners: Iterable<PreparedModelRuntimeOwner>): void {
-    this.#publish(
-      this.host.isGatewayLifecycleActive()
-        ? buildReplyDispatchPublication(owners)
-        : EMPTY_REPLY_DISPATCH_PUBLICATION,
-    );
+    this.stage(owners)();
   }
 
   stage(owners: Iterable<PreparedModelRuntimeOwner>): () => void {
@@ -133,16 +138,11 @@ export class PreparedReplyDispatchPublicationOwner {
     );
   }
 
-  readonly load = async ({
-    agentId,
-    abortSignal,
-    onRuntimeLease,
-  }: {
-    agentId: string;
-    abortSignal?: AbortSignal;
-    /** Transfers the captured generation to a request preparing execution from these facts. */
-    onRuntimeLease?: (lease: PreparedModelRuntimeLease) => void;
-  }): Promise<PreparedReplyDispatchRuntime | undefined> => {
+  readonly load = async (
+    params: PreparedReplyDispatchLoadParams,
+  ): Promise<PreparedReplyDispatchRuntime | undefined> => {
+    const { agentId, abortSignal, onRuntimeLease } = params;
+    let demandPrepared = false;
     for (;;) {
       if (abortSignal?.aborted) {
         throw createAbortError("Prepared reply dispatch admission aborted", {
@@ -152,16 +152,21 @@ export class PreparedReplyDispatchPublicationOwner {
       if (!this.host.isGatewayLifecycleActive()) {
         return undefined;
       }
-      const replacement = this.host.getPendingReplacement();
+      const replacement = this.host.getPendingReplacement(agentId);
+      const pendingOwner = replacement ? undefined : this.host.getConfiguredOwner(agentId);
       if (replacement) {
         assertPreparedModelRuntimeAdmissionCanWait();
-        await racePromiseWithAbortSignal(replacement, abortSignal);
+      } else if (pendingOwner?.pending) {
+        assertPreparedModelRuntimeAdmissionCanWait(pendingOwner);
+      }
+      if (!demandPrepared) {
+        await this.host.ensureReady(params);
+        demandPrepared = true;
         continue;
       }
-      const pendingOwner = this.host.getConfiguredOwner(agentId);
-      if (pendingOwner?.pending) {
-        assertPreparedModelRuntimeAdmissionCanWait(pendingOwner);
-        await racePromiseWithAbortSignal(pendingOwner.pending, abortSignal);
+      const pending = replacement ?? pendingOwner?.pending;
+      if (pending) {
+        await racePromiseWithAbortSignal<void | PreparedModelRuntimeSnapshot>(pending, abortSignal);
         continue;
       }
       const runtime = this.#publication.find((candidate) => candidate.agentId === agentId);

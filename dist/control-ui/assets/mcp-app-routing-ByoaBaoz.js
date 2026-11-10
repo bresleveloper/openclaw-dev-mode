@@ -1,0 +1,2 @@
+import{n as e,r as t}from"./rolldown-runtime-8BhlS34s.js";import{Ci as n,wi as r,xi as i}from"./control-ui-boot-shared-Bd7-olFI.js";var a=t({navigateMcpAppLink:()=>o});function o(e,t){let i=r(t);return i?(e.navigate(`apps`,{search:n(i)}),!0):!1}function s(){return(s=e((()=>{i()})))()}export{a as n,o as r,s as t};
+//# sourceMappingURL=mcp-app-routing-ByoaBaoz.js.map

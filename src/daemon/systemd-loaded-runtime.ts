@@ -1,7 +1,5 @@
 // Admission reads already-loaded state. Recovery may load a bound definition
 // under live custody; neither mode starts a unit or a bus service.
-import { isDeepStrictEqual } from "node:util";
-import { asOptionalRecord } from "@openclaw/normalization-core/record-coerce";
 import {
   runServiceInspectionGuard,
   withServiceInspectionBudget,
@@ -12,6 +10,7 @@ import {
 } from "./service-inspection-error.js";
 import {
   createServiceRuntimeInspectionFailure,
+  resolveSystemdServiceStartRefusal,
   type GatewayServiceRuntime,
 } from "./service-runtime.js";
 import type {
@@ -20,12 +19,19 @@ import type {
   SystemdServiceReadBinding,
   SystemdServiceReadTarget,
 } from "./service-types.js";
+import {
+  decodeSystemdBusProperties,
+  isSystemdManagerUid,
+  readSystemdBusCall,
+  readSystemdBusOwner,
+  readSystemdUnitObjectPath,
+  systemdUnitCallArgs,
+} from "./systemd-bus-query.js";
 import { execBusctlSystem, execBusctlUser, systemdInspectionError } from "./systemd-exec.js";
 import { resolveSystemdServiceName } from "./systemd-service-files.js";
 import { readSystemdUserTransport } from "./systemd-user-transport.js";
 
 const MANAGER = "org.freedesktop.systemd1";
-const BUS = "org.freedesktop.DBus";
 const isUint32 = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0xffffffff;
 const isInt32 = (value: unknown): value is number =>
@@ -33,10 +39,14 @@ const isInt32 = (value: unknown): value is number =>
   Number.isInteger(value) &&
   value >= -0x80000000 &&
   value <= 0x7fffffff;
-const optionalCounter = (value: unknown): number | undefined =>
-  typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+const optionalCounter = (value: unknown): number | undefined => {
+  if (typeof value === "bigint") {
+    return value >= 0n && value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : undefined;
+  }
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+};
 
-/** The selected manager must retain the same loaded unit throughout inspection. */
+/** Read one best-effort snapshot from the selected manager. */
 export async function readLoadedSystemdServiceRuntime(
   env: GatewayServiceEnv,
   timeoutMs?: number,
@@ -50,7 +60,7 @@ export async function readLoadedSystemdServiceRuntime(
     const timeoutBudget =
       timeoutMs !== undefined && Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 5000;
     const deadline = budget.now() + timeoutBudget;
-    let remainingQueries = 7;
+    let remainingQueries = 5;
     const unavailable = () =>
       new Error("Loaded systemd runtime could not be inspected without activation.");
     const query = async (args: string[], signatures: string[]): Promise<unknown[]> => {
@@ -94,55 +104,24 @@ export async function readLoadedSystemdServiceRuntime(
       if (result.code !== 0 || result.termination !== "exit") {
         throw systemdInspectionError(result, unavailable().message, scope);
       }
-      const values = result.stdout
-        .trim()
-        .split(/\r?\n/)
-        .map((line) => asOptionalRecord(JSON.parse(line)));
-      if (
-        values.length !== signatures.length ||
-        values.some((value, index) => value?.type !== signatures[index])
-      ) {
-        throw unavailable();
-      }
-      return values.map((value) => value?.data);
+      return decodeSystemdBusProperties(result.stdout, signatures, unavailable);
     };
     const readOwner = async () => {
       if (binding) {
         binding.verify();
         return binding.destination;
       }
-      const [value] = await query(
-        ["call", BUS, "/org/freedesktop/DBus", BUS, "GetNameOwner", "s", MANAGER],
-        ["s"],
-      );
-      if (
-        !Array.isArray(value) ||
-        value.length !== 1 ||
-        typeof value[0] !== "string" ||
-        !/^:[0-9]+\.[0-9]+$/.test(value[0])
-      ) {
-        throw unavailable();
-      }
-      return value[0];
+      return readSystemdBusOwner(query, unavailable);
     };
     try {
       // Address every unit query to the observed unique bus owner, never a newly started manager.
       const owner = await readOwner();
-      const [credentials] = binding
-        ? [[binding.managerUid]]
-        : await query(
-            ["call", BUS, "/org/freedesktop/DBus", BUS, "GetConnectionUnixUser", "s", owner],
-            ["u"],
-          );
-      if (
-        !Array.isArray(credentials) ||
-        credentials.length !== 1 ||
-        !isUint32(credentials[0]) ||
-        credentials[0] === 0xffffffff
-      ) {
+      const managerUid = binding
+        ? binding.managerUid
+        : await readSystemdBusCall(query, "GetConnectionUnixUser", ["s", owner], "u", unavailable);
+      if (!isSystemdManagerUid(managerUid)) {
         throw unavailable();
       }
-      const managerUid = credentials[0];
       if (
         (scope === "system" && managerUid !== 0) ||
         (inspection && managerUid !== inspection.managerUid)
@@ -150,28 +129,12 @@ export async function readLoadedSystemdServiceRuntime(
         throw new ServiceOwnershipRefusalError("systemd-manager-changed");
       }
       const [unit] = await query(
-        [
-          "call",
-          owner,
-          "/org/freedesktop/systemd1",
-          `${MANAGER}.Manager`,
-          inspection ? "LoadUnit" : "GetUnit",
-          "s",
-          unitName,
-        ],
+        systemdUnitCallArgs(owner, unitName, inspection ? "LoadUnit" : "GetUnit"),
         ["o"],
       );
-      if (
-        !Array.isArray(unit) ||
-        unit.length !== 1 ||
-        typeof unit[0] !== "string" ||
-        !/^\/org\/freedesktop\/systemd1\/unit\/[A-Za-z0-9_]+$/.test(unit[0])
-      ) {
-        throw unavailable();
-      }
-      const unitPath = unit[0];
-      const readUnit = () =>
-        query(
+      const unitPath = readSystemdUnitObjectPath(unit, unavailable);
+      const [id, load, active, sub, burst, unitFileState, refuseManualStart, canStart] =
+        await query(
           [
             "get-property",
             owner,
@@ -182,13 +145,28 @@ export async function readLoadedSystemdServiceRuntime(
             "ActiveState",
             "SubState",
             "StartLimitBurst",
-            "ActiveEnterTimestampMonotonic",
-            "InactiveEnterTimestampMonotonic",
+            "UnitFileState",
+            "RefuseManualStart",
+            "CanStart",
           ],
-          ["s", "s", "s", "s", "u", "t", "t"],
+          ["s", "s", "s", "s", "u", "s", "b", "b"],
         );
-      const before = await readUnit();
-      const [id, load, active, sub, burst, entered, left] = before;
+      const startRefusal = resolveSystemdServiceStartRefusal({
+        unit: unitName,
+        scope,
+        loadState: typeof load === "string" ? load : undefined,
+        unitFileState: typeof unitFileState === "string" ? unitFileState : undefined,
+        activeState: typeof active === "string" ? active : undefined,
+        refuseManualStart: refuseManualStart === true,
+        canStart: typeof canStart === "boolean" ? canStart : undefined,
+      });
+      if (load === "masked" && id === unitName) {
+        return {
+          status: "unknown",
+          detail: startRefusal?.message,
+          systemd: { scope, unit: unitName, startRefusal },
+        };
+      }
       const [result, restarts, pid, exitStatus, exitCode, killMode, tasks, memory, controlGroup] =
         await query(
           [
@@ -224,15 +202,7 @@ export async function readLoadedSystemdServiceRuntime(
         const [processes] = await query(
           inspection
             ? ["call", owner, unitPath, `${MANAGER}.Service`, "GetProcesses"]
-            : [
-                "call",
-                owner,
-                "/org/freedesktop/systemd1",
-                `${MANAGER}.Manager`,
-                "GetUnitProcesses",
-                "s",
-                unitName,
-              ],
+            : systemdUnitCallArgs(owner, unitName, "GetUnitProcesses"),
           ["a(sus)"],
         );
         drained =
@@ -241,16 +211,8 @@ export async function readLoadedSystemdServiceRuntime(
           Array.isArray(processes[0]) &&
           processes[0].length === 0;
       }
-      // Same manager identity alone does not exclude unit restart/state changes.
-      // Compare native transition generations as well as state to reject ABA observations.
-      const after = await readUnit();
-      if (owner !== (await readOwner())) {
-        throw new ServiceOwnershipRefusalError("systemd-manager-changed");
-      }
+      // A restart during inspection may mix two snapshots; the next read refreshes it.
       if (
-        !isDeepStrictEqual(before, after) ||
-        optionalCounter(entered) === undefined ||
-        optionalCounter(left) === undefined ||
         id !== unitName ||
         load !== "loaded" ||
         typeof active !== "string" ||
@@ -273,6 +235,7 @@ export async function readLoadedSystemdServiceRuntime(
             : (active === "inactive" || active === "failed") && pid === 0 && drained
               ? "stopped"
               : "unknown",
+        ...(startRefusal ? { detail: startRefusal.message } : {}),
         state: active,
         subState: sub,
         pid: pid > 0 ? pid : undefined,
@@ -290,6 +253,7 @@ export async function readLoadedSystemdServiceRuntime(
           scope,
           ...(scope === "user" ? { transport: await readSystemdUserTransport(env) } : {}),
           unit: id,
+          ...(startRefusal ? { startRefusal } : {}),
           managerUid,
           result,
           nRestarts: restarts,

@@ -1,14 +1,14 @@
-import { o as hasConfiguredSecretInput } from "../../types.secrets-DsPRn9Dz.mjs";
+import { o as hasConfiguredSecretInput } from "../../types.secrets-Dgbd2kyP.mjs";
 import { n as findNormalizedProviderValue } from "../../provider-id-D1VImdKk.mjs";
-import { A as requireApiKey, k as isProviderAuthError } from "../../model-auth-provider-config-s9IgFbYq.mjs";
-import { r as providerOperationRetryConfig } from "../../operation-retry-Ci68Y-og.mjs";
-import { n as executeWithApiKeyRotation, t as collectProviderApiKeysForExecution } from "../../api-key-rotation-NyxhzlDN.mjs";
-import { t as transcribeOpenAiCompatibleAudio } from "../../media-understanding-t0E5arki.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-B-PBEJIo.mjs";
-import "../../provider-http-CuRGJD0L.mjs";
-import "../../provider-auth-BGYKg9mW.mjs";
-import { i as classifyOpenAIBaseUrl, t as OPENAI_API_BASE_URL } from "../../base-url-BUR_8zW8.mjs";
-import { n as OPENAI_DEFAULT_AUDIO_TRANSCRIPTION_MODEL } from "../../default-models-CYEf1QuY.mjs";
+import { A as requireApiKey, k as isProviderAuthError } from "../../model-auth-provider-config-C_EL9CxV.mjs";
+import { r as providerOperationRetryConfig } from "../../operation-retry-B2m6H7IT.mjs";
+import { n as executeWithApiKeyRotation, t as collectProviderApiKeysForExecution } from "../../api-key-rotation-Dw4l5GMT.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CMRSW7VK.mjs";
+import "../../provider-http-BuV15s4V.mjs";
+import "../../provider-auth-JCvgbsWg.mjs";
+import { t as transcribeOpenAiCompatibleAudio } from "../../media-understanding-WxRUvHtk.mjs";
+import { i as classifyOpenAIBaseUrl, t as OPENAI_API_BASE_URL } from "../../base-url-Baro1bPi.mjs";
+import { n as OPENAI_DEFAULT_AUDIO_TRANSCRIPTION_MODEL } from "../../default-models-CU9j2AqC.mjs";
 //#region extensions/openai/audio-transcription.ts
 async function transcribeOpenAiAudio(params) {
 	return await transcribeOpenAiCompatibleAudio({
@@ -18,7 +18,7 @@ async function transcribeOpenAiAudio(params) {
 		defaultModel: OPENAI_DEFAULT_AUDIO_TRANSCRIPTION_MODEL
 	});
 }
-const transcribeOpenAiAudioWithContext = async (context) => {
+async function resolveOpenAiAudioAuth(context) {
 	const providerConfig = findNormalizedProviderValue(context.cfg.models?.providers, "openai");
 	const hasConfiguredKey = hasConfiguredSecretInput(providerConfig?.apiKey, context.cfg.secrets?.defaults);
 	const endpointKind = classifyOpenAIBaseUrl(context.baseUrl);
@@ -67,6 +67,20 @@ const transcribeOpenAiAudioWithContext = async (context) => {
 			error
 		};
 	}
+	return {
+		ok: true,
+		value: {
+			auth,
+			credential,
+			nativeEndpoint
+		}
+	};
+}
+const isOpenAiAudioConfigured = async (context) => (await resolveOpenAiAudioAuth(context)).ok;
+const transcribeOpenAiAudioWithContext = async (context) => {
+	const prepared = await resolveOpenAiAudioAuth(context);
+	if (!prepared.ok) return prepared;
+	const { auth, credential, nativeEndpoint } = prepared.value;
 	const transcribe = (apiKey) => transcribeOpenAiAudio({
 		...context,
 		baseUrl: nativeEndpoint ? OPENAI_API_BASE_URL : context.baseUrl,
@@ -90,4 +104,4 @@ const transcribeOpenAiAudioWithContext = async (context) => {
 	};
 };
 //#endregion
-export { transcribeOpenAiAudio, transcribeOpenAiAudioWithContext };
+export { isOpenAiAudioConfigured, transcribeOpenAiAudio, transcribeOpenAiAudioWithContext };

@@ -2,33 +2,18 @@ import { OPENCODE_LOCAL_SESSION_HOST_ID, OPENCODE_NODE_INVOKE_TIMEOUT_MS, OPENCO
 import { isExactOpenCodeSessionCursor, listLocalOpenCodeSessionPage, readLocalOpenCodeTranscriptPage, requireLocalOpenCodeSession } from "./session-catalog.js";
 import { checkOpenCodeUpstreamActivity, linkContinuedOpenCodeSession } from "./session-upstream-activity.js";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
-import { accessSync, constants, statSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { resolveAcpSessionAvailability } from "openclaw/plugin-sdk/acp-runtime";
 import { resolveSessionAgentIdsStrict } from "openclaw/plugin-sdk/agent-scope-runtime";
 import { resolveNodeHostExecutable } from "openclaw/plugin-sdk/node-host";
-import { createSessionCatalogFamily, createSessionCatalogNodeHostBindings, importSessionCatalogHistory, listAdoptedSessionCatalogSessions, sessionCatalogAdoptedSessionKey } from "openclaw/plugin-sdk/session-catalog";
+import { createSessionCatalogFamily, createSessionCatalogNodeHostBindings } from "openclaw/plugin-sdk/session-catalog";
+import { createAcpSessionCatalogAdoption } from "openclaw/plugin-sdk/session-catalog-runtime";
 //#region extensions/opencode/session-catalog-plugin.ts
 const MAX_HOSTS = 100;
 const ACPX_BACKEND_ID = "acpx";
 const OPENCODE_ACP_AGENT_ID = "opencode";
 const OPENCODE_ADOPTED_SESSION_KEY_PREFIX = "plugin:opencode:catalog-adopt:";
-function executableOnPath(command, env) {
-	const pathValue = env.PATH ?? env.Path ?? "";
-	const delimiter = process.platform === "win32" ? ";" : path.delimiter;
-	const extensions = process.platform === "win32" ? (env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";") : [""];
-	for (const directory of pathValue.split(delimiter)) for (const extension of extensions) {
-		if (!directory.trim()) continue;
-		const candidate = path.join(directory, `${command}${extension}`);
-		try {
-			if (!statSync(candidate).isFile()) continue;
-			if (process.platform !== "win32") accessSync(candidate, constants.X_OK);
-			return true;
-		} catch {}
-	}
-	return false;
-}
 function parseNodeParams(paramsJSON) {
 	if (!paramsJSON) return;
 	try {
@@ -55,23 +40,6 @@ function assertOpenCodeLocalAccess(hostId, allowProcessHomeFallback) {
 function currentOpenCodeCatalogConfig(api) {
 	return api.runtime.config?.current?.() ?? api.config ?? {};
 }
-function listAdoptedOpenCodeSessions(api, agentId, sessionEntries) {
-	return listAdoptedSessionCatalogSessions({
-		...agentId ? { agentId } : {},
-		config: currentOpenCodeCatalogConfig(api),
-		pluginId: api.id,
-		runtime: api.runtime,
-		sessionEntries,
-		sourceFromEntry: (entry) => {
-			const opencode = isRecord(entry.pluginExtensions?.opencode) ? entry.pluginExtensions.opencode : void 0;
-			const marker = opencode && isRecord(opencode.sessionCatalog) ? opencode.sessionCatalog : void 0;
-			return marker && typeof marker.sourceThreadId === "string" ? {
-				hostId: OPENCODE_LOCAL_SESSION_HOST_ID,
-				threadId: marker.sourceThreadId
-			} : void 0;
-		}
-	});
-}
 async function loadContinuableOpenCodeSession(api, threadId) {
 	const session = (await listLocalOpenCodeSessionPage({
 		searchTerm: threadId,
@@ -83,45 +51,15 @@ async function loadContinuableOpenCodeSession(api, threadId) {
 	if (!session) throw new Error("OpenCode session is unavailable");
 	return session;
 }
-async function createAdoptedOpenCodeSession(params) {
-	const config = currentOpenCodeCatalogConfig(params.api);
-	const marker = { sourceThreadId: params.threadId };
-	return { sessionKey: (await params.api.runtime.agent.session.createSessionEntry({
-		cfg: config,
-		key: sessionCatalogAdoptedSessionKey(OPENCODE_ADOPTED_SESSION_KEY_PREFIX, params.threadId),
-		agentId: params.agentId,
-		recoverMatchingInitialEntry: true,
-		...params.session.name ? { displayName: params.session.name } : {},
-		...params.session.cwd ? { spawnedCwd: params.session.cwd } : {},
-		initialEntry: {
-			acpBackendId: ACPX_BACKEND_ID,
-			acpSessionBinding: {
-				acpAgentId: OPENCODE_ACP_AGENT_ID,
-				agentSessionId: params.threadId
-			},
-			pluginExtensions: { opencode: { sessionCatalog: marker } }
-		},
-		afterCreate: async (entry) => {
-			await importSessionCatalogHistory({
-				catalogId: "opencode",
-				threadId: params.threadId,
-				read: async ({ cursor, limit }) => await readLocalOpenCodeTranscriptPage({
-					threadId: params.threadId,
-					limit,
-					...cursor ? { cursor } : {}
-				}),
-				sessionId: entry.sessionId,
-				sessionKey: entry.key,
-				agentId: entry.agentId,
-				...params.session.cwd ? { cwd: params.session.cwd } : {},
-				config
-			});
-			return { pluginExtensions: { opencode: { sessionCatalog: marker } } };
-		}
-	})).key };
-}
 function createOpenCodeNodeHostBindings(api) {
-	const available = ({ config, env }) => fullConfigCatalogEnabled(config) && executableOnPath("opencode", env);
+	const available = ({ config, env }) => fullConfigCatalogEnabled(config) && Boolean(resolveNodeHostExecutable("opencode", {
+		env: {
+			...env,
+			PATHEXT: env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM"
+		},
+		includeExtensionless: env.PATHEXT?.split(";").includes("") ?? false,
+		strategy: "direct"
+	}));
 	return createSessionCatalogNodeHostBindings({
 		capability: OPENCODE_SESSIONS_CAPABILITY,
 		listCommand: OPENCODE_SESSIONS_LIST_COMMAND,
@@ -134,7 +72,7 @@ function createOpenCodeNodeHostBindings(api) {
 		listAvailable: available,
 		terminalAvailable: available,
 		parseParams: parseNodeParams,
-		list: async (params) => await listLocalOpenCodeSessionPage(params, { configIdentity: currentOpenCodeCatalogConfig(api) }),
+		list: (params) => listLocalOpenCodeSessionPage(params, { configIdentity: currentOpenCodeCatalogConfig(api) }),
 		read: readLocalOpenCodeTranscriptPage,
 		requireSession: requireLocalOpenCodeSession,
 		terminalIoRequiredMessage: "OpenCode terminal command requires duplex transport",
@@ -144,6 +82,16 @@ function createOpenCodeNodeHostBindings(api) {
 }
 function registerOpenCodeSessionCatalog(api) {
 	if (!isOpenCodeSessionCatalogEnabled(api.pluginConfig)) return;
+	const adoption = createAcpSessionCatalogAdoption({
+		api,
+		config: () => currentOpenCodeCatalogConfig(api),
+		catalogId: OPENCODE_ACP_AGENT_ID,
+		hostId: OPENCODE_LOCAL_SESSION_HOST_ID,
+		keyPrefix: OPENCODE_ADOPTED_SESSION_KEY_PREFIX,
+		markerPluginId: "opencode",
+		markerKey: "sessionCatalog",
+		read: readLocalOpenCodeTranscriptPage
+	});
 	const provider = createSessionCatalogFamily({
 		runtime: api.runtime,
 		local: {
@@ -154,12 +102,12 @@ function registerOpenCodeSessionCatalog(api) {
 				pathEnv: process.env.PATH ?? "",
 				strategy: "fallback"
 			}) !== void 0,
-			list: async (query) => await listLocalOpenCodeSessionPage({
+			list: (query) => listLocalOpenCodeSessionPage({
 				limit: query.limitPerHost,
 				...query.search ? { searchTerm: query.search } : {},
 				cursor: query.cursors?.[OPENCODE_LOCAL_SESSION_HOST_ID]
 			}, { configIdentity: currentOpenCodeCatalogConfig(api) }),
-			read: async (request) => await readLocalOpenCodeTranscriptPage({
+			read: (request) => readLocalOpenCodeTranscriptPage({
 				threadId: request.threadId,
 				...request.limit ? { limit: request.limit } : {},
 				...request.cursor !== void 0 ? { cursor: request.cursor } : {}
@@ -216,14 +164,11 @@ function registerOpenCodeSessionCatalog(api) {
 				backendId: ACPX_BACKEND_ID,
 				agentId: OPENCODE_ACP_AGENT_ID
 			}),
-			listAdopted: (agentId, sessionEntries) => listAdoptedOpenCodeSessions(api, agentId, sessionEntries),
-			loadSession: async (threadId) => await loadContinuableOpenCodeSession(api, threadId),
+			listAdopted: (agentId, sessionEntries) => adoption.listAdopted(agentId, sessionEntries),
+			loadSession: (threadId) => loadContinuableOpenCodeSession(api, threadId),
 			validateSession: () => void 0,
-			create: async (params) => await createAdoptedOpenCodeSession({
-				api,
-				...params
-			}),
-			complete: async (continued, threadId) => await linkContinuedOpenCodeSession(continued.sessionKey, threadId),
+			create: (params) => adoption.create(params),
+			complete: (continued, threadId) => linkContinuedOpenCodeSession(continued.sessionKey, threadId),
 			nodeReadOnlyMessage: "paired-node OpenCode session rows are view-only"
 		},
 		terminal: {

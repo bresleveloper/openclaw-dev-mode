@@ -167,6 +167,7 @@ async function xiaomiTTS(params) {
 	}
 }
 function buildXiaomiSpeechProvider() {
+	const isConfigured = ({ providerConfig }) => Boolean(resolveXiaomiTtsProviderConfig(providerConfig).apiKey);
 	return {
 		id: "xiaomi",
 		label: "Xiaomi MiMo",
@@ -181,7 +182,8 @@ function buildXiaomiSpeechProvider() {
 			id: voice,
 			name: voice
 		})),
-		isConfigured: ({ providerConfig }) => Boolean(resolveXiaomiTtsProviderConfig(providerConfig).apiKey),
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		synthesize: async (req) => {
 			const config = resolveXiaomiTtsProviderConfig(req.providerConfig);
 			const overrides = readXiaomiTtsOptions(req.providerOverrides);

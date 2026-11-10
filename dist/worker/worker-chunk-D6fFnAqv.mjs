@@ -1,0 +1,1 @@
+import{o as e,s as t}from"./worker-chunk-Bfaqnl1X.mjs";t();export{e as getShellConfig};

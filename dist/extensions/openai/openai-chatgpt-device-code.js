@@ -1,19 +1,20 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
-import { T as positiveSecondsToSafeMilliseconds, k as resolveExpiresAtMsFromDurationSeconds } from "../../number-coercion-CuVhdCBs.mjs";
-import { i as extractErrorCode, n as collectErrorGraphCandidates } from "../../error-coercion-CvJK4lmH.mjs";
+import { T as positiveSecondsToSafeMilliseconds, k as resolveExpiresAtMsFromDurationSeconds } from "../../number-coercion-CkhMiRw8.mjs";
+import { a as extractErrorCode, r as collectErrorGraphCandidates } from "../../error-coercion-BwMr25F8.mjs";
 import { n as asNullableObjectRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { g as readResponseTextLimited } from "../../provider-http-errors-DmewLLH7.mjs";
-import { s as shouldUseEnvHttpProxyForUrl } from "../../proxy-env-DlRjxK5F.mjs";
-import { s as withTrustedEnvProxyGuardedFetchMode } from "../../fetch-guard-DI6biu8d.mjs";
-import { r as resolveOpenAICodexAccessTokenExpiry } from "../../provider-openai-chatgpt-auth-fIvYFuQh.mjs";
-import "../../error-runtime-BmospGvZ.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../fetch-runtime-DT4gd-qk.mjs";
-import "../../number-runtime-CgyXj1A5.mjs";
-import { t as classifyTransientNetworkErrorCode } from "../../retry-runtime-CZf8_bHp.mjs";
-import "../../provider-http-CuRGJD0L.mjs";
-import "../../provider-auth-BGYKg9mW.mjs";
-import { n as withOpenAIOAuthResponse, t as createOpenAIAuthorizationCodeForm } from "../../openai-oauth-http.runtime-BqUOWv-L.mjs";
+import { d as sleepWithAbort } from "../../src-Bzfi3cQM.mjs";
+import { g as readResponseTextLimited } from "../../provider-http-errors-CjVOxCE5.mjs";
+import { s as shouldUseEnvHttpProxyForUrl } from "../../proxy-env-5Nd20RhP.mjs";
+import { s as withTrustedEnvProxyGuardedFetchMode } from "../../fetch-guard-DRapCKeS.mjs";
+import { r as resolveOpenAICodexAccessTokenExpiry } from "../../provider-openai-chatgpt-auth-DrXK_39U.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../fetch-runtime-Dg4wMDiG.mjs";
+import "../../number-runtime-D3v2w3D4.mjs";
+import { t as classifyTransientNetworkErrorCode } from "../../retry-runtime-CUY_Gz8_.mjs";
+import "../../provider-http-BuV15s4V.mjs";
+import "../../provider-auth-JCvgbsWg.mjs";
+import { n as withOpenAIOAuthResponse, t as createOpenAIAuthorizationCodeForm } from "../../openai-oauth-http.runtime-DQsSAofo.mjs";
 //#region extensions/openai/openai-chatgpt-device-code.ts
 const OPENAI_AUTH_BASE_URL = "https://auth.openai.com";
 const OPENAI_CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
@@ -48,11 +49,11 @@ function sanitizeDeviceCodeErrorText(value) {
 	return value.replace(osc8Regex, "").replace(ansiCsiRegex, "").replace(controlCharsRegex, " ").replace(/\s+/g, " ").trim();
 }
 function resolveNextDeviceCodePollDelayMs(intervalMs, deadlineMs) {
-	const remainingMs = Math.max(0, deadlineMs - Date.now());
+	const remainingMs = Math.max(0, deadlineMs - performance.now());
 	return Math.min(Math.max(intervalMs, OPENAI_CODEX_DEVICE_CODE_MIN_INTERVAL_MS), remainingMs);
 }
 function resolveDeviceCodePollRequestTimeoutMs(deadlineMs) {
-	return Math.min(OPENAI_CODEX_DEVICE_REQUEST_TIMEOUT_MS, Math.max(0, deadlineMs - Date.now()));
+	return Math.min(OPENAI_CODEX_DEVICE_REQUEST_TIMEOUT_MS, Math.max(0, deadlineMs - performance.now()));
 }
 function isDeviceCodeOperationTimeoutError(error) {
 	return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
@@ -134,8 +135,8 @@ async function requestOpenAICodexDeviceCode(fetchFn, signal, assertCurrent) {
 	};
 }
 async function pollOpenAICodexDeviceCode(params) {
-	const deadline = Date.now() + OPENAI_CODEX_DEVICE_CODE_TIMEOUT_MS;
-	while (Date.now() < deadline) {
+	const deadline = performance.now() + OPENAI_CODEX_DEVICE_CODE_TIMEOUT_MS;
+	while (performance.now() < deadline) {
 		params.signal?.throwIfAborted();
 		const requestTimeoutMs = resolveDeviceCodePollRequestTimeoutMs(deadline);
 		if (requestTimeoutMs <= 0) break;
@@ -160,10 +161,8 @@ async function pollOpenAICodexDeviceCode(params) {
 			rethrowIfDeviceCodeCallerAborted(params.signal, error);
 			if (isDeviceCodeOperationTimeoutError(error)) continue;
 			if (!collectErrorGraphCandidates(error, (candidate) => [candidate.cause]).some((candidate) => classifyTransientNetworkErrorCode(extractErrorCode(candidate)) !== void 0)) throw error;
-			await waitForDeviceCodePoll(resolveNextDeviceCodePollDelayMs(params.intervalMs, deadline), params.signal);
-			continue;
 		}
-		if (result.ok) {
+		if (result?.ok) {
 			const body = parseJsonObject(result.bodyText);
 			const authorizationCode = normalizeOptionalString(body?.authorization_code);
 			const codeVerifier = normalizeOptionalString(body?.code_verifier);
@@ -173,15 +172,12 @@ async function pollOpenAICodexDeviceCode(params) {
 				codeVerifier
 			};
 		}
-		if (result.status === 403 || result.status === 404) {
-			await waitForDeviceCodePoll(resolveNextDeviceCodePollDelayMs(params.intervalMs, deadline), params.signal);
-			continue;
-		}
-		throw new Error(formatDeviceCodeError({
+		if (result && result.status !== 403 && result.status !== 404) throw new Error(formatDeviceCodeError({
 			prefix: "OpenAI device authorization failed",
 			status: result.status,
 			bodyText: result.bodyText
 		}));
+		await waitForDeviceCodePoll(resolveNextDeviceCodePollDelayMs(params.intervalMs, deadline), params.signal);
 	}
 	throw new Error("OpenAI device authorization timed out after 15 minutes.");
 }
@@ -247,20 +243,9 @@ async function loginOpenAICodexDeviceCode(params) {
 	});
 }
 function waitForDeviceCodePoll(ms, signal) {
-	if (!signal) return new Promise((resolve) => {
-		setTimeout(resolve, ms);
-	});
-	signal.throwIfAborted();
-	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => {
-			signal.removeEventListener("abort", onAbort);
-			resolve();
-		}, ms);
-		const onAbort = () => {
-			clearTimeout(timer);
-			reject(signal.reason instanceof Error ? signal.reason : /* @__PURE__ */ new Error("Device login cancelled"));
-		};
-		signal.addEventListener("abort", onAbort, { once: true });
+	signal?.throwIfAborted();
+	return sleepWithAbort(Math.max(1, ms), signal).catch(() => {
+		throw signal?.reason instanceof Error ? signal.reason : /* @__PURE__ */ new Error("Device login cancelled");
 	});
 }
 //#endregion

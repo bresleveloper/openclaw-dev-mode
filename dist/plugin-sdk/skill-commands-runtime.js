@@ -1,3 +1,3 @@
-import { n as listSkillCommandsForWorkspace, t as listSkillCommandsForAgents } from "../chat-commands-DxFzY5zT.mjs";
-import "../skill-commands-runtime-C6Ekpjtr.mjs";
-export { listSkillCommandsForAgents, listSkillCommandsForWorkspace };
+import { a as prepareSkillCommandsForWorkspace, i as prepareSkillCommandsForAgents, n as listSkillCommandsForWorkspace, t as listSkillCommandsForAgents } from "../chat-commands-C__qSMA1.mjs";
+import "../skill-commands-runtime-BENJGDHO.mjs";
+export { listSkillCommandsForAgents, listSkillCommandsForWorkspace, prepareSkillCommandsForAgents, prepareSkillCommandsForWorkspace };

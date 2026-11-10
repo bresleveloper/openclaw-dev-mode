@@ -1,2 +1,2 @@
-import { n as listBoundClaudeSessions, r as resolveClaudeCliRoutedModelId, t as currentClaudeSessionCatalogConfig } from "../../session-catalog-runtime-D1c3XaKr.mjs";
+import { n as listBoundClaudeSessions, r as resolveClaudeCliRoutedModelId, t as currentClaudeSessionCatalogConfig } from "../../session-catalog-runtime-7OzOz4Dc.mjs";
 export { currentClaudeSessionCatalogConfig, listBoundClaudeSessions, resolveClaudeCliRoutedModelId };

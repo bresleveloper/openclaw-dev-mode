@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function bindGatewayControlUiIngressHost(e,n){t.set(e,n)}function getGatewayControlUiIngressHost(e){return t.get(e)}var t,n=e((()=>{t=/* @__PURE__ */ new WeakMap}));export{getGatewayControlUiIngressHost as n,n as r,bindGatewayControlUiIngressHost as t};

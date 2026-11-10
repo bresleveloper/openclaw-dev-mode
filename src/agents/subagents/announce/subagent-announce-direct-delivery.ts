@@ -1,6 +1,7 @@
 import { asOptionalRecord } from "@openclaw/normalization-core/record-coerce";
 import { normalizeOptionalLowercaseString } from "@openclaw/normalization-core/string-coerce";
 import { completionRequiresMessageToolDelivery } from "../../../auto-reply/reply/completion-delivery-policy.js";
+import type { RestartRecoveryTerminalDeliveryEvidence } from "../../../config/sessions/restart-recovery-types.js";
 import { readSessionEntriesFromStoreInWorker } from "../../../config/sessions/session-entry-read-runtime.js";
 import { bindInProcessSessionRun } from "../../../gateway/in-process-session-run.js";
 import { stringifyRouteThreadId } from "../../../plugin-sdk/channel-route.js";
@@ -62,6 +63,7 @@ import {
   loadRequesterSessionEntry,
   resolveExternalBestEffortDeliveryTarget,
   resolveQueueSettings,
+  withSubagentRequesterDelivery,
 } from "./subagent-announce-delivery.runtime.js";
 import { createDirectAnnounceResponseClassifier } from "./subagent-announce-direct-response.js";
 import {
@@ -102,6 +104,7 @@ export type SubagentAnnounceDirectParams = {
   requesterIsSubagent: boolean;
   createUserTurnTranscriptRecorder?: (sessionId: string) => UserTurnTranscriptRecorder;
   onDeliveryResult?: (delivery: SubagentAnnounceDeliveryResult) => void | Promise<void>;
+  onDeliveryError?: (error: unknown) => void;
   signal?: AbortSignal;
   onExecutionStarted?: () => void;
   resolveGatewayContext?: import("../../../gateway/server-methods/types.js").GatewayContextResolver;
@@ -121,6 +124,16 @@ function completionHandoffPendingResult(): SubagentAnnounceDeliveryResult {
 export async function sendSubagentAnnounceDirectly(
   params: SubagentAnnounceDirectParams,
 ): Promise<SubagentAnnounceDeliveryResult> {
+  return withSubagentRequesterDelivery(
+    params.targetRequesterSessionKey,
+    params,
+    sendSubagentAnnounceDirectlyBound,
+  );
+}
+
+async function sendSubagentAnnounceDirectlyBound(
+  params: Parameters<typeof sendSubagentAnnounceDirectly>[0],
+): ReturnType<typeof sendSubagentAnnounceDirectly> {
   if (params.signal?.aborted) {
     return { delivered: false, path: "none" };
   }
@@ -144,7 +157,7 @@ export async function sendSubagentAnnounceDirectly(
     const sessionOnlyOrigin = effectiveDirectOrigin?.channel
       ? effectiveDirectOrigin
       : requesterSessionOrigin;
-    const requester = loadRequesterSessionEntry(
+    const requester = await loadRequesterSessionEntry(
       params.targetRequesterSessionKey,
       params.requesterAgentId,
     );
@@ -216,8 +229,8 @@ export async function sendSubagentAnnounceDirectly(
       params.targetRequesterSessionKey,
       requester,
     );
-    // Private findings bind to the requester incarnation that produced them,
-    // including a deliverable settle continuation that is no longer parentOnly.
+    // Settlement and private findings bind to the captured requester incarnation,
+    // including a visible continuation after the spawning turn has yielded.
     const requesterSessionBound =
       parentOnly ||
       (sourceToolId === "subagent_settle" && params.completionRequesterSessionId !== undefined);
@@ -231,7 +244,7 @@ export async function sendSubagentAnnounceDirectly(
         delivered: false,
         path: "none",
         reason: "completion_handoff_unavailable",
-        error: "private completion requester session is unavailable or replaced",
+        error: "completion requester session is unavailable or replaced",
         terminal: true,
         disposition: "intentional_non_delivery",
       };
@@ -272,7 +285,7 @@ export async function sendSubagentAnnounceDirectly(
     // A recovered requester already owns this admitted input. Reuse its final
     // receipt through the normal delivery checks; never execute the old wake again.
     const recovery =
-      !parentOnly && sourceToolId === "subagent_settle"
+      sourceToolId === "subagent_settle" || isSubagentCompletion
         ? resolveRequesterRecoveryDelivery(requesterEntry, params.directIdempotencyKey)
         : undefined;
     if (recovery?.kind === "delivery") {
@@ -294,6 +307,7 @@ export async function sendSubagentAnnounceDirectly(
         agentResult,
         signal: params.signal,
         onDeliveryResult: params.onDeliveryResult,
+        onDeliveryError: params.onDeliveryError,
         isSourceSessionEffectsAllowed: isCompletionDeliveryAllowed,
       });
     // A private settle turn never delivers; automatic only keeps a tool-only mode from
@@ -314,6 +328,7 @@ export async function sendSubagentAnnounceDirectly(
       sessionEntry: requesterEntry,
     });
     if (
+      !recoveredResult &&
       !parentOnly &&
       params.expectsCompletionMessage &&
       requesterActivity.sessionId &&
@@ -376,7 +391,7 @@ export async function sendSubagentAnnounceDirectly(
       isCronRunSessionKey(canonicalRequesterSessionKey) &&
       !resolveRequesterSessionActivity(
         params.targetRequesterSessionKey,
-        loadRequesterSessionEntry(params.targetRequesterSessionKey, params.requesterAgentId),
+        await loadRequesterSessionEntry(params.targetRequesterSessionKey, params.requesterAgentId),
       ).isActive &&
       !agentMediatedCompletion
     ) {
@@ -428,7 +443,10 @@ export async function sendSubagentAnnounceDirectly(
         runId: params.directIdempotencyKey,
       });
     }
+    const inputReplyExpectation =
+      params.expectsCompletionMessage || params.requireVisibleReply ? "required" : "optional";
     const classifyResponse = createDirectAnnounceResponseClassifier({
+      replyExpectation: inputReplyExpectation,
       params,
       parentOnly,
       requesterSessionBound,
@@ -444,6 +462,24 @@ export async function sendSubagentAnnounceDirectly(
       textCompletionDirectDeliveryKind,
       tryTextCompletionDirectDelivery,
     });
+    const classifyRecoveredResult = (result: RestartRecoveryTerminalDeliveryEvidence) => {
+      if (parentOnly && (!result.captured || result.meta?.error || result.meta?.aborted)) {
+        return {
+          delivered: false,
+          path: "direct",
+          reason: "completion_handoff_pending",
+          error: "recovered private requester did not complete successfully",
+          disposition: "permanent_failure",
+        } satisfies SubagentAnnounceDeliveryResult;
+      }
+      // Recovery processed the same private input. Its retained result replaces
+      // the original RPC receipt without admitting that terminal run again.
+      return classifyResponse({
+        status: "ok",
+        result,
+        ...(parentOnly ? { inputProcessingCompleted: true } : {}),
+      });
+    };
     let directAnnounceResponse: unknown;
     let directFailure: SubagentAnnounceDeliveryResult | undefined;
     try {
@@ -461,6 +497,9 @@ export async function sendSubagentAnnounceDirectly(
               }
               return await runAnnounceAgentCall({
                 agentParams: directAgentParams,
+                // Individual result delivery and an owed public synthesis remain
+                // required; optional settle intake may complete without repeating it.
+                replyExpectation: inputReplyExpectation,
                 // A resumed parent has no inbound channel dispatcher to keep activity visible.
                 typing:
                   sourceToolId === "subagent_settle" &&
@@ -547,6 +586,7 @@ export async function sendSubagentAnnounceDirectly(
           return textDelivery;
         }
       }
+      params.onDeliveryError?.(err);
       directFailure = {
         delivered: false,
         path: "direct",
@@ -555,14 +595,17 @@ export async function sendSubagentAnnounceDirectly(
       };
     }
 
-    const classified = directFailure ?? classifyResponse(directAnnounceResponse);
+    const classified =
+      directFailure ??
+      (recoveredResult
+        ? classifyRecoveredResult(recoveredResult)
+        : classifyResponse(directAnnounceResponse));
     const delivery = classified instanceof Promise ? await classified : classified;
     const originalOutcome = buildAgentRunTerminalOutcomeFromWaitResult(
       asOptionalRecord(directAnnounceResponse),
     );
     if (
-      parentOnly ||
-      sourceToolId !== "subagent_settle" ||
+      (sourceToolId !== "subagent_settle" && !isSubagentCompletion) ||
       recoveredResult !== undefined ||
       requesterCanonicalKey !== canonicalRequesterSessionKey ||
       !requesterAgentId ||
@@ -595,6 +638,7 @@ export async function sendSubagentAnnounceDirectly(
         agentId: requesterAgentId,
         storePath: requesterStorePath,
         sessionKeys: [canonicalRequesterSessionKey],
+        snapshotFields: [],
       });
     } catch (error) {
       if (params.signal?.aborted) {
@@ -636,8 +680,9 @@ export async function sendSubagentAnnounceDirectly(
     // their normal receipt classifier never dispatches or sends the input again.
     return settledRecovery.kind === "delivery"
       ? settledRecovery.delivery
-      : classifyResponse({ status: "ok", result: settledRecovery.result });
+      : classifyRecoveredResult(settledRecovery.result);
   } catch (err) {
+    params.onDeliveryError?.(err);
     const disposition = hasAnnounceSendEvidence(err)
       ? "ambiguous"
       : isPermanentAnnounceDeliveryError(err)

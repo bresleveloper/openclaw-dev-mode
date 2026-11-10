@@ -4,22 +4,18 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { pipeline } from "node:stream/promises";
+import { createZstdDecompress } from "node:zlib";
 import { walkDirectorySync } from "@openclaw/fs-safe/walk";
+import { hasErrnoCode } from "../../infra/errno.js";
 import { resolvePreferredOpenClawTmpDir } from "../../infra/tmp-openclaw-dir.js";
 import { resolveZstdCodec } from "../../infra/zstd-codec.js";
-
-export const SESSION_ARCHIVE_ZSTD_SUFFIX = ".zst";
+import { decodeSessionArchiveBytes } from "./archive-decode.js";
+import { SESSION_ARCHIVE_ZSTD_SUFFIX } from "./transcript-file-names.js";
+export { SESSION_ARCHIVE_ZSTD_SUFFIX } from "./transcript-file-names.js";
 
 const zstdCodec = resolveZstdCodec();
 
-/** Strips the optional zstd suffix so archive name parsers see one shape. */
-export function stripSessionArchiveCompressionSuffix(fileName: string): string {
-  return fileName.endsWith(SESSION_ARCHIVE_ZSTD_SUFFIX)
-    ? fileName.slice(0, -SESSION_ARCHIVE_ZSTD_SUFFIX.length)
-    : fileName;
-}
-
-/** Compresses archive content when the runtime supports zstd. */
 export function encodeSessionArchiveContent(content: string): {
   bytes: Buffer;
   suffix: "" | typeof SESSION_ARCHIVE_ZSTD_SUFFIX;
@@ -33,8 +29,11 @@ export function encodeSessionArchiveContent(content: string): {
   return { bytes: zstdCodec.compress(plain), suffix: SESSION_ARCHIVE_ZSTD_SUFFIX };
 }
 
-/** Reads an archived transcript, transparently decompressing zstd artifacts. */
-export function readSessionArchiveContentSync(filePath: string): string {
+/** Full-content convenience read; known source bytes override its bounded default. */
+export function readSessionArchiveContentSync(
+  filePath: string,
+  expectedUtf8Bytes?: number,
+): string {
   if (!filePath.endsWith(SESSION_ARCHIVE_ZSTD_SUFFIX)) {
     return fs.readFileSync(filePath, "utf8");
   }
@@ -43,18 +42,14 @@ export function readSessionArchiveContentSync(filePath: string): string {
       `Cannot read compressed transcript archive ${filePath}: this runtime lacks node:zlib zstd support`,
     );
   }
-  return zstdCodec.decompress(fs.readFileSync(filePath)).toString("utf8");
-}
-
-/** Decodes staged archive bytes using the source archive's codec. */
-export function decodeSessionArchiveBytes(bytes: Uint8Array, compressed: boolean): string {
-  if (!compressed) {
-    return Buffer.from(bytes).toString("utf8");
+  try {
+    return decodeSessionArchiveBytes(fs.readFileSync(filePath), true, expectedUtf8Bytes);
+  } catch (error) {
+    if (error instanceof Error && hasErrnoCode(error, "ERR_BUFFER_TOO_LARGE")) {
+      error.message = "Transcript archive " + filePath + " exceeds its decompression limit";
+    }
+    throw error;
   }
-  if (!zstdCodec) {
-    throw new Error("Cannot decode compressed transcript archive: this runtime lacks zstd support");
-  }
-  return zstdCodec.decompress(Buffer.from(bytes)).toString("utf8");
 }
 
 /**
@@ -62,7 +57,7 @@ export function decodeSessionArchiveBytes(bytes: Uint8Array, compressed: boolean
  * the readable path; plain archives pass through untouched. Source identity
  * validates cached bytes so downstream readers need not handle compression.
  */
-export function materializeSessionArchiveForRead(filePath: string): string {
+export async function materializeSessionArchiveForRead(filePath: string): Promise<string> {
   if (!filePath.endsWith(SESSION_ARCHIVE_ZSTD_SUFFIX)) {
     return filePath;
   }
@@ -85,14 +80,31 @@ export function materializeSessionArchiveForRead(filePath: string): string {
   if (fs.existsSync(cachePath)) {
     return cachePath;
   }
-  const content = readSessionArchiveContentSync(filePath);
+  if (!zstdCodec) {
+    throw new Error(
+      "Cannot materialize compressed transcript archive: this runtime lacks zstd support",
+    );
+  }
   removeMaterializedArchiveCacheEntries(cacheDir, pathKey, path.basename(cachePath));
   fs.mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
   const tempPath = `${cachePath}.${process.pid}.${randomUUID()}.tmp`;
-  fs.writeFileSync(tempPath, content, { encoding: "utf8", mode: 0o600 });
-  // Concurrent readers may race to the same identity; last rename wins with
-  // identical content, so neither can observe a torn or missing cache file.
-  fs.renameSync(tempPath, cachePath);
+  try {
+    // Bound resident input/output buffers, not total expansion: repetitive valid
+    // transcripts can be much larger than their compressed archive.
+    await pipeline(
+      fs.createReadStream(filePath, { highWaterMark: 64 * 1024 }),
+      createZstdDecompress({ chunkSize: 64 * 1024 }),
+      fs.createWriteStream(tempPath, { flags: "wx", mode: 0o600, highWaterMark: 64 * 1024 }),
+    );
+    const currentStat = fs.statSync(filePath);
+    if (currentStat.size !== sourceStat.size || currentStat.mtimeMs !== sourceStat.mtimeMs) {
+      throw new Error("Transcript archive changed during materialization; retry the read");
+    }
+    // Concurrent readers publish complete files only.
+    fs.renameSync(tempPath, cachePath);
+  } finally {
+    fs.rmSync(tempPath, { force: true });
+  }
   return cachePath;
 }
 

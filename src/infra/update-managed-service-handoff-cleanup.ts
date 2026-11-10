@@ -57,16 +57,11 @@ export async function cleanupStaleManagedServiceUpdateHandoffs(params?: {
       continue;
     }
     const dir = path.join(tmpDir, entry.name);
-    let stats: { mtimeMs: number };
     try {
-      stats = await fs.stat(dir);
-    } catch {
-      continue;
-    }
-    if (nowMs - stats.mtimeMs < ttlMs) {
-      continue;
-    }
-    try {
+      const stats = await fs.stat(dir);
+      if (nowMs - stats.mtimeMs < ttlMs) {
+        continue;
+      }
       await fs.rm(dir, { recursive: true, force: true });
       removed += 1;
     } catch {
@@ -193,6 +188,8 @@ export async function readManagedHandoffRepairFacts(
   }));
   for (const run of runs) {
     if (
+      // Child leases are owned by their run; adoption drops a dead updater from the drivers.
+      run.runId === lease.owner ||
       recordedUpdateRunDrivers(run).some((driver) =>
         owners.some((owner) => sameUpdateRunDriver(driver, owner)),
       )

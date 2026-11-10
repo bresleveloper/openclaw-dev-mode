@@ -1,18 +1,18 @@
-import { w as root } from "../../fs-safe-BUXBSN-4.mjs";
-import "../../memory-core-host-engine-storage-D1iAJzGI.mjs";
-import { c as buildMultimodalChunkForIndexing, n as readMemoryFile, s as buildFileEntry, u as listMemoryFiles } from "../../read-file-D9pCx2gk.mjs";
-import "../../file-access-runtime-BMp89X4Y.mjs";
-import { t as createFileWatchNotifier } from "../../file-watch-notifier-BCFTHUea.mjs";
+import { w as root } from "../../fs-safe-6Z4UiMS4.mjs";
+import { d as buildMultimodalChunkForIndexing, l as readMemoryFile, p as listMemoryFiles, u as buildFileEntry } from "../../engine-storage-DAQECy5K.mjs";
+import "../../memory-core-host-engine-storage-wV2XR0Rc.mjs";
+import "../../file-access-runtime-DZTMkCCU.mjs";
+import { t as createFileWatchNotifier } from "../../file-watch-notifier-DodcPHwr.mjs";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { AsyncLocalStorage } from "node:async_hooks";
-import fs from "node:fs/promises";
 import { createInterface } from "node:readline";
 //#region extensions/memory-core/src/remote/memory-files-worker.ts
 /** Same-version file IPC; the provisioned adapter owns admission and configured roots. */
 async function serveMemoryFiles(options) {
 	if (options.watch) {
 		const runInBackgroundContext = AsyncLocalStorage.snapshot();
-		const { MemoryFileWatcher } = await import("../../file-watcher-DEV3l3OW.mjs");
+		const { MemoryFileWatcher } = await import("../../file-watcher-BEawuqzT.mjs");
 		const lines = createInterface({
 			input: options.input,
 			crlfDelay: Infinity
@@ -157,31 +157,31 @@ async function runMaintenance(request, workspace) {
 			return null;
 		case "rename": return await fs.rename(...request.args);
 		case "resolveWritePath": {
-			const { resolveMemoryWritePath } = await import("../../short-term-promotion-memory-write-DQDpsYFT.mjs");
+			const { resolveMemoryWritePath } = await import("../../short-term-promotion-memory-write-CRsOT6pr.mjs");
 			return await resolveMemoryWritePath(...request.args);
 		}
 		case "commitContent": {
-			const { commitMemoryContent } = await import("../../short-term-promotion-memory-write-DQDpsYFT.mjs");
+			const { commitMemoryContent } = await import("../../short-term-promotion-memory-write-CRsOT6pr.mjs");
 			return await commitMemoryContent(...request.args);
 		}
 		case "resolveDreamsPath": {
-			const { resolveDreamsPath } = await import("../../dreaming-dreams-file-B0ccS1PG.mjs");
+			const { resolveDreamsPath } = await import("../../dreaming-dreams-file-B8PT_Azc.mjs");
 			return await resolveDreamsPath(workspace);
 		}
 		case "readDreams": {
-			const { readDreamsFile } = await import("../../dreaming-dreams-file-B0ccS1PG.mjs");
+			const { readDreamsFile } = await import("../../dreaming-dreams-file-B8PT_Azc.mjs");
 			return await readDreamsFile(...request.args);
 		}
 		case "writeDreams": {
-			const { writeDreamsFileAtomic } = await import("../../dreaming-dreams-file-B0ccS1PG.mjs");
+			const { writeDreamsFileAtomic } = await import("../../dreaming-dreams-file-B8PT_Azc.mjs");
 			return await writeDreamsFileAtomic(...request.args);
 		}
 		case "replaceReport": {
-			const { replaceDreamingMarkdownFile } = await import("../../dreaming-markdown-CIXoBuop.mjs");
+			const { replaceDreamingMarkdownFile } = await import("../../dreaming-markdown-z-a_AX4k.mjs");
 			return await replaceDreamingMarkdownFile(...request.args);
 		}
 		case "appendCorpus": {
-			const { appendSessionCorpusText } = await import("../../session-ingestion-CFS6j6Pw.mjs");
+			const { appendSessionCorpusText } = await import("../../session-ingestion-CTVCYWl6.mjs");
 			return await appendSessionCorpusText(...request.args);
 		}
 		default: throw new Error("Unknown Memory maintenance operation");

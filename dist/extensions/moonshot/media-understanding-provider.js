@@ -1,4 +1,4 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-DX_vVKdi.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-ByEFwJ6V.mjs";
 import { MOONSHOT_BASE_URL } from "./provider-policy-api.js";
 import "./provider-catalog.js";
 import { describeOpenAiCompatibleVideo } from "openclaw/plugin-sdk/media-understanding";

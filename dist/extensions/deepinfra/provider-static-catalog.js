@@ -1,4 +1,4 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-D7BLeoIa.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-5ywdmEQ1.mjs";
 import { DEEPINFRA_BASE_URL } from "./media-models.js";
 import { buildManifestModelProviderConfig } from "openclaw/plugin-sdk/provider-model-metadata";
 //#region extensions/deepinfra/provider-static-catalog.ts

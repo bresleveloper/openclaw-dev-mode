@@ -188,7 +188,8 @@ export function registerRequesterCompletionCustodyTests({
               outcome: { status: "ok" },
             };
             draft.completion = { required: true, resultText: "Original child result" };
-            draft.delivery = { status: "delivered" };
+            // The settle batch still owes this finding to the original requester.
+            draft.delivery = { status: "pending" };
           });
           if (authority === "revoked") {
             revoked.abort(new Error("original operator source revoked"));

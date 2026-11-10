@@ -4,9 +4,9 @@ import {
   type GeneratedImageAsset,
   type ImageGenerationProvider,
 } from "openclaw/plugin-sdk/image-generation";
-import { resolveGeneratedMediaMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
+import { resolveGeneratedImageDownloadMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
 import { parseStrictPositiveInteger } from "openclaw/plugin-sdk/number-runtime";
-import { isProviderApiKeyConfigured } from "openclaw/plugin-sdk/provider-auth";
+import { isProviderApiKeyConfiguredAsync } from "openclaw/plugin-sdk/provider-auth";
 import { resolveApiKeyForProvider } from "openclaw/plugin-sdk/provider-auth-runtime";
 import {
   assertOkOrThrowHttpError,
@@ -117,7 +117,7 @@ function googleInlineDataFromPart(part: unknown): Record<string, unknown> | unde
 export function buildGoogleImageGenerationProvider(): ImageGenerationProvider {
   return {
     ...createGoogleImageGenerationProviderMetadata(),
-    isConfigured: (ctx) => isProviderApiKeyConfigured({ provider: "google", ...ctx }),
+    isConfiguredAsync: (ctx) => isProviderApiKeyConfiguredAsync({ provider: "google", ...ctx }),
     async generateImage(req) {
       const auth = await resolveApiKeyForProvider({
         provider: "google",
@@ -184,7 +184,7 @@ export function buildGoogleImageGenerationProvider(): ImageGenerationProvider {
         const payload = await readProviderJsonResponse(res, "google.image-generation", {
           maxBytes: resolveInlineImageJsonResponseMaxBytes(
             GOOGLE_MAX_IMAGE_RESULTS,
-            resolveGeneratedMediaMaxBytes(req.cfg, "image"),
+            resolveGeneratedImageDownloadMaxBytes(req.cfg),
           ),
         });
         const images: GeneratedImageAsset[] = [];

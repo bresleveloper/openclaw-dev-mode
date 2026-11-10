@@ -19,14 +19,12 @@ function isOpus47Or48BedrockModelRef(modelRef) {
 function isOpus46BedrockModelRef(modelRef) {
 	return /(?:^|[/.:])(?:(?:us|eu|ap|apac|au|jp|global)\.)?(?:anthropic\.)?claude-opus-4[.-]6(?:$|[-.:/])/i.test(modelRef);
 }
-/** Return whether a Bedrock model ref names Claude Opus 4.7 or newer. */
 function isOpus47OrNewerBedrockModelRef(modelRef) {
 	return isOpus5BedrockModelRef(modelRef) || isOpus47Or48BedrockModelRef(modelRef);
 }
 function isMythosPreviewBedrockModelRef(modelRef) {
 	return /(?:^|[/.:])(?:(?:us|eu|ap|apac|au|jp|global)\.)?(?:anthropic\.)?claude-mythos-preview(?:$|[-.:/])/i.test(modelRef);
 }
-/** Return whether a Bedrock Claude ref needs latest adaptive-thinking request shaping. */
 function isLatestAdaptiveBedrockModelRef(modelId, params) {
 	const modelRef = {
 		id: modelId,
@@ -35,7 +33,6 @@ function isLatestAdaptiveBedrockModelRef(modelId, params) {
 	const canonicalModelId = resolveClaudeModelIdentity(modelRef);
 	return isClaude5BedrockModel(modelRef) || [modelId, canonicalModelId].some((candidate) => isOpus47OrNewerBedrockModelRef(candidate) || isMythosPreviewBedrockModelRef(candidate));
 }
-/** Return whether a Bedrock Claude ref supports max effort. */
 function supportsBedrockNativeMaxEffort(modelId, params) {
 	if (isClaude5BedrockModel({
 		id: modelId,
@@ -46,7 +43,6 @@ function supportsBedrockNativeMaxEffort(modelId, params) {
 		params
 	})].some((modelRef) => isOpus46BedrockModelRef(modelRef) || isOpus47OrNewerBedrockModelRef(modelRef));
 }
-/** Resolve route-specific native effort mappings for Bedrock Claude models. */
 function resolveBedrockNativeThinkingLevelMap(modelId, params) {
 	const modelRef = {
 		id: modelId,
@@ -74,7 +70,6 @@ function resolveBedrockNativeThinkingLevelMap(modelId, params) {
 		max: "max"
 	};
 }
-/** Resolve supported Claude thinking levels for a Bedrock model id. */
 function resolveBedrockClaudeThinkingProfile(modelId, params) {
 	const trimmed = modelId.trim();
 	const modelRefs = [trimmed, resolveClaudeModelIdentity({

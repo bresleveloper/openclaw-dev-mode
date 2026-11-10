@@ -141,21 +141,6 @@ var openclaw_plugin_default = {
 					"compat": { "codeMode": "capable" }
 				},
 				{
-					"id": "deepseek/deepseek-v4-flash",
-					"name": "DeepSeek V4 Flash",
-					"reasoning": true,
-					"input": ["text"],
-					"contextWindow": 1048576,
-					"maxTokens": 393216,
-					"cost": {
-						"input": .14,
-						"output": .28,
-						"cacheRead": .028,
-						"cacheWrite": 0
-					},
-					"compat": { "codeMode": "capable" }
-				},
-				{
 					"id": "qwen/qwen3.7-max",
 					"name": "Qwen3.7-Max",
 					"reasoning": true,

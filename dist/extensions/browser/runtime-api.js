@@ -1,14 +1,14 @@
-import { j as writeExternalFileWithinRoot } from "../../fs-safe-BUXBSN-4.mjs";
-import { i as resolveExistingPathsWithinRoot } from "../../security-runtime-CpTHQYW2.mjs";
-import { t as createBrowserToolDefinition } from "../../browser-tool-description-CRHph32o.mjs";
-import { i as resolveBrowserConfig } from "../../config-DQZ6ubGi.mjs";
-import "../../paths-j6Von5wB.mjs";
-import { x as closePlaywrightBrowserConnection } from "../../pw-tools-core.interactions.navigation-D7pCRllD.mjs";
-import { n as stopBrowserBridgeServer, t as startBrowserBridgeServer } from "../../bridge-server-BJjl2XoE.mjs";
-import { i as createBrowserTool, t as browserHandlers } from "../../browser-request-CZ2fWUTe.mjs";
-import path from "node:path";
-import { chmod, copyFile } from "node:fs/promises";
+import { j as writeExternalFileWithinRoot } from "../../fs-safe-6Z4UiMS4.mjs";
+import { i as resolveExistingPathsWithinRoot } from "../../security-runtime-6domDoE8.mjs";
+import { t as createBrowserToolDefinition } from "../../browser-tool-description-C4fzwnZx.mjs";
+import { i as resolveBrowserConfig } from "../../config-xjgIR3E-.mjs";
+import "../../paths-J645nsQI.mjs";
+import { x as closePlaywrightBrowserConnection } from "../../pw-tools-core.interactions.navigation-B9IyIsIy.mjs";
+import { n as stopBrowserBridgeServer, t as startBrowserBridgeServer } from "../../bridge-server-oi4PHPzX.mjs";
+import { i as createBrowserTool, t as browserHandlers } from "../../browser-request-6GApw1ft.mjs";
 import { randomBytes } from "node:crypto";
+import { chmod, copyFile } from "node:fs/promises";
+import path from "node:path";
 //#region extensions/browser/src/attached-browser-tool-runtime.ts
 /**
 * The bridge owns only authenticated Browser HTTP ingress. Chrome remains owned
@@ -30,8 +30,7 @@ async function persistAttachedScreenshot(params) {
 }
 function normalizeAttachedCdpUrl(raw) {
 	const parsed = URL.parse(raw);
-	const port = Number(parsed?.port);
-	if (!parsed || parsed.protocol !== "http:" || parsed.hostname !== "127.0.0.1" || parsed.username !== "" || parsed.password !== "" || parsed.port === "" || !Number.isInteger(port) || port < 1 || port > 65535 || parsed.pathname !== "/" || parsed.search !== "" || parsed.hash !== "") throw new Error("Attached Browser CDP URL must be a loopback HTTP URL with an explicit port.");
+	if (!parsed || parsed.protocol !== "http:" || parsed.hostname !== "127.0.0.1" || parsed.username !== "" || parsed.password !== "" || parsed.port === "" || Number(parsed.port) < 1 || parsed.pathname !== "/" || parsed.search !== "" || parsed.hash !== "") throw new Error("Attached Browser CDP URL must be a loopback HTTP URL with an explicit port.");
 	return parsed.toString().replace(/\/$/u, "");
 }
 /** Create a normal Browser agent tool pinned to one raw, attach-only CDP profile. */

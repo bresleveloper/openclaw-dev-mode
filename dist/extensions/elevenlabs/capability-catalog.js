@@ -1,4 +1,4 @@
-import { n as resolveElevenLabsApiKeyWithProfileFallback } from "./.setup/config-compat-ClsSqmpW.mjs";
+import { n as resolveElevenLabsApiKeyWithProfileFallback } from "./.setup/config-compat-Bq7IhwwK.mjs";
 import { normalizeResolvedSecretInputString } from "openclaw/plugin-sdk/secret-input";
 import { asBoolean, asFiniteNumberInRange, asOptionalRecord, asSafeIntegerInRange, normalizeLowercaseStringOrEmpty, normalizeOptionalString, parseBooleanValue, parseFiniteNumber } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { parseStrictFiniteNumber, parseStrictInteger } from "openclaw/plugin-sdk/number-runtime";
@@ -12,12 +12,8 @@ function normalizeElevenLabsBaseUrlWithProtocols(baseUrl, allowedProtocols) {
 	const trimmed = baseUrl?.trim();
 	if (!trimmed) return DEFAULT_ELEVENLABS_BASE_URL;
 	const normalized = trimmed.replace(/\/+$/, "");
-	let parsed;
-	try {
-		parsed = new URL(normalized);
-	} catch {
-		throw new Error("Invalid ElevenLabs baseUrl: value is not a valid URL");
-	}
+	const parsed = URL.parse(normalized);
+	if (!parsed) throw new Error("Invalid ElevenLabs baseUrl: value is not a valid URL");
 	if (!allowedProtocols.includes(parsed.protocol)) throw new Error(`Invalid ElevenLabs baseUrl: unsupported scheme "${parsed.protocol}" (expected ${allowedProtocols.join(" or ")})`);
 	return normalized;
 }
@@ -62,11 +58,11 @@ function normalizeFiniteRange(value, min, max) {
 		max
 	});
 }
-function normalizeIntegerRange(value, min, max) {
+function normalizeMinimumDurationMs(value) {
 	const parsed = parseFiniteNumber(value);
 	return asSafeIntegerInRange(parsed, {
-		min,
-		max
+		min: 50,
+		max: 2e3
 	});
 }
 function normalizeProviderConfig(config) {
@@ -84,87 +80,18 @@ function normalizeProviderConfig(config) {
 		commitStrategy: normalizeCommitStrategy(raw.commitStrategy ?? raw.commit_strategy),
 		vadSilenceThresholdSecs: normalizeFiniteRange(raw.vadSilenceThresholdSecs ?? raw.vad_silence_threshold_secs, .3, 3),
 		vadThreshold: normalizeFiniteRange(raw.vadThreshold ?? raw.vad_threshold, .1, .9),
-		minSpeechDurationMs: normalizeIntegerRange(raw.minSpeechDurationMs ?? raw.min_speech_duration_ms, 50, 2e3),
-		minSilenceDurationMs: normalizeIntegerRange(raw.minSilenceDurationMs ?? raw.min_silence_duration_ms, 50, 2e3)
+		minSpeechDurationMs: normalizeMinimumDurationMs(raw.minSpeechDurationMs ?? raw.min_speech_duration_ms),
+		minSilenceDurationMs: normalizeMinimumDurationMs(raw.minSilenceDurationMs ?? raw.min_silence_duration_ms)
 	};
-}
-function toElevenLabsRealtimeWsUrl(config) {
-	const url = new URL(`${normalizeElevenLabsRealtimeBaseUrl(config.baseUrl)}/v1/speech-to-text/realtime`);
-	url.searchParams.set("model_id", config.modelId);
-	url.searchParams.set("audio_format", config.audioFormat);
-	url.searchParams.set("commit_strategy", config.commitStrategy);
-	url.searchParams.set("include_timestamps", "false");
-	url.searchParams.set("include_language_detection", "false");
-	if (config.languageCode) url.searchParams.set("language_code", config.languageCode);
-	if (config.vadSilenceThresholdSecs != null) url.searchParams.set("vad_silence_threshold_secs", String(config.vadSilenceThresholdSecs));
-	if (config.vadThreshold != null) url.searchParams.set("vad_threshold", String(config.vadThreshold));
-	if (config.minSpeechDurationMs != null) url.searchParams.set("min_speech_duration_ms", String(config.minSpeechDurationMs));
-	if (config.minSilenceDurationMs != null) url.searchParams.set("min_silence_duration_ms", String(config.minSilenceDurationMs));
-	return url.toString();
 }
 function readErrorDetail(event) {
 	return normalizeOptionalString(event.error) ?? normalizeOptionalString(event.message) ?? normalizeOptionalString(event.code) ?? "ElevenLabs realtime transcription error";
-}
-function createElevenLabsRealtimeTranscriptionSession(config, createRealtimeTranscriptionWebSocketSession) {
-	let pendingTimestampEcho;
-	const sendAudioChunk = (audio, transport) => {
-		transport.sendJson({
-			message_type: "input_audio_chunk",
-			audio_base_64: audio.toString("base64"),
-			sample_rate: config.sampleRate,
-			...config.commitStrategy === "manual" ? { commit: true } : {}
-		});
-	};
-	const handleEvent = (event, transport) => {
-		if (event.message_type === "session_started") {
-			pendingTimestampEcho = void 0;
-			transport.markReady();
-			return;
-		}
-		const isError = typeof event.error === "string" || event.message_type?.includes("error");
-		if (!transport.isReady() && isError) {
-			transport.failConnect(new Error(readErrorDetail(event)));
-			return;
-		}
-		switch (event.message_type) {
-			case "partial_transcript":
-				if (event.text) config.onPartial?.(event.text);
-				return;
-			case "committed_transcript":
-			case "committed_transcript_with_timestamps":
-				if (event.text) {
-					const hasTimestamps = event.message_type !== "committed_transcript";
-					const isEcho = hasTimestamps && pendingTimestampEcho === event.text;
-					pendingTimestampEcho = hasTimestamps ? void 0 : event.text;
-					if (!isEcho) config.onTranscript?.(event.text);
-				}
-				return;
-			default: if (isError) config.onError?.(new Error(readErrorDetail(event)));
-		}
-	};
-	return createRealtimeTranscriptionWebSocketSession({
-		providerId: "elevenlabs",
-		callbacks: config,
-		url: () => toElevenLabsRealtimeWsUrl(config),
-		headers: { "xi-api-key": config.apiKey },
-		connectTimeoutMessage: "ElevenLabs realtime transcription connection timeout",
-		reconnectLimitMessage: "ElevenLabs realtime transcription reconnect limit reached",
-		sendAudio: sendAudioChunk,
-		onClose: (transport) => {
-			transport.sendJson({
-				message_type: "input_audio_chunk",
-				audio_base_64: "",
-				sample_rate: config.sampleRate,
-				commit: true
-			});
-		},
-		onMessage: handleEvent
-	});
 }
 function resolveElevenLabsRealtimeApiKey(config) {
 	return config.apiKey ?? resolveElevenLabsApiKeyWithProfileFallback() ?? normalizeOptionalString(process.env.XI_API_KEY);
 }
 function buildElevenLabsRealtimeTranscriptionProvider({ createRealtimeTranscriptionWebSocketSession }) {
+	const isConfigured = ({ providerConfig }) => Boolean(resolveElevenLabsRealtimeApiKey(normalizeProviderConfig(providerConfig)));
 	return {
 		id: "elevenlabs",
 		label: "ElevenLabs Realtime Transcription",
@@ -172,25 +99,81 @@ function buildElevenLabsRealtimeTranscriptionProvider({ createRealtimeTranscript
 		defaultModel: ELEVENLABS_REALTIME_DEFAULT_MODEL,
 		autoSelectOrder: 40,
 		resolveConfig: ({ rawConfig }) => normalizeProviderConfig(rawConfig),
-		isConfigured: ({ providerConfig }) => Boolean(resolveElevenLabsRealtimeApiKey(normalizeProviderConfig(providerConfig))),
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		createSession: (req) => {
 			const config = normalizeProviderConfig(req.providerConfig);
 			const apiKey = resolveElevenLabsRealtimeApiKey(config);
 			if (!apiKey) throw new Error("ElevenLabs API key missing");
-			return createElevenLabsRealtimeTranscriptionSession({
-				...req,
-				apiKey,
-				baseUrl: normalizeElevenLabsRealtimeBaseUrl(config.baseUrl),
-				modelId: config.modelId ?? ELEVENLABS_REALTIME_DEFAULT_MODEL,
-				audioFormat: config.audioFormat ?? ELEVENLABS_REALTIME_DEFAULT_AUDIO_FORMAT,
-				sampleRate: config.sampleRate ?? ELEVENLABS_REALTIME_DEFAULT_SAMPLE_RATE,
-				commitStrategy: config.commitStrategy ?? ELEVENLABS_REALTIME_DEFAULT_COMMIT_STRATEGY,
-				languageCode: config.languageCode,
-				vadSilenceThresholdSecs: config.vadSilenceThresholdSecs,
-				vadThreshold: config.vadThreshold,
-				minSpeechDurationMs: config.minSpeechDurationMs,
-				minSilenceDurationMs: config.minSilenceDurationMs
-			}, createRealtimeTranscriptionWebSocketSession);
+			const baseUrl = normalizeElevenLabsRealtimeBaseUrl(config.baseUrl);
+			const sampleRate = config.sampleRate ?? ELEVENLABS_REALTIME_DEFAULT_SAMPLE_RATE;
+			const commitStrategy = config.commitStrategy ?? ELEVENLABS_REALTIME_DEFAULT_COMMIT_STRATEGY;
+			const callbacks = { ...req };
+			let pendingTimestampEcho;
+			return createRealtimeTranscriptionWebSocketSession({
+				providerId: "elevenlabs",
+				callbacks,
+				url: () => {
+					const url = new URL(`${normalizeElevenLabsRealtimeBaseUrl(baseUrl)}/v1/speech-to-text/realtime`);
+					url.searchParams.set("model_id", config.modelId ?? ELEVENLABS_REALTIME_DEFAULT_MODEL);
+					url.searchParams.set("audio_format", config.audioFormat ?? ELEVENLABS_REALTIME_DEFAULT_AUDIO_FORMAT);
+					url.searchParams.set("commit_strategy", commitStrategy);
+					url.searchParams.set("include_timestamps", "false");
+					url.searchParams.set("include_language_detection", "false");
+					if (config.languageCode) url.searchParams.set("language_code", config.languageCode);
+					if (config.vadSilenceThresholdSecs != null) url.searchParams.set("vad_silence_threshold_secs", String(config.vadSilenceThresholdSecs));
+					if (config.vadThreshold != null) url.searchParams.set("vad_threshold", String(config.vadThreshold));
+					if (config.minSpeechDurationMs != null) url.searchParams.set("min_speech_duration_ms", String(config.minSpeechDurationMs));
+					if (config.minSilenceDurationMs != null) url.searchParams.set("min_silence_duration_ms", String(config.minSilenceDurationMs));
+					return url.toString();
+				},
+				headers: { "xi-api-key": apiKey },
+				connectTimeoutMessage: "ElevenLabs realtime transcription connection timeout",
+				reconnectLimitMessage: "ElevenLabs realtime transcription reconnect limit reached",
+				sendAudio: (audio, transport) => {
+					transport.sendJson({
+						message_type: "input_audio_chunk",
+						audio_base_64: audio.toString("base64"),
+						sample_rate: sampleRate,
+						...commitStrategy === "manual" ? { commit: true } : {}
+					});
+				},
+				onClose: (transport) => {
+					transport.sendJson({
+						message_type: "input_audio_chunk",
+						audio_base_64: "",
+						sample_rate: sampleRate,
+						commit: true
+					});
+				},
+				onMessage: (event, transport) => {
+					if (event.message_type === "session_started") {
+						pendingTimestampEcho = void 0;
+						transport.markReady();
+						return;
+					}
+					const isError = typeof event.error === "string" || event.message_type?.includes("error");
+					if (!transport.isReady() && isError) {
+						transport.failConnect(new Error(readErrorDetail(event)));
+						return;
+					}
+					switch (event.message_type) {
+						case "partial_transcript":
+							if (event.text) callbacks.onPartial?.(event.text);
+							return;
+						case "committed_transcript":
+						case "committed_transcript_with_timestamps":
+							if (event.text) {
+								const hasTimestamps = event.message_type !== "committed_transcript";
+								const isEcho = hasTimestamps && pendingTimestampEcho === event.text;
+								pendingTimestampEcho = hasTimestamps ? void 0 : event.text;
+								if (!isEcho) callbacks.onTranscript?.(event.text);
+							}
+							return;
+						default: if (isError) callbacks.onError?.(new Error(readErrorDetail(event)));
+					}
+				}
+			});
 		}
 	};
 }
@@ -561,6 +544,7 @@ function resolveElevenLabsTtsRequest(req, options) {
 	};
 }
 function buildElevenLabsSpeechProvider({ formatErrorMessage }) {
+	const isConfigured = ({ providerConfig }) => Boolean(resolveElevenLabsApiKey(readElevenLabsProviderConfig(providerConfig).apiKey));
 	return {
 		id: "elevenlabs",
 		label: "ElevenLabs",
@@ -624,7 +608,8 @@ function buildElevenLabsSpeechProvider({ formatErrorMessage }) {
 				timeoutMs: req.timeoutMs
 			});
 		},
-		isConfigured: ({ providerConfig }) => Boolean(resolveElevenLabsApiKey(readElevenLabsProviderConfig(providerConfig).apiKey)),
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		synthesize: async (req) => {
 			const overrides = req.providerOverrides ?? {};
 			const outputPlan = resolveElevenLabsOutputPlan(req);

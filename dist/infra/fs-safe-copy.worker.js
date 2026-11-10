@@ -1,8 +1,9 @@
-import { r as normalizeFsSafeNativeEnv } from "../fs-safe-env-CCe2lU-3.mjs";
+import { r as normalizeFsSafeNativeEnv } from "../fs-safe-env-wxBiM84C.mjs";
 import { readFileSync } from "node:fs";
-import { serialize } from "node:v8";
 import { parentPort } from "node:worker_threads";
+import { serialize } from "node:v8";
 import { copyTree, createCloneSource, probeTreeClone, readCloneFileMetadata } from "@openclaw/fs-safe/copy";
+import { inspectDarwinAcl } from "@openclaw/fs-safe/permissions";
 import { configureFsSafeNative, getFsSafeNativeConfig } from "@openclaw/fs-safe/config";
 //#region src/infra/fs-safe-copy.worker.ts
 function failure(error) {
@@ -15,7 +16,7 @@ function failure(error) {
 normalizeFsSafeNativeEnv();
 if (parentPort) {
 	const nativeConfig = getFsSafeNativeConfig();
-	const { serveWorkerTasks } = await import("../worker-task-server-DCO6XUS8.mjs");
+	const { serveWorkerTasks } = await import("../worker-task-server-BxttNAkS.mjs");
 	configureFsSafeNative(nativeConfig);
 	serveWorkerTasks(async (input) => {
 		const command = input;
@@ -23,7 +24,12 @@ if (parentPort) {
 			switch (command.type) {
 				case "probe": return {
 					type: "probe",
-					backend: probeTreeClone(command.parent)
+					backend: probeTreeClone(command.parent),
+					nativeMode: getFsSafeNativeConfig().mode
+				};
+				case "acl": return {
+					type: "acl",
+					acl: inspectDarwinAcl(command.path)
 				};
 				case "metadata": return {
 					type: "metadata",

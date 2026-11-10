@@ -1,7 +1,7 @@
 import { t as BYTEPLUS_BASE_URL } from "./.setup/models-B35FIrA-.mjs";
 import { toImageDataUrl } from "openclaw/plugin-sdk/image-generation";
 import { downloadGeneratedVideoAsset, resolveGeneratedMediaMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
-import { isProviderApiKeyConfigured } from "openclaw/plugin-sdk/provider-auth";
+import { isProviderApiKeyConfiguredAsync } from "openclaw/plugin-sdk/provider-auth";
 import { resolveApiKeyForProvider } from "openclaw/plugin-sdk/provider-auth-runtime";
 import { assertOkOrThrowHttpError, createProviderOperationDeadline, createProviderOperationTimeoutResolver, pollProviderOperationJson, postJsonRequest, readProviderJsonObjectResponse, resolveProviderHttpRequestConfig, resolveProviderOperationTimeoutMs } from "openclaw/plugin-sdk/provider-http";
 import { asSafeIntegerInRange, isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
@@ -60,7 +60,7 @@ function buildBytePlusVideoGenerationProvider() {
 		label: "BytePlus",
 		defaultModel: DEFAULT_BYTEPLUS_VIDEO_MODEL,
 		models: [DEFAULT_BYTEPLUS_VIDEO_MODEL, "seedance-1-5-pro-251215"],
-		isConfigured: (ctx) => isProviderApiKeyConfigured({
+		isConfiguredAsync: (ctx) => isProviderApiKeyConfiguredAsync({
 			provider: "byteplus",
 			...ctx
 		}),

@@ -1,6 +1,4 @@
 /**
- * Browser navigation SSRF guard.
- *
  * Validates page navigation URLs and redirect chains before or after browser
  * navigation while accounting for browser proxy routing.
  */
@@ -24,7 +22,6 @@ function isAllowedNonNetworkNavigationUrl(parsed: URL): boolean {
   return SAFE_NON_NETWORK_URLS.has(parsed.href);
 }
 
-/** Raised when a browser navigation URL fails syntax or policy validation. */
 export class InvalidBrowserNavigationUrlError extends Error {
   constructor(message: string) {
     super(message);
@@ -51,7 +48,6 @@ export function parseBrowserNavigationUrl(url: string): URL {
   return parsed;
 }
 
-/** Policy inputs applied to browser page navigation checks. */
 export type BrowserNavigationPolicyOptions = {
   ssrfPolicy?: SsrFPolicy;
   browserProxyMode?: BrowserNavigationProxyMode;
@@ -79,24 +75,15 @@ export function withBrowserNavigationPolicy(
   };
 }
 
-/** Return true when strict policy requires redirect-chain inspection. */
-function requiresInspectableBrowserNavigationRedirects(ssrfPolicy?: SsrFPolicy): boolean {
-  return ssrfPolicy?.dangerouslyAllowPrivateNetwork === false;
-}
-
 /** Return true when a URL needs redirect inspection under strict policy. */
 export function requiresInspectableBrowserNavigationRedirectsForUrl(
   url: string,
   ssrfPolicy?: SsrFPolicy,
 ): boolean {
-  if (!requiresInspectableBrowserNavigationRedirects(ssrfPolicy)) {
+  if (ssrfPolicy?.dangerouslyAllowPrivateNetwork !== false) {
     return false;
   }
   return NETWORK_NAVIGATION_PROTOCOLS.has(URL.parse(url)?.protocol ?? "");
-}
-
-function isIpLiteralHostname(hostname: string): boolean {
-  return isIP(normalizeHostname(hostname)) !== 0;
 }
 
 function isExplicitlyAllowedBrowserHostname(hostname: string, ssrfPolicy?: SsrFPolicy): boolean {
@@ -153,7 +140,7 @@ export async function assertBrowserNavigationAllowed(
     opts.ssrfPolicy &&
     opts.ssrfPolicy.dangerouslyAllowPrivateNetwork === false &&
     !isPrivateNetworkAllowedByPolicy(opts.ssrfPolicy) &&
-    !isIpLiteralHostname(parsed.hostname) &&
+    isIP(normalizeHostname(parsed.hostname)) === 0 &&
     !isExplicitlyAllowedBrowserHostname(parsed.hostname, opts.ssrfPolicy)
   ) {
     throw new InvalidBrowserNavigationUrlError(
@@ -166,6 +153,27 @@ export async function assertBrowserNavigationAllowed(
     policy: opts.ssrfPolicy,
     signal: opts.signal,
   });
+}
+
+/**
+ * Preflight a Chrome MCP navigation. Chrome MCP dispatches through opaque
+ * `navigate_page`/`new_page` tool calls, so strict policy cannot fence redirect
+ * hops before Chrome sends them and refuses network navigation instead.
+ */
+export async function assertChromeMcpNavigationAllowed(
+  opts: { url: string } & BrowserNavigationPolicyOptions,
+): Promise<void> {
+  // SEC-70: dev-mode skips all browser navigation URL checks, including the strict-policy
+  // Chrome MCP refusal below (it runs after assertBrowserNavigationAllowed returns early).
+  if (process.env.OPENCLAW_DEV_MODE === "1") {
+    return;
+  }
+  await assertBrowserNavigationAllowed(opts);
+  if (requiresInspectableBrowserNavigationRedirectsForUrl(opts.url, opts.ssrfPolicy)) {
+    throw new InvalidBrowserNavigationUrlError(
+      'Navigation blocked: strict browser SSRF policy requires redirect-hop inspection, which existing-session (Chrome MCP) profiles cannot provide; use a profile with driver "openclaw" for strict navigation',
+    );
+  }
 }
 
 /**

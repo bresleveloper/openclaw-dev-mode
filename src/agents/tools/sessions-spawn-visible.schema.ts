@@ -1,5 +1,8 @@
+import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { Type } from "typebox";
 import { SessionMoveProfileTargetSchema } from "../../../packages/gateway-protocol/src/schema/session-placement.js";
+import { WORKTREE_NAME_PATTERN } from "../worktrees/name.js";
+import { readToolStringParam } from "./common.js";
 
 export const SessionsSpawnPlacementSchema = Type.Union([
   Type.Object({ kind: Type.Literal("local") }, { additionalProperties: false }),
@@ -44,9 +47,49 @@ export const SESSIONS_SPAWN_SESSION_SCHEMA = {
     }),
   ),
   worktreeName: Type.Optional(
-    Type.String({ description: "Managed worktree name; requires worktree=true." }),
+    Type.String({
+      pattern: WORKTREE_NAME_PATTERN.source,
+      description:
+        "Managed worktree lowercase slug, 1–64 letters/digits/hyphens, starting with a letter or digit. Do not include a branch prefix such as codex/; OpenClaw supplies openclaw/. Requires worktree=true.",
+    }),
   ),
   worktreeBaseRef: Type.Optional(
     Type.String({ description: "Managed worktree base ref; requires worktree=true." }),
   ),
 };
+
+/** Formats the visible spawn call a model should retry with. */
+export function correctedVisibleSpawnCall(raw: Record<string, unknown>): string {
+  const corrected = Object.fromEntries(
+    [
+      "task",
+      "user",
+      "taskName",
+      "label",
+      "agentId",
+      "model",
+      "runTimeoutSeconds",
+      "cwd",
+      "expectsCompletionMessage",
+      "sandbox",
+      "context",
+      "placement",
+      "group",
+      "projectId",
+      "projectGitUrl",
+      "worktree",
+      "worktreeName",
+      "worktreeBaseRef",
+    ]
+      .filter((key) => raw[key] !== undefined)
+      .map((key) => [key, raw[key]]),
+  );
+  if (
+    readToolStringParam(raw, "worktreeName") ||
+    readToolStringParam(raw, "worktreeBaseRef") ||
+    (isRecord(raw.placement) && raw.placement.kind === "profile")
+  ) {
+    corrected.worktree = true;
+  }
+  return `sessions_spawn(${JSON.stringify({ ...corrected, runtime: "subagent", visible: true })})`;
+}

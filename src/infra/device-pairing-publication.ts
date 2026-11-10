@@ -1,4 +1,5 @@
 import { resolveGlobalSingleton } from "../shared/global-singleton.js";
+import { freezeJsonSnapshot } from "../shared/immutable-data.js";
 import type { OpenClawStateDatabaseReadAdmission } from "../state/openclaw-state-db-async-lifecycle.js";
 import {
   registerOpenClawStateDatabaseAsyncResource,
@@ -9,7 +10,9 @@ import type {
   DevicePairingBinding,
   DevicePairingBindingFact,
   DevicePairingCommitReceipt,
+  DevicePairingNodeSnapshot,
 } from "./device-pairing-read.types.js";
+import type { PairedDevice } from "./device-pairing.types.js";
 
 type Publication = {
   identity: string;
@@ -20,6 +23,7 @@ type Publication = {
   mutation?: object;
   complete: boolean;
   rows: Map<string, DevicePairingBinding | null>;
+  nodes?: DevicePairingNodeSnapshot;
   pending: Set<() => void>;
 };
 
@@ -54,6 +58,15 @@ const publications = resolveGlobalSingleton(
     return state;
   },
 );
+
+/** Native pairing writers retire the node projection after their transaction commits. */
+export function invalidateDevicePairingNodeSnapshot(path: string): void {
+  const publication = publications.get(path);
+  if (publication) {
+    publication.epoch++;
+    publication.nodes = undefined;
+  }
+}
 
 export function captureDevicePairingPublication(admission: OpenClawStateDatabaseReadAdmission) {
   const path = admission.databasePath;
@@ -93,9 +106,21 @@ export function captureDevicePairingPublication(admission: OpenClawStateDatabase
       publications.get(path) === captured && captured.epoch === epoch && !captured.mutation,
     completeRevision: () =>
       !captured.blocked && captured.complete ? captured.revision : undefined,
+    readNodes() {
+      for (const service of captured.pending) {
+        service();
+      }
+      return publications.get(path) === captured &&
+        !captured.blocked &&
+        !captured.mutation &&
+        captured.complete
+        ? captured.nodes
+        : undefined;
+    },
     fail() {
       if (publications.get(path) === captured && captured.epoch === epoch) {
         captured.blocked = true;
+        captured.nodes = undefined;
       }
     },
     publish(
@@ -117,6 +142,7 @@ export function captureDevicePairingPublication(admission: OpenClawStateDatabase
       // revision this cache missed leaves unrelated nodes known; only a full list replaces all.
       if (captured.revision !== revision) {
         captured.epoch++;
+        captured.nodes = undefined;
         captured.complete = false;
       }
       if (complete) {
@@ -128,6 +154,30 @@ export function captureDevicePairingPublication(admission: OpenClawStateDatabase
       captured.blocked = false;
       return true;
     },
+    prepareNodes(revision: string, paired: PairedDevice[]): DevicePairingNodeSnapshot {
+      if (
+        publications.get(path) !== captured ||
+        captured.blocked ||
+        captured.mutation ||
+        !captured.complete ||
+        captured.revision !== revision
+      ) {
+        throw new Error("Device pairing nodes require a current worker publication");
+      }
+      if (!captured.nodes) {
+        const bindings = new Map<string, DevicePairingBinding>();
+        for (const [deviceId, binding] of captured.rows) {
+          if (binding) {
+            bindings.set(deviceId, Object.freeze({ ...binding }));
+          }
+        }
+        captured.nodes = Object.freeze({
+          paired: freezeJsonSnapshot(paired),
+          bindings,
+        });
+      }
+      return captured.nodes;
+    },
     beginMutation() {
       captured.epoch++;
       const mutation = {};
@@ -138,6 +188,9 @@ export function captureDevicePairingPublication(admission: OpenClawStateDatabase
             return;
           }
           captured.complete &&= receipt.beforeRevision === captured.revision;
+          if (receipt.revision !== captured.revision) {
+            captured.nodes = undefined;
+          }
           install(receipt.changed);
           captured.revision = receipt.revision;
           captured.blocked = false;

@@ -1,4 +1,4 @@
-import { v as ensureModelAllowlistEntry } from "../../provider-onboard-CF3Sw4qH.mjs";
+import { y as ensureStaticModelAllowlistEntry } from "../../provider-onboard-sfE-MZsX.mjs";
 import { a as buildAppleFmProviderConfig, i as APPLE_FM_PROVIDER_ID, n as APPLE_FM_MIN_CONTEXT_WINDOW, r as APPLE_FM_MODEL_REF } from "../../defaults-p5LbrA8q.mjs";
 //#region extensions/apple-fm/setup.ts
 const SETUP_NOTE = "Apple Foundation Models is your on-device setup and utility model, with no API key. Choose a separate primary model for regular agent conversations.";
@@ -59,7 +59,7 @@ async function validateAppleFmNonInteractive(ctx, native) {
 async function configureAppleFmNonInteractive(ctx, native) {
 	const facts = await native.prepare();
 	requireUsableModel(facts);
-	return ensureModelAllowlistEntry({
+	return ensureStaticModelAllowlistEntry({
 		cfg: {
 			...ctx.config,
 			models: {

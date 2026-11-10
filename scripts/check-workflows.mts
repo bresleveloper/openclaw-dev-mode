@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Runs local workflow sanity checks.
 // Uses qualified installed tools, otherwise falls back to pinned hooks where
 // possible, then runs repo-specific workflow guards.
 import { spawnSync } from "node:child_process";
@@ -7,7 +6,7 @@ import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const ACTIONLINT_REVISION = "644076a59742c2d1540ebd4686eab3c308f0e562";
+const ACTIONLINT_REVISION = "011a6d15e749bb3f2d771eed9c7aa0e7e3e10ee7";
 const PRE_COMMIT_VERSION = "4.6.2";
 // pre-commit 4.6.2 declares requires-python >=3.10, so an older interpreter only
 // fails after a venv build and a network pip install.
@@ -95,8 +94,8 @@ function runGoActionlint(files: string[]): boolean {
   try {
     const installed = spawnSync(
       "go",
-      ["install", "-mod=readonly", "github.com/rhysd/actionlint/cmd/actionlint"],
-      { cwd: "tools/actionlint", stdio: "inherit", env: { ...process.env, GOBIN: binDir } },
+      ["install", `github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_REVISION}`],
+      { stdio: "inherit", env: { ...process.env, GOBIN: binDir } },
     );
     // An unavailable pin can still use a cached hook. Lint diagnostics must stay
     // terminal, so acquisition and execution cannot share a go run exit status.
@@ -146,23 +145,13 @@ function runPreCommitFromTempVenv(hookArgs: string[]): boolean {
       return false;
     }
     postVenvFailure = runChecked(python, ["-m", "pre_commit", ...hookArgs]);
-    if (postVenvFailure) {
-      return false;
-    }
-    return true;
+    return !postVenvFailure;
   } finally {
     rmSync(venvDir, { force: true, recursive: true });
     if (postVenvFailure) {
       exitWithFailure(postVenvFailure);
     }
   }
-}
-
-function workflowFiles(): string[] {
-  return readdirSync(WORKFLOW_DIR)
-    .filter((file) => file.endsWith(".yml") || file.endsWith(".yaml"))
-    .toSorted()
-    .map((file) => join(WORKFLOW_DIR, file));
 }
 
 function runPreCommitHook(hook: string, files: string[]): void {
@@ -185,7 +174,10 @@ function runPreCommitHook(hook: string, files: string[]): void {
   process.exit(1);
 }
 
-const workflows = workflowFiles();
+const workflows = readdirSync(WORKFLOW_DIR)
+  .filter((file) => file.endsWith(".yml") || file.endsWith(".yaml"))
+  .toSorted()
+  .map((file) => join(WORKFLOW_DIR, file));
 
 if (hasPinnedActionlint()) {
   run("actionlint", workflows);

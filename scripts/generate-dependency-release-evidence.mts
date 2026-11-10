@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-// Generates release dependency evidence artifacts and summaries.
 import { execFileSync } from "node:child_process";
 import { appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -152,13 +151,12 @@ export function resolvePreviousReleaseTag({
       rootDir,
       execFileSyncImpl,
     );
-    // Describe needs complete commit ancestry, not historical trees. Dependency
-    // diffs hydrate their selected trees/blobs lazily from the promisor remote.
+    // Describe needs complete target ancestry; unrelated branches and tooling tags do not.
     runCommand(
       "git",
       [
         "fetch",
-        "--filter=tree:0",
+        "--filter=blob:none",
         "--no-tags",
         "--force",
         ...(shallow === "true" ? ["--unshallow"] : []),

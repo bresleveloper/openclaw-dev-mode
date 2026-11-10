@@ -238,7 +238,7 @@ export type ProviderPlugin = {
    */
   buildReplayPolicy?: (ctx: ProviderReplayPolicyContext) => ProviderReplayPolicy | null | undefined;
   /**
-   * @deprecated Use sanitizeReplayHistoryAsync; removed at the next Plugin SDK major.
+   * @deprecated Use sanitizeReplayHistoryAsync; final compatibility day: 2026-12-31.
    * Provider-owned replay-history sanitization.
    *
    * Runs after OpenClaw performs generic transcript cleanup. Use this for
@@ -329,7 +329,13 @@ export type ProviderPlugin = {
    * provider-specific compat payload patches that do not justify a separate
    * transport implementation.
    */
-  wrapStreamFn?: (ctx: ProviderWrapStreamFnContext) => StreamFn | null | undefined;
+  wrapStreamFn?: (ctx: ProviderWrapStreamFnContext) =>
+    | (StreamFn & {
+        /** A decorator that leaves shared request and output compatibility policy active. */
+        preservesGenericCompatibility?: boolean;
+      })
+    | null
+    | undefined;
   /**
    * Provider-owned wrapper for direct `completeSimple` callers.
    *
@@ -484,14 +490,16 @@ export type ProviderPlugin = {
    *
    * Prefer this over the individual thinking capability hooks when a provider
    * or model exposes a custom set of thinking levels. OpenClaw stores the
-   * canonical `id`, shows `label` when provided, and downgrades stale stored
-   * values by profile rank.
+   * canonical `id`, shows `label` when provided, and clamps execution by profile
+   * rank without replacing the stored preference.
    */
   resolveThinkingProfile?: (
     ctx: ProviderDefaultThinkingPolicyContext,
   ) => ProviderThinkingProfile | null | undefined;
   /** Whether Fast can affect this selected request; undefined retains existing unknown behavior. */
   resolveFastModeSupport?: (ctx: ProviderFastModePolicyContext) => boolean | undefined;
+  /** Known model/route service tiers; undefined retains account discovery and route defaults. */
+  resolveServiceTiers?: (ctx: ProviderFastModePolicyContext) => readonly string[] | undefined;
   /**
    * Provider-owned system-prompt contribution.
    *

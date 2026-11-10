@@ -1,5 +1,11 @@
 //#region src/plugin-sdk/control-ui-session-link.ts
-/** A plugin-owned accessory with the standard header link appearance and direct navigation. */
+/**
+* A plugin-owned accessory with the standard header link appearance and direct navigation.
+*
+* @deprecated Retained only so plugins built against OpenClaw 2026.10.1 still load; hosts no
+* longer supply `props.session` to session-header accessories, so the link never renders.
+* Render a custom accessory instead. Removal is tracked by `plugin-sdk-session-header-link`.
+*/
 function createSessionHeaderLink(resolve) {
 	return (container, initialContext) => {
 		const link = document.createElement("a");

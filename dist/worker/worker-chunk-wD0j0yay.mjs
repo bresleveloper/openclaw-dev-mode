@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function shouldUseGatewayOwnerProfile(e){return e.role===`operator`&&!e.authenticatedUserId&&(!e.rolesConfigured||e.authMethod===`token`||e.authMethod===`password`)}var t=e((()=>{}));export{shouldUseGatewayOwnerProfile as n,t};

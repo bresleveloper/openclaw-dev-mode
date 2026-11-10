@@ -1,14 +1,22 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
+import {
+  captureChannelReadAuthority,
+  captureEffectAuthority,
+} from "openclaw/plugin-sdk/fetch-runtime";
 import { logVerbose, type RuntimeEnv } from "openclaw/plugin-sdk/runtime-env";
-import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
+import {
+  isRecord,
+  normalizeLowercaseStringOrEmpty,
+} from "openclaw/plugin-sdk/string-coerce-runtime";
 import { resolveUserPath } from "openclaw/plugin-sdk/text-utility-runtime";
 import { raceWithTimeout } from "openclaw/plugin-sdk/time-runtime";
 import { recoverIMessageBridge } from "./bridge-recovery.js";
 import { expandIMessageUserPath } from "./cli-path.js";
 import { DEFAULT_IMESSAGE_PROBE_TIMEOUT_MS } from "./constants.js";
 import { invalidateCachedIMessagePrivateApiStatus } from "./private-api-status.js";
+import { describeIMessageAutomationFailure } from "./process-diagnostics.js";
 
 // Match only the documented Contacts reconciliation diagnostic; other Apple
 // framework messages must keep their error level.
@@ -54,9 +62,22 @@ export class IMessageRpcRequestError extends Error {
   }
 }
 
-// Only imsg's helper wait error proves a bridge stall; our client timeout can
+// Only imsg's helper wait errors prove a bridge stall; our client timeout can
 // also mean a slow wrapper and must not evict a healthy capability cache.
+// imsg reports legacy waits as "Timed out waiting for response to '<action>'",
+// but bridge_v2 mutations (send-message) return structured delivery data whose
+// detail starts with the deadline sentence below.
 function isIMessageBridgeStall(error: unknown): boolean {
+  if (error instanceof IMessageRpcRequestError && isRecord(error.data)) {
+    const { transport, detail } = error.data;
+    if (
+      transport === "bridge_v2" &&
+      typeof detail === "string" &&
+      detail.startsWith("The bridge response deadline expired.")
+    ) {
+      return true;
+    }
+  }
   return error instanceof Error && error.message.includes("Timed out waiting for response");
 }
 
@@ -83,7 +104,6 @@ function describeIMessageBridgeStall(error: unknown): unknown {
 type PendingRequest = {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
-  timer?: NodeJS.Timeout;
 };
 
 const PUBLIC_IMESSAGE_FULL_DISK_ACCESS_ERROR =
@@ -143,6 +163,7 @@ export class IMessageRpcClient {
   // the expanded one silently misses for any `~`-relative cliPath.
   private readonly configuredCliPath: string;
   private readonly dbPath?: string;
+  private readonly remoteHost?: string;
   private readonly runtime?: RuntimeEnv;
   private readonly onNotification?: (msg: IMessageRpcNotification) => void;
   private readonly pending = new Map<string, PendingRequest>();
@@ -150,7 +171,6 @@ export class IMessageRpcClient {
   private terminalResolve: ((error: Error) => void) | null = null;
   private readonly reaped: Promise<void>;
   private reapedResolve: (() => void) | null = null;
-  private isReaped = false;
   private child: ChildProcessWithoutNullStreams | null = null;
   private stopPromise: Promise<void> | null = null;
   private readonly stdoutFramer = createLfLineFramer((line) => this.handleStdoutLine(line));
@@ -162,9 +182,10 @@ export class IMessageRpcClient {
     this.configuredCliPath = opts.cliPath?.trim() || "imsg";
     this.cliPath = expandIMessageUserPath(this.configuredCliPath);
     const dbPath = opts.dbPath?.trim();
+    this.remoteHost = opts.remoteHost?.trim();
     // An explicitly remote database belongs to the Messages Mac. Only local
     // database paths are relative to the Gateway user's home directory.
-    this.dbPath = dbPath ? (opts.remoteHost?.trim() ? dbPath : resolveUserPath(dbPath)) : undefined;
+    this.dbPath = dbPath ? (this.remoteHost ? dbPath : resolveUserPath(dbPath)) : undefined;
     this.runtime = opts.runtime;
     this.onNotification = opts.onNotification;
     this.terminal = new Promise((resolve) => {
@@ -191,19 +212,16 @@ export class IMessageRpcClient {
     });
     this.child = child;
 
-    child.stdout.on("data", (chunk) => {
-      if (this.child !== child) {
-        return;
-      }
-      this.stdoutFramer.write(chunk);
-    });
-
-    child.stderr?.on("data", (chunk) => {
-      if (this.child !== child) {
-        return;
-      }
-      this.stderrFramer.write(chunk);
-    });
+    for (const [stream, framer] of [
+      [child.stdout, this.stdoutFramer],
+      [child.stderr, this.stderrFramer],
+    ] as const) {
+      stream.on("data", (chunk) => {
+        if (this.child === child) {
+          framer.write(chunk);
+        }
+      });
+    }
 
     // Every process/stdio error is terminal for this RPC transport. Settle the
     // client once and terminate a helper whose pipe failed; otherwise the
@@ -254,6 +272,24 @@ export class IMessageRpcClient {
   async request<T = unknown>(
     method: string,
     params?: Record<string, unknown>,
+    opts?: { timeoutMs?: number; assertCurrent?: () => void },
+  ): Promise<T> {
+    const child = this.child;
+    const stdin = child?.stdin;
+    const assertReadAuthority = captureChannelReadAuthority();
+    return captureEffectAuthority().initiate(() => {
+      if (child !== this.child || stdin !== this.child?.stdin) {
+        throw new Error("imsg rpc process changed before request initiation");
+      }
+      assertReadAuthority?.();
+      opts?.assertCurrent?.();
+      return this.initiateRequest<T>(method, params, opts);
+    });
+  }
+
+  private async initiateRequest<T>(
+    method: string,
+    params?: Record<string, unknown>,
     opts?: { timeoutMs?: number },
   ): Promise<T> {
     if (!this.child || !this.child.stdin) {
@@ -269,21 +305,20 @@ export class IMessageRpcClient {
     const line = `${JSON.stringify(payload)}\n`;
     const timeoutMs = opts?.timeoutMs ?? DEFAULT_IMESSAGE_PROBE_TIMEOUT_MS;
 
-    const response = new Promise<T>((resolve, reject) => {
-      const key = String(id);
-      const timer =
-        timeoutMs > 0
-          ? setTimeout(() => {
-              this.pending.delete(key);
-              reject(new Error(`imsg rpc timeout (${method})`));
-            }, timeoutMs)
-          : undefined;
+    const key = String(id);
+    const pendingResponse = new Promise<T>((resolve, reject) => {
       this.pending.set(key, {
         resolve: (value) => resolve(value as T),
         reject,
-        timer,
       });
     });
+    const response =
+      timeoutMs > 0
+        ? raceWithTimeout(pendingResponse, timeoutMs, () => {
+            this.pending.delete(key);
+            throw new Error(`imsg rpc timeout (${method})`);
+          })
+        : pendingResponse;
 
     // Reject the specific pending request on write error (e.g. EPIPE)
     // instead of letting it hang until timeout. (#75438)
@@ -336,7 +371,7 @@ export class IMessageRpcClient {
   }
 
   private async waitForReap(timeoutMs: number): Promise<boolean> {
-    if (this.isReaped) {
+    if (!this.reapedResolve) {
       return true;
     }
     return await raceWithTimeout(
@@ -403,9 +438,6 @@ export class IMessageRpcClient {
       if (!pending) {
         return;
       }
-      if (pending.timer) {
-        clearTimeout(pending.timer);
-      }
       this.pending.delete(key);
 
       if (parsed.error) {
@@ -424,8 +456,13 @@ export class IMessageRpcClient {
           }
         }
         const msg = suffixes.length > 0 ? `${baseMessage}: ${suffixes.join(" ")}` : baseMessage;
+        const guidance = describeIMessageAutomationFailure(details, this.remoteHost);
         pending.reject(
-          new IMessageRpcRequestError(msg, typeof code === "number" ? code : undefined, details),
+          new IMessageRpcRequestError(
+            guidance ? `${msg} ${guidance}` : msg,
+            typeof code === "number" ? code : undefined,
+            details,
+          ),
         );
         return;
       }
@@ -458,9 +495,6 @@ export class IMessageRpcClient {
 
   private failAll(err: Error) {
     for (const [key, pending] of this.pending.entries()) {
-      if (pending.timer) {
-        clearTimeout(pending.timer);
-      }
       pending.reject(err);
       this.pending.delete(key);
     }
@@ -478,10 +512,6 @@ export class IMessageRpcClient {
   }
 
   private markReaped(): void {
-    if (this.isReaped) {
-      return;
-    }
-    this.isReaped = true;
     const resolve = this.reapedResolve;
     this.reapedResolve = null;
     resolve?.();

@@ -1,0 +1,70 @@
+import { o as writeRuntimeJson, r as defaultRuntime, t as ExitError } from "./runtime-BazLsT0s.mjs";
+import { m as readSourceConfigBestEffort } from "./io.runtime-Ds5uC0Bf.mjs";
+import "./io-DIF-KW3P.mjs";
+import { r as formatCliJsonFailure } from "./failure-output-CpIKhMiV.mjs";
+import { t as retireSessionSqliteRecovery, u as inspectSessionSqliteRecovery } from "./doctor-session-sqlite-retirement-CVi7Impb.mjs";
+import { t as updateMaintenanceError } from "./update-maintenance-error-B8Lk7PLn.mjs";
+import { confirm } from "@clack/prompts";
+//#region src/cli/update-cli/cleanup.ts
+/** Local recovery retirement. This handler never invokes update or Doctor repair. */
+function renderCleanup(report) {
+	defaultRuntime.log(`Recovery cleanup: ${report.stateDir}`);
+	for (const item of report.artifacts) defaultRuntime.log(`  ${item.outcome}: ${item.path} (${item.bytes} bytes; ${item.reason})${item.detail ? ` ${item.detail}` : ""}`);
+	defaultRuntime.log(`Candidates: ${report.totals.candidateBytes} bytes; verification required: ${report.totals.verificationRequiredBytes}; protected: ${report.totals.protectedBytes}; blocked: ${report.totals.blockedBytes}.`);
+	const captures = report.artifacts.filter((item) => item.kind === "update-capture");
+	if (captures.length > 0) {
+		const sum = (outcome) => captures.filter((item) => outcome === void 0 || item.outcome === outcome).reduce((bytes, item) => bytes + item.bytes, 0);
+		defaultRuntime.log(`Update captures: ${captures.length} (${sum()} bytes); candidates: ${sum("candidate")} bytes; protected: ${sum("protected")} bytes.`);
+	}
+	defaultRuntime.log("Retiring originals permanently loses rollback, including pre-repair branches and metadata. Logical bytes are not a promise of physical space reclaimed.");
+	if (report.artifacts.length === 0) defaultRuntime.log("No recorded recovery artifacts found.");
+	if (report.status === "complete") defaultRuntime.log(`Removed ${report.totals.removedFiles} files (${report.totals.removedBytes} logical bytes).`);
+}
+async function updateCleanupCommand(options) {
+	let report;
+	try {
+		report = inspectSessionSqliteRecovery({
+			cfg: await readSourceConfigBestEffort(),
+			env: process.env
+		});
+		if (!options.dryRun) {
+			if (report.artifacts.length === 0 && !options.yes) report.status = "complete";
+			else if (!options.yes && (options.json || !process.stdin.isTTY || !process.stderr.isTTY)) report.status = "refused";
+			else report = await retireSessionSqliteRecovery({
+				env: process.env,
+				preview: report,
+				readConfig: readSourceConfigBestEffort,
+				confirm: async (verified) => {
+					if (options.yes || verified.artifacts.length === 0) return true;
+					renderCleanup(verified);
+					return await confirm({
+						message: "Permanently retire these rollback originals?",
+						initialValue: false,
+						output: process.stderr
+					}) === true;
+				}
+			});
+		}
+		if (options.json) writeRuntimeJson(defaultRuntime, {
+			...report,
+			dryRun: options.dryRun === true
+		});
+		else renderCleanup(report);
+		if (report.status === "refused") {
+			defaultRuntime.error("Nothing removed. Review with `openclaw update cleanup --dry-run`; use --yes to acknowledge permanent rollback loss.");
+			defaultRuntime.exit(1);
+		} else if (report.status === "blocked") defaultRuntime.exit(1);
+	} catch (error) {
+		if (error instanceof ExitError) throw error;
+		const message = String(updateMaintenanceError(error));
+		if (options.json) writeRuntimeJson(defaultRuntime, {
+			...report,
+			...formatCliJsonFailure(message),
+			status: "blocked"
+		});
+		else defaultRuntime.error(message);
+		defaultRuntime.exit(1);
+	}
+}
+//#endregion
+export { updateCleanupCommand };

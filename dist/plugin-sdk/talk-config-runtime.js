@@ -1,3 +1,3 @@
-import { a as resolveActiveTalkProviderConfig } from "../talk-tTHQncKV.mjs";
-import "../talk-config-runtime-8tcrXQyE.mjs";
+import { a as resolveActiveTalkProviderConfig } from "../talk-Brycd9Kq.mjs";
+import "../talk-config-runtime-D7ECT_GL.mjs";
 export { resolveActiveTalkProviderConfig };

@@ -35,6 +35,7 @@ struct ChatProTab: View {
     }
 
     @Environment(NodeAppModel.self) private var appModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(GatewayConnectionController.self) private var gatewayController
     @AppStorage("openclaw.webchat.showAssistantTrace")
     private var showsAssistantTrace = true
@@ -54,7 +55,6 @@ struct ChatProTab: View {
 
     var body: some View {
         self.content
-            .disabled(self.isGatewayTransitionPending)
             .task {
                 if self.speech == nil {
                     let gateway = self.appModel.operatorSession
@@ -75,8 +75,14 @@ struct ChatProTab: View {
                 .chatViewModelOwnerID)
     }
 
+    private var areSessionActionsDisabled: Bool {
+        self.viewModel == nil || !self.gatewayConnected || self.isAttachmentOwnerPinned ||
+            self.isGatewayTransitionPending
+    }
+
     private var content: some View {
         self.chatSurface
+            .disabled(self.isGatewayTransitionPending)
             .modifier(ChatScrollEdgeTreatment())
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -115,6 +121,7 @@ struct ChatProTab: View {
                     ChatNewSessionOptionsPopover(viewModel: viewModel) {
                         self.showsNewSessionOptions = false
                     }
+                    .disabled(self.isGatewayTransitionPending)
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
                 }
@@ -148,6 +155,8 @@ struct ChatProTab: View {
                 assistantName: self.agentDisplayName,
                 assistantAvatarText: self.agentBadge,
                 assistantAvatarTint: OpenClawBrand.accent,
+                // Narrow layouts drop the avatar column, as the web chat does at phone widths.
+                showsAssistantAvatars: self.horizontalSizeClass != .compact,
                 composerChrome: .clean,
                 isComposerEnabled: self.gatewayConnected || self.canQueueOffline,
                 isAttachmentInputEnabled: self.gatewayConnected || self.canQueueOffline,
@@ -171,6 +180,10 @@ struct ChatProTab: View {
                 })
                 // iMessage-style grey bubbles for agent replies in the clean chrome.
                 .environment(\.openClawAssistantBubblesInCleanChrome, true)
+                .environment(
+                    \.openClawEmbeddedBrowserUnavailableReason,
+                    self.appModel.activeGatewayConnectConfig?.ingressAuthorization == nil ? nil :
+                        "This widget needs browser access. Use native chat or open Gateway settings.")
                 .id(presentationID)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         } else {
@@ -443,7 +456,7 @@ struct ChatProTab: View {
                     self.chatActionButton(
                         title: "New chat in worktree",
                         systemImage: "arrow.triangle.branch",
-                        disabled: self.viewModel == nil || !self.gatewayConnected || self.isAttachmentOwnerPinned)
+                        disabled: self.areSessionActionsDisabled)
                     {
                         Task { await self.viewModel?.startNewSession(worktree: true) }
                     }
@@ -452,7 +465,7 @@ struct ChatProTab: View {
                 self.chatActionButton(
                     title: "New session options…",
                     systemImage: "slider.horizontal.3",
-                    disabled: self.viewModel == nil || !self.gatewayConnected || self.isAttachmentOwnerPinned)
+                    disabled: self.areSessionActionsDisabled)
                 {
                     self.pendingChatAction = .newSessionOptions
                 }
@@ -463,6 +476,7 @@ struct ChatProTab: View {
                     {
                         self.showsChatActions = false
                     }
+                    .disabled(self.isGatewayTransitionPending)
                 }
 
                 Button {
@@ -513,7 +527,7 @@ struct ChatProTab: View {
     }
 
     private func performPendingChatAction() {
-        guard let pendingChatAction = self.pendingChatAction else { return }
+        guard let pendingChatAction else { return }
         self.pendingChatAction = nil
         switch pendingChatAction {
         case .exportTranscript:
@@ -553,7 +567,7 @@ struct ChatProTab: View {
 
     private var gatewayDisplayState: GatewayDisplayState {
         Self.presentationGatewayState(
-            current: GatewayStatusBuilder.build(appModel: self.appModel),
+            current: GatewayStatusBuilder.buildChat(appModel: self.appModel),
             isAttachmentOwnerPinned: self.isAttachmentOwnerPinned,
             capturedOwnerID: self.appModel.chatPresentation.ownerID,
             currentOwnerID: self.appModel.chatViewModelOwnerID)

@@ -1,3 +1,4 @@
+import { truncateUtf16Safe } from "@openclaw/normalization-core/utf16-slice";
 import {
   ErrorCodes,
   errorShape,
@@ -36,8 +37,10 @@ import { inspectManagedPlugin, listManagedPlugins } from "../../plugins/manageme
 import { readManagedPluginSkill } from "../../plugins/management-skill-read.js";
 import { getPluginRegistryVersion } from "../../plugins/runtime-state.js";
 import { getPluginRegistryForContext } from "../../plugins/runtime/gateway-request-scope.js";
+import { buildPluginSdkDeprecationNotices } from "../../plugins/sdk-deprecation-notices.js";
 import { listPluginServiceHealthFailures } from "../../plugins/service-health.js";
 import { validatePluginSkillPath } from "../../skills/loading/plugin-skill-bundle.js";
+import { catalogHandlers } from "./catalog.js";
 import { pluginCredentialHandlers } from "./plugins.credentials.js";
 import type { GatewayRequestHandlers } from "./types.js";
 import { defineValidatedGatewayHandler } from "./validation.js";
@@ -51,7 +54,16 @@ function pluginReadError(error: unknown) {
   );
 }
 
+function pluginCatalogError(subject: "discovery is" | "categories are" | "details are") {
+  return (error: unknown) =>
+    errorShape(
+      ErrorCodes.UNAVAILABLE,
+      `Plugin ${subject} unavailable: ${formatErrorMessage(error)}. Retry to reconnect to ClawHub.`,
+    );
+}
+
 export const pluginsHandlers: GatewayRequestHandlers = {
+  ...catalogHandlers,
   ...pluginCredentialHandlers,
   "plugins.skills.read": defineValidatedGatewayHandler(
     "plugins.skills.read",
@@ -99,7 +111,10 @@ export const pluginsHandlers: GatewayRequestHandlers = {
     "plugins.list",
     validatePluginsListParams,
     async ({ respond, context }) => {
-      const catalog = await listManagedPlugins({ config: context.getRuntimeConfig() });
+      const catalog = await listManagedPlugins({
+        config: context.getRuntimeConfig(),
+        cachedCatalogOnly: true,
+      });
       const registry = getPluginRegistryForContext();
       // The first loaded record owns shadowed IDs; read runtime facts after catalog I/O.
       const records = new Map(registry?.plugins.toReversed().map((record) => [record.id, record]));
@@ -118,6 +133,7 @@ export const pluginsHandlers: GatewayRequestHandlers = {
             const failure = failures.get(plugin.id);
             const error = failure ? `${failure.serviceId}: ${failure.error}` : record?.error;
             return Object.assign({}, plugin, {
+              compatibilityNotices: buildPluginSdkDeprecationNotices(plugin.id),
               catalogId: plugin.clawhubPackage
                 ? encodePluginDiscoveryId(plugin.clawhubPackage)
                 : encodeLocalPluginDiscoveryId(plugin.id),
@@ -130,7 +146,7 @@ export const pluginsHandlers: GatewayRequestHandlers = {
                     : record?.status === "disabled"
                       ? "disabled"
                       : "unloaded",
-                ...(error ? { error: error.slice(0, 2000) } : {}),
+                ...(error ? { error: truncateUtf16Safe(error, 2000) } : {}),
               },
             });
           }),
@@ -322,11 +338,7 @@ export const pluginsHandlers: GatewayRequestHandlers = {
         );
       }
     },
-    (error) =>
-      errorShape(
-        ErrorCodes.UNAVAILABLE,
-        `Plugin discovery is unavailable: ${formatErrorMessage(error)}. Retry to reconnect to ClawHub.`,
-      ),
+    pluginCatalogError("discovery is"),
   ),
   "plugins.catalog.categories": defineValidatedGatewayHandler(
     "plugins.catalog.categories",
@@ -334,11 +346,7 @@ export const pluginsHandlers: GatewayRequestHandlers = {
     async ({ respond }) => {
       respond(true, { categories: await fetchClawHubPluginCategories() }, undefined);
     },
-    (error) =>
-      errorShape(
-        ErrorCodes.UNAVAILABLE,
-        `Plugin categories are unavailable: ${formatErrorMessage(error)}. Retry to reconnect to ClawHub.`,
-      ),
+    pluginCatalogError("categories are"),
   ),
   "plugins.catalog.get": defineValidatedGatewayHandler(
     "plugins.catalog.get",
@@ -417,10 +425,6 @@ export const pluginsHandlers: GatewayRequestHandlers = {
       }
       respond(true, result, undefined);
     },
-    (error) =>
-      errorShape(
-        ErrorCodes.UNAVAILABLE,
-        `Plugin details are unavailable: ${formatErrorMessage(error)}. Retry to reconnect to ClawHub.`,
-      ),
+    pluginCatalogError("details are"),
   ),
 };

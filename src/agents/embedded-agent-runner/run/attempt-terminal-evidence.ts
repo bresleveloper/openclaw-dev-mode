@@ -69,7 +69,6 @@ type TerminalAttemptState = Pick<
   | "yieldDetected"
   | "didSendDeterministicApprovalPrompt"
   | "heartbeatToolResponse"
-  | "lastToolError"
   | "toolMediaUrls"
   | "toolAudioAsVoice"
   | "toolTrustedLocalMedia"
@@ -91,9 +90,9 @@ type TerminalAttemptState = Pick<
     toolMetas?: readonly { asyncStarted?: boolean }[];
   };
 
+/** A failed tool is not delivery or durable progress for the turn. */
 export function hasAttemptTerminalState(attempt: TerminalAttemptState): boolean {
   return Boolean(
-    attempt.lastToolError ||
     attempt.clientToolCalls ||
     attempt.yieldDetected ||
     attempt.didSendDeterministicApprovalPrompt ||
@@ -117,27 +116,11 @@ export function hasAsyncActivity(toolMetas?: readonly { asyncStarted?: boolean }
 
 type AcceptedSessionSpawnContinuationAttempt = Pick<
   EmbeddedRunAttemptResult,
-  | "acceptedSessionSpawns"
+  | Exclude<keyof TerminalAttemptState, "hasToolMediaBlockReply">
   | "assistantTexts"
-  | "clientToolCalls"
-  | "didDeliverSourceReplyViaMessageTool"
-  | "didSendDeterministicApprovalPrompt"
-  | "didSendViaMessagingTool"
-  | "heartbeatToolResponse"
-  | "lastToolError"
-  | "messagingToolSentMediaUrls"
-  | "messagingToolSentTargets"
-  | "messagingToolSentTexts"
-  | "messagingToolSourceReplyPayloads"
-  | "successfulCronAdds"
   | "terminal"
-  | "toolAudioAsVoice"
-  | "toolMediaUrls"
-  | "toolTrustedLocalMedia"
-  | "toolMetas"
   | "sourceReplyDelivered"
   | "sourceReplyDeliveryState"
-  | "yieldDetected"
 >;
 
 type AcceptedSessionSpawnContinuationRun = Pick<

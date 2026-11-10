@@ -1,15 +1,12 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { k as SessionEntry } from "../reply-payload-DazZPys5.js";
-import "../defaults-D0SAbcb2.js";
-import { Fu as formatFastModeCurrentStatus, Iu as formatFastModeSourceSuffix, Lu as formatFastModeStatusValue, Pu as formatFastModeCommandOptions, Td as resolveCommandAuthorization, Vo as resolveFastModeState, hi as AgentRuntimePolicyScope, oo as resolveCommandAuthorizedFromAuthorizers, so as resolveControlCommandGate, wd as CommandAuthorization, ys as resolveStoredModelOverride } from "../agent-harness-runtime-DZjstJNb.js";
-import { n as CommandArgs, t as CommandArgValues } from "../commands-args.types-zglMcgeO.js";
-import { b as ChannelMessagingAdapter } from "../types.core-Bra2QBA5.js";
-import { i as CommandArgsParsing, o as NativeCommandSpec, r as CommandArgDefinition, t as ChatCommandDefinition } from "../commands-registry.types-jZJZUR9T.js";
-import { i as shouldComputeCommandAuthorized, t as hasControlCommand } from "../command-detection-CHU9Z4Wq.js";
-import { a as listNativeCommandSpecs, c as parseCommandArgs, d as serializeCommandArgs, f as maybeResolveTextAlias, i as formatCommandArgMenuTitle, l as resolveCommandArgChoices, m as listChatCommands, n as canResolveCommandArgMenu, o as listNativeCommandSpecsForConfig, p as normalizeCommandBody, r as findCommandByNativeName, t as buildCommandTextFromArgs, u as resolveCommandArgMenu } from "../commands-registry-BaDuTseL.js";
-import { n as ModelsProviderData } from "../commands-models-catalog-tFbmIe35.js";
-import { t as listSkillCommandsForAgents } from "../chat-commands-CV1BrTct.js";
-import { n as listProviderPluginCommandSpecs } from "../command-specs-DfHc1c3k.js";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { AE as CommandAuthorization, B as resolveStoredModelOverrideAsync, ME as resolveCommandAuthorizationAsync, WD as ChannelMessagingAdapter, Xg as resolveCommandAuthorizedFromAuthorizers, Zg as resolveControlCommandGate, Zt as AgentRuntimePolicyScope, ay as formatFastModeStatusValue, iy as formatFastModeSourceSuffix, jE as resolveCommandAuthorization, lv as resolveFastModeState, n as SessionEntry, ny as formatFastModeCommandOptions, ry as formatFastModeCurrentStatus, z as resolveStoredModelOverride } from "../config-contracts-CY87ANNp.js";
+import { c as CommandArgValues, i as CommandArgsParsing, l as CommandArgs, o as NativeCommandSpec, r as CommandArgDefinition, t as ChatCommandDefinition } from "../commands-registry.types-D2YR_-0H.js";
+import "../model-selection-DoE_lu2k.js";
+import { i as shouldComputeCommandAuthorized, t as hasControlCommand } from "../command-detection-DzcEpTU7.js";
+import { a as listNativeCommandSpecs, c as parseCommandArgs, d as resolveCommandArgMenuAsync, f as serializeCommandArgs, h as listChatCommands, i as formatCommandArgMenuTitle, l as resolveCommandArgChoices, m as normalizeCommandBody, n as canResolveCommandArgMenu, o as listNativeCommandSpecsForConfig, p as maybeResolveTextAlias, r as findCommandByNativeName, t as buildCommandTextFromArgs, u as resolveCommandArgMenu } from "../commands-registry-OBm_Jl9b.js";
+import { n as listProviderPluginCommandSpecs } from "../command-specs-19DIDUqH.js";
+import { n as ModelsProviderData } from "../commands-models-catalog-DJDeWgJv.js";
+import { r as prepareSkillCommandsForAgents, t as listSkillCommandsForAgents } from "../chat-commands-ytwC4Nof.js";
 //#region src/channels/native-command-session-targets.d.ts
 type ResolveNativeCommandSessionTargetsParams = {
   agentId: string;
@@ -37,4 +34,4 @@ export declare function resolveEffectiveAgentRuntime(params: {
   mode?: "execution" | "projection";
 } & AgentRuntimePolicyScope): string;
 //#endregion
-export { type ChatCommandDefinition, type CommandArgDefinition, type CommandArgValues, type CommandArgs, type CommandArgsParsing, type CommandAuthorization, type ModelsProviderData, type NativeCommandSpec, buildCommandTextFromArgs, canResolveCommandArgMenu, findCommandByNativeName, formatCommandArgMenuTitle, formatFastModeCommandOptions, formatFastModeCurrentStatus, formatFastModeSourceSuffix, formatFastModeStatusValue, hasControlCommand, listChatCommands, listNativeCommandSpecs, listNativeCommandSpecsForConfig, listProviderPluginCommandSpecs, listSkillCommandsForAgents, maybeResolveTextAlias, normalizeCommandBody, parseCommandArgs, resolveCommandArgChoices, resolveCommandArgMenu, resolveCommandAuthorization, resolveCommandAuthorizedFromAuthorizers, resolveControlCommandGate, resolveFastModeState, resolveStoredModelOverride, serializeCommandArgs, shouldComputeCommandAuthorized };
+export { type ChatCommandDefinition, type CommandArgDefinition, type CommandArgValues, type CommandArgs, type CommandArgsParsing, type CommandAuthorization, type ModelsProviderData, type NativeCommandSpec, buildCommandTextFromArgs, canResolveCommandArgMenu, findCommandByNativeName, formatCommandArgMenuTitle, formatFastModeCommandOptions, formatFastModeCurrentStatus, formatFastModeSourceSuffix, formatFastModeStatusValue, hasControlCommand, listChatCommands, listNativeCommandSpecs, listNativeCommandSpecsForConfig, listProviderPluginCommandSpecs, listSkillCommandsForAgents, maybeResolveTextAlias, normalizeCommandBody, parseCommandArgs, prepareSkillCommandsForAgents, resolveCommandArgChoices, resolveCommandArgMenu, resolveCommandArgMenuAsync, resolveCommandAuthorization, resolveCommandAuthorizationAsync, resolveCommandAuthorizedFromAuthorizers, resolveControlCommandGate, resolveFastModeState, resolveStoredModelOverride, resolveStoredModelOverrideAsync, serializeCommandArgs, shouldComputeCommandAuthorized };

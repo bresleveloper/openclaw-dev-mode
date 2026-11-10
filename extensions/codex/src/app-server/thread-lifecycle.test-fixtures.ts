@@ -22,13 +22,13 @@ import {
   registerCodexTestSessionIdentity,
   testCodexAppServerBindingStore,
 } from "./session-binding.test-helpers.js";
+import type { CodexAppServerClientOptions } from "./shared-client-options.js";
 import {
   getLeasedSharedCodexAppServerClient,
   releaseLeasedSharedCodexAppServerClient,
-  type CodexAppServerClientOptions,
 } from "./shared-client.js";
 import { createClientHarness, createCodexTestModel } from "./test-support.js";
-import { startOrResumeThread as startOrResumeThreadImpl } from "./thread-lifecycle.js";
+import { startOrResumeThread as startOrResumeThreadImpl } from "./thread-lifecycle-run.js";
 
 type NativeFixtureThread = {
   response: Record<string, unknown>;
@@ -37,11 +37,35 @@ type NativeFixtureThread = {
   subscribed: boolean;
 };
 
+export function createLifecycleRequest(
+  respond: (method: string, requestParams?: unknown) => Promise<unknown>,
+) {
+  return vi.fn((method: string, requestParams?: unknown) => {
+    if (method === "config/read") {
+      return Promise.resolve({ config: {}, origins: {}, layers: [] });
+    }
+    if (method === "configRequirements/read") {
+      return Promise.resolve({ requirements: null });
+    }
+    return respond(method, requestParams);
+  });
+}
+
+export function createFixedThreadRequest(threadId: string, methods: string[]) {
+  return createLifecycleRequest(async (method) => {
+    if (methods.includes(method)) {
+      return nativeThreadStartResult(threadId);
+    }
+    throw new Error(`unexpected method: ${method}`);
+  });
+}
+
 /** A synthetic native server, not a client mock: requests still cross the real wire and guards. */
 export function createCodexLifecycleHarness(options: {
   respond: (method: string, params?: unknown) => unknown;
-  persistedThreads?: string[];
+  persistedThreads?: Array<string | ReturnType<typeof nativeThreadStartResult>>;
   unsubscribe?: (threadId: string) => unknown;
+  unloadImmediatelyOnUnsubscribe?: boolean;
 }) {
   const threads = new Map<string, NativeFixtureThread>();
   const writtenRequests = createCodexRequestRecorder();
@@ -65,8 +89,8 @@ export function createCodexLifecycleHarness(options: {
     };
     threads.set(response.thread.id, entry);
   };
-  for (const threadId of options.persistedThreads ?? []) {
-    remember(nativeThreadStartResult(threadId), false, false);
+  for (const thread of options.persistedThreads ?? []) {
+    remember(typeof thread === "string" ? nativeThreadStartResult(thread) : thread, false, false);
   }
   const dispatch = async (request: RpcRequest) => {
     const params = isJsonObject(request.params) ? request.params : {};
@@ -82,7 +106,10 @@ export function createCodexLifecycleHarness(options: {
     }
     if (request.method === "thread/read") {
       if (!current) {
-        throw new Error(`Unknown synthetic native thread: ${threadId}`);
+        throw new CodexAppServerRpcError(
+          { code: -32_600, message: `thread not loaded: ${threadId}` },
+          request.method,
+        );
       }
       return {
         thread: {
@@ -110,6 +137,14 @@ export function createCodexLifecycleHarness(options: {
         (response.status === "unsubscribed" || response.status === "notSubscribed")
       ) {
         current.subscribed = false;
+        if (options.unloadImmediatelyOnUnsubscribe !== false) {
+          current.loaded = false;
+          harness.send({
+            method: "thread/status/changed",
+            params: { threadId, status: { type: "notLoaded" } },
+          });
+          harness.send({ method: "thread/closed", params: { threadId } });
+        }
       }
       return response;
     }
@@ -117,8 +152,7 @@ export function createCodexLifecycleHarness(options: {
       if (!current) {
         throw new Error(`Unseeded synthetic native resume: ${threadId}`);
       }
-      // Stock 0.151.0 retains an unsubscribed loaded cache entry. Full resume overrides
-      // trigger teardown only when no subscriber can still observe that session.
+      // External native servers may retain unsubscribed idle threads until resume.
       if (
         current.loaded &&
         !current.subscribed &&
@@ -396,14 +430,58 @@ export type CodexAttemptThreadInput = Omit<
   "bindingStore" | "params"
 > & { params: EmbeddedRunAttemptParams };
 
+const clientsWithEmptySkillCatalog = new WeakSet<CodexAppServerClient>();
+
+/** Keeps lifecycle-only tests independent from native skill catalog contents. */
+function stubEmptyCodexSkillCatalog(client: CodexAppServerClient): void {
+  if (clientsWithEmptySkillCatalog.has(client)) {
+    return;
+  }
+  const request = client.request.bind(client);
+  client.request = ((
+    method: string,
+    params?: unknown,
+    options?: Parameters<CodexAppServerClient["request"]>[2],
+  ) =>
+    method === "skills/list"
+      ? Promise.resolve({ data: [] })
+      : request(method, params, options)) as CodexAppServerClient["request"];
+  if (typeof client.addNotificationHandler !== "function") {
+    client.addNotificationHandler = () => () => undefined;
+  }
+  clientsWithEmptySkillCatalog.add(client);
+}
+
 /** Full-attempt fixtures register their transcript identity; cold session preparation has no transcript. */
-export function startOrResumeAttemptThread(params: CodexAttemptThreadInput) {
+function startOrResumeAttemptThread(params: CodexAttemptThreadInput) {
   registerCodexTestSessionIdentity(
     params.params.sessionFile,
     params.params.sessionId,
     params.params.sessionKey,
   );
   return startOrResumeThreadImpl({ ...params, bindingStore: testCodexAppServerBindingStore });
+}
+
+export function startOrResumeAttemptThreadWithoutSkills(params: CodexAttemptThreadInput) {
+  stubEmptyCodexSkillCatalog(params.client);
+  return startOrResumeAttemptThread(params);
+}
+
+export function startOrResumeThreadWithEmptySkillCatalog(
+  params: Parameters<typeof startOrResumeThreadImpl>[0],
+) {
+  stubEmptyCodexSkillCatalog(params.client);
+  return startOrResumeThreadImpl(params);
+}
+
+export function startOrResumeThreadWithoutSkills(
+  params: Omit<Parameters<typeof startOrResumeThreadImpl>[0], "bindingStore">,
+) {
+  return startOrResumeThreadWithEmptySkillCatalog({
+    signal: new AbortController().signal,
+    ...params,
+    bindingStore: testCodexAppServerBindingStore,
+  });
 }
 
 export function startOrResumeThread(

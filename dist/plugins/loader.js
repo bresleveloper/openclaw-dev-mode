@@ -1,4 +1,4 @@
-import { o as resolveCompatibleRuntimePluginRegistry } from "../active-runtime-registry-DTyEuOsJ.mjs";
-import { _ as clearPluginRegistryLoadCache, i as loadOpenClawPlugins, r as loadAndActivateRootPluginRegistry, t as acquirePluginRegistryForInspection, u as resolveRuntimePluginRegistry, v as isPluginRegistryLoadInFlight, y as resolvePluginRegistryLoadCacheKey } from "../loader-runtime-load-BQO3MsEg.mjs";
-import { n as loadPluginRegistryHandle, t as loadOpenClawPluginCliRegistry } from "../loader-D4eOiGg6.mjs";
-export { acquirePluginRegistryForInspection, clearPluginRegistryLoadCache, isPluginRegistryLoadInFlight, loadAndActivateRootPluginRegistry, loadOpenClawPluginCliRegistry, loadOpenClawPlugins, loadPluginRegistryHandle, resolveCompatibleRuntimePluginRegistry, resolvePluginRegistryLoadCacheKey, resolveRuntimePluginRegistry };
+import { o as resolveCompatibleRuntimePluginRegistry } from "../active-runtime-registry-BrXk-dcA.mjs";
+import { a as loadOpenClawPluginsAsync, b as isPluginRegistryLoadInFlight, d as resolveRuntimePluginRegistry, i as loadOpenClawPlugins, r as loadAndActivateRootPluginRegistry, t as acquirePluginRegistryForInspection, x as resolvePluginRegistryLoadCacheKey, y as clearPluginRegistryLoadCache } from "../loader-runtime-load-DzFljQbT.mjs";
+import { n as loadPluginRegistryHandle, t as loadOpenClawPluginCliRegistry } from "../loader-B8PRFJEU.mjs";
+export { acquirePluginRegistryForInspection, clearPluginRegistryLoadCache, isPluginRegistryLoadInFlight, loadAndActivateRootPluginRegistry, loadOpenClawPluginCliRegistry, loadOpenClawPlugins, loadOpenClawPluginsAsync, loadPluginRegistryHandle, resolveCompatibleRuntimePluginRegistry, resolvePluginRegistryLoadCacheKey, resolveRuntimePluginRegistry };

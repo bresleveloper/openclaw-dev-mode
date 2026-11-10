@@ -18,10 +18,7 @@ import type { ManagedServiceRootRedirect } from "./update-command-service-contex
 import type { UpdateCommandRecoveryState } from "./update-command-service.js";
 
 type CapturedWriteOptions = Required<
-  Pick<
-    UpdateRunWriteOptions,
-    "env" | "context" | "assertCurrent" | "assertAccepting" | "retainSettlement"
-  >
+  Pick<UpdateRunWriteOptions, "env" | "context" | "assertAccepting" | "retainSettlement">
 > &
   Pick<UpdateRunWriteOptions, "requireNoRecovery" | "busyTimeoutMs">;
 
@@ -38,7 +35,7 @@ export type UpdateCommandExecutionGuards = {
 export type MutableUpdateExecutionParams = {
   root: string;
   installKind: "git" | "package" | "unknown";
-  updateInstallKind: "git" | "package" | "unknown";
+  updateInstallKind: "git" | "package";
   switchToGit: boolean;
   timeoutMs: number | undefined;
   updateStepTimeoutMs: number;
@@ -59,6 +56,8 @@ export type MutableUpdateExecutionParams = {
   packageTargetSchemaVersions?: OpenClawSchemaVersions;
   packageUpdateNodeRunner?: string;
   packageActivationRuntime?: PackageActivationRuntime;
+  /** Original engine-admission authority and executable snapshot, not a fresh acceptance. */
+  assertPackageRuntimeCurrent?: () => Promise<void>;
   managedServiceNodeRunner?: string;
   managedServiceRootRedirect: ManagedServiceRootRedirect | null;
   managedServiceRoot?: string;

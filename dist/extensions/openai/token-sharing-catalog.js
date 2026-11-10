@@ -1,11 +1,11 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
 import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { t as DEFAULT_CONTEXT_TOKENS } from "../../defaults-Jag53zwP.mjs";
-import { s as isNonSecretApiKeyMarker } from "../../model-auth-markers-Cuz_bq6T.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../provider-auth-BGYKg9mW.mjs";
-import { f as getCachedLiveProviderModelRows, m as LiveModelCatalogHttpError } from "../../provider-catalog-live-runtime-Ngo-Palb.mjs";
-import "../../provider-model-metadata-fSBArSt7.mjs";
+import { t as DEFAULT_CONTEXT_TOKENS } from "../../defaults-Bg930vxE.mjs";
+import { s as isNonSecretApiKeyMarker } from "../../model-auth-markers-Clx9vUna.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../provider-auth-JCvgbsWg.mjs";
+import { f as getCachedLiveProviderModelRows, m as LiveModelCatalogHttpError } from "../../provider-catalog-live-runtime-BILEsjga.mjs";
+import "../../provider-model-metadata-DkObn07R.mjs";
 import { n as TOKEN_SHARING_AUTH_FLOW, s as TOKEN_SHARING_RESOURCE } from "../../token-sharing-CmBELw8t.mjs";
 //#region extensions/openai/token-sharing-catalog.ts
 /** SIWC model discovery uses the already-prepared inference profile, never Codex auth. */

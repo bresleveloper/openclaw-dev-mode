@@ -1,5 +1,4 @@
 import type { Command } from "commander";
-import { danger, defaultRuntime } from "openclaw/plugin-sdk/runtime-env";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import type { BrowserActRequest } from "../../browser/client-actions.types.js";
 import {
@@ -7,7 +6,7 @@ import {
   runBrowserCliCommand,
   type BrowserParentOpts,
 } from "../browser-cli-shared.js";
-import { runBrowserAction, readActionsPayload } from "./shared.js";
+import { runBrowserAction, readActionsPayload, parseBrowserInputArray } from "./shared.js";
 
 export function registerBrowserBatchCommands(
   browser: Command,
@@ -23,36 +22,20 @@ export function registerBrowserBatchCommands(
     .action(async (opts, cmd) => {
       const parent = parentOpts(cmd);
       if (opts.actions !== undefined && opts.actionsFile !== undefined) {
-        defaultRuntime.error(danger("Specify only one of --actions or --actions-file"));
-        defaultRuntime.exit(1);
-        return;
+        throw new Error("Specify only one of --actions or --actions-file");
       }
       if (!opts.actions && !opts.actionsFile) {
-        defaultRuntime.error(danger("Provide --actions, --actions-file, or --actions-file -"));
-        defaultRuntime.exit(1);
-        return;
+        throw new Error("Provide --actions, --actions-file, or --actions-file -");
       }
       await runBrowserCliCommand(async () => {
         const payload = await readActionsPayload({
           actions: opts.actions,
           actionsFile: opts.actionsFile,
         });
-        if (!payload.trim()) {
-          throw new Error("actions are required");
-        }
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(payload);
-        } catch (cause) {
-          throw new Error("actions must be valid JSON", { cause });
-        }
-        if (!Array.isArray(parsed)) {
-          throw new Error("actions must be a JSON array");
-        }
-        if (!parsed.length) {
+        const actions = parseBrowserInputArray(payload, "actions");
+        if (!actions.length) {
           throw new Error("actions must contain at least one entry");
         }
-        const actions = parsed;
         const targetId = normalizeOptionalString(opts.targetId);
         const request = {
           kind: "batch",

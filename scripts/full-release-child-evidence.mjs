@@ -4,7 +4,6 @@ import { appendFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from
 import { dirname } from "node:path";
 import process from "node:process";
 import {
-  composeReleaseAttemptJobs,
   composeReleaseChildAttemptEvidence,
   releaseChildSpec,
   releaseCompositeJobsSha256,
@@ -15,11 +14,9 @@ import {
   FULL_RELEASE_CHILD_EVIDENCE_JOB as PUBLISHER_JOB,
   serializeReleaseArtifact,
 } from "./lib/full-release-evidence.mjs";
-import { execGhRead } from "./lib/plain-gh.mjs";
+import { createReleaseEvidenceClient } from "./release-ci-summary.mjs";
 
 const MAX_INPUT_BYTES = 128 * 1024;
-const JOBS_PER_PAGE = 25;
-const MAX_JOBS = 2000;
 function required(name, pattern) {
   const value = process.env[name] ?? "";
   if (!pattern.test(value)) {
@@ -35,51 +32,7 @@ function readJson(path, maxBytes) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
-function github(repository, endpoint, paginate = false) {
-  const args = ["api", `repos/${repository}/${endpoint}`];
-  if (paginate) {
-    args.push("--paginate", "--slurp");
-  }
-  return JSON.parse(
-    execGhRead(args, {
-      encoding: "utf8",
-      timeout: 60_000,
-      maxBuffer: 4 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "pipe"],
-    }),
-  );
-}
-
-function readJobs(repository, runId, runAttempt) {
-  const pages = github(
-    repository,
-    `actions/runs/${runId}/attempts/${runAttempt}/jobs?per_page=${JOBS_PER_PAGE}`,
-    true,
-  );
-  if (!Array.isArray(pages) || pages.length === 0 || pages.length > MAX_JOBS / JOBS_PER_PAGE) {
-    throw new Error("Child evidence job inventory is incomplete");
-  }
-  const jobs = pages.flatMap((page) => {
-    if (
-      !Array.isArray(page.jobs) ||
-      page.jobs.length > JOBS_PER_PAGE ||
-      page.total_count !== pages[0].total_count
-    ) {
-      throw new Error("Child evidence job inventory is incomplete");
-    }
-    return page.jobs;
-  });
-  if (
-    jobs.length > MAX_JOBS ||
-    jobs.length !== pages[0].total_count ||
-    jobs.some((job) => String(job.run_id) !== runId || job.run_attempt !== runAttempt)
-  ) {
-    throw new Error("Child evidence job inventory is incomplete or belongs to another attempt");
-  }
-  return jobs;
-}
-
-function seal() {
+async function seal() {
   const repository = required("GITHUB_REPOSITORY", /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u);
   const runId = required("GITHUB_RUN_ID", /^[1-9][0-9]*$/u);
   const runAttempt = Number(required("GITHUB_RUN_ATTEMPT", /^[1-9][0-9]*$/u));
@@ -105,7 +58,8 @@ function seal() {
   if (!Number.isSafeInteger(runAttempt) || runAttempt > 32) {
     throw new Error("Child evidence attempt inventory exceeds its bound");
   }
-  const run = github(repository, `actions/runs/${runId}`);
+  const client = createReleaseEvidenceClient(repository);
+  const run = await client.getRun(runId);
   const expected = {
     key: role,
     repository,
@@ -117,23 +71,13 @@ function seal() {
     workflowSha,
   };
   validateReleaseChildRunProvenance(run, expected);
-  // GitHub can keep a partial rerun queued while its publisher is running.
-  // The exact-attempt publisher job below supplies the live execution proof.
   if (
     run.run_attempt !== runAttempt ||
     run.head_repository?.full_name !== repository ||
-    !["queued", "in_progress"].includes(run.status) ||
+    run.status !== "in_progress" ||
     run.conclusion !== null
   ) {
-    throw new Error(
-      `Child evidence publisher is not in the current active workflow attempt: ${JSON.stringify({
-        expectedAttempt: runAttempt,
-        observedAttempt: run.run_attempt,
-        headRepository: run.head_repository?.full_name,
-        status: run.status,
-        conclusion: run.conclusion,
-      })}`,
-    );
+    throw new Error("Child evidence publisher is not in the current active workflow attempt");
   }
   if (workflowSha !== targetSha) {
     throw new Error("Child evidence workflow SHA does not match the target SHA");
@@ -141,7 +85,10 @@ function seal() {
   const attempts = [];
   let publisher;
   for (let attempt = 1; attempt <= runAttempt; attempt += 1) {
-    const allJobs = readJobs(repository, runId, attempt);
+    const allJobs = await client.getRunAttemptJobs(runId, attempt, { requireComplete: true });
+    if (allJobs.some((job) => String(job.run_id) !== runId || job.run_attempt !== attempt)) {
+      throw new Error("Child evidence job inventory belongs to another attempt");
+    }
     const publishers = allJobs.filter((job) => job.name === PUBLISHER_JOB);
     if (attempt === runAttempt) {
       if (publishers.length !== 1 || publishers[0].status !== "in_progress") {
@@ -149,11 +96,7 @@ function seal() {
       }
       publisher = publishers[0];
     }
-    const normalized = composeReleaseAttemptJobs([{ runAttempt: attempt, jobs: allJobs }], {
-      plannedRunAttempt: attempt,
-      effectiveRunAttempt: attempt,
-    });
-    const jobs = normalized.jobs.filter((job) => job.name !== PUBLISHER_JOB);
+    const jobs = allJobs.filter((job) => job.name !== PUBLISHER_JOB);
     if (jobs.some((job) => job.status !== "completed")) {
       throw new Error("Child evidence cannot seal while predecessor jobs are active");
     }
@@ -204,7 +147,7 @@ function seal() {
 }
 
 try {
-  seal();
+  await seal();
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;

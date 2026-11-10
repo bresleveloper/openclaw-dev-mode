@@ -45,12 +45,16 @@ import { releaseRuntimePluginWork, retainRuntimePluginWork } from "./runtime-plu
 
 const log = createSubsystemLogger("agents/prepared-model-runtime");
 type Lifetime = ReturnType<typeof createLifetime>;
+type PreparedPluginGenerationResources = Pick<
+  PreparedModelRuntimePluginGeneration,
+  "pluginMetadataSnapshot" | "pluginRegistry" | "inboundPluginRegistry"
+>;
 // Source and compiled consumers can share the same generation and registry objects.
 // Share only cleanup ownership; model/auth snapshots keep their existing module identity.
 const { generations, active, retirements, publications } = resolveGlobalSingleton(
   Symbol.for("openclaw.preparedPluginLifetimes"),
   () => ({
-    generations: new WeakMap<PreparedModelRuntimePluginGeneration, Lifetime>(),
+    generations: new WeakMap<PreparedPluginGenerationResources, Lifetime>(),
     active: new Set<Lifetime>(),
     retirements: new Set<Promise<void>>(),
     publications: new WeakMap<object, { release: () => Promise<void> }>(),
@@ -167,7 +171,7 @@ export function registerPreparedPluginLifetime(): void {
 }
 
 export function ownPreparedPluginGeneration(
-  generation: PreparedModelRuntimePluginGeneration,
+  generation: PreparedPluginGenerationResources,
 ): Lifetime {
   const existing = generations.get(generation);
   if (existing) {
@@ -226,11 +230,6 @@ export function retainPreparedPluginGeneration(
   };
 }
 
-// Only configured publication grants fresh-admission authority. Parent-derived and run-owned
-// generations stay confined to their exact selections after a newer configured publication.
-export const configuredPreparedPluginGenerations =
-  new WeakSet<PreparedModelRuntimePluginGeneration>();
-
 /** Publishing replaces one reference, while admitted leases retain their exact generation. */
 export function publishPreparedPluginGeneration(
   owner: PreparedModelRuntimeOwner,
@@ -253,9 +252,6 @@ export function publishPreparedPluginGeneration(
     );
   }
   const release = ownPreparedPluginGeneration(generation).retain();
-  if (owner.provenance === "configured") {
-    configuredPreparedPluginGenerations.add(generation);
-  }
   const version = owner.generation;
   const gatewayLenders = new Set<PluginRegistry>();
   let signal: AbortSignal | undefined;
@@ -273,12 +269,10 @@ export function publishPreparedPluginGeneration(
           "Prepared model runtime plugin generation retired",
         );
         owner.pluginGeneration = undefined;
-        const retiredGatewayLoan = [...instances].some(
-          (instance) =>
-            !instance.acceptingCalls &&
-            instance.owner !== undefined &&
-            gatewayLenders.has(instance.owner.registry),
-        );
+        const retiredGatewayLoan = [...instances].some((instance) => {
+          const registry = instance.owner?.registry;
+          return !instance.acceptingCalls && registry !== undefined && gatewayLenders.has(registry);
+        });
         log.debug(
           `Prepared plugin publication retired: metadataCacheRetired=${cacheSignal.aborted}, provenance=${owner.provenance}, pending=${Boolean(owner.pending)}, gatewayLoan=${retiredGatewayLoan}`,
         );

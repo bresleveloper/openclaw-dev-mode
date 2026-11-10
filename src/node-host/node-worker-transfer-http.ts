@@ -42,18 +42,9 @@ function transferUrl(gatewayUrl: string, routePath: string): URL {
   return url;
 }
 
-function waitForTlsPin(request: ClientRequest, expectedRaw?: string): Promise<void> {
-  if (!expectedRaw?.trim()) {
-    return Promise.resolve();
-  }
-  const expected = normalizeTlsFingerprint(expectedRaw);
+function waitForTlsPin(request: ClientRequest, expected: string): Promise<void> {
   if (!expected) {
-    return Promise.reject(
-      new NodeWorkerTransferHttpError(
-        "invalid-tls-fingerprint",
-        "worker transfer gateway TLS fingerprint is invalid",
-      ),
-    );
+    return Promise.resolve();
   }
   return new Promise<void>((resolve, reject) => {
     let settled = false;
@@ -80,21 +71,10 @@ function waitForTlsPin(request: ClientRequest, expectedRaw?: string): Promise<vo
     bindSocket = (socket) => {
       tlsSocket = socket as TLSSocket;
       const validated = validatedTlsSocketPins.get(tlsSocket);
-      if (validated) {
-        finish(
-          validated === expected
-            ? undefined
-            : new NodeWorkerTransferHttpError(
-                "tls-fingerprint-mismatch",
-                "worker transfer gateway TLS fingerprint mismatch",
-              ),
-        );
-        return;
-      }
       verify = () => {
-        const actual = normalizeTlsFingerprint(
-          tlsSocket!.getPeerCertificate().fingerprint256 ?? "",
-        );
+        const actual =
+          validated ??
+          normalizeTlsFingerprint(tlsSocket!.getPeerCertificate().fingerprint256 ?? "");
         if (!actual || expected !== actual) {
           finish(
             new NodeWorkerTransferHttpError(
@@ -107,7 +87,7 @@ function waitForTlsPin(request: ClientRequest, expectedRaw?: string): Promise<vo
         validatedTlsSocketPins.set(tlsSocket!, actual);
         finish();
       };
-      const peerFingerprint = tlsSocket.getPeerCertificate().fingerprint256;
+      const peerFingerprint = validated || tlsSocket.getPeerCertificate().fingerprint256;
       if (request.reusedSocket || peerFingerprint) {
         verify();
       } else {
@@ -141,6 +121,13 @@ export async function withNodeWorkerTransferHttpRequest<T>(
       "Cloudflare Access credentials require HTTPS worker transfer",
     );
   }
+  const tlsFingerprint = normalizeTlsFingerprint(params.tlsFingerprint);
+  if (url.protocol === "https:" && params.tlsFingerprint?.trim() && !tlsFingerprint) {
+    throw new NodeWorkerTransferHttpError(
+      "invalid-tls-fingerprint",
+      "worker transfer gateway TLS fingerprint is invalid",
+    );
+  }
   const transport = url.protocol === "https:" ? https : http;
   const request = transport.request(url, {
     method: params.method,
@@ -150,7 +137,7 @@ export async function withNodeWorkerTransferHttpRequest<T>(
       ...(params.cloudflareAccess ? buildCloudflareAccessHeaders(params.cloudflareAccess) : {}),
     },
     signal: params.signal,
-    ...(url.protocol === "https:" && params.tlsFingerprint
+    ...(url.protocol === "https:" && tlsFingerprint
       ? { rejectUnauthorized: false, session: Buffer.alloc(0) }
       : {}),
   });
@@ -196,7 +183,7 @@ export async function withNodeWorkerTransferHttpRequest<T>(
   });
   const send = async () => {
     if (url.protocol === "https:") {
-      await waitForTlsPin(request, params.tlsFingerprint);
+      await waitForTlsPin(request, tlsFingerprint);
     }
     writerSignal.throwIfAborted();
     await params.writeBody?.(async (chunk) => {

@@ -1,11 +1,18 @@
 import type { ChildProcess } from "node:child_process";
 import { performance } from "node:perf_hooks";
 import { toErrorObject } from "../../infra/errors.js";
-import type { ServiceChildRelayRetirement } from "./service-child-protocol.js";
 import type { ProcessCleanupResult } from "./types.js";
 
-/** Transport loss asks a native owner to drain; killing it would abandon descendant custody. */
-export function stopServiceChildOwner(child: ChildProcess, retainDescendantCustody: boolean): void {
+/** Retain admitted transport for cancellation; transport loss asks the native owner to drain. */
+export function stopServiceChildOwner(
+  child: ChildProcess,
+  retainDescendantCustody: boolean,
+  cancelAdmitted?: () => void,
+): void {
+  if (cancelAdmitted) {
+    cancelAdmitted();
+    return;
+  }
   if (retainDescendantCustody) {
     if (child.connected) {
       child.disconnect();
@@ -28,7 +35,6 @@ export function createServiceChildRelayRetirement(params: {
   let sequence: number | undefined;
   let signaledAt: number | undefined;
   let signalError: Error | undefined;
-  let anchorExited = false;
   let relaySignaled = false;
   let exit: { code: number | null; signal: NodeJS.Signals | null; at: number } | undefined;
   const recordError = (error: unknown) => {
@@ -41,9 +47,8 @@ export function createServiceChildRelayRetirement(params: {
     if (!requested || exit || !params.canRetire()) {
       return;
     }
-    anchorExited ||= params.anchorGone();
     signaledAt ??= performance.now();
-    if (anchorExited) {
+    if (params.anchorGone()) {
       if (relaySignaled) {
         return;
       }
@@ -82,19 +87,12 @@ export function createServiceChildRelayRetirement(params: {
       reconcile();
     },
     reconcile,
-    receive: (message: ServiceChildRelayRetirement) => {
-      if (
-        sequence === undefined ||
-        message.generation !== params.generation ||
-        message.sequence !== sequence
-      ) {
-        return;
+    recordSignalError(error: Error): boolean {
+      if (signaledAt === undefined) {
+        return false;
       }
-      if (message.signalError) {
-        recordError(new Error(message.signalError));
-      }
-      anchorExited ||= message.anchorExited;
-      reconcile();
+      recordError(error);
+      return true;
     },
     observeExit: (code: number | null, signal: NodeJS.Signals | null) => {
       exit = { code, signal, at: performance.now() };
@@ -112,4 +110,52 @@ export function createServiceChildRelayRetirement(params: {
         : undefined;
     },
   };
+}
+
+/** Builds the hard-deadline failure; stability bundles keep messages, not cause payloads. */
+export function createServiceChildCleanupExpiryError(
+  pending: Record<string, boolean>,
+  owner: Record<string, unknown>,
+  diagnostics: ReturnType<ReturnType<typeof createServiceChildRelayRetirement>["diagnostics"]>,
+): Error {
+  const ownerError = new Error(
+    "service child cleanup owner: " +
+      JSON.stringify({
+        ...owner,
+        durationMs: diagnostics.durationMs,
+        escalationAfterMs: diagnostics.escalationAfterMs,
+      }),
+    { cause: diagnostics.signalError },
+  );
+  // Preserve live diagnostic consumers without expanding serialized Error payloads.
+  Object.defineProperties(ownerError, {
+    durationMs: { value: diagnostics.durationMs },
+    escalationAfterMs: { value: diagnostics.escalationAfterMs },
+    signalError: { value: diagnostics.signalError },
+  });
+  return new Error(
+    "service child cleanup did not complete before its hard deadline; pending: " +
+      JSON.stringify(pending),
+    { cause: ownerError },
+  );
+}
+
+/** Join startup cleanup without letting its failure replace the anchor's startup failure. */
+export async function joinStartupFailureCleanup(
+  startupError: unknown,
+  acknowledgement: Promise<void> | undefined,
+  cleanup: Promise<void>,
+): Promise<unknown> {
+  // A failed acknowledgement already loses identity, so the cleanup result reports it.
+  await acknowledgement?.catch(() => {});
+  const cleanupError = await cleanup.then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+  return cleanupError === undefined || cleanupError === startupError
+    ? startupError
+    : new AggregateError(
+        [startupError, cleanupError],
+        toErrorObject(startupError, "service child startup failed").message,
+      );
 }

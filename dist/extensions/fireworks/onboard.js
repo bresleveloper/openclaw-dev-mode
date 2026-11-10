@@ -1,4 +1,4 @@
-import { a as FIREWORKS_DEFAULT_MODEL_REF, i as FIREWORKS_DEFAULT_MODEL_ID, o as buildFireworksCatalogModels, s as buildFireworksProvider } from "./.setup/provider-catalog-qSLq0DTq.mjs";
+import { a as FIREWORKS_DEFAULT_MODEL_REF, i as FIREWORKS_DEFAULT_MODEL_ID, o as buildFireworksCatalogModels, s as buildFireworksProvider } from "./.setup/provider-catalog-D1IIkEc_.mjs";
 import { createDefaultModelsConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/fireworks/onboard.ts
 const { applyConfig: applyFireworksConfig } = createDefaultModelsConnectionPresetAppliers({

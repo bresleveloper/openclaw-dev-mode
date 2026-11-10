@@ -1,8 +1,4 @@
-import { html, nothing } from "lit";
-import { t } from "../../i18n/index.ts";
-import { registerDesktopEnglish } from "../../i18n/locales/en-desktop.ts";
-
-registerDesktopEnglish();
+import type { WorkerDesktopAppId } from "@openclaw/gateway-protocol";
 
 export type DesktopPanelState =
   | "picker"
@@ -12,27 +8,61 @@ export type DesktopPanelState =
   | "connected"
   | "disconnected";
 
-export function renderDesktopPanelRecovery(props: {
-  inventoryError: boolean;
-  reason: string | null;
-  onRetry: () => void;
-}) {
-  return html`
-    <div class="desktop-status">
-      ${
-        props.inventoryError
-          ? nothing
-          : html`<div>
-              ${
-                props.reason
-                  ? t("desktop.disconnected", { reason: props.reason })
-                  : t("desktop.disconnectedClean")
-              }
-            </div>`
-      }
-      <button class="desktop-button desktop-button--primary" type="button" @click=${props.onRetry}>
-        ${t(props.inventoryError ? "common.retry" : "desktop.reconnect")}
-      </button>
-    </div>
-  `;
+export type DesktopSourceSelection = "pending" | "resolved" | "explicit" | "picker";
+
+/** Reset the connection-owned fields together before the picker publishes again. */
+function desktopPickerReset() {
+  const desktopApps: WorkerDesktopAppId[] = [];
+  return {
+    state: "picker" as const,
+    environmentId: null,
+    source: null,
+    credentials: undefined,
+    credentialAuth: undefined,
+    desktopApps,
+    controlling: false,
+    sizingMode: "fit" as const,
+    canResize: false,
+    disconnectedReason: null,
+  };
+}
+
+type DesktopPanelSelectionHost = {
+  disconnect: () => void;
+  applyPickerState: (state: ReturnType<typeof desktopPickerReset>) => void;
+  clearHostSetup: () => void;
+  invalidate: () => void;
+  clearSessionSource: () => void;
+  closeDock: () => void;
+};
+
+/** Owns automatic/explicit selection and resets its coupled connection state atomically. */
+export class DesktopPanelSelectionController {
+  value: DesktopSourceSelection = "pending";
+
+  constructor(private readonly host: DesktopPanelSelectionHost) {}
+
+  get automatic(): boolean {
+    return this.value === "pending" || this.value === "resolved";
+  }
+
+  isAutomaticPicker(embedded: boolean, sessionKey: string | null): boolean {
+    return this.automatic && embedded && sessionKey !== null;
+  }
+
+  reset(value: DesktopSourceSelection = "picker"): void {
+    this.host.disconnect();
+    this.value = value;
+    this.host.applyPickerState(desktopPickerReset());
+    this.host.clearHostSetup();
+    this.host.invalidate();
+    this.host.clearSessionSource();
+  }
+
+  close(embedded: boolean): void {
+    this.reset();
+    if (!embedded) {
+      this.host.closeDock();
+    }
+  }
 }

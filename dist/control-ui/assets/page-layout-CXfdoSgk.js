@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Ss as t,Ts as n,ws as r,xs as i}from"./control-ui-core-BATTP0p-.js";import{$o as a,Ho as o,So as s,Zo as c,fs as l}from"./ui-CFzBFVbW.js";function u(e){let t=l(()=>e.host),r=a(i),s=r?.owner??n(t);return o(i,{value:r??(s?{owner:s,host:t}:null),get children(){return e.children}})}function d(){return(d=e((()=>{s(),c(),r(),t()})))()}export{d as n,u as t};
+//# sourceMappingURL=page-layout-CXfdoSgk.js.map

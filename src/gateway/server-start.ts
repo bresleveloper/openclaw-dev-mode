@@ -3,7 +3,6 @@ import { LegacyPluginSdkResourceHost } from "../plugins/legacy-sdk-resource-host
 import { hasRetainedPluginRuntimeCloseError } from "../plugins/runtime-close-error.js";
 import { runOutsideAsyncWorkScope } from "../shared/async-work-scope.js";
 import { createDeferredCore } from "../shared/deferred.js";
-import { createLazyRuntimeModule } from "../shared/lazy-runtime.js";
 import { bumpSkillsSnapshotVersion } from "../skills/runtime/refresh-state.js";
 import { createGatewayKernel, gatewayKernelLogs } from "./server-kernel.js";
 import type { GatewayServer, GatewayServerOptions } from "./server-public.js";
@@ -11,10 +10,6 @@ import { createGatewayHttpTransport } from "./server-runtime-state.js";
 import { rethrowGatewayStartupError, runGatewayCloseSteps } from "./server-shutdown.js";
 import { finishGatewayStartup } from "./server-startup-finish.js";
 import { beginMacOSSystemCaWarmupOnce } from "./system-ca-warmup.js";
-
-const loadGatewayStartupPostAttachModule = createLazyRuntimeModule(
-  () => import("./server-startup-post-attach.js"),
-);
 
 const { log, logTailscale, logChannels, logHealth, logCron, logReload, logHooks, logWsControl } =
   gatewayKernelLogs;
@@ -44,6 +39,7 @@ async function startGatewayServerWithSdkHost(
   const { promise: postReadyWorkBarrier, resolve: releasePostReadyWork } = createDeferredCore();
   const gatewayKernel = await createGatewayKernel(port, opts, {
     deferEarlyRuntime: true,
+    deferRequestRuntime: true,
     sdkResourceHost,
   });
   // A Gateway restart must refresh restored skill catalogs, even in the same process.
@@ -56,17 +52,14 @@ async function startGatewayServerWithSdkHost(
   let startupSettled: Promise<void>;
   let tailscaleStopping: Promise<void> | undefined;
   let stopStartingTailscale: (() => void) | undefined;
-  const {
-    beginClosePrelude,
-    closeOnStartupFailure,
-    prepareClose,
-    terminalSessions,
-    shutdownRuntime,
-  } = gatewayKernel;
+  const { closeOnStartupFailure, prepareClose, terminalSessions, shutdownRuntime } = gatewayKernel;
   try {
     const transport = await createGatewayHttpTransport({
       ...gatewayKernel.createHttpTransportOptions(),
+      httpRequestLifetime: gatewayKernel.gatewayRequestContext,
+      waitForRequestRuntime: gatewayKernel.ensureRequestRuntimeReady,
       updateCanary: opts.updateCanary,
+      onListening: opts.gatewayStateOwner?.markListening,
       ...(!gatewayKernel.minimalTestGateway && gatewayKernel.tailscaleMode !== "off"
         ? {
             prepareManagedTailscaleIngress: async (backend) => {
@@ -108,7 +101,6 @@ async function startGatewayServerWithSdkHost(
       logChannels,
       logCron,
       logReload,
-      loadGatewayStartupPostAttachModule,
       waitForPostReadyWork: () => postReadyWorkBarrier,
     });
     startupSettled = startup.startupSettled;
@@ -148,13 +140,11 @@ async function startGatewayServerWithSdkHost(
       if (!closePromise) {
         closePromise = sdkResourceHost
           .run(async () => {
-            const prelude = beginClosePrelude(optsLocal);
+            const preparedClose = prepareClose(optsLocal);
             releasePostReadyWork();
-            await prelude;
-            const close = await prepareClose(optsLocal);
             await runGatewayCloseSteps({
               owner: gatewayKernel,
-              close,
+              close: await preparedClose,
               disposeTerminalSessions: () => terminalSessions.disposeAll(),
               runStopHooks: async () => {
                 await shutdownRuntime.runGlobalGatewayStopSafely({

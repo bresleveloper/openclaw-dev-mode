@@ -1,4 +1,4 @@
-import { html, nothing, type PropertyValues } from "lit";
+import { html, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { t } from "../../../i18n/index.ts";
 import { OpenClawLightDomContentsElement } from "../../../lit/openclaw-element.ts";
@@ -11,9 +11,9 @@ import {
 } from "./chat-comment-preview.ts";
 import {
   needsAttachmentSourceAdmission,
-  renderChatAttachmentAdmission,
   type AttachmentAdmission,
-} from "./chat-message-attachment-admission.ts";
+} from "./chat-message-attachment-admission-model.ts";
+import { renderChatAttachmentAdmission } from "./chat-message-attachment-admission.ts";
 import type {
   AssistantAttachmentItem,
   AttachmentItem,
@@ -51,7 +51,7 @@ export function renderSentCommentAttachments(
         ? { identity: item.attachment.url, pending: true, fallback: nothing }
         : resolve(item),
     )}
-    .scope=${JSON.stringify([options.sessionKey, options.agentId, options.connectionEpoch, options.resourceBasePath, options.authToken, options.policyKey])}
+    .scope=${JSON.stringify([options.sessionKey, options.agentId, options.messageId, options.connectionEpoch, options.resourceBasePath, options.authToken, options.policyKey])}
     .admission=${admission}
   ></openclaw-chat-sent-comments>`;
   return comments.some((item) => needsAttachmentSourceAdmission(item.attachment))
@@ -78,7 +78,7 @@ class ChatSentComments extends OpenClawLightDomContentsElement {
     super.disconnectedCallback();
   }
 
-  protected override willUpdate(_changed: PropertyValues<this>) {
+  protected override willUpdate() {
     const key = JSON.stringify([
       this.scope,
       this.sources.map(({ fallback: _fallback, ...source }) => source),
@@ -134,7 +134,6 @@ class ChatSentComments extends OpenClawLightDomContentsElement {
               this.revealed = true;
               this.admission?.onAdmit();
             },
-            true,
             undefined,
             this.admission?.observeElement,
           )

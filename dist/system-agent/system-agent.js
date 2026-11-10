@@ -1,57 +1,35 @@
-import { a as writeRuntimeJson, r as defaultRuntime } from "../runtime-DlO3PTAd.mjs";
-import { t as _usingCtx } from "../usingCtx-DwOBYOJf.mjs";
-import { a as isPersistentSystemAgentOperation, o as parseSystemAgentOperation } from "../operations-parse-BH-EPBYS.mjs";
-import { t as executeSystemAgentOperation } from "../operations-9NkJbThA.mjs";
-import { r as withProgress } from "../progress-UTM8yfZa.mjs";
-import { t as SystemAgentInferenceUnavailableError } from "../inference-error-D_m-vFb8.mjs";
-import { i as loadSystemAgentOverview, n as formatSystemAgentOverview } from "../overview-CX3ffJ1C.mjs";
-import { a as resolveSystemAgentVerifiedInferenceRoute, r as hasCurrentSystemAgentOwnerPluginArtifacts } from "../verified-inference-GNcjQces.mjs";
-import { n as resolveSystemAgentOperation } from "../dialogue-BfUse9fl.mjs";
+import { o as writeRuntimeJson, r as defaultRuntime } from "../runtime-BazLsT0s.mjs";
+import { t as _usingCtx } from "../usingCtx-BhiZp_rS.mjs";
+import { a as isPersistentSystemAgentOperation, o as parseSystemAgentOperation } from "../operations-parse-B9TfqALv.mjs";
+import { t as executeSystemAgentOperation } from "../operations-6fJefeqF.mjs";
+import { r as withProgress } from "../progress-BIOeyA3T.mjs";
+import { n as requireSystemAgentPersistentApplyInference, r as SystemAgentInferenceUnavailableError, t as requireSystemAgentInferenceRoute } from "../inference-guard-dpnxA1_N.mjs";
+import { i as loadSystemAgentOverview, n as formatSystemAgentOverview } from "../overview-DFEP0f2_.mjs";
+import { r as hasCurrentSystemAgentOwnerPluginArtifacts } from "../verified-inference-DGxbE23j.mjs";
+import { n as resolveSystemAgentOperation } from "../dialogue-BJ9em-ks.mjs";
 import { stdin, stdout } from "node:process";
 //#region src/system-agent/system-agent.ts
-function systemAgentCommandDepsFromOptions(opts) {
-	if (!opts.deps && !opts.formatOverview && !opts.loadOverview) return;
-	return {
-		...opts.deps,
-		...opts.formatOverview ? { formatOverview: opts.formatOverview } : {},
-		...opts.loadOverview ? { loadOverview: opts.loadOverview } : {}
-	};
-}
-async function requireVerifiedInference(opts) {
-	if (!opts.verifiedInference) throw new SystemAgentInferenceUnavailableError("conversation");
-	try {
-		if (await resolveSystemAgentVerifiedInferenceRoute(opts.verifiedInference, opts.deps)) return;
-	} catch (error) {
-		throw new SystemAgentInferenceUnavailableError("conversation", [error]);
-	}
-	throw new SystemAgentInferenceUnavailableError("conversation");
-}
-async function requirePersistentApplyInference(opts, runtime) {
-	if (!opts.verifiedInference) throw new SystemAgentInferenceUnavailableError("conversation");
-	try {
-		const { resolvePersistentApplyInference } = await import("./setup-inference.js");
-		if (await resolvePersistentApplyInference({
-			binding: opts.verifiedInference,
-			runtime,
-			deps: opts.deps
-		})) return;
-	} catch (error) {
-		if (error instanceof SystemAgentInferenceUnavailableError) throw error;
-		throw new SystemAgentInferenceUnavailableError("conversation", [error]);
-	}
-	throw new SystemAgentInferenceUnavailableError("conversation");
-}
 async function runOneShot(operation, runtime, opts) {
 	if (operation.kind === "none" && operation.message === "") return;
-	await requireVerifiedInference(opts);
+	await requireSystemAgentInferenceRoute(opts.verifiedInference, opts.deps, "conversation");
 	const approved = opts.yes === true || !isPersistentSystemAgentOperation(operation);
-	if (approved && isPersistentSystemAgentOperation(operation)) await requirePersistentApplyInference(opts, runtime);
+	if (approved && isPersistentSystemAgentOperation(operation)) await requireSystemAgentPersistentApplyInference({
+		binding: opts.verifiedInference,
+		runtime,
+		deps: opts.deps
+	}, (failures) => {
+		if (failures[0] instanceof SystemAgentInferenceUnavailableError) throw failures[0];
+		throw new SystemAgentInferenceUnavailableError("conversation", failures, "route-changed");
+	});
 	await executeSystemAgentOperation(operation, runtime, {
 		approved,
-		deps: systemAgentCommandDepsFromOptions(opts)
+		deps: opts.deps || opts.formatOverview || opts.loadOverview ? {
+			...opts.deps,
+			...opts.formatOverview ? { formatOverview: opts.formatOverview } : {},
+			...opts.loadOverview ? { loadOverview: opts.loadOverview } : {}
+		} : void 0
 	});
 }
-/** Run OpenClaw in JSON, one-shot message, or interactive TUI mode. */
 async function runSystemAgent(opts, runtime = defaultRuntime) {
 	try {
 		var _usingCtx$1 = _usingCtx();
@@ -64,11 +42,11 @@ async function runSystemAgent(opts, runtime = defaultRuntime) {
 		const run = () => runBoundSystemAgent(boundOpts, runtime);
 		const route = binding.execution;
 		if (route.runner !== "embedded" || route.agentHarnessRuntimeOverride === "openclaw") return await run();
-		const { resolveAgentWorkspaceDir } = await import("../agent-scope-BbGZA7Yc.mjs");
-		const { loadAgentRuntimePluginRegistryHandle } = await import("../runtime-plugins-BO4voomR.mjs");
-		const { withPluginLifecycleLease } = await import("../plugin-lifecycle-lease-D_2q8UjY.mjs");
-		const { createPluginCache, withPluginCache } = await import("../plugin-cache-C7OQTvG6.mjs");
-		const { withPluginRuntimeRegistryScope } = await import("../gateway-request-scope-BNep3pMv.mjs");
+		const { resolveAgentWorkspaceDir } = await import("../agent-scope-B7r8PTbp.mjs");
+		const { loadAgentRuntimePluginRegistryHandle } = await import("../runtime-plugins-DtiBvnib.mjs");
+		const { withPluginLifecycleLease } = await import("../plugin-lifecycle-lease-C4DiOvV_.mjs");
+		const { createPluginCache, withPluginCache } = await import("../plugin-cache-B1jqWOmJ.mjs");
+		const { withPluginRuntimeRegistryScope } = await import("../gateway-request-scope-4yDSzCvx.mjs");
 		const cache = _usingCtx$1.a(createPluginCache());
 		const readSnapshot = boundOpts.deps?.readConfigFileSnapshot ?? (await import("../config/config.js")).readConfigFileSnapshot;
 		await withPluginRuntimeRegistryScope(await withPluginLifecycleLease({}, async (lease) => {
@@ -76,7 +54,7 @@ async function runSystemAgent(opts, runtime = defaultRuntime) {
 			if (!await hasCurrentSystemAgentOwnerPluginArtifacts(binding, {
 				...boundOpts.deps,
 				readConfigFileSnapshot: async () => snapshot
-			})) throw new SystemAgentInferenceUnavailableError("conversation");
+			})) throw new SystemAgentInferenceUnavailableError("conversation", [], "route-changed");
 			const config = snapshot.runtimeConfig ?? snapshot.config;
 			const workspaceDir = resolveAgentWorkspaceDir(config, route.agentId);
 			lease.assertOwned();
@@ -99,7 +77,7 @@ async function runSystemAgent(opts, runtime = defaultRuntime) {
 	}
 }
 async function runBoundSystemAgent(boundOpts, runtime) {
-	await requireVerifiedInference(boundOpts);
+	await requireSystemAgentInferenceRoute(boundOpts.verifiedInference, boundOpts.deps, "conversation");
 	if (boundOpts.json) {
 		const overview = await (boundOpts.loadOverview ?? loadSystemAgentOverview)();
 		writeRuntimeJson(runtime, overview);
@@ -139,7 +117,7 @@ async function runBoundSystemAgent(boundOpts, runtime) {
 		runtime.exit(1);
 		return;
 	}
-	const runInteractiveTui = boundOpts.runInteractiveTui ?? (await import("../tui-backend-BlWUa7v_.mjs")).runSystemAgentTui;
+	const runInteractiveTui = boundOpts.runInteractiveTui ?? (await import("../tui-backend-Bq33vjiM.mjs")).runSystemAgentTui;
 	boundOpts.onReady?.();
 	await runInteractiveTui(boundOpts, runtime);
 }

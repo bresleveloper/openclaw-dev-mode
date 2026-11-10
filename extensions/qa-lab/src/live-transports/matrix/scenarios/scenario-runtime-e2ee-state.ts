@@ -89,7 +89,6 @@ export async function mutateMatrixQaCliStateLoss(params: {
   const accountRoot = await findMatrixQaCliAccountRoot(params);
   const matrixRuntime = await loadMatrixQaE2eeRuntime();
   const recoveryKeyStoreOptions = matrixRuntime.openMatrixRecoveryKeyStoreOptions(accountRoot);
-  let recoveryKeyPreserved = false;
   let recoveryKeyState: unknown = null;
   if (params.preserveRecoveryKey) {
     recoveryKeyState = withMatrixQaStateStore(recoveryKeyStoreOptions, (store) =>
@@ -98,7 +97,6 @@ export async function mutateMatrixQaCliStateLoss(params: {
     if (!recoveryKeyState) {
       throw new Error("Matrix CLI recovery key state was not created");
     }
-    recoveryKeyPreserved = true;
   }
   await rm(accountRoot, { force: true, recursive: true });
   if (recoveryKeyState) {
@@ -109,7 +107,7 @@ export async function mutateMatrixQaCliStateLoss(params: {
   }
   return {
     accountRoot,
-    recoveryKeyPreserved,
+    recoveryKeyPreserved: Boolean(recoveryKeyState),
   };
 }
 
@@ -120,7 +118,8 @@ export async function corruptMatrixQaCliIdbSnapshot(params: {
 }) {
   const accountRoot = await findMatrixQaCliAccountRoot(params);
   const matrixRuntime = await loadMatrixQaE2eeRuntime();
-  withMatrixQaStateStore(matrixRuntime.openMatrixIdbSnapshotStoreOptions(accountRoot), (store) =>
+  const snapshotStoreOptions = matrixRuntime.openMatrixIdbSnapshotStoreOptions(accountRoot);
+  withMatrixQaStateStore(snapshotStoreOptions, (store) =>
     store.register("current:meta", {
       kind: "meta",
       version: 1,
@@ -131,7 +130,16 @@ export async function corruptMatrixQaCliIdbSnapshot(params: {
       persistedAt: new Date().toISOString(),
     }),
   );
-  return "matrix/idb-snapshot/current:meta";
+  return {
+    path: "matrix/idb-snapshot/current:meta",
+    readGeneration: () =>
+      withMatrixQaStateStore(snapshotStoreOptions, (store) => {
+        const meta = store.lookup("current:meta");
+        return meta && typeof meta === "object" && "generation" in meta
+          ? meta.generation
+          : undefined;
+      }),
+  };
 }
 
 export async function deleteMatrixQaServerRoomKeyBackup(params: {

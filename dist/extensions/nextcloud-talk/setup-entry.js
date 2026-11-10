@@ -4,11 +4,11 @@ import { fileURLToPath } from "node:url";
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/api-D0k6lqjU.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/api-BF9Pu6Yv.mjs", import.meta.url).href),
 		exportName: "nextcloudTalkPlugin"
 	},
 	secrets: {
-		specifier: fileURLToPath(new URL(".setup/secret-contract-api-DtjjYcg2.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/secret-contract-api-Crkkicb7.mjs", import.meta.url).href),
 		exportName: "channelSecrets"
 	}
 });

@@ -1,0 +1,206 @@
+import { c as isRecord } from "./record-coerce-TIsquoVR.mjs";
+import { t as findNormalizedProviderKey } from "./provider-id-D1VImdKk.mjs";
+import { n as normalizeAgentId, r as normalizeAgentIdStrict } from "./agent-id-D1-Q6vR4.mjs";
+import { a as parseProviderModelRef } from "./model-catalog-refs-D3xvQZh0.mjs";
+import "./session-key-CSDERtm3.mjs";
+import { i as materializeModelPolicyAllowlist } from "./model-policy-allowlist-migration-BErDvsnV.mjs";
+import { S as toAgentEntriesRecord } from "./agent-scope-config-fjA2T9Gz.mjs";
+import { t as mergeAgentModelEntryForConfig } from "./model-input-CeM8o97s.mjs";
+import { n as materializeUtilityModelSeparation } from "./utility-model-separation-migration-CmYYNsY8.mjs";
+import { r as resolveModelRuntimePolicy } from "./model-runtime-policy-DSkspt0X.mjs";
+//#region src/system-agent/setup-model-selection.ts
+async function createSystemAgentModelSelectionUpdater(params) {
+	const [agentScope, modelConfig, runtimePolicy] = await Promise.all([
+		import("./agent-scope-B7r8PTbp.mjs"),
+		import("./shared-mQIoSSd9.mjs"),
+		import("./model-runtime-policy-DAh2alRW.mjs")
+	]);
+	return (config, previousConfig = config) => {
+		const selection = { ...params };
+		let nextConfig = structuredClone(selection.modelTarget === "utility" ? materializeUtilityModelSeparation(config, previousConfig).config : config);
+		const normalizedTarget = selection.targetAgentId === void 0 ? null : normalizeAgentIdStrict(selection.targetAgentId);
+		if (normalizedTarget && !normalizedTarget.ok) throw new Error(`Could not resolve configured agent "${selection.targetAgentId}".`);
+		const targetAgentId = normalizedTarget?.value;
+		const agentId = agentScope.resolveAmbientOwnerAgentId(nextConfig, targetAgentId);
+		const roster = agentScope.listAgentEntries(nextConfig);
+		if (targetAgentId && !roster.some((entry) => normalizeAgentId(entry.id) === targetAgentId)) throw new Error(`Could not resolve configured agent "${targetAgentId}".`);
+		const writesAgent = Boolean(targetAgentId || (selection.modelTarget === "utility" ? nextConfig.agents?.ownership === "explicit" || agentScope.resolveAgentConfig(nextConfig, agentId)?.utilityModel !== void 0 : agentScope.resolveAgentExplicitModelPrimary(nextConfig, agentId)));
+		const target = modelConfig.resolveModelTarget({
+			raw: selection.model,
+			cfg: nextConfig
+		});
+		const key = modelConfig.upsertCanonicalModelConfigEntry({}, target);
+		const configuredVisibleModels = nextConfig.agents?.defaults?.models;
+		if (configuredVisibleModels && Object.keys(configuredVisibleModels).length > 0) modelConfig.upsertCanonicalModelConfigEntry(configuredVisibleModels, target);
+		if (selection.runtimeInDefaults) {
+			const policySource = structuredClone(previousConfig);
+			const previousModels = policySource?.agents?.defaults?.models;
+			if (previousModels && Object.keys(previousModels).length > 0) modelConfig.upsertCanonicalModelConfigEntry(previousModels, target);
+			nextConfig = materializeModelPolicyAllowlist(nextConfig, policySource).config;
+		}
+		nextConfig.agents ??= {};
+		nextConfig.agents.defaults ??= {};
+		const agentDefaults = nextConfig.agents.defaults;
+		const agentEntries = toAgentEntriesRecord(roster);
+		if (writesAgent || selection.agentRuntimeId && !selection.runtimeInDefaults) nextConfig.agents = {
+			...nextConfig.agents,
+			entries: agentEntries
+		};
+		const agentEntryKey = roster.find((entry) => normalizeAgentId(entry.id) === agentId)?.id ?? agentId;
+		const agent = agentEntries[agentEntryKey];
+		if (writesAgent) {
+			if (!agent) throw new Error(`Could not resolve configured default agent "${agentId}".`);
+			const agentModels = { ...agent.models };
+			agent.models = agentModels;
+			modelConfig.upsertCanonicalModelConfigEntry(agentModels, target);
+		}
+		if (selection.agentRuntimeId) {
+			const runtimeTarget = selection.runtimeInDefaults ? agentDefaults : agentEntries[agentEntryKey] ??= {};
+			const agentModels = { ...runtimeTarget.models };
+			const agentKey = modelConfig.upsertCanonicalModelConfigEntry(agentModels, target);
+			agentModels[agentKey] = {
+				...agentModels[agentKey],
+				agentRuntime: { id: selection.agentRuntimeId }
+			};
+			runtimeTarget.models = agentModels;
+		} else if (selection.modelTarget !== "utility") {
+			for (const owner of [agentDefaults, agent]) if (owner?.models && Object.keys(owner.models).length > 0) {
+				const models = { ...owner.models };
+				const modelKey = modelConfig.upsertCanonicalModelConfigEntry(models, target);
+				const entry = { ...models[modelKey] };
+				delete entry.agentRuntime;
+				models[modelKey] = entry;
+				owner.models = models;
+			}
+		}
+		const selectedModel = selection.authProfileId ? `${key}@${selection.authProfileId}` : key;
+		if (selection.modelTarget === "utility") {
+			if (writesAgent && agent) agent.utilityModel = selectedModel;
+			else agentDefaults.utilityModel = selectedModel;
+		} else agentScope.setAgentEffectiveModelPrimary(nextConfig, agentId, selectedModel, { forceAgent: Boolean(targetAgentId) });
+		if (selection.agentRuntimeId) {
+			if (runtimePolicy.resolveModelRuntimePolicy({
+				config: nextConfig,
+				provider: target.provider,
+				modelId: target.model,
+				agentId
+			}).policy?.id !== selection.agentRuntimeId) throw new Error(`Could not pin ${key} to the ${selection.agentRuntimeId} runtime.`);
+		}
+		return nextConfig;
+	};
+}
+async function applySystemAgentModelSelection(params) {
+	return (await createSystemAgentModelSelectionUpdater(params))(params.config, params.previousConfig);
+}
+function withCodexHomeScope(config, homeScope) {
+	const entry = config.plugins?.entries?.codex;
+	const pluginConfig = entry?.config ?? {};
+	return {
+		...config,
+		plugins: {
+			...config.plugins,
+			entries: {
+				...config.plugins?.entries,
+				codex: {
+					...entry,
+					config: {
+						...pluginConfig,
+						appServer: {
+							...isRecord(pluginConfig.appServer) ? pluginConfig.appServer : {},
+							homeScope
+						}
+					}
+				}
+			}
+		}
+	};
+}
+function prepareSetupModelRuntime(params) {
+	const agentRuntimeId = params.agentRuntimeId ?? resolveModelRuntimePolicy({
+		config: params.config,
+		modelId: params.modelRef,
+		agentId: params.agentId
+	}).policy?.id;
+	if (!params.agentRuntimeId) return {
+		config: params.config,
+		agentRuntimeId
+	};
+	const agents = params.config.agents;
+	const agent = agents?.entries?.[params.agentId];
+	return {
+		agentRuntimeId,
+		config: {
+			...params.config,
+			agents: {
+				...agents,
+				entries: {
+					...agents?.entries,
+					[params.agentId]: {
+						...agent,
+						models: {
+							...agent?.models,
+							[params.modelRef]: {
+								...agent?.models?.[params.modelRef],
+								agentRuntime: { id: params.agentRuntimeId }
+							}
+						}
+					}
+				}
+			}
+		}
+	};
+}
+function projectSetupInferenceConfig(params) {
+	const config = structuredClone(params.base);
+	if (params.profileId) {
+		const profile = params.prepared.auth?.profiles?.[params.profileId];
+		if (profile) config.auth = {
+			...config.auth,
+			profiles: {
+				...config.auth?.profiles,
+				[params.profileId]: structuredClone(profile)
+			}
+		};
+	}
+	const provider = parseProviderModelRef(params.modelRef)?.provider ?? "";
+	const providerKey = findNormalizedProviderKey(params.prepared.models?.providers, provider);
+	const providerConfig = providerKey ? params.prepared.models?.providers?.[providerKey] : void 0;
+	if (providerKey && providerConfig) {
+		const selectedProvider = structuredClone(providerConfig);
+		if (params.profileId) delete selectedProvider.apiKey;
+		if (selectedProvider.headers?.["api-key"] && params.credential?.type === "api_key" && params.credential.keyRef) selectedProvider.headers["api-key"] = params.credential.keyRef;
+		config.models = {
+			...config.models,
+			providers: {
+				...config.models?.providers,
+				[providerKey]: selectedProvider
+			}
+		};
+	}
+	for (const pluginId of /* @__PURE__ */ new Set([params.pluginId, params.agentRuntimeId])) {
+		const plugin = pluginId ? params.prepared.plugins?.entries?.[pluginId] : void 0;
+		if (pluginId && plugin) config.plugins = {
+			...config.plugins,
+			entries: {
+				...config.plugins?.entries,
+				[pluginId]: structuredClone(plugin)
+			}
+		};
+	}
+	const modelKey = params.sourceModelRef ?? params.modelRef;
+	const defaultModel = params.prepared.agents?.defaults?.models?.[modelKey];
+	if (defaultModel) {
+		const defaults = (config.agents ??= {}).defaults ??= {};
+		const models = defaults.models ??= {};
+		models[params.modelRef] = mergeAgentModelEntryForConfig(models[params.modelRef], structuredClone(defaultModel));
+	}
+	const agentModel = params.prepared.agents?.entries?.[params.agentId]?.models?.[modelKey];
+	if (agentModel) {
+		const entries = (config.agents ??= {}).entries ??= {};
+		const models = (entries[params.agentId] ??= {}).models ??= {};
+		models[params.modelRef] = mergeAgentModelEntryForConfig(models[params.modelRef], structuredClone(agentModel));
+	}
+	return config;
+}
+//#endregion
+export { withCodexHomeScope as a, projectSetupInferenceConfig as i, createSystemAgentModelSelectionUpdater as n, prepareSetupModelRuntime as r, applySystemAgentModelSelection as t };

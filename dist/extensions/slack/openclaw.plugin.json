@@ -2932,7 +2932,7 @@
         },
         "streaming.mode": {
           "label": "Slack Streaming Mode",
-          "help": "Canonical Slack preview mode: \"off\" | \"partial\" | \"block\" | \"progress\" (default). Default progress outside reply threads uses only a temporary typing reaction. Any explicit streaming.progress setting opts top-level turns into a preview, except nativeTaskCards: true, which only affects threads."
+          "help": "Slack preview mode: \"off\" | \"partial\" | \"block\" | \"progress\" (default). Default progress outside reply threads uses only a temporary typing reaction. Any explicit streaming.progress setting opts top-level turns into a preview, except nativeTaskCards: true, which only affects threads."
         },
         "streaming.chunkMode": {
           "label": "Slack Chunk Mode",
@@ -3113,8 +3113,5 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {}
-  },
-  "controlUi": {
-    "entry": "dist/control-ui/2f4b1e827be6b68ced2ea0d8b7da8529a4eafbe72be27ee37e1064bdd530ec10/index.js"
   }
 }

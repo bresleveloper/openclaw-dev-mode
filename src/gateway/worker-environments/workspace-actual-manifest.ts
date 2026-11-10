@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { constants } from "node:fs";
+import { constants, type BigIntStats } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { readFileWindowFully } from "@openclaw/fs-safe/advanced";
@@ -13,7 +13,11 @@ import {
 import { hasNodeErrorCode } from "../../infra/path-guards.js";
 import { createStagedInputPathMatcher } from "../../media/staged-inputs.js";
 import { runTasksWithConcurrency } from "../../utils/run-with-concurrency.js";
-import { activeWorkspaceHashContext, workspaceStatIdentity } from "./workspace-hash-memo.js";
+import {
+  activeWorkspaceHashContext,
+  workspaceCtimeIsReusable,
+  workspaceStatIdentity,
+} from "./workspace-hash-memo.js";
 import {
   MAX_WORKSPACE_INVENTORY_ENTRIES,
   MAX_WORKSPACE_INVENTORY_PATH_BYTES,
@@ -95,6 +99,7 @@ async function readWorkspaceFile(
   params: WorkspaceFileRead & { contents: boolean },
 ): Promise<WorkspaceFileSnapshot | WorkspaceFileContents> {
   const { expectedPath, maxBytes, root, signal } = params;
+  const startedAtMs = Date.now();
   signal?.throwIfAborted();
   const handle = await fs.open(
     expectedPath,
@@ -116,7 +121,8 @@ async function readWorkspaceFile(
       return { type: "unsupported" };
     }
     const identity = workspaceStatIdentity(owner, before);
-    let sha256 = params.contents ? undefined : hashMemo?.get(identity);
+    const reusable = workspaceCtimeIsReusable(before.ctimeNs, startedAtMs);
+    let sha256 = params.contents || !reusable ? undefined : hashMemo?.get(identity);
     let size = Number(before.size);
     if (sha256) {
       if (metrics) {
@@ -160,7 +166,9 @@ async function readWorkspaceFile(
     if (after.size !== BigInt(size) || workspaceStatIdentity(owner, after) !== identity) {
       throw new Error("Gateway workspace file changed while it was being read");
     }
-    hashMemo?.set(identity, sha256);
+    if (reusable) {
+      hashMemo?.set(identity, sha256);
+    }
     const snapshot = {
       type: "file" as const,
       mode: gitFileMode(Number(after.mode & 0o777n)),
@@ -182,6 +190,7 @@ export async function readActualWorkspaceManifestImpl(params: {
   includePaths?: ReadonlySet<string>;
   signal?: AbortSignal;
 }): Promise<{ manifest: WorkerWorkspaceManifest; manifestRef: string; rawManifest: string }> {
+  const startedAtMs = Date.now();
   params.signal?.throwIfAborted();
   let root: string;
   let isStagedInput: ReturnType<typeof createStagedInputPathMatcher>;
@@ -238,6 +247,7 @@ export async function readActualWorkspaceManifestImpl(params: {
     }
   };
   const filePaths: string[] = [];
+  const hashContext = activeWorkspaceHashContext();
   const runScans = async (
     start: number,
     end: number,
@@ -287,6 +297,48 @@ export async function readActualWorkspaceManifestImpl(params: {
     }
     throw new Error("Gateway workspace manifest exceeds its eligible byte limit");
   };
+  const addLeaf = async (
+    relative: string,
+    absolute: string,
+    stats: BigIntStats,
+  ): Promise<boolean> => {
+    if (stats.isSymbolicLink()) {
+      const target = await fs.readlink(absolute);
+      if (!isPortableRootContainedSymlink(root, relative, target)) {
+        return false;
+      }
+      addEntry({ path: relative, type: "symlink", mode: 0o777, target }, Buffer.byteLength(target));
+    } else if (stats.isFile()) {
+      const sha256 = workspaceCtimeIsReusable(stats.ctimeNs, startedAtMs)
+        ? hashContext?.memo.get(workspaceStatIdentity(hashContext.owner, stats))
+        : undefined;
+      if (sha256) {
+        // Included paths can cross a replaced parent directory even when the
+        // leaf inode still matches a prior content hash.
+        if ((await fs.realpath(absolute)) !== absolute) {
+          throw new Error("Gateway workspace file changed while it was being read");
+        }
+        addEntry(
+          {
+            path: relative,
+            type: "file",
+            mode: gitFileMode(Number(stats.mode & 0o777n)),
+            size: Number(stats.size),
+            sha256,
+          },
+          Number(stats.size),
+        );
+        if (hashContext?.metrics) {
+          hashContext.metrics.memoHitCount += 1;
+        }
+      } else {
+        filePaths.push(relative);
+      }
+    } else {
+      return false;
+    }
+    return true;
+  };
   const addIncludedPath = async (
     relative: string,
     includedNodes: ReadonlySet<string>,
@@ -297,7 +349,7 @@ export async function readActualWorkspaceManifestImpl(params: {
     }
     checkTraversal(relative);
     const absolute = localPath(root, relative);
-    const stats = await fs.lstat(absolute).catch((error: unknown) => {
+    const stats = await fs.lstat(absolute, { bigint: true }).catch((error: unknown) => {
       if (hasNodeErrorCode(error, "ENOENT") || hasNodeErrorCode(error, "ENOTDIR")) {
         return undefined;
       }
@@ -331,22 +383,7 @@ export async function readActualWorkspaceManifestImpl(params: {
       }
       return "derived-only";
     }
-    if (stats.isSymbolicLink()) {
-      const target = await fs.readlink(absolute);
-      if (isPortableRootContainedSymlink(root, relative, target)) {
-        addEntry(
-          { path: relative, type: "symlink", mode: 0o777, target },
-          Buffer.byteLength(target),
-        );
-        return "included";
-      }
-      return "absent";
-    }
-    if (stats.isFile()) {
-      filePaths.push(relative);
-      return "included";
-    }
-    return "absent";
+    return (await addLeaf(relative, absolute, stats)) ? "included" : "absent";
   };
   const walk = async (
     relativeDirectory: string,
@@ -366,7 +403,7 @@ export async function readActualWorkspaceManifestImpl(params: {
         continue;
       }
       const absolute = localPath(root, relative);
-      const stats = await fs.lstat(absolute);
+      const stats = await fs.lstat(absolute, { bigint: true });
       if (stats.isDirectory() && !stats.isSymbolicLink()) {
         const child = await walk(relative);
         if (child.included || params.preserveDirectories?.has(relative)) {
@@ -375,32 +412,11 @@ export async function readActualWorkspaceManifestImpl(params: {
         } else {
           hasDerivedEntry ||= child.hasDerivedEntry;
         }
-      } else if (stats.isSymbolicLink()) {
-        hasNonDerivedEntry = true;
-        const target = await fs.readlink(absolute);
-        if (!isPortableRootContainedSymlink(root, relative, target)) {
-          // Like other unsupported local nodes, an escaping symlink is retained
-          // as a conflict but omitted from the canonical cloud manifest.
-          continue;
-        }
-        addEntry(
-          {
-            path: relative,
-            type: "symlink",
-            mode: 0o777,
-            target,
-          },
-          Buffer.byteLength(target),
-        );
-      } else if (stats.isFile()) {
-        hasNonDerivedEntry = true;
-        filePaths.push(relative);
       } else {
+        // Unsupported nodes and escaping links still make their directory nonempty;
+        // they stay local and become conflicts if a worker changes the same path.
         hasNonDerivedEntry = true;
-        // Special local nodes cannot be represented in a cloud manifest. They
-        // remain in place and are surfaced as conflicts when the worker changed
-        // the same path; omitting them lets that conflicted turn still finish.
-        continue;
+        await addLeaf(relative, absolute, stats);
       }
     }
     return {

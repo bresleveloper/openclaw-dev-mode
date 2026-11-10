@@ -1,4 +1,6 @@
-import { I as SubsystemLogger, X as OpenClawConfig, _ as ImageGenerationProvider, l as VideoGenerationProvider, m as MusicGenerationProvider, n as GenerateImageRuntimeResult, r as getProviderEnvVarsCore, t as GenerateImageParams } from "../../runtime-types-LI_BBveH.js";
+import { M as OpenClawConfig } from "../../types-D7I_F5Ux.js";
+import { t as SubsystemLogger } from "../../subsystem-RmDRaRJV.js";
+import { _ as ImageGenerationProvider, a as getProviderEnvVarsCore, l as VideoGenerationProvider, m as MusicGenerationProvider, n as GenerateImageRuntimeResult, t as GenerateImageParams } from "../../runtime-types-BaNsKfbh.js";
 //#region src/media-generation/registry.d.ts
 /** Registry for image-generation providers contributed by plugin capabilities. */
 declare const { listProviders: listImageGenerationProviders, getProvider: getImageGenerationProvider }: {

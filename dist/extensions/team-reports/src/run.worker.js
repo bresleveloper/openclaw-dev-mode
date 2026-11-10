@@ -1,9 +1,9 @@
-import { a as memberSummary, c as safeExternalUrl, i as countDescription, r as ITEM_LABELS, t as TeamReportsStore } from "../.setup/store-DqhGhUBl.mjs";
-import { a as truncateGraphemes, o as buildRoster, r as boundReportDocument } from "../.setup/aggregate-l0KMm8Hi.mjs";
+import { a as memberSummary, c as safeExternalUrl, i as countDescription, r as ITEM_LABELS, t as TeamReportsStore } from "../.setup/store-CDn4D32p.mjs";
+import { a as truncateGraphemes, o as buildRoster, r as boundReportDocument } from "../.setup/aggregate-KniOgsu_.mjs";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { serveWorkerTasks } from "openclaw/plugin-sdk/worker-task-server";
-import { MAX_TIMER_TIMEOUT_MS } from "openclaw/plugin-sdk/number-runtime";
+import { racePromiseWithAbortSignal } from "openclaw/plugin-sdk/time-runtime";
 import { sleepWithAbort } from "openclaw/plugin-sdk/runtime-env";
 import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
 import { parseRetryAfterHeaderSeconds } from "openclaw/plugin-sdk/retry-runtime";
@@ -24,7 +24,7 @@ function renderMarkdown(report, summary) {
 		`${report.totals.github.total} GitHub events · ${report.totals.discord.messages} Discord messages · ${report.activeMembers}/${report.memberCount} active members.`,
 		""
 	];
-	if (!summary || summary.source === "fallback") lines.push("> Deterministic summary: model summaries are disabled, pending, or unavailable.", "");
+	if (!summary || summary.source === "fallback") lines.push("> Summary without a model: model summaries are disabled, pending, or unavailable.", "");
 	if (summary) {
 		for (const warning of summary.warnings ?? []) lines.push(`> ${text(warning)}`, "");
 		lines.push(modelText(summary.globalSummary), "", "## Highlights", "", ...summary.highlights.map((highlight) => `- ${text(highlight)}`), "");
@@ -60,16 +60,13 @@ function checkAbort(signal, label) {
 	if (signal?.aborted) throw new DOMException(label, "AbortError");
 }
 async function wait(ms, signal, label) {
-	const deadline = Date.now() + ms;
-	do {
+	checkAbort(signal, label);
+	try {
+		await sleepWithAbort(ms, signal);
+	} catch (error) {
 		checkAbort(signal, label);
-		try {
-			await sleepWithAbort(Math.min(Math.max(1, deadline - Date.now()), MAX_TIMER_TIMEOUT_MS), signal);
-		} catch (error) {
-			checkAbort(signal, label);
-			throw error;
-		}
-	} while (Date.now() < deadline);
+		throw error;
+	}
 	checkAbort(signal, label);
 }
 function parseApiBase(raw, label) {
@@ -198,7 +195,7 @@ const archivesSchema = z.object({
 const epochMs = 1420070400000n;
 const parse$1 = createResponseParser(() => /* @__PURE__ */ new Error("Discord returned an unexpected response shape."));
 function createDiscordSource(runtime) {
-	return { async collect(config, window, _roster, emit) {
+	return { async collect(config, window, emit) {
 		const status = {
 			ok: true,
 			warnings: [],
@@ -884,9 +881,6 @@ function createGithubSource(runtime) {
 //#region extensions/team-reports/src/summaries.ts
 const MAX_RESPONSE_CHARS = 131072;
 const MAX_DIGEST_BYTES = 2097152;
-function summaryOutputBudget(report) {
-	return Math.min(32e3, 4e3 + 300 * report.members.length);
-}
 var SummaryResponseError = class extends Error {
 	constructor(message, truncated = false) {
 		super(message);
@@ -1040,15 +1034,25 @@ function parseResponse(raw, report) {
 		const issue = parsed.error.issues[0];
 		throw new SummaryResponseError(issue ? `${issue.path.join(".") || "response"}: ${issue.code}` : "Invalid response shape.");
 	}
-	const expected = new Set(report.members.map((member) => member.login));
-	const seen = /* @__PURE__ */ new Set();
+	const members = new Map(report.members.map((member) => [member.login, {
+		...member,
+		summary: void 0
+	}]));
 	for (const member of parsed.data.members) {
-		if (!expected.has(member.login)) throw new SummaryResponseError("Unexpected member login.");
-		if (seen.has(member.login)) throw new SummaryResponseError("Duplicate member login.");
-		seen.add(member.login);
+		const target = members.get(member.login);
+		if (!target) throw new SummaryResponseError("Unexpected member login.");
+		if (target.summary) throw new SummaryResponseError("Duplicate member login.");
+		target.summary = {
+			text: member.summary,
+			confidence: member.confidence,
+			source: "model"
+		};
 	}
-	if ([...expected].filter((login) => !seen.has(login)).length > 0) throw new SummaryResponseError("Missing member logins.");
-	return parsed.data;
+	if ([...members.values()].some((member) => !member.summary)) throw new SummaryResponseError("Missing member logins.");
+	return {
+		...parsed.data,
+		members: [...members.values()]
+	};
 }
 function fallbackResult(report, fingerprint, generatedAtMs, reason, logger) {
 	const warning = reason?.slice(0, 300);
@@ -1063,7 +1067,6 @@ function fallbackResult(report, fingerprint, generatedAtMs, reason, logger) {
 		["Roster", `${report.activeMembers} of ${report.memberCount} roster members have recorded activity.`]
 	];
 	return {
-		reused: false,
 		summary: {
 			source: "fallback",
 			...warning ? { warnings: [warning] } : {},
@@ -1101,8 +1104,7 @@ async function generateSummaries(params) {
 					summary: storedMembers.get(member.login)?.summary
 				}))
 			},
-			summary: previous.summary,
-			reused: true
+			summary: previous.summary
 		};
 	}
 	if (!options.enabled || Buffer.byteLength(digest, "utf8") > MAX_DIGEST_BYTES) return fallbackResult(report, fingerprint, generatedAtMs);
@@ -1113,7 +1115,7 @@ async function generateSummaries(params) {
 		role: "user",
 		content: digest
 	}];
-	const maxTokens = summaryOutputBudget(report);
+	const maxTokens = Math.min(32e3, 4e3 + 300 * report.members.length);
 	let failureReason = "Model summary unavailable: invalid JSON after repair";
 	for (let attempt = 0; attempt < 2; attempt += 1) {
 		signal?.throwIfAborted();
@@ -1135,9 +1137,7 @@ async function generateSummaries(params) {
 		signal?.throwIfAborted();
 		try {
 			const parsed = parseResponse(result.text, report);
-			const summaries = new Map(parsed.members.map((member) => [member.login, member]));
 			return {
-				reused: false,
 				summary: {
 					source: "model",
 					model: `${result.provider}/${result.model}`,
@@ -1148,18 +1148,7 @@ async function generateSummaries(params) {
 				},
 				report: {
 					...report,
-					members: report.members.map((member) => {
-						const summary = summaries.get(member.login);
-						if (!summary) throw new Error(`Missing validated member: ${member.login}`);
-						return {
-							...member,
-							summary: {
-								text: summary.summary,
-								confidence: summary.confidence,
-								source: "model"
-							}
-						};
-					})
+					members: parsed.members
 				}
 			};
 		} catch (error) {
@@ -1185,15 +1174,7 @@ function createReportSources(runtime, discordEnabled) {
 	};
 }
 function untilAborted(work, signal) {
-	return new Promise((resolve, reject) => {
-		const abort = () => {
-			const reason = signal.reason;
-			reject(reason instanceof Error ? reason : new Error(typeof reason === "string" ? reason : "Team Reports run aborted"));
-		};
-		signal.addEventListener("abort", abort, { once: true });
-		if (signal.aborted) abort();
-		work.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
-	});
+	return racePromiseWithAbortSignal(work, signal, ({ reason }) => reason instanceof Error ? reason : new Error(typeof reason === "string" ? reason : "Team Reports run aborted"));
 }
 async function generateReportPeriods(params) {
 	const { config, resolved, store, runtime } = params;
@@ -1233,7 +1214,7 @@ async function generateReportPeriods(params) {
 				});
 			}), runtime.signal);
 			runtime.signal.throwIfAborted();
-			const discord = resolved.discord && sources.discord ? await untilAborted(sources.discord.collect(resolved.discord, window, roster, async (entries) => {
+			const discord = resolved.discord && sources.discord ? await untilAborted(sources.discord.collect(resolved.discord, window, async (entries) => {
 				runtime.signal.throwIfAborted();
 				await store.appendActivity({
 					source: "discord",
@@ -1271,27 +1252,13 @@ async function generateReportPeriods(params) {
 			rejectedDays.push(period);
 			continue;
 		}
-		const fallback = await generateSummaries({
-			report,
-			options: { enabled: false },
-			llm: params.llm,
-			signal: runtime.signal
-		});
-		runtime.signal.throwIfAborted();
-		const boundedFallback = boundReportDocument(fallback.report);
-		await store.upsertPeriod({
-			report: boundedFallback,
-			summary: fallback.summary,
-			markdown: renderMarkdown(boundedFallback, fallback.summary)
-		});
-		runtime.signal.throwIfAborted();
-		if (config.summaries.enabled) {
+		for (const options of [{ enabled: false }, ...config.summaries.enabled ? [config.summaries] : []]) {
 			const summarized = await untilAborted(generateSummaries({
 				report,
-				options: config.summaries,
+				options,
 				llm: params.llm,
 				logger: runtime.logger,
-				previous: previous?.summary ? {
+				previous: options.enabled && previous?.summary ? {
 					report: previous.report,
 					summary: previous.summary
 				} : void 0,

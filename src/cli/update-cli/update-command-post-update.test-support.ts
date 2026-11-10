@@ -4,7 +4,6 @@ import path from "node:path";
 import { expect, it, vi, type Mock } from "vitest";
 import { GATEWAY_SERVICE_SELECTOR_ENV_KEYS } from "../../daemon/constants.js";
 import type { GatewayServiceCommandConfig } from "../../daemon/service.js";
-import { createRetainedPackageSwap } from "../../infra/package-update-swap.test-support.js";
 import * as updateCheck from "../../infra/update-check.js";
 import { UPDATE_RUN_ID_ENV } from "../../infra/update-control-plane-sentinel.js";
 import {
@@ -22,8 +21,13 @@ import { captureEnv } from "../../test-utils/env.js";
 import { VERSION } from "../../version.js";
 import type { PostCorePluginUpdateResult } from "./update-command-plugins.js";
 import { finishUpdate } from "./update-command-post-update.js";
+import * as rollbackModule from "./update-command-rollback.js";
 import * as sourceRuntime from "./update-command-runtime.js";
 import { verifyUpdatedGateway } from "./update-command-verification.js";
+import {
+  simulateVerifiedActivationFailure,
+  VERIFIED_ACTIVATION_FAILURE_OUTCOMES,
+} from "./update-command-verified-activation.test-support.js";
 
 vi.mock("./update-command-verification.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./update-command-verification.js")>()),
@@ -228,7 +232,7 @@ export function registerForegroundFinalizationTests({
   };
 }): void {
   it.each([
-    ...(["noop", "runtime", "plugins", "revoked", "park-failed"] as const).flatMap((outcome) =>
+    ...(["noop", "runtime", "plugins", "park-failed"] as const).flatMap((outcome) =>
       [false, true].map((candidateRuntime) => ({ outcome, candidateRuntime })),
     ),
     { outcome: "retirement" as const, candidateRuntime: true },
@@ -260,11 +264,7 @@ export function registerForegroundFinalizationTests({
       });
       vi.spyOn(sourceRuntime, "completeSourceUpdateRuntime").mockImplementation(
         async ({ beforePublication }) => {
-          const changed =
-            outcome === "runtime" || outcome === "revoked" || outcome === "park-failed";
-          if (outcome === "revoked") {
-            opts.run = { ...run };
-          }
+          const changed = outcome === "runtime" || outcome === "park-failed";
           if (changed) {
             await beforePublication?.();
             events.push("publish");
@@ -304,9 +304,9 @@ export function registerForegroundFinalizationTests({
         },
         { candidateRuntime },
       );
-      if (outcome === "revoked" || outcome === "park-failed") {
+      if (outcome === "park-failed") {
         await expect(finishing).rejects.toBeInstanceOf(Error);
-        expect(events).toEqual(outcome === "revoked" ? [] : ["park"]);
+        expect(events).toEqual(["park"]);
       } else {
         await finishing;
         if (outcome === "retirement") {
@@ -462,7 +462,7 @@ export function registerServiceInstallationConvergenceTests(
   makeHome: () => string,
   mocks: {
     revalidateService: Mock<
-      typeof import("./update-command-service.js").revalidateManagedGatewayServiceAfterUpdate
+      typeof import("./update-command-service-revalidation.js").revalidateManagedGatewayServiceAfterUpdate
     >;
     readServiceState: Mock;
     stopService: Mock<
@@ -580,70 +580,61 @@ export function registerServiceInstallationConvergenceTests(
   );
 }
 
-export function registerUnverifiedDefinitionRecoveryTest(options: {
-  fixture: () => FinishUpdateParams;
-  makeHome: () => string;
+export function registerVerifiedActivationFailureTests({
+  tempDirs,
+  mocks,
+}: {
+  tempDirs: { make(prefix: string): string };
   mocks: {
-    rollback: Mock<typeof import("./update-command-rollback.js").rollbackFailedUpdate>;
-    restart: Mock<typeof import("./update-command-service.js").maybeRestartService>;
-    repair: Mock;
+    restartService: Mock<typeof import("./update-command-service.js").maybeRestartService>;
+    printResult: Mock;
   };
 }) {
-  const { fixture, mocks, makeHome } = options;
-  it("retains the previous package when native definition recovery is unverified", async () => {
-    const params = fixture();
-    const { transaction, packageRoot } = await createRetainedPackageSwap(makeHome());
-    params.root = packageRoot;
-    params.result.root = packageRoot;
-    params.result.before = { version: "1.0.0" };
-    params.result.after = { version: "2.0.0" };
-    params.packageTransaction = transaction;
-    params.rollbackBlockedReason = undefined;
-    const complete = vi.spyOn(transaction, "complete");
-    const restorePackage = vi.spyOn(transaction, "rollback");
-    const actual = await vi.importActual<typeof import("./update-command-rollback.js")>(
-      "./update-command-rollback.js",
-    );
-    mocks.rollback.mockImplementation(actual.rollbackFailedUpdate);
-    mocks.restart.mockImplementationOnce(async ({ definitionRecovery, onVerificationFailure }) => {
-      if (!definitionRecovery) {
-        throw new Error("Finalization must retain native definition recovery state.");
+  it.each(VERIFIED_ACTIVATION_FAILURE_OUTCOMES)(
+    "classifies post-activation failures without granting authority (%s)",
+    async (outcome) => {
+      const env = { OPENCLAW_STATE_DIR: tempDirs.make("update-verified-target-") };
+      const run = createUpdateRun({ trigger: "cli" }, { env });
+      const rollback = vi.spyOn(rollbackModule, "rollbackFailedUpdate");
+      mocks.restartService.mockImplementationOnce(({ onVerified }) =>
+        simulateVerifiedActivationFailure(outcome, onVerified),
+      );
+      const finishing = finishSuccessfulPackageSwitch({
+        run: { runId: run.runId, env },
+        restartEnvironment: process.env,
+      });
+      if (outcome !== "restart-health" && outcome !== "reported-failure") {
+        await expect(finishing).rejects.toMatchObject({
+          result: {
+            status: "error",
+            ...(outcome === "data-at-risk"
+              ? {
+                  recovery: {
+                    serviceRestartSafe: false,
+                    reason: "runtime-verification-failed",
+                  },
+                }
+              : {}),
+          },
+        });
+        expect(getUpdateRun(run.runId, { env })?.status).toBe("failed");
+      } else {
+        await expect(finishing).resolves.toBeUndefined();
+        expect(rollback).not.toHaveBeenCalled();
+        expect(getUpdateRun(run.runId, { env })?.status).toBe("succeeded");
+        const result = mocks.printResult.mock.lastCall?.[0] as UpdateRunResult;
+        expect(result.status).toBe("ok");
+        expect(
+          result.steps.find((step) => step.name === "post-update maintenance")?.advisory,
+        ).toMatchObject({
+          kind: "recoverable-maintenance",
+          message: expect.stringContaining(
+            outcome === "restart-health"
+              ? "post-activation receipt unavailable"
+              : "restart-unhealthy",
+          ),
+        });
       }
-      definitionRecovery.unverified = true;
-      onVerificationFailure?.("service-definition-rollback-unverified");
-      return "failed";
-    });
-
-    await expect(finishUpdate(params)).rejects.toMatchObject({
-      exitCode: 1,
-      result: {
-        status: "error",
-        reason: "service-definition-rollback-unverified",
-        root: packageRoot,
-        rollbackOutcome: {
-          status: "not-attempted",
-          reason: "service-definition-rollback-unverified",
-        },
-      },
-    });
-
-    expect(mocks.rollback).toHaveBeenCalledOnce();
-    expect(mocks.repair).not.toHaveBeenCalled();
-    expect(restorePackage).not.toHaveBeenCalled();
-    expect(complete).toHaveBeenCalledExactlyOnceWith(
-      { activationVerified: false },
-      expect.any(Function),
-    );
-    await expect(
-      fs.readFile(path.join(transaction.backupRoot, "package.json"), "utf8"),
-    ).resolves.toContain('"version":"1.0.0"');
-    await expect(fs.readFile(path.join(packageRoot, "package.json"), "utf8")).resolves.toContain(
-      '"version":"2.0.0"',
-    );
-    expect(getUpdateRun(params.opts.run!.runId, { env: params.opts.run!.env })).toMatchObject({
-      status: "failed",
-      confirmedAtMs: null,
-      reason: "service-definition-rollback-unverified",
-    });
-  });
+    },
+  );
 }

@@ -4,9 +4,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { changelogFormat, isReleaseChangelogPath } from "./lib/release-changelog.mjs";
+import { isReleaseChangelogPath } from "./lib/release-changelog.mjs";
 
-const FORBIDDEN_INTERNAL_THANKS_HANDLES = new Set(["codex", "openclaw", "steipete"]);
+const FORBIDDEN_INTERNAL_THANKS_HANDLES = new Set(["codex", "openclaw", "tideclaw-bot"]);
 const CHANGELOG_THANKS_REQUIRE_HUMAN_CREDIT_HANDLES = new Set([
   "clawsweeper",
   "openclaw-clawsweeper",
@@ -14,15 +14,8 @@ const CHANGELOG_THANKS_REQUIRE_HUMAN_CREDIT_HANDLES = new Set([
 
 const THANKS_PATTERN = /\bThanks\b/iu;
 const THANKED_HANDLE_PATTERN = /@([-_/A-Za-z0-9]+(?:\[bot\])?)/giu;
-type ThanksOptions = { strictBotHandle?: boolean; docsMirror?: boolean };
-
-export function isForbiddenChangelogThanksHandle(handle: string, options: ThanksOptions = {}) {
+export function isForbiddenChangelogThanksHandle(handle: string) {
   const normalized = handle.toLowerCase();
-  // Approved docs mirrors retain every verified human, including the maintainer.
-  // Initial notes, frozen accounting, and PR-author queries keep their existing policy.
-  if (options.docsMirror && normalized === "steipete") {
-    return false;
-  }
   if (normalized === "" || normalized === "null") {
     // Empty/null input is not a GitHub handle, but the shell query path may pass it through.
     return true;
@@ -42,17 +35,20 @@ export function requiresExplicitHumanChangelogThanks(handle: string) {
   );
 }
 
-export function findForbiddenChangelogThanks(content: string, options: ThanksOptions = {}) {
+export function findForbiddenChangelogThanks(content: string) {
   return content
     .split(/\r?\n/u)
     .map((text, index) => {
-      if (!THANKS_PATTERN.test(text)) {
+      const thanksStart = text.search(THANKS_PATTERN);
+      if (thanksStart < 0) {
         return null;
       }
-      // A single changelog line may thank multiple handles; scan all of them.
-      for (const match of text.matchAll(THANKED_HANDLE_PATTERN)) {
+      // Author credit may precede a Thanks clause. Only classify handles that
+      // the line actually thanks.
+      const thanksText = text.slice(thanksStart);
+      for (const match of thanksText.matchAll(THANKED_HANDLE_PATTERN)) {
         const handle = match[1];
-        if (handle && isForbiddenChangelogThanksHandle(handle, options)) {
+        if (handle && isForbiddenChangelogThanksHandle(handle)) {
           return { line: index + 1, handle: handle.toLowerCase(), text };
         }
       }
@@ -61,13 +57,26 @@ export function findForbiddenChangelogThanks(content: string, options: ThanksOpt
     .filter((violation) => violation !== null);
 }
 
+export const CHANGELOG_ATTRIBUTION_NEXT_STEP =
+  "Use verified human GitHub credits, including maintainers, and exclude automation accounts.";
+
+// Shared by pnpm check (working tree) and the release dispatch gate (candidate SHA),
+// so initial notes, frozen records, and docs mirrors apply the same human-credit policy.
+export function findChangelogAttributionViolations(
+  files: Iterable<{ path: string; content: string }>,
+) {
+  const violations: Array<{ path: string; line: number; handle: string }> = [];
+  for (const file of files) {
+    for (const violation of findForbiddenChangelogThanks(file.content)) {
+      violations.push({ path: file.path, line: violation.line, handle: violation.handle });
+    }
+  }
+  return violations;
+}
+
 export async function main(argv = process.argv.slice(2)) {
   if (argv[0] === "--is-forbidden-handle") {
-    process.exitCode = isForbiddenChangelogThanksHandle(argv[1] ?? "", {
-      strictBotHandle: true,
-    })
-      ? 0
-      : 1;
+    process.exitCode = isForbiddenChangelogThanksHandle(argv[1] ?? "") ? 0 : 1;
     return;
   }
 
@@ -89,26 +98,18 @@ export async function main(argv = process.argv.slice(2)) {
       }
     }
   }
-  let failed = false;
-  for (const file of paths) {
-    const content = fs.readFileSync(file, "utf8");
-    const relativePath = path.relative(process.cwd(), file);
-    const docsMirror =
-      /^CHANGELOG\/[^/]+\.md$/u.test(relativePath) &&
-      isReleaseChangelogPath(relativePath) &&
-      changelogFormat(content) === "docs-mirror";
-    for (const violation of findForbiddenChangelogThanks(content, { docsMirror })) {
-      if (!failed) {
-        console.error("Forbidden changelog thanks attribution:");
-      }
-      failed = true;
-      console.error(`- ${relativePath}:${violation.line} uses Thanks @${violation.handle}`);
+  const violations = findChangelogAttributionViolations(
+    paths.map((file) => ({
+      path: path.relative(process.cwd(), file),
+      content: fs.readFileSync(file, "utf8"),
+    })),
+  );
+  if (violations.length > 0) {
+    console.error("Forbidden changelog thanks attribution:");
+    for (const violation of violations) {
+      console.error(`- ${violation.path}:${violation.line} uses Thanks @${violation.handle}`);
     }
-  }
-  if (failed) {
-    console.error(
-      "Use verified human GitHub credits; retain the initial-note policy in frozen records.",
-    );
+    console.error(CHANGELOG_ATTRIBUTION_NEXT_STEP);
     process.exitCode = 1;
   }
 }

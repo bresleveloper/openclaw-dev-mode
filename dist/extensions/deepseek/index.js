@@ -39,7 +39,7 @@ var deepseek_default = defineSingleProviderPluginEntry({
 		resolveThinkingProfile: ({ modelId }) => resolveDeepSeekV4ThinkingProfile(modelId),
 		isModernModelRef: ({ modelId }) => Boolean(resolveDeepSeekV4ThinkingProfile(modelId)),
 		resolveUsageAuth: async (ctx) => {
-			const apiKey = ctx.resolveApiKeyFromConfigAndStore({ envDirect: [ctx.env.DEEPSEEK_API_KEY] });
+			const apiKey = (await ctx.resolveApiKeyCandidatesFromConfigAndStore?.({ envDirect: [ctx.env.DEEPSEEK_API_KEY] }))?.[0];
 			return apiKey ? { token: apiKey } : null;
 		},
 		fetchUsageSnapshot: async (ctx) => await fetchDeepSeekUsage(ctx.token, ctx.timeoutMs, ctx.fetchFn)

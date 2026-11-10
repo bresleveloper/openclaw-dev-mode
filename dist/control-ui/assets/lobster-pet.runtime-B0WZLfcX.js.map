@@ -1,0 +1,1 @@
+{"version":3,"file":"lobster-pet.runtime-B0WZLfcX.js","names":["__esmMin","LobsterPet","init_lobster_pet","init_lobster_pet_runtime"],"sources":["../../../ui/src/components/lobster-pet.runtime.ts"],"sourcesContent":["export { LobsterPet } from \"./lobster-pet.tsx\";\n"],"mappings":""}

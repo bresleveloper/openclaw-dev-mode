@@ -5,11 +5,13 @@ import {
 } from "openclaw/plugin-sdk/claude-model-runtime";
 import type {
   CliBackendConfig,
-  CliBackendNormalizeConfigContext,
   CliBackendResolveExecutionArgsContext,
 } from "openclaw/plugin-sdk/cli-backend";
 import { resolveExecModePolicy } from "openclaw/plugin-sdk/exec-approvals-runtime";
-import { normalizeOptionalLowercaseString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import {
+  normalizeOptionalLowercaseString,
+  normalizeSortedUniqueTrimmedStringList,
+} from "openclaw/plugin-sdk/string-coerce-runtime";
 import { CLAUDE_CLI_BACKEND_ID, OPENCLAW_MCP_TOOL_PREFIX } from "./cli-constants.js";
 
 const CLAUDE_LEGACY_SKIP_PERMISSIONS_ARG = "--dangerously-skip-permissions";
@@ -125,11 +127,11 @@ export function supportsClaudeDynamicSystemPromptSections(
   return true;
 }
 
-function isOpenClawRequestedYolo(context?: CliBackendNormalizeConfigContext): boolean {
-  const agentExec = context?.agentId
+function isOpenClawRequestedYolo(context: CliBackendResolveExecutionArgsContext): boolean {
+  const agentExec = context.agentId
     ? resolveAgentConfig(context.config ?? {}, context.agentId)?.tools?.exec
     : undefined;
-  const exec = agentExec ?? context?.config?.tools?.exec;
+  const exec = agentExec ?? context.config?.tools?.exec;
   return (
     resolveExecModePolicy({
       mode: exec?.mode,
@@ -140,13 +142,8 @@ function isOpenClawRequestedYolo(context?: CliBackendNormalizeConfigContext): bo
 }
 
 /** Keep filesystem settings user-scoped and normalize native permission flags together. */
-function normalizeClaudeBackendArgs(
-  args?: string[],
-  permissionMode?: string,
-): string[] | undefined {
-  if (!args) {
-    return permissionMode ? [CLAUDE_PERMISSION_MODE_ARG, permissionMode] : args;
-  }
+function normalizeClaudeBackendArgs(context: CliBackendResolveExecutionArgsContext): string[] {
+  const args = context.baseArgs;
   const normalized: string[] = [];
   let hasPermissionMode = false;
   let hasSettingSources = false;
@@ -191,8 +188,13 @@ function normalizeClaudeBackendArgs(
   if (!hasSettingSources) {
     normalized.push(CLAUDE_SETTING_SOURCES_ARG, CLAUDE_SAFE_SETTING_SOURCES);
   }
-  if (permissionMode && !hasPermissionMode) {
-    normalized.push(CLAUDE_PERMISSION_MODE_ARG, permissionMode);
+  // Root cannot compact in bypass mode; explicit permission modes still take precedence.
+  if (
+    !hasPermissionMode &&
+    context.controlOperation !== "compact" &&
+    isOpenClawRequestedYolo(context)
+  ) {
+    normalized.push(CLAUDE_PERMISSION_MODE_ARG, "bypassPermissions");
   }
   return normalized;
 }
@@ -425,12 +427,10 @@ function resolveClaudeCliRestrictedExecutionArgs(
       availability.openClaw.map((toolName) => `${OPENCLAW_MCP_TOOL_PREFIX}${toolName}`).join(","),
     );
   }
-  const denials = [
-    ...new Set([
-      ...preservedDenials.map((entry) => entry.trim()).filter(Boolean),
-      ...(availability.openClaw.length === 0 ? [CLAUDE_DENY_MCP_TOOLS_VALUE] : []),
-    ]),
-  ].toSorted();
+  const denials = normalizeSortedUniqueTrimmedStringList([
+    ...preservedDenials,
+    ...(availability.openClaw.length === 0 ? [CLAUDE_DENY_MCP_TOOLS_VALUE] : []),
+  ]);
   if (denials.length > 0) {
     normalized.push(CLAUDE_DISALLOWED_TOOLS_ARG, denials.join(","));
   }
@@ -441,15 +441,16 @@ export function resolveClaudeCliExecutionArgs(
   context: CliBackendResolveExecutionArgsContext,
   options: { excludeDynamicSystemPromptSections?: boolean } = {},
 ): string[] {
+  const normalizedArgs = normalizeClaudeBackendArgs(context);
   const baseArgs = context.hostOwnedTools?.includes("exec")
     ? [
-        ...stripClaudeArgs(context.baseArgs, {
+        ...stripClaudeArgs(normalizedArgs, {
           variadicValue: new Set([CLAUDE_DISALLOWED_TOOLS_ARG, "--disallowed-tools"]),
         }),
         CLAUDE_DISALLOWED_TOOLS_ARG,
-        [...new Set([...readClaudeToolDenials(context.baseArgs), "Bash"])].join(","),
+        [...new Set([...readClaudeToolDenials(normalizedArgs), "Bash"])].join(","),
       ]
-    : context.baseArgs;
+    : normalizedArgs;
   const executionArgs =
     context.executionMode === "side-question"
       ? resolveClaudeCliSideQuestionExecutionArgs(baseArgs)
@@ -462,17 +463,11 @@ export function resolveClaudeCliExecutionArgs(
     : resolvedArgs;
 }
 
-export function normalizeClaudeBackendConfig(
-  config: CliBackendConfig,
-  context?: CliBackendNormalizeConfigContext,
-): CliBackendConfig {
+export function normalizeClaudeBackendConfig(config: CliBackendConfig): CliBackendConfig {
   const output = config.output ?? "jsonl";
   const input = config.input ?? "stdin";
-  const permissionMode = isOpenClawRequestedYolo(context) ? "bypassPermissions" : undefined;
   return {
     ...config,
-    args: normalizeClaudeBackendArgs(config.args, permissionMode),
-    resumeArgs: normalizeClaudeBackendArgs(config.resumeArgs, permissionMode),
     output,
     liveSession:
       config.liveSession ?? (output === "jsonl" && input === "stdin" ? "claude-stdio" : undefined),

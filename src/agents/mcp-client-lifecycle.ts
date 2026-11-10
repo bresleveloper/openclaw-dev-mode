@@ -2,6 +2,8 @@ import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import { racePromiseWithAbortSignal } from "../infra/abort-signal.js";
+import { logWarn } from "../logger.js";
 import { settlesWithin } from "../shared/settle-within.js";
 import { getSessionMcpRequestSignal } from "./agent-bundle-mcp-request-context.js";
 import { isMcpRequestTimeoutError } from "./mcp-error.js";
@@ -51,18 +53,8 @@ export async function connectMcpClient(params: {
 }): Promise<void> {
   const deadline = AbortSignal.timeout(params.timeoutMs);
   const signal = params.signal ? AbortSignal.any([params.signal, deadline]) : deadline;
-  let onAbort: (() => void) | undefined;
-  const aborted = new Promise<never>((_, reject) => {
-    onAbort = () =>
-      reject(signal.reason instanceof Error ? signal.reason : new Error("MCP startup aborted"));
-    if (signal.aborted) {
-      onAbort();
-    } else {
-      signal.addEventListener("abort", onAbort, { once: true });
-    }
-  });
   try {
-    await Promise.race([
+    await racePromiseWithAbortSignal(
       (async () => {
         const { client } = params;
         const close = client.close;
@@ -83,8 +75,9 @@ export async function connectMcpClient(params: {
           client.close = close;
         }
       })(),
-      aborted,
-    ]);
+      signal,
+      () => (signal.reason instanceof Error ? signal.reason : new Error("MCP startup aborted")),
+    );
   } catch (error) {
     if (deadline.aborted || isMcpRequestTimeoutError(error)) {
       await disposeMcpClient(
@@ -106,10 +99,6 @@ export async function connectMcpClient(params: {
       );
     }
     throw error;
-  } finally {
-    if (onAbort) {
-      signal.removeEventListener("abort", onAbort);
-    }
   }
 }
 
@@ -140,7 +129,14 @@ export async function disposeMcpClient(
   try {
     const graceful = (async () => {
       if (session.transportType === "streamable-http") {
-        await ignoreCloseFailure(() => session.transport.terminateSession?.());
+        // Remote DELETE is best effort; local close still owns replacement safety.
+        try {
+          await session.transport.terminateSession?.();
+        } catch {
+          logWarn(
+            "bundle-mcp: remote session termination was not confirmed; continuing local cleanup",
+          );
+        }
       }
       await ignoreCloseFailure(() => session.transport.close());
       await ignoreCloseFailure(() => session.client.close());
@@ -199,7 +195,7 @@ export function createMcpRequestLifecycle(humanInputTimeoutMs: number) {
         timeouts.add(timeoutError);
         abortController.abort(timeoutError);
       };
-      let deadline = Date.now() + timeoutMs;
+      let deadline = performance.now() + timeoutMs;
       let humanInputRemainingMs = humanInputTimeoutMs;
       let humanInputStartedAt = 0;
       let humanInputWaits = 0;
@@ -208,17 +204,20 @@ export function createMcpRequestLifecycle(humanInputTimeoutMs: number) {
       timeout.unref?.();
       const armTimeout = (expiresAt: number) => {
         clearTimeout(timeout);
-        timeout = setTimeout(onTimeout, Math.max(0, expiresAt - Date.now()));
+        timeout = setTimeout(onTimeout, Math.max(0, expiresAt - performance.now()));
         timeout.unref?.();
       };
       const holdForHumanInput = () => {
         if (humanInputWaits++ === 0) {
-          humanInputStartedAt = Date.now();
+          humanInputStartedAt = performance.now();
           armTimeout(deadline + humanInputRemainingMs);
         }
         return () => {
           if (--humanInputWaits === 0 && !finished && !abortController.signal.aborted) {
-            const elapsed = Math.min(Date.now() - humanInputStartedAt, humanInputRemainingMs);
+            const elapsed = Math.min(
+              performance.now() - humanInputStartedAt,
+              humanInputRemainingMs,
+            );
             humanInputRemainingMs -= elapsed;
             deadline += elapsed;
             armTimeout(deadline);

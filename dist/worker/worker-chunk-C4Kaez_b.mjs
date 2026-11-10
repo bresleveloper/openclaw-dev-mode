@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function createDoctorServiceInspectionBudget(e){let t=e===void 0?void 0:performance.now()+e-Date.now();return()=>{if(t===void 0)return;let e=Math.ceil(t-performance.now());if(e<=0)throw Error(`Doctor service-inspection deadline has expired.`);return e}}var t=e((()=>{}));export{t as n,createDoctorServiceInspectionBudget as t};

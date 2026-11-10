@@ -44,7 +44,7 @@ function parseSeedTtsFrames(text) {
 }
 async function volcengineTTS(params) {
 	if (!params.apiKey && (!params.appId || !params.token)) throw new Error("Volcengine TTS credentials missing. Set a BytePlus Seed Speech API key or legacy AppID/token.");
-	const { text, apiKey, appId, token, voice = apiKey ? DEFAULT_SEED_VOICE : DEFAULT_LEGACY_VOICE, cluster = DEFAULT_CLUSTER, resourceId = DEFAULT_SEED_TTS_RESOURCE_ID, appKey = DEFAULT_SEED_TTS_APP_KEY, baseUrl = apiKey ? BYTEPLUS_SEED_TTS_URL : VOLCENGINE_LEGACY_TTS_URL, speedRatio = 1, volumeRatio = 1, pitchRatio = 1, emotion, encoding = "ogg_opus", timeoutMs = 3e4 } = params;
+	const { text, apiKey, appId, token, voice = apiKey ? DEFAULT_SEED_VOICE : DEFAULT_LEGACY_VOICE, cluster = DEFAULT_CLUSTER, resourceId = DEFAULT_SEED_TTS_RESOURCE_ID, appKey = DEFAULT_SEED_TTS_APP_KEY, baseUrl = apiKey ? BYTEPLUS_SEED_TTS_URL : VOLCENGINE_LEGACY_TTS_URL, speedRatio = 1, emotion, encoding = "ogg_opus", timeoutMs = 3e4 } = params;
 	const { canonicalizeBase64 } = await import("openclaw/plugin-sdk/media-runtime");
 	const { readResponseWithLimit } = await import("openclaw/plugin-sdk/response-limit-runtime");
 	const { fetchWithSsrFGuard } = await import("openclaw/plugin-sdk/ssrf-runtime");
@@ -72,8 +72,8 @@ async function volcengineTTS(params) {
 			voice_type: voice,
 			encoding,
 			speed_ratio: speedRatio,
-			volume_ratio: volumeRatio,
-			pitch_ratio: pitchRatio,
+			volume_ratio: 1,
+			pitch_ratio: 1,
 			...emotion ? { emotion } : {}
 		},
 		request: {

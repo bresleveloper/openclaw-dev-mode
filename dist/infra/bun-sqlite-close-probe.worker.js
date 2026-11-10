@@ -14,7 +14,7 @@ function probe() {
 		const path = join(directory, `${mode}.sqlite`);
 		const db = new DatabaseSync(path);
 		retained.push(db);
-		if (db.prepare("PRAGMA journal_mode=WAL").get()?.journal_mode !== "wal") return "SQLite close probe cannot establish WAL mode";
+		if (db.prepare("PRAGMA journal_mode=WAL").get()?.journal_mode !== "wal") return "SQLite close check cannot establish WAL mode";
 		db.exec("PRAGMA wal_autocheckpoint=0; CREATE TABLE data(x); INSERT INTO data VALUES (1),(2),(3)");
 		const stepped = db.prepare("SELECT x FROM data");
 		stepped.get();
@@ -25,7 +25,7 @@ function probe() {
 		const pages = db.prepare("PRAGMA page_count").get()?.page_count;
 		const pageSize = db.prepare("PRAGMA page_size").get()?.page_size;
 		const sidecars = ["-wal", "-shm"].map((suffix) => path + suffix);
-		if (!sidecars.every(existsSync) || typeof pages !== "number" || typeof pageSize !== "number") return "SQLite close probe WAL preconditions are unavailable";
+		if (!sidecars.every(existsSync) || typeof pages !== "number" || typeof pageSize !== "number") return "SQLite close check WAL preconditions are unavailable";
 		if (mode === "close") db.close();
 		else db[Symbol.dispose]();
 		if (sidecars.some(existsSync) || statSync(path).size !== pages * pageSize) return `SQLite ${mode} retained native WAL resources`;
@@ -42,7 +42,7 @@ function probe() {
 try {
 	parentPort?.postMessage(probe(), []);
 } catch (error) {
-	parentPort?.postMessage(`SQLite close probe failed: ${String(error)}`, []);
+	parentPort?.postMessage(`SQLite close check failed: ${String(error)}`, []);
 }
 //#endregion
 export {};

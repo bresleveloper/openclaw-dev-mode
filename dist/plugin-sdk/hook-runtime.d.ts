@@ -1,16 +1,12 @@
-import "../types.openclaw-DWWUw8hA.js";
-import { ft as OriginatingChannelType, st as FinalizedMsgContext } from "../reply-payload-DazZPys5.js";
-import "../index-B4F-ENEv.js";
-import { Z as PluginHookInboundMessageMetadata, et as PluginHookMessageContext, it as MessageHookMediaFact, n as initializeGlobalHookRunner, nt as PluginHookMessageSentEvent, r as resetGlobalHookRunner, tt as PluginHookMessageReceivedEvent } from "../hook-runner-global-Jvv9WFUW.js";
-import { a as InternalHookEvent, o as InternalHookEventType, s as InternalHookHandler } from "../workspace-BKLUW5Z-.js";
+import "../types-D7I_F5Ux.js";
+import { AC as PluginHookInboundMessageMetadata, A_ as resetGlobalHookRunner, FC as PluginHookMessageSentEvent, LC as MessageHookMediaFact, NC as PluginHookMessageContext, PC as PluginHookMessageReceivedEvent, fg as InternalHookEvent, i as FinalizedMsgContext, k_ as initializeGlobalHookRunner, mg as InternalHookHandler, o as OriginatingChannelType, pg as InternalHookEventType } from "../config-contracts-CY87ANNp.js";
+import "../index-8f56f6LD.js";
 //#region src/hooks/fire-and-forget.d.ts
-/** Queue limits for bounded fire-and-forget hook execution. */
 type FireAndForgetBoundedHookOptions = {
   maxConcurrency?: number;
   maxQueue?: number;
   timeoutMs?: number;
 };
-/** Run a hook promise without awaiting it, logging rejection safely. */
 export declare function fireAndForgetHook(task: Promise<unknown>, label: string, logger?: (message: string) => void): void;
 /** Queue a fire-and-forget hook with bounded concurrency, queue depth, and timeout logs. */
 export declare function fireAndForgetBoundedHook(task: () => Promise<unknown>, label: string, logger?: (message: string) => void, options?: FireAndForgetBoundedHookOptions): void;
@@ -22,7 +18,6 @@ type MessageReceivedHookContext = {
   content: string;
   /** Unix timestamp when the message was received */
   timestamp?: number;
-  /** Channel identifier (for example "chat" or "support-chat") */
   channelId: string;
   /** Provider account ID for multi-account setups */
   accountId?: string;
@@ -41,11 +36,8 @@ type MessageReceivedHookContext = {
 type MessageSentHookContext = Pick<MessageReceivedHookContext, "content" | "channelId" | "accountId" | "conversationId" | "messageId"> & {
   to: string;
   success: boolean;
-  /** Error message if sending failed */
   error?: string;
-  /** Whether this message was sent in a group/channel context */
   isGroup?: boolean;
-  /** Group or channel identifier, if applicable */
   groupId?: string;
 };
 /** Register for a family (e.g. "command") or an exact action (e.g. "command:new"). */

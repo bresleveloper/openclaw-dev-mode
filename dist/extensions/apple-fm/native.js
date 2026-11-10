@@ -1,17 +1,17 @@
-import { i as extractErrorCode } from "../../error-coercion-CvJK4lmH.mjs";
-import { r as resolveStateDir } from "../../state-dir-BHJORNly.mjs";
+import { a as extractErrorCode } from "../../error-coercion-BwMr25F8.mjs";
+import { r as resolveStateDir } from "../../state-dir-C8s3cOPX.mjs";
 import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-DR7bHNl9.mjs";
 import { Fn as object, Jn as string, Lt as boolean, Nt as array, Pn as number, Un as record, sr as unknown } from "../../schemas-BOYIvvln.mjs";
-import { t as runCommandBuffered } from "../../exec-DJvyCA0D.mjs";
-import "../../error-runtime-BmospGvZ.mjs";
-import "../../process-runtime-CYiH_oPH.mjs";
-import { n as parseJsonPreservingUnsafeIntegers } from "../../json-unsafe-integers-BeeNmB5X.mjs";
-import "../../temp-path-C5ZA6ftW.mjs";
-import "../../state-paths-Dd9pLEOI.mjs";
-import path from "node:path";
+import { t as runCommandBuffered } from "../../exec-Bf6uhUA7.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import "../../process-runtime-CG9_3L3N.mjs";
+import { n as parseJsonPreservingUnsafeIntegers } from "../../json-unsafe-integers-DcKagBUk.mjs";
+import "../../temp-path-D_RJiwsA.mjs";
+import "../../state-paths-FoyMccMm.mjs";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
-import { createHash } from "node:crypto";
+import path from "node:path";
 //#region extensions/apple-fm/native.ts
 const SETUP_REQUIRED = "Run Apple Foundation Models setup again to build its native helper.";
 const infoSchema = object({
@@ -45,7 +45,10 @@ function createAppleFmNative(pluginRoot) {
 	const SOURCE = path.join(pluginRoot, "assets", "AppleFoundationModels.swift");
 	let sourceDigest;
 	async function helperPath(env) {
-		sourceDigest ??= fs.readFile(SOURCE).then((source) => createHash("sha256").update(source).digest("hex"));
+		sourceDigest ??= fs.readFile(SOURCE).then((source) => createHash("sha256").update(source).digest("hex")).catch((error) => {
+			sourceDigest = void 0;
+			throw error;
+		});
 		return path.join(resolveStateDir(env), "tools", "apple-fm", `${await sourceDigest}-${os.release().split(".")[0]}`, "helper");
 	}
 	async function helperExists(command) {
@@ -90,7 +93,7 @@ function createAppleFmNative(pluginRoot) {
 			signal: options.signal ? AbortSignal.any([options.signal, timeout]) : timeout
 		};
 		try {
-			await compileHelper(temporary, probeOptions);
+			await compileHelper(temporary, probeOptions, "-Onone");
 			return infoSchema.parse(await invoke(temporary, ["info"], "", probeOptions));
 		} finally {
 			await fs.rm(directory, {
@@ -99,7 +102,7 @@ function createAppleFmNative(pluginRoot) {
 			});
 		}
 	}
-	async function compileHelper(temporary, options) {
+	async function compileHelper(temporary, options, optimization) {
 		options.signal?.throwIfAborted();
 		const developerTools = await runCommandBuffered(["/usr/bin/xcode-select", "-p"], {
 			input: "",
@@ -116,7 +119,7 @@ function createAppleFmNative(pluginRoot) {
 			"macosx",
 			"swiftc",
 			"-parse-as-library",
-			"-O",
+			optimization,
 			"-target",
 			"arm64-apple-macos27.0",
 			SOURCE,
@@ -146,7 +149,7 @@ function createAppleFmNative(pluginRoot) {
 			const directory = await fs.mkdtemp(path.join(path.dirname(command), "build-"));
 			const temporary = path.join(directory, "helper");
 			try {
-				await compileHelper(temporary, options);
+				await compileHelper(temporary, options, "-O");
 				await fs.chmod(temporary, 448);
 				options.signal?.throwIfAborted();
 				await fs.rename(temporary, command);

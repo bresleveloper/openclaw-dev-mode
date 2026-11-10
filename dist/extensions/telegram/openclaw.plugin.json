@@ -2577,7 +2577,7 @@
         },
         "streaming.mode": {
           "label": "Telegram Streaming Mode",
-          "help": "Canonical Telegram preview mode: \"off\" | \"partial\" | \"block\" | \"progress\" (default: \"progress\")."
+          "help": "Telegram preview mode: \"off\" | \"partial\" | \"block\" | \"progress\" (default: \"progress\")."
         },
         "streaming.chunkMode": {
           "label": "Telegram Chunk Mode",

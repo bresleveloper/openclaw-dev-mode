@@ -47,7 +47,6 @@ import {
   minimaxAuthMethodMetadata,
 } from "./provider-contract-api.js";
 import { wrapMinimaxProviderStream } from "./stream.js";
-import { resolveMinimaxThinkingProfile } from "./thinking.js";
 
 const API_PROVIDER_ID = "minimax";
 const PORTAL_PROVIDER_ID = "minimax-portal";
@@ -65,8 +64,7 @@ const MINIMAX_PROVIDER_HOOKS = {
   wrapStreamFn: wrapMinimaxProviderStream,
   wrapSimpleCompletionStreamFn: wrapMinimaxProviderStream,
   resolveReasoningOutputMode: () => "native" as const,
-  resolveThinkingProfile: ({ modelId }: { modelId: string }) =>
-    resolveMinimaxThinkingProfile(modelId),
+  isModernModelRef: ({ modelId }: { modelId: string }) => isMiniMaxModernModelId(modelId),
 };
 
 function getProviderBaseUrl(cfg: OpenClawConfig, providerId: string): string | undefined {
@@ -305,15 +303,16 @@ function buildMinimaxApiProviderPlugin(): ProviderPlugin {
       if (portalOauth) {
         return portalOauth;
       }
-      const apiKey = ctx.resolveApiKeyFromConfigAndStore({
-        providerIds: [API_PROVIDER_ID, PORTAL_PROVIDER_ID],
-        envDirect: MINIMAX_USAGE_ENV_VAR_KEYS.map((name) => ctx.env[name]),
-      });
+      const apiKey = (
+        await ctx.resolveApiKeyCandidatesFromConfigAndStore?.({
+          providerIds: [API_PROVIDER_ID, PORTAL_PROVIDER_ID],
+          envDirect: MINIMAX_USAGE_ENV_VAR_KEYS.map((name) => ctx.env[name]),
+        })
+      )?.[0];
       return apiKey ? { token: apiKey } : null;
     },
     ...MINIMAX_PROVIDER_HOOKS,
     resolveDynamicModel: (ctx) => resolveMinimaxDynamicModel({ providerId: API_PROVIDER_ID, ctx }),
-    isModernModelRef: ({ modelId }) => isMiniMaxModernModelId(modelId),
     fetchUsageSnapshot: async (ctx) =>
       await fetchMinimaxUsage(ctx.token, ctx.timeoutMs, ctx.fetchFn, {
         baseUrl: resolveMinimaxUsageBaseUrl(ctx.config),
@@ -343,7 +342,6 @@ function buildMinimaxPortalProviderPlugin(readBaseUrl: () => string | undefined)
     ...MINIMAX_PROVIDER_HOOKS,
     resolveDynamicModel: (ctx) =>
       resolveMinimaxDynamicModel({ providerId: PORTAL_PROVIDER_ID, ctx }),
-    isModernModelRef: ({ modelId }) => isMiniMaxModernModelId(modelId),
   };
 }
 

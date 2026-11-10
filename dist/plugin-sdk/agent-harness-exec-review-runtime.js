@@ -9,7 +9,7 @@
 * Facade loading or reviewer construction errors may still reject the promise.
 */
 async function reviewExecRequestWithConfiguredModel(params) {
-	const { createModelExecAutoReviewer } = await import("../exec-auto-reviewer-DhcwtwJa.mjs");
+	const { createModelExecAutoReviewer } = await import("../exec-auto-reviewer-CHytRWmm.mjs");
 	return createModelExecAutoReviewer({
 		cfg: params.cfg,
 		agentId: params.agentId,
@@ -23,10 +23,10 @@ async function reviewExecRequestWithConfiguredModel(params) {
 */
 async function buildExecAutoReviewInputForShellCommand(params) {
 	const [{ evaluateShellAllowlistWithAuthorization }, { detectUnsafeExecControlShellCommand }, { detectInlineEvalInSegments }, { isBlockedShellWrapperCommand }] = await Promise.all([
-		import("../exec-approvals-HvORCmfN.mjs"),
-		import("../exec-control-command-guard-CsKd9V6g.mjs"),
-		import("../risks-BXjcrVKp.mjs"),
-		import("../exec-wrapper-resolution-Bx7D_IFT.mjs")
+		import("../exec-approvals-ChOOrR4T.mjs"),
+		import("../exec-control-command-guard-BtqyTsKT.mjs"),
+		import("../risks-DGWTwZoL.mjs"),
+		import("../exec-wrapper-resolution-C7OeNe67.mjs")
 	]);
 	const command = params.command.trim();
 	const host = params.host;

@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Ml as t,Pl as n}from"./control-ui-core-BKhTeqAN.js";import{A as r,D as i,O as a}from"./control-ui-boot-new-BbBfERB2.js";function o(){return n({read:i,subscribe:r},{read:e=>e.read(),subscribe:(e,t)=>e.subscribe(t),equality:`revision`})}function s(){return(s=e((()=>{a(),t()})))()}export{o as n,s as t};
+//# sourceMappingURL=events-browser-Bhxj0hDZ.js.map

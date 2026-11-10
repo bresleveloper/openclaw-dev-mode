@@ -1,7 +1,6 @@
 // Doctor cleanup for per-agent OAuth profiles shadowing fresher main-agent credentials.
 import fs from "node:fs/promises";
 import path from "node:path";
-import { expectDefined } from "@openclaw/normalization-core";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { resolveAgentDir, listAgentEntries } from "../../../agents/agent-scope.js";
 import { hasUsableOAuthCredential } from "../../../agents/auth-profiles/credential-state.js";
@@ -61,14 +60,6 @@ function hasLegacyOAuthSidecarRef(raw: Record<string, unknown> | null, profileId
   );
 }
 
-async function collectStateAgentDirs(env: NodeJS.ProcessEnv): Promise<string[]> {
-  const agentsRoot = path.join(resolveStateDir(env), "agents");
-  const entries = await fs.readdir(agentsRoot, { withFileTypes: true }).catch(() => []);
-  return entries
-    .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
-    .map((entry) => path.join(agentsRoot, entry.name, "agent"));
-}
-
 async function collectCandidateAgentDirs(
   cfg: OpenClawConfig,
   env: NodeJS.ProcessEnv,
@@ -80,8 +71,12 @@ async function collectCandidateAgentDirs(
       dirs.add(path.resolve(resolveAgentDir(cfg, id, env)));
     }
   }
-  for (const agentDir of await collectStateAgentDirs(env)) {
-    dirs.add(path.resolve(agentDir));
+  const agentsRoot = path.join(resolveStateDir(env), "agents");
+  const entries = await fs.readdir(agentsRoot, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (entry.isDirectory() || entry.isSymbolicLink()) {
+      dirs.add(path.resolve(agentsRoot, entry.name, "agent"));
+    }
   }
   return [...dirs].toSorted((left, right) => left.localeCompare(right));
 }
@@ -183,9 +178,7 @@ function removeStaleProfilesFromStore(params: {
       continue;
     }
     delete profiles[profileId];
-    if (usageStats) {
-      delete usageStats[profileId];
-    }
+    delete usageStats?.[profileId];
     if (lastGood) {
       for (const [provider, lastGoodProfileId] of Object.entries(lastGood)) {
         if (lastGoodProfileId === profileId) {
@@ -201,12 +194,6 @@ function removeStaleProfilesFromStore(params: {
     params.store.lastGood = lastGood && Object.keys(lastGood).length > 0 ? lastGood : undefined;
   }
   return removedProfileIds;
-}
-
-function formatProfileList(profileIds: string[]): string {
-  return profileIds.length === 1
-    ? expectDefined(profileIds[0], "profile ids entry at 0")
-    : `${profileIds.length} profiles`;
 }
 
 /** Format warnings for stale per-agent OAuth profile shadows. */
@@ -230,18 +217,17 @@ export async function repairStaleOAuthProfileShadows(params: {
   const now = params.now ?? Date.now();
   const { hits, warnings } = await scanStaleOAuthProfileShadows({ ...params, env, now });
   const changes: string[] = [];
-  const byAgentDir = new Map<string, StaleOAuthProfileShadow[]>();
+  const byAgentDir = new Map<string, Set<string>>();
   for (const hit of hits) {
-    const existing = byAgentDir.get(hit.agentDir) ?? [];
-    existing.push(hit);
-    byAgentDir.set(hit.agentDir, existing);
+    const profileIds = byAgentDir.get(hit.agentDir) ?? new Set<string>();
+    profileIds.add(hit.profileId);
+    byAgentDir.set(hit.agentDir, profileIds);
   }
-  for (const [agentDir, agentHits] of byAgentDir) {
+  for (const [agentDir, profileIds] of byAgentDir) {
     const mainStore = loadPersistedSharedAuthProfileStore(env);
     if (!mainStore) {
       continue;
     }
-    const profileIds = new Set(agentHits.map((hit) => hit.profileId));
     try {
       const rawStore = await loadRawAuthProfileStore(resolveAuthStorePath(agentDir));
       const removableIds = new Set(
@@ -265,9 +251,7 @@ export async function repairStaleOAuthProfileShadows(params: {
       });
       if (removedProfileIds.length > 0) {
         changes.push(
-          `Removed stale OAuth auth profile shadow ${formatProfileList(
-            removedProfileIds.toSorted(),
-          )} from ${shortenHomePath(resolveAuthStorePath(agentDir))}; this agent now inherits main auth.`,
+          `Removed stale OAuth auth profile shadow ${removedProfileIds.length === 1 ? removedProfileIds[0] : `${removedProfileIds.length} profiles`} from ${shortenHomePath(resolveAuthStorePath(agentDir))}; this agent now inherits main auth.`,
         );
       }
     } catch (error) {

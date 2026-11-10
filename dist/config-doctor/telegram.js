@@ -1,22 +1,21 @@
-import { E as normalizeOptionalLowercaseString, T as normalizeLowercaseStringOrEmpty, b as hasLegacyAccountStreamingAliases, d as normalizeAccountId, h as resolveGlobalSingleton, j as isRecord, k as asNullableRecord, l as resolveNormalizedAccountEntry, u as DEFAULT_ACCOUNT_ID, x as normalizeChannelAccounts } from "./runtime-doctor-migrations-BhouWAUC.js";
-import { t as createLegacyWebhookListenerDoctorContract } from "./legacy-webhook-listener-migration-Bu-ybctG.js";
-import "./src-BRYbjtIr.js";
-import "./types.secrets-pt3cVWr4.js";
-import "./number-coercion-CWp8Ho-Y.js";
-import "./subsystem-BVIVczmK.js";
-import { c as mergeAccountConfig, o as createAccountListHelpers, r as resolveRequiredHomeDir, s as hasConfiguredAccountValue } from "./account-core-bZmYRKLc.js";
-import "./string-coerce-runtime-CM4JCyJk.js";
-import "./ansi-twpzQrRE.js";
-import { o as resolveStateDir, s as resolveProfileStateDir } from "./boundary-file-read-D-7q9BJU.js";
+import { A as normalizeLowercaseStringOrEmpty, L as isRecord, P as asNullableRecord, T as normalizeChannelAccounts, d as normalizeAccountId, g as resolveGlobalMap, j as normalizeOptionalLowercaseString, l as resolveNormalizedAccountEntry, u as DEFAULT_ACCOUNT_ID, w as hasLegacyAccountStreamingAliases } from "./runtime-doctor-migrations-Bq3PkBbD.js";
+import { t as createLegacyWebhookListenerDoctorContract } from "./legacy-webhook-listener-migration-S3H2cekT.js";
+import "./src-RA80L32l.js";
+import "./subsystem-CkEsEQPK.js";
+import "./types.secrets-DtpmAEmy.js";
+import "./number-coercion-BU-w62w9.js";
+import { _ as mergeAccountConfig, d as resolveRequiredHomeDir, g as hasConfiguredAccountValue, h as createAccountListHelpers } from "./account-core-D92inL1O.js";
+import "./string-coerce-runtime-D5jaFnkP.js";
+import "./ansi-DJ8PVuDO.js";
+import { c as resolveStateDir, l as resolveProfileStateDir } from "./boundary-file-read-BfPZkxNZ.js";
+import "./env-BBoxqTeV.js";
 import "@openclaw/fs-safe/path";
 import path from "node:path";
 import "node:fs";
 import "@openclaw/fs-safe/advanced";
-import "@openclaw/fs-safe/walk";
-import "node:crypto";
 import os from "node:os";
-import { AsyncLocalStorage, AsyncResource } from "node:async_hooks";
-import zlib from "node:zlib";
+import "node:url";
+import "node:worker_threads";
 import chalk, { Chalk } from "chalk";
 //#region extensions/telegram/src/account-config.ts
 function resolveTelegramAccountConfig(cfg, accountId) {
@@ -37,14 +36,12 @@ function mergeTelegramAccountConfig(cfg, accountId) {
 		preserveRootAllowFrom: true
 	});
 }
+resolveGlobalMap(Symbol.for("openclaw.agentDirPreparedPaths"), (paths) => {
+	for (const prepared of paths.values()) prepared.close();
+	paths.clear();
+}, "shared-state");
 //#endregion
 //#region src/agents/workspace-default-path.ts
-/**
-* Default agent workspace resolver.
-*
-* Derives the process workspace directory from env, profile, and home-directory state.
-*/
-/** Resolve the default agent workspace directory from env/profile/home state. */
 function resolveDefaultAgentWorkspaceDir(env = process.env, homedir = os.homedir) {
 	const workspaceDir = env.OPENCLAW_WORKSPACE_DIR?.trim();
 	if (workspaceDir) return path.resolve(workspaceDir);
@@ -55,32 +52,6 @@ function resolveDefaultAgentWorkspaceDir(env = process.env, homedir = os.homedir
 	return path.join(home, ".openclaw", "workspace");
 }
 resolveDefaultAgentWorkspaceDir();
-(/* @__PURE__ */ new Map()).keys();
-//#endregion
-//#region src/infra/zstd-codec.ts
-let resolvedCodec;
-/** Resolve the process runtime once; persisted readers must reject unsupported compressed data. */
-function resolveZstdCodec() {
-	if (resolvedCodec !== void 0) return resolvedCodec;
-	if (typeof zlib.zstdCompressSync !== "function" || typeof zlib.zstdDecompressSync !== "function") {
-		resolvedCodec = null;
-		return resolvedCodec;
-	}
-	const compress = zlib.zstdCompressSync.bind(zlib);
-	const decompress = zlib.zstdDecompressSync.bind(zlib);
-	resolvedCodec = {
-		compress: (data, level, checksum) => {
-			if (level === void 0 && checksum === void 0) return compress(data);
-			return compress(data, { params: {
-				...level === void 0 ? {} : { [zlib.constants.ZSTD_c_compressionLevel]: level },
-				...checksum === void 0 ? {} : { [zlib.constants.ZSTD_c_checksumFlag]: checksum }
-			} });
-		},
-		decompress: (data, maxOutputLength) => decompress(data, maxOutputLength === void 0 ? void 0 : { maxOutputLength })
-	};
-	return resolvedCodec;
-}
-resolveZstdCodec();
 //#endregion
 //#region packages/terminal-core/src/palette.ts
 const LOBSTER_PALETTE = {
@@ -116,114 +87,6 @@ theme.success;
 theme.warn;
 theme.info;
 theme.error;
-resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScope"), () => new AsyncLocalStorage());
-resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScopeAncestry"), () => new AsyncLocalStorage());
-resolveGlobalSingleton(Symbol.for("openclaw.detachedAsyncContext"), () => new AsyncResource("openclaw.detached-async-context"));
-resolveGlobalSingleton(Symbol.for("openclaw.pluginSourceRecoveryUnavailableError"), () => class SourceRecoveryUnavailableError extends Error {
-	constructor(cause) {
-		super("Captured plugin source is missing; its previous code cannot be recovered.", { cause });
-		this.name = "PluginSourceRecoveryUnavailableError";
-	}
-});
-resolveGlobalSingleton(Symbol.for("openclaw.pluginInstanceDrainTimeoutError"), () => class DrainTimeoutError extends Error {
-	constructor(message, settled, options, forcedRetirement) {
-		super(message, options);
-		this.settled = settled;
-		this.forcedRetirement = forcedRetirement;
-		this.name = "PluginInstanceDrainTimeoutError";
-	}
-});
-//#endregion
-//#region src/plugins/plugin-instance-invocation.ts
-var InvocationFrame = class InvocationFrame {
-	constructor(scopes, invocation = scopes.invocation) {
-		this.invocation = invocation;
-		this.metadataScope = scopes.metadataScope;
-		this.cacheScope = scopes.cacheScope;
-		this.sourceCaptureStorage = scopes.sourceCaptureStorage;
-	}
-	withScopes(scopes) {
-		return new InvocationFrame(scopes);
-	}
-};
-/** Copy core scopes through the current owner so runtime-only fields survive. */
-function createPluginExecutionFrame(scopes, current) {
-	return current ? current.withScopes(scopes) : new InvocationFrame(scopes);
-}
-const pluginExecutionContext = resolveGlobalSingleton(Symbol.for("openclaw.pluginInstanceInvocation"), () => {
-	const frames = new AsyncLocalStorage();
-	return {
-		invocation: {
-			getStore() {
-				return frames.getStore()?.invocation;
-			},
-			run(invocation, run) {
-				const current = frames.getStore();
-				return frames.run(current?.invocation === invocation ? current : createPluginExecutionFrame({
-					...current,
-					invocation
-				}, current), run);
-			},
-			exit(run) {
-				const current = frames.getStore();
-				return current?.invocation ? frames.run(current.withScopes({
-					...current,
-					invocation: void 0
-				}), run) : run();
-			}
-		},
-		getFrame() {
-			return frames.getStore();
-		},
-		runFrame(frame, run) {
-			return frames.run(frame, run);
-		}
-	};
-});
-pluginExecutionContext.invocation;
-pluginExecutionContext.getFrame;
-pluginExecutionContext.runFrame;
-resolveGlobalSingleton(Symbol.for("openclaw.pluginCache"), () => ({
-	snapshotOwners: /* @__PURE__ */ new WeakMap(),
-	retirements: []
-}));
-resolveGlobalSingleton(Symbol.for("openclaw.pluginCacheRetainers"), () => /* @__PURE__ */ new WeakMap());
-resolveGlobalSingleton(Symbol.for("openclaw.pluginInstanceCacheOwners"), () => /* @__PURE__ */ new WeakMap());
-//#endregion
-//#region src/shared/lazy-promise.ts
-/**
-* Creates a small promise cache that dedupes concurrent loads and can be cleared manually.
-*
-* Rejections are evicted by default so transient dynamic-import/runtime failures can recover.
-*/
-function createLazyPromiseLoader(load, options = {}) {
-	let promise;
-	const createPromise = () => {
-		const loaded = Promise.resolve().then(load);
-		if (options.cacheRejections !== true) loaded.catch(() => {
-			if (promise === loaded) promise = void 0;
-		});
-		return loaded;
-	};
-	return {
-		load() {
-			promise ??= createPromise();
-			return promise;
-		},
-		peek() {
-			return promise;
-		},
-		clear() {
-			promise = void 0;
-		}
-	};
-}
-/** Creates a reusable function that resolves one cached promise at a time. */
-function createLazyPromise(load, options) {
-	const loader = createLazyPromiseLoader(load, options);
-	return () => loader.load();
-}
-createLazyPromise(() => import("./env-log.runtime-DkT9VXMk.js"), { cacheRejections: true });
 path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 [
 	{ entries: [
@@ -269,7 +132,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/buzz",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "Connect OpenClaw agents to Buzz rooms",
 			"source": "official",
 			"kind": "channel",
@@ -328,7 +191,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/clickclack",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw ClickClack channel plugin",
 			"source": "official",
 			"kind": "channel",
@@ -445,7 +308,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/discord",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Discord channel plugin for channels, DMs, commands, and app events.",
 			"source": "official",
 			"kind": "channel",
@@ -503,7 +366,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/feishu",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Feishu/Lark channel plugin for chats and workplace tools (community maintained by @m1heng).",
 			"source": "official",
 			"kind": "channel",
@@ -556,7 +419,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/googlechat",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Google Chat channel plugin for spaces and direct messages.",
 			"source": "official",
 			"kind": "channel",
@@ -655,7 +518,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/imessage",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw iMessage channel plugin using imsg on a signed-in Mac",
 			"source": "official",
 			"kind": "channel",
@@ -722,7 +585,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/irc",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw IRC channel plugin",
 			"source": "official",
 			"kind": "channel",
@@ -826,7 +689,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/line",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw LINE channel plugin for LINE Bot API chats.",
 			"source": "official",
 			"kind": "channel",
@@ -916,7 +779,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/matrix",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Matrix channel plugin for rooms and direct messages.",
 			"source": "official",
 			"kind": "channel",
@@ -1037,6 +900,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 					"persistedAuthState": {
 						"specifier": "./auth-presence",
 						"exportName": "hasAnyMatrixAuth",
+						"exportNameAsync": "hasAnyMatrixAuthAsync",
 						"backingStore": "plugin-state"
 					}
 				},
@@ -1051,7 +915,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/mattermost",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Mattermost channel plugin",
 			"source": "official",
 			"kind": "channel",
@@ -1114,7 +978,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/msteams",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Microsoft Teams channel plugin for bot conversations.",
 			"source": "official",
 			"kind": "channel",
@@ -1143,7 +1007,58 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 						"groupAllowFromFallbackToAllowFrom": true,
 						"warnOnEmptyGroupSenderAllowlist": true
 					},
-					"setup": { "fields": [] }
+					"setup": { "fields": [
+						{
+							"key": "appId",
+							"kind": "string",
+							"cli": {
+								"flags": "--app-id <id>",
+								"description": "Microsoft Teams application id"
+							}
+						},
+						{
+							"key": "appPassword",
+							"kind": "string",
+							"sensitive": true,
+							"cli": {
+								"flags": "--app-password <secret>",
+								"description": "Microsoft Teams app password"
+							}
+						},
+						{
+							"key": "tenantId",
+							"kind": "string",
+							"cli": {
+								"flags": "--tenant-id <id>",
+								"description": "Microsoft Teams tenant id"
+							}
+						},
+						{
+							"key": "webhookPath",
+							"kind": "string",
+							"cli": {
+								"flags": "--webhook-path <path>",
+								"description": "Microsoft Teams webhook path"
+							}
+						},
+						{
+							"key": "useEnv",
+							"kind": "boolean",
+							"cli": {
+								"flags": "--use-env",
+								"description": "Use Microsoft Teams environment credentials"
+							},
+							"envVars": [
+								"MSTEAMS_APP_ID",
+								"MSTEAMS_APP_PASSWORD",
+								"MSTEAMS_TENANT_ID",
+								"MSTEAMS_AUTH_TYPE",
+								"MSTEAMS_CERTIFICATE_PATH",
+								"MSTEAMS_USE_MANAGED_IDENTITY"
+							],
+							"envVarMode": "any"
+						}
+					] }
 				},
 				"install": {
 					"clawhubSpec": "clawhub:@openclaw/msteams",
@@ -1155,7 +1070,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/nextcloud-talk",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Nextcloud Talk channel plugin for conversations.",
 			"source": "official",
 			"kind": "channel",
@@ -1258,7 +1173,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/nostr",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Nostr channel plugin for NIP-04 encrypted direct messages.",
 			"source": "official",
 			"kind": "channel",
@@ -1475,7 +1390,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/raft",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Raft channel plugin for Raft CLI wake bridges.",
 			"source": "official",
 			"kind": "channel",
@@ -1512,7 +1427,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/signal",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Signal channel plugin",
 			"source": "official",
 			"kind": "channel",
@@ -1591,7 +1506,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/slack",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Slack channel plugin for channels, DMs, commands, and app events.",
 			"source": "official",
 			"kind": "channel",
@@ -1707,7 +1622,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/sms",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw SMS/MMS channel plugin for Twilio messages.",
 			"source": "official",
 			"kind": "channel",
@@ -1827,7 +1742,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/synology-chat",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "Synology Chat channel plugin for OpenClaw channels and direct messages.",
 			"source": "official",
 			"kind": "channel",
@@ -1898,7 +1813,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/tlon",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Tlon/Urbit channel plugin for chat workflows.",
 			"source": "official",
 			"kind": "channel",
@@ -1991,7 +1906,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/twitch",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Twitch channel plugin for chat and moderation workflows.",
 			"source": "official",
 			"kind": "channel",
@@ -2057,7 +1972,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/whatsapp",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw WhatsApp channel plugin for WhatsApp Web chats.",
 			"source": "official",
 			"kind": "channel",
@@ -2074,6 +1989,12 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 					"docsLabel": "whatsapp",
 					"blurb": "works with your own number; recommend a separate phone + eSIM.",
 					"systemImage": "message",
+					"doctorCapabilities": {
+						"dmAllowFromMode": "topOnly",
+						"groupModel": "sender",
+						"groupAllowFromFallbackToAllowFrom": true,
+						"warnOnEmptyGroupSenderAllowlist": true
+					},
 					"persistedAuthState": {
 						"specifier": "./auth-presence",
 						"exportName": "hasAnyWhatsAppAuth"
@@ -2143,7 +2064,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/zalo",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Zalo channel plugin for bot and webhook chats.",
 			"source": "official",
 			"kind": "channel",
@@ -2199,7 +2120,7 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 		},
 		{
 			"name": "@openclaw/zalouser",
-			"version": "2026.10.4",
+			"version": "2026.11.3",
 			"description": "OpenClaw Zalo Personal Account plugin via native zca-js integration.",
 			"source": "official",
 			"kind": "channel",
@@ -3240,6 +3161,49 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 					"npmSpec": "@openclaw/pixverse-provider",
 					"defaultChoice": "npm",
 					"minHostVersion": ">=2026.5.26"
+				}
+			}
+		},
+		{
+			"name": "@openclaw/particle-provider",
+			"description": "OpenClaw Particle provider plugin.",
+			"source": "official",
+			"kind": "provider",
+			"openclaw": {
+				"plugin": {
+					"id": "particle",
+					"label": "Particle"
+				},
+				"providerEndpoints": [{
+					"endpointClass": "particle-native",
+					"hosts": ["api.particle.ai"]
+				}],
+				"providers": [{
+					"id": "particle",
+					"name": "Particle",
+					"docs": "/providers/particle",
+					"categories": ["cloud", "llm"],
+					"envVars": ["PARTICLE_API_KEY"],
+					"authChoices": [{
+						"method": "api-key",
+						"choiceId": "particle-api-key",
+						"appGuidedSecret": true,
+						"choiceLabel": "Particle API key",
+						"groupId": "particle",
+						"groupLabel": "Particle",
+						"groupHint": "API key",
+						"optionKey": "particleApiKey",
+						"cliFlag": "--particle-api-key",
+						"cliOption": "--particle-api-key <key>",
+						"cliDescription": "Particle API key",
+						"onboardingScopes": ["text-inference"]
+					}]
+				}],
+				"install": {
+					"clawhubSpec": "clawhub:@openclaw/particle-provider",
+					"npmSpec": "@openclaw/particle-provider",
+					"defaultChoice": "npm",
+					"minHostVersion": ">=2026.10.8"
 				}
 			}
 		},
@@ -4325,6 +4289,24 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 				}
 			},
 			{
+				"name": "@openclaw/muse",
+				"description": "OpenClaw Muse Code agent runtime plugin",
+				"source": "official",
+				"kind": "plugin",
+				"openclaw": {
+					"plugin": {
+						"id": "muse",
+						"label": "Muse Code"
+					},
+					"install": {
+						"clawhubSpec": "clawhub:@openclaw/muse",
+						"npmSpec": "@openclaw/muse",
+						"defaultChoice": "npm",
+						"minHostVersion": ">=2026.10.3"
+					}
+				}
+			},
+			{
 				"name": "@openclaw/cua-computer",
 				"description": "Experimental CUA Driver computer control for macOS, Windows, and Linux node hosts",
 				"source": "official",
@@ -5033,8 +5015,8 @@ path.join(os.tmpdir(), "openclaw-empty-bundled-plugins");
 ].flatMap((source) => source.entries.filter((entry) => isRecord(entry)));
 path.join("dist", "channel-catalog.json");
 //#endregion
-//#region src/channels/bundled-channel-ids.generated.ts
-const GENERATED_BUNDLED_CHANNEL_IDS = [
+//#region src/channels/ids.ts
+const BUNDLED_CHAT_CHANNEL_ENTRIES = Object.freeze([
 	{
 		channelId: "a2a",
 		order: 75,
@@ -5160,6 +5142,11 @@ const GENERATED_BUNDLED_CHANNEL_IDS = [
 		label: "WhatsApp"
 	},
 	{
+		channelId: "x",
+		order: 85,
+		label: "X (Twitter)"
+	},
+	{
 		channelId: "zalo",
 		aliases: ["zl"],
 		order: 80,
@@ -5171,18 +5158,12 @@ const GENERATED_BUNDLED_CHANNEL_IDS = [
 		order: 85,
 		label: "Zalo Personal"
 	}
-];
-//#endregion
-//#region src/channels/ids.ts
-function listBundledChatChannelEntries() {
-	return GENERATED_BUNDLED_CHANNEL_IDS.filter((entry) => entry.configurable !== false).map((entry) => ({
-		id: normalizeOptionalLowercaseString(entry.channelId) ?? entry.channelId,
-		aliases: entry.aliases ?? [],
-		label: entry.label?.trim() || void 0,
-		order: entry.order ?? Number.MAX_SAFE_INTEGER
-	})).toSorted((left, right) => left.order - right.order || left.id.localeCompare(right.id, "en", { sensitivity: "base" }));
-}
-const BUNDLED_CHAT_CHANNEL_ENTRIES = Object.freeze(listBundledChatChannelEntries());
+].filter((entry) => entry.configurable !== false).map((entry) => ({
+	id: normalizeOptionalLowercaseString(entry.channelId) ?? entry.channelId,
+	aliases: entry.aliases ?? [],
+	label: entry.label?.trim() || void 0,
+	order: entry.order ?? Number.MAX_SAFE_INTEGER
+})).toSorted((left, right) => left.order - right.order || left.id.localeCompare(right.id, "en", { sensitivity: "base" })));
 new Set(BUNDLED_CHAT_CHANNEL_ENTRIES.map((entry) => entry.id));
 /**
 * Stable built-in channel order derived from generated bundled channel metadata.
@@ -5254,22 +5235,16 @@ function normalizePathSeparators(pathname) {
 	if (collapsed.length <= 1) return collapsed;
 	return collapsed.replace(/\/+$/, "");
 }
-function resolveDotSegments(pathname) {
-	try {
-		return new URL(pathname, "http://localhost").pathname;
-	} catch {
-		return pathname;
-	}
-}
 function normalizePathForSecurity(pathname) {
-	return normalizePathSeparators(normalizeLowercaseStringOrEmpty(resolveDotSegments(pathname))) || "/";
+	const resolved = URL.parse(pathname, "http://localhost")?.pathname ?? pathname;
+	return normalizePathSeparators(normalizeLowercaseStringOrEmpty(resolved)) || "/";
 }
-function buildCanonicalPathCandidates(pathname, maxDecodePasses = MAX_PATH_DECODE_PASSES) {
+function buildCanonicalPathCandidates(pathname) {
 	const candidates = /* @__PURE__ */ new Set([normalizePathForSecurity(pathname)]);
 	let decoded = pathname;
 	let malformedEncoding = false;
 	let decodePasses = 0;
-	for (let pass = 0; pass < maxDecodePasses; pass++) {
+	for (let pass = 0; pass < MAX_PATH_DECODE_PASSES; pass++) {
 		let nextDecoded;
 		try {
 			nextDecoded = decodeURIComponent(decoded);
@@ -5347,7 +5322,7 @@ function resolveTelegramWebhookPathConflict(path) {
 	const probe = classifyGatewayProbePath(pathname);
 	if (probe === "live" || probe === "ready" || probe === "startup") return {
 		kind: "probe",
-		message: "is reserved for Gateway probes"
+		message: "is reserved for Gateway checks"
 	};
 	if (isProtectedPluginRoutePathFromContext(resolvePluginRoutePathContext(pathname))) return {
 		kind: "auth",
@@ -5407,15 +5382,12 @@ function removeRetiredTelegramGroupHistoryContextConfig(params) {
 		changed: false
 	};
 	const { includeGroupHistoryContext, ...rest } = params.entry;
-	let updated = includeGroupHistoryContext === "none" ? {
+	const historyLimit = includeGroupHistoryContext === "none" ? 0 : includeGroupHistoryContext === "recent" && params.preserveRecentHistoryLimit !== void 0 && params.entry.historyLimit === void 0 ? params.preserveRecentHistoryLimit : void 0;
+	const updated = historyLimit === void 0 ? rest : {
 		...rest,
-		historyLimit: 0
-	} : rest;
-	if (includeGroupHistoryContext === "recent" && params.preserveRecentHistoryLimit !== void 0 && updated.historyLimit === void 0) updated = {
-		...updated,
-		historyLimit: params.preserveRecentHistoryLimit
+		historyLimit
 	};
-	const historyLimitNote = includeGroupHistoryContext === "none" ? " and set historyLimit to 0" : includeGroupHistoryContext === "recent" && params.preserveRecentHistoryLimit !== void 0 && params.entry.historyLimit === void 0 ? ` and set historyLimit to ${params.preserveRecentHistoryLimit}` : "";
+	const historyLimitNote = historyLimit === void 0 ? "" : ` and set historyLimit to ${historyLimit}`;
 	params.changes.push(`Removed ${params.pathPrefix}.includeGroupHistoryContext${historyLimitNote}; Telegram group history is always on for groups and bounded by historyLimit.`);
 	return {
 		entry: updated,
@@ -5464,18 +5436,15 @@ function normalizeCompatibilityConfig({ cfg }) {
 	};
 	const tuningKnobs = stripRetiredTelegramTuning(rawEntry, "channel");
 	let updated = tuningKnobs.entry;
-	let changed = webhook.config !== cfg || tuningKnobs.changed;
 	if (tuningKnobs.changed) changes.push("Removed retired Telegram tuning knobs.");
 	const rootGroupHistoryContextMode = updated.includeGroupHistoryContext;
 	const rootGroupHistoryLimitBeforeMigration = typeof updated.historyLimit === "number" ? updated.historyLimit : cfg.messages?.groupChat?.historyLimit ?? 50;
-	const retired = removeRetiredTelegramGroupHistoryContextConfig({
+	updated = removeRetiredTelegramGroupHistoryContextConfig({
 		entry: updated,
 		pathPrefix: "channels.telegram",
 		changes
-	});
-	updated = retired.entry;
-	changed = changed || retired.changed;
-	const accounts = normalizeChannelAccounts({
+	}).entry;
+	updated = normalizeChannelAccounts({
 		entry: updated,
 		pathPrefix: "channels.telegram",
 		changes,
@@ -5485,10 +5454,8 @@ function normalizeCompatibilityConfig({ cfg }) {
 			changes: accountChanges,
 			...rootGroupHistoryContextMode === "none" ? { preserveRecentHistoryLimit: rootGroupHistoryLimitBeforeMigration } : {}
 		})
-	});
-	updated = accounts.entry;
-	changed = changed || accounts.changed;
-	if (!changed && changes.length === 0) return {
+	}).entry;
+	if (webhook.config === cfg && updated === rawEntry && changes.length === 0) return {
 		config: cfg,
 		changes: [],
 		historicalWebhookAccountIds

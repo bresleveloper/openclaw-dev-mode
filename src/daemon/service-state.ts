@@ -20,6 +20,7 @@ import { withSystemdServiceReadBinding } from "./service-operation-lock.js";
 import { createServiceRuntimeInspectionFailure } from "./service-runtime.js";
 import type {
   GatewayService,
+  GatewayServiceCommandConfig,
   GatewayServiceCommandInspection,
   GatewayServiceLoadState,
   ReadGatewayServiceStateArgs,
@@ -30,9 +31,9 @@ import { admitSystemdServiceReadBinding } from "./systemd-peer.js";
 import { findSystemdGatewayInstallation } from "./systemd-scope.js";
 import { readSystemdServiceExecStart } from "./systemd.js";
 
-class ServiceInspectionDeadlineError extends Error {
-  constructor() {
-    super("Service inspection deadline expired.");
+export class ServiceInspectionDeadlineError extends Error {
+  constructor(phase?: string) {
+    super("Service inspection deadline expired." + (phase ? " Stalled check: " + phase + "." : ""));
   }
 }
 
@@ -159,13 +160,13 @@ async function readGatewayServiceStateWithBinding(
   const now = getServiceInspectionClock();
   const baseEnv = args.env ?? process.env;
   const { timeoutMs, systemdReadBinding, systemdReadTarget } = args;
-  const remainingTimeoutMs = () => {
+  const remainingTimeoutMs = (phase?: string) => {
     if (timeoutMs === undefined) {
       return undefined;
     }
     const remaining = deadline - now();
     if (remaining <= 0) {
-      throw new ServiceInspectionDeadlineError();
+      throw new ServiceInspectionDeadlineError(phase);
     }
     return remaining;
   };
@@ -195,36 +196,33 @@ async function readGatewayServiceStateWithBinding(
   const managerAbsent = absent && service.readCommand === readSystemdServiceExecStart;
   systemdReadBinding?.verify();
   let commandInspection: GatewayServiceCommandInspection | undefined;
-  const command = absent
-    ? null
-    : args.requireEffective
+  let command: GatewayServiceCommandConfig | null = null;
+  if (!absent) {
+    const scheduledTask = service.readCommand === readScheduledTaskCommand;
+    const readOptions = {
+      timeoutMs: remainingTimeoutMs(),
+      ...(scheduledTask ? { requireLoaded: true } : {}),
+      ...(systemdReadTarget ? { systemdReadTarget } : {}),
+    };
+    const onCommandInspection = (inspection: GatewayServiceCommandInspection) => {
+      commandInspection = inspection;
+    };
+    command = args.requireEffective
       ? await service.readCommand(baseEnv, {
-          timeoutMs: remainingTimeoutMs(),
+          ...readOptions,
           requireEffective: true,
-          ...(!args.requireLoadedCommand
-            ? {
-                onCommandInspection: (inspection: GatewayServiceCommandInspection) => {
-                  commandInspection = inspection;
-                },
-              }
-            : {}),
+          ...(!args.requireLoadedCommand || scheduledTask ? { onCommandInspection } : {}),
           ...(systemdReadBinding ? { systemdReadBinding } : {}),
-          ...(systemdReadTarget ? { systemdReadTarget } : {}),
           ...(args.requireLoadedCommand ? { requireLoaded: true } : {}),
           ...(args.loadForInspection ? { loadForInspection: args.loadForInspection } : {}),
         })
       : await service
-          .readCommand(baseEnv, {
-            timeoutMs: remainingTimeoutMs(),
-            ...(systemdReadTarget ? { systemdReadTarget } : {}),
-            onCommandInspection: (inspection) => {
-              commandInspection = inspection;
-            },
-          })
+          .readCommand(baseEnv, { ...readOptions, onCommandInspection })
           .catch((error: unknown) => {
             assertServiceInspectionFallbackAllowed(error);
             return null;
           });
+  }
   const mergedEnv = mergeGatewayServiceEnv(
     systemdReadTarget?.scope === "system" && !resolveGatewayProfileSuffix(baseEnv.OPENCLAW_PROFILE)
       ? { ...baseEnv, OPENCLAW_SYSTEMD_UNIT: systemdReadTarget.unitName }
@@ -295,7 +293,7 @@ async function readGatewayServiceStateWithBinding(
   const readLoadState = async () =>
     readGatewayServiceLoadState(service, {
       env: statusEnv,
-      timeoutMs: remainingTimeoutMs(),
+      timeoutMs: remainingTimeoutMs("service load state"),
       ...(args.requireEffective ? { requireEffective: true } : {}),
     });
   const readRuntime = async () =>

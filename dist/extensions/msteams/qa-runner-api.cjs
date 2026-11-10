@@ -2,15 +2,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 let openclaw_plugin_sdk_qa_runner_runtime = require("openclaw/plugin-sdk/qa-runner-runtime");
 //#region extensions/msteams/src/qa/cli.ts
 const DEFAULT_MSTEAMS_QA_SCENARIOS = ["channel-canary"];
-const loadMSTeamsQaAdapterRuntime = (0, openclaw_plugin_sdk_qa_runner_runtime.createLazyCliRuntimeLoader)(() => Promise.resolve().then(() => require("./.setup/adapter.runtime-D0HYByze.cjs")));
-async function runQaMSTeams(options) {
-	await (0, openclaw_plugin_sdk_qa_runner_runtime.runLiveTransportQaSuiteCommand)({
-		channelId: "msteams",
-		defaultProviderMode: "mock-openai",
-		options,
-		selectScenarioIds: ({ scenarioIds }) => scenarioIds?.length ? [...scenarioIds] : [...DEFAULT_MSTEAMS_QA_SCENARIOS]
-	});
-}
+const loadMSTeamsQaAdapterRuntime = (0, openclaw_plugin_sdk_qa_runner_runtime.createLazyCliRuntimeLoader)(() => Promise.resolve().then(() => require("./.setup/adapter.runtime-B-6Q3nMI.cjs")));
 //#endregion
 //#region extensions/msteams/qa-runner-api.ts
 const qaRunnerCliRegistrations = [(0, openclaw_plugin_sdk_qa_runner_runtime.createLiveTransportQaCliRegistration)({
@@ -30,7 +22,14 @@ const qaRunnerCliRegistrations = [(0, openclaw_plugin_sdk_qa_runner_runtime.crea
 	allowFailuresHelp: "Write artifacts without setting a failing exit code when scenarios fail",
 	scenarioHelp: "Run only the named Microsoft Teams QA scenario (repeatable)",
 	sutAccountHelp: "Normalized Microsoft Teams SUT account id in QA artifacts",
-	run: runQaMSTeams
+	run: async (options) => {
+		await (0, openclaw_plugin_sdk_qa_runner_runtime.runLiveTransportQaSuiteCommand)({
+			channelId: "msteams",
+			defaultProviderMode: "mock-openai",
+			options,
+			selectScenarioIds: ({ scenarioIds }) => scenarioIds?.length ? [...scenarioIds] : [...DEFAULT_MSTEAMS_QA_SCENARIOS]
+		});
+	}
 })];
 //#endregion
 exports.qaRunnerCliRegistrations = qaRunnerCliRegistrations;

@@ -1,15 +1,15 @@
 import { r as asNullableRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { r as isPathInside } from "../../path-guards-CH7noY0Z.mjs";
-import { r as resolveStateDir } from "../../state-dir-BHJORNly.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../file-access-runtime-BMp89X4Y.mjs";
-import "../../state-paths-Dd9pLEOI.mjs";
+import { r as resolveStateDir } from "../../state-dir-C8s3cOPX.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../file-access-runtime-DZTMkCCU.mjs";
+import "../../state-paths-FoyMccMm.mjs";
 import { n as parseStrictJsonObject, t as hasExactKeys } from "../../strict-json-DsGFhwfH.mjs";
-import { t as readPrivateNativeHostFile } from "../../extension-native-host-file-0-U8B0JT.mjs";
+import { t as readPrivateNativeHostFile } from "../../extension-native-host-file-BkSKFwj8.mjs";
 import "../../extension-native-host.constants-CchS6g7H.mjs";
 import { fileURLToPath } from "node:url";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 //#region extensions/browser/src/browser/extension-native-protocol.ts
 const BROWSER_NATIVE_REQUEST_MAX_BYTES = 4096;
 const BROWSER_NATIVE_RESPONSE_MAX_BYTES = 1048576;
@@ -175,7 +175,7 @@ async function runBrowserNativeHost(params) {
 			let boundProfile;
 			try {
 				if ((params.platform ?? process.platform) === "win32") {
-					const { validateWindowsNativeContext } = await import("../../extension-windows-host-8l7DnNoM.mjs");
+					const { validateWindowsNativeContext } = await import("../../extension-windows-host-Dce49Xgj.mjs");
 					boundProfile = await validateWindowsNativeContext(params);
 					if (!params.expectedOrigins.includes(params.callerOrigin)) throw new Error("origin forbidden");
 				} else await validateNativeManifest(params);
@@ -188,38 +188,33 @@ async function runBrowserNativeHost(params) {
 				params.write(encodeBrowserNativeResponse(response));
 				return response;
 			}
-			if (decoded.request.op === "ensure_relay") try {
-				const relay = await params.ensureRelay(decoded.request.relayPort);
-				response = {
-					v: 1,
-					ok: true,
-					nonce: decoded.request.nonce,
-					relay
-				};
-			} catch {
-				response = {
-					v: 1,
-					ok: false,
-					code: "relay_unavailable"
-				};
-			}
-			else try {
-				const pairing = await params.buildPairing(boundProfile);
-				response = pairing.topology === "direct-remote" ? {
-					v: 1,
-					ok: false,
-					code: "manual_required"
-				} : {
-					v: 1,
-					ok: true,
-					nonce: decoded.request.nonce,
-					pairingString: pairing.pairingString
-				};
+			try {
+				if (decoded.request.op === "ensure_relay") {
+					const relay = await params.ensureRelay(decoded.request.relayPort);
+					response = {
+						v: 1,
+						ok: true,
+						nonce: decoded.request.nonce,
+						relay
+					};
+				} else {
+					const pairing = await params.buildPairing(boundProfile);
+					response = pairing.topology === "direct-remote" ? {
+						v: 1,
+						ok: false,
+						code: "manual_required"
+					} : {
+						v: 1,
+						ok: true,
+						nonce: decoded.request.nonce,
+						pairingString: pairing.pairingString
+					};
+				}
 			} catch (error) {
 				response = {
 					v: 1,
 					ok: false,
-					code: error instanceof Error && error.message.includes("--gateway-url") ? "manual_required" : "pairing_unavailable"
+					code: decoded.request.op === "ensure_relay" ? "relay_unavailable" : error instanceof Error && error.message.includes("--gateway-url") ? "manual_required" : "pairing_unavailable"
 				};
 			}
 		}
@@ -254,12 +249,12 @@ async function main() {
 			responseFrame = frame;
 		},
 		buildPairing: async (boundProfile) => {
-			const { buildBrowserNativeHostPairing } = await import("../../extension-native-host.runtime-BVXJkK7k.mjs");
+			const { buildBrowserNativeHostPairing } = await import("../../extension-native-host.runtime-Cyr7oQqj.mjs");
 			const profile = process.argv.indexOf("--browser-profile") >= 0 ? requiredArgument("--browser-profile") : void 0;
 			return await buildBrowserNativeHostPairing(boundProfile ?? profile);
 		},
 		ensureRelay: async (port) => {
-			const { ensureBrowserNativeRelay } = await import("../../extension-native-host.runtime-BVXJkK7k.mjs");
+			const { ensureBrowserNativeRelay } = await import("../../extension-native-host.runtime-Cyr7oQqj.mjs");
 			return await ensureBrowserNativeRelay(port, fileURLToPath(new URL("./relay-daemon-entry.js", import.meta.url)));
 		}
 	});

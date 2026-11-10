@@ -1,19 +1,18 @@
 import { g as readStringValue } from "../../string-coerce-1VuiLaaR.mjs";
-import { i as extractErrorCode } from "../../error-coercion-CvJK4lmH.mjs";
-import { o as resolveUserPath } from "../../home-dir-Dc6nN6HB.mjs";
-import { t as asBoolean } from "../../boolean-BEb0Fdt8.mjs";
+import { a as extractErrorCode } from "../../error-coercion-BwMr25F8.mjs";
+import { o as resolveUserPath } from "../../home-dir-CtsdYvX3.mjs";
+import { t as asBoolean } from "../../boolean-CFfzB3ix.mjs";
 import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { r as resolveStateDir } from "../../state-dir-BHJORNly.mjs";
-import "../../error-runtime-BmospGvZ.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../text-utility-runtime-BDs7x8Fk.mjs";
-import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
-import "../../state-paths-Dd9pLEOI.mjs";
+import { r as resolveStateDir } from "../../state-dir-C8s3cOPX.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../text-utility-runtime-B9RB6Cg0.mjs";
+import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-Dm1sl1ov.mjs";
+import "../../state-paths-FoyMccMm.mjs";
 import fs from "node:fs";
-import path from "node:path";
 import fs$1 from "node:fs/promises";
+import path from "node:path";
 //#region extensions/canvas/src/config-migration.ts
-/** Canvas config migration to the single surviving route-enable switch. */
 const RETIRED_HOST_KEYS = [
 	"root",
 	"port",

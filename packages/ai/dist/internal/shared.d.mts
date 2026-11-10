@@ -1,9 +1,11 @@
-import { O as Message, Q as SimpleStreamOptions, a as AssistantMessage, at as ThinkingBudgets, k as Model, n as Api, nt as StreamOptions, st as ThinkingLevel } from "../types-DvzmWW8J.mjs";
-import { a as readAssistantThinkingAppend } from "../event-stream-DrRM_90c.mjs";
-import "../types-UlNana-2.mjs";
-import { t as sanitizeSurrogates } from "../sanitize-unicode-CjDG6jJx.mjs";
-import { i as projectProviderError } from "../provider-error-xumb1V3F.mjs";
-import { n as createDiagnosticRecord } from "../credential-redaction-BKv49aiv.mjs";
+import { O as Message, Q as SimpleStreamOptions, a as AssistantMessage, at as ThinkingBudgets, k as Model, n as Api, nt as StreamOptions, st as ThinkingLevel } from "../types-CVYzKrMl.mjs";
+import { a as readAssistantThinkingAppend } from "../event-stream-CzpE1g_o.mjs";
+import { d as preparedRequestSuffix } from "../provider-options-DAzsyi49.mjs";
+import "../types-CBJthzJX.mjs";
+import { r as serializeModelRequestBody } from "../model-request-body-BD5vy4rP.mjs";
+import { r as matchesContextOverflowMessage, t as sanitizeSurrogates } from "../sanitize-unicode-ZqVLLEKC.mjs";
+import { i as projectProviderError } from "../provider-error-CnaWYTRY.mjs";
+import { n as createDiagnosticRecord, r as isCredentialFieldName } from "../credential-redaction-XvsPf7Yi.mjs";
 import { n as normalizeStructuredPromptSection, r as sortPromptCacheToolsByName, t as normalizePromptCapabilityIds } from "../prompt-cache-stability-Cwcjv_fx.mjs";
 //#region packages/ai/src/providers/simple-options.d.ts
 type FirstEventStreamOptions = {
@@ -117,4 +119,4 @@ export declare function projectCopilotRequestFacts(messages: readonly {
   hasImages: boolean;
 };
 //#endregion
-export { createDiagnosticRecord, normalizePromptCapabilityIds, normalizeStructuredPromptSection, projectProviderError, readAssistantThinkingAppend, sanitizeSurrogates, sortPromptCacheToolsByName };
+export { createDiagnosticRecord, isCredentialFieldName, matchesContextOverflowMessage, normalizePromptCapabilityIds, normalizeStructuredPromptSection, preparedRequestSuffix, projectProviderError, readAssistantThinkingAppend, sanitizeSurrogates, serializeModelRequestBody, sortPromptCacheToolsByName };

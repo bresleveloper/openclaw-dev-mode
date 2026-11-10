@@ -42,9 +42,7 @@ if (
       resolve(75);
     });
     child.once("exit", (status, signal) => {
-      // The workload signal is authoritative. During cgroup OOM cleanup,
-      // systemd can terminate this wrapper after the child was already SIGKILLed.
-      exitSignal = signal ?? received ?? undefined;
+      exitSignal = received ?? signal ?? undefined;
       resolve(exitSignal ? signalExitCode(exitSignal) : (status ?? 75));
     });
   });

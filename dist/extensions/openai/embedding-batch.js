@@ -1,12 +1,12 @@
-import { t as coerceErrorMessage } from "../../error-coercion-CvJK4lmH.mjs";
-import { d as normalizeStringEntries } from "../../string-normalization-CECOqf64.mjs";
-import { h as readProviderTextResponse, m as readProviderJsonResponse, r as assertOkOrThrowProviderError } from "../../provider-http-errors-DmewLLH7.mjs";
-import { O as withRemoteHttpResponse } from "../../gateway-startup-plugin-config-ClZKV71m.mjs";
-import "../../error-runtime-BmospGvZ.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { _ as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline, v as waitProviderOperationPollInterval } from "../../shared-DcnGQdHV.mjs";
-import "../../provider-http-CuRGJD0L.mjs";
-import { D as formatBatchErrorDetail, E as extractBatchErrorMessage, O as formatUnavailableBatchError, b as waitForEmbeddingBatch, d as buildEmbeddingBatchGroupOptions, l as resolveEmbeddingEndpointUrl, m as buildBatchHeaders, p as runEmbeddingBatches, s as uploadBatchJsonlFile, w as postJsonWithRetry, x as EMBEDDING_BATCH_ENDPOINT } from "../../memory-core-host-engine-embeddings-C_qi8FWC.mjs";
+import { n as coerceErrorMessage } from "../../error-coercion-BwMr25F8.mjs";
+import { d as normalizeStringEntries } from "../../string-normalization-D6DKCpwE.mjs";
+import { h as readProviderTextResponse, m as readProviderJsonResponse, r as assertOkOrThrowProviderError } from "../../provider-http-errors-CjVOxCE5.mjs";
+import { N as withRemoteHttpResponse } from "../../gateway-startup-plugin-config-Cv_2HdnZ.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { _ as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline, v as waitProviderOperationPollInterval } from "../../shared-BMUa_P4s.mjs";
+import "../../provider-http-BuV15s4V.mjs";
+import { _ as postJsonWithRetry, a as uploadBatchJsonlFile, b as formatBatchErrorDetail, f as runEmbeddingBatches, h as EMBEDDING_BATCH_ENDPOINT, m as waitForEmbeddingBatch, p as buildBatchHeaders, s as resolveEmbeddingEndpointUrl, u as buildEmbeddingBatchGroupOptions, x as formatUnavailableBatchError, y as extractBatchErrorMessage } from "../../memory-core-host-engine-embeddings-BIgAa5Te.mjs";
 //#region extensions/openai/embedding-batch.ts
 const OPENAI_BATCH_ENDPOINT = EMBEDDING_BATCH_ENDPOINT;
 const OPENAI_BATCH_COMPLETION_WINDOW = "24h";
@@ -24,6 +24,7 @@ async function submitOpenAiBatch(params) {
 		headers: buildBatchHeaders(params.openAi, { json: true }),
 		ssrfPolicy: params.openAi.ssrfPolicy,
 		fetchImpl: params.openAi.fetchImpl,
+		resolveRequestHeaders: params.openAi.resolveRequestHeaders,
 		body: {
 			input_file_id: inputFileId,
 			endpoint: OPENAI_BATCH_ENDPOINT,
@@ -41,10 +42,14 @@ async function fetchOpenAiBatchResource(params) {
 		url: resolveEmbeddingEndpointUrl(params.openAi.baseUrl, params.path),
 		ssrfPolicy: params.openAi.ssrfPolicy,
 		fetchImpl: params.openAi.fetchImpl,
+		resolveRequestHeaders: params.openAi.resolveRequestHeaders,
 		signal: params.signal,
 		init: { headers: buildBatchHeaders(params.openAi, { json: true }) },
-		onResponse: async (res) => {
-			await assertOkOrThrowProviderError(res, params.label);
+		onResponse: async (res, requestHeaders) => {
+			await assertOkOrThrowProviderError(res, params.label, {
+				requestHeaders,
+				signal: params.signal
+			});
 			return await params.parse(res);
 		}
 	});

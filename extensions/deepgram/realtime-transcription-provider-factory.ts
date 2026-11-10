@@ -82,10 +82,8 @@ function normalizeDeepgramRealtimeBaseUrl(value?: string): string {
   if (!resolved) {
     return DEFAULT_DEEPGRAM_AUDIO_BASE_URL;
   }
-  let parsed: URL;
-  try {
-    parsed = new URL(resolved);
-  } catch {
+  const parsed = URL.parse(resolved);
+  if (!parsed) {
     throw new Error("Invalid Deepgram baseUrl: value is not a valid URL");
   }
   const { protocol } = parsed;
@@ -317,6 +315,9 @@ export function buildDeepgramRealtimeTranscriptionProvider({
   PluginCapabilityCatalogContext,
   "createRealtimeTranscriptionWebSocketSession"
 >): RealtimeTranscriptionProviderPlugin {
+  const isConfigured: NonNullable<RealtimeTranscriptionProviderPlugin["isConfigured"]> = ({
+    providerConfig,
+  }) => Boolean(normalizeProviderConfig(providerConfig).apiKey || process.env.DEEPGRAM_API_KEY);
   return {
     id: "deepgram",
     label: "Deepgram Realtime Transcription",
@@ -324,8 +325,9 @@ export function buildDeepgramRealtimeTranscriptionProvider({
     defaultModel: DEFAULT_DEEPGRAM_AUDIO_MODEL,
     autoSelectOrder: 35,
     resolveConfig: ({ rawConfig }) => normalizeProviderConfig(rawConfig),
-    isConfigured: ({ providerConfig }) =>
-      Boolean(normalizeProviderConfig(providerConfig).apiKey || process.env.DEEPGRAM_API_KEY),
+    // Retained for synchronous SDK consumers through 2026-12-31.
+    isConfigured,
+    isConfiguredAsync: async (ctx) => isConfigured(ctx),
     createSession: (req) => {
       const config = normalizeProviderConfig(req.providerConfig);
       const apiKey = config.apiKey || process.env.DEEPGRAM_API_KEY;

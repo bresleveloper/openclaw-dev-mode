@@ -1,3 +1,4 @@
+import { isRecord } from "@openclaw/normalization-core";
 import type { EasyInputMessage } from "openai/resources/responses/responses.js";
 import { stripSystemPromptCacheBoundary } from "../utils/system-prompt-cache-boundary.js";
 import {
@@ -6,8 +7,34 @@ import {
 } from "./openai-responses-contracts.js";
 import { sanitizeTransportPayloadText } from "./transport-stream-shared.js";
 
-type ResponsesPromptRequest = { instructions?: unknown; input?: unknown };
+type ResponsesPromptRequest = {
+  instructions?: unknown;
+  input?: unknown;
+  model?: unknown;
+  reasoning?: { effort?: unknown };
+  tools?: unknown;
+};
 type ResponsesPromptMetadata = Pick<ResponsesPromptObservation, "egress" | "payloadVariant">;
+
+function readSessionsSpawnSchema(
+  tools: unknown,
+): ResponsesPromptObservation["sessionsSpawn"] | undefined {
+  if (!Array.isArray(tools)) {
+    return undefined;
+  }
+  const tool = tools.find(
+    (candidate) => isRecord(candidate) && candidate.name === "sessions_spawn",
+  );
+  if (!isRecord(tool)) {
+    return undefined;
+  }
+  const parameters = isRecord(tool.parameters) ? tool.parameters : undefined;
+  return {
+    ...(typeof tool.strict === "boolean" ? { strict: tool.strict } : {}),
+    categoryRequired:
+      Array.isArray(parameters?.required) && parameters.required.includes("category"),
+  };
+}
 
 function readFinalResponsesPrompt(
   request: ResponsesPromptRequest,
@@ -49,12 +76,18 @@ export function createResponsesPromptEgressObserver(
   );
   return (request: ResponsesPromptRequest, metadata: ResponsesPromptMetadata) => {
     const [promptSource, observedPrompt] = readFinalResponsesPrompt(request);
+    const sessionsSpawn = readSessionsSpawnSchema(request.tools);
     observer({
       ...metadata,
       promptSource,
       expectedChars: expectedPrompt.length,
       observedChars: observedPrompt.length,
       matchesAssembledPrompt: promptSource !== "missing" && observedPrompt === expectedPrompt,
+      ...(typeof request.model === "string" ? { model: request.model } : {}),
+      ...(typeof request.reasoning?.effort === "string"
+        ? { reasoningEffort: request.reasoning.effort }
+        : {}),
+      ...(sessionsSpawn ? { sessionsSpawn } : {}),
     });
   };
 }

@@ -1,17 +1,25 @@
+import * as module from "node:module";
 import { createRequire } from "node:module";
-import path, { join, posix } from "node:path";
+import path, { basename, join, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import fs, { existsSync, realpathSync, statSync, default as openClawRootFsSync } from "node:fs";
-import { canUseRootFileOpen, openRootFileSync, readFileWindowFullySync } from "@openclaw/fs-safe/advanced";
+import fs, { existsSync, fstatSync, readdirSync, default as openClawRootFsSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { appendRegularFile, appendRegularFileSync, canUseRootFileOpen, openRootFileSync, readFileDescriptorBoundedSync, readFileWindowFullySync } from "@openclaw/fs-safe/advanced";
 import "@openclaw/fs-safe/errors";
 import { AsyncLocalStorage, AsyncResource } from "node:async_hooks";
 import { hasNodeErrorCode as hasErrnoCode, isPathInside, normalizeWindowsPathForComparison } from "@openclaw/fs-safe/path";
 import os, { tmpdir } from "node:os";
 import { channel } from "node:diagnostics_channel";
-import { performance as performance$1 } from "node:perf_hooks";
-import { MessageChannel, Worker, getEnvironmentData, isMainThread, parentPort, setEnvironmentData, threadId } from "node:worker_threads";
-import { mkdtemp, realpath, rm } from "node:fs/promises";
-import { Session } from "node:inspector";
+import { PerformanceObserver, constants, performance as performance$1 } from "node:perf_hooks";
+import { MessageChannel, MessagePort, Worker, getEnvironmentData, isMainThread, parentPort, receiveMessageOnPort, setEnvironmentData, threadId, workerData } from "node:worker_threads";
+import { isUtf8 } from "node:buffer";
+import fs$1, { mkdtemp, realpath, rm } from "node:fs/promises";
+import { isDeepStrictEqual, toUSVString } from "node:util";
+import { Chalk } from "chalk";
+import { Logger } from "tslog";
+import "@openclaw/proc-safe/errors";
+import "@openclaw/proc-safe/identity";
+import { Session } from "node:inspector/promises";
 import { getHeapStatistics } from "node:v8";
 import { setImmediate as setImmediate$1 } from "node:timers/promises";
 import { readRootJsonObjectSync } from "@openclaw/fs-safe/json";
@@ -37,6 +45,14 @@ var __exportAll = (all, no_symbols) => {
 };
 //#endregion
 //#region packages/normalization-core/src/error-coercion.ts
+const PROVIDER_AUTH_PERSISTENCE_ERROR_BRAND = Symbol.for("openclaw.provider-auth-persistence-error");
+function isProviderAuthPersistenceError(value) {
+	try {
+		return PROVIDER_AUTH_PERSISTENCE_ERROR_BRAND in value && value[PROVIDER_AUTH_PERSISTENCE_ERROR_BRAND] === true;
+	} catch {
+		return false;
+	}
+}
 function isErrorObject(value) {
 	try {
 		if (value instanceof Error) return true;
@@ -92,15 +108,17 @@ function readErrorCauses(current) {
 	if (!isErrorObject(current)) return [];
 	const cause = readProperty(current, "cause");
 	const errors = isAggregateErrorObject(current) ? readProperty(current, "errors") : void 0;
+	const persistenceFailures = isProviderAuthPersistenceError(current) ? [readProperty(current, "persistenceError"), readProperty(current, "cleanupError")] : [];
 	const suppressed = readErrorText(current, "name") === "SuppressedError" ? [readProperty(current, "error"), readProperty(current, "suppressed")].map((failure) => failure == null ? String(failure) : failure) : [];
 	return [
+		...persistenceFailures,
 		cause || void 0,
 		...Array.isArray(errors) ? errors : [],
 		...suppressed
 	];
 }
-/** Formats unknown errors with cause/aggregate details, structured codes, and secret redaction. */
-function formatErrorMessage$1(value, options) {
+/** Formats unknown errors with cause/aggregate details and optional diagnostic redaction. */
+function formatErrorMessage$1(value, options = {}) {
 	let formatted;
 	if (isErrorObject(value)) {
 		formatted = readErrorText(value, "message") || readErrorText(value, "name") || "Error";
@@ -110,26 +128,21 @@ function formatErrorMessage$1(value, options) {
 			formatted += ` | ${message}`;
 			seenMessages.add(message);
 		};
-		const appendCauseErrorMessage = (message) => {
-			if (message && formatted.includes(message)) {
-				seenMessages.add(message);
-				return;
-			}
-			appendCauseMessage(message);
-		};
 		if (options.includeCode) {
 			const code = readProperty(value, "code");
 			if (typeof code === "string" || typeof code === "number") appendCauseMessage(String(code));
 		}
 		const causes = collectErrorGraphCandidates(value, readErrorCauses);
 		for (const cause of causes.slice(1)) if (isErrorObject(cause)) {
-			appendCauseErrorMessage(readErrorText(cause, "message"));
+			const message = readErrorText(cause, "message");
+			if (message && formatted.includes(message)) seenMessages.add(message);
+			else appendCauseMessage(message);
 			const code = readProperty(cause, "code");
 			if (typeof code === "string" || typeof code === "number") appendCauseMessage(String(code));
 		} else if (typeof cause === "string") appendCauseMessage(cause);
 		else appendCauseMessage(formatStatusAndCode(cause) ?? stringifyUnknown(cause));
 	} else formatted = formatStatusAndCode(value) ?? stringifyUnknown(value);
-	return options.redact(formatted);
+	return options.redact ? options.redact(formatted) : formatted;
 }
 /**
 * Normalizes an unknown thrown value into an Error. Non-Error objects become
@@ -146,6 +159,11 @@ function toErrorObject(value, fallbackMessage) {
 /** Preserves Error values and stringifies every other value into a new Error. */
 function toStringifiedError(value) {
 	return value instanceof Error ? value : new Error(String(value));
+}
+function extractErrorCode(err) {
+	if (!err || typeof err !== "object") return;
+	const code = readProperty(err, "code");
+	return typeof code === "string" || typeof code === "number" ? String(code) : void 0;
 }
 function collectErrorGraphCandidates(err, resolveNested) {
 	if (err == null) return [];
@@ -165,6 +183,10 @@ function collectErrorGraphCandidates(err, resolveNested) {
 /** Type guard for non-array object records at browser-safe boundaries. */
 function isRecord(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+/** Returns a non-array record or undefined. */
+function asOptionalRecord(value) {
+	return isRecord(value) ? value : void 0;
 }
 /** Returns a non-array record or null. */
 function asNullableRecord(value) {
@@ -192,6 +214,7 @@ function serializeNativeErrorResponse(value) {
 //#region src/state/openclaw-state-db-contract.ts
 const FIRST_USE_STATE_TABLES = [
 	"user_profile_identities",
+	"user_background_images",
 	"local_workspace_projections",
 	"update_runs",
 	"session_repository_workspaces",
@@ -207,6 +230,7 @@ const FIRST_USE_STATE_TABLES = [
 	"execution_identity_contexts",
 	"mcp_oauth_pending_authorizations",
 	"node_worker_launch_containers",
+	"node_worker_launch_boots",
 	"node_worker_launch_cleanup",
 	"node_worker_launch_process_scopes",
 	"node_worker_launches",
@@ -236,6 +260,7 @@ const FIRST_USE_STATE_INDEXES = [
 	"idx_operator_approval_standing_grants_binding",
 	"idx_web_push_approval_deliveries_subscription",
 	"execution_identity_contexts_run_created_idx",
+	"execution_decision_facts_cursor_id_idx",
 	"execution_decision_facts_context_occurred_idx",
 	"execution_decision_facts_run_occurred_idx",
 	"outbound_message_execution_bindings_execution_event_idx",
@@ -267,67 +292,6 @@ function normalizeOptionalLowercaseString(value) {
 /** Lowercases a normalized string or returns an empty string when absent. */
 function normalizeLowercaseStringOrEmpty(value) {
 	return normalizeOptionalLowercaseString(value) ?? "";
-}
-//#endregion
-//#region packages/net-policy/src/redact-sensitive-url.ts
-const SENSITIVE_URL_QUERY_PARAM_NAMES = /* @__PURE__ */ new Set([
-	"token",
-	"key",
-	"api_key",
-	"apikey",
-	"secret",
-	"access_token",
-	"auth_token",
-	"password",
-	"pass",
-	"passwd",
-	"auth",
-	"jwt",
-	"session",
-	"id_token",
-	"code",
-	"client_secret",
-	"app_secret",
-	"hook_token",
-	"refresh_token",
-	"signature",
-	"x_amz_signature",
-	"x_amz_security_token",
-	"private_key",
-	"credential",
-	"authorization",
-	"sig",
-	"x_api_key",
-	"x_access_token",
-	"x_auth_token"
-]);
-const URL_QUERY_NAME_SEPARATOR_RE = /[\p{C}\p{Z}\u115F\u1160\u3164\uFFA0+]/gu;
-const SUFFIXED_OR_SCOPED_TOKEN_QUERY_PARAM_RE = /(?:^|_)token(?:_[a-f0-9]{16,})?$/u;
-const MAX_NESTED_URL_REDACTION_DEPTH = 8;
-function normalizeUrlQueryParamName(name) {
-	let current = name.replace(URL_QUERY_NAME_SEPARATOR_RE, "");
-	for (let depth = 0; depth <= MAX_NESTED_URL_REDACTION_DEPTH; depth += 1) {
-		let decoded;
-		try {
-			decoded = decodeURIComponent(current).replace(URL_QUERY_NAME_SEPARATOR_RE, "");
-		} catch {
-			break;
-		}
-		if (decoded === current) return {
-			value: normalizeLowercaseStringOrEmpty(current).replaceAll("-", "_"),
-			unresolvedEncoding: false
-		};
-		current = decoded;
-	}
-	return {
-		value: normalizeLowercaseStringOrEmpty(current).replaceAll("-", "_"),
-		unresolvedEncoding: current.includes("%")
-	};
-}
-/** True for auth-like URL query parameter names that should be redacted. */
-function isSensitiveUrlQueryParamName(name) {
-	const normalized = normalizeUrlQueryParamName(name);
-	return normalized.unresolvedEncoding || SENSITIVE_URL_QUERY_PARAM_NAMES.has(normalized.value) || SUFFIXED_OR_SCOPED_TOKEN_QUERY_PARAM_RE.test(normalized.value);
 }
 //#endregion
 //#region packages/acp-core/src/structured-auth-redaction.ts
@@ -389,17 +353,7 @@ function readAuthParamName(value, start) {
 }
 function isAuthHeaderStart(value, index) {
 	const previous = value[index - 1];
-	let serializedLineBoundary = false;
-	if (previous === "n" || previous === "r") {
-		let slashCursor = index - 2;
-		let slashCount = 0;
-		while (slashCount < 64 && value[slashCursor] === "\\") {
-			slashCount += 1;
-			slashCursor -= 1;
-		}
-		serializedLineBoundary = slashCount > 0;
-	}
-	if (!serializedLineBoundary && previous !== void 0 && /[A-Za-z0-9_-]/u.test(previous)) return false;
+	if (!((previous === "n" || previous === "r") && value[index - 2] === "\\") && previous !== void 0 && /[A-Za-z0-9_-]/u.test(previous)) return false;
 	const proxyName = "proxy-authorization";
 	const directName = "authorization";
 	const candidate = value.slice(index, index + 19).toLowerCase();
@@ -651,6 +605,12 @@ function sliceUtf16Safe(input, start, end) {
 	}
 	return input.slice(from, to);
 }
+/** Truncates a UTF-16 string without cutting a surrogate pair in half. */
+function truncateUtf16Safe(input, maxLen) {
+	const limit = Math.max(0, Math.floor(maxLen));
+	if (input.length <= limit) return input;
+	return sliceUtf16Safe(input, 0, limit);
+}
 //#endregion
 //#region src/infra/map-size.ts
 /** Prunes a Map in insertion order until it fits the requested maximum size. */
@@ -738,56 +698,9 @@ function readQuantifier(source, index) {
 		maxRepeat
 	};
 }
-function tokenizePattern(source) {
-	const tokens = [];
-	let inCharClass = false;
-	for (let i = 0; i < source.length; i += 1) {
-		const ch = source[i];
-		if (inCharClass) {
-			if (ch === "\\") {
-				i += 1;
-				continue;
-			}
-			if (ch === "]") inCharClass = false;
-			continue;
-		}
-		if (ch === "\\") {
-			i += 1;
-			tokens.push({ kind: "simple-token" });
-			continue;
-		}
-		if (ch === "[") {
-			inCharClass = true;
-			tokens.push({ kind: "simple-token" });
-			continue;
-		}
-		if (ch === "(") {
-			tokens.push({ kind: "group-open" });
-			continue;
-		}
-		if (ch === ")") {
-			tokens.push({ kind: "group-close" });
-			continue;
-		}
-		if (ch === "|") {
-			tokens.push({ kind: "alternation" });
-			continue;
-		}
-		const quantifier = readQuantifier(source, i);
-		if (quantifier) {
-			tokens.push({
-				kind: "quantifier",
-				quantifier
-			});
-			i += quantifier.consumed - 1;
-			continue;
-		}
-		tokens.push({ kind: "simple-token" });
-	}
-	return tokens;
-}
-function analyzeTokensForNestedRepetition(tokens) {
+function hasNestedRepetition(source) {
 	const frames = [createParseFrame()];
+	let inCharClass = false;
 	const emitToken = (token) => {
 		const frame = expectDefined(frames[frames.length - 1], "frames entry at frames.length 1");
 		frame.lastToken = token;
@@ -803,16 +716,28 @@ function analyzeTokensForNestedRepetition(tokens) {
 			maxLength: 1
 		});
 	};
-	for (const token of tokens) {
-		if (token.kind === "simple-token") {
+	for (let i = 0; i < source.length; i += 1) {
+		const ch = source[i];
+		if (inCharClass) {
+			if (ch === "\\") i += 1;
+			else if (ch === "]") inCharClass = false;
+			continue;
+		}
+		if (ch === "\\") {
+			i += 1;
 			emitSimpleToken();
 			continue;
 		}
-		if (token.kind === "group-open") {
+		if (ch === "[") {
+			inCharClass = true;
+			emitSimpleToken();
+			continue;
+		}
+		if (ch === "(") {
 			frames.push(createParseFrame());
 			continue;
 		}
-		if (token.kind === "group-close") {
+		if (ch === ")") {
 			if (frames.length > 1) {
 				const frame = frames.pop();
 				if (frame.hasAlternation) recordAlternative(frame);
@@ -827,7 +752,7 @@ function analyzeTokensForNestedRepetition(tokens) {
 			}
 			continue;
 		}
-		if (token.kind === "alternation") {
+		if (ch === "|") {
 			const frame = expectDefined(frames[frames.length - 1], "frames entry at frames.length 1");
 			frame.hasAlternation = true;
 			recordAlternative(frame);
@@ -836,24 +761,27 @@ function analyzeTokensForNestedRepetition(tokens) {
 			frame.lastToken = null;
 			continue;
 		}
+		const quantifier = readQuantifier(source, i);
+		if (!quantifier) {
+			emitSimpleToken();
+			continue;
+		}
+		i += quantifier.consumed - 1;
 		const frame = expectDefined(frames[frames.length - 1], "frames entry at frames.length 1");
 		const previousToken = frame.lastToken;
 		if (!previousToken) continue;
 		if (previousToken.containsRepetition) return true;
-		if (previousToken.hasAmbiguousAlternation && token.quantifier.maxRepeat === null) return true;
+		if (previousToken.hasAmbiguousAlternation && quantifier.maxRepeat === null) return true;
 		const previousMinLength = previousToken.minLength;
 		const previousMaxLength = previousToken.maxLength;
-		previousToken.minLength = multiplyLength(previousToken.minLength, token.quantifier.minRepeat);
-		previousToken.maxLength = token.quantifier.maxRepeat === null ? Number.POSITIVE_INFINITY : multiplyLength(previousToken.maxLength, token.quantifier.maxRepeat);
+		previousToken.minLength = multiplyLength(previousToken.minLength, quantifier.minRepeat);
+		previousToken.maxLength = quantifier.maxRepeat === null ? Number.POSITIVE_INFINITY : multiplyLength(previousToken.maxLength, quantifier.maxRepeat);
 		previousToken.containsRepetition = true;
 		frame.containsRepetition = true;
 		frame.branchMinLength = frame.branchMinLength - previousMinLength + previousToken.minLength;
 		frame.branchMaxLength = addLength(Number.isFinite(frame.branchMaxLength) && Number.isFinite(previousMaxLength) ? frame.branchMaxLength - previousMaxLength : Number.POSITIVE_INFINITY, previousToken.maxLength);
 	}
 	return false;
-}
-function hasNestedRepetition(source) {
-	return analyzeTokensForNestedRepetition(tokenizePattern(source));
 }
 function compileSafeRegexDetailed(source, flags = "") {
 	const trimmed = source.trim();
@@ -918,7 +846,7 @@ function compileConfigRegex(pattern, flags = "") {
 * Config merge/patch uses the object tag, not prototype identity: class instances
 * and custom prototypes remain accepted, while Date/Map/Set values are excluded.
 */
-function isPlainObject(value) {
+function isPlainObject$1(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value) && Object.prototype.toString.call(value) === "[object Object]";
 }
 //#endregion
@@ -1062,7 +990,7 @@ function resolveConfigEnvVars(value, env = process.env, opts) {
 			});
 			return result;
 		}
-		if (isPlainObject(current)) {
+		if (isPlainObject$1(current)) {
 			const result = {};
 			const entries = Object.entries(current)[Symbol.iterator]();
 			pending.push(() => {
@@ -1087,7 +1015,7 @@ function sanitizePlainObject(value) {
 	const sanitized = {};
 	for (const [key, entry] of Object.entries(value)) {
 		if (isBlockedObjectKey(key)) continue;
-		sanitized[key] = isPlainObject(entry) ? sanitizePlainObject(entry) : entry;
+		sanitized[key] = isPlainObject$1(entry) ? sanitizePlainObject(entry) : entry;
 	}
 	return sanitized;
 }
@@ -1096,12 +1024,12 @@ function mergeDeep(base, override, options = {}) {
 	const arrays = options.arrays ?? "replace";
 	const undefinedValues = options.undefinedValues ?? "skip";
 	if (Array.isArray(base) && Array.isArray(override)) return arrays === "concat" ? [...base, ...override] : override;
-	if (!isPlainObject(base) || !isPlainObject(override)) return override === void 0 && undefinedValues === "skip" ? base : override;
+	if (!isPlainObject$1(base) || !isPlainObject$1(override)) return override === void 0 && undefinedValues === "skip" ? base : override;
 	const merged = sanitizePlainObject(base);
 	for (const [key, value] of Object.entries(override)) {
 		if (isBlockedObjectKey(key) || value === void 0 && undefinedValues === "skip") continue;
 		const current = merged[key];
-		if (isPlainObject(value)) merged[key] = isPlainObject(current) ? mergeDeep(current, value, options) : sanitizePlainObject(value);
+		if (isPlainObject$1(value)) merged[key] = isPlainObject$1(current) ? mergeDeep(current, value, options) : sanitizePlainObject(value);
 		else if (arrays === "concat" && Array.isArray(current) && Array.isArray(value)) merged[key] = [...current, ...value];
 		else merged[key] = value;
 	}
@@ -1178,6 +1106,10 @@ function resolveGlobalSingleton(key, create, reset, lifecycle = "close-and-resta
 		reset: () => reset(value)
 	});
 	return value;
+}
+/** Resolves a lifecycle-owned process-local Set singleton. */
+function resolveGlobalSet(key, lifecycle) {
+	return resolveGlobalSingleton(key, () => /* @__PURE__ */ new Set(), (value) => value.clear(), lifecycle);
 }
 //#endregion
 //#region src/infra/safe-cwd.ts
@@ -1463,7 +1395,7 @@ const MAX_INCLUDE_FILE_BYTES = 2097152;
 /** Maximum length for $include path and resolved path (CWE-22 hardening). */
 const MAX_INCLUDE_PATH_LENGTH = 4096;
 function isConfigContainer(value) {
-	return Array.isArray(value) || isPlainObject(value);
+	return Array.isArray(value) || isPlainObject$1(value);
 }
 function includeLogicalPath(link) {
 	const parts = [];
@@ -1544,7 +1476,7 @@ var IncludeProcessor = class {
 			} : item);
 			return result;
 		}
-		if (!isPlainObject(value)) return value;
+		if (!isPlainObject$1(value)) return value;
 		if (!("$include" in value)) {
 			const isRoot = pathLink === null;
 			const result = {};
@@ -1594,7 +1526,7 @@ var IncludeProcessor = class {
 			...multiple ? { targetPaths: entries.map((entry) => entry.targetPath) } : { targetPath: entries[0].targetPath }
 		});
 		if (siblingKeys.length === 0) return included;
-		if (!isPlainObject(included)) throw new ConfigIncludeError("Sibling keys require included content to be an object", typeof includeValue === "string" ? includeValue : INCLUDE_KEY);
+		if (!isPlainObject$1(included)) throw new ConfigIncludeError("Sibling keys require included content to be an object", typeof includeValue === "string" ? includeValue : INCLUDE_KEY);
 		const rest = {};
 		for (const key of siblingKeys) {
 			const sibling = obj[key];
@@ -1754,21 +1686,7 @@ function resolveConfigIncludesForTopLevelKey(obj, configPath, key, resolver = de
 	return new IncludeProcessor(configPath, resolver, createConfigIncludeBoundary(configPath, options.allowedRoots ?? []), /* @__PURE__ */ new Set([key])).process(obj);
 }
 //#endregion
-//#region src/infra/test-runtime-env.ts
-/** Detects Vitest/test execution from the env shape used by local and worker processes. */
-function isVitestRuntimeEnv(env = process.env) {
-	const vitest = env.VITEST;
-	return vitest === "true" || vitest === "1" || env.VITEST_POOL_ID !== void 0 || env.VITEST_WORKER_ID !== void 0 || env.NODE_ENV === "test";
-}
-/** Enables the shared fast-test shortcuts only inside a detected test runtime. */
-function isFastTestRuntimeEnv(env = process.env) {
-	return env.OPENCLAW_TEST_FAST === "1" && (isVitestRuntimeEnv(env) || env !== process.env && isVitestRuntimeEnv(process.env));
-}
-//#endregion
 //#region src/config/state-dir.ts
-function resolveLegacyStateDirs(homedir = resolveRequiredHomeDir) {
-	return [path.join(homedir(), ".clawdbot")];
-}
 function resolveNewStateDir(homedir = resolveRequiredHomeDir) {
 	return path.join(homedir(), ".openclaw");
 }
@@ -1787,10 +1705,8 @@ function resolveStateDir(env = process.env, homedir = () => resolveRequiredHomeD
 	return resolveStateDirFromHome(env, effectiveHomedir);
 }
 /** Select a default state directory from the caller's already resolved home. */
-function resolveStateDirFromHome(env, effectiveHomedir) {
-	const newDir = resolveNewStateDir(effectiveHomedir);
-	if (isFastTestRuntimeEnv(env) || fs.existsSync(newDir)) return newDir;
-	return resolveLegacyStateDirs(effectiveHomedir).find((dir) => fs.existsSync(dir)) ?? newDir;
+function resolveStateDirFromHome(_env, effectiveHomedir) {
+	return resolveNewStateDir(effectiveHomedir);
 }
 //#endregion
 //#region src/config/paths.ts
@@ -1806,13 +1722,6 @@ function resolveIsNixMode(env = process.env) {
 }
 resolveIsNixMode();
 const CONFIG_FILENAME = "openclaw.json";
-const LEGACY_CONFIG_FILENAMES = ["clawdbot.json"];
-function configPathsInStateDir(stateDir) {
-	return [CONFIG_FILENAME, ...LEGACY_CONFIG_FILENAMES].map((name) => path.join(stateDir, name));
-}
-function findExistingConfigPath(candidates) {
-	return candidates.find((candidate) => fs.existsSync(candidate));
-}
 /** Build a homedir thunk that respects OPENCLAW_HOME for the given env. */
 function envHomedir(env) {
 	return () => resolveRequiredHomeDir(env, os.homedir);
@@ -1850,57 +1759,20 @@ function resolveIncludeRoots(env = process.env, homedir = envHomedir(env)) {
 }
 resolveStateDir();
 /**
-* Config file path (JSON or JSON5).
-* Can be overridden via OPENCLAW_CONFIG_PATH.
-* Default: ~/.openclaw/openclaw.json (or $OPENCLAW_STATE_DIR/openclaw.json)
-*/
-function resolveCanonicalConfigPath(env = process.env, stateDir) {
-	const override = env.OPENCLAW_CONFIG_PATH?.trim();
-	if (override) return resolveUserPath(override, env, envHomedir(env));
-	return path.join(stateDir ?? resolveStateDir(env, envHomedir(env)), CONFIG_FILENAME);
-}
-/**
-* Resolve the active config path by preferring existing config candidates
-* before falling back to the canonical path.
+* Resolve the explicitly selected or canonical config path.
 */
 function resolveConfigPathCandidate(env = process.env, homedir = envHomedir(env)) {
-	const override = env.OPENCLAW_CONFIG_PATH?.trim();
-	if (override) return resolveUserPath(override, env, homedir);
-	if (isFastTestRuntimeEnv(env)) return resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
-	return findExistingConfigPath(resolveDefaultConfigCandidates(env, homedir)) ?? resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
+	return resolveConfigPath(env, void 0, homedir);
 }
 /**
-* Active config path (prefers existing config files).
+* Active config path.
 */
 function resolveConfigPath(env = process.env, stateDir, homedir = envHomedir(env)) {
 	const override = env.OPENCLAW_CONFIG_PATH?.trim();
 	if (override) return resolveUserPath(override, env, homedir);
-	const selectedStateDir = stateDir ?? resolveStateDir(env, envHomedir(env));
-	if (isFastTestRuntimeEnv(env)) return path.join(selectedStateDir, CONFIG_FILENAME);
-	const stateOverride = env.OPENCLAW_STATE_DIR?.trim();
-	const existing = findExistingConfigPath(configPathsInStateDir(selectedStateDir));
-	if (existing) return existing;
-	if (stateOverride) return path.join(selectedStateDir, CONFIG_FILENAME);
-	const defaultStateDir = resolveStateDir(env, homedir);
-	if (path.resolve(selectedStateDir) === path.resolve(defaultStateDir)) return resolveConfigPathCandidate(env, homedir);
-	return path.join(selectedStateDir, CONFIG_FILENAME);
+	return path.join(stateDir ?? resolveStateDir(env, homedir), CONFIG_FILENAME);
 }
 resolveConfigPathCandidate();
-/**
-* Resolve default config path candidates across default locations.
-* Order: explicit config path → state-dir-derived paths → new default.
-*/
-function resolveDefaultConfigCandidates(env = process.env, homedir = envHomedir(env)) {
-	const effectiveHomedir = () => resolveRequiredHomeDir(env, homedir);
-	const explicit = env.OPENCLAW_CONFIG_PATH?.trim();
-	if (explicit) return [resolveUserPath(explicit, env, effectiveHomedir)];
-	const openclawStateDir = env.OPENCLAW_STATE_DIR?.trim();
-	return [
-		...openclawStateDir ? [resolveUserPath(openclawStateDir, env, effectiveHomedir)] : [],
-		resolveNewStateDir(effectiveHomedir),
-		...resolveLegacyStateDirs(effectiveHomedir)
-	].flatMap(configPathsInStateDir);
-}
 //#endregion
 //#region src/logging/state.ts
 const LOGGING_STATE_KEY = Symbol.for("openclaw.loggingState");
@@ -2008,6 +1880,46 @@ function readLoggingConfig() {
 	}
 }
 //#endregion
+//#region src/logging/logger-file-message.ts
+const MAX_FILE_LOG_MESSAGE_CHARS = 4096;
+function clampMessage(text) {
+	return text.length > MAX_FILE_LOG_MESSAGE_CHARS ? `${truncateUtf16Safe(text, MAX_FILE_LOG_MESSAGE_CHARS)}...(truncated)` : text;
+}
+function stringifyFileLogMessagePart(value, json) {
+	if (json) return JSON.stringify(value);
+	if (typeof value === "string") return value;
+	if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
+	if (isRecord(value) && typeof value.message === "string") return value.message;
+}
+function serializeFileLogRecord(record, parts = []) {
+	const ancestors = [];
+	const materialized = JSON.parse(JSON.stringify(record, function(_key, value) {
+		while (ancestors.length > 0 && ancestors.at(-1) !== this) ancestors.pop();
+		if (typeof value === "bigint") return String(value);
+		if (value !== null && typeof value === "object") {
+			if (ancestors.includes(value)) return "[Circular]";
+			ancestors.push(value);
+		}
+		return value;
+	}));
+	if (!isRecord(materialized)) throw new TypeError("File log records must serialize to objects");
+	const text = [];
+	for (const { key, json, primitiveText } of parts) {
+		const part = primitiveText ?? stringifyFileLogMessagePart(materialized[key], json);
+		if (part?.trim()) text.push(part);
+	}
+	if (text.length > 0) {
+		const message = clampMessage(text.join(" "));
+		if (Object.hasOwn(materialized, "message")) materialized.message = message;
+		else {
+			const entries = Object.entries(materialized);
+			entries.splice(entries.findIndex(([key]) => key === "hostname") + 1, 0, ["message", message]);
+			return JSON.stringify(Object.fromEntries(entries));
+		}
+	}
+	return JSON.stringify(materialized);
+}
+//#endregion
 //#region src/logging/redact-bounded.ts
 const REDACT_REGEX_CHUNK_THRESHOLD = 32768;
 const REDACT_REGEX_CHUNK_SIZE = 16384;
@@ -2024,367 +1936,277 @@ function replacePatternBounded(text, pattern, replacer) {
 	return output ?? text;
 }
 //#endregion
-//#region src/logging/secret-redaction-registry.ts
-const MIN_SECRET_VALUE_LENGTH = 6;
-const state$1 = resolveGlobalSingleton(Symbol.for("openclaw.secretRedactionRegistry"), () => ({
-	registeredValues: /* @__PURE__ */ new Map(),
-	registryRevision: 0,
-	registeredValueRedactor: void 0
-}));
-const registrySnapshots = resolveGlobalSingleton(Symbol.for("openclaw.secretRedactionRegistrySnapshots"), () => new AsyncLocalStorage());
-function invalidateMatcher() {
-	state$1.registryRevision += 1;
-	state$1.registeredValueRedactor = void 0;
-}
-/** Replaces registered exact values while preserving the caller's mask convention. */
-function redactRegisteredSecretValues(text, mask) {
-	const scoped = registrySnapshots.getStore();
-	if (scoped) {
-		scoped.redactor ??= createSecretValueRedactor(scoped.snapshot.values);
-		return scoped.redactor(text, mask);
+//#region src/logging/redact-edit-composition.ts
+/** Compose sorted, disjoint current-value edits while retaining original source spans. */
+function composeRedactionEdits(length, previous, edits) {
+	if (previous.length === 0) return edits;
+	const pieces = [];
+	let source = 0;
+	for (const edit of previous) {
+		if (source < edit.start) pieces.push({
+			start: source,
+			end: edit.start
+		});
+		pieces.push(edit);
+		source = edit.end;
 	}
-	if (!text || state$1.registeredValues.size === 0) return text;
-	state$1.registeredValueRedactor ??= createSecretValueRedactor([...state$1.registeredValues.keys()]);
-	return state$1.registeredValueRedactor(text, mask);
-}
-function createSecretValueRedactor(values) {
-	let compiledMatcher;
-	let firstChars;
-	return (text, mask) => {
-		if (!text || values.length === 0) return text;
-		let couldMatch = false;
-		firstChars ??= new Set(values.map((value) => value.charAt(0)));
-		for (const firstChar of firstChars) if (text.includes(firstChar)) {
-			couldMatch = true;
-			break;
-		}
-		if (!couldMatch) return text;
-		if (!compiledMatcher) {
-			const buckets = /* @__PURE__ */ new Map();
-			for (const value of values.toSorted((left, right) => right.length - left.length)) {
-				const prefix = value.slice(0, MIN_SECRET_VALUE_LENGTH);
-				const bucket = buckets.get(prefix);
-				if (bucket) bucket.push(value);
-				else buckets.set(prefix, [value]);
-			}
-			compiledMatcher = {
-				prefixes: new RegExp([...buckets.keys()].map(escapeRegExp).join("|"), "g"),
-				buckets
+	if (source < length) pieces.push({
+		start: source,
+		end: length
+	});
+	const output = [];
+	let index = 0;
+	let offset = 0;
+	let position = 0;
+	const consume = (end, keep) => {
+		if (end === position) {
+			const piece = pieces[index];
+			if (!piece) return {
+				start: length,
+				end: length
+			};
+			const start = piece.replacement === void 0 ? piece.start + offset : piece.start;
+			return {
+				start,
+				end: piece.replacement !== void 0 && offset > 0 ? piece.end : start
 			};
 		}
-		const { prefixes, buckets } = compiledMatcher;
-		const matches = [];
-		prefixes.lastIndex = 0;
-		for (let match = prefixes.exec(text); match; match = prefixes.exec(text)) {
-			const index = match.index;
-			const value = buckets.get(match[0])?.find((candidate) => text.startsWith(candidate, index));
-			if (value !== void 0) matches.push({
-				index,
-				value
+		let sourceStart;
+		let sourceEnd = 0;
+		while (position < end) {
+			const piece = expectDefined(pieces[index], "current redaction piece");
+			const size = piece.replacement?.length ?? piece.end - piece.start;
+			const count = Math.min(size - offset, end - position);
+			const start = piece.replacement === void 0 ? piece.start + offset : piece.start;
+			const finish = piece.replacement === void 0 ? start + count : piece.end;
+			sourceStart ??= start;
+			sourceEnd = finish;
+			if (keep && count > 0) output.push({
+				start,
+				end: finish,
+				replacement: piece.replacement?.slice(offset, offset + count)
 			});
-			prefixes.lastIndex = index + (value?.length ?? 1);
+			position += count;
+			offset += count;
+			if (offset === size) {
+				index += 1;
+				offset = 0;
+			}
 		}
-		let result = "";
-		let cursor = 0;
-		for (const match of matches) {
-			result += `${text.slice(cursor, match.index)}${mask(match.value, match.index)}`;
-			cursor = match.index + match.value.length;
-		}
-		return result + text.slice(cursor);
+		return {
+			start: sourceStart ?? sourceEnd,
+			end: sourceEnd
+		};
 	};
-}
-function resetSecretRedactionRegistryForTest() {
-	state$1.registeredValues.clear();
-	invalidateMatcher();
-}
-if (process.env.VITEST || false) globalThis[Symbol.for("openclaw.secretRedactionRegistryTestApi")] = { resetSecretRedactionRegistryForTest };
-//#endregion
-//#region src/logging/redact-pattern-runtime.ts
-function parseRedactPatternSource(raw) {
-	const literal = raw.match(/^\/(.+)\/([gimsuy]*)$/);
-	if (!literal) return [raw, "gi"];
-	const source = literal[1] ?? "";
-	const flags = literal[2] ?? "";
-	return [source, flags.includes("g") ? flags : `${flags}g`];
-}
-const OPEN_REPEAT_RE = /^\{(\d+),\}/;
-const BOUNDED_REPEAT_RE = /^\{(?:\d+(?:,\d*)?|,\d+)\}/;
-const HEX_DIGIT_RE = /[0-9A-Fa-f]/;
-const ASSERTION_ESCAPE_CHARS = /* @__PURE__ */ new Set(["b", "B"]);
-const escapeHexValue = (source, at) => {
-	let value = 0;
-	for (let index = 0; index < 4; index += 1) {
-		const digit = source[at + index];
-		if (digit === void 0 || !HEX_DIGIT_RE.test(digit)) return null;
-		value = value * 16 + Number.parseInt(digit, 16);
+	for (const edit of edits) {
+		consume(edit.start, true);
+		output.push({
+			...consume(edit.end, false),
+			replacement: edit.replacement
+		});
 	}
-	return value;
-};
-/** True when the escape at `i` is a `\uXXXX` high-surrogate escape. */
-const isHighSurrogateEscape = (source, i) => {
-	const value = escapeHexValue(source, i + 2);
-	return value !== null && value >= 55296 && value <= 56319;
-};
-/** True when the escape at `i` is a `\uXXXX` low-surrogate escape. */
-const isLowSurrogateEscape = (source, i) => {
-	const value = escapeHexValue(source, i + 2);
-	return value !== null && value >= 56320 && value <= 57343;
-};
-/** End index (exclusive) of the single atom introduced by the escape at `i` (a backslash), or -1. */
-function escapeAtomEnd(source, i) {
-	const kind = source[i + 1];
-	if (kind === void 0) return -1;
-	if (ASSERTION_ESCAPE_CHARS.has(kind)) return i + 2;
-	if (kind === "x") return HEX_DIGIT_RE.test(source[i + 2] ?? "") && HEX_DIGIT_RE.test(source[i + 3] ?? "") ? i + 4 : i + 2;
-	if ((kind === "u" || kind === "p" || kind === "P") && source[i + 2] === "{") {
-		const close = source.indexOf("}", i + 3);
-		return close === -1 ? i + 2 : close + 1;
+	while (index < pieces.length) {
+		const piece = expectDefined(pieces[index], "remaining redaction piece");
+		consume(position + (piece.replacement?.length ?? piece.end - piece.start) - offset, true);
 	}
-	if (kind === "u") {
-		let end = i + 2;
-		while (end < i + 6 && HEX_DIGIT_RE.test(source[end] ?? "")) end += 1;
-		return end;
-	}
-	if (kind === "c") return i + 3;
-	if (kind === "k" && source[i + 2] === "<") {
-		const close = source.indexOf(">", i + 3);
-		return close === -1 ? i + 2 : close + 1;
-	}
-	if (kind >= "0" && kind <= "9") {
-		let end = i + 2;
-		for (let cursor = end; cursor < source.length; cursor += 1) {
-			const digit = source[cursor];
-			if (digit === void 0 || digit < "0" || digit > "9") break;
-			end = cursor + 1;
+	const composed = [];
+	let fragments = [];
+	let pending;
+	const flush = () => {
+		if (pending) {
+			pending.replacement = fragments.join("");
+			composed.push(pending);
+			pending = void 0;
+			fragments = [];
 		}
-		return end;
-	}
-	return i + 2;
-}
-/** End index (exclusive) of the character class starting at `i` (an unescaped bracket). */
-function classAtomEnd(source, i) {
-	let cursor = i + 1;
-	if (source[cursor] === "^") cursor += 1;
-	if (source[cursor] === "]") return -1;
-	while (cursor < source.length) {
-		const char = source[cursor];
-		if (char === "\\") {
-			cursor += 2;
-			continue;
-		}
-		if (char === "]") return cursor + 1;
-		cursor += 1;
-	}
-	return source.length;
-}
-/**
-* Rewrites open-ended repeats `X{n,}` into `X{n}X*` for flat single-character atoms `X`
-* (one literal, one escaped atom, or one bracket class). Greedy `X{n,}` and `X{n}X*`
-* accept the same strings in the same backtracking order, but the latter never grows one
-* backtrack stack entry per repetition, so multi-megabyte runs no longer overflow.
-* Bounded repeats, quantifiers after groups, and quantified atoms are left untouched.
-* `flags` decides atom boundaries for literal astral characters: under `u` a surrogate pair
-* is one atom; without `u` JavaScript quantifies only the trailing code unit, so the pair
-* must keep its per-unit handling and the original language.
-*/
-function rewriteOpenEndedRepeats(source, flags = "") {
-	if (!source.includes("{")) return source;
-	let out = "";
-	let atomStart = -1;
-	let atomEnd = -1;
-	let i = 0;
-	while (i < source.length) {
-		const char = source[i];
-		if (char === "\\") {
-			const end = escapeAtomEnd(source, i);
-			if (end < 0) {
-				out += char;
-				i += 1;
-				atomStart = -1;
-				continue;
-			}
-			if (flags.includes("u") && isHighSurrogateEscape(source, i) && source[end] === "\\" && isLowSurrogateEscape(source, end)) {
-				const pairEnd = escapeAtomEnd(source, end);
-				out += source.slice(i, pairEnd);
-				atomStart = i;
-				atomEnd = pairEnd;
-				i = pairEnd;
-				continue;
-			}
-			out += source.slice(i, end);
-			if (ASSERTION_ESCAPE_CHARS.has(source[i + 1])) atomStart = -1;
-			else {
-				atomStart = i;
-				atomEnd = end;
-			}
-			i = end;
-			continue;
-		}
-		if (char === "[") {
-			const end = classAtomEnd(source, i);
-			if (end < 0) return source;
-			out += source.slice(i, end);
-			atomStart = i;
-			atomEnd = end;
-			i = end;
-			continue;
-		}
-		if (char === "{") {
-			const open = OPEN_REPEAT_RE.exec(source.slice(i));
-			if (open && atomStart >= 0) {
-				const atom = source.slice(atomStart, atomEnd);
-				out += `{${open[1]}}${atom}*`;
-				i += open[0].length;
-				if (source[i] === "?") {
-					out += "?";
-					i += 1;
-				}
-				atomStart = -1;
-				continue;
-			}
-			const bounded = BOUNDED_REPEAT_RE.exec(source.slice(i));
-			if (bounded) {
-				out += bounded[0];
-				i += bounded[0].length;
-				if (source[i] === "?") {
-					out += "?";
-					i += 1;
-				}
-				atomStart = -1;
-				continue;
-			}
-			out += char;
-			atomStart = i;
-			atomEnd = i + 1;
-			i += 1;
-			continue;
-		}
-		out += char;
-		if (flags.includes("u") && char >= "\ud800" && char <= "\udbff" && i + 1 < source.length && source[i + 1] >= "\udc00" && source[i + 1] <= "\udfff") {
-			out += source[i + 1];
-			atomStart = i;
-			atomEnd = i + 2;
-			i += 2;
-			continue;
-		}
-		if (char === "*" || char === "+" || char === "?" || char === "(" || char === ")" || char === "|" || char === "^" || char === "$") atomStart = -1;
-		else {
-			atomStart = i;
-			atomEnd = i + 1;
-		}
-		i += 1;
-	}
-	return out;
-}
-function readRedactMatch(args) {
-	const inputIndex = args.length > 0 && typeof args[args.length - 1] === "object" && args[args.length - 1] !== null ? args.length - 2 : args.length - 1;
-	const offsetIndex = inputIndex - 1;
-	const match = typeof args[0] === "string" ? args[0] : "";
-	const groups = args.slice(1, offsetIndex).map((value) => typeof value === "string" ? value : "");
-	const offset = typeof args[offsetIndex] === "number" ? args[offsetIndex] : -1;
-	return {
-		match,
-		groups,
-		input: typeof args[inputIndex] === "string" ? args[inputIndex] : "",
-		offset
 	};
-}
-const patternPrefilters = /* @__PURE__ */ new WeakMap();
-function setRedactPatternPrefilter(pattern, probe) {
-	if (patternPrefilters.has(pattern)) return;
-	const source = pattern.source;
-	const exec = pattern.exec;
-	const flags = pattern instanceof RegExp ? pattern.flags : void 0;
-	const replace = pattern instanceof RegExp ? pattern[Symbol.replace] : void 0;
-	patternPrefilters.set(pattern, (text) => pattern.source !== source || pattern.exec !== exec || pattern instanceof RegExp && (pattern.flags !== flags || pattern[Symbol.replace] !== replace) || probe(text));
-}
-const indexedPatterns = /* @__PURE__ */ new WeakMap();
-function getIndexedCaptureStart(pattern, input, match, matchOffset, captureIndex) {
-	if (!(pattern instanceof RegExp) || matchOffset < 0 || !input) return null;
-	let indexedPattern = indexedPatterns.get(pattern);
-	if (!indexedPattern) {
-		indexedPattern = new RegExp(pattern.source, `${pattern.flags.replace("d", "").replace("g", "")}dg`);
-		indexedPatterns.set(pattern, indexedPattern);
-	}
-	indexedPattern.lastIndex = matchOffset;
-	const indexedMatch = indexedPattern.exec(input);
-	const captureIndices = indexedMatch?.indices?.[captureIndex + 1];
-	return indexedMatch?.index === matchOffset && indexedMatch[0] === match && captureIndices ? captureIndices[0] - matchOffset : null;
-}
-function selectSecretCapture(match, groups) {
-	const selected = {
-		index: -1,
-		value: match
-	};
-	for (let index = 0; index < groups.length; index++) {
-		const value = groups[index];
-		if (typeof value === "string" && value.length > 0) {
-			selected.index = index;
-			selected.value = value;
+	for (const piece of output) {
+		if (piece.replacement === void 0) {
+			flush();
+			continue;
 		}
+		const sameEmptySpan = pending && pending.start === piece.start && pending.end === piece.end && piece.start === piece.end;
+		if (!pending || piece.start >= pending.end && !sameEmptySpan) {
+			flush();
+			pending = {
+				start: piece.start,
+				end: piece.end,
+				replacement: ""
+			};
+		} else pending.end = Math.max(pending.end, piece.end);
+		fragments.push(piece.replacement);
 	}
-	return selected;
+	flush();
+	return composed;
 }
-function getSecretCaptureStart(pattern, input, match, matchOffset, selected) {
-	return getIndexedCaptureStart(pattern, input, match, matchOffset, selected.index) ?? match.lastIndexOf(selected.value);
-}
-const globalPatterns = /* @__PURE__ */ new WeakMap();
-function visitRedactMatches(text, pattern, visit) {
-	if (patternPrefilters.get(pattern)?.(text) === false) return;
-	if (!(pattern instanceof RegExp)) {
-		for (const match of pattern.exec(text)) visit(match, pattern);
-		return;
-	}
-	let regex = pattern.global ? pattern : globalPatterns.get(pattern);
-	if (!regex) {
-		regex = new RegExp(pattern.source, `${pattern.flags}g`);
-		globalPatterns.set(pattern, regex);
-	}
-	const unicode = regex.unicode || regex.flags.includes("v");
-	let cursor = 0;
-	while (cursor <= text.length) {
-		const previousIndex = regex.lastIndex;
-		let match;
-		try {
-			regex.lastIndex = cursor;
-			match = regex.exec(text);
-		} finally {
-			regex.lastIndex = previousIndex;
-		}
-		if (!match) return;
-		cursor = match.index + match[0].length;
-		if (!match[0]) {
-			const codePoint = text.codePointAt(cursor);
-			cursor += unicode && codePoint !== void 0 && codePoint > 65535 ? 2 : 1;
-		}
-		visit({
-			match: match[0],
-			groups: match.slice(1).map((group) => group ?? ""),
-			input: text,
-			offset: match.index
-		}, pattern);
-	}
-}
-function replaceRedactPattern(text, pattern, replace, replaceRegex) {
-	if (pattern instanceof RegExp) {
-		if (patternPrefilters.get(pattern)?.(text) === false) {
-			pattern.lastIndex = 0;
-			return text;
-		}
-		return text.replace(pattern, replaceRegex ?? ((...args) => replace(readRedactMatch(args))));
-	}
-	const parts = [];
-	let end = 0;
-	visitRedactMatches(text, pattern, (match) => {
-		parts.push(text.slice(end, match.offset), replace(match));
-		end = match.offset + match.match.length;
+/** Project source-span replacements onto a value that already contains replacements. */
+function rebaseRedactionEdits(previous, edits) {
+	let shift = 0;
+	const spans = previous.map((edit) => {
+		const start = edit.start + shift;
+		shift += edit.replacement.length - (edit.end - edit.start);
+		return {
+			...edit,
+			currentStart: start,
+			currentEnd: edit.end + shift
+		};
 	});
-	return parts.length ? parts.join("") + text.slice(end) : text;
+	const boundary = (position, end) => {
+		let low = 0;
+		let high = spans.length;
+		while (low < high) {
+			const middle = low + high >>> 1;
+			const span = expectDefined(spans[middle], "source redaction span");
+			if (span.end < position || span.end === position && span.start !== span.end) low = middle + 1;
+			else high = middle;
+		}
+		const span = spans[low];
+		if (span && (position > span.start || position === span.start && span.start === span.end)) return end ? span.currentEnd : span.currentStart;
+		const before = spans[low - 1];
+		return position + (before ? before.currentEnd - before.end : 0);
+	};
+	return edits.map((edit) => ({
+		start: boundary(edit.start, false),
+		end: boundary(edit.end, true),
+		replacement: edit.replacement
+	}));
 }
-function redactPemBlock(block, marker) {
-	const lines = block.split(/\r?\n/).filter(Boolean);
-	if (lines.length < 2) return "***";
-	return `${lines[0]}\n${marker}\n${lines[lines.length - 1]}`;
+function mergeRedactionEdits(edits) {
+	edits.sort((left, right) => left.start - right.start || left.end - right.end);
+	const merged = [];
+	for (const edit of edits) {
+		const previous = merged.at(-1);
+		if (!previous || edit.start >= previous.end) merged.push({ ...edit });
+		else if (edit.start !== previous.start || edit.end !== previous.end || edit.replacement !== previous.replacement) {
+			previous.end = Math.max(previous.end, edit.end);
+			previous.replacement = "***";
+		}
+	}
+	return merged;
+}
+function applyRedactionEdits(value, edits) {
+	const parts = [];
+	let cursor = 0;
+	for (const edit of mergeRedactionEdits(edits)) {
+		parts.push(value.slice(cursor, edit.start), edit.replacement);
+		cursor = edit.end;
+	}
+	return parts.join("") + value.slice(cursor);
+}
+//#endregion
+//#region packages/net-policy/src/redact-sensitive-url.ts
+const SENSITIVE_URL_QUERY_PARAM_NAMES = /* @__PURE__ */ new Set([
+	"token",
+	"key",
+	"api_key",
+	"apikey",
+	"secret",
+	"access_token",
+	"auth_token",
+	"password",
+	"pass",
+	"passwd",
+	"auth",
+	"jwt",
+	"session",
+	"id_token",
+	"code",
+	"client_secret",
+	"app_secret",
+	"hook_token",
+	"refresh_token",
+	"signature",
+	"x_amz_signature",
+	"x_amz_security_token",
+	"private_key",
+	"credential",
+	"authorization",
+	"sig",
+	"x_api_key",
+	"x_access_token",
+	"x_auth_token"
+]);
+const URL_QUERY_NAME_SEPARATOR_RE = /[\p{C}\p{Z}\u115F\u1160\u3164\uFFA0+]/gu;
+const SUFFIXED_OR_SCOPED_TOKEN_QUERY_PARAM_RE = /(?:^|_)token(?:_[a-f0-9]{16,})?$/u;
+const MAX_NESTED_URL_REDACTION_DEPTH = 8;
+function normalizeUrlQueryParamName(name) {
+	let current = name.replace(URL_QUERY_NAME_SEPARATOR_RE, "");
+	for (let depth = 0; depth <= MAX_NESTED_URL_REDACTION_DEPTH; depth += 1) {
+		let decoded;
+		try {
+			decoded = decodeURIComponent(current).replace(URL_QUERY_NAME_SEPARATOR_RE, "");
+		} catch {
+			break;
+		}
+		if (decoded === current) return {
+			value: normalizeLowercaseStringOrEmpty(current).replaceAll("-", "_"),
+			unresolvedEncoding: false
+		};
+		current = decoded;
+	}
+	return {
+		value: normalizeLowercaseStringOrEmpty(current).replaceAll("-", "_"),
+		unresolvedEncoding: current.includes("%")
+	};
+}
+/** True for auth-like URL query parameter names that should be redacted. */
+function isSensitiveUrlQueryParamName(name) {
+	const normalized = normalizeUrlQueryParamName(name);
+	return normalized.unresolvedEncoding || SENSITIVE_URL_QUERY_PARAM_NAMES.has(normalized.value) || SUFFIXED_OR_SCOPED_TOKEN_QUERY_PARAM_RE.test(normalized.value);
+}
+//#endregion
+//#region src/logging/redact-mask.ts
+const DEFAULT_REDACT_MIN_LENGTH = 18;
+const DEFAULT_REDACT_KEEP_START = 6;
+const SECRET_VALUE_TRAILING_DELIMITER_RE = /(["'`,;)}\]]+)$/u;
+const SECRET_VALUE_SUFFIX_RE = /^["'`,;)}\]]*$/u;
+const SECRET_VALUE_QUOTE_CHARS = /* @__PURE__ */ new Set([
+	"\"",
+	"'",
+	"`"
+]);
+function maskToken(token) {
+	if (token.length < DEFAULT_REDACT_MIN_LENGTH) return "***";
+	return `${sliceUtf16Safe(token, 0, DEFAULT_REDACT_KEEP_START)}…${sliceUtf16Safe(token, -4)}`;
+}
+function splitSecretValueForMask(token) {
+	const openingQuote = token[0] ?? "";
+	const contentStart = SECRET_VALUE_QUOTE_CHARS.has(openingQuote) ? 1 : 0;
+	if (contentStart) {
+		const closingQuoteIndex = token.lastIndexOf(openingQuote);
+		if (closingQuoteIndex > 0) {
+			const suffix = token.slice(closingQuoteIndex + 1);
+			if (SECRET_VALUE_SUFFIX_RE.test(suffix)) return {
+				maskable: token.slice(1, closingQuoteIndex),
+				suffix,
+				maskStart: 0,
+				maskEnd: closingQuoteIndex + 1
+			};
+		}
+	}
+	const content = token.slice(contentStart);
+	const trailingDelimiter = content.match(SECRET_VALUE_TRAILING_DELIMITER_RE)?.[1] ?? "";
+	const maskable = trailingDelimiter && trailingDelimiter.length < content.length ? content.slice(0, -trailingDelimiter.length) : content;
+	return {
+		maskable,
+		suffix: maskable === content ? "" : trailingDelimiter,
+		maskStart: 0,
+		maskEnd: contentStart + maskable.length
+	};
+}
+function splitFormAwareCredentialValue(token) {
+	const pairBoundary = token.search(/&[A-Za-z_][A-Za-z0-9_.-]*=/u);
+	return pairBoundary < 0 ? {
+		secret: token,
+		suffix: ""
+	} : {
+		secret: token.slice(0, pairBoundary),
+		suffix: token.slice(pairBoundary)
+	};
+}
+function maskSecretValue(token, options) {
+	const { maskable, suffix } = splitSecretValueForMask(token);
+	return `${options?.hinted ? maskToken(maskable) : "***"}${suffix}`;
 }
 //#endregion
 //#region src/logging/redact-pem.ts
@@ -2519,6 +2341,19 @@ const PEM_REDACT_MATCHER = {
 		let whenClosed = false;
 		let whenOpen = true;
 		return {
+			resolve(active) {
+				whenClosed = active ? whenOpen : whenClosed;
+				whenOpen = whenClosed;
+			},
+			advance(text) {
+				const state = createState();
+				if (whenClosed) state.open = {
+					start: -1,
+					end: -1
+				};
+				for (const delimiter of readDelimiters(text, state.scanner)) consumeDelimiter(state, delimiter);
+				return state.open !== void 0;
+			},
 			prepend() {
 				const closed = createState();
 				const open = createState();
@@ -2570,44 +2405,6 @@ const CONFIG_COLON_ASSIGNMENT_SECRET_KEYS = String.raw`access[-_]?token|refresh[
 const CONFIG_DIRECT_ASSIGNMENT_SECRET_KEYS = String.raw`access-token|refresh-token|id-token|auth-token|hook-token|api[-_]?(?:key|secret)|secret[-_]?key|key[-_]?material|passphrase`;
 const CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_SECRET_KEYS = String.raw`password|passphrase|pass|passwd`;
 const CLI_SECRET_FLAG_KEYS = String.raw`${AWS_SECRET_ACCESS_KEY_FIELD_KEYS}|api[-_]?key|hook[-_]?token|access[-_]?token|refresh[-_]?token|id[-_]?token|token|secret|password|passwd|credential|private[-_]?key|client[-_]?secret|${PAYMENT_CREDENTIAL_QUERY_KEYS}`;
-const BODY_SECRET_KEYS = /* @__PURE__ */ new Set([
-	"access_token",
-	"auth_token",
-	"awssecretaccesskey",
-	"aws_secret_access_key",
-	"hook_token",
-	"refresh_token",
-	"id_token",
-	"token",
-	"api_key",
-	"apikey",
-	"client_secret",
-	"app_secret",
-	"password",
-	"pass",
-	"passwd",
-	"auth",
-	"jwt",
-	"session",
-	"code",
-	"signature",
-	"x_amz_signature",
-	"x_amz_security_token",
-	"secret",
-	"secretaccesskey",
-	"credential",
-	"private_key",
-	"authorization",
-	"key",
-	"card_number",
-	"card_cvc",
-	"card_cvv",
-	"cvc",
-	"cvv",
-	"security_code",
-	"payment_credential",
-	"shared_payment_token"
-]);
 const FORM_BODY_KEY_INVISIBLE_CHARS = String.raw`\p{C}\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\u115F\u1160\u3164\uFFA0`;
 const ENV_ASSIGNMENT_REDACT_PATTERN = String.raw`/\b[A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|${PAYMENT_CREDENTIAL_ENV_KEYS})\b\s*[=:]\s*(["']?)([^\s"'\\]+)\1/g`;
 const ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN = String.raw`/\b[A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|${PAYMENT_CREDENTIAL_ENV_KEYS})\b\s*[=:]\s*\\+(["'])([^\s"'\\]+)\\+\1/g`;
@@ -2807,13 +2604,11 @@ const TELEGRAM_BOT_TOKEN_REDACT_PATTERN = String.raw`\bbot(\d{6,}:[A-Za-z0-9_-]{
 const TELEGRAM_TOKEN_REDACT_PATTERN = String.raw`\b(\d{6,}:[A-Za-z0-9_-]{20,})\b`;
 const CREDENTIAL_STYLE_HEADER_KEYS = "x-goog-api-key|api-key|apikey|x-api-token|x-access-token";
 const GATEWAY_SECURITY_HEADER_KEYS = "X-OpenClaw-Token|x-pomerium-jwt-assertion|X-Api-Key|X-Auth-Token";
-new RegExp(`^(?:${CREDENTIAL_STYLE_HEADER_KEYS}|${GATEWAY_SECURITY_HEADER_KEYS})$`, "i");
 const LOG_HEADER_BOUNDARY_PATTERN = String.raw`(^|[^A-Za-z0-9_?&-]|\\{1,64}[rn])`;
 const CREDENTIAL_STYLE_COLON_HEADER_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${CREDENTIAL_STYLE_HEADER_KEYS})${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*:${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}([^\s\\"',;]+)`;
 const CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${CREDENTIAL_STYLE_HEADER_KEYS})${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*=${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}([^\s\\"',;]+)`;
 const GATEWAY_SECURITY_COLON_HEADER_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${GATEWAY_SECURITY_HEADER_KEYS})\s*:\s*([^\s"',;]+)`;
 const GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN = String.raw`${LOG_HEADER_BOUNDARY_PATTERN}(?:${GATEWAY_SECURITY_HEADER_KEYS})\s*=\s*([^\s"',;]+)`;
-const FORM_AWARE_EQUALS_ASSIGNMENT_PATTERN_SOURCES = /* @__PURE__ */ new Set([CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN, GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN]);
 const HTTP_AUTH_HEADER_REDACT_PATTERNS = [
 	String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}Proxy-Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}${HTTP_AUTH_SCHEME_PATTERN}${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`,
 	String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}Proxy-Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})[ \t]*(?=${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(?:$|[,;)}\]]|\r?\n(?![ \t])))`,
@@ -2826,12 +2621,6 @@ const AUTHORIZATION_BEARER_REDACT_PATTERN = String.raw`Authorization${HTTP_AUTH_
 const AUTHORIZATION_BASIC_REDACT_PATTERN = String.raw`Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_LEGACY_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}Basic${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`;
 const AUTHORIZATION_BOT_REDACT_PATTERN = String.raw`Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_LEGACY_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}Bot${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}(${HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN})`;
 const STANDALONE_BEARER_REDACT_PATTERN = String.raw`\bBearer\s+([-A-Za-z0-9._~+/=]{18,})(?![-A-Za-z0-9._~+/=])`;
-const SHELL_REFERENCE_PRESERVING_PATTERN_SOURCES = /* @__PURE__ */ new Set([
-	ENV_ASSIGNMENT_REDACT_PATTERN,
-	ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN,
-	STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN,
-	STANDALONE_ASSIGNMENT_REDACT_PATTERN
-]);
 const DEFAULT_REDACT_FIELD_PATTERNS = [
 	ENV_ASSIGNMENT_REDACT_PATTERN,
 	ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN,
@@ -2862,30 +2651,6 @@ const DEFAULT_REDACT_FIELD_PATTERNS = [
 	PEM_REDACT_PATTERN_SOURCE,
 	String.raw`(^|[\s,{])["']?(?:${AWS_SECRET_ACCESS_KEY_FIELD_KEYS})["']?\s*[:=]\s*(["']?)([A-Za-z0-9/+=]{40})(?![A-Za-z0-9/+=])\2`
 ];
-const CONFIG_KEY_PROBE = new RegExp(String.raw`[:=](?<=(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])`);
-const CONFIG_QUOTED_PROBE = new RegExp(String.raw`[:=](?<=(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])\s*["'\x60]`);
-const CONFIG_NAMESPACED_PROBE = new RegExp(String.raw`[:=](?<=\.(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])`);
-const STANDALONE_ASSIGNMENT_PROBE = new RegExp(String.raw`=(?<=(?:^|[\s,;({\["])(?:${STANDALONE_ASSIGNMENT_SECRET_KEYS})=)`, "i");
-const REDACT_PATTERN_PREFILTERS = new Map([
-	[ENV_ASSIGNMENT_REDACT_PATTERN, (text) => /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CARD|CVC|CVV|SECURITY|PAYMENT/.test(text)],
-	[ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN, (text) => text.includes("\\")],
-	[STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN, (text) => /[=]["'`]/.test(text)],
-	[STANDALONE_ASSIGNMENT_REDACT_PATTERN, (text) => STANDALONE_ASSIGNMENT_PROBE.test(text)],
-	[CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN, (text) => /["'`]/.test(text) && CONFIG_QUOTED_PROBE.test(text)],
-	[CONFIG_ASSIGNMENT_REDACT_PATTERN, (text) => (text.includes(":") || text.includes("=")) && CONFIG_KEY_PROBE.test(text)],
-	[CONFIG_DIRECT_ASSIGNMENT_REDACT_PATTERN, (text) => text.includes("=")],
-	[CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_REDACT_PATTERN, (text) => /[-_](?:password|passphrase|pass|passwd)\s*[:=]/.test(text)],
-	[CONFIG_NAMESPACED_ASSIGNMENT_REDACT_PATTERN, (text) => CONFIG_NAMESPACED_PROBE.test(text)],
-	[AMBIGUOUS_QUOTED_SECRET_FIELD_REDACT_PATTERN, (text) => /["']/.test(text)],
-	[AMBIGUOUS_QUOTED_AUTH_FIELD_REDACT_PATTERN, (text) => /["']/.test(text)],
-	...HTTP_AUTH_HEADER_REDACT_PATTERNS.slice(0, 4).map((raw) => [raw, (text) => /authorization/i.test(text)]),
-	[CREDENTIAL_STYLE_COLON_HEADER_REDACT_PATTERN, (text) => /api-key|apikey|api-token|access-token/i.test(text)],
-	[CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN, (text) => /api-key|apikey|api-token|access-token/i.test(text)],
-	[STRUCTURED_JSON_SECRET_REDACT_PATTERN, (text) => text.includes("\"")],
-	[STRUCTURED_JSON_PAYMENT_REDACT_PATTERN, (text) => text.includes("\"")],
-	[GATEWAY_SECURITY_COLON_HEADER_REDACT_PATTERN, (text) => /x-openclaw-token|x-pomerium-jwt-assertion|x-api-key|x-auth-token/i.test(text)],
-	[GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN, (text) => /x-openclaw-token|x-pomerium-jwt-assertion|x-api-key|x-auth-token/i.test(text)]
-]);
 const VENDOR_TOKEN_REDACT_PATTERNS = [
 	String.raw`\b(sk-[A-Za-z0-9_-]{8,})\b`,
 	String.raw`(ghp_[A-Za-z0-9]{10,})`,
@@ -2918,6 +2683,7 @@ const VENDOR_TOKEN_REDACT_PATTERNS = [
 	String.raw`(AIza[0-9A-Za-z\-_]{20,})`,
 	String.raw`(ya29\.[0-9A-Za-z_\-./+=]{10,})`,
 	String.raw`(1//0[0-9A-Za-z_\-./+=]{10,})`,
+	String.raw`(GOCSPX-[A-Za-z0-9_-]{20,})`,
 	String.raw`(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})`,
 	String.raw`(pplx-[A-Za-z0-9_-]{10,})`,
 	String.raw`(fal_[A-Za-z0-9_-]{10,})`,
@@ -2978,38 +2744,948 @@ const VENDOR_TOKEN_REDACT_PATTERNS = [
 	TELEGRAM_BOT_TOKEN_REDACT_PATTERN,
 	TELEGRAM_TOKEN_REDACT_PATTERN
 ];
-const CHUNK_UNSAFE_PATTERN_SOURCES = /* @__PURE__ */ new Set([
-	TELEGRAM_BOT_TOKEN_REDACT_PATTERN,
-	TELEGRAM_TOKEN_REDACT_PATTERN,
-	AUTHORIZATION_BEARER_REDACT_PATTERN,
-	AUTHORIZATION_BASIC_REDACT_PATTERN,
-	AUTHORIZATION_BOT_REDACT_PATTERN,
-	STANDALONE_BEARER_REDACT_PATTERN,
-	...HTTP_AUTH_HEADER_REDACT_PATTERNS,
-	...VENDOR_TOKEN_REDACT_PATTERNS.filter((source) => source.startsWith(BASE64_SAFE_TOKEN_BOUNDARY))
-]);
 const DEFAULT_REDACT_PATTERNS = [
 	...DEFAULT_REDACT_FIELD_PATTERNS,
 	...VENDOR_TOKEN_REDACT_PATTERNS,
 	AWS_SECRET_ACCESS_KEY_MATCHER
 ];
-const TOOL_PAYLOAD_AMBIGUOUS_ASSIGNMENT_PATTERNS = /* @__PURE__ */ new Set([
-	ENV_ASSIGNMENT_REDACT_PATTERN,
-	ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN,
-	STRUCTURED_JSON_SECRET_REDACT_PATTERN,
-	AMBIGUOUS_QUOTED_SECRET_FIELD_REDACT_PATTERN,
-	AMBIGUOUS_QUOTED_AUTH_FIELD_REDACT_PATTERN,
-	STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN,
-	STANDALONE_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_DIRECT_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_REDACT_PATTERN,
-	CONFIG_NAMESPACED_ASSIGNMENT_REDACT_PATTERN
-]);
-/** Programmatic counterparts of the ambiguous assignment rules: kept out of tool payloads, preserved in source. */
-const AMBIGUOUS_ASSIGNMENT_MATCHERS = /* @__PURE__ */ new Set([BARE_PASS_ASSIGNMENT_MATCHER]);
-const TOOL_PAYLOAD_REDACT_PATTERNS = DEFAULT_REDACT_PATTERNS.filter((pattern) => typeof pattern === "string" ? !TOOL_PAYLOAD_AMBIGUOUS_ASSIGNMENT_PATTERNS.has(pattern) : !AMBIGUOUS_ASSIGNMENT_MATCHERS.has(pattern));
+function createBackendRedactPatterns() {
+	const bodySecretKeys = /* @__PURE__ */ new Set([
+		"access_token",
+		"auth_token",
+		"awssecretaccesskey",
+		"aws_secret_access_key",
+		"hook_token",
+		"refresh_token",
+		"id_token",
+		"token",
+		"api_key",
+		"apikey",
+		"client_secret",
+		"app_secret",
+		"password",
+		"pass",
+		"passwd",
+		"auth",
+		"jwt",
+		"session",
+		"code",
+		"signature",
+		"x_amz_signature",
+		"x_amz_security_token",
+		"secret",
+		"secretaccesskey",
+		"credential",
+		"private_key",
+		"authorization",
+		"key",
+		"card_number",
+		"card_cvc",
+		"card_cvv",
+		"cvc",
+		"cvv",
+		"security_code",
+		"payment_credential",
+		"shared_payment_token"
+	]);
+	const credentialHeaderField = new RegExp(`^(?:${CREDENTIAL_STYLE_HEADER_KEYS}|${GATEWAY_SECURITY_HEADER_KEYS})$`, "i");
+	const formAware = /* @__PURE__ */ new Set([CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN, GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN]);
+	const shellReferencePreserving = /* @__PURE__ */ new Set([
+		ENV_ASSIGNMENT_REDACT_PATTERN,
+		ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN,
+		STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN,
+		STANDALONE_ASSIGNMENT_REDACT_PATTERN
+	]);
+	const CONFIG_KEY_PROBE = new RegExp(String.raw`[:=](?<=(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])`);
+	const CONFIG_QUOTED_PROBE = new RegExp(String.raw`[:=](?<=(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])\s*["'\x60]`);
+	const CONFIG_NAMESPACED_PROBE = new RegExp(String.raw`[:=](?<=\.(?:${CONFIG_ASSIGNMENT_SECRET_KEYS})\s*[:=])`);
+	const STANDALONE_ASSIGNMENT_PROBE = new RegExp(String.raw`=(?<=(?:^|[\s,;({\["])(?:${STANDALONE_ASSIGNMENT_SECRET_KEYS})=)`, "i");
+	return {
+		bodySecretKeys,
+		credentialHeaderField,
+		formAware,
+		shellReferencePreserving,
+		prefilters: new Map([
+			[ENV_ASSIGNMENT_REDACT_PATTERN, (text) => /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CARD|CVC|CVV|SECURITY|PAYMENT/.test(text)],
+			[ESCAPED_ENV_ASSIGNMENT_REDACT_PATTERN, (text) => text.includes("\\")],
+			[STANDALONE_ASSIGNMENT_QUOTED_REDACT_PATTERN, (text) => /[=]["'`]/.test(text)],
+			[STANDALONE_ASSIGNMENT_REDACT_PATTERN, (text) => STANDALONE_ASSIGNMENT_PROBE.test(text)],
+			[CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN, (text) => /["'`]/.test(text) && CONFIG_QUOTED_PROBE.test(text)],
+			[CONFIG_ASSIGNMENT_REDACT_PATTERN, (text) => (text.includes(":") || text.includes("=")) && CONFIG_KEY_PROBE.test(text)],
+			[CONFIG_DIRECT_ASSIGNMENT_REDACT_PATTERN, (text) => text.includes("=")],
+			[CONFIG_PREFIXED_PASSWORD_ASSIGNMENT_REDACT_PATTERN, (text) => /[-_](?:password|passphrase|pass|passwd)\s*[:=]/.test(text)],
+			[CONFIG_NAMESPACED_ASSIGNMENT_REDACT_PATTERN, (text) => CONFIG_NAMESPACED_PROBE.test(text)],
+			[AMBIGUOUS_QUOTED_SECRET_FIELD_REDACT_PATTERN, (text) => /["']/.test(text)],
+			[AMBIGUOUS_QUOTED_AUTH_FIELD_REDACT_PATTERN, (text) => /["']/.test(text)],
+			...HTTP_AUTH_HEADER_REDACT_PATTERNS.slice(0, 4).map((raw) => [raw, (text) => /authorization/i.test(text)]),
+			[CREDENTIAL_STYLE_COLON_HEADER_REDACT_PATTERN, (text) => /api-key|apikey|api-token|access-token/i.test(text)],
+			[CREDENTIAL_STYLE_EQUALS_ASSIGNMENT_REDACT_PATTERN, (text) => /api-key|apikey|api-token|access-token/i.test(text)],
+			[STRUCTURED_JSON_SECRET_REDACT_PATTERN, (text) => text.includes("\"")],
+			[STRUCTURED_JSON_PAYMENT_REDACT_PATTERN, (text) => text.includes("\"")],
+			[GATEWAY_SECURITY_COLON_HEADER_REDACT_PATTERN, (text) => /x-openclaw-token|x-pomerium-jwt-assertion|x-api-key|x-auth-token/i.test(text)],
+			[GATEWAY_SECURITY_EQUALS_ASSIGNMENT_REDACT_PATTERN, (text) => /x-openclaw-token|x-pomerium-jwt-assertion|x-api-key|x-auth-token/i.test(text)]
+		]),
+		chunkUnsafe: /* @__PURE__ */ new Set([
+			TELEGRAM_BOT_TOKEN_REDACT_PATTERN,
+			TELEGRAM_TOKEN_REDACT_PATTERN,
+			AUTHORIZATION_BEARER_REDACT_PATTERN,
+			AUTHORIZATION_BASIC_REDACT_PATTERN,
+			AUTHORIZATION_BOT_REDACT_PATTERN,
+			STANDALONE_BEARER_REDACT_PATTERN,
+			...HTTP_AUTH_HEADER_REDACT_PATTERNS,
+			...VENDOR_TOKEN_REDACT_PATTERNS.filter((source) => source.startsWith(BASE64_SAFE_TOKEN_BOUNDARY))
+		])
+	};
+}
+//#endregion
+//#region src/logging/redact-form-body.ts
+const FORM_BODY_KEY_OBFUSCATION_RE = new RegExp(String.raw`[${FORM_BODY_KEY_INVISIBLE_CHARS}+]`, "gu");
+const FORM_BODY_KEY_SEPARATOR_RE = /[\p{C}\p{Z}\u115F\u1160\u3164\uFFA0+]/gu;
+const FORM_BODY_PERCENT_ESCAPE_RE = /%[0-9A-Fa-f]{2}/u;
+const FORM_BODY_KEY = String.raw`[${FORM_BODY_KEY_INVISIBLE_CHARS}+]*(?:[A-Za-z_]|%[0-9A-Fa-f]{2})(?:[A-Za-z0-9_.-]|%[0-9A-Fa-f]{2}|[${FORM_BODY_KEY_INVISIBLE_CHARS}+])*`;
+const FORM_BODY_VALUE = "[^&\\s<>]*";
+const URL_QUERY_VALUE = "[^&#\\s<>]*";
+const FORM_BODY_PAIR = String.raw`${FORM_BODY_KEY}=${FORM_BODY_VALUE}`;
+const FORM_BODY_RE = new RegExp(String.raw`^${FORM_BODY_PAIR}(?:&${FORM_BODY_PAIR})+$`, "u");
+const FORM_BODY_SUBSTRING_RE = new RegExp(String.raw`(^|[\s:({\[,="'` + "`" + String.raw`])(${FORM_BODY_PAIR}(?:&${FORM_BODY_PAIR})+)`, "gu");
+const ENCODED_FORM_PAIR_RE = new RegExp(String.raw`(^|[\s:({\[,="'` + "`" + String.raw`&])(${FORM_BODY_KEY})=(${FORM_BODY_VALUE})`, "gu");
+const FORM_BODY_CONTEXT_SINGLE_PAIR_RE = new RegExp(String.raw`(\b(?:body|form(?:[-_\s]?body)?)\s*[:=]\s*(["'\x60]?))(${FORM_BODY_KEY})=(${FORM_BODY_VALUE})(["'\x60]?)`, "giu");
+const URL_QUERY_PAIR_RE = new RegExp(String.raw`([?&])(${FORM_BODY_KEY})=(${URL_QUERY_VALUE})`, "gu");
+const FORM_BODY_LINE_BREAK_SPLIT_RE = /(\r\n|\r|\n)/u;
+const FORM_BODY_LINE_BREAK_SEGMENT_RE = /^(?:\r\n|\r|\n)$/u;
+function createFormBodyRedactor(bodySecretKeys) {
+	function normalizeSensitiveKeyName(value) {
+		const stripped = value.replace(FORM_BODY_KEY_SEPARATOR_RE, "");
+		try {
+			return decodeURIComponent(stripped).replace(FORM_BODY_KEY_SEPARATOR_RE, "").toLowerCase().replaceAll("-", "_");
+		} catch {
+			return stripped.toLowerCase().replaceAll("-", "_");
+		}
+	}
+	function isSensitiveBodyKey(key) {
+		return isSensitiveUrlQueryParamName(key) || bodySecretKeys.has(normalizeSensitiveKeyName(key));
+	}
+	function hasEncodedOrInvisibleFormKey(key) {
+		return FORM_BODY_PERCENT_ESCAPE_RE.test(key) || key.replace(FORM_BODY_KEY_OBFUSCATION_RE, "") !== key;
+	}
+	function visitSensitiveAssignments(text, kind, visit) {
+		if (!text || kind === "url" && !text.includes("?")) return;
+		if (kind === "encoded" && !text.includes("%") && text.replace(FORM_BODY_KEY_OBFUSCATION_RE, "") === text) return;
+		if (kind === "context" && !/[=:]/u.test(text)) return;
+		const visitPair = (key, token, valueOffset) => {
+			if (kind === "encoded" && !hasEncodedOrInvisibleFormKey(key)) return;
+			if (!isSensitiveBodyKey(key)) return;
+			const { maskable, maskStart, maskEnd } = splitSecretValueForMask(token);
+			visit(valueOffset + maskStart, valueOffset + maskEnd, maskable);
+		};
+		if (kind === "form") {
+			let cursor = 0;
+			for (const pair of text.split("&")) {
+				const equalsIndex = pair.indexOf("=");
+				if (equalsIndex >= 0) visitPair(pair.slice(0, equalsIndex), pair.slice(equalsIndex + 1), cursor + equalsIndex + 1);
+				cursor += pair.length + 1;
+			}
+			return;
+		}
+		const pattern = kind === "url" ? URL_QUERY_PAIR_RE : kind === "encoded" ? ENCODED_FORM_PAIR_RE : FORM_BODY_CONTEXT_SINGLE_PAIR_RE;
+		const keyIndex = kind === "context" ? 3 : 2;
+		pattern.lastIndex = 0;
+		try {
+			for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+				const prefix = match[1] ?? "";
+				const key = match[keyIndex] ?? "";
+				visitPair(key, match[keyIndex + 1] ?? "", match.index + prefix.length + key.length + 1);
+			}
+		} finally {
+			pattern.lastIndex = 0;
+		}
+	}
+	function redactAssignmentValues(text, kind, onEdits) {
+		const parts = [];
+		const edits = [];
+		let cursor = 0;
+		visitSensitiveAssignments(text, kind, (start, end, maskable) => {
+			const replacement = kind === "url" ? maskToken(maskable) : "***";
+			parts.push(text.slice(cursor, start), replacement);
+			if (onEdits) edits.push({
+				start,
+				end,
+				replacement
+			});
+			cursor = end;
+		});
+		if (edits.length > 0) onEdits?.(edits);
+		return parts.length > 0 ? parts.join("") + text.slice(cursor) : text;
+	}
+	function redactFormBodyLine(text, onEdits) {
+		if (!text.includes("=")) return text;
+		const contextRedacted = redactAssignmentValues(redactAssignmentValues(text, "encoded", onEdits), "context", onEdits);
+		if (!contextRedacted.includes("&")) return contextRedacted;
+		if (FORM_BODY_RE.test(contextRedacted)) return redactAssignmentValues(contextRedacted, "form", onEdits);
+		const substringEdits = [];
+		const redacted = contextRedacted.replace(FORM_BODY_SUBSTRING_RE, (match, prefix, body, offset) => {
+			const redactedBody = redactAssignmentValues(body, "form", onEdits ? (edits) => {
+				for (const edit of edits) substringEdits.push({
+					...edit,
+					start: offset + prefix.length + edit.start,
+					end: offset + prefix.length + edit.end
+				});
+			} : void 0);
+			return redactedBody === body ? match : `${prefix}${redactedBody}`;
+		});
+		if (substringEdits.length > 0) onEdits?.(substringEdits);
+		return redactAssignmentValues(redactAssignmentValues(redacted, "encoded", onEdits), "context", onEdits);
+	}
+	function redactFormBody(text, onEdits) {
+		if (!text.includes("=")) return text;
+		if (FORM_BODY_LINE_BREAK_SPLIT_RE.test(text)) {
+			let offset = 0;
+			return text.split(FORM_BODY_LINE_BREAK_SPLIT_RE).map((segment) => {
+				const result = FORM_BODY_LINE_BREAK_SEGMENT_RE.test(segment) ? segment : redactFormBodyLine(segment, onEdits ? (edits) => onEdits(edits.map((edit) => ({
+					...edit,
+					start: offset + edit.start,
+					end: offset + edit.end
+				}))) : void 0);
+				offset += result.length;
+				return result;
+			}).join("");
+		}
+		return redactFormBodyLine(text, onEdits);
+	}
+	return {
+		redactAssignmentValues,
+		redactFormBody
+	};
+}
+//#endregion
+//#region src/logging/redact-json-tokens.ts
+const JSON_TOKEN_RE = /"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null|[{}[\]]/g;
+function skipWhitespace(text, start) {
+	let offset = start;
+	while (text[offset] === " " || text[offset] === "	" || text[offset] === "\r" || text[offset] === "\n") offset += 1;
+	return offset;
+}
+function readScalarTokens(text, origins) {
+	const tokens = [];
+	const containers = [];
+	const root = {
+		key: "",
+		path: [],
+		origins,
+		origin: origins.value,
+		objectPath: true
+	};
+	const valueContext = (parent) => !parent ? root : parent.array ? {
+		...parent.context,
+		origin: parent.context.origins?.value ?? parent.context.origin,
+		origins: parent.context.origins?.children.get(String(parent.nextIndex++))
+	} : expectDefined(parent.field, "JSON object field context");
+	for (const match of text.matchAll(JSON_TOKEN_RE)) {
+		const raw = match[0];
+		const parent = containers.at(-1);
+		if (raw === "{" || raw === "[") {
+			const context = valueContext(parent);
+			const array = raw === "[";
+			containers.push({
+				array,
+				nextIndex: 0,
+				context: array ? {
+					...context,
+					objectPath: false
+				} : context,
+				start: match.index,
+				tokenStart: tokens.length
+			});
+			continue;
+		}
+		if (raw === "}" || raw === "]") {
+			const container = expectDefined(containers.pop(), "JSON container");
+			if (container.tokenStart === tokens.length) {
+				const end = match.index + 1;
+				const value = text.slice(container.start, end);
+				tokens.push({
+					...container.context,
+					isKey: false,
+					string: false,
+					value,
+					start: container.start,
+					end,
+					escaped: false,
+					edits: [],
+					projectedEdits: [],
+					currentValue: value,
+					currentStart: container.start,
+					currentEnd: end
+				});
+			}
+			continue;
+		}
+		const start = match.index;
+		const end = start + raw.length;
+		const string = raw.startsWith("\"");
+		const value = string ? JSON.parse(raw) : raw;
+		const next = skipWhitespace(text, end);
+		const isKey = string && text[next] === ":";
+		let context;
+		if (isKey) {
+			const container = expectDefined(parent, "JSON property container");
+			const inherited = container.context;
+			context = {
+				key: "",
+				path: [],
+				origin: inherited.origin,
+				objectPath: false,
+				rootKey: inherited.rootKey,
+				rootValueStart: inherited.rootValueStart
+			};
+			const valueStart = skipWhitespace(text, next + 1);
+			container.field = {
+				key: value,
+				path: [...inherited.path, value],
+				origins: inherited.origins?.children.get(value),
+				origin: inherited.origins?.value ?? inherited.origin,
+				objectPath: inherited.objectPath,
+				rootKey: containers.length === 1 ? value : inherited.rootKey,
+				rootValueStart: containers.length === 1 ? valueStart : inherited.rootValueStart
+			};
+		} else context = valueContext(parent);
+		const origin = isKey ? {
+			structured: false,
+			primitiveMask: false
+		} : context.origins?.value ?? context.origin;
+		tokens.push({
+			...context,
+			origin,
+			start,
+			end,
+			isKey,
+			string,
+			value,
+			escaped: string && raw.includes("\\"),
+			edits: [],
+			projectedEdits: [],
+			currentValue: value,
+			currentStart: start,
+			currentEnd: end
+		});
+	}
+	return tokens;
+}
+function readBatchTokens(input, origins, preserveLines = false) {
+	const tokens = [];
+	let offset = 0;
+	for (const line of input.split("\n")) {
+		let json = false;
+		try {
+			JSON.parse(line);
+			json = true;
+		} catch {}
+		if (json) for (const token of readScalarTokens(line, origins)) {
+			token.deferEncoding = !token.string;
+			token.start += offset;
+			token.end += offset;
+			token.currentStart += offset;
+			token.currentEnd += offset;
+			tokens.push(token);
+		}
+		else {
+			const previous = tokens.at(-1);
+			if (!preserveLines && previous?.raw && previous.end + 1 === offset) {
+				previous.value += `\n${line}`;
+				previous.currentValue = previous.value;
+				previous.end = previous.currentEnd = offset + line.length;
+			} else tokens.push({
+				raw: true,
+				origin: origins.value,
+				key: "",
+				path: [],
+				objectPath: false,
+				isKey: false,
+				string: false,
+				value: line,
+				escaped: false,
+				start: offset,
+				end: offset + line.length,
+				currentStart: offset,
+				currentEnd: offset + line.length,
+				currentValue: line,
+				edits: [],
+				projectedEdits: []
+			});
+		}
+		offset += line.length + 1;
+	}
+	return tokens;
+}
+//#endregion
+//#region src/logging/redact-pattern-runtime.ts
+function parseRedactPatternSource(raw) {
+	const literal = raw.match(/^\/(.+)\/([gimsuy]*)$/);
+	if (!literal) return [raw, "gi"];
+	const source = literal[1] ?? "";
+	const flags = literal[2] ?? "";
+	return [source, flags.includes("g") ? flags : `${flags}g`];
+}
+const OPEN_REPEAT_RE = /^\{(\d+),\}/;
+const BOUNDED_REPEAT_RE = /^\{(?:\d+(?:,\d*)?|,\d+)\}/;
+const HEX_DIGIT_RE = /[0-9A-Fa-f]/;
+const ASSERTION_ESCAPE_CHARS = /* @__PURE__ */ new Set(["b", "B"]);
+const escapeHexValue = (source, at) => {
+	let value = 0;
+	for (let index = 0; index < 4; index += 1) {
+		const digit = source[at + index];
+		if (digit === void 0 || !HEX_DIGIT_RE.test(digit)) return null;
+		value = value * 16 + Number.parseInt(digit, 16);
+	}
+	return value;
+};
+/** True when the escape at `i` is a `\uXXXX` high-surrogate escape. */
+const isHighSurrogateEscape = (source, i) => {
+	const value = escapeHexValue(source, i + 2);
+	return value !== null && value >= 55296 && value <= 56319;
+};
+/** True when the escape at `i` is a `\uXXXX` low-surrogate escape. */
+const isLowSurrogateEscape = (source, i) => {
+	const value = escapeHexValue(source, i + 2);
+	return value !== null && value >= 56320 && value <= 57343;
+};
+/** End index (exclusive) of the single atom introduced by the escape at `i` (a backslash), or -1. */
+function escapeAtomEnd(source, i) {
+	const kind = source[i + 1];
+	if (kind === void 0) return -1;
+	if (ASSERTION_ESCAPE_CHARS.has(kind)) return i + 2;
+	if (kind === "x") return HEX_DIGIT_RE.test(source[i + 2] ?? "") && HEX_DIGIT_RE.test(source[i + 3] ?? "") ? i + 4 : i + 2;
+	if ((kind === "u" || kind === "p" || kind === "P") && source[i + 2] === "{") {
+		const close = source.indexOf("}", i + 3);
+		return close === -1 ? i + 2 : close + 1;
+	}
+	if (kind === "u") {
+		let end = i + 2;
+		while (end < i + 6 && HEX_DIGIT_RE.test(source[end] ?? "")) end += 1;
+		return end;
+	}
+	if (kind === "c") return i + 3;
+	if (kind === "k" && source[i + 2] === "<") {
+		const close = source.indexOf(">", i + 3);
+		return close === -1 ? i + 2 : close + 1;
+	}
+	if (kind >= "0" && kind <= "9") {
+		let end = i + 2;
+		for (let cursor = end; cursor < source.length; cursor += 1) {
+			const digit = source[cursor];
+			if (digit === void 0 || digit < "0" || digit > "9") break;
+			end = cursor + 1;
+		}
+		return end;
+	}
+	return i + 2;
+}
+/** End index (exclusive) of the character class starting at `i` (an unescaped bracket). */
+function classAtomEnd(source, i) {
+	let cursor = i + 1;
+	if (source[cursor] === "^") cursor += 1;
+	if (source[cursor] === "]") return -1;
+	while (cursor < source.length) {
+		const char = source[cursor];
+		if (char === "\\") {
+			cursor += 2;
+			continue;
+		}
+		if (char === "]") return cursor + 1;
+		cursor += 1;
+	}
+	return source.length;
+}
+/**
+* Rewrites open-ended repeats `X{n,}` into `X{n}X*` for flat single-character atoms `X`
+* (one literal, one escaped atom, or one bracket class). Greedy `X{n,}` and `X{n}X*`
+* accept the same strings in the same backtracking order, but the latter never grows one
+* backtrack stack entry per repetition, so multi-megabyte runs no longer overflow.
+* Bounded repeats, quantifiers after groups, and quantified atoms are left untouched.
+* `flags` decides atom boundaries for literal astral characters: under `u` a surrogate pair
+* is one atom; without `u` JavaScript quantifies only the trailing code unit, so the pair
+* must keep its per-unit handling and the original language.
+*/
+function rewriteOpenEndedRepeats(source, flags = "") {
+	if (!source.includes("{")) return source;
+	let out = "";
+	let atomStart = -1;
+	let atomEnd = -1;
+	let i = 0;
+	while (i < source.length) {
+		const char = source[i];
+		let end = i + 1;
+		let isAtom = true;
+		if (char === "\\") {
+			end = escapeAtomEnd(source, i);
+			if (end < 0) {
+				end = i + 1;
+				isAtom = false;
+			} else if (flags.includes("u") && isHighSurrogateEscape(source, i) && source[end] === "\\" && isLowSurrogateEscape(source, end)) end = escapeAtomEnd(source, end);
+			else isAtom = !ASSERTION_ESCAPE_CHARS.has(source[i + 1]);
+		} else if (char === "[") {
+			end = classAtomEnd(source, i);
+			if (end < 0) return source;
+		} else if (char === "{") {
+			const open = OPEN_REPEAT_RE.exec(source.slice(i));
+			const repeat = open && atomStart >= 0 ? open : BOUNDED_REPEAT_RE.exec(source.slice(i));
+			if (repeat) {
+				out += repeat === open ? `{${open[1]}}${source.slice(atomStart, atomEnd)}*` : repeat[0];
+				i += repeat[0].length;
+				if (source[i] === "?") {
+					out += "?";
+					i += 1;
+				}
+				atomStart = -1;
+				continue;
+			}
+		} else if (flags.includes("u") && char >= "\ud800" && char <= "\udbff" && i + 1 < source.length && source[i + 1] >= "\udc00" && source[i + 1] <= "\udfff") end = i + 2;
+		else isAtom = !"*+?()|^$".includes(char);
+		out += source.slice(i, end);
+		atomStart = isAtom ? i : -1;
+		atomEnd = end;
+		i = end;
+	}
+	return out;
+}
+function readRedactMatch(args) {
+	const inputIndex = args.length > 0 && typeof args[args.length - 1] === "object" && args[args.length - 1] !== null ? args.length - 2 : args.length - 1;
+	const offsetIndex = inputIndex - 1;
+	const match = typeof args[0] === "string" ? args[0] : "";
+	const groups = args.slice(1, offsetIndex).map((value) => typeof value === "string" ? value : "");
+	const offset = typeof args[offsetIndex] === "number" ? args[offsetIndex] : -1;
+	return {
+		match,
+		groups,
+		input: typeof args[inputIndex] === "string" ? args[inputIndex] : "",
+		offset
+	};
+}
+const patternPrefilters = /* @__PURE__ */ new WeakMap();
+function setRedactPatternPrefilter(pattern, probe) {
+	if (patternPrefilters.has(pattern)) return;
+	const source = pattern.source;
+	const exec = pattern.exec;
+	const flags = pattern instanceof RegExp ? pattern.flags : void 0;
+	const replace = pattern instanceof RegExp ? pattern[Symbol.replace] : void 0;
+	patternPrefilters.set(pattern, (text) => pattern.source !== source || pattern.exec !== exec || pattern instanceof RegExp && (pattern.flags !== flags || pattern[Symbol.replace] !== replace) || probe(text));
+}
+const indexedPatterns = /* @__PURE__ */ new WeakMap();
+function getIndexedCaptureStart(pattern, input, match, matchOffset, captureIndex) {
+	if (!(pattern instanceof RegExp) || matchOffset < 0 || !input) return null;
+	let indexedPattern = indexedPatterns.get(pattern);
+	if (!indexedPattern) {
+		indexedPattern = new RegExp(pattern.source, `${pattern.flags.replace("d", "").replace("g", "")}dg`);
+		indexedPatterns.set(pattern, indexedPattern);
+	}
+	indexedPattern.lastIndex = matchOffset;
+	const indexedMatch = indexedPattern.exec(input);
+	const captureIndices = indexedMatch?.indices?.[captureIndex + 1];
+	return indexedMatch?.index === matchOffset && indexedMatch[0] === match && captureIndices ? captureIndices[0] - matchOffset : null;
+}
+function selectSecretCapture(match, groups) {
+	const selected = {
+		index: -1,
+		value: match
+	};
+	for (let index = 0; index < groups.length; index++) {
+		const value = groups[index];
+		if (typeof value === "string" && value.length > 0) {
+			selected.index = index;
+			selected.value = value;
+		}
+	}
+	return selected;
+}
+function getSecretCaptureStart(pattern, input, match, matchOffset, selected) {
+	return getIndexedCaptureStart(pattern, input, match, matchOffset, selected.index) ?? match.lastIndexOf(selected.value);
+}
+const globalPatterns = /* @__PURE__ */ new WeakMap();
+function visitRedactMatches(text, pattern, visit) {
+	if (patternPrefilters.get(pattern)?.(text) === false) return;
+	if (!(pattern instanceof RegExp)) {
+		for (const match of pattern.exec(text)) visit(match, pattern);
+		return;
+	}
+	let regex = pattern.global ? pattern : globalPatterns.get(pattern);
+	if (!regex) {
+		regex = new RegExp(pattern.source, `${pattern.flags}g`);
+		globalPatterns.set(pattern, regex);
+	}
+	const unicode = regex.unicode || regex.flags.includes("v");
+	let cursor = 0;
+	while (cursor <= text.length) {
+		const previousIndex = regex.lastIndex;
+		let match;
+		try {
+			regex.lastIndex = cursor;
+			match = regex.exec(text);
+		} finally {
+			regex.lastIndex = previousIndex;
+		}
+		if (!match) return;
+		cursor = match.index + match[0].length;
+		if (!match[0]) {
+			const codePoint = text.codePointAt(cursor);
+			cursor += unicode && codePoint !== void 0 && codePoint > 65535 ? 2 : 1;
+		}
+		visit({
+			match: match[0],
+			groups: match.slice(1).map((group) => group ?? ""),
+			input: text,
+			offset: match.index
+		}, pattern);
+	}
+}
+function replaceRedactPattern(text, pattern, replace, replaceRegex) {
+	if (pattern instanceof RegExp) {
+		if (patternPrefilters.get(pattern)?.(text) === false) {
+			pattern.lastIndex = 0;
+			return text;
+		}
+		return text.replace(pattern, replaceRegex ?? ((...args) => replace(readRedactMatch(args))));
+	}
+	const parts = [];
+	let end = 0;
+	visitRedactMatches(text, pattern, (match) => {
+		parts.push(text.slice(end, match.offset), replace(match));
+		end = match.offset + match.match.length;
+	});
+	return parts.length ? parts.join("") + text.slice(end) : text;
+}
+function redactPemBlock(block, marker) {
+	const lines = block.split(/\r?\n/).filter(Boolean);
+	if (lines.length < 2) return "***";
+	return `${lines[0]}\n${marker}\n${lines[lines.length - 1]}`;
+}
+//#endregion
+//#region src/logging/redact-json.ts
+function stringBoundaries(text, start, end) {
+	const boundaries = /* @__PURE__ */ new Map();
+	let decoded = 0;
+	for (let offset = start; offset < end; decoded += 1) {
+		boundaries.set(offset, decoded);
+		offset += text[offset] === "\\" ? text[offset + 1] === "u" ? 6 : 2 : 1;
+	}
+	boundaries.set(end, decoded);
+	return boundaries;
+}
+function decodedBoundary(text, token, offset) {
+	if (!token.escaped) return offset - token.start - 1;
+	token.boundaries ??= stringBoundaries(text, token.start + 1, token.end - 1);
+	return token.boundaries.get(offset);
+}
+function encodedBoundary(text, token, offset) {
+	if (!token.escaped) return token.start + 1 + offset;
+	if (!token.encodedBoundaries) {
+		token.boundaries ??= stringBoundaries(text, token.start + 1, token.end - 1);
+		token.encodedBoundaries = [];
+		for (const [encoded, decoded] of token.boundaries) token.encodedBoundaries[decoded] = encoded;
+	}
+	return expectDefined(token.encodedBoundaries[offset], "decoded JSON edit boundary");
+}
+function projectMessageEdits(input, tokens, message, getEdits) {
+	const parts = new Map(message.parts.map((part) => [part.key, part]));
+	const projected = [];
+	for (const token of tokens) {
+		if (!token.isKey && token.path.length === 1 && token.key === "message") continue;
+		const part = token.rootKey === void 0 ? void 0 : parts.get(token.rootKey);
+		if (!part) continue;
+		if (!part.json && (token.isKey || (part.messageField ? token.path.length !== 2 || token.key !== "message" : token.path.length !== 1))) continue;
+		const edits = getEdits(token);
+		for (const edit of edits) {
+			let start;
+			let end;
+			let replacement = edit.replacement;
+			if (part.json) {
+				const base = part.start - expectDefined(token.rootValueStart, "displayed JSON argument");
+				if (token.string) {
+					start = base + encodedBoundary(input, token, edit.start);
+					end = base + encodedBoundary(input, token, edit.end);
+					replacement = JSON.stringify(replacement).slice(1, -1);
+				} else {
+					start = base + token.start;
+					end = base + token.end;
+					replacement = JSON.stringify(replacement);
+				}
+			} else {
+				start = part.start + edit.start;
+				end = part.start + (part.primitiveLength ?? edit.end);
+			}
+			if (start < message.contentLength) projected.push({
+				start,
+				end: Math.min(end, message.contentLength),
+				replacement,
+				scalar: part.json && !token.string
+			});
+		}
+	}
+	return projected.toSorted((left, right) => left.start - right.start || left.end - right.end);
+}
+function firstIntersectingToken(tokens, start) {
+	let low = 0;
+	let high = tokens.length;
+	while (low < high) {
+		const middle = low + high >>> 1;
+		if (expectDefined(tokens[middle], "bounded JSON token search").currentEnd <= start) low = middle + 1;
+		else high = middle;
+	}
+	return low;
+}
+function updateCurrentToken(input, token) {
+	if (token.raw || token.deferEncoding) {
+		token.currentRaw = token.currentValue;
+		return;
+	}
+	const parts = [];
+	const encodedEdits = [];
+	let cursor = token.start + (token.string ? 1 : 0);
+	let encodedLength = 0;
+	let decodedShift = 0;
+	for (const edit of token.edits) {
+		const start = token.string ? encodedBoundary(input, token, edit.start) : token.start + edit.start;
+		const end = token.string ? encodedBoundary(input, token, edit.end) : token.start + edit.end;
+		const replacement = JSON.stringify(edit.replacement).slice(1, -1);
+		const encodedStart = encodedLength + start - cursor;
+		const encodedEnd = encodedStart + replacement.length;
+		encodedEdits.push({
+			start: encodedStart,
+			end: encodedEnd,
+			decodedStart: edit.start + decodedShift,
+			decodedEnd: edit.start + decodedShift + edit.replacement.length,
+			sourceEnd: end,
+			sourceDecodedEnd: edit.end,
+			replacement
+		});
+		parts.push(input.slice(cursor, start), replacement);
+		encodedLength = encodedEnd;
+		decodedShift += edit.replacement.length - (edit.end - edit.start);
+		cursor = end;
+	}
+	parts.push(input.slice(cursor, token.end - (token.string ? 1 : 0)));
+	token.currentRaw = `"${parts.join("")}"`;
+	token.encodedEdits = encodedEdits;
+}
+function currentDecodedBoundary(input, token, position, replacements) {
+	const offset = position - token.currentStart - 1;
+	const edits = token.encodedEdits;
+	if (!edits) return decodedBoundary(input, token, token.start + 1 + offset);
+	let low = 0;
+	let high = edits.length;
+	while (low < high) {
+		const middle = low + high >>> 1;
+		if (expectDefined(edits[middle], "current encoded edit").end < offset) low = middle + 1;
+		else high = middle;
+	}
+	const edit = edits[low];
+	if (edit && offset >= edit.start) {
+		const within = offset - edit.start;
+		if (!edit.replacement.includes("\\")) return edit.decodedStart + within;
+		let boundaries = replacements.get(edit.replacement);
+		if (!boundaries) {
+			boundaries = stringBoundaries(edit.replacement, 0, edit.replacement.length);
+			replacements.set(edit.replacement, boundaries);
+		}
+		const decoded = boundaries.get(within);
+		return decoded === void 0 ? void 0 : edit.decodedStart + decoded;
+	}
+	const previous = edits[low - 1];
+	const decoded = decodedBoundary(input, token, offset + (previous ? previous.sourceEnd - previous.end : token.start + 1));
+	return decoded === void 0 ? void 0 : decoded + (previous ? previous.decodedEnd - previous.sourceDecodedEnd : 0);
+}
+function commitPatternEdits(token) {
+	const pending = token.pending;
+	token.pending = void 0;
+	if (!pending) return false;
+	const edits = mergeRedactionEdits(pending);
+	const value = applyRedactionEdits(token.currentValue, edits);
+	if (value === token.currentValue) return false;
+	token.edits = composeRedactionEdits(token.value.length, token.edits, edits);
+	token.currentValue = value;
+	return true;
+}
+function changedRedactionEdits(previous, current) {
+	let index = 0;
+	return current.filter((edit) => {
+		while (previous[index] && expectDefined(previous[index], "previous configured edit").start < edit.start) index += 1;
+		const before = previous[index];
+		return !before || before.start !== edit.start || before.end !== edit.end || before.replacement !== edit.replacement;
+	});
+}
+function commitOriginalEdits(token, edits) {
+	if (edits.length === 0) return false;
+	const combined = mergeRedactionEdits([...token.edits, ...edits]);
+	const value = applyRedactionEdits(token.value, combined);
+	if (value === token.currentValue) return false;
+	token.edits = combined;
+	token.currentValue = value;
+	return true;
+}
+function updateCurrentRecord(input, current, tokens, changed) {
+	const parts = [];
+	let cursor = 0;
+	let shift = 0;
+	for (const token of tokens) {
+		const start = token.currentStart;
+		const end = token.currentEnd;
+		if (changed.has(token)) {
+			updateCurrentToken(input, token);
+			const raw = expectDefined(token.currentRaw, "changed JSON token");
+			parts.push(current.slice(cursor, start), raw);
+			cursor = end;
+			token.currentStart = start + shift;
+			shift += raw.length - (end - start);
+		} else token.currentStart = start + shift;
+		token.currentEnd = end + shift;
+	}
+	parts.push(current.slice(cursor));
+	return parts.join("");
+}
+function projectedStringEnd(input, tokens, message, token, start, end) {
+	const jsonParts = new Set(message.parts.filter((part) => part.json).map((part) => part.key));
+	const spans = projectMessageEdits(input, tokens, message, (source) => source.string && !source.isKey && source.rootKey !== void 0 && jsonParts.has(source.rootKey) ? [{
+		start: 0,
+		end: source.value.length,
+		replacement: ""
+	}] : []).filter((span) => span.end < message.contentLength);
+	const containing = rebaseRedactionEdits(token.edits, spans).filter((span) => span.start <= start && start < span.end && end <= span.end);
+	return containing.length === 1 ? expectDefined(containing[0], "displayed source string").end : token.currentValue.length;
+}
+function redactJsonRecord(input, origins, patternPhases, getCapture, legacyFieldEdits, fieldEdits, prepEdits, skipDecodedPatterns, message, batch) {
+	let tokens = batch ? [] : readScalarTokens(input, origins);
+	const messageToken = message ? tokens.find((token) => !token.isKey && token.path.length === 1 && token.key === "message") : void 0;
+	const replacementBoundaries = /* @__PURE__ */ new Map();
+	let projectedMessageEdits = [];
+	let projectedMessageValue = messageToken?.value ?? "";
+	let current = input;
+	const prepared = /* @__PURE__ */ new Set();
+	for (const token of tokens) if (commitOriginalEdits(token, prepEdits(token))) prepared.add(token);
+	if (prepared.size > 0) current = updateCurrentRecord(input, current, tokens, prepared);
+	const decodedTokens = tokens.filter((token) => !token.isKey && token.string && !skipDecodedPatterns(token, token.currentValue));
+	const projectMessage = () => {
+		if (!messageToken || !message) return false;
+		const projected = projectMessageEdits(input, tokens, message, (token) => {
+			const edits = changedRedactionEdits(token.projectedEdits, token.edits);
+			token.projectedEdits = token.edits;
+			return edits;
+		});
+		if (projected.length === 0) return false;
+		const sourceEdits = rebaseRedactionEdits(projectedMessageEdits, projected);
+		const messageEdits = rebaseRedactionEdits(messageToken.edits, projected);
+		let generatedIndex = 0;
+		for (let index = 0; index < messageEdits.length; index += 1) {
+			const edit = expectDefined(messageEdits[index], "projected message edit");
+			const sourceEdit = expectDefined(sourceEdits[index], "projected source edit");
+			const projection = expectDefined(projected[index], "source projection");
+			while (messageToken.edits[generatedIndex] && expectDefined(messageToken.edits[generatedIndex], "generated message span").start < projection.start) generatedIndex += 1;
+			const generated = messageToken.edits[generatedIndex];
+			const scalarPromotion = projection.scalar && generated?.start === projection.start && generated.end === projection.end && edit.replacement === JSON.stringify(generated.replacement);
+			const before = messageToken.currentValue.slice(edit.start, edit.end);
+			if (!scalarPromotion && before !== edit.replacement && before !== projectedMessageValue.slice(sourceEdit.start, sourceEdit.end)) edit.replacement = projection.scalar ? JSON.stringify("***") : "***";
+		}
+		messageToken.pending = messageEdits;
+		projectedMessageValue = applyRedactionEdits(projectedMessageValue, sourceEdits);
+		projectedMessageEdits = composeRedactionEdits(messageToken.value.length, projectedMessageEdits, sourceEdits);
+		return commitPatternEdits(messageToken);
+	};
+	for (const [phase, groups] of patternPhases.entries()) {
+		const changed = /* @__PURE__ */ new Set();
+		const pending = /* @__PURE__ */ new Set();
+		const add = (token, edit) => {
+			(token.pending ??= []).push(edit);
+			pending.add(token);
+		};
+		let decodedToken;
+		const visitDecodedMatch = (match, pattern) => {
+			const capture = getCapture(match, pattern);
+			const edit = capture?.redact(capture);
+			if (edit && edit.end >= edit.start) add(decodedToken, edit);
+		};
+		for (const group of groups) {
+			if (group.couldMatch && !group.couldMatch(current)) continue;
+			for (const pattern of group.patterns) {
+				if (phase === 0) for (decodedToken of decodedTokens) visitRedactMatches(decodedToken.currentValue, pattern, visitDecodedMatch);
+				else visitRedactMatches(current, pattern, (match) => {
+					const capture = getCapture(match, pattern);
+					if (!capture || capture.end < capture.start) return;
+					if (batch && tokens.length === 0) tokens = readBatchTokens(input, origins, batch.preserveLines);
+					for (let index = firstIntersectingToken(tokens, capture.start); index < tokens.length; index += 1) {
+						const token = expectDefined(tokens[index], "serialized capture token");
+						if (token.currentStart >= capture.end) break;
+						const unquoted = token.raw || token.deferEncoding;
+						const padding = unquoted ? 0 : 1;
+						const captureInsideToken = capture.start >= token.currentStart + padding && capture.end <= token.currentEnd - padding;
+						if (batch && token.isKey && !captureInsideToken) continue;
+						const value = token.currentValue;
+						if (!token.raw && !token.string && token.edits.length === 0) {
+							add(token, {
+								start: 0,
+								end: value.length,
+								replacement: "***"
+							});
+							continue;
+						}
+						let startPosition = Math.max(capture.start, token.currentStart + padding);
+						let start = unquoted ? startPosition - token.currentStart : currentDecodedBoundary(input, token, startPosition, replacementBoundaries);
+						let endPosition = Math.min(capture.end, token.currentEnd - padding);
+						let end = unquoted ? endPosition - token.currentStart : currentDecodedBoundary(input, token, endPosition, replacementBoundaries);
+						if (start === void 0 || end === void 0) {
+							while (start === void 0) start = currentDecodedBoundary(input, token, --startPosition, replacementBoundaries);
+							while (end === void 0) end = currentDecodedBoundary(input, token, ++endPosition, replacementBoundaries);
+							const maskEnd = token === messageToken && message ? projectedStringEnd(input, tokens, message, token, start, end) : value.length;
+							add(token, {
+								start,
+								end: maskEnd,
+								replacement: "***"
+							});
+							continue;
+						}
+						if (end < start || batch && end === start) continue;
+						const { start: captureStart, end: captureEnd } = capture;
+						const edit = capture.redact({
+							start,
+							end,
+							value: current.slice(Math.max(captureStart, token.currentStart + padding), Math.min(captureEnd, token.currentEnd - padding))
+						});
+						if (!edit) continue;
+						let replacement = "***";
+						if (captureInsideToken) try {
+							replacement = unquoted ? edit.replacement : JSON.parse(`"${edit.replacement}"`);
+						} catch {}
+						add(token, {
+							...edit,
+							replacement
+						});
+					}
+				});
+				if (pending.size === 0) continue;
+				for (const token of pending) if (!commitPatternEdits(token)) pending.delete(token);
+				else if (phase === 0) changed.add(token);
+				if (phase !== 0 && pending.size > 0) current = updateCurrentRecord(input, current, tokens, pending);
+				pending.clear();
+			}
+		}
+		for (const token of tokens) if (phase === 0) {
+			token.pending = legacyFieldEdits(token, token.currentValue);
+			if (commitPatternEdits(token)) changed.add(token);
+		} else if (commitOriginalEdits(token, fieldEdits(token))) changed.add(token);
+		if ((phase !== 0 || prepared.size > 0 || changed.size > 0) && projectMessage() && messageToken) changed.add(messageToken);
+		if (changed.size > 0) current = updateCurrentRecord(input, current, tokens, changed);
+	}
+	if (messageToken && message) {
+		const finished = message.finish(messageToken.currentValue);
+		if (finished !== messageToken.currentValue) return applyRedactionEdits(current, [{
+			start: messageToken.currentStart,
+			end: messageToken.currentEnd,
+			replacement: JSON.stringify(finished)
+		}]);
+	}
+	return applyRedactionEdits(current, tokens.flatMap((token) => token.deferEncoding && token.edits.length > 0 ? [{
+		start: token.currentStart,
+		end: token.currentEnd,
+		replacement: JSON.stringify(token.currentValue)
+	}] : []));
+}
 //#endregion
 //#region src/logging/redact-linear-matchers.ts
 const JS_WHITESPACE_CODES = /* @__PURE__ */ new Set([
@@ -3081,11 +3757,21 @@ function* scanPrefixOccurrences(text, prefix) {
 function isDataUrlPrefix(text, runStart) {
 	return runStart >= 8 && text.slice(runStart - 8, runStart).toLowerCase() === ";base64,";
 }
-/** End of the maximal run of `isMember` characters starting at `start`. */
 function runEndOf(text, start, isMember) {
 	let end = start;
 	while (end < text.length && isMember(text[end])) end += 1;
 	return end;
+}
+function makeCachedRunEnd(text, isMember) {
+	let start = -1;
+	let end = -1;
+	return (position) => {
+		if (position < start || position >= end) {
+			start = position;
+			end = runEndOf(text, position, isMember);
+		}
+		return end;
+	};
 }
 /**
 * Shared matcher for the `BASE64_SAFE_TOKEN_BOUNDARY` vendor rules. The boundary group is
@@ -3145,9 +3831,10 @@ function fixedTailTokenEnd(tailStart, tailLength, isMember) {
 	};
 }
 /** `dapi` + 32 hex digits + an optional `-<digit>`; the optional tail is greedy like the regex. */
+const dapiBodyEnd = fixedTailTokenEnd(4, 32, isHexChar);
 function dapiTokenEnd(text, start) {
-	const bodyEnd = start + 4 + 32;
-	for (let index = start + 4; index < bodyEnd; index++) if (!isHexChar(text[index])) return null;
+	const bodyEnd = dapiBodyEnd(text, start);
+	if (bodyEnd === null) return null;
 	if (text[bodyEnd] === "-" && isDigitChar(text[bodyEnd + 1])) return bodyEnd + 2;
 	return bodyEnd;
 }
@@ -3158,21 +3845,21 @@ function dapiTokenEnd(text, start) {
 */
 function makeAtEqualsTokenMatcher(source, prefix) {
 	const prefixLength = prefix.length;
+	const equalsTailEnd = fixedTailTokenEnd(1, 8, isAlnumChar);
 	return makeBase64SafeTokenMatcher(source, prefix, () => {
 		let runStart = -1;
 		let runEnd = -1;
-		let equals = [];
+		let lastEquals;
 		return (text, start) => {
 			const valueStart = start + prefixLength;
 			if (valueStart < runStart || valueStart >= runEnd) {
 				runEnd = runEndOf(text, valueStart, AT_VALUE_CHAR);
 				runStart = valueStart;
-				equals = [];
-				for (let index = valueStart; index < runEnd; index++) if (text[index] === "=" && index + 9 <= text.length && isAlnumChar(text[index + 1]) && isAlnumChar(text[index + 2]) && isAlnumChar(text[index + 3]) && isAlnumChar(text[index + 4]) && isAlnumChar(text[index + 5]) && isAlnumChar(text[index + 6]) && isAlnumChar(text[index + 7]) && isAlnumChar(text[index + 8])) equals.push(index);
+				lastEquals = void 0;
+				for (let index = valueStart; index < runEnd; index++) if (text[index] === "=" && equalsTailEnd(text, index) !== null) lastEquals = index;
 			}
 			const minimum = valueStart + 1;
-			const split = equals[equals.length - 1];
-			return split !== void 0 && split >= minimum ? split + 9 : null;
+			return lastEquals !== void 0 && lastEquals >= minimum ? lastEquals + 9 : null;
 		};
 	});
 }
@@ -3195,33 +3882,17 @@ const JWT_SEGMENT_CHAR = (char) => isAlnumChar(char) || char === "_" || char ===
 const JWT_MATCHER = Object.freeze({
 	source: "jwt (linear)",
 	*exec(text) {
-		const firstRun = {
-			start: -1,
-			end: -1
-		};
-		const secondRun = {
-			start: -1,
-			end: -1
-		};
-		const thirdRun = {
-			start: -1,
-			end: -1
-		};
-		const segmentEnd = (position, run) => {
-			if (position >= run.start && position < run.end) return run.end;
-			const end = runEndOf(text, position, JWT_SEGMENT_CHAR);
-			run.start = position;
-			run.end = end;
-			return end;
-		};
+		const firstSegmentEnd = makeCachedRunEnd(text, JWT_SEGMENT_CHAR);
+		const secondSegmentEnd = makeCachedRunEnd(text, JWT_SEGMENT_CHAR);
+		const thirdSegmentEnd = makeCachedRunEnd(text, JWT_SEGMENT_CHAR);
 		let searchFloor = 0;
 		for (const candidate of scanPrefixOccurrences(text, "eyj")) {
 			if (candidate < searchFloor) continue;
-			const firstEnd = segmentEnd(candidate + 3, firstRun);
+			const firstEnd = firstSegmentEnd(candidate + 3);
 			if (firstEnd - (candidate + 3) < 10 || text[firstEnd] !== ".") continue;
-			const secondEnd = segmentEnd(firstEnd + 1, secondRun);
+			const secondEnd = secondSegmentEnd(firstEnd + 1);
 			if (secondEnd - (firstEnd + 1) < 10 || text[secondEnd] !== ".") continue;
-			const thirdEnd = segmentEnd(secondEnd + 1, thirdRun);
+			const thirdEnd = thirdSegmentEnd(secondEnd + 1);
 			if (thirdEnd - (secondEnd + 1) < 10) continue;
 			const token = text.slice(candidate, thirdEnd);
 			yield {
@@ -3324,15 +3995,7 @@ function isFormPairBoundary(text, ampersand) {
 const FORM_BODY_FIRST_PAIR_MATCHER = Object.freeze({
 	source: "form-body-first-pair (linear)",
 	*exec(text) {
-		let runStart = -1;
-		let runEnd = -1;
-		const valueEnd = (start) => {
-			if (start >= runStart && start < runEnd) return runEnd;
-			const end = runEndOf(text, start, (char) => char !== "&" && !isJsWhitespaceChar(char));
-			runStart = start;
-			runEnd = end;
-			return end;
-		};
+		const valueEnd = makeCachedRunEnd(text, (char) => char !== "&" && !isJsWhitespaceChar(char));
 		let searchFloor = 0;
 		let separator = text.indexOf("=");
 		while (separator !== -1) {
@@ -3441,60 +4104,6 @@ const LINEAR_MATCHER_SOURCES = /* @__PURE__ */ new Map([
 	[CONFIG_QUOTED_ASSIGNMENT_REDACT_PATTERN, CONFIG_QUOTED_MATCHER]
 ]);
 //#endregion
-//#region src/logging/redact-mask.ts
-const DEFAULT_REDACT_MIN_LENGTH = 18;
-const DEFAULT_REDACT_KEEP_START = 6;
-const SECRET_VALUE_TRAILING_DELIMITER_RE = /(["'`,;)}\]]+)$/u;
-const SECRET_VALUE_SUFFIX_RE = /^["'`,;)}\]]*$/u;
-const SECRET_VALUE_QUOTE_CHARS = /* @__PURE__ */ new Set([
-	"\"",
-	"'",
-	"`"
-]);
-function maskToken(token) {
-	if (token.length < DEFAULT_REDACT_MIN_LENGTH) return "***";
-	return `${sliceUtf16Safe(token, 0, DEFAULT_REDACT_KEEP_START)}…${sliceUtf16Safe(token, -4)}`;
-}
-function splitSecretValueForMask(token) {
-	const openingQuote = token[0] ?? "";
-	const contentStart = SECRET_VALUE_QUOTE_CHARS.has(openingQuote) ? 1 : 0;
-	if (contentStart) {
-		const closingQuoteIndex = token.lastIndexOf(openingQuote);
-		if (closingQuoteIndex > 0) {
-			const suffix = token.slice(closingQuoteIndex + 1);
-			if (SECRET_VALUE_SUFFIX_RE.test(suffix)) return {
-				maskable: token.slice(1, closingQuoteIndex),
-				suffix,
-				maskStart: 0,
-				maskEnd: closingQuoteIndex + 1
-			};
-		}
-	}
-	const content = token.slice(contentStart);
-	const trailingDelimiter = content.match(SECRET_VALUE_TRAILING_DELIMITER_RE)?.[1] ?? "";
-	const maskable = trailingDelimiter && trailingDelimiter.length < content.length ? content.slice(0, -trailingDelimiter.length) : content;
-	return {
-		maskable,
-		suffix: maskable === content ? "" : trailingDelimiter,
-		maskStart: 0,
-		maskEnd: contentStart + maskable.length
-	};
-}
-function splitFormAwareCredentialValue(token) {
-	const pairBoundary = token.search(/&[A-Za-z_][A-Za-z0-9_.-]*=/u);
-	return pairBoundary < 0 ? {
-		secret: token,
-		suffix: ""
-	} : {
-		secret: token.slice(0, pairBoundary),
-		suffix: token.slice(pairBoundary)
-	};
-}
-function maskSecretValue(token, options) {
-	const { maskable, suffix } = splitSecretValueForMask(token);
-	return `${options?.hinted ? maskToken(maskable) : "***"}${suffix}`;
-}
-//#endregion
 //#region src/logging/redact-performance.ts
 const redactionPerformance = channel("openclaw.redaction");
 /** The capture subscriber receives counts and synchronous CPU time, never text or patterns. */
@@ -3521,59 +4130,170 @@ function startRedactionMeasurement(operation) {
 //#endregion
 //#region src/logging/redact-prefilter.ts
 const FIELD_KEY_PREFILTER_RE = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|AUTH|COOKIE|SIGNATURE|CREDENTIAL|CARD|CVC|CVV|PAYMENT|security[-_]?code|\bpass\s*[=:]|\bpassphrase\s*[=:]|_(?:password|pass|passphrase|passwd)\s*[=:]|jwt\s*[=:]|session=|code=|\bsig\s*=/iu;
-const SEPARATED_VENDOR_PREFILTER_RE = /sk-|gh[opsur]_|github_pat_|glpat-|gloas-|gldt-|glcbt-|glptt-|glft-|glimt-|glagent-|glwt-|glsoat-|glffct-|glrt-|glrtr-|_gitlab_session=|xox[baprs]-|xapp-|gsk_|pplx-|fal_|fc-|bb_live_|[sr]k_(?:live|test)_|npm_|pypi-|do[opr]_v1_|dckr_|bkua_|CCIPAT_|sbp_|dd[pw]_|glsa_|nfp_|CFPAT-|BBDC-|HRKU-|pat-(?:eu|na)1-|apify_api_|fio-u-|tvly-|exa_|syt_|retaindb_|mem0_|brv_|xai-|fw-|fw_|fpk_|(?:^|[^A-Za-z0-9_])(?:am_|sk_)|hf_|api_org_|r8_/iu;
+const SEPARATED_VENDOR_PREFILTER_RE = /sk-|GOCSPX-|gh[opsur]_|github_pat_|glpat-|gloas-|gldt-|glcbt-|glptt-|glft-|glimt-|glagent-|glwt-|glsoat-|glffct-|glrt-|glrtr-|_gitlab_session=|xox[baprs]-|xapp-|gsk_|pplx-|fal_|fc-|bb_live_|[sr]k_(?:live|test)_|npm_|pypi-|do[opr]_v1_|dckr_|bkua_|CCIPAT_|sbp_|dd[pw]_|glsa_|nfp_|CFPAT-|BBDC-|HRKU-|pat-(?:eu|na)1-|apify_api_|fio-u-|tvly-|exa_|syt_|retaindb_|mem0_|brv_|xai-|fw-|fw_|fpk_|(?:^|[^A-Za-z0-9_])(?:am_|sk_)|hf_|api_org_|r8_/iu;
 const DEFAULT_REDACT_PREFILTER_RE = /PRIVATE KEY|\bBearer\s+|GR1348941|hooks\.slack\.com|discord|AIza|ya29\.|1\/\/0|eyJ|gAAAA|SG\.|dp\.(?:ct|pt|sa|st|scim|audit)\.|dapi[0-9a-f]|ATCTT3|ATATT|ATBB|FlyV1|A[KS]IA[A-Z0-9]|AKID|LTAI|\bbot\d{6,}:|\b\d{6,}:[A-Za-z0-9_-]{20,}/iu;
 const OBFUSCATED_KEY_CHAR_RE = new RegExp(`[${FORM_BODY_KEY_INVISIBLE_CHARS}+%]`, "u");
 const FULL_CONTEXT_REDACT_EXTRA_TRIGGERS_RE = /JWT|Bearer\s+|am_|sk_|(?<!\d)\d{6,}:[A-Za-z0-9_-]{20,}/i;
 function couldMatchDefaultRedactPatterns(text) {
 	return FIELD_KEY_PREFILTER_RE.test(text) || (text.includes("-") || text.includes("_")) && SEPARATED_VENDOR_PREFILTER_RE.test(text) || DEFAULT_REDACT_PREFILTER_RE.test(text) || text.includes("://") && text.includes("@") || text.includes("=") && OBFUSCATED_KEY_CHAR_RE.test(text) || AWS_SECRET_ACCESS_KEY_MATCHER.couldMatch(text);
 }
+function couldMatchDefaultFullContextPatterns(text) {
+	return couldMatchDefaultRedactPatterns(text) || FULL_CONTEXT_REDACT_EXTRA_TRIGGERS_RE.test(text);
+}
 function couldMatchVendorRedactPatterns(text) {
 	return (text.includes("-") || text.includes("_")) && SEPARATED_VENDOR_PREFILTER_RE.test(text) || DEFAULT_REDACT_PREFILTER_RE.test(text) || FULL_CONTEXT_REDACT_EXTRA_TRIGGERS_RE.test(text);
 }
+function createRedactPrefilter(probe) {
+	const matches = /* @__PURE__ */ new Map();
+	return (text) => {
+		const cached = matches.get(text);
+		if (cached !== void 0) return cached;
+		const result = probe(text);
+		matches.set(text, result);
+		return result;
+	};
+}
+//#endregion
+//#region src/logging/secret-redaction-registry.ts
+const MIN_SECRET_VALUE_LENGTH = 6;
+const state$5 = resolveGlobalSingleton(Symbol.for("openclaw.secretRedactionRegistry"), () => ({
+	registeredValues: /* @__PURE__ */ new Map(),
+	registeredValueRedactor: void 0
+}));
+function invalidateMatcher() {
+	state$5.registeredValueRedactor = void 0;
+}
+/** Replaces registered exact values while preserving the caller's mask convention. */
+function redactRegisteredSecretValues(text, mask) {
+	if (!text || state$5.registeredValues.size === 0) return text;
+	state$5.registeredValueRedactor ??= createSecretValueRedactor([...state$5.registeredValues.keys()]);
+	return state$5.registeredValueRedactor(text, mask);
+}
+function createSecretValueRedactor(values) {
+	let compiledMatcher;
+	let firstChars;
+	return (text, mask) => {
+		if (!text || values.length === 0) return text;
+		let couldMatch = false;
+		firstChars ??= new Set(values.map((value) => value.charAt(0)));
+		for (const firstChar of firstChars) if (text.includes(firstChar)) {
+			couldMatch = true;
+			break;
+		}
+		if (!couldMatch) return text;
+		if (!compiledMatcher) {
+			const buckets = /* @__PURE__ */ new Map();
+			for (const value of values.toSorted((left, right) => right.length - left.length)) {
+				const prefix = value.slice(0, MIN_SECRET_VALUE_LENGTH);
+				const bucket = buckets.get(prefix);
+				if (bucket) bucket.push(value);
+				else buckets.set(prefix, [value]);
+			}
+			compiledMatcher = {
+				prefixes: new RegExp([...buckets.keys()].map(escapeRegExp).join("|"), "g"),
+				buckets
+			};
+		}
+		const { prefixes, buckets } = compiledMatcher;
+		const matches = [];
+		prefixes.lastIndex = 0;
+		for (let match = prefixes.exec(text); match; match = prefixes.exec(text)) {
+			const index = match.index;
+			const value = buckets.get(match[0])?.find((candidate) => text.startsWith(candidate, index));
+			if (value !== void 0) matches.push({
+				index,
+				value
+			});
+			prefixes.lastIndex = index + (value?.length ?? 1);
+		}
+		let result = "";
+		let cursor = 0;
+		for (const match of matches) {
+			result += `${text.slice(cursor, match.index)}${mask(match.value, match.index)}`;
+			cursor = match.index + match.value.length;
+		}
+		return result + text.slice(cursor);
+	};
+}
+function resetSecretRedactionRegistryForTest() {
+	state$5.registeredValues.clear();
+	invalidateMatcher();
+}
+if (process.env.VITEST || false) globalThis[Symbol.for("openclaw.secretRedactionRegistryTestApi")] = { resetSecretRedactionRegistryForTest };
 //#endregion
 //#region src/shared/assistant-error-format.ts
 const HTTP_STATUS_DELIMITER_RE = /(?:\s*:\s*|\s+)/;
 new RegExp(`^(?:http\\s*)?(\\d{3})${HTTP_STATUS_DELIMITER_RE.source}(.+)$`, "i");
 new RegExp(`^(?:http\\s*)?(\\d{3})(?:${HTTP_STATUS_DELIMITER_RE.source}([\\s\\S]+))?$`, "i");
+const CONNECTION_FAILED_MESSAGE = "Couldn't connect to the AI service. Check your connection, then try again. For details, open Settings → Logs in the Control UI or run `openclaw logs --follow`.";
+const TRANSPORT_ERRORS = [
+	{
+		code: /\beconnrefused\b/i,
+		phrases: /connection refused|actively refused/i,
+		message: CONNECTION_FAILED_MESSAGE
+	},
+	{
+		code: /\beconnreset\b|\beconnaborted\b|\benetreset\b|\bepipe\b/i,
+		phrases: /socket hang up|connection reset|connection aborted/i,
+		message: "Lost the connection to the AI service. Check the conversation before trying again. For details, open Settings → Logs in the Control UI or run `openclaw logs --follow`."
+	},
+	{
+		code: /\benotfound\b|\beai_again\b|\benetunreach\b|\behostunreach\b|\behostdown\b/i,
+		phrases: /getaddrinfo|no such host|\bdns\b|network is unreachable|host is unreachable|fetch failed|connection error|network request failed/i,
+		message: CONNECTION_FAILED_MESSAGE
+	}
+];
+function isKnownTransportErrorCode(value) {
+	return TRANSPORT_ERRORS.some(({ code }) => code.exec(value)?.[0] === value);
+}
+//#endregion
+//#region src/logging/structured-authorization-code.ts
+function shouldRedactStructuredAuthorizationCode(normalizedKey, path, transportCode) {
+	if (normalizedKey !== "code") return false;
+	const normalizedPath = path.map((part) => part.toLowerCase());
+	if (normalizedPath.length === 1 || normalizedPath.at(-1) === "code" && [
+		"error",
+		"nodeerror",
+		"status",
+		"details",
+		"warnings"
+	].includes(normalizedPath.at(-2) ?? "")) return false;
+	return !(transportCode !== void 0 && normalizedPath.length > 1 && normalizedPath.slice(0, -1).every((part) => part === "cause") && isKnownTransportErrorCode(transportCode));
+}
 //#endregion
 //#region src/logging/redact.ts
 const DEFAULT_REDACT_MODE = "tools";
+const backendPatterns = createBackendRedactPatterns();
+const { redactAssignmentValues, redactFormBody } = createFormBodyRedactor(backendPatterns.bodySecretKeys);
 const shellReferencePreservingPatterns = /* @__PURE__ */ new WeakSet();
 const builtInResolvedPatterns = /* @__PURE__ */ new WeakSet();
 const vendorResolvedPatterns = /* @__PURE__ */ new WeakMap();
 const vendorSources = new Set(VENDOR_TOKEN_REDACT_PATTERNS);
 const chunkUnsafePatterns = /* @__PURE__ */ new WeakSet();
-const canonicalBuiltInSources = new Set([...DEFAULT_REDACT_PATTERNS, ...TOOL_PAYLOAD_REDACT_PATTERNS].filter((entry) => typeof entry === "string"));
+const canonicalBuiltInSources = new Set(DEFAULT_REDACT_PATTERNS.filter((entry) => typeof entry === "string"));
 const formAwareEqualsAssignmentPatterns = /* @__PURE__ */ new WeakSet();
-const sourceAssignmentPatterns = /* @__PURE__ */ new WeakSet();
 let defaultResolvedPatterns;
-let toolPayloadResolvedPatterns;
-const FORM_BODY_KEY_OBFUSCATION_RE = new RegExp(String.raw`[${FORM_BODY_KEY_INVISIBLE_CHARS}+]`, "gu");
-const FORM_BODY_KEY_SEPARATOR_RE = /[\p{C}\p{Z}\u115F\u1160\u3164\uFFA0+]/gu;
-const FORM_BODY_PERCENT_ESCAPE_RE = /%[0-9A-Fa-f]{2}/u;
-const FORM_BODY_KEY = String.raw`[${FORM_BODY_KEY_INVISIBLE_CHARS}+]*(?:[A-Za-z_]|%[0-9A-Fa-f]{2})(?:[A-Za-z0-9_.-]|%[0-9A-Fa-f]{2}|[${FORM_BODY_KEY_INVISIBLE_CHARS}+])*`;
-const FORM_BODY_VALUE = "[^&\\s<>]*";
-const URL_QUERY_VALUE = "[^&#\\s<>]*";
-const FORM_BODY_PAIR = String.raw`${FORM_BODY_KEY}=${FORM_BODY_VALUE}`;
-const FORM_BODY_RE = new RegExp(String.raw`^${FORM_BODY_PAIR}(?:&${FORM_BODY_PAIR})+$`, "u");
-const FORM_BODY_SUBSTRING_RE = new RegExp(String.raw`(^|[\s:({\[,="'` + "`" + String.raw`])(${FORM_BODY_PAIR}(?:&${FORM_BODY_PAIR})+)`, "gu");
-const ENCODED_FORM_PAIR_RE = new RegExp(String.raw`(^|[\s:({\[,="'` + "`" + String.raw`&])(${FORM_BODY_KEY})=(${FORM_BODY_VALUE})`, "gu");
-const FORM_BODY_CONTEXT_SINGLE_PAIR_RE = new RegExp(String.raw`(\b(?:body|form(?:[-_\s]?body)?)\s*[:=]\s*(["'\x60]?))(${FORM_BODY_KEY})=(${FORM_BODY_VALUE})(["'\x60]?)`, "giu");
-const URL_QUERY_PAIR_RE = new RegExp(String.raw`([?&])(${FORM_BODY_KEY})=(${URL_QUERY_VALUE})`, "gu");
-const FORM_BODY_LINE_BREAK_SPLIT_RE = /(\r\n|\r|\n)/u;
-const FORM_BODY_LINE_BREAK_SEGMENT_RE = /^(?:\r\n|\r|\n)$/u;
-new RegExp(String.raw`^(?:api[-_]?key|apiKey|api[-_]?token|apiToken|bearer[-_]?token|bearerToken|token|secret|password|passwd|${AWS_SECRET_ACCESS_KEY_FIELD_KEYS}|credential|authorization|private[-_]?key|privateKey|access[-_]?token|accessToken|refresh[-_]?token|refreshToken|id[-_]?token|idToken|auth[-_]?token|authToken|client[-_]?secret|clientSecret|app[-_]?secret|appSecret|secret[-_]?value|secretValue|raw[-_]?secret|rawSecret|secret[-_]?input|secretInput|key|key[-_]?material|keyMaterial|jwt|session|signature|cookie|set[-_]?cookie|${PAYMENT_CREDENTIAL_QUERY_KEYS}|${PAYMENT_CREDENTIAL_JSON_KEYS})$`, "i");
-new RegExp(String.raw`^(?:(?:[A-Z0-9]+[_-])+(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD)|API[_-]?KEY|TOKEN|SECRET|PASSWORD|PASSWD|${PAYMENT_CREDENTIAL_ENV_KEYS})$`, "i");
-function normalizeMode(value) {
-	return value === "off" ? "off" : DEFAULT_REDACT_MODE;
-}
+let warnedInvalidPatterns = false;
+const STRUCTURED_SECRET_FIELD_RE = new RegExp(String.raw`^(?:api[-_]?key|apiKey|api[-_]?token|apiToken|bearer[-_]?token|bearerToken|token|secret|password|passwd|${AWS_SECRET_ACCESS_KEY_FIELD_KEYS}|credential|authorization|private[-_]?key|privateKey|access[-_]?token|accessToken|refresh[-_]?token|refreshToken|id[-_]?token|idToken|auth[-_]?token|authToken|client[-_]?secret|clientSecret|app[-_]?secret|appSecret|secret[-_]?value|secretValue|raw[-_]?secret|rawSecret|secret[-_]?input|secretInput|key|key[-_]?material|keyMaterial|jwt|session|signature|cookie|set[-_]?cookie|${PAYMENT_CREDENTIAL_QUERY_KEYS}|${PAYMENT_CREDENTIAL_JSON_KEYS})$`, "i");
+const STRUCTURED_INTERNAL_SOURCE_PATH_VALUE_RE = /^\$WORKSPACE_DIR\/[A-Za-z0-9._/-]+\.jsonl$/u;
+const STRUCTURED_APP_PASSWORD_FIELD_RE = /^(?:apple|icloud|app[-_]?specific[-_]?password|appSpecificPassword|application[-_]?password|text|content|message|error|errorMessage|detail|details|reason)$/i;
+const APP_SPECIFIC_PASSWORD_RE = /\b([a-z]{4}-[a-z]{4}-[a-z]{4}-[a-z]{4})\b/g;
+const BENIGN_APP_PASSWORD_WORDS = /* @__PURE__ */ new Set([
+	"case",
+	"claw",
+	"demo",
+	"file",
+	"main",
+	"name",
+	"open",
+	"path",
+	"slug",
+	"test"
+]);
+const STRUCTURED_SECRET_ENV_FIELD_RE = new RegExp(String.raw`^(?:(?:[A-Z0-9]+[_-])+(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD)|API[_-]?KEY|TOKEN|SECRET|PASSWORD|PASSWD|${PAYMENT_CREDENTIAL_ENV_KEYS})$`, "i");
 function parsePattern(raw) {
 	if (raw === PEM_REDACT_PATTERN_SOURCE) return PEM_REDACT_MATCHER;
-	if (typeof raw !== "string" && !(raw instanceof RegExp)) {
-		if (AMBIGUOUS_ASSIGNMENT_MATCHERS.has(raw)) sourceAssignmentPatterns.add(raw);
-		return raw;
-	}
+	if (typeof raw !== "string" && !(raw instanceof RegExp)) return raw !== null && typeof raw === "object" && typeof raw.exec === "function" ? raw : null;
 	let pattern = typeof raw === "string" ? LINEAR_MATCHER_SOURCES.get(raw) ?? null : null;
 	let canPrefilter = true;
 	if (raw instanceof RegExp) {
@@ -3585,10 +4305,9 @@ function parsePattern(raw) {
 		pattern = compileConfigRegex(optimized, flags)?.regex ?? null;
 		canPrefilter = pattern !== null && pattern.source === optimized && pattern.flags === flags && pattern.exec === RegExp.prototype.exec && pattern[Symbol.replace] === RegExp.prototype[Symbol.replace];
 	}
-	if (pattern && typeof raw === "string" && SHELL_REFERENCE_PRESERVING_PATTERN_SOURCES.has(raw)) shellReferencePreservingPatterns.add(pattern);
-	if (pattern && typeof raw === "string" && TOOL_PAYLOAD_AMBIGUOUS_ASSIGNMENT_PATTERNS.has(raw)) sourceAssignmentPatterns.add(pattern);
-	if (pattern && typeof raw === "string" && FORM_AWARE_EQUALS_ASSIGNMENT_PATTERN_SOURCES.has(raw)) formAwareEqualsAssignmentPatterns.add(pattern);
-	if (pattern && typeof raw === "string" && (raw.startsWith(IDENTIFIER_SAFE_TOKEN_BOUNDARY) || CHUNK_UNSAFE_PATTERN_SOURCES.has(raw))) chunkUnsafePatterns.add(pattern);
+	if (pattern && typeof raw === "string" && backendPatterns.shellReferencePreserving.has(raw)) shellReferencePreservingPatterns.add(pattern);
+	if (pattern && typeof raw === "string" && backendPatterns.formAware.has(raw)) formAwareEqualsAssignmentPatterns.add(pattern);
+	if (pattern && typeof raw === "string" && (raw.startsWith(IDENTIFIER_SAFE_TOKEN_BOUNDARY) || backendPatterns.chunkUnsafe.has(raw))) chunkUnsafePatterns.add(pattern);
 	if (pattern && typeof raw === "string") {
 		if (canonicalBuiltInSources.has(raw)) builtInResolvedPatterns.add(pattern);
 		if (canPrefilter && vendorSources.has(raw) && !vendorResolvedPatterns.has(pattern)) {
@@ -3598,138 +4317,48 @@ function parsePattern(raw) {
 			const replace = pattern instanceof RegExp ? pattern[Symbol.replace] : void 0;
 			vendorResolvedPatterns.set(pattern, () => pattern.source === source && pattern.exec === exec && (!(pattern instanceof RegExp) || pattern.flags === flags && pattern[Symbol.replace] === replace));
 		}
-		const probe = REDACT_PATTERN_PREFILTERS.get(raw);
+		const probe = backendPatterns.prefilters.get(raw);
 		if (canPrefilter && probe) setRedactPatternPrefilter(pattern, probe);
 	}
 	return pattern;
 }
 function resolvePatterns(value) {
-	if (value === TOOL_PAYLOAD_REDACT_PATTERNS) {
-		toolPayloadResolvedPatterns ??= TOOL_PAYLOAD_REDACT_PATTERNS.map(parsePattern).filter((re) => Boolean(re));
-		return toolPayloadResolvedPatterns;
-	}
-	if (!value?.length || value === DEFAULT_REDACT_PATTERNS) {
+	if (usesBuiltInRedactPatterns(value)) {
 		defaultResolvedPatterns ??= DEFAULT_REDACT_PATTERNS.map(parsePattern).filter((re) => Boolean(re));
 		return defaultResolvedPatterns;
 	}
-	const seen = /* @__PURE__ */ new Set();
-	const combined = [];
-	for (const raw of value) {
+	const combined = /* @__PURE__ */ new Set();
+	let invalid = !Array.isArray(value);
+	for (const raw of Array.isArray(value) ? value : []) {
 		const resolved = parsePattern(raw);
-		if (resolved !== null && !seen.has(resolved)) {
-			seen.add(resolved);
-			combined.push(resolved);
+		if (resolved) combined.add(resolved);
+		else invalid = true;
+	}
+	if (invalid) {
+		for (const pattern of resolvePatterns()) combined.add(pattern);
+		if (!warnedInvalidPatterns) {
+			warnedInvalidPatterns = true;
+			try {
+				console.warn("[openclaw] Ignoring invalid logging.redactPatterns entries; keeping valid patterns and built-in redaction. Fix logging.redactPatterns in your config.");
+			} catch {}
 		}
 	}
-	if (!seen.has(AWS_SECRET_ACCESS_KEY_MATCHER)) combined.push(AWS_SECRET_ACCESS_KEY_MATCHER);
-	return combined;
+	combined.add(AWS_SECRET_ACCESS_KEY_MATCHER);
+	return [...combined];
 }
 function usesBuiltInRedactPatterns(value) {
-	return !value?.length || value === DEFAULT_REDACT_PATTERNS || value === TOOL_PAYLOAD_REDACT_PATTERNS;
-}
-function normalizeSensitiveKeyName(value) {
-	const stripped = value.replace(FORM_BODY_KEY_SEPARATOR_RE, "");
-	try {
-		return decodeURIComponent(stripped).replace(FORM_BODY_KEY_SEPARATOR_RE, "").toLowerCase().replaceAll("-", "_");
-	} catch {
-		return stripped.toLowerCase().replaceAll("-", "_");
-	}
-}
-function isSensitiveBodyKey(key) {
-	return isSensitiveUrlQueryParamName(key) || BODY_SECRET_KEYS.has(normalizeSensitiveKeyName(key));
-}
-function hasEncodedOrInvisibleFormKey(key) {
-	return FORM_BODY_PERCENT_ESCAPE_RE.test(key) || key.replace(FORM_BODY_KEY_OBFUSCATION_RE, "") !== key;
-}
-function visitSensitiveAssignments(text, kind, visit) {
-	if (!text || kind === "url" && !text.includes("?")) return;
-	if (kind === "encoded" && !text.includes("%") && text.replace(FORM_BODY_KEY_OBFUSCATION_RE, "") === text) return;
-	if (kind === "context" && !/[=:]/u.test(text)) return;
-	const visitPair = (key, token, valueOffset) => {
-		if (kind === "encoded" && !hasEncodedOrInvisibleFormKey(key)) return;
-		if (!isSensitiveBodyKey(key)) return;
-		const { maskable, maskStart, maskEnd } = splitSecretValueForMask(token);
-		visit(valueOffset + maskStart, valueOffset + maskEnd, maskable);
-	};
-	if (kind === "form") {
-		let cursor = 0;
-		for (const pair of text.split("&")) {
-			const equalsIndex = pair.indexOf("=");
-			if (equalsIndex >= 0) visitPair(pair.slice(0, equalsIndex), pair.slice(equalsIndex + 1), cursor + equalsIndex + 1);
-			cursor += pair.length + 1;
-		}
-		return;
-	}
-	const pattern = kind === "url" ? URL_QUERY_PAIR_RE : kind === "encoded" ? ENCODED_FORM_PAIR_RE : FORM_BODY_CONTEXT_SINGLE_PAIR_RE;
-	const keyIndex = kind === "context" ? 3 : 2;
-	pattern.lastIndex = 0;
-	try {
-		for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
-			const prefix = match[1] ?? "";
-			const key = match[keyIndex] ?? "";
-			visitPair(key, match[keyIndex + 1] ?? "", match.index + prefix.length + key.length + 1);
-		}
-	} finally {
-		pattern.lastIndex = 0;
-	}
-}
-function redactAssignmentValues(text, kind, onEdits) {
-	const parts = [];
-	const edits = [];
-	let cursor = 0;
-	visitSensitiveAssignments(text, kind, (start, end, maskable) => {
-		const replacement = kind === "url" ? maskToken(maskable) : "***";
-		parts.push(text.slice(cursor, start), replacement);
-		if (onEdits) edits.push({
-			start,
-			end,
-			replacement
-		});
-		cursor = end;
-	});
-	if (edits.length > 0) onEdits?.(edits);
-	return parts.length > 0 ? parts.join("") + text.slice(cursor) : text;
-}
-function redactFormBodyLine(text, onEdits) {
-	if (!text.includes("=")) return text;
-	const contextRedacted = redactAssignmentValues(redactAssignmentValues(text, "encoded", onEdits), "context", onEdits);
-	if (!contextRedacted.includes("&")) return contextRedacted;
-	if (FORM_BODY_RE.test(contextRedacted)) return redactAssignmentValues(contextRedacted, "form", onEdits);
-	const substringEdits = [];
-	const redacted = contextRedacted.replace(FORM_BODY_SUBSTRING_RE, (match, prefix, body, offset) => {
-		const redactedBody = redactAssignmentValues(body, "form", onEdits ? (edits) => {
-			for (const edit of edits) substringEdits.push({
-				...edit,
-				start: offset + prefix.length + edit.start,
-				end: offset + prefix.length + edit.end
-			});
-		} : void 0);
-		return redactedBody === body ? match : `${prefix}${redactedBody}`;
-	});
-	if (substringEdits.length > 0) onEdits?.(substringEdits);
-	return redactAssignmentValues(redactAssignmentValues(redacted, "encoded", onEdits), "context", onEdits);
-}
-function redactFormBody(text, onEdits) {
-	if (!text.includes("=")) return text;
-	if (FORM_BODY_LINE_BREAK_SPLIT_RE.test(text)) {
-		let offset = 0;
-		return text.split(FORM_BODY_LINE_BREAK_SPLIT_RE).map((segment) => {
-			const result = FORM_BODY_LINE_BREAK_SEGMENT_RE.test(segment) ? segment : redactFormBodyLine(segment, onEdits ? (edits) => onEdits(edits.map((edit) => ({
-				...edit,
-				start: offset + edit.start,
-				end: offset + edit.end
-			}))) : void 0);
-			offset += result.length;
-			return result;
-		}).join("");
-	}
-	return redactFormBodyLine(text, onEdits);
+	return value === void 0 || value === DEFAULT_REDACT_PATTERNS || Array.isArray(value) && value.length === 0;
 }
 function isShellReferenceToKey(key, value) {
 	if (!/^[A-Z_][A-Z0-9_]*$/.test(key)) return false;
 	const bare = value.match(/^\$([A-Z_][A-Z0-9_]*)$/);
 	if (bare) return bare[1] === key;
 	return value.match(/^\$\{([A-Z_][A-Z0-9_]*)(?::[-=?+])?\}$/)?.[1] === key;
+}
+function maskSecretFieldValue(key, value) {
+	const expansion = value.match(/^\$\{([A-Z_][A-Z0-9_]*):[-=?+][^{}]+\}(?![\s\S])/);
+	if (expansion && expansion[1] === key) return `${value.slice(0, value.indexOf(":") + 2)}***}`;
+	return "***";
 }
 function shouldPreserveShellReferenceMatch(match, token) {
 	const key = match.match(/\b([A-Z_][A-Z0-9_]*)\b\s*[=:]/)?.[1];
@@ -3738,7 +4367,7 @@ function shouldPreserveShellReferenceMatch(match, token) {
 function isEmptyShellParameterExpansionTail(token) {
 	return /^[-=?+]\}$/.test(token);
 }
-function prepareRedactionCapture({ match, groups, input, offset, replacement: policyReplacement }, pattern, preserveSourceAssignment) {
+function prepareRedactionCapture({ match, groups, input, offset, replacement: policyReplacement }, pattern) {
 	if (match.includes("PRIVATE KEY-----")) return {
 		start: offset,
 		end: offset + match.length,
@@ -3761,7 +4390,6 @@ function prepareRedactionCapture({ match, groups, input, offset, replacement: po
 		value: selected.value,
 		redact: (target) => {
 			const token = target.value;
-			if (sourceAssignmentPatterns.has(pattern) && preserveSourceAssignment?.(input, offset + getSecretCaptureStart(pattern, input, match, offset, selected))) return;
 			const formAwareValue = formAwareEqualsAssignmentPatterns.has(pattern) ? splitFormAwareCredentialValue(token) : {
 				secret: token,
 				suffix: ""
@@ -3769,7 +4397,7 @@ function prepareRedactionCapture({ match, groups, input, offset, replacement: po
 			if (splitSecretValueForMask(formAwareValue.secret).maskable === "***") return;
 			const isShellReferencePattern = shellReferencePreservingPatterns.has(pattern);
 			if (isShellReferencePattern && (shouldPreserveShellReferenceMatch(match, token) || isEmptyShellParameterExpansionTail(token))) return;
-			const masked = policyReplacement ?? (preserveSourceAssignment && sourceAssignmentPatterns.has(pattern) ? maskSecretValue(token) : isShellReferencePattern ? maskToken(token) : `${maskSecretValue(formAwareValue.secret, { hinted: true })}${formAwareValue.suffix}`);
+			const masked = policyReplacement ?? (isShellReferencePattern ? maskToken(token) : `${maskSecretValue(formAwareValue.secret, { hinted: true })}${formAwareValue.suffix}`);
 			return {
 				start: target.start,
 				end: target.end,
@@ -3778,8 +4406,8 @@ function prepareRedactionCapture({ match, groups, input, offset, replacement: po
 		}
 	};
 }
-function redactMatch(match, pattern, preserveSourceAssignment) {
-	const capture = prepareRedactionCapture(match, pattern, preserveSourceAssignment);
+function redactMatch(match, pattern) {
+	const capture = prepareRedactionCapture(match, pattern);
 	const edit = capture?.redact(capture);
 	return edit ? match.match.slice(0, edit.start - match.offset) + edit.replacement + match.match.slice(edit.end - match.offset) : match.match;
 }
@@ -3789,7 +4417,7 @@ function redactText(text, patterns, options) {
 	try {
 		let next = redactFormBody(redactAssignmentValues(redactStructuredAuthHeaders(text, "***"), "url"));
 		let pattern;
-		const replace = (match) => redactMatch(match, pattern, options?.preserveSourceAssignment);
+		const replace = (match) => redactMatch(match, pattern);
 		const replaceRegex = (...args) => replace(readRedactMatch(args));
 		let vendorInput;
 		let vendorMatch = false;
@@ -3812,6 +4440,13 @@ function redactText(text, patterns, options) {
 		finishMeasurement?.(outcome, text.length, patterns.length);
 	}
 }
+function looksLikeAppSpecificPassword(candidate) {
+	return candidate.split("-").every((part) => !BENIGN_APP_PASSWORD_WORDS.has(part.toLowerCase()));
+}
+function redactAppSpecificPasswords(text) {
+	if (!text.includes("-")) return text;
+	return text.replace(APP_SPECIFIC_PASSWORD_RE, (match, token) => looksLikeAppSpecificPassword(token) ? maskToken(token) : match);
+}
 function resolveConfigRedaction() {
 	const cfg = readLoggingConfig();
 	return {
@@ -3821,7 +4456,7 @@ function resolveConfigRedaction() {
 }
 function resolveRedactOptions(options) {
 	const resolved = options ?? resolveConfigRedaction();
-	const mode = normalizeMode(resolved.mode);
+	const mode = resolved.mode === "off" ? "off" : DEFAULT_REDACT_MODE;
 	return {
 		mode,
 		patterns: mode === "off" ? [] : resolvePatterns(resolved.patterns)
@@ -3832,9 +4467,285 @@ function redactSensitiveText(text, options) {
 	return redactSensitiveTextWithOptions(redactRegisteredSecretValues(text, maskToken), options ?? resolveConfigRedaction());
 }
 function redactSensitiveTextWithOptions(exactRedacted, resolvedOptions) {
-	if (normalizeMode(resolvedOptions.mode) === "off") return exactRedacted;
+	if (resolvedOptions.mode === "off") return exactRedacted;
 	if (usesBuiltInRedactPatterns(resolvedOptions.patterns) && !couldMatchDefaultRedactPatterns(exactRedacted)) return exactRedacted;
 	return redactText(exactRedacted, resolveRedactOptions(resolvedOptions).patterns);
+}
+function resolveToolPayloadRedaction(loggingConfig = readLoggingConfig()) {
+	const userPatterns = loggingConfig?.redactPatterns;
+	return {
+		mode: "tools",
+		patterns: Array.isArray(userPatterns) && userPatterns.length > 0 ? [...userPatterns, ...DEFAULT_REDACT_PATTERNS] : userPatterns
+	};
+}
+function redactToolPayloadText(text) {
+	return redactToolPayloadTextWithConfig(text, readLoggingConfig());
+}
+function redactToolPayloadTextWithConfig(text, loggingConfig) {
+	return redactSensitiveText(text, resolveToolPayloadRedaction(loggingConfig));
+}
+function isSensitiveFieldKey(key) {
+	return STRUCTURED_SECRET_FIELD_RE.test(key) || STRUCTURED_SECRET_ENV_FIELD_RE.test(key);
+}
+function isPublicShareIdPath(path) {
+	if (path.at(-1)?.toLowerCase() !== "id") return false;
+	return path.at(-2)?.toLowerCase().replaceAll("-", "").replaceAll("_", "") === "publicshare";
+}
+function redactSensitiveFieldValueWithOptions(key, value, options, path = [key], objectPath = true, couldMatch = couldMatchDefaultRedactPatterns) {
+	const exactRedacted = redactRegisteredSecretValues(value, maskToken);
+	if (isPublicShareIdPath(path)) return maskToken(exactRedacted);
+	const resolved = resolveRedactOptions(options);
+	if (resolved.mode === "off") return exactRedacted;
+	const redacted = !usesBuiltInRedactPatterns(options.patterns) || couldMatch(exactRedacted) ? redactText(exactRedacted, resolved.patterns) : exactRedacted;
+	if (redacted !== value || STRUCTURED_APP_PASSWORD_FIELD_RE.test(key)) {
+		const appRedacted = redactAppSpecificPasswords(redacted);
+		if (appRedacted !== value) return appRedacted;
+	}
+	if (redacted !== value) return redacted;
+	return shouldRedactStructuredStringField(key, exactRedacted, path, objectPath) ? maskToken(exactRedacted) : exactRedacted;
+}
+function shouldRedactStructuredPrimitiveField(key, path) {
+	const normalizedKey = key.toLowerCase();
+	return isPublicShareIdPath(path) || shouldRedactStructuredAuthorizationCode(normalizedKey, path) || isSensitiveFieldKey(key);
+}
+function isPlainRedactableObject(value) {
+	const prototype = Object.getPrototypeOf(value);
+	return prototype === Object.prototype || prototype === null;
+}
+function redactStructuredSecretValue(key, value, seen, options, couldMatch, path = key ? [key] : [], objectPath = true) {
+	if (typeof value === "string") return redactSensitiveFieldValueWithOptions(key, value, options, path, objectPath, couldMatch);
+	if (value === null || value === void 0) return value;
+	if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return shouldRedactStructuredPrimitiveField(key, path) ? "***" : value;
+	if (Array.isArray(value)) {
+		if (seen.has(value)) return "[Circular]";
+		seen.add(value);
+		const out = value.map((entry) => redactStructuredSecretValue(key, entry, seen, options, couldMatch, path, false));
+		seen.delete(value);
+		return out;
+	}
+	if (typeof value === "object") {
+		if (seen.has(value)) return "[Circular]";
+		if (!isPlainRedactableObject(value)) return value;
+		seen.add(value);
+		const entries = Object.entries(value);
+		for (const entry of entries) {
+			const [name, child] = entry;
+			entry[1] = redactStructuredSecretValue(name, child, seen, options, couldMatch, [...path, name], objectPath);
+		}
+		seen.delete(value);
+		return Object.fromEntries(entries);
+	}
+	return value;
+}
+function redactSecretsWithOptions(value, options) {
+	if (typeof value === "string") return redactSensitiveText(value, options);
+	if (value === null || typeof value !== "object") return value;
+	return redactStructuredSecretValue("", value, /* @__PURE__ */ new WeakSet(), options, createRedactPrefilter(couldMatchDefaultRedactPatterns));
+}
+function redactSecrets(value) {
+	return redactSecretsWithOptions(value, resolveToolPayloadRedaction());
+}
+function preservesStructuredReference(key, value) {
+	return key.toLowerCase() === "session" && STRUCTURED_INTERNAL_SOURCE_PATH_VALUE_RE.test(value) || isShellReferenceToKey(key, value);
+}
+function shouldRedactStructuredStringField(key, value, path, objectPath) {
+	return shouldRedactStructuredAuthorizationCode(key.toLowerCase(), path, objectPath ? value : void 0) || isSensitiveFieldKey(key) && !preservesStructuredReference(key, value);
+}
+function classifyLogFieldProtection(key, path, objectPath, value) {
+	return (value === void 0 ? shouldRedactStructuredPrimitiveField(key, path) : isPublicShareIdPath(path) || shouldRedactStructuredStringField(key, value, path, objectPath)) ? "legacy" : backendPatterns.credentialHeaderField.test(key) ? "header" : void 0;
+}
+function getFieldRecordEdits(field, mode) {
+	const { key, value, path, objectPath } = field;
+	if (mode === "off" || !field.string && value === "null" || !classifyLogFieldProtection(key, path, objectPath, field.string ? value : void 0)) return [];
+	return [{
+		start: 0,
+		end: value.length,
+		replacement: maskSecretFieldValue(key, value)
+	}];
+}
+function getTextRecordEdits(field, mode, fileFields) {
+	const { value } = field;
+	if (field.isKey || fileFields && !field.origin.structured) return [];
+	if (fileFields && field.origin.primitiveMask) return [{
+		start: 0,
+		end: value.length,
+		replacement: "***"
+	}];
+	if (!field.string) return [];
+	const edits = [];
+	const registered = redactRegisteredSecretValues(value, (secret, start) => {
+		const replacement = maskToken(secret);
+		edits.push({
+			start,
+			end: start + secret.length,
+			replacement
+		});
+		return replacement;
+	});
+	if (fileFields && isPublicShareIdPath(field.path)) return [{
+		start: 0,
+		end: value.length,
+		replacement: maskToken(registered)
+	}];
+	if (mode === "off") return edits;
+	let combined = edits;
+	const receive = (added) => {
+		combined = composeRedactionEdits(value.length, combined, added);
+	};
+	const headers = findStructuredAuthParamRanges(registered).map(({ start, end }) => ({
+		start,
+		end,
+		replacement: "***"
+	}));
+	receive(headers);
+	const url = redactAssignmentValues(applyRedactionEdits(registered, headers), "url", receive);
+	redactFormBody(url, receive);
+	return combined;
+}
+function getLegacyFieldRecordEdits(field, value) {
+	const { key, value: original, path, objectPath } = field;
+	if (field.isKey || !field.origin.structured || !field.string) return [];
+	if (isPublicShareIdPath(path)) return [];
+	const edits = [];
+	if (value !== original || STRUCTURED_APP_PASSWORD_FIELD_RE.test(key)) {
+		for (const match of value.matchAll(APP_SPECIFIC_PASSWORD_RE)) if (looksLikeAppSpecificPassword(match[0])) edits.push({
+			start: match.index,
+			end: match.index + match[0].length,
+			replacement: maskToken(match[0])
+		});
+	}
+	if (edits.length > 0 || value !== original) return edits;
+	return classifyLogFieldProtection(key, path, objectPath, value) === "legacy" ? [{
+		start: 0,
+		end: value.length,
+		replacement: maskToken(value)
+	}] : [];
+}
+function* redactionEditMatches(input, edits) {
+	for (const edit of edits) yield {
+		match: input.slice(edit.start, edit.end),
+		groups: [],
+		input,
+		offset: edit.start,
+		replacement: edit.replacement
+	};
+}
+const preparationPatterns = [
+	{
+		source: "registered secret values",
+		*exec(input) {
+			const matches = [];
+			redactRegisteredSecretValues(input, (secret, offset) => {
+				matches.push({
+					match: secret,
+					groups: [],
+					input,
+					offset,
+					replacement: maskToken(secret)
+				});
+				return secret;
+			});
+			yield* matches;
+		}
+	},
+	{
+		source: "structured authorization parameters",
+		*exec(input) {
+			for (const { start, end } of findStructuredAuthParamRanges(input)) yield {
+				match: input.slice(start, end),
+				groups: [],
+				input,
+				offset: start,
+				replacement: "***"
+			};
+		}
+	},
+	{
+		source: "URL query assignments",
+		*exec(input) {
+			const edits = [];
+			redactAssignmentValues(input, "url", (added) => edits.push(...added));
+			yield* redactionEditMatches(input, edits);
+		}
+	},
+	{
+		source: "form bodies",
+		*exec(input) {
+			let edits = [];
+			redactFormBody(input, (added) => {
+				edits = composeRedactionEdits(input.length, edits, added);
+			});
+			yield* redactionEditMatches(input, edits);
+		}
+	}
+];
+const CONSOLE_STRUCTURAL_FIELDS = /* @__PURE__ */ new Set(["time", "level"]);
+/** Converts native values once and applies configured and structural protection before output. */
+function redactLogRecordForTransport(record, tail) {
+	const finishMeasurement = startRedactionMeasurement("log-record");
+	let outcome = "error";
+	let inputChars;
+	try {
+		const resolved = tail?.redaction ?? resolveRedactOptions();
+		const origins = {
+			value: {
+				structured: true,
+				primitiveMask: false
+			},
+			children: /* @__PURE__ */ new Map()
+		};
+		const ancestors = [];
+		const json = JSON.stringify(record, function(key, value) {
+			while (ancestors.length > 0 && ancestors.at(-1)?.value !== this) ancestors.pop();
+			const parent = ancestors.at(-1);
+			const array = Array.isArray(this);
+			const fieldKey = array && parent ? parent.key : key;
+			const path = array && parent ? parent.path : parent ? [...parent.path, key] : [];
+			const source = value;
+			const structured = (parent?.structured ?? true) && (source === null || typeof source !== "object" || Array.isArray(source) || isPlainRedactableObject(source));
+			const primitiveMask = structured && [
+				"number",
+				"boolean",
+				"bigint"
+			].includes(typeof source) && classifyLogFieldProtection(fieldKey, path, !array, void 0) === "legacy";
+			const circular = value !== null && typeof value === "object" && ancestors.some((frame) => frame.value === value);
+			const emitted = circular ? "[Circular]" : typeof value === "bigint" ? String(value) : value;
+			const container = emitted !== null && typeof emitted === "object";
+			let node = origins;
+			if (parent && parent.structured && (container || !structured || primitiveMask || circular)) {
+				node = {
+					value: {
+						structured: structured && !circular,
+						primitiveMask
+					},
+					children: /* @__PURE__ */ new Map()
+				};
+				parent.origins.children.set(key, node);
+			} else if (parent) node = parent.origins;
+			else origins.value = {
+				structured,
+				primitiveMask
+			};
+			if (container) ancestors.push({
+				value: emitted,
+				path,
+				key: fieldKey,
+				origins: node,
+				structured
+			});
+			return emitted;
+		});
+		inputChars = json.length;
+		const couldMatch = createRedactPrefilter(couldMatchDefaultFullContextPatterns);
+		const result = JSON.parse(redactJsonRecord(json, origins, [[{ patterns: resolved.patterns }], [{ patterns: preparationPatterns }, {
+			patterns: resolved.patterns,
+			...resolved.patterns === defaultResolvedPatterns ? { couldMatch } : {}
+		}]], prepareRedactionCapture, tail ? getLegacyFieldRecordEdits : () => [], (field) => getFieldRecordEdits(field, resolved.mode), (field) => getTextRecordEdits(field, resolved.mode, tail !== void 0), (field, currentValue) => field.path.length === 1 && CONSOLE_STRUCTURAL_FIELDS.has(field.key) || resolved.patterns === defaultResolvedPatterns && !couldMatch(currentValue), tail?.message));
+		outcome = "ok";
+		return result;
+	} finally {
+		finishMeasurement?.(outcome, inputChars);
+	}
 }
 //#endregion
 //#region src/infra/errors.ts
@@ -3854,15 +4765,35 @@ function walkUpFrom(startDir, opts, resolveAtDir) {
 	}
 	return null;
 }
+function readGitMetadataFile(filePath, limit = 1048576) {
+	const fd = fs.openSync(filePath, fs.constants.O_RDONLY | (fs.constants.O_NONBLOCK ?? 0));
+	try {
+		const stat = fs.fstatSync(fd);
+		if (!stat.isFile() || stat.size > limit) throw new Error("Git metadata is not a bounded regular file");
+		const bytes = readFileDescriptorBoundedSync(fd, Math.min(stat.size, limit));
+		if (bytes.length !== stat.size) throw new Error("Git metadata changed during its read");
+		return bytes;
+	} finally {
+		fs.closeSync(fd);
+	}
+}
+function readGitDirectoryPointerTarget(filePath, prefix = "") {
+	const bytes = readGitMetadataFile(filePath);
+	const raw = bytes.toString("utf8").replace(/[\r\n]+$/u, "");
+	if (!isUtf8(bytes) || !raw.startsWith(prefix) || raw.length === prefix.length || raw.includes("\0")) throw new Error("Git directory pointer is incomplete or malformed");
+	const target = raw.slice(prefix.length);
+	return path.isAbsolute(target) ? target : `${path.dirname(filePath)}${path.sep}${target}`;
+}
+function readGitDirectoryPointer(filePath, prefix = "") {
+	return fs.realpathSync.native(readGitDirectoryPointerTarget(filePath, prefix));
+}
 function resolveGitDirFromMarker(repoRoot) {
 	const gitPath = path.join(repoRoot, ".git");
 	try {
 		const stat = fs.statSync(gitPath);
 		if (stat.isDirectory()) return gitPath;
 		if (!stat.isFile()) return null;
-		const match = fs.readFileSync(gitPath, "utf-8").match(/gitdir:\s*(.+)/i);
-		if (!match?.[1]) return null;
-		return path.resolve(repoRoot, match[1].trim());
+		return readGitDirectoryPointer(gitPath, "gitdir: ");
 	} catch {
 		return null;
 	}
@@ -3875,8 +4806,9 @@ function resolveGitHeadPath(startDir, opts = {}) {
 }
 /** Read at most `limit` bytes from Git or build metadata. */
 function readGitMetadataPrefix(filePath, limit = 256) {
-	const fd = fs.openSync(filePath, "r");
+	const fd = fs.openSync(filePath, fs.constants.O_RDONLY | (fs.constants.O_NONBLOCK ?? 0));
 	try {
+		if (!fs.fstatSync(fd).isFile()) throw new Error("Git metadata is not a regular file");
 		const buf = Buffer.alloc(limit);
 		const bytesRead = readFileWindowFullySync(fd, buf, 0);
 		return buf.subarray(0, bytesRead).toString("utf-8");
@@ -3887,7 +4819,7 @@ function readGitMetadataPrefix(filePath, limit = 256) {
 function readGitHead(startDir, opts = {}) {
 	const headPath = resolveGitHeadPath(startDir, opts);
 	if (!headPath) return;
-	const head = fs.readFileSync(headPath, "utf-8").trim();
+	const head = readGitMetadataFile(headPath).toString("utf8").trim();
 	if (!head.startsWith("ref:")) return {
 		headPath,
 		ref: null,
@@ -3904,11 +4836,11 @@ function readGitHead(startDir, opts = {}) {
 }
 function resolveGitRefsBase(headPath) {
 	const gitDir = path.dirname(headPath);
+	const marker = path.join(gitDir, "commondir");
 	try {
-		const commonDir = readGitMetadataPrefix(path.join(gitDir, "commondir")).trim();
-		if (commonDir) return path.resolve(gitDir, commonDir);
+		return readGitDirectoryPointer(marker);
 	} catch (error) {
-		if (!isMissingPathError(error)) throw error;
+		if (!isMissingPathError(error) || fs.lstatSync(marker, { throwIfNoEntry: false })) throw error;
 	}
 	return gitDir;
 }
@@ -3928,12 +4860,9 @@ function readGitRefs(refsBase, refs) {
 	}
 	if (missing.size === 0) return values;
 	try {
-		const packedRefs = fs.readFileSync(path.join(refsBase, "packed-refs"), "utf-8");
-		for (const line of packedRefs.split("\n")) {
-			if (!line || line.startsWith("#") || line.startsWith("^")) continue;
-			const [value, packedRef] = line.trim().split(/\s+/, 2);
-			if (packedRef && missing.delete(packedRef)) values.set(packedRef, value ?? null);
-		}
+		const packedRefs = readGitMetadataFile(path.join(refsBase, "packed-refs"), Number.MAX_SAFE_INTEGER).toString("utf8");
+		const records = new RegExp(`^(?![#^])[^\\S\\r\\n]*(\\S+)[^\\S\\r\\n]+(${[...missing].map(escapeRegExp).join("|")})(?=\\s|$)`, "gm");
+		for (const [, value, packedRef] of packedRefs.matchAll(records)) if (missing.delete(packedRef)) values.set(packedRef, value);
 	} catch (error) {
 		if (!isMissingPathError(error)) throw error;
 	}
@@ -3942,7 +4871,6 @@ function readGitRefs(refsBase, refs) {
 /** Safely resolve a Git ref path, rejecting traversal from a crafted HEAD file. */
 function resolveRefPath(refsBase, ref) {
 	if (!ref.startsWith("refs/")) return null;
-	if (path.isAbsolute(ref)) return null;
 	if (ref.split(/[/]/).includes("..")) return null;
 	const resolved = path.resolve(refsBase, ref);
 	const rel = path.relative(refsBase, resolved);
@@ -4005,6 +4933,26 @@ var LruCache = class {
 	}
 };
 //#endregion
+//#region src/infra/error-graph-internal.ts
+/** Retained errors must not keep callers alive through V8's lazy stack frames. */
+function materializeErrorStack(failure) {
+	let error = failure;
+	const seen = /* @__PURE__ */ new Set();
+	while (error instanceof Error && !seen.has(error)) {
+		seen.add(error);
+		try {
+			error.stack = String(error.stack);
+		} catch {
+			error.stack = "Stack trace unavailable: custom formatter failed";
+		}
+		error = error.cause;
+	}
+}
+//#endregion
+//#region src/shared/detached-async-context.ts
+const asyncHooks = typeof process === "undefined" ? void 0 : process.getBuiltinModule("node:async_hooks");
+asyncHooks && resolveGlobalSingleton(Symbol.for("openclaw.detachedAsyncContext"), () => new asyncHooks.AsyncResource("openclaw.detached-async-context"));
+//#endregion
 //#region src/shared/deferred.ts
 const promiseWithResolvers = Promise;
 function createDeferredCore() {
@@ -4014,7 +4962,6 @@ function createDeferredCore() {
 //#region src/shared/async-work-scope.ts
 const currentWorkScope = resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScope"), () => new AsyncLocalStorage());
 const currentWorkScopeAncestry = resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScopeAncestry"), () => new AsyncLocalStorage());
-resolveGlobalSingleton(Symbol.for("openclaw.detachedAsyncContext"), () => new AsyncResource("openclaw.detached-async-context"));
 /** Joins cooperating descendants even when their caller returns a cached value first. */
 var AsyncWorkScope = class AsyncWorkScope {
 	constructor(failures) {
@@ -4036,10 +4983,14 @@ var AsyncWorkScope = class AsyncWorkScope {
 		const owner = currentWorkScope.getStore();
 		const ancestry = currentWorkScopeAncestry.getStore();
 		const parent = owner ? ancestry?.scope === owner ? ancestry : { scope: owner } : void 0;
-		return currentWorkScopeAncestry.run({
-			scope: this,
-			parent
-		}, () => currentWorkScope.run(this, run));
+		return new AsyncResource("OpenClawAsyncWorkScope").runInAsyncScope(() => {
+			currentWorkScope.enterWith(this);
+			currentWorkScopeAncestry.enterWith({
+				scope: this,
+				parent
+			});
+			return run();
+		});
 	}
 	/** Enters synchronous work without inspecting or assimilating its return value. */
 	run(run) {
@@ -4055,22 +5006,18 @@ var AsyncWorkScope = class AsyncWorkScope {
 	}
 	track(run) {
 		if (this.phase === "closed") return Promise.reject(/* @__PURE__ */ new Error("Async work scope is closed"));
-		const operation = this.registerWork();
-		try {
-			operation.resolve(this.enter(run));
-		} catch (error) {
-			operation.reject(error);
-		}
-		return operation.promise;
-	}
-	registerWork() {
 		const operation = createDeferredCore();
 		this.pending.add(operation.promise);
 		operation.promise.then(() => this.pending.delete(operation.promise), (error) => {
 			this.pending.delete(operation.promise);
 			this.failures?.add(error);
 		});
-		return operation;
+		try {
+			operation.resolve(this.enter(run));
+		} catch (error) {
+			operation.reject(error);
+		}
+		return operation.promise;
 	}
 	beginClose(reason) {
 		if (this.phase !== "open") return;
@@ -4096,10 +5043,9 @@ var AsyncWorkScope = class AsyncWorkScope {
 		this.phase = "closed";
 	}
 };
-/** Outside a managed scope, the returned promise remains the caller's responsibility. */
-async function trackAsyncWork(run) {
-	const scope = currentWorkScope.getStore();
-	return await (scope ? scope.track(run) : run());
+/** Starts work its caller does not own, so the caller's scope neither waits for it nor closes under it. */
+function runOutsideAsyncWorkScope(run) {
+	return currentWorkScope.exit(() => currentWorkScopeAncestry.exit(run));
 }
 //#endregion
 //#region src/plugins/host-hook-cleanup-result.ts
@@ -4113,16 +5059,6 @@ function appendPluginInstanceCleanupFailures(failures, pluginId, result) {
 			error
 		});
 	}
-}
-//#endregion
-//#region src/plugins/plugin-cache-artifacts.ts
-function createPluginCacheArtifacts() {
-	return {
-		moduleLoaders: /* @__PURE__ */ new Map(),
-		sources: /* @__PURE__ */ new Map(),
-		sourceAliases: /* @__PURE__ */ new Map(),
-		runtimeRecordRoots: /* @__PURE__ */ new WeakMap()
-	};
 }
 //#endregion
 //#region src/plugins/plugin-cache-sdk.ts
@@ -4142,6 +5078,7 @@ function createPluginCacheSdk() {
 		native: {
 			sdkProviders: /* @__PURE__ */ new Map(),
 			nextSdkProviderOrder: 0,
+			parents: /* @__PURE__ */ new Map(),
 			aliases: /* @__PURE__ */ new Map(),
 			registeredHosts: /* @__PURE__ */ new Set(),
 			hostRoots: /* @__PURE__ */ new Map(),
@@ -4174,6 +5111,7 @@ var InvocationFrame = class InvocationFrame {
 		this.cacheScope = scopes.cacheScope;
 		this.sourceCaptureStorage = scopes.sourceCaptureStorage;
 	}
+	get runtimePluginId() {}
 	withScopes(scopes) {
 		return new InvocationFrame(scopes);
 	}
@@ -4217,21 +5155,7 @@ const getPluginExecutionFrame = pluginExecutionContext.getFrame;
 pluginExecutionContext.runFrame;
 //#endregion
 //#region src/plugins/plugin-cache.ts
-/** Cached diagnostics must not retain the caller through V8's lazy stack frames. */
-function materializePluginCacheError(failure) {
-	let error = failure;
-	const seen = /* @__PURE__ */ new Set();
-	while (error instanceof Error && !seen.has(error)) {
-		seen.add(error);
-		try {
-			error.stack = String(error.stack);
-		} catch {
-			error.stack = "Stack trace unavailable: custom formatter failed";
-		}
-		error = error.cause;
-	}
-}
-const state = resolveGlobalSingleton(Symbol.for("openclaw.pluginCache"), () => ({
+const state$4 = resolveGlobalSingleton(Symbol.for("openclaw.pluginCache"), () => ({
 	snapshotOwners: /* @__PURE__ */ new WeakMap(),
 	retirements: []
 }));
@@ -4285,7 +5209,7 @@ function createPluginMetadataCache() {
 		providerPolicyOwners: /* @__PURE__ */ new WeakMap(),
 		channelAdapters: /* @__PURE__ */ new WeakMap(),
 		bundledChannelCatalogs: /* @__PURE__ */ new Map(),
-		bundledProviderPolicySurfaces: /* @__PURE__ */ new Map(),
+		bundledProviderPolicySurfaces: /* @__PURE__ */ new WeakMap(),
 		staticCatalogStates: /* @__PURE__ */ new WeakMap(),
 		modelSuppressionResolvers: /* @__PURE__ */ new WeakMap(),
 		mcpAuthDeclarations: /* @__PURE__ */ new WeakMap()
@@ -4308,11 +5232,14 @@ function createPluginCache(options = {}) {
 		persistedInstalledIndex: /* @__PURE__ */ new Map(),
 		preparedBundledDiscoveryModes: /* @__PURE__ */ new Map(),
 		dependencyStatus: /* @__PURE__ */ new WeakMap(),
-		...createPluginCacheArtifacts()
+		moduleLoaders: /* @__PURE__ */ new Map(),
+		sources: /* @__PURE__ */ new Map(),
+		sourceAliases: /* @__PURE__ */ new Map(),
+		runtimeRecordRoots: /* @__PURE__ */ new WeakMap()
 	};
 }
 function getProcessPluginCache() {
-	return state.current ??= createPluginCache({ kind: "process" });
+	return state$4.current ??= createPluginCache({ kind: "process" });
 }
 function getScopedPluginCache() {
 	return getPluginExecutionFrame()?.cacheScope?.cache;
@@ -4321,39 +5248,26 @@ function getPluginCache() {
 	return getScopedPluginCache() ?? getProcessPluginCache();
 }
 /** Stop new setup calls immediately; the owner awaits in-flight calls and graph cleanup. */
-function retirePluginCache(cache, beforeRetire) {
+function retirePluginCache(cache, beforeRetire, options) {
 	const retained = getPluginCacheRetainers(cache);
 	if (retained.retirement) return retained.retirement;
 	const completion = createDeferredCore();
 	retained.retirement = completion.promise;
-	const trackRetirement = async (run) => {
+	const retire = async () => {
+		if (retained.references.size) await retained.settled.promise;
 		const work = new AsyncWorkScope();
 		try {
-			return await work.track(run);
+			return await work.track(() => beginPluginCacheRetirement(cache, beforeRetire, options));
 		} finally {
-			await work.run(() => work.drain());
+			await work.drain();
 		}
 	};
-	retained.beginRetirement = (track = trackAsyncWork) => {
-		let admitted = false;
-		track(() => {
-			admitted = true;
-			retained.beginRetirement = void 0;
-			return beginPluginCacheRetirement(cache, beforeRetire);
-		}).then(completion.resolve, (error) => {
-			if (admitted) completion.reject(error);
-			else retained.beginRetirement?.(trackRetirement);
-		});
-	};
 	retained.controller.abort();
-	materializePluginCacheError(retained.controller.signal.reason);
-	if (retained.references.size === 0) retained.beginRetirement?.();
-	else retained.settled.promise.then(() => {
-		retained.beginRetirement?.(trackRetirement);
-	});
+	materializeErrorStack(retained.controller.signal.reason);
+	runOutsideAsyncWorkScope(retire).then(completion.resolve, completion.reject);
 	return completion.promise;
 }
-function beginPluginCacheRetirement(cache, beforeRetire) {
+function beginPluginCacheRetirement(cache, beforeRetire, options) {
 	if (cache.retirement) return cache.retirement;
 	const retirement = createDeferredCore();
 	cache.retirement = retirement.promise;
@@ -4365,7 +5279,7 @@ function beginPluginCacheRetirement(cache, beforeRetire) {
 		const [registry] = await Promise.allSettled([registries]);
 		const outcomes = await Promise.allSettled([...resources].map(async (resource) => ({
 			resource,
-			result: await resource.dispose()
+			result: await resource.dispose(void 0, options)
 		})));
 		const nativeAdmissions = cache.sourceAdmissions;
 		if (nativeAdmissions) {
@@ -4448,22 +5362,31 @@ function candidateDirsFromArgv1(argv1) {
 	argv1CandidateCache.set(cacheKey, deduped);
 	return [...deduped];
 }
-function resolveOpenClawPackageRootSync(opts) {
+function preparePackageRootSearch(opts, preserveInventory) {
 	const candidates = buildCandidates(opts);
 	const cacheKey = candidates.join("\0");
 	const searches = getPluginCache().sdk.packageSearches;
 	const cached = searches.get(cacheKey);
-	if (cached?.all) return cached.all[0] ?? null;
-	if (cached?.first !== void 0) return cached.first;
-	for (const candidate of candidates) {
-		const found = findPackageRootSync(candidate);
-		if (found) {
-			searches.set(cacheKey, { first: found });
-			return found;
+	return {
+		candidates,
+		first: cached?.all ? cached.all[0] ?? null : cached?.first,
+		complete(first) {
+			searches.set(cacheKey, preserveInventory ? {
+				...searches.get(cacheKey),
+				first
+			} : { first });
+			return first;
 		}
+	};
+}
+function resolveOpenClawPackageRootSync(opts) {
+	const search = preparePackageRootSearch(opts, false);
+	if (search.first !== void 0) return search.first;
+	for (const candidate of search.candidates) {
+		const found = findPackageRootSync(candidate);
+		if (found) return search.complete(found);
 	}
-	searches.set(cacheKey, { first: null });
-	return null;
+	return search.complete(null);
 }
 function buildCandidates(opts) {
 	const candidates = [];
@@ -4655,10 +5578,28 @@ const VERSION = resolveBinaryVersion({
 });
 //#endregion
 //#region src/shared/listeners.ts
+/** Notifies every registered listener while isolating individual listener failures. */
+function notifyListeners(listeners, event, onError) {
+	for (const listener of listeners) try {
+		listener(event);
+	} catch (error) {
+		onError?.(error);
+	}
+}
 /** Registers a listener in a Set and returns an idempotent unsubscribe handle. */
 function registerListener(listeners, listener) {
 	listeners.add(listener);
 	return () => listeners.delete(listener);
+}
+//#endregion
+//#region src/infra/sql-connection.ts
+const postgresConnectionBrand = Symbol.for("openclaw.postgres-sync-connection");
+function isPostgresSqlConnection(db) {
+	return postgresConnectionBrand in db && db[postgresConnectionBrand] === true;
+}
+/** Publications and receipts must key on the store anchor for every engine. */
+function sqlPublicationAnchor(db) {
+	return isPostgresSqlConnection(db) ? db.anchor : db;
 }
 //#endregion
 //#region src/infra/kysely-sync-cache-state.ts
@@ -4747,6 +5688,7 @@ function queryFitsStatementCache(sql, parameters) {
 	return true;
 }
 function executeWithCachedStatement(db, sql, parameters, execute) {
+	if (isPostgresSqlConnection(db)) return execute(db.prepare(sql));
 	const owner = db;
 	if (!owner[statementCacheEnabledSymbol] || owner[authorizerActiveSymbol] || !queryFitsStatementCache(sql, parameters)) return execute(db.prepare(sql));
 	let cache = owner[statementCacheSymbol];
@@ -4906,19 +5848,39 @@ function createWorkerTaskControl(state, isActive) {
 //#region packages/worker-runtime/src/worker-task-server.ts
 /** Pool dispatch is serial per worker; resource closures and handlers settle before successors. */
 function serveOwnedWorkerTasks$1(handler, options, host) {
-	const port = parentPort;
-	if (!port) return;
+	if (!parentPort) return;
+	const startupPort = parentPort;
+	let port = startupPort;
+	let receivedStartup = false;
+	let retiring = false;
 	host.initialize(port);
 	let active;
 	let execution = Promise.resolve();
 	let resourceClosures = Promise.resolve();
 	let cancelledResponse;
-	port.on("message", (message) => {
+	port.on("message", function receive(message) {
+		if (retiring) {
+			message.resourcePort?.close();
+			return;
+		}
+		if (!receivedStartup) {
+			receivedStartup = true;
+			const taskPort = host.selectStartupPort?.(message);
+			if (taskPort) {
+				port.off("message", receive);
+				port = taskPort;
+				host.initialize(port);
+				port.on("message", receive);
+				host.onReady?.();
+				return;
+			}
+		}
 		host.onMessage(message.sampleMemory === true);
 		if (message.closeResource && message.resourcePort) {
 			const receipt = message.resourcePort;
 			const precedingExecution = execution;
 			resourceClosures = resourceClosures.then(() => precedingExecution).then(async () => {
+				if (retiring) throw new Error("Worker is retiring after a terminal task failure");
 				if (!options.closeResource) throw new Error("Worker does not own retained resources");
 				await options.closeResource(message.key);
 				receipt.postMessage({ ok: true }, []);
@@ -4930,7 +5892,7 @@ function serveOwnedWorkerTasks$1(handler, options, host) {
 				}, []);
 			}).finally(() => {
 				receipt.close();
-				if (!active) host.onIdle();
+				if (!active && !retiring) host.onIdle();
 			});
 			return;
 		}
@@ -5035,14 +5997,111 @@ function serveOwnedWorkerTasks$1(handler, options, host) {
 				taskId: task.taskId
 			}, options.transferList?.(value) ?? []);
 		}).catch((error) => {
+			if (options.retireOnError) {
+				retiring = true;
+				return;
+			}
 			port.postMessage({
 				status: "failed",
 				taskId: task.taskId,
 				error: error instanceof Error ? error.message : String(error)
 			});
-		}).finally(() => host.onIdle());
+		}).finally(() => {
+			if (!retiring) {
+				host.onIdle();
+				return;
+			}
+			const retire = async () => {
+				try {
+					await resourceClosures;
+				} finally {
+					try {
+						await host.onRetire?.();
+					} finally {
+						process.exitCode = 1;
+						try {
+							port.close();
+						} finally {
+							if (port !== startupPort) startupPort.close();
+						}
+					}
+				}
+			};
+			retire().catch(() => {
+				process.exitCode = 1;
+			});
+		});
 	});
+	host.onReady?.();
 }
+//#endregion
+//#region node-compile-cache.mjs
+if (isMainThread && process.env.OPENCLAW_PACKAGED_COMPILE_CACHE_RESPAWNED === "gateway") {
+	delete process.env.NODE_DISABLE_COMPILE_CACHE;
+	delete process.env.OPENCLAW_PACKAGED_COMPILE_CACHE_RESPAWNED;
+}
+const MAX_BYTES = 536870912;
+const MAX_AGE_MS = 6048e5;
+const MAINTENANCE_INTERVAL_MS = 36e5;
+const BUILD_MARKER_RE = /^(?:[a-f0-9]{16}|\d+-\d+|no-package-json|build-[A-Za-z0-9._-]+)$/;
+const sanitize = (value) => {
+	const segment = value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
+	return segment && segment !== "." && segment !== ".." ? segment : "unknown";
+};
+function scheduleOpenClawCompileCacheFlush() {
+	if (!module.getCompileCacheDir?.()) return;
+	const owner = globalThis[Symbol.for("openclaw.nodeCompileCacheBase")] ??= {};
+	if (owner.flush) return;
+	owner.flush = setImmediate(() => {
+		owner.flush = void 0;
+		try {
+			module.flushCompileCache();
+		} catch {}
+	});
+	owner.flush.unref();
+}
+async function maintain(directory) {
+	const root = path.dirname(path.dirname(directory));
+	const version = path.basename(path.dirname(directory));
+	if (path.basename(root) !== "openclaw" || sanitize(version) !== version || !BUILD_MARKER_RE.test(path.basename(directory))) return;
+	const now = Date.now();
+	const previous = await fs$1.lstat(root).catch(() => void 0);
+	for (const target of [
+		root,
+		path.dirname(directory),
+		directory
+	]) {
+		const stat = target === root ? previous : await fs$1.lstat(target).catch(() => void 0);
+		if (stat && !stat.isDirectory()) return;
+	}
+	await fs$1.mkdir(directory, { recursive: true });
+	if (previous && now - previous.mtimeMs < MAINTENANCE_INTERVAL_MS) return;
+	await fs$1.utimes(root, new Date(now), new Date(now));
+	const files = [];
+	let bytes = 0;
+	async function visit(dir) {
+		for (const entry of await fs$1.readdir(dir, { withFileTypes: true })) {
+			const file = path.join(dir, entry.name);
+			if (entry.isDirectory()) await visit(file);
+			else if (entry.isFile()) {
+				const stat = await fs$1.lstat(file);
+				bytes += stat.size;
+				files.push({
+					file,
+					size: stat.size,
+					mtimeMs: stat.mtimeMs
+				});
+			}
+		}
+	}
+	await visit(root);
+	files.sort((left, right) => left.mtimeMs - right.mtimeMs);
+	for (const file of files) if (bytes > MAX_BYTES || now - file.mtimeMs > MAX_AGE_MS) {
+		await fs$1.unlink(file.file);
+		bytes -= file.size;
+	}
+}
+if (!isMainThread && typeof workerData?.openclawCompileCacheDirectory === "string") maintain(workerData.openclawCompileCacheDirectory).catch(() => {});
 //#endregion
 //#region src/infra/agent-database-readers.ts
 const readers = resolveGlobalSingleton(Symbol.for("openclaw.agentDatabaseReaders"), () => ({
@@ -5059,7 +6118,8 @@ async function applyAgentDatabaseReaderRequest(request) {
 		return;
 	}
 	if (request.deleted) for (const candidate of request.candidates) readers.deleted.set(path.resolve(candidate.path), request.agentId);
-	const errors = (await Promise.allSettled([...readers.closers].map(async (closer) => closer(request.candidates)))).flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+	const retainedPaths = request.deleted ? void 0 : new Set(request.retainedPaths?.map((entry) => path.resolve(entry)));
+	const errors = (await Promise.allSettled([...readers.closers].map(async (closer) => closer(request.candidates, retainedPaths)))).flatMap((result) => result.status === "rejected" ? [result.reason] : []);
 	if (errors.length === 1) throw errors[0];
 	if (errors.length > 1) throw new AggregateError(errors, "Agent database reader cleanup failed");
 }
@@ -5088,6 +6148,16 @@ function decodeAgentDatabaseReaderRequest(key) {
 		} : void 0;
 	}
 	if (!isRecord(parsed)) return;
+	if ("candidates" in parsed && !("deleted" in parsed)) {
+		const candidates = normalizeCandidates(parsed.candidates);
+		const retainedPaths = parsed.retainedPaths;
+		return candidates && Array.isArray(retainedPaths) && retainedPaths.every((entry) => typeof entry === "string") ? {
+			kind: "close",
+			candidates,
+			retainedPaths,
+			deleted: false
+		} : void 0;
+	}
 	if ("deleted" in parsed) {
 		const candidates = normalizeCandidates(parsed.deleted);
 		return candidates && typeof parsed.agentId === "string" && parsed.agentId.length > 0 ? {
@@ -5103,65 +6173,8972 @@ function decodeAgentDatabaseReaderRequest(key) {
 	};
 }
 //#endregion
+//#region src/infra/sqlite-database-admission-key.ts
+const SQLITE_DATABASE_ADMISSIONS_KEY = "openclaw.sqliteDatabaseAdmissions.v1";
+//#endregion
+//#region src/infra/sqlite-worker-identity.ts
+const useDatabaseBirthtime = process.platform !== "linux" && process.platform !== "android";
+function readDatabaseIdentityBirthtime(file) {
+	return useDatabaseBirthtime ? file.birthtimeNs.toString() : "0";
+}
+/** Native SQLite namespaces are filesystem locators, not distinct database owners. */
+function normalizeDatabasePath(location) {
+	const normalized = process.platform === "win32" ? normalizeWindowsPathPreservingCase(location) : location;
+	return process.platform === "win32" && !/^(?:[a-z]:[\\/]|[\\/]{2})/iu.test(normalized) ? location : normalized;
+}
+function isSoleDatabaseFileDescriptor(descriptor, file) {
+	if (process.platform !== "linux") return false;
+	try {
+		for (const name of readdirSync("/proc/self/fd")) {
+			if (!/^\d+$/u.test(name) || Number(name) === descriptor) continue;
+			try {
+				const other = fstatSync(Number(name), { bigint: true });
+				if (other.dev === file.dev && other.ino === file.ino) return false;
+			} catch (error) {
+				if (!hasErrnoCode(error, "EBADF")) return false;
+			}
+		}
+		return true;
+	} catch {
+		return false;
+	}
+}
+//#endregion
+//#region src/infra/sqlite-database-admission-record.ts
+function readSqliteDatabaseAdmissionIdentity(file) {
+	return `${file.dev}:${file.ino}:${readDatabaseIdentityBirthtime(file)}`;
+}
+const SqliteDatabaseGenerationSlot = {
+	schemaRevision: 0,
+	factRevision: 1,
+	publicationRevision: 2,
+	retired: 3,
+	writeRevision: 4,
+	hostRevision: 5,
+	unscopedWriteRevision: 6,
+	writeScopeRevision: 7,
+	sealPresent: 8
+};
+const SQLITE_DATABASE_GENERATION_LENGTH = Object.keys(SqliteDatabaseGenerationSlot).length;
+function readSqliteDatabaseAdmissions(value) {
+	return Array.isArray(value) ? value : void 0;
+}
+function isSqliteDatabaseAdmissionRetired(record) {
+	return readSqliteDatabaseGeneration(record, "retired") !== 0;
+}
+function isSqliteDatabaseAdmissionFactCurrent(record, fact) {
+	return !isSqliteDatabaseAdmissionRetired(record) && Atomics.load(new Int32Array(fact.current), 0) === 1 && fact.revision === readSqliteDatabaseFactRevision(record, fact.schemaDependent);
+}
+function hasSqliteDatabaseSchemaAdmission(record) {
+	const fact = record?.facts.get("sqlite-schema");
+	return Boolean(record && fact && isSqliteDatabaseAdmissionFactCurrent(record, fact));
+}
+function readSqliteDatabaseFactRevision(record, schemaDependent) {
+	return readSqliteDatabaseGeneration(record, schemaDependent ? "schemaRevision" : "factRevision");
+}
+function readSqliteDatabaseGeneration(record, slot) {
+	return Atomics.load(new Int32Array(record.generation), SqliteDatabaseGenerationSlot[slot]);
+}
+function advanceSqliteDatabaseGeneration(record, slot) {
+	return Atomics.add(new Int32Array(record.generation), SqliteDatabaseGenerationSlot[slot], 1);
+}
+function publishSqliteDatabaseFact(record, key, value, revision, publication) {
+	if (revision !== readSqliteDatabaseFactRevision(record, key.schemaDependent)) return false;
+	if (key.writer === "host") advanceSqliteDatabaseGeneration(record, "hostRevision");
+	const previous = record.facts.get(key.name);
+	if (previous) Atomics.store(new Int32Array(previous.current), 0, 0);
+	const current = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
+	Atomics.store(new Int32Array(current), 0, 1);
+	record.facts.set(key.name, {
+		value,
+		revision,
+		schemaDependent: key.schemaDependent === true,
+		publication,
+		current
+	});
+	advanceSqliteDatabaseGeneration(record, "publicationRevision");
+	return true;
+}
+function changedAdmissionEntries(current, previous) {
+	const changed = /* @__PURE__ */ new Map();
+	for (const [key, value] of current) if (previous.get(key) !== value) changed.set(key, value);
+	return changed;
+}
+var SqliteDatabaseAdmissionRegistry = class {
+	constructor() {
+		this.records = /* @__PURE__ */ new Map();
+		this.locations = /* @__PURE__ */ new Map();
+		this.published = /* @__PURE__ */ new Map();
+		this.descriptors = /* @__PURE__ */ new Map();
+		this.revision = 0;
+	}
+	changeReferences(record, change) {
+		let references = record.references.get(threadId);
+		if (!references) {
+			references = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT);
+			record.references.set(threadId, references);
+		}
+		if (Atomics.add(new Int32Array(references), 0, change) + change !== (change === 1 ? 1 : 0)) return false;
+		if (change === -1) this.retireUnreferenced(record);
+		this.publish(record);
+		return true;
+	}
+	retireUnreferenced(record) {
+		if (threadId !== 0 || [...record.references.values()].some((references) => Atomics.load(new Int32Array(references), 0) > 0)) return;
+		Atomics.compareExchange(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.retired, 0, 2);
+		record.facts.clear();
+		record.writeScopes.clear();
+	}
+	releaseWorker(owner) {
+		for (const record of this.records.values()) {
+			const references = owner > 0 ? record.references.get(owner) : void 0;
+			if (!references) continue;
+			const priorReferences = Atomics.exchange(new Int32Array(references), 0, -1);
+			this.retireUnreferenced(record);
+			if (priorReferences <= 0) continue;
+			advanceSqliteDatabaseGeneration(record, "writeRevision");
+			advanceSqliteDatabaseGeneration(record, "unscopedWriteRevision");
+		}
+		this.publish();
+	}
+	observeLocation(location, identity) {
+		this.locations.set(normalizeDatabasePath(path.resolve(location)), identity);
+	}
+	forLocation(location) {
+		const identity = this.locations.get(normalizeDatabasePath(path.resolve(location)));
+		const record = identity === void 0 ? void 0 : this.records.get(identity);
+		return record && !isSqliteDatabaseAdmissionRetired(record) ? record : void 0;
+	}
+	hasSchemaAdmissionForIdentity(physicalIdentity) {
+		if (!physicalIdentity.key.startsWith("file:") || physicalIdentity.birthtime === void 0) return false;
+		const key = `${physicalIdentity.key.slice(5)}:${physicalIdentity.birthtime}`;
+		return hasSqliteDatabaseSchemaAdmission(this.records.get(key));
+	}
+	forget(identity) {
+		this.records.delete(identity);
+		this.published.delete(identity);
+		for (const [location, observed] of this.locations) if (observed === identity) this.locations.delete(location);
+	}
+	retainDescriptor(location, descriptor, opened) {
+		const record = {
+			identity: readSqliteDatabaseAdmissionIdentity(opened),
+			physicalIdentity: {
+				key: `file:${opened.dev}:${opened.ino}`,
+				birthtime: readDatabaseIdentityBirthtime(opened)
+			},
+			location,
+			descriptor,
+			descriptorOwner: 0,
+			generationId: randomUUID(),
+			generation: new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * SQLITE_DATABASE_GENERATION_LENGTH),
+			writeScopes: /* @__PURE__ */ new Map(),
+			writeScopeRevision: 0,
+			references: /* @__PURE__ */ new Map(),
+			facts: /* @__PURE__ */ new Map()
+		};
+		this.records.set(record.identity, record);
+		this.descriptors.set(record.identity, descriptor);
+		this.observeLocation(location, record.identity);
+		this.publish(record);
+		return record;
+	}
+	/** Only the joined lifecycle owner may release a retained descriptor. */
+	retireDescriptor(identity, options) {
+		const record = this.records.get(identity);
+		const descriptor = this.descriptors.get(identity) ?? record?.descriptor;
+		if (descriptor === void 0) return false;
+		const file = fs.fstatSync(descriptor, { bigint: true });
+		if (file.nlink > 1n || options.requireSoleDescriptor && !isSoleDatabaseFileDescriptor(descriptor, file)) return false;
+		if (record) Atomics.store(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.retired, 1);
+		fs.closeSync(descriptor);
+		this.descriptors.delete(identity);
+		this.forget(identity);
+		this.publish();
+		return true;
+	}
+	publish(record) {
+		if (record && this.records.get(record.identity) !== record) return;
+		for (const current of this.records.values()) {
+			if (isSqliteDatabaseAdmissionRetired(current)) {
+				if (readSqliteDatabaseGeneration(current, "retired") === 1) this.descriptors.delete(current.identity);
+				this.forget(current.identity);
+				continue;
+			}
+			if (record && current !== record) continue;
+			let changed = current === record;
+			for (const [owner, references] of current.references) if (Atomics.load(new Int32Array(references), 0) < 0) {
+				current.references.delete(owner);
+				changed = true;
+			}
+			for (const [key, revision] of current.writeScopes) if (Atomics.load(revision.state, 1) !== 0) {
+				current.writeScopes.delete(key);
+				changed = true;
+			}
+			if (!changed) continue;
+			if (threadId === 0) current.writeScopeRevision = readSqliteDatabaseGeneration(current, "writeScopeRevision");
+			this.published.set(current.identity, {
+				...current,
+				facts: new Map(current.facts),
+				writeScopes: new Map(current.writeScopes),
+				references: new Map(current.references),
+				hostRevision: threadId === 0 ? readSqliteDatabaseGeneration(current, "hostRevision") : current.hostRevision
+			});
+		}
+		this.revision++;
+		setEnvironmentData(SQLITE_DATABASE_ADMISSIONS_KEY, [...this.published.values()]);
+	}
+	capture(cursor, identities) {
+		if (!identities && !cursor) this.publish();
+		if (!identities && cursor?.revision === this.revision) return [];
+		const records = identities ? [...identities].flatMap((identity) => {
+			const record = this.published.get(identity);
+			return record && !isSqliteDatabaseAdmissionRetired(record) ? [record] : [];
+		}) : [...this.published.values()];
+		if (!cursor) return records;
+		if (!identities) cursor.revision = this.revision;
+		return records.flatMap((record) => {
+			const previous = cursor.records.get(record.generation);
+			if (previous === record) return [];
+			cursor.records.set(record.generation, record);
+			return [previous ? {
+				...record,
+				facts: changedAdmissionEntries(record.facts, previous.facts),
+				writeScopes: changedAdmissionEntries(record.writeScopes, previous.writeScopes),
+				references: changedAdmissionEntries(record.references, previous.references)
+			} : record];
+		});
+	}
+	install(admissions) {
+		for (const incoming of admissions) {
+			let record = this.records.get(incoming.identity);
+			if (incoming.descriptorOwner !== 0 || isSqliteDatabaseAdmissionRetired(incoming)) {
+				if (record && isSqliteDatabaseAdmissionRetired(record)) this.publish(record);
+				continue;
+			}
+			let changed = false;
+			if (record && isSqliteDatabaseAdmissionRetired(record)) record = void 0;
+			if (!record) {
+				record = {
+					...incoming,
+					hostRevision: void 0
+				};
+				this.records.set(incoming.identity, record);
+				this.observeLocation(incoming.location, incoming.identity);
+				changed = true;
+			} else if (record.generationId !== incoming.generationId) continue;
+			for (const [key, fact] of incoming.facts) if (isSqliteDatabaseAdmissionFactCurrent(incoming, fact) && record.facts.get(key)?.publication !== fact.publication) {
+				record.facts.set(key, fact);
+				changed = true;
+			}
+			for (const [key, revision] of incoming.writeScopes) {
+				if (Atomics.load(revision.state, 1) !== 0) continue;
+				const previous = record.writeScopes.get(key);
+				if (previous?.identity === revision.identity || threadId === 0 && previous && Atomics.load(previous.state, 1) === 0) continue;
+				if (threadId === 0) advanceSqliteDatabaseGeneration(record, "writeScopeRevision");
+				record.writeScopes.set(key, revision);
+				changed = true;
+			}
+			const writeScopeRevision = readSqliteDatabaseGeneration(record, "writeScopeRevision");
+			if (threadId === 0 || incoming.writeScopeRevision === writeScopeRevision) {
+				changed ||= record.writeScopeRevision !== writeScopeRevision;
+				record.writeScopeRevision = writeScopeRevision;
+			}
+			for (const [owner, references] of incoming.references) if (!record.references.has(owner) && Atomics.load(new Int32Array(references), 0) >= 0) {
+				record.references.set(owner, references);
+				changed = true;
+			}
+			if (threadId !== 0 && incoming.hostRevision !== void 0 && incoming.hostRevision !== record.hostRevision && incoming.hostRevision === readSqliteDatabaseGeneration(record, "hostRevision")) {
+				record.hostRevision = incoming.hostRevision;
+				changed = true;
+			}
+			this.retireUnreferenced(record);
+			if (changed || isSqliteDatabaseAdmissionRetired(record)) this.publish(record);
+		}
+	}
+};
+//#endregion
+//#region src/infra/sqlite-native-admission.ts
+const state$3 = resolveGlobalSingleton(Symbol.for("openclaw.sqliteNativeAdmissions"), () => ({ operations: /* @__PURE__ */ new WeakMap() }));
+function getSqliteNativeAdmissionFacts(database) {
+	return state$3.operations.get(database)?.facts;
+}
+/** Callback-local facts may describe an implicit statement transaction that can still abort. */
+function beginSqliteDatabaseAdmissionOperation(database) {
+	const current = state$3.operations.get(database) ?? {
+		depth: 0,
+		facts: /* @__PURE__ */ new Map()
+	};
+	current.depth += 1;
+	state$3.operations.set(database, current);
+	return () => {
+		current.depth -= 1;
+		if (current.depth === 0) state$3.operations.delete(database);
+	};
+}
+//#endregion
+//#region src/infra/sqlite-database-admission-read.ts
+/** Admission lookups consume the owning registry and transaction-local state. */
+function createSqliteDatabaseAdmissionReader(owner) {
+	const { state, admission, pathAdmission, exchange, publishFact } = owner;
+	function getSqliteDatabaseAdmission(database, key, options = {}) {
+		const anchor = sqlPublicationAnchor(database);
+		if (!anchor.isOpen || state.suspended.has(anchor)) return;
+		const record = admission(anchor, options.existingOnly !== true && !database.isTransaction);
+		if (!record) return;
+		const local = (isPostgresSqlConnection(database) ? void 0 : getSqliteNativeAdmissionFacts(database))?.get(key.name) ?? state.local.get(anchor)?.get(key.name);
+		if (local && local.revision === readSqliteDatabaseFactRevision(record, local.schemaDependent) && (!local.schemaDependent || local.ddlRevision === (state.ddlRevisions.get(anchor) ?? 0))) return key.read(local.value);
+		if (key.schemaDependent && state.schemaDirty.has(anchor)) return;
+		if (state.rolledBack.has(anchor)) {
+			if (database.isTransaction) return;
+			state.rolledBack.delete(anchor);
+		}
+		let fact = record.facts.get(key.name);
+		if (!fact || !isSqliteDatabaseAdmissionFactCurrent(record, fact)) {
+			if (key.writer === "host") {
+				if (database.isTransaction || threadId === 0 || record.hostRevision === readSqliteDatabaseGeneration(record, "hostRevision")) return;
+				exchange(record);
+				fact = record.facts.get(key.name);
+				return fact && isSqliteDatabaseAdmissionFactCurrent(record, fact) ? key.read(fact.value) : void 0;
+			}
+			const revision = readSqliteDatabaseGeneration(record, "publicationRevision");
+			const misses = state.misses.get(record) ?? /* @__PURE__ */ new Map();
+			state.misses.set(record, misses);
+			if (!database.isTransaction && misses.get(key.name) !== revision) {
+				exchange(record);
+				fact = record.facts.get(key.name);
+				misses.set(key.name, readSqliteDatabaseGeneration(record, "publicationRevision"));
+			}
+		}
+		return fact && isSqliteDatabaseAdmissionFactCurrent(record, fact) ? key.read(fact.value) : void 0;
+	}
+	function getOrLoadSqliteDatabaseAdmissionForPath(location, key, load) {
+		const record = pathAdmission(location);
+		const fact = record?.facts.get(key.name);
+		const cached = record && fact && isSqliteDatabaseAdmissionFactCurrent(record, fact) ? key.read(fact.value) : void 0;
+		if (cached !== void 0) return cached;
+		const generation = record ? readSqliteDatabaseFactRevision(record, key.schemaDependent) : void 0;
+		const value = load();
+		if (record && generation !== void 0 && value !== void 0) publishFact(record, key, value, generation);
+		return value;
+	}
+	return {
+		getSqliteDatabaseAdmission,
+		getOrLoadSqliteDatabaseAdmissionForPath
+	};
+}
+//#endregion
+//#region src/infra/sqlite-schema-sql.ts
+const TABLE_CONSTRAINT_KEYWORDS = /* @__PURE__ */ new Set([
+	"CHECK",
+	"FOREIGN",
+	"PRIMARY",
+	"UNIQUE"
+]);
+function readTableConstraintKeyword(sql, first) {
+	let token = first;
+	if (token.keyword === "CONSTRAINT") {
+		const name = readSqlToken(sql, token.end);
+		token = name ? readSqlToken(sql, name.end) : null;
+	}
+	return token?.keyword && TABLE_CONSTRAINT_KEYWORDS.has(token.keyword) ? token.keyword : null;
+}
+function readSqlToken(sql, start) {
+	let index = start;
+	while (index < sql.length && /\s/u.test(sql[index] ?? "")) index += 1;
+	const char = sql[index];
+	if (!char) return null;
+	if (char === "\"" || char === "`" || char === "[") {
+		const end = skipSqlQuoted(sql, index, char);
+		return {
+			end,
+			keyword: null,
+			raw: sql.slice(index, end)
+		};
+	}
+	let end = index;
+	while (end < sql.length && !/[\s(,]/u.test(sql[end] ?? "")) end += 1;
+	const raw = sql.slice(index, end);
+	return {
+		end,
+		keyword: raw.toUpperCase(),
+		raw
+	};
+}
+function normalizeSqlIdentifier(identifier) {
+	if (identifier.startsWith("\"") && identifier.endsWith("\"")) return identifier.slice(1, -1).replaceAll("\"\"", "\"").toLowerCase();
+	if (identifier.startsWith("`") && identifier.endsWith("`")) return identifier.slice(1, -1).replaceAll("``", "`").toLowerCase();
+	if (identifier.startsWith("[") && identifier.endsWith("]")) return identifier.slice(1, -1).toLowerCase();
+	return identifier.toLowerCase();
+}
+function normalizeSchemaSql(sql) {
+	if (sql === null) return null;
+	return normalizeSqlWhitespace(sql).replace(/;\s*$/u, "").trim().replace(/^(CREATE (?:TABLE|VIRTUAL TABLE|UNIQUE INDEX|INDEX|TRIGGER)) IF NOT EXISTS /iu, "$1 ");
+}
+function splitSqlList(sql) {
+	const items = [];
+	let depth = 0;
+	let start = 0;
+	for (const index of unquotedSqlIndexes(sql, 0)) {
+		const char = sql[index];
+		if (char === "(") depth += 1;
+		else if (char === ")") depth -= 1;
+		else if (char === "," && depth === 0) {
+			items.push(sql.slice(start, index));
+			start = index + 1;
+		}
+	}
+	items.push(sql.slice(start));
+	return items;
+}
+function findSqlCharacter(sql, character) {
+	for (const index of unquotedSqlIndexes(sql, 0)) if (sql[index] === character) return index;
+	return -1;
+}
+/** Match SQL keywords without treating quoted payloads, identifiers or comments as code. */
+function hasUnquotedSqlKeyword(sql, keywords) {
+	const starts = /* @__PURE__ */ new Set();
+	for (const match of sql.matchAll(keywords)) starts.add(match.index);
+	if (starts.size === 0) return false;
+	for (const index of unquotedSqlIndexes(sql, 0)) if (starts.has(index)) return true;
+	return false;
+}
+function findSqlClosingParenthesis(sql, open) {
+	let depth = 0;
+	for (const index of unquotedSqlIndexes(sql, open)) {
+		const char = sql[index];
+		if (char === "(") depth += 1;
+		else if (char === ")") {
+			depth -= 1;
+			if (depth === 0) return index;
+		}
+	}
+	throw new Error("SQLite schema contains an unterminated table definition.");
+}
+function normalizeSqlWhitespace(sql) {
+	let normalized = "";
+	let pendingSpace = false;
+	const segments = /[^\s'"`[/-]+|\s+|./gsu;
+	let segment;
+	while (segment = segments.exec(sql)) {
+		const index = segment.index;
+		const char = segment[0][0] ?? "";
+		const quoted = skipSqlQuoted(sql, index, char);
+		let text = segment[0];
+		if (quoted !== index) {
+			text = sql.slice(index, quoted);
+			segments.lastIndex = quoted;
+		} else {
+			const comment = skipSqlComment(sql, index);
+			if (comment !== index) {
+				pendingSpace = true;
+				segments.lastIndex = comment;
+				continue;
+			}
+			if (/\s/u.test(char)) {
+				pendingSpace = true;
+				continue;
+			}
+		}
+		if (pendingSpace && normalized.length > 0) normalized += " ";
+		normalized += text;
+		pendingSpace = false;
+	}
+	return normalized.trim();
+}
+function quoteSqliteIdentifier(identifier) {
+	return `"${identifier.replaceAll("\"", "\"\"")}"`;
+}
+function* unquotedSqlIndexes(sql, start) {
+	let index = start;
+	while (index < sql.length) {
+		const quoted = skipSqlQuoted(sql, index, sql[index] ?? "");
+		const next = quoted !== index ? quoted : skipSqlComment(sql, index);
+		if (next !== index) index = next;
+		else {
+			yield index;
+			index += 1;
+		}
+	}
+}
+function skipSqlQuoted(sql, index, quote) {
+	if (quote !== "'" && quote !== "\"" && quote !== "`" && quote !== "[") return index;
+	const closingQuote = quote === "[" ? "]" : quote;
+	let cursor = index + 1;
+	while (cursor < sql.length) {
+		if (sql[cursor] !== closingQuote) {
+			cursor += 1;
+			continue;
+		}
+		if (quote !== "[" && sql[cursor + 1] === closingQuote) {
+			cursor += 2;
+			continue;
+		}
+		return cursor + 1;
+	}
+	return sql.length;
+}
+function skipSqlComment(sql, index) {
+	if (sql.startsWith("--", index)) {
+		const newline = sql.indexOf("\n", index + 2);
+		return newline === -1 ? sql.length : newline + 1;
+	}
+	if (sql.startsWith("/*", index)) {
+		const close = sql.indexOf("*/", index + 2);
+		return close === -1 ? sql.length : close + 2;
+	}
+	return index;
+}
+//#endregion
+//#region src/infra/sqlite-schema-contract-assembly.ts
+function parseSqliteTableDefinition(sql, tableName) {
+	if (sql === null) throw new Error(`Could not inspect SQLite table definition for ${tableName}.`);
+	const open = findSqlCharacter(sql, "(");
+	if (open === -1) throw new Error(`SQLite table ${tableName} has no column definition.`);
+	const close = findSqlClosingParenthesis(sql, open);
+	const columns = /* @__PURE__ */ new Map();
+	const constraints = [];
+	for (const rawDefinition of splitSqlList(sql.slice(open + 1, close))) {
+		const definition = normalizeSqlWhitespace(rawDefinition);
+		if (!definition) continue;
+		const token = readSqlToken(definition, 0);
+		if (!token) throw new Error(`SQLite table ${tableName} contains an unreadable definition.`);
+		if (readTableConstraintKeyword(definition, token)) {
+			constraints.push(definition);
+			continue;
+		}
+		const columnName = normalizeSqlIdentifier(token.raw);
+		if (columns.has(columnName)) throw new Error(`SQLite table ${tableName} contains duplicate column ${columnName}.`);
+		columns.set(columnName, definition);
+	}
+	return {
+		columns: new Map([...columns].toSorted(([left], [right]) => left.localeCompare(right))),
+		constraints: constraints.toSorted()
+	};
+}
+const STARTUP_ADDITIVE_AGENT_COLUMN_DEFINITIONS = [
+	{
+		tableName: "session_pending_inputs",
+		columnName: "consumed_event_id",
+		dataType: "TEXT"
+	},
+	{
+		tableName: "session_transcript_active_events",
+		columnName: "context_eligible",
+		dataType: "INTEGER"
+	},
+	{
+		tableName: "session_nodes",
+		columnName: "project_id",
+		dataType: "TEXT"
+	},
+	{
+		tableName: "session_windows",
+		columnName: "row_transcript_json",
+		dataType: "TEXT"
+	},
+	{
+		tableName: "session_windows",
+		columnName: "row_transcript_updated_at",
+		dataType: "INTEGER"
+	},
+	{
+		tableName: "session_conversations",
+		columnName: "route_context_json",
+		dataType: "TEXT"
+	}
+];
+/** Missing feature-local tables stay absent; existing tables must satisfy this build's readers. */
+function hasPendingAgentStartupColumns(tableSql) {
+	const columns = /* @__PURE__ */ new Map();
+	return STARTUP_ADDITIVE_AGENT_COLUMN_DEFINITIONS.some(({ tableName, columnName }) => {
+		if (!tableSql.has(tableName)) return false;
+		const sql = tableSql.get(tableName);
+		if (!sql) return true;
+		let parsed = columns.get(tableName);
+		if (!parsed) {
+			parsed = parseSqliteTableDefinition(sql, tableName).columns;
+			columns.set(tableName, parsed);
+		}
+		return !parsed.has(columnName);
+	});
+}
+//#endregion
+//#region src/state/openclaw-agent-schema.ts
+const OPENCLAW_AGENT_SCHEMA_SQL = "-- Session storage doctrine: session_nodes.entry_json owns hot logical-session facts;\n-- session_entry_snapshots owns keyed cold values. Promoted node columns are query\n-- indexes; session_windows and their children own transcript generations.\n-- Legacy ACP provenance is private import evidence carried with its logical session.\n\nCREATE TABLE IF NOT EXISTS schema_meta (\n  meta_key TEXT NOT NULL PRIMARY KEY,\n  role TEXT NOT NULL,\n  schema_version INTEGER NOT NULL,\n  agent_id TEXT,\n  app_version TEXT,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS session_nodes (\n  session_key TEXT NOT NULL PRIMARY KEY,\n  current_session_id TEXT NOT NULL,\n  entry_json TEXT NOT NULL,\n  session_started_at INTEGER,\n  has_optional_references INTEGER NOT NULL DEFAULT 0,\n  snapshot_revision INTEGER NOT NULL DEFAULT 0,\n  legacy_acp_migration_json TEXT,\n  entry_valid INTEGER NOT NULL DEFAULT 0 CHECK (entry_valid IN (-1, 0, 1)),\n  updated_at INTEGER NOT NULL,\n  status TEXT CHECK (status IS NULL OR status IN ('running', 'done', 'failed', 'killed', 'timeout')),\n  created_at INTEGER,\n  created_via TEXT CHECK (created_via IS NULL OR created_via IN ('operator', 'spawn', 'channel', 'cron', 'talk', 'run', 'plugin', 'internal')),\n  created_actor_type TEXT CHECK (created_actor_type IS NULL OR created_actor_type IN ('human', 'agent', 'system')),\n  created_actor_id TEXT,\n  owner_actor_type TEXT,\n  owner_actor_id TEXT,\n  owner_assigned_by_type TEXT,\n  owner_assigned_by_id TEXT,\n  owner_assigned_at INTEGER,\n  project_id TEXT,\n  parent_session_key TEXT,\n  spawned_by TEXT,\n  fork_source_session_key TEXT,\n  fork_source_session_id TEXT,\n  fork_source_entry_id TEXT,\n  label TEXT,\n  display_name TEXT,\n  category TEXT,\n  icon TEXT,\n  pinned_at INTEGER,\n  archived_at INTEGER,\n  last_read_at INTEGER,\n  last_interaction_at INTEGER,\n  last_activity_at INTEGER\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS session_entry_snapshots (\n  session_key TEXT NOT NULL,\n  field TEXT NOT NULL CHECK (field IN ('sessionDiffBaseline', 'skillsSnapshot', 'systemPromptReport')),\n  value_json TEXT NOT NULL,\n  PRIMARY KEY (session_key, field),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT, WITHOUT ROWID;\n\nCREATE TRIGGER IF NOT EXISTS session_entry_snapshots_after_insert\nAFTER INSERT ON session_entry_snapshots\nBEGIN\n  UPDATE session_nodes SET snapshot_revision = snapshot_revision + 1\n  WHERE session_key = NEW.session_key;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS session_entry_snapshots_after_update\nAFTER UPDATE OF session_key, field, value_json ON session_entry_snapshots\nWHEN NEW.session_key IS NOT OLD.session_key\n  OR NEW.field IS NOT OLD.field OR NEW.value_json IS NOT OLD.value_json\nBEGIN\n  UPDATE session_nodes SET snapshot_revision = snapshot_revision + 1\n  WHERE session_key IN (OLD.session_key, NEW.session_key);\nEND;\n\nCREATE TRIGGER IF NOT EXISTS session_entry_snapshots_after_delete\nAFTER DELETE ON session_entry_snapshots\nBEGIN\n  UPDATE session_nodes SET snapshot_revision = snapshot_revision + 1\n  WHERE session_key = OLD.session_key;\nEND;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_updated_at\n  ON session_nodes(updated_at DESC, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_last_interaction_at\n  ON session_nodes(last_interaction_at DESC, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_label\n  ON session_nodes(label, session_key)\n  WHERE label IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_parent_session_key\n  ON session_nodes(parent_session_key, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_spawned_by\n  ON session_nodes(spawned_by, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_status\n  ON session_nodes(status, session_key)\n  WHERE status IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_archived_at\n  ON session_nodes(archived_at, session_key)\n  WHERE archived_at IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_active\n  ON session_nodes(session_key)\n  WHERE archived_at IS NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_current_session_id\n  ON session_nodes(current_session_id);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_entry_valid_pending\n  ON session_nodes(session_key)\n  WHERE entry_valid = 0;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_nodes_entry_not_valid\n  ON session_nodes(session_key)\n  WHERE entry_valid != 1;\n\nCREATE TABLE IF NOT EXISTS session_participants (\n  session_key TEXT NOT NULL,\n  identity_namespace TEXT NOT NULL,\n  actor_id TEXT NOT NULL,\n  contribution_count INTEGER NOT NULL,\n  first_prompted_at INTEGER,\n  last_prompted_at INTEGER,\n  PRIMARY KEY (session_key, identity_namespace, actor_id),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS session_key_contract (\n  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),\n  main_key TEXT NOT NULL,\n  canonical_ready TEXT,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nINSERT OR IGNORE INTO session_key_contract (id, main_key, updated_at) VALUES (1, 'main', 0);\n\nCREATE TABLE IF NOT EXISTS session_windows (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  session_key TEXT NOT NULL,\n  previous_session_id TEXT,\n  reason TEXT CHECK (reason IS NULL OR reason IN ('initial', 'reset', 'rollover', 'fork', 'rewind', 'switch', 'recovery', 'compaction')),\n  session_scope TEXT NOT NULL DEFAULT 'conversation' CHECK (session_scope IN ('conversation', 'shared-main', 'group', 'channel')),\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  transcript_updated_at INTEGER DEFAULT NULL,\n  row_transcript_json TEXT,\n  row_transcript_updated_at INTEGER,\n  transcript_observed_at INTEGER DEFAULT NULL,\n  session_entry_provenance INTEGER NOT NULL DEFAULT 0 CHECK (session_entry_provenance IN (0, 1)),\n  acp_owned INTEGER NOT NULL DEFAULT 0 CHECK (acp_owned IN (0, 1)),\n  plugin_owner_id TEXT,\n  hook_external_content_source TEXT CHECK (hook_external_content_source IS NULL OR hook_external_content_source IN ('gmail', 'webhook')),\n  started_at INTEGER,\n  ended_at INTEGER,\n  status TEXT CHECK (status IS NULL OR status IN ('running', 'done', 'failed', 'killed', 'timeout')),\n  chat_type TEXT CHECK (chat_type IS NULL OR chat_type IN ('direct', 'group', 'channel')),\n  channel TEXT,\n  account_id TEXT,\n  primary_conversation_id TEXT,\n  model_provider TEXT,\n  model TEXT,\n  agent_harness_id TEXT,\n  parent_session_key TEXT,\n  spawned_by TEXT,\n  display_name TEXT,\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE,\n  FOREIGN KEY (primary_conversation_id) REFERENCES conversations(conversation_id) ON DELETE SET NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_windows_updated_at\n  ON session_windows(updated_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_windows_session_key\n  ON session_windows(session_key, updated_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_windows_created_at\n  ON session_windows(created_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_windows_conversation\n  ON session_windows(primary_conversation_id, updated_at DESC, session_id)\n  WHERE primary_conversation_id IS NOT NULL;\n\n-- Offline imports and repairs queue explicit work; admission also settles keys\n-- removed during repair, so the queue deliberately has no node foreign key.\nCREATE TABLE IF NOT EXISTS session_canonical_validation_pending (\n  session_key TEXT NOT NULL PRIMARY KEY\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS conversations (\n  conversation_id TEXT NOT NULL PRIMARY KEY,\n  channel TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  kind TEXT NOT NULL CHECK (kind IN ('direct', 'group', 'channel')),\n  peer_id TEXT NOT NULL,\n  delivery_target TEXT NOT NULL,\n  parent_conversation_id TEXT,\n  thread_id TEXT,\n  native_channel_id TEXT,\n  native_direct_user_id TEXT,\n  label TEXT,\n  metadata_json TEXT,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_conversations_lookup\n  ON conversations(channel, account_id, kind, peer_id, thread_id);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_agent_conversations_identity\n  ON conversations(\n    channel,\n    account_id,\n    kind,\n    peer_id,\n    IFNULL(parent_conversation_id, ''),\n    IFNULL(thread_id, '')\n  );\n\nCREATE INDEX IF NOT EXISTS idx_agent_conversations_updated\n  ON conversations(updated_at DESC, conversation_id);\n\nCREATE TABLE IF NOT EXISTS conversation_deliveries (\n  operation_id TEXT NOT NULL PRIMARY KEY,\n  operation_kind TEXT NOT NULL CHECK (operation_kind IN ('send', 'turn')),\n  conversation_id TEXT NOT NULL,\n  source_session_key TEXT,\n  message_hash TEXT NOT NULL,\n  status TEXT NOT NULL CHECK (status IN ('created', 'queued', 'sent', 'suppressed', 'rejected', 'unknown', 'replied')),\n  prepared_message_id TEXT,\n  platform_message_id TEXT,\n  queue_id TEXT,\n  rejection_error TEXT,\n  reply_message_id TEXT,\n  reply_to_id TEXT,\n  reply_thread_id TEXT,\n  reply_text TEXT,\n  reply_timestamp INTEGER,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  CHECK (\n    (status = 'rejected' AND rejection_error IS NOT NULL) OR\n    (status != 'rejected' AND rejection_error IS NULL)\n  ),\n  FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_conversation_deliveries_reply\n  ON conversation_deliveries(conversation_id, platform_message_id, prepared_message_id)\n  WHERE status IN ('queued', 'sent', 'replied');\n\nCREATE INDEX IF NOT EXISTS idx_agent_conversation_deliveries_updated\n  ON conversation_deliveries(updated_at DESC, operation_id);\n\nCREATE TABLE IF NOT EXISTS session_conversations (\n  session_id TEXT NOT NULL,\n  conversation_id TEXT NOT NULL,\n  role TEXT NOT NULL DEFAULT 'primary' CHECK (role IN ('primary', 'participant', 'related')),\n  route_context_json TEXT,\n  first_seen_at INTEGER NOT NULL,\n  last_seen_at INTEGER NOT NULL,\n  PRIMARY KEY (session_id, conversation_id, role),\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE,\n  FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id) ON DELETE CASCADE\n) STRICT;\n\n-- Older same-version writers preserve the envelope while updating the association.\nCREATE TRIGGER IF NOT EXISTS session_conversations_route_context_invalidate_after_update\nAFTER UPDATE OF role, last_seen_at ON session_conversations\nWHEN NEW.route_context_json IS OLD.route_context_json\nBEGIN\n  UPDATE session_conversations\n  SET route_context_json = NULL\n  WHERE session_id = NEW.session_id\n    AND conversation_id = NEW.conversation_id\n    AND role = NEW.role;\nEND;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_conversations_conversation\n  ON session_conversations(conversation_id, last_seen_at DESC, session_id);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_agent_session_conversations_primary\n  ON session_conversations(session_id)\n  WHERE role = 'primary';\n\nCREATE TABLE IF NOT EXISTS session_members (\n  session_key TEXT NOT NULL,\n  identity_id TEXT NOT NULL,\n  added_by TEXT NOT NULL,\n  added_at INTEGER NOT NULL,\n  PRIMARY KEY (session_key, identity_id),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_members_identity\n  ON session_members(identity_id, session_key);\n\nCREATE TABLE IF NOT EXISTS session_suggestions (\n  id TEXT PRIMARY KEY,\n  session_key TEXT NOT NULL,\n  author_id TEXT NOT NULL,\n  author_label TEXT,\n  text TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  state TEXT NOT NULL CHECK (state IN ('pending', 'accepted', 'dismissed')),\n  dispatch_token TEXT,\n  dispatch_started_at INTEGER,\n  dispatch_resolution TEXT CHECK (dispatch_resolution IN ('send', 'queue', 'edit', 'dismiss')),\n  CHECK (\n    (dispatch_token IS NULL AND dispatch_started_at IS NULL AND dispatch_resolution IS NULL)\n    OR (dispatch_token IS NOT NULL AND dispatch_started_at IS NOT NULL AND dispatch_resolution IS NOT NULL)\n  ),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_suggestions_session_state_created\n  ON session_suggestions(session_key, state, created_at, id);\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_suggestions_author_created\n  ON session_suggestions(author_id, created_at, id);\n\nCREATE TABLE IF NOT EXISTS session_reactions (\n  session_key TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  message_id TEXT NOT NULL,\n  emoji TEXT NOT NULL,\n  identity_id TEXT NOT NULL,\n  identity_label TEXT,\n  created_at INTEGER NOT NULL,\n  PRIMARY KEY (session_key, session_id, message_id, emoji, identity_id),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_reactions_message\n  ON session_reactions(session_key, session_id, message_id);\n\nCREATE TABLE IF NOT EXISTS board_tabs (\n  session_key TEXT NOT NULL,\n  tab_id TEXT NOT NULL,\n  title TEXT NOT NULL,\n  position INTEGER NOT NULL CHECK (position >= 0),\n  chat_dock TEXT NOT NULL DEFAULT 'right' CHECK (chat_dock IN ('left', 'right', 'bottom', 'hidden')),\n  created_by TEXT NOT NULL CHECK (created_by IN ('user', 'agent')),\n  revision INTEGER NOT NULL CHECK (revision >= 0),\n  PRIMARY KEY (session_key, tab_id),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS board_widgets (\n  session_key TEXT NOT NULL,\n  name TEXT NOT NULL,\n  tab_id TEXT NOT NULL,\n  title TEXT,\n  content_kind TEXT NOT NULL CHECK (content_kind IN ('html', 'mcp-app', 'plugin')),\n  html BLOB,\n  descriptor_json TEXT,\n  sha256 TEXT NOT NULL,\n  view_generation TEXT,\n  revision INTEGER NOT NULL CHECK (revision >= 1),\n  size_w INTEGER NOT NULL CHECK (size_w BETWEEN 1 AND 12),\n  size_h INTEGER NOT NULL CHECK (size_h BETWEEN 1 AND 20),\n  position INTEGER NOT NULL CHECK (position >= 0),\n  manifest TEXT NOT NULL DEFAULT '{}',\n  grant_state TEXT NOT NULL DEFAULT 'none' CHECK (grant_state IN ('none', 'pending', 'granted', 'rejected')),\n  granted_sha TEXT,\n  created_by TEXT NOT NULL CHECK (created_by IN ('user', 'agent')),\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (session_key, name),\n  FOREIGN KEY (session_key, tab_id) REFERENCES board_tabs(session_key, tab_id) ON DELETE CASCADE,\n  CHECK (\n    (content_kind = 'html' AND html IS NOT NULL AND descriptor_json IS NULL AND view_generation IS NOT NULL) OR\n    (content_kind = 'mcp-app' AND html IS NULL AND descriptor_json IS NOT NULL AND view_generation IS NULL) OR\n    (content_kind = 'plugin' AND html IS NULL AND descriptor_json IS NOT NULL AND view_generation IS NULL)\n  )\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_board_widgets_tab_position\n  ON board_widgets(session_key, tab_id, position);\n\nCREATE TABLE IF NOT EXISTS session_progress_cards (\n  session_key TEXT NOT NULL PRIMARY KEY,\n  markdown TEXT,\n  steps_json TEXT,\n  revision INTEGER NOT NULL,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS heartbeat_outcomes (\n  session_key TEXT NOT NULL PRIMARY KEY,\n  run_session_key TEXT NOT NULL,\n  outcome TEXT NOT NULL CHECK (outcome IN ('progress', 'done', 'blocked', 'needs_attention')),\n  summary TEXT NOT NULL,\n  response_reason TEXT,\n  priority TEXT CHECK (priority IS NULL OR priority IN ('low', 'normal', 'high')),\n  next_check TEXT,\n  task_names_json TEXT,\n  wake_source TEXT,\n  wake_reason TEXT,\n  occurred_at INTEGER NOT NULL,\n  context_run_id TEXT,\n  context_claimed_at INTEGER,\n  updated_at INTEGER NOT NULL,\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS message_tool_run_outcomes (\n  id INTEGER PRIMARY KEY,\n  run_id TEXT NOT NULL,\n  session_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  provider TEXT NOT NULL,\n  model TEXT NOT NULL,\n  outcome TEXT NOT NULL CHECK (outcome IN ('tool_delivered', 'mute')),\n  run_status TEXT NOT NULL CHECK (run_status IN ('completed', 'errored', 'aborted')),\n  occurred_at INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_message_tool_run_outcomes_occurred\n  ON message_tool_run_outcomes(occurred_at DESC, id DESC);\n\n-- Receipts outlive Goal clear and session reset so a delayed retry cannot recreate a Goal.\n-- They intentionally have no session FK; bounded retention belongs to the operation owner.\nCREATE TABLE IF NOT EXISTS session_goal_operations (\n  session_key TEXT NOT NULL,\n  operation_id TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  request_fingerprint TEXT NOT NULL,\n  result_json TEXT NOT NULL,\n  expires_at INTEGER NOT NULL,\n  PRIMARY KEY (session_key, operation_id)\n) STRICT;\nCREATE INDEX IF NOT EXISTS idx_agent_session_goal_operations_expiry\n  ON session_goal_operations(expires_at);\n\nCREATE TABLE IF NOT EXISTS transcript_events (\n  session_id TEXT NOT NULL,\n  seq INTEGER NOT NULL,\n  event_json TEXT,\n  created_at INTEGER NOT NULL,\n  event_zstd BLOB,\n  event_utf8_bytes INTEGER CHECK (event_utf8_bytes IS NULL OR event_utf8_bytes >= 0),\n  navigation_json TEXT,\n  navigation_type TEXT,\n  navigation_custom_type TEXT,\n  navigation_display INTEGER NOT NULL DEFAULT 0,\n  message_role TEXT,\n  navigation_last_type TEXT,\n  navigation_last_custom_type TEXT,\n  navigation_valid INTEGER NOT NULL DEFAULT 1,\n  PRIMARY KEY (session_id, seq),\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE,\n  CHECK (\n    (event_json IS NOT NULL AND event_zstd IS NULL)\n    OR (\n      event_json IS NULL AND event_zstd IS NOT NULL\n      AND event_utf8_bytes IS NOT NULL\n      AND event_utf8_bytes BETWEEN 1 AND 4194304\n      AND length(event_zstd) BETWEEN 1 AND 4194304\n      AND navigation_json IS NOT NULL\n    )\n  ),\n  CHECK (\n    navigation_json IS NULL OR CASE WHEN json_valid(navigation_json) THEN coalesce(\n      octet_length(navigation_json) <= 16384\n      AND json_type(navigation_json, '$.version') = 'integer'\n      AND json_extract(navigation_json, '$.version') = 1\n      AND json_type(navigation_json, '$.report') = 'object'\n      AND json_extract(navigation_json, '$.report.kind') IN ('canonical', 'leaf', 'link', 'ignored')\n      AND json_type(navigation_json, '$.navigation') = 'object'\n      AND json_type(navigation_json, '$.reset') = 'object'\n      AND json_type(navigation_json, '$.model') = 'object'\n      AND json_type(navigation_json, '$.modelBytes') = 'integer'\n      AND json_extract(navigation_json, '$.modelBytes') BETWEEN 0 AND 4194304\n      AND json_type(navigation_json, '$.modelWithoutCheckpointBytes') = 'integer'\n      AND json_extract(navigation_json, '$.modelWithoutCheckpointBytes') BETWEEN 0 AND 4194304\n      AND json_type(navigation_json, '$.withoutCustomDataBytes') = 'integer'\n      AND json_extract(navigation_json, '$.withoutCustomDataBytes') BETWEEN 0 AND 4194304,\n      0) ELSE 0 END\n  )\n) STRICT;\n\n-- Canonical cold-tier owner for reclaimed transcript generations. The derived\n-- .deleted/.reset file may be recreated from this row after a crash.\nCREATE TABLE IF NOT EXISTS session_transcript_archives (\n  session_id TEXT NOT NULL,\n  generation TEXT NOT NULL,\n  session_key TEXT NOT NULL,\n  reason TEXT NOT NULL CHECK (reason IN ('deleted', 'reset')),\n  encoding TEXT NOT NULL CHECK (encoding IN ('identity', 'zstd')),\n  archive_blob BLOB NOT NULL,\n  archive_sha256 TEXT NOT NULL CHECK (length(archive_sha256) = 64),\n  archive_name TEXT NOT NULL UNIQUE,\n  created_at INTEGER NOT NULL,\n  published_at INTEGER,\n  publish_attempts INTEGER NOT NULL DEFAULT 0 CHECK (publish_attempts >= 0),\n  last_publish_attempt_at INTEGER,\n  last_publish_error TEXT,\n  PRIMARY KEY (session_id, generation),\n  CHECK (archive_name NOT LIKE '%/%' AND archive_name NOT LIKE '%\\%')\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_transcript_archives_pending\n  ON session_transcript_archives(created_at, session_id, generation)\n  WHERE published_at IS NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_transcript_archives_retention\n  ON session_transcript_archives(created_at, session_id, generation);\n\nCREATE TABLE IF NOT EXISTS session_transcript_cold_archives (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  generation TEXT NOT NULL,\n  archive_name TEXT NOT NULL UNIQUE,\n  archive_sha256 TEXT NOT NULL CHECK (length(archive_sha256) = 64),\n  event_count INTEGER NOT NULL CHECK (event_count >= 1),\n  raw_bytes INTEGER NOT NULL CHECK (raw_bytes >= 0),\n  archive_bytes INTEGER NOT NULL CHECK (archive_bytes >= 0),\n  last_seq INTEGER NOT NULL,\n  archived_at INTEGER NOT NULL,\n  storage TEXT NOT NULL CHECK (storage IN ('file', 'sqlite')),\n  archive_blob BLOB,\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE,\n  CHECK (length(archive_name) > 0 AND archive_name NOT IN ('.', '..') AND archive_name NOT LIKE '%/%' AND archive_name NOT LIKE '%\\%'),\n  CHECK ((storage = 'file' AND archive_blob IS NULL) OR (storage = 'sqlite' AND archive_blob IS NOT NULL))\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS transcript_rewrite_watermarks (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  generation TEXT NOT NULL,\n  updated_at INTEGER NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS trajectory_runtime_events (\n  session_id TEXT NOT NULL,\n  seq INTEGER NOT NULL,\n  run_id TEXT,\n  event_json TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  PRIMARY KEY (session_id, seq),\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_trajectory_runtime_run\n  ON trajectory_runtime_events(session_id, run_id, created_at, octet_length(event_json));\n\nCREATE TABLE IF NOT EXISTS acp_parent_stream_events (\n  session_id TEXT NOT NULL,\n  run_id TEXT NOT NULL,\n  seq INTEGER NOT NULL,\n  event_json TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  PRIMARY KEY (session_id, run_id, seq),\n  FOREIGN KEY (session_id) REFERENCES \"session_windows\"(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_acp_parent_stream_run\n  ON acp_parent_stream_events(run_id, seq);\n\nCREATE TABLE IF NOT EXISTS transcript_event_identities (\n  session_id TEXT NOT NULL,\n  event_id TEXT NOT NULL,\n  seq INTEGER NOT NULL,\n  event_type TEXT,\n  parent_id TEXT,\n  message_idempotency_key TEXT,\n  created_at INTEGER NOT NULL,\n  PRIMARY KEY (session_id, event_id),\n  FOREIGN KEY (session_id, seq) REFERENCES transcript_events(session_id, seq) ON DELETE CASCADE\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_agent_transcript_message_idempotency\n  ON transcript_event_identities(session_id, message_idempotency_key)\n  WHERE message_idempotency_key IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_transcript_event_identity_sequence\n  ON transcript_event_identities(session_id, seq);\n\nCREATE INDEX IF NOT EXISTS idx_agent_transcript_event_parent\n  ON transcript_event_identities(session_id, parent_id)\n  WHERE parent_id IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_transcript_event_sequence\n  ON transcript_event_identities(session_id, event_type, seq DESC);\n\nCREATE TABLE IF NOT EXISTS context_engine_turn_outbox (\n  enqueue_sequence INTEGER PRIMARY KEY,\n  advancement_key TEXT NOT NULL UNIQUE,\n  engine_id TEXT NOT NULL,\n  owner_plugin_id TEXT,\n  session_id TEXT NOT NULL,\n  payload_json TEXT NOT NULL,\n  payload_state TEXT,\n  attempt_count INTEGER NOT NULL DEFAULT 0,\n  last_attempt_at INTEGER,\n  last_error TEXT,\n  created_at INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_context_engine_turn_outbox_engine\n  ON context_engine_turn_outbox(engine_id, created_at);\n\nCREATE TABLE IF NOT EXISTS cache_entries (\n  scope TEXT NOT NULL,\n  key TEXT NOT NULL,\n  value_json TEXT,\n  blob BLOB,\n  expires_at INTEGER,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (scope, key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_cache_expiry\n  ON cache_entries(scope, expires_at, key)\n  WHERE expires_at IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_cache_updated\n  ON cache_entries(scope, updated_at DESC, key);\n\nCREATE INDEX IF NOT EXISTS idx_agent_voice_session_open_scope\n  ON cache_entries(CASE WHEN json_valid(value_json) THEN json_extract(value_json, '$.agentId') END,\n    CASE WHEN json_valid(value_json) THEN json_extract(value_json, '$.sessionKey') END, CASE WHEN json_valid(value_json) THEN json_extract(value_json, '$.origin') END)\n  WHERE scope = 'talk-client-voice-sessions'\n    AND CASE WHEN json_valid(value_json) THEN json_extract(value_json, '$.status') END = 'open';\n\nCREATE INDEX IF NOT EXISTS idx_agent_voice_session_open_updated\n  ON cache_entries(scope, updated_at)\n  WHERE scope = 'talk-client-voice-sessions'\n    AND CASE WHEN json_valid(value_json) THEN json_extract(value_json, '$.status') END = 'open';\n\nCREATE TABLE IF NOT EXISTS auth_profile_store (\n  store_key TEXT NOT NULL PRIMARY KEY,\n  store_json TEXT NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS auth_profile_state (\n  state_key TEXT NOT NULL PRIMARY KEY,\n  state_json TEXT NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_meta (\n  key TEXT PRIMARY KEY,\n  value TEXT NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_sources (\n  id INTEGER PRIMARY KEY,\n  path TEXT NOT NULL,\n  source TEXT NOT NULL DEFAULT 'memory',\n  hash TEXT NOT NULL,\n  mtime REAL NOT NULL,\n  size INTEGER NOT NULL,\n  UNIQUE (path, source)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_chunks (\n  chunk_rowid INTEGER PRIMARY KEY,\n  id TEXT NOT NULL UNIQUE,\n  path TEXT NOT NULL,\n  source TEXT NOT NULL DEFAULT 'memory',\n  start_line INTEGER NOT NULL,\n  end_line INTEGER NOT NULL,\n  hash TEXT NOT NULL,\n  model TEXT NOT NULL,\n  text TEXT NOT NULL,\n  embedding BLOB NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_chunk_recall_metadata (\n  chunk_id TEXT PRIMARY KEY,\n  importance INTEGER CHECK (importance IS NULL OR importance BETWEEN 1 AND 10),\n  triggers TEXT,\n  project_key TEXT,\n  FOREIGN KEY (chunk_id) REFERENCES memory_index_chunks(id) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_chunk_provenance (\n  chunk_id TEXT PRIMARY KEY,\n  origin_class TEXT NOT NULL CHECK (origin_class IN ('owner', 'agent', 'untrusted', 'system')),\n  session_kind TEXT NOT NULL CHECK (session_kind IN ('interactive', 'cron', 'heartbeat', 'subagent', 'unknown')),\n  observed_at INTEGER NOT NULL,\n  supersedes_key TEXT,\n  FOREIGN KEY (chunk_id) REFERENCES memory_index_chunks(id) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_entry_origins (\n  entry_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  session_key TEXT,\n  origin_class TEXT NOT NULL CHECK (origin_class IN ('owner', 'agent', 'untrusted', 'system')),\n  observed_at INTEGER NOT NULL,\n  PRIMARY KEY (entry_key, agent_id, session_id)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_session_tombstones (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  agent_id TEXT NOT NULL,\n  reason TEXT NOT NULL,\n  created_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_embedding_cache (\n  provider TEXT NOT NULL,\n  model TEXT NOT NULL,\n  provider_key TEXT NOT NULL,\n  hash TEXT NOT NULL,\n  embedding BLOB NOT NULL,\n  dims INTEGER,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (provider, model, provider_key, hash)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS memory_index_state (\n  id INTEGER PRIMARY KEY CHECK (id = 1),\n  revision INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS standing_intents (\n  intent_key INTEGER PRIMARY KEY,\n  id TEXT NOT NULL UNIQUE,\n  description TEXT NOT NULL,\n  trigger_keywords TEXT NOT NULL,\n  trigger_embedding TEXT,\n  channel_scope TEXT,\n  sender_scope TEXT,\n  creator_sender TEXT CHECK (creator_sender IS NULL OR length(trim(creator_sender)) > 0),\n  status TEXT NOT NULL CHECK (status IN ('pending', 'armed', 'fired', 'done', 'cancelled', 'expired')),\n  expires_at INTEGER NOT NULL,\n  max_fires INTEGER NOT NULL CHECK (max_fires > 0),\n  fire_count INTEGER NOT NULL DEFAULT 0 CHECK (fire_count >= 0),\n  cooldown_seconds INTEGER NOT NULL DEFAULT 86400 CHECK (cooldown_seconds >= 0),\n  last_fired_at INTEGER,\n  created_at INTEGER NOT NULL,\n  source_session_id TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_standing_intents_lifecycle\n  ON standing_intents(status, expires_at, last_fired_at);\n\nCREATE INDEX IF NOT EXISTS idx_standing_intents_scope\n  ON standing_intents(status, channel_scope, sender_scope);\n\nCREATE VIRTUAL TABLE IF NOT EXISTS standing_intents_fts USING fts5(\n  trigger_keywords,\n  content = 'standing_intents',\n  content_rowid = 'intent_key',\n  tokenize = 'unicode61 remove_diacritics 2'\n);\n\nCREATE TRIGGER IF NOT EXISTS standing_intents_fts_after_insert\nAFTER INSERT ON standing_intents\nBEGIN\n  INSERT INTO standing_intents_fts(rowid, trigger_keywords)\n  VALUES (new.intent_key, new.trigger_keywords);\nEND;\n\nCREATE TRIGGER IF NOT EXISTS standing_intents_fts_after_delete\nAFTER DELETE ON standing_intents\nBEGIN\n  INSERT INTO standing_intents_fts(standing_intents_fts, rowid, trigger_keywords)\n  VALUES ('delete', old.intent_key, old.trigger_keywords);\nEND;\n\nCREATE TRIGGER IF NOT EXISTS standing_intents_fts_after_update\nAFTER UPDATE OF trigger_keywords ON standing_intents\nBEGIN\n  INSERT INTO standing_intents_fts(standing_intents_fts, rowid, trigger_keywords)\n  VALUES ('delete', old.intent_key, old.trigger_keywords);\n  INSERT INTO standing_intents_fts(rowid, trigger_keywords)\n  VALUES (new.intent_key, new.trigger_keywords);\nEND;\n\nCREATE TABLE IF NOT EXISTS session_transcript_index_state (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  indexed_seq INTEGER NOT NULL,\n  leaf_event_id TEXT,\n  needs_rebuild INTEGER NOT NULL DEFAULT 0,\n  active_event_count INTEGER NOT NULL DEFAULT 0,\n  active_message_count INTEGER NOT NULL DEFAULT 0,\n  updated_at INTEGER NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES session_windows(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS session_transcript_active_events (\n  session_id TEXT NOT NULL,\n  active_position INTEGER NOT NULL CHECK (active_position >= 0),\n  event_seq INTEGER NOT NULL,\n  message_position INTEGER CHECK (message_position IS NULL OR message_position >= 0),\n  context_eligible INTEGER,\n  PRIMARY KEY (session_id, active_position),\n  FOREIGN KEY (session_id, event_seq) REFERENCES transcript_events(session_id, seq) ON DELETE CASCADE\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_agent_transcript_active_event_seq\n  ON session_transcript_active_events(session_id, event_seq);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_agent_transcript_active_messages\n  ON session_transcript_active_events(session_id, message_position)\n  WHERE message_position IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_agent_transcript_context_pending\n  ON session_transcript_active_events(session_id)\n  WHERE context_eligible IS NULL;\n\nCREATE VIRTUAL TABLE IF NOT EXISTS session_transcript_fts USING fts5(\n  text,\n  session_id UNINDEXED,\n  message_id UNINDEXED,\n  role UNINDEXED,\n  timestamp UNINDEXED,\n  tokenize = 'unicode61 remove_diacritics 2'\n);\n\nCREATE TABLE IF NOT EXISTS session_transcript_fts_rows (\n  id INTEGER PRIMARY KEY,\n  session_id TEXT NOT NULL,\n  message_id TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_session_transcript_fts_rows_session_message\n  ON session_transcript_fts_rows(session_id, message_id);\n\nCREATE TRIGGER IF NOT EXISTS session_transcript_fts_rows_after_delete\nAFTER DELETE ON session_transcript_fts_rows\nBEGIN\n  DELETE FROM session_transcript_fts WHERE rowid = OLD.id;\nEND;\n\nINSERT OR IGNORE INTO memory_index_state (id, revision) VALUES (1, 0);\n\nCREATE TRIGGER IF NOT EXISTS memory_index_sources_revision_after_insert\nAFTER INSERT ON memory_index_sources\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS memory_index_sources_revision_after_update\nAFTER UPDATE ON memory_index_sources\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS memory_index_sources_revision_after_delete\nAFTER DELETE ON memory_index_sources\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS memory_index_chunks_revision_after_insert\nAFTER INSERT ON memory_index_chunks\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS memory_index_chunks_revision_after_update\nAFTER UPDATE ON memory_index_chunks\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE TRIGGER IF NOT EXISTS memory_index_chunks_revision_after_delete\nAFTER DELETE ON memory_index_chunks\nBEGIN\n  UPDATE memory_index_state SET revision = revision + 1 WHERE id = 1;\nEND;\n\nCREATE INDEX IF NOT EXISTS idx_memory_embedding_cache_updated_at\n  ON memory_embedding_cache(updated_at);\n\nCREATE INDEX IF NOT EXISTS idx_memory_index_sources_source\n  ON memory_index_sources(source);\n\nCREATE INDEX IF NOT EXISTS idx_memory_index_chunks_path_source\n  ON memory_index_chunks(path, source);\n\nCREATE INDEX IF NOT EXISTS idx_memory_index_chunks_source\n  ON memory_index_chunks(source);\n\n-- Accepted input stays outside the active transcript until its exact turn owns execution.\nCREATE TABLE IF NOT EXISTS session_pending_inputs (\n  seq INTEGER PRIMARY KEY AUTOINCREMENT,\n  input_id TEXT NOT NULL UNIQUE,\n  session_key TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  idempotency_key TEXT NOT NULL,\n  run_id TEXT NOT NULL,\n  request_hash TEXT NOT NULL,\n  message_json TEXT NOT NULL,\n  lifecycle_generation TEXT NOT NULL,\n  state TEXT NOT NULL CHECK (state IN ('queued', 'interrupted', 'cancelled')),\n  accepted_at INTEGER NOT NULL,\n  consumed_event_id TEXT,\n  UNIQUE (session_id, idempotency_key),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE,\n  FOREIGN KEY (session_id) REFERENCES session_windows(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_agent_session_pending_inputs_session\n  ON session_pending_inputs(session_key, session_id, seq DESC);\n\n-- Processing completion is separate from input consumption; neither schedules replay.\nCREATE TABLE IF NOT EXISTS session_input_completions (\n  session_key TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  idempotency_key TEXT NOT NULL,\n  run_id TEXT NOT NULL,\n  request_hash TEXT NOT NULL,\n  outcome_json TEXT NOT NULL,\n  succeeded INTEGER NOT NULL CHECK (succeeded IN (0, 1)),\n  completed_at INTEGER NOT NULL,\n  PRIMARY KEY (session_id, idempotency_key),\n  FOREIGN KEY (session_key) REFERENCES session_nodes(session_key) ON DELETE CASCADE,\n  FOREIGN KEY (session_id) REFERENCES session_windows(session_id) ON DELETE CASCADE\n) STRICT;\n";
+//#endregion
+//#region src/state/openclaw-state-schema.ts
+const OPENCLAW_STATE_SCHEMA_SQL = "\n\nCREATE TABLE IF NOT EXISTS mcp_oauth_stores (\n  store_key TEXT NOT NULL PRIMARY KEY,\n  format_version INTEGER NOT NULL CHECK (format_version = 1),\n  store_json TEXT NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS mcp_oauth_pending_authorizations (\n  state TEXT NOT NULL PRIMARY KEY,\n  store_key TEXT NOT NULL,\n  create_time INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS diagnostic_events (\n  scope TEXT NOT NULL,\n  event_key TEXT NOT NULL,\n  payload_json TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  sequence INTEGER NOT NULL DEFAULT 0,\n  PRIMARY KEY (scope, event_key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_diagnostic_events_scope_sequence\n  ON diagnostic_events(scope, sequence, event_key);\n\nCREATE TABLE IF NOT EXISTS skill_usage (\n  skill_file TEXT NOT NULL PRIMARY KEY,\n  skill_key TEXT NOT NULL,\n  skill_name TEXT NOT NULL,\n  skill_source TEXT NOT NULL,\n  first_used_at_ms INTEGER NOT NULL,\n  last_used_at_ms INTEGER NOT NULL,\n  use_count INTEGER NOT NULL,\n  last_agent_id TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_skill_usage_key\n  ON skill_usage(skill_key, skill_file);\n\n-- Profile-owned skill library: additive, absent until first publication/import.\nCREATE TABLE IF NOT EXISTS skill_library_entries (\n  skill_id TEXT NOT NULL PRIMARY KEY,\n  owner_profile_id TEXT,\n  author_profile_id TEXT NOT NULL,\n  slug TEXT NOT NULL,\n  current_revision TEXT NOT NULL,\n  shared INT NOT NULL,\n  enabled INT NOT NULL,\n  removed INT NOT NULL,\n  created_at INT NOT NULL,\n  updated_at INT NOT NULL\n) STRICT;\nCREATE TABLE IF NOT EXISTS skill_library_revisions (\n  skill_id TEXT NOT NULL,\n  revision TEXT NOT NULL,\n  description TEXT NOT NULL,\n  files_json TEXT NOT NULL,\n  created_at INT NOT NULL,\n  PRIMARY KEY (skill_id, revision)\n) STRICT;\nCREATE TABLE IF NOT EXISTS skill_library_events (\n  event_id TEXT NOT NULL PRIMARY KEY,\n  skill_id TEXT NOT NULL,\n  revision TEXT NOT NULL,\n  action TEXT NOT NULL,\n  actor_profile_id TEXT NOT NULL,\n  created_at INT NOT NULL\n) STRICT;\nCREATE TABLE IF NOT EXISTS skill_library_uploads (\n  upload_id TEXT NOT NULL PRIMARY KEY,\n  owner_profile_id TEXT NOT NULL,\n  slug TEXT NOT NULL,\n  size_bytes INT NOT NULL,\n  sha256 TEXT NOT NULL,\n  archive_blob BLOB NOT NULL,\n  expires_at INT NOT NULL,\n  published_skill_id TEXT\n) STRICT;\n-- End profile-owned skill library.\n\nCREATE TABLE IF NOT EXISTS skill_workshop_changes (\n  cursor_id INTEGER NOT NULL,\n  change_id TEXT NOT NULL PRIMARY KEY,\n  agent_id TEXT NOT NULL,\n  skill_name TEXT NOT NULL,\n  action TEXT NOT NULL CHECK (action IN ('create', 'patch', 'write_file', 'remove_file', 'archive', 'restore')),\n  actor TEXT NOT NULL CHECK (actor IN ('agent', 'review', 'curator', 'user')),\n  summary TEXT NOT NULL,\n  version_id TEXT,\n  session_key TEXT,\n  run_id TEXT,\n  created_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS skill_workshop_changes_cursor_id_idx\n  ON skill_workshop_changes(cursor_id);\n\nCREATE INDEX IF NOT EXISTS idx_skill_workshop_changes_agent_time\n  ON skill_workshop_changes(agent_id, created_at_ms);\n\nCREATE TABLE IF NOT EXISTS audit_events (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n  event_id TEXT NOT NULL UNIQUE,\n  source_id TEXT NOT NULL UNIQUE,\n  schema_version INTEGER NOT NULL DEFAULT 1,\n  source_sequence INTEGER NOT NULL,\n  occurred_at INTEGER NOT NULL,\n  kind TEXT NOT NULL,\n  action TEXT NOT NULL,\n  status TEXT NOT NULL,\n  error_code TEXT,\n  actor_type TEXT NOT NULL,\n  actor_id TEXT NOT NULL,\n  agent_id TEXT,\n  session_key TEXT,\n  session_id TEXT,\n  run_id TEXT,\n  tool_call_id TEXT,\n  tool_name TEXT,\n  direction TEXT,\n  channel TEXT,\n  conversation_kind TEXT,\n  message_outcome TEXT,\n  reason_code TEXT,\n  delivery_kind TEXT,\n  failure_stage TEXT,\n  duration_ms INTEGER,\n  result_count INTEGER,\n  account_ref TEXT,\n  conversation_ref TEXT,\n  message_ref TEXT,\n  target_ref TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_time\n  ON audit_events(occurred_at DESC, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_agent_sequence\n  ON audit_events(agent_id, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_session_sequence\n  ON audit_events(session_key, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_run_sequence\n  ON audit_events(run_id, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_kind_sequence\n  ON audit_events(kind, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_status_sequence\n  ON audit_events(status, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_channel_sequence\n  ON audit_events(channel, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_audit_events_direction_sequence\n  ON audit_events(direction, sequence DESC);\n\nCREATE TABLE IF NOT EXISTS outbound_message_execution_bindings (\n  event_id TEXT NOT NULL PRIMARY KEY,\n  context_id TEXT NOT NULL CHECK (length(context_id) BETWEEN 1 AND 256),\n  execution_id TEXT NOT NULL CHECK (length(execution_id) BETWEEN 1 AND 256),\n  run_id TEXT NOT NULL CHECK (length(run_id) BETWEEN 1 AND 256),\n  FOREIGN KEY (event_id) REFERENCES audit_events(event_id) ON DELETE CASCADE\n) STRICT;\nCREATE INDEX IF NOT EXISTS outbound_message_execution_bindings_execution_event_idx\n  ON outbound_message_execution_bindings (context_id, execution_id, run_id, event_id);\n\nCREATE TABLE IF NOT EXISTS outbound_message_progress (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n  progress_id TEXT NOT NULL UNIQUE CHECK (length(progress_id) BETWEEN 1 AND 256),\n  source_id TEXT NOT NULL UNIQUE CHECK (length(source_id) BETWEEN 1 AND 512),\n  source_sequence INTEGER NOT NULL CHECK (source_sequence >= 1),\n  schema_version INTEGER NOT NULL CHECK (schema_version = 1),\n  occurred_at INTEGER NOT NULL CHECK (occurred_at >= 0),\n  action TEXT NOT NULL CHECK (\n    action IN ('message.outbound.queued', 'message.outbound.platform-started')\n  ),\n  outcome TEXT NOT NULL CHECK (outcome IN ('queued', 'platform_started')),\n  actor_type TEXT NOT NULL CHECK (actor_type IN ('agent', 'system')),\n  actor_id TEXT NOT NULL CHECK (length(actor_id) BETWEEN 1 AND 256),\n  agent_id TEXT CHECK (agent_id IS NULL OR length(agent_id) BETWEEN 1 AND 256),\n  run_id TEXT CHECK (run_id IS NULL OR length(run_id) BETWEEN 1 AND 256),\n  context_id TEXT,\n  execution_id TEXT,\n  channel TEXT NOT NULL CHECK (length(channel) BETWEEN 1 AND 256),\n  conversation_kind TEXT NOT NULL CHECK (\n    conversation_kind IN ('direct', 'group', 'channel', 'unknown')\n  ),\n  duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),\n  account_ref TEXT,\n  conversation_ref TEXT,\n  target_ref TEXT,\n  UNIQUE (occurred_at, progress_id)\n) STRICT;\nCREATE INDEX IF NOT EXISTS outbound_message_progress_occurred_idx\n  ON outbound_message_progress (occurred_at, sequence);\nCREATE INDEX IF NOT EXISTS outbound_message_progress_run_occurred_idx\n  ON outbound_message_progress (run_id, occurred_at, sequence);\n\nCREATE TABLE IF NOT EXISTS audit_identity_keys (\n  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),\n  key_id TEXT NOT NULL,\n  key BLOB NOT NULL,\n  created_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS config_revision_keys (\n  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),\n  hmac_key BLOB NOT NULL CHECK (length(hmac_key) = 32)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS execution_identity_contexts (\n  context_id TEXT NOT NULL PRIMARY KEY CHECK (length(context_id) BETWEEN 1 AND 256),\n  execution_id TEXT NOT NULL UNIQUE CHECK (length(execution_id) BETWEEN 1 AND 256),\n  run_id TEXT NOT NULL CHECK (length(run_id) BETWEEN 1 AND 256),\n  created_at INTEGER NOT NULL CHECK (created_at >= 0),\n  coverage_state TEXT NOT NULL CHECK (\n    coverage_state IN ('attribution-only', 'unattributed', 'unknown', 'unsupported')\n  ),\n  context_bytes INTEGER NOT NULL CHECK (context_bytes BETWEEN 1 AND 16384),\n  context_json TEXT NOT NULL CHECK (length(context_json) > 0),\n  UNIQUE (created_at, context_id)\n) STRICT;\nCREATE INDEX IF NOT EXISTS execution_identity_contexts_run_created_idx\n  ON execution_identity_contexts (run_id, created_at, execution_id);\n\nCREATE TABLE IF NOT EXISTS execution_decision_facts (\n  cursor_id INTEGER NOT NULL,\n  receipt_id TEXT NOT NULL PRIMARY KEY CHECK (length(receipt_id) BETWEEN 1 AND 256),\n  context_id TEXT NOT NULL CHECK (length(context_id) BETWEEN 1 AND 256),\n  execution_id TEXT NOT NULL CHECK (length(execution_id) BETWEEN 1 AND 256),\n  run_id TEXT NOT NULL CHECK (length(run_id) BETWEEN 1 AND 256),\n  action_id TEXT CHECK (action_id IS NULL OR length(action_id) BETWEEN 1 AND 256),\n  action_family TEXT NOT NULL CHECK (length(action_family) BETWEEN 1 AND 256),\n  decision_outcome TEXT NOT NULL CHECK (\n    decision_outcome IN ('allowed', 'denied', 'not-applicable', 'unknown')\n  ),\n  coverage_state TEXT NOT NULL CHECK (\n    coverage_state IN ('enforced', 'attribution-only', 'unattributed', 'unknown', 'unsupported')\n  ),\n  reason_code TEXT NOT NULL CHECK (length(reason_code) BETWEEN 1 AND 256),\n  owner TEXT NOT NULL CHECK (length(owner) BETWEEN 1 AND 256),\n  source_ref TEXT NOT NULL CHECK (length(source_ref) BETWEEN 1 AND 256),\n  occurred_at INTEGER NOT NULL CHECK (occurred_at >= 0),\n  receipt_bytes INTEGER NOT NULL CHECK (receipt_bytes BETWEEN 1 AND 16384),\n  receipt_json TEXT NOT NULL CHECK (length(receipt_json) > 0),\n  UNIQUE (occurred_at, receipt_id)\n) STRICT;\nCREATE UNIQUE INDEX IF NOT EXISTS execution_decision_facts_cursor_id_idx\n  ON execution_decision_facts(cursor_id);\n\nCREATE INDEX IF NOT EXISTS execution_decision_facts_context_occurred_idx\n  ON execution_decision_facts (context_id, occurred_at, receipt_id);\nCREATE INDEX IF NOT EXISTS execution_decision_facts_run_occurred_idx\n  ON execution_decision_facts (run_id, occurred_at, receipt_id);\n\n-- Exact admission identity stays separate from owner-native lifecycle rows so\n-- older readers retain byte-compatible cron/task/flow table definitions.\nCREATE TABLE IF NOT EXISTS execution_owner_lifecycle_bindings (\n  owner_kind TEXT NOT NULL,\n  owner_id TEXT NOT NULL,\n  context_id TEXT NOT NULL,\n  execution_id TEXT NOT NULL,\n  PRIMARY KEY (owner_kind, owner_id)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS session_state_events (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n  dedupe_key TEXT UNIQUE,\n  session_key TEXT NOT NULL,\n  session_id TEXT,\n  agent_id TEXT NOT NULL,\n  kind TEXT NOT NULL,\n  actor_type TEXT NOT NULL,\n  actor_id TEXT,\n  run_id TEXT,\n  occurred_at INTEGER NOT NULL,\n  summary TEXT NOT NULL,\n  payload_json TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_session_state_events_session_sequence\n  ON session_state_events(session_key, sequence DESC);\n\nCREATE INDEX IF NOT EXISTS idx_session_state_events_time\n  ON session_state_events(occurred_at DESC, sequence DESC);\n\nCREATE TABLE IF NOT EXISTS session_state_heads (\n  session_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  last_sequence INTEGER NOT NULL,\n  pruned_max_sequence INTEGER NOT NULL DEFAULT 0,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (session_key, agent_id)\n) STRICT;\n\n-- Notifiable watcher identity is the bare session key, matching the process-local\n-- system-event queue it feeds. Provenance distinguishes explicit immediate-wake\n-- watches from ambient queue-only group watches. Other bare keys\n-- (session.scope=\"global\") are ambiguous across agents and excluded until watcher\n-- identity is agent-scoped end-to-end.\nCREATE TABLE IF NOT EXISTS session_watch_cursors (\n  watcher_session_key TEXT NOT NULL,\n  watcher_store_path TEXT,\n  target_session_key TEXT NOT NULL,\n  last_seen_sequence INTEGER NOT NULL DEFAULT 0,\n  notified_sequence INTEGER NOT NULL DEFAULT 0,\n  material_sequence INTEGER NOT NULL DEFAULT 0,\n  provenance TEXT NOT NULL DEFAULT 'explicit' CHECK (provenance IN ('explicit', 'ambient-group')),\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (watcher_session_key, target_session_key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_session_watch_cursors_target\n  ON session_watch_cursors(target_session_key);\n\nCREATE TABLE IF NOT EXISTS session_upstream_links (\n  session_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  catalog_id TEXT NOT NULL,\n  host_id TEXT NOT NULL,\n  thread_id TEXT NOT NULL,\n  upstream_kind TEXT NOT NULL,\n  upstream_ref_json TEXT,\n  last_marker_json TEXT,\n  last_scanned_at INTEGER,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  -- (session_key, agent_id) composite identity: under session.scope=\"global\" agents\n  -- share bare keys; a key-only row would let one agent overwrite another's upstream.\n  PRIMARY KEY (session_key, agent_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_session_upstream_links_catalog_id\n  ON session_upstream_links(catalog_id);\n\nCREATE TABLE IF NOT EXISTS state_leases (\n  scope TEXT NOT NULL,\n  lease_key TEXT NOT NULL,\n  owner TEXT NOT NULL,\n  expires_at INTEGER,\n  heartbeat_at INTEGER,\n  payload_json TEXT,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (scope, lease_key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_state_leases_expiry\n  ON state_leases(expires_at, scope, lease_key)\n  WHERE expires_at IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_state_leases_owner\n  ON state_leases(owner, updated_at DESC);\n\nCREATE TABLE IF NOT EXISTS exec_approvals_config (\n  config_key TEXT NOT NULL PRIMARY KEY,\n  raw_json TEXT NOT NULL,\n  socket_path TEXT,\n  has_socket_token INTEGER NOT NULL,\n  default_security TEXT,\n  default_ask TEXT,\n  default_ask_fallback TEXT,\n  auto_allow_skills INTEGER,\n  agent_count INTEGER NOT NULL,\n  allowlist_count INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS operator_approvals (\n  cursor_id INTEGER NOT NULL,\n  approval_id TEXT NOT NULL PRIMARY KEY CHECK (\n    length(approval_id) > 0 AND approval_id NOT IN ('.', '..')\n  ),\n  resolution_ref TEXT NOT NULL CHECK (\n    length(resolution_ref) = 43 AND resolution_ref NOT GLOB '*[^A-Za-z0-9_-]*'\n  ),\n  kind TEXT NOT NULL CHECK (kind IN ('exec', 'plugin', 'system-agent')),\n  status TEXT NOT NULL CHECK (status IN ('pending', 'allowed', 'denied', 'expired', 'cancelled')),\n  presentation_json TEXT NOT NULL,\n  requested_by_device_id TEXT,\n  requested_by_client_id TEXT,\n  requested_by_device_token_auth INTEGER NOT NULL DEFAULT 0,\n  reviewer_device_ids_json TEXT NOT NULL,\n  source_agent_id TEXT,\n  source_session_key TEXT,\n  source_session_id TEXT,\n  source_run_id TEXT,\n  source_tool_call_id TEXT,\n  source_tool_name TEXT,\n  audience_session_keys_json TEXT NOT NULL,\n  runtime_epoch TEXT NOT NULL,\n  created_at_ms INTEGER NOT NULL,\n  expires_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  decision TEXT CHECK (decision IN ('allow-once', 'allow-always', 'deny')),\n  terminal_reason TEXT CHECK (\n    terminal_reason IN (\n      'user',\n      'timeout',\n      'malformed-verdict',\n      'no-route',\n      'run-aborted',\n      'gateway-restart',\n      'storage-corrupt'\n    )\n  ),\n  resolved_at_ms INTEGER,\n  resolver_kind TEXT CHECK (resolver_kind IN ('device', 'channel', 'runtime', 'system')),\n  resolver_id TEXT,\n  consumed_at_ms INTEGER,\n  consumed_by TEXT,\n  CHECK (expires_at_ms >= created_at_ms),\n  CHECK (updated_at_ms >= created_at_ms),\n  CHECK (resolved_at_ms IS NULL OR resolved_at_ms >= created_at_ms),\n  CHECK (resolved_at_ms IS NULL OR resolved_at_ms <= updated_at_ms),\n  CHECK (consumed_at_ms IS NULL OR consumed_at_ms >= resolved_at_ms),\n  CHECK (consumed_at_ms IS NULL OR consumed_at_ms <= updated_at_ms),\n  CHECK (requested_by_device_token_auth IN (0, 1)),\n  CHECK (\n    (\n      status = 'pending'\n      AND decision IS NULL\n      AND terminal_reason IS NULL\n      AND resolved_at_ms IS NULL\n      AND resolver_kind IS NULL\n      AND resolver_id IS NULL\n      AND consumed_at_ms IS NULL\n      AND consumed_by IS NULL\n    )\n    OR (\n      status = 'allowed'\n      AND decision IN ('allow-once', 'allow-always')\n      AND terminal_reason = 'user'\n      AND resolved_at_ms IS NOT NULL\n      AND resolver_kind IS NOT NULL\n    )\n    OR (\n      status = 'denied'\n      AND decision = 'deny'\n      AND terminal_reason IN ('user', 'malformed-verdict', 'no-route', 'storage-corrupt')\n      AND resolved_at_ms IS NOT NULL\n      AND resolver_kind IS NOT NULL\n      AND consumed_at_ms IS NULL\n      AND consumed_by IS NULL\n    )\n    OR (\n      status = 'expired'\n      AND decision = 'deny'\n      AND terminal_reason = 'timeout'\n      AND resolved_at_ms IS NOT NULL\n      AND resolver_kind IS NOT NULL\n      AND consumed_at_ms IS NULL\n      AND consumed_by IS NULL\n    )\n    OR (\n      status = 'cancelled'\n      AND decision = 'deny'\n      AND terminal_reason IN ('run-aborted', 'gateway-restart')\n      AND resolved_at_ms IS NOT NULL\n      AND resolver_kind IS NOT NULL\n      AND consumed_at_ms IS NULL\n      AND consumed_by IS NULL\n    )\n  ),\n  CHECK (\n    (consumed_at_ms IS NULL AND consumed_by IS NULL)\n    OR (\n      status = 'allowed'\n      AND decision = 'allow-once'\n      AND consumed_at_ms IS NOT NULL\n      AND consumed_by IS NOT NULL\n    )\n  )\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_operator_approvals_cursor_id\n  ON operator_approvals(cursor_id);\n\nCREATE INDEX IF NOT EXISTS idx_operator_approvals_status_expiry\n  ON operator_approvals(status, expires_at_ms, approval_id);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_operator_approvals_resolution_ref\n  ON operator_approvals(resolution_ref);\n\nCREATE INDEX IF NOT EXISTS idx_operator_approvals_source_session_created\n  ON operator_approvals(source_session_key, created_at_ms DESC, approval_id);\n\nCREATE INDEX IF NOT EXISTS idx_operator_approvals_source_run_resolved\n  ON operator_approvals(source_run_id, resolved_at_ms, approval_id)\n  WHERE source_run_id IS NOT NULL AND resolved_at_ms IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_operator_approvals_resolved\n  ON operator_approvals(resolved_at_ms, approval_id)\n  WHERE resolved_at_ms IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_operator_approvals_runtime_pending\n  ON operator_approvals(runtime_epoch, approval_id)\n  WHERE status = 'pending';\n\nCREATE TABLE IF NOT EXISTS operator_approval_execution_identities (\n  approval_id TEXT NOT NULL PRIMARY KEY\n    REFERENCES operator_approvals(approval_id) ON DELETE CASCADE,\n  source_context_id TEXT NOT NULL CHECK (\n    length(source_context_id) BETWEEN 1 AND 256 AND source_context_id = trim(source_context_id)\n  ),\n  source_execution_id TEXT NOT NULL CHECK (\n    length(source_execution_id) BETWEEN 1 AND 256 AND source_execution_id = trim(source_execution_id)\n  )\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS operator_approval_standing_grants (\n  grant_id TEXT NOT NULL PRIMARY KEY CHECK (length(grant_id) > 0),\n  minted_by_approval_id TEXT NOT NULL\n    REFERENCES operator_approvals(approval_id) ON DELETE CASCADE,\n  agent_id TEXT NOT NULL CHECK (length(agent_id) > 0),\n  cron_job_id TEXT NOT NULL CHECK (length(cron_job_id) > 0),\n  job_config_revision TEXT NOT NULL CHECK (length(job_config_revision) > 0),\n  operation_binding TEXT NOT NULL CHECK (length(operation_binding) > 0),\n  created_at_ms INTEGER NOT NULL,\n  expires_at_ms INTEGER CHECK (expires_at_ms IS NULL OR expires_at_ms >= created_at_ms),\n  revoked_at_ms INTEGER,\n  revoked_by TEXT,\n  last_used_at_ms INTEGER,\n  use_count INTEGER NOT NULL DEFAULT 0\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_operator_approval_standing_grants_binding\n  ON operator_approval_standing_grants(agent_id, cron_job_id, operation_binding, created_at_ms DESC);\n\nCREATE TABLE IF NOT EXISTS operator_approval_standing_grant_generations (\n  grant_id TEXT NOT NULL PRIMARY KEY\n    REFERENCES operator_approval_standing_grants(grant_id) ON DELETE CASCADE,\n  job_definition_generation INTEGER NOT NULL CHECK (job_definition_generation >= 1)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS schema_meta (\n  meta_key TEXT NOT NULL PRIMARY KEY,\n  role TEXT NOT NULL,\n  schema_version INTEGER NOT NULL,\n  agent_id TEXT,\n  app_version TEXT,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS config_machine_state (\n  state_key TEXT NOT NULL PRIMARY KEY,\n  value_json TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS device_pairing_pending (\n  request_id TEXT NOT NULL PRIMARY KEY,\n  device_id TEXT NOT NULL,\n  public_key TEXT NOT NULL,\n  display_name TEXT,\n  platform TEXT,\n  device_family TEXT,\n  client_id TEXT,\n  client_mode TEXT,\n  browser_origin TEXT,\n  role TEXT,\n  roles_json TEXT,\n  scopes_json TEXT,\n  remote_ip TEXT,\n  silent INTEGER,\n  is_repair INTEGER,\n  ts INTEGER NOT NULL,\n  refreshed_at_ms INTEGER\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_device_pairing_pending_device\n  ON device_pairing_pending(device_id, ts DESC);\n\nCREATE TABLE IF NOT EXISTS device_pairing_paired (\n  device_id TEXT NOT NULL PRIMARY KEY,\n  public_key TEXT NOT NULL,\n  display_name TEXT,\n  operator_label TEXT,\n  platform TEXT,\n  device_family TEXT,\n  client_id TEXT,\n  client_mode TEXT,\n  browser_origin TEXT,\n  role TEXT,\n  roles_json TEXT,\n  scopes_json TEXT,\n  approved_scopes_json TEXT,\n  remote_ip TEXT,\n  tokens_json TEXT,\n  approved_via TEXT,\n  node_surface_json TEXT,\n  pending_node_surface_json TEXT,\n  created_at_ms INTEGER NOT NULL,\n  approved_at_ms INTEGER NOT NULL,\n  last_seen_at_ms INTEGER,\n  last_seen_reason TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_device_pairing_paired_approved\n  ON device_pairing_paired(approved_at_ms DESC, device_id);\n\nCREATE TABLE IF NOT EXISTS device_bootstrap_tokens (\n  token_key TEXT NOT NULL PRIMARY KEY,\n  token TEXT NOT NULL,\n  setup_id TEXT,\n  ts INTEGER NOT NULL,\n  device_id TEXT,\n  public_key TEXT,\n  profile_json TEXT,\n  redeemed_profile_json TEXT,\n  pending_profile_json TEXT,\n  issued_at_ms INTEGER NOT NULL,\n  last_used_at_ms INTEGER\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_device_bootstrap_tokens_ts\n  ON device_bootstrap_tokens(ts);\n\n-- Terminal outcome of a redeemed setup credential. The bootstrap row is deleted\n-- on redemption, so this is the only durable proof a setup code succeeded; the\n-- presenting client reconciles it when the completion broadcast is missed.\n-- Non-secret only: never the bootstrap token or anything derived from it.\n-- Bounded by retention to a handful of live rows, so the primary key is the\n-- only access path worth having.\nCREATE TABLE IF NOT EXISTS device_pair_setup_completions (\n  setup_id TEXT NOT NULL PRIMARY KEY,\n  device_id TEXT NOT NULL,\n  device_name TEXT,\n  access TEXT NOT NULL,\n  completed_at_ms INTEGER NOT NULL,\n  delivery_state TEXT NOT NULL CHECK (delivery_state IN ('uncertain', 'confirmed')),\n  retain_until_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS device_pairing_join_codes (\n  shortcode TEXT,\n  payload_json TEXT,\n  created_at_ms INTEGER,\n  expires_at_ms INTEGER\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS device_identities (\n  identity_key TEXT NOT NULL PRIMARY KEY,\n  device_id TEXT NOT NULL,\n  public_key_pem TEXT NOT NULL,\n  private_key_pem TEXT NOT NULL,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_device_identities_device\n  ON device_identities(device_id, updated_at_ms DESC);\n\nCREATE TABLE IF NOT EXISTS device_auth_tokens (\n  device_id TEXT NOT NULL,\n  role TEXT NOT NULL,\n  token TEXT NOT NULL,\n  scopes_json TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (device_id, role)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_device_auth_tokens_updated\n  ON device_auth_tokens(updated_at_ms DESC, device_id, role);\n\nCREATE TABLE IF NOT EXISTS gateway_origin_device_tokens (\n  gateway_scope TEXT NOT NULL,\n  device_id TEXT NOT NULL,\n  role TEXT NOT NULL,\n  token TEXT NOT NULL,\n  scopes_json TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (gateway_scope, device_id, role)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS macos_port_guardian_records (\n  pid INTEGER NOT NULL PRIMARY KEY,\n  port INTEGER NOT NULL,\n  command TEXT NOT NULL,\n  mode TEXT NOT NULL,\n  timestamp REAL NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_macos_port_guardian_records_port\n  ON macos_port_guardian_records(port, timestamp DESC);\n\nCREATE TABLE IF NOT EXISTS workspace_setup_state (\n  workspace_key TEXT NOT NULL PRIMARY KEY,\n  -- NULL only for attestation-only rows whose legacy source never recorded a\n  -- path (orphan hashed-key attestations); setup rows always carry one.\n  workspace_path TEXT,\n  -- NULL setup columns mean an attestation-only row: replaceWorkspaceAttestation\n  -- may record hashes before any setup milestone exists for the workspace.\n  version INTEGER,\n  bootstrap_seeded_at TEXT,\n  setup_completed_at TEXT,\n  updated_at INTEGER,\n  attested_at_ms INTEGER,\n  attestation_updated_at_ms INTEGER,\n  CHECK (version IS NULL OR workspace_path IS NOT NULL)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_workspace_setup_state_path\n  ON workspace_setup_state(workspace_path);\n\nCREATE TABLE IF NOT EXISTS workspace_path_aliases (\n  alias_key TEXT NOT NULL PRIMARY KEY,\n  alias_path TEXT NOT NULL,\n  workspace_key TEXT NOT NULL,\n  workspace_path TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_workspace_path_aliases_workspace\n  ON workspace_path_aliases(workspace_key);\n\n\n\nCREATE TABLE IF NOT EXISTS workspace_generated_bootstrap_hashes (\n  workspace_key TEXT NOT NULL,\n  filename TEXT NOT NULL,\n  sha256 TEXT NOT NULL,\n  PRIMARY KEY (workspace_key, filename),\n  FOREIGN KEY (workspace_key) REFERENCES workspace_setup_state(workspace_key) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS native_hook_relay_bridges (\n  relay_id TEXT NOT NULL PRIMARY KEY,\n  pid INTEGER NOT NULL,\n  hostname TEXT NOT NULL,\n  port INTEGER NOT NULL,\n  token TEXT NOT NULL,\n  expires_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_native_hook_relay_bridges_expires\n  ON native_hook_relay_bridges(expires_at_ms, relay_id);\n\nCREATE TABLE IF NOT EXISTS managed_outgoing_image_records (\n  attachment_id TEXT NOT NULL PRIMARY KEY,\n  session_key TEXT NOT NULL,\n  agent_id TEXT,\n  message_id TEXT,\n  created_at TEXT NOT NULL,\n  updated_at TEXT,\n  retention_class TEXT,\n  alt TEXT NOT NULL,\n  original_media_root TEXT NOT NULL,\n  original_media_id TEXT NOT NULL,\n  original_media_subdir TEXT NOT NULL,\n  original_content_type TEXT NOT NULL,\n  original_width INTEGER,\n  original_height INTEGER,\n  original_size_bytes INTEGER,\n  original_filename TEXT,\n  record_json TEXT NOT NULL,\n  cleanup_pending INTEGER NOT NULL DEFAULT 0 CHECK (cleanup_pending IN (0, 1))\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_managed_outgoing_images_session\n  ON managed_outgoing_image_records(session_key, created_at DESC, attachment_id);\n\nCREATE INDEX IF NOT EXISTS idx_managed_outgoing_images_message\n  ON managed_outgoing_image_records(session_key, message_id, attachment_id)\n  WHERE message_id IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_managed_outgoing_images_agent_session\n  ON managed_outgoing_image_records(session_key, agent_id, created_at DESC, attachment_id);\n\nCREATE INDEX IF NOT EXISTS idx_managed_outgoing_images_agent_message\n  ON managed_outgoing_image_records(session_key, agent_id, message_id, attachment_id)\n  WHERE message_id IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS channel_pairing_requests (\n  channel_key TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  request_id TEXT NOT NULL,\n  code TEXT NOT NULL,\n  created_at TEXT NOT NULL,\n  last_seen_at TEXT NOT NULL,\n  meta_json TEXT,\n  PRIMARY KEY (channel_key, account_id, request_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_channel_pairing_requests_code\n  ON channel_pairing_requests(channel_key, code);\n\nCREATE INDEX IF NOT EXISTS idx_channel_pairing_requests_created\n  ON channel_pairing_requests(channel_key, created_at, request_id);\n\nCREATE TABLE IF NOT EXISTS channel_pairing_allow_entries (\n  channel_key TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  entry TEXT NOT NULL,\n  sort_order INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (channel_key, account_id, entry)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_channel_pairing_allow_account\n  ON channel_pairing_allow_entries(channel_key, account_id, sort_order, entry);\n\nCREATE TABLE IF NOT EXISTS web_push_subscriptions (\n  endpoint_hash TEXT NOT NULL PRIMARY KEY,\n  subscription_id TEXT NOT NULL UNIQUE,\n  endpoint TEXT NOT NULL,\n  p256dh TEXT NOT NULL,\n  auth TEXT NOT NULL,\n  device_id TEXT,\n  user_profile_id TEXT,\n  preferences_json TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_web_push_subscriptions_updated\n  ON web_push_subscriptions(updated_at_ms DESC, subscription_id);\n\nCREATE TABLE IF NOT EXISTS web_push_approval_deliveries (\n  approval_id TEXT NOT NULL\n    REFERENCES operator_approvals(approval_id) ON DELETE CASCADE,\n  subscription_id TEXT NOT NULL\n    REFERENCES web_push_subscriptions(subscription_id) ON DELETE CASCADE,\n  device_id TEXT NOT NULL,\n  user_profile_id TEXT,\n  prepared_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (approval_id, subscription_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_web_push_approval_deliveries_subscription\n  ON web_push_approval_deliveries(subscription_id, approval_id);\n\nCREATE TABLE IF NOT EXISTS apns_registrations (\n  node_id TEXT NOT NULL PRIMARY KEY,\n  transport TEXT NOT NULL,\n  token TEXT,\n  relay_handle TEXT,\n  send_grant TEXT,\n  installation_id TEXT,\n  relay_origin TEXT,\n  topic TEXT NOT NULL,\n  environment TEXT NOT NULL,\n  distribution TEXT,\n  token_debug_suffix TEXT,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_apns_registrations_updated\n  ON apns_registrations(updated_at_ms DESC, node_id);\n\nCREATE TABLE IF NOT EXISTS apns_registration_tombstones (\n  node_id TEXT NOT NULL PRIMARY KEY,\n  deleted_at_ms INTEGER NOT NULL\n) STRICT;\n\n-- Node-host-owned launch journal. The descriptor and its credential remain\n-- process memory only; this table records bounded supervision facts.\nCREATE TABLE IF NOT EXISTS node_worker_launches (\n  launch_id TEXT NOT NULL PRIMARY KEY\n    CHECK (length(launch_id) BETWEEN 1 AND 256 AND instr(launch_id, char(0)) = 0),\n  plan_hash TEXT NOT NULL\n    CHECK (length(plan_hash) = 64 AND plan_hash NOT GLOB '*[^0-9a-f]*'),\n  gateway_namespace TEXT NOT NULL\n    CHECK (\n      length(gateway_namespace) BETWEEN 1 AND 128\n      AND gateway_namespace NOT GLOB '*[^A-Za-z0-9._-]*'\n      AND gateway_namespace GLOB '[A-Za-z0-9]*'\n    ),\n  environment_id TEXT NOT NULL\n    CHECK (length(environment_id) BETWEEN 1 AND 256 AND instr(environment_id, char(0)) = 0),\n  session_id TEXT NOT NULL\n    CHECK (length(session_id) BETWEEN 1 AND 256 AND instr(session_id, char(0)) = 0),\n  owner_epoch INTEGER NOT NULL CHECK (owner_epoch BETWEEN 1 AND 9007199254740991),\n  placement_generation INTEGER NOT NULL\n    CHECK (placement_generation BETWEEN 0 AND 9007199254740991),\n  run_id TEXT NOT NULL\n    CHECK (length(run_id) BETWEEN 1 AND 256 AND instr(run_id, char(0)) = 0),\n  state TEXT NOT NULL\n    CHECK (state IN ('pending', 'running', 'completed', 'failed', 'interrupted', 'cancelled')),\n  supervisor_pid INTEGER NOT NULL CHECK (supervisor_pid BETWEEN 1 AND 2147483647),\n  supervisor_start_time INTEGER NOT NULL\n    CHECK (supervisor_start_time BETWEEN 0 AND 9007199254740991),\n  worker_pid INTEGER CHECK (worker_pid IS NULL OR worker_pid BETWEEN 1 AND 2147483647),\n  worker_start_time INTEGER CHECK (\n    worker_start_time IS NULL OR worker_start_time BETWEEN 0 AND 9007199254740991\n  ),\n  result_json TEXT CHECK (\n    result_json IS NULL\n    OR (\n      length(CAST(result_json AS BLOB)) BETWEEN 1 AND 65536\n      AND instr(result_json, char(0)) = 0\n      AND json_valid(result_json)\n    )\n  ),\n  error_text TEXT CHECK (\n    error_text IS NULL\n    OR (\n      length(CAST(error_text AS BLOB)) BETWEEN 1 AND 4096\n      AND instr(error_text, char(0)) = 0\n      AND instr(error_text, char(10)) = 0\n      AND instr(error_text, char(13)) = 0\n    )\n  ),\n  completed_at_ms INTEGER CHECK (\n    completed_at_ms IS NULL OR completed_at_ms BETWEEN 0 AND 9007199254740991\n  ),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms BETWEEN 0 AND 9007199254740991),\n  updated_at_ms INTEGER NOT NULL CHECK (\n    updated_at_ms BETWEEN created_at_ms AND 9007199254740991\n  ),\n  CHECK ((worker_pid IS NULL) = (worker_start_time IS NULL)),\n  CHECK (\n    (state = 'pending'\n      AND worker_pid IS NULL AND result_json IS NULL AND error_text IS NULL\n      AND completed_at_ms IS NULL)\n    OR\n    (state = 'running'\n      AND worker_pid IS NOT NULL AND result_json IS NULL AND error_text IS NULL\n      AND completed_at_ms IS NULL)\n    OR\n    (state = 'completed'\n      AND result_json IS NOT NULL AND error_text IS NULL\n      AND completed_at_ms BETWEEN created_at_ms AND updated_at_ms)\n    OR\n    (state IN ('failed', 'interrupted', 'cancelled')\n      AND result_json IS NULL AND error_text IS NOT NULL\n      AND completed_at_ms BETWEEN created_at_ms AND updated_at_ms)\n  )\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_node_worker_launches_terminal_completed\n  ON node_worker_launches(completed_at_ms, launch_id)\n  WHERE completed_at_ms IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS node_worker_launch_boots (\n  launch_id TEXT NOT NULL PRIMARY KEY\n    REFERENCES node_worker_launches(launch_id) ON DELETE CASCADE,\n  boot_id TEXT CHECK (boot_id IS NULL OR length(boot_id) BETWEEN 1 AND 128)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS node_worker_launch_containers (\n  launch_id TEXT PRIMARY KEY,\n  container_json TEXT\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS node_worker_launch_cleanup (\n  launch_id TEXT NOT NULL PRIMARY KEY\n    REFERENCES node_worker_launches(launch_id) ON DELETE CASCADE,\n  cleanup_mode TEXT NOT NULL CHECK (cleanup_mode IN ('process-group', 'owned-anchor')),\n  lineage_settled INTEGER CHECK (lineage_settled IS NULL OR lineage_settled = 1)\n) STRICT;\n\n-- Older readers retain owned-anchor custody: lineage EOF is not this certificate.\nCREATE TABLE IF NOT EXISTS node_worker_launch_process_scopes (\n  launch_id TEXT NOT NULL PRIMARY KEY\n    REFERENCES node_worker_launches(launch_id) ON DELETE CASCADE,\n  scope_kind TEXT NOT NULL CHECK (scope_kind = 'linux-subreaper'),\n  descendants_reaped INTEGER CHECK (descendants_reaped IS NULL OR descendants_reaped = 1)\n) STRICT;\n\n-- Turn receipts have a shorter lifetime than their physical worker owner.\n-- Keeping the launch running preserves capacity and predecessor cleanup semantics.\nCREATE TABLE IF NOT EXISTS node_worker_turns (\n  turn_id TEXT NOT NULL PRIMARY KEY\n    CHECK (length(turn_id) BETWEEN 1 AND 256 AND instr(turn_id, char(0)) = 0),\n  owner_launch_id TEXT NOT NULL\n    REFERENCES node_worker_launches(launch_id) ON DELETE CASCADE,\n  plan_hash TEXT NOT NULL\n    CHECK (length(plan_hash) = 64 AND plan_hash NOT GLOB '*[^0-9a-f]*'),\n  run_id TEXT NOT NULL\n    CHECK (length(run_id) BETWEEN 1 AND 256 AND instr(run_id, char(0)) = 0),\n  state TEXT NOT NULL\n    CHECK (state IN ('running', 'completed', 'failed', 'interrupted', 'cancelled')),\n  result_json TEXT CHECK (\n    result_json IS NULL\n    OR (\n      length(CAST(result_json AS BLOB)) BETWEEN 1 AND 65536\n      AND instr(result_json, char(0)) = 0\n      AND json_valid(result_json)\n    )\n  ),\n  error_text TEXT CHECK (\n    error_text IS NULL\n    OR (\n      length(CAST(error_text AS BLOB)) BETWEEN 1 AND 4096\n      AND instr(error_text, char(0)) = 0\n      AND instr(error_text, char(10)) = 0\n      AND instr(error_text, char(13)) = 0\n    )\n  ),\n  completed_at_ms INTEGER CHECK (\n    completed_at_ms IS NULL OR completed_at_ms BETWEEN 0 AND 9007199254740991\n  ),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms BETWEEN 0 AND 9007199254740991),\n  updated_at_ms INTEGER NOT NULL CHECK (\n    updated_at_ms BETWEEN created_at_ms AND 9007199254740991\n  ),\n  CHECK (\n    (state = 'running'\n      AND result_json IS NULL AND error_text IS NULL AND completed_at_ms IS NULL)\n    OR\n    (state = 'completed'\n      AND result_json IS NOT NULL AND error_text IS NULL\n      AND completed_at_ms BETWEEN created_at_ms AND updated_at_ms)\n    OR\n    (state IN ('failed', 'interrupted', 'cancelled')\n      AND result_json IS NULL AND error_text IS NOT NULL\n      AND completed_at_ms BETWEEN created_at_ms AND updated_at_ms)\n  )\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_node_worker_turns_terminal_completed\n  ON node_worker_turns(completed_at_ms, turn_id)\n  WHERE completed_at_ms IS NOT NULL;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_node_worker_turns_active_owner\n  ON node_worker_turns(owner_launch_id)\n  WHERE state = 'running';\n\nCREATE TABLE IF NOT EXISTS config_health_entries (\n  config_path TEXT NOT NULL PRIMARY KEY,\n  last_known_good_json TEXT,\n  last_promoted_good_json TEXT,\n  last_observed_suspicious_signature TEXT,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS clawhub_promotion_claims (\n  slug TEXT NOT NULL PRIMARY KEY,\n  provider TEXT,\n  model_keys_json TEXT NOT NULL,\n  ends_at_ms INTEGER NOT NULL,\n  claimed_at_ms INTEGER NOT NULL\n) STRICT;\n\n\n\nCREATE TABLE IF NOT EXISTS official_external_plugin_catalog_snapshots (\n  feed_url TEXT NOT NULL PRIMARY KEY,\n  body TEXT NOT NULL,\n  status INTEGER NOT NULL,\n  etag TEXT,\n  last_modified TEXT,\n  checksum TEXT NOT NULL,\n  saved_at TEXT NOT NULL,\n  trust_mode TEXT,\n  trust_key_id TEXT,\n  trust_signature_count INTEGER,\n  trust_threshold INTEGER,\n  trust_verified_at TEXT,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_official_external_plugin_catalog_snapshots_updated\n  ON official_external_plugin_catalog_snapshots(updated_at_ms DESC, feed_url);\n\nCREATE TABLE IF NOT EXISTS update_runs (\n  run_id TEXT PRIMARY KEY NOT NULL,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  trigger TEXT NOT NULL CHECK (trigger IN ('chat', 'control-ui', 'cli', 'campaign', 'mac-app', 'api')),\n  phase TEXT NOT NULL CHECK (phase IN ('requested', 'staging', 'validating', 'repairing', 'activating', 'restarting', 'verifying', 'finished')),\n  status TEXT NOT NULL CHECK (status IN ('running', 'succeeded', 'failed', 'rolled-back', 'skipped')),\n  reason TEXT,\n  origin_json TEXT NOT NULL CHECK (length(CAST(origin_json AS BLOB)) <= 16384),\n  target_json TEXT NOT NULL CHECK (length(CAST(target_json AS BLOB)) <= 16384),\n  before_json TEXT NOT NULL CHECK (length(CAST(before_json AS BLOB)) <= 16384),\n  after_json TEXT NOT NULL CHECK (length(CAST(after_json AS BLOB)) <= 16384),\n  steps_json TEXT NOT NULL CHECK (length(CAST(steps_json AS BLOB)) <= 16384),\n  verification_json TEXT NOT NULL CHECK (length(CAST(verification_json AS BLOB)) <= 16384),\n  repair_json TEXT NOT NULL CHECK (length(CAST(repair_json AS BLOB)) <= 16384),\n  confirmed_at_ms INTEGER,\n  finished_at_ms INTEGER,\n  downtime_ms INTEGER,\n  CHECK ((status = 'running' AND phase != 'finished' AND finished_at_ms IS NULL) OR\n    (status != 'running' AND phase = 'finished' AND finished_at_ms IS NOT NULL))\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_update_runs_created\n  ON update_runs(created_at_ms DESC, run_id);\nCREATE INDEX IF NOT EXISTS idx_update_runs_active\n  ON update_runs(status, created_at_ms DESC, run_id);\n\nCREATE TABLE IF NOT EXISTS gateway_restart_sentinel (\n  sentinel_key TEXT NOT NULL PRIMARY KEY,\n  version INTEGER NOT NULL,\n  kind TEXT NOT NULL,\n  status TEXT NOT NULL,\n  ts INTEGER NOT NULL,\n  session_key TEXT,\n  thread_id TEXT,\n  delivery_channel TEXT,\n  delivery_to TEXT,\n  delivery_account_id TEXT,\n  message TEXT,\n  continuation_json TEXT,\n  doctor_hint TEXT,\n  stats_json TEXT,\n  payload_json TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_gateway_restart_sentinel_ts\n  ON gateway_restart_sentinel(ts DESC, sentinel_key);\n\nCREATE TABLE IF NOT EXISTS gateway_restart_intent (\n  intent_key TEXT NOT NULL PRIMARY KEY,\n  kind TEXT NOT NULL,\n  pid INTEGER NOT NULL,\n  created_at INTEGER NOT NULL,\n  reason TEXT,\n  force INTEGER,\n  wait_ms INTEGER,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS gateway_restart_handoff (\n  handoff_key TEXT NOT NULL PRIMARY KEY,\n  kind TEXT NOT NULL,\n  version INTEGER NOT NULL,\n  intent_id TEXT NOT NULL,\n  pid INTEGER NOT NULL,\n  process_instance_id TEXT,\n  created_at INTEGER NOT NULL,\n  expires_at INTEGER NOT NULL,\n  reason TEXT,\n  restart_trace_started_at INTEGER,\n  restart_trace_last_at INTEGER,\n  source TEXT NOT NULL,\n  restart_kind TEXT NOT NULL,\n  supervisor_mode TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_gateway_restart_handoff_expiry\n  ON gateway_restart_handoff(expires_at, pid);\n\nCREATE TABLE IF NOT EXISTS gateway_boot_lifecycle (\n  boot_id TEXT NOT NULL PRIMARY KEY,\n  pid INTEGER NOT NULL,\n  started_at_ms INTEGER NOT NULL,\n  completed_at_ms INTEGER,\n  outcome TEXT,\n  startup_reason TEXT,\n  reason TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_gateway_boot_lifecycle_started\n  ON gateway_boot_lifecycle(started_at_ms);\n\nCREATE TABLE IF NOT EXISTS acp_sessions (\n  session_key TEXT NOT NULL PRIMARY KEY,\n  session_id TEXT,\n  backend TEXT NOT NULL,\n  agent TEXT NOT NULL,\n  runtime_session_name TEXT NOT NULL,\n  identity_json TEXT,\n  resume_agent_session_id TEXT,\n  resume_acpx_session_id TEXT,\n  mode TEXT NOT NULL,\n  runtime_options_json TEXT,\n  cwd TEXT,\n  state TEXT NOT NULL,\n  last_activity_at INTEGER NOT NULL,\n  last_error TEXT,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_acp_sessions_state_activity\n  ON acp_sessions(state, last_activity_at DESC, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_acp_sessions_agent_activity\n  ON acp_sessions(agent, last_activity_at DESC, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_acp_sessions_resume_agent\n  ON acp_sessions(resume_agent_session_id);\n\nCREATE INDEX IF NOT EXISTS idx_acp_sessions_resume_acpx\n  ON acp_sessions(resume_acpx_session_id);\n\nCREATE TABLE IF NOT EXISTS acp_replay_sessions (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  session_key TEXT NOT NULL,\n  cwd TEXT NOT NULL,\n  complete INTEGER NOT NULL,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  next_seq INTEGER NOT NULL,\n  -- Running estimate of this session's ledger footprint (row overhead plus\n  -- all event rows), maintained at insert/trim so budget checks never scan\n  -- acp_replay_events (#100622).\n  estimated_bytes INTEGER NOT NULL DEFAULT 0\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_acp_replay_sessions_key_updated\n  ON acp_replay_sessions(session_key, complete, updated_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_acp_replay_sessions_updated\n  ON acp_replay_sessions(updated_at DESC, session_id);\n\nCREATE TABLE IF NOT EXISTS acp_replay_events (\n  session_id TEXT NOT NULL,\n  seq INTEGER NOT NULL,\n  at INTEGER NOT NULL,\n  session_key TEXT NOT NULL,\n  run_id TEXT,\n  update_json TEXT NOT NULL,\n  estimated_bytes INTEGER NOT NULL DEFAULT 0,\n  PRIMARY KEY (session_id, seq),\n  FOREIGN KEY (session_id) REFERENCES acp_replay_sessions(session_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_acp_replay_events_session_seq\n  ON acp_replay_events(session_id, seq);\n\nCREATE TABLE IF NOT EXISTS agent_databases (\n  agent_id TEXT NOT NULL,\n  path TEXT NOT NULL,\n  schema_version INTEGER NOT NULL,\n  last_seen_at INTEGER NOT NULL,\n  size_bytes INTEGER,\n  PRIMARY KEY (agent_id, path)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS agent_deletion_journal (\n  agent_id TEXT PRIMARY KEY,\n  operation_id TEXT NOT NULL DEFAULT '',\n  phase TEXT,\n  agent_dir TEXT NOT NULL,\n  workspace_dir TEXT NOT NULL,\n  sessions_dir TEXT NOT NULL,\n  database_paths_json TEXT NOT NULL DEFAULT '[]',\n  cleanup_paths_json TEXT NOT NULL DEFAULT '[]',\n  created_at INTEGER NOT NULL,\n  cleanup_completed INTEGER NOT NULL DEFAULT 0,\n  delete_files INTEGER NOT NULL DEFAULT 1\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS agent_provenance (\n  agent_id TEXT PRIMARY KEY,\n  created_via TEXT NOT NULL CHECK (created_via IN ('operator', 'agent', 'claw')),\n  creator_agent_id TEXT,\n  created_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS agent_database_leases (\n  lease_id TEXT PRIMARY KEY,\n  agent_id TEXT NOT NULL,\n  path TEXT NOT NULL,\n  owner_pid INTEGER NOT NULL,\n  owner_start_time INTEGER,\n  opened_at INTEGER NOT NULL,\n  provenance TEXT\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS plugin_state_entries (\n  plugin_id TEXT NOT NULL,\n  namespace TEXT NOT NULL,\n  entry_key TEXT NOT NULL,\n  value_json TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  expires_at INTEGER,\n  PRIMARY KEY (plugin_id, namespace, entry_key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_plugin_state_expiry\n  ON plugin_state_entries(expires_at)\n  WHERE expires_at IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_plugin_state_listing\n  ON plugin_state_entries(plugin_id, namespace, created_at, entry_key, expires_at);\n\nCREATE TABLE IF NOT EXISTS channel_ingress_events (\n  queue_name TEXT NOT NULL,\n  event_id TEXT NOT NULL,\n  channel_id TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  status TEXT NOT NULL,\n  lane_key TEXT,\n  payload_json TEXT NOT NULL,\n  metadata_json TEXT,\n  received_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  claim_token TEXT,\n  claim_owner TEXT,\n  claimed_at INTEGER,\n  attempts INTEGER NOT NULL DEFAULT 0,\n  last_attempt_at INTEGER,\n  last_error TEXT,\n  failed_reason TEXT,\n  failed_at INTEGER,\n  completed_at INTEGER,\n  completed_metadata_json TEXT,\n  PRIMARY KEY (queue_name, event_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_channel_ingress_pending\n  ON channel_ingress_events(queue_name, status, received_at, event_id);\n\nCREATE INDEX IF NOT EXISTS idx_channel_ingress_claims\n  ON channel_ingress_events(queue_name, status, claimed_at);\n\nCREATE INDEX IF NOT EXISTS idx_channel_ingress_lane\n  ON channel_ingress_events(queue_name, status, lane_key);\n\nCREATE TABLE IF NOT EXISTS plugin_blob_entries (\n  plugin_id TEXT NOT NULL,\n  namespace TEXT NOT NULL,\n  entry_key TEXT NOT NULL,\n  metadata_json TEXT NOT NULL,\n  blob BLOB NOT NULL,\n  created_at INTEGER NOT NULL,\n  expires_at INTEGER,\n  PRIMARY KEY (plugin_id, namespace, entry_key)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_plugin_blob_expiry\n  ON plugin_blob_entries(expires_at)\n  WHERE expires_at IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_plugin_blob_listing\n  ON plugin_blob_entries(plugin_id, namespace, created_at, entry_key);\n\nCREATE TABLE IF NOT EXISTS skill_uploads (\n  upload_id TEXT NOT NULL PRIMARY KEY,\n  kind TEXT NOT NULL,\n  slug TEXT NOT NULL,\n  force INTEGER NOT NULL,\n  size_bytes INTEGER NOT NULL,\n  sha256 TEXT,\n  actual_sha256 TEXT,\n  received_bytes INTEGER NOT NULL,\n  archive_blob BLOB NOT NULL,\n  created_at INTEGER NOT NULL,\n  expires_at INTEGER NOT NULL,\n  committed INTEGER NOT NULL,\n  committed_at INTEGER,\n  idempotency_key_hash TEXT UNIQUE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_skill_uploads_expiry\n  ON skill_uploads(expires_at);\n\nCREATE INDEX IF NOT EXISTS idx_skill_uploads_idempotency\n  ON skill_uploads(idempotency_key_hash)\n  WHERE idempotency_key_hash IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS skill_upload_chunks (\n  upload_id TEXT NOT NULL,\n  byte_offset INTEGER NOT NULL CHECK (byte_offset >= 0),\n  size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),\n  chunk_blob BLOB NOT NULL,\n  PRIMARY KEY (upload_id, byte_offset),\n  FOREIGN KEY (upload_id) REFERENCES skill_uploads(upload_id) ON DELETE CASCADE,\n  CHECK (length(chunk_blob) = size_bytes)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS capture_sessions (\n  id TEXT NOT NULL PRIMARY KEY,\n  started_at INTEGER NOT NULL,\n  ended_at INTEGER,\n  mode TEXT NOT NULL,\n  source_scope TEXT NOT NULL,\n  source_process TEXT NOT NULL,\n  proxy_url TEXT\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS capture_blobs (\n  blob_id TEXT NOT NULL PRIMARY KEY,\n  content_type TEXT,\n  encoding TEXT NOT NULL,\n  size_bytes INTEGER NOT NULL,\n  sha256 TEXT NOT NULL,\n  data BLOB NOT NULL,\n  created_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS capture_events (\n  id INTEGER NOT NULL PRIMARY KEY,\n  session_id TEXT NOT NULL,\n  ts INTEGER NOT NULL,\n  source_scope TEXT NOT NULL,\n  source_process TEXT NOT NULL,\n  protocol TEXT NOT NULL,\n  direction TEXT NOT NULL,\n  kind TEXT NOT NULL,\n  flow_id TEXT NOT NULL,\n  method TEXT,\n  host TEXT,\n  path TEXT,\n  status INTEGER,\n  close_code INTEGER,\n  content_type TEXT,\n  headers_json TEXT,\n  data_text TEXT,\n  data_blob_id TEXT,\n  data_sha256 TEXT,\n  error_text TEXT,\n  meta_json TEXT,\n  FOREIGN KEY (session_id) REFERENCES capture_sessions(id) ON DELETE CASCADE,\n  FOREIGN KEY (data_blob_id) REFERENCES capture_blobs(blob_id) ON DELETE SET NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS capture_events_session_ts_idx\n  ON capture_events(session_id, ts);\n\nCREATE INDEX IF NOT EXISTS capture_events_flow_idx\n  ON capture_events(flow_id, ts);\n\nCREATE TABLE IF NOT EXISTS sandbox_registry_entries (\n  registry_kind TEXT NOT NULL,\n  container_name TEXT NOT NULL,\n  session_key TEXT,\n  backend_id TEXT,\n  runtime_label TEXT,\n  image TEXT,\n  created_at_ms INTEGER,\n  last_used_at_ms INTEGER,\n  config_label_kind TEXT,\n  config_hash TEXT,\n  cdp_port INTEGER,\n  no_vnc_port INTEGER,\n  entry_json TEXT NOT NULL,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (registry_kind, container_name)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_sandbox_registry_updated\n  ON sandbox_registry_entries(registry_kind, updated_at DESC, container_name);\n\nCREATE INDEX IF NOT EXISTS idx_sandbox_registry_session\n  ON sandbox_registry_entries(registry_kind, session_key, last_used_at_ms DESC, container_name)\n  WHERE session_key IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_sandbox_registry_last_used\n  ON sandbox_registry_entries(registry_kind, last_used_at_ms DESC, container_name)\n  WHERE last_used_at_ms IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS cron_jobs (\n  store_key TEXT NOT NULL,\n  job_id TEXT NOT NULL,\n  declaration_key TEXT,\n  owner_agent_id TEXT,\n  name TEXT NOT NULL,\n  description TEXT,\n  enabled INTEGER NOT NULL,\n  agent_id TEXT,\n  payload_kind TEXT NOT NULL,\n  job_json TEXT NOT NULL,\n  grant_definition_revision TEXT,\n  grant_definition_generation INTEGER,\n  grant_definition_updated_at INTEGER,\n  state_json TEXT NOT NULL DEFAULT '{}',\n  runtime_updated_at_ms INTEGER,\n  schedule_identity TEXT,\n  sort_order INTEGER NOT NULL DEFAULT 0,\n  updated_at INTEGER NOT NULL,\n  PRIMARY KEY (store_key, job_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_cron_jobs_store_order\n  ON cron_jobs(store_key, sort_order ASC, updated_at ASC, job_id);\n\n-- One owner-native receipt is also the durable execution fence. Receipts\n-- survive job deletion so operators can distinguish a run from log inference.\nCREATE TABLE IF NOT EXISTS cron_run_receipts (\n  cursor_id INTEGER NOT NULL,\n  receipt_id TEXT PRIMARY KEY,\n  store_key TEXT NOT NULL,\n  job_id TEXT NOT NULL,\n  config_revision TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  request_run_id TEXT,\n  delivery_attempt_state TEXT NOT NULL DEFAULT 'unknown' CHECK (delivery_attempt_state IN ('unknown', 'not-started', 'started')),\n  status TEXT NOT NULL,\n  owner_pid INTEGER NOT NULL,\n  owner_start_time INTEGER,\n  started_at_ms INTEGER NOT NULL,\n  finished_at_ms INTEGER,\n  error_text TEXT,\n  CHECK (status IN ('running', 'ok', 'error', 'skipped', 'interrupted', 'superseded')),\n  CHECK (\n    (status = 'running' AND finished_at_ms IS NULL)\n    OR\n    (status != 'running' AND finished_at_ms IS NOT NULL)\n  )\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS cron_run_receipts_cursor_id_idx\n  ON cron_run_receipts(cursor_id);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_cron_run_receipts_active_job\n  ON cron_run_receipts(store_key, job_id)\n  WHERE status = 'running';\n\nCREATE INDEX IF NOT EXISTS idx_cron_run_receipts_job_history\n  ON cron_run_receipts(store_key, job_id, started_at_ms DESC, receipt_id DESC);\n\n-- Retirement follows the receipt's retention without changing its released shape.\nCREATE TABLE IF NOT EXISTS cron_run_trigger_state_retirements (\n  receipt_id TEXT PRIMARY KEY\n    REFERENCES cron_run_receipts(receipt_id) ON DELETE CASCADE\n) STRICT;\n\n-- Runtime-private authority is independent of job_json so downgraded writers\n-- can rewrite recognized job config without erasing or silently widening it.\nCREATE TABLE IF NOT EXISTS cron_job_runtime_authorities (\n  store_key TEXT NOT NULL,\n  job_id TEXT NOT NULL,\n  authority_json TEXT,\n  authority_input_fingerprint TEXT,\n  recovery_required INTEGER NOT NULL,\n  PRIMARY KEY (store_key, job_id),\n  FOREIGN KEY (store_key, job_id)\n    REFERENCES cron_jobs(store_key, job_id) ON DELETE CASCADE,\n  CHECK (recovery_required IN (0, 1)),\n  CHECK (\n    (recovery_required = 0 AND authority_json IS NOT NULL AND authority_input_fingerprint IS NOT NULL)\n    OR\n    (recovery_required = 1 AND authority_json IS NULL AND authority_input_fingerprint IS NULL)\n  )\n) STRICT;\n\n-- Scratch is separate from cron_jobs so scheduler state writes and downgraded\n-- full-row replacement preserve it. New builds prune rows explicitly on job removal.\n-- content NULL is a tombstone: it keeps the revision lineage monotonic across\n-- unset/recreate so stale compare-and-swap writes cannot resurrect old content.\nCREATE TABLE IF NOT EXISTS cron_job_scratch (\n  store_key TEXT NOT NULL,\n  job_id TEXT NOT NULL,\n  content TEXT,\n  revision INTEGER NOT NULL,\n  source_sha256 TEXT,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (store_key, job_id),\n  CHECK (revision >= 1),\n  CHECK (content IS NULL OR length(CAST(content AS BLOB)) <= 262144)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_cron_job_scratch_store_updated\n  ON cron_job_scratch(store_key, updated_at_ms DESC, job_id);\n\nCREATE TABLE IF NOT EXISTS delivery_queue_entries (\n  queue_name TEXT NOT NULL,\n  id TEXT NOT NULL,\n  status TEXT NOT NULL,\n  entry_kind TEXT,\n  session_key TEXT,\n  channel TEXT,\n  target TEXT,\n  account_id TEXT,\n  retry_count INTEGER NOT NULL DEFAULT 0,\n  last_attempt_at INTEGER,\n  last_error TEXT,\n  recovery_state TEXT,\n  platform_send_started_at INTEGER,\n  entry_json TEXT NOT NULL,\n  retention_id_prefix TEXT,\n  retention_max_age_ms INTEGER,\n  retention_max_entries INTEGER,\n  enqueued_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  failed_at INTEGER,\n  PRIMARY KEY (queue_name, id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_delivery_queue_pending\n  ON delivery_queue_entries(queue_name, status, enqueued_at, id);\n\nCREATE INDEX IF NOT EXISTS idx_delivery_queue_failed\n  ON delivery_queue_entries(status, queue_name, failed_at, id);\n\nCREATE INDEX IF NOT EXISTS idx_delivery_queue_session\n  ON delivery_queue_entries(queue_name, status, session_key, enqueued_at, id)\n  WHERE session_key IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_delivery_queue_target\n  ON delivery_queue_entries(queue_name, status, channel, target, enqueued_at, id)\n  WHERE channel IS NOT NULL AND target IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_delivery_queue_bounded_retention\n  ON delivery_queue_entries(queue_name, retention_id_prefix, enqueued_at DESC, id DESC)\n  WHERE status IN ('completed', 'failed') AND recovery_state = 'completed_bounded'\n    AND retention_id_prefix IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS task_runs (\n  task_id TEXT NOT NULL PRIMARY KEY,\n  runtime TEXT NOT NULL,\n  task_kind TEXT,\n  source_id TEXT,\n  requester_session_key TEXT,\n  owner_key TEXT NOT NULL,\n  scope_kind TEXT NOT NULL,\n  child_session_key TEXT,\n  parent_flow_id TEXT,\n  parent_task_id TEXT,\n  agent_id TEXT,\n  requester_agent_id TEXT,\n  run_id TEXT,\n  execution_owner_host TEXT,\n  execution_owner_pid INTEGER,\n  execution_owner_start_identity INTEGER,\n  label TEXT,\n  task TEXT NOT NULL,\n  status TEXT NOT NULL,\n  delivery_status TEXT NOT NULL,\n  notify_policy TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  started_at INTEGER,\n  ended_at INTEGER,\n  last_event_at INTEGER,\n  cleanup_after INTEGER,\n  tool_use_count INTEGER,\n  last_tool_name TEXT,\n  error TEXT,\n  progress_summary TEXT,\n  terminal_summary TEXT,\n  terminal_outcome TEXT,\n  detail_json TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_task_runs_run_id ON task_runs(run_id);\nCREATE INDEX IF NOT EXISTS idx_task_runs_status ON task_runs(status);\nCREATE INDEX IF NOT EXISTS idx_task_runs_runtime_status ON task_runs(runtime, status);\nCREATE INDEX IF NOT EXISTS idx_task_runs_cleanup_after ON task_runs(cleanup_after);\nCREATE INDEX IF NOT EXISTS idx_task_runs_last_event_at ON task_runs(last_event_at);\nCREATE INDEX IF NOT EXISTS idx_task_runs_owner_key ON task_runs(owner_key);\nCREATE INDEX IF NOT EXISTS idx_task_runs_parent_flow_id ON task_runs(parent_flow_id);\nCREATE INDEX IF NOT EXISTS idx_task_runs_child_session_key ON task_runs(child_session_key);\nCREATE INDEX IF NOT EXISTS idx_task_runs_requester_session_key ON task_runs(requester_session_key);\nCREATE INDEX IF NOT EXISTS idx_task_runs_runtime_source_ended\n  ON task_runs(runtime, source_id, ended_at, created_at, task_id);\nCREATE INDEX IF NOT EXISTS idx_task_runs_runtime_ended\n  ON task_runs(runtime, ended_at, created_at, task_id);\n\nCREATE TABLE IF NOT EXISTS subagent_runs (\n  run_id TEXT NOT NULL PRIMARY KEY,\n  child_session_key TEXT NOT NULL,\n  controller_session_key TEXT,\n  controller_store_path TEXT,\n  requester_session_key TEXT NOT NULL,\n  requester_store_path TEXT,\n  created_at INTEGER NOT NULL,\n  payload_json TEXT NOT NULL DEFAULT '{}'\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_subagent_runs_child_session_key\n  ON subagent_runs(child_session_key, created_at DESC, run_id);\nCREATE INDEX IF NOT EXISTS idx_subagent_runs_requester_session_key\n  ON subagent_runs(requester_session_key, created_at DESC, run_id);\nCREATE INDEX IF NOT EXISTS idx_subagent_runs_controller_session_key\n  ON subagent_runs(controller_session_key, created_at DESC, run_id);\n\nCREATE TABLE IF NOT EXISTS current_conversation_bindings (\n  binding_key TEXT NOT NULL PRIMARY KEY,\n  binding_id TEXT NOT NULL,\n  target_session_key TEXT NOT NULL,\n  channel TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  conversation_kind TEXT NOT NULL,\n  parent_conversation_id TEXT,\n  conversation_id TEXT NOT NULL,\n  target_kind TEXT NOT NULL,\n  status TEXT NOT NULL,\n  bound_at INTEGER NOT NULL,\n  expires_at INTEGER,\n  metadata_json TEXT,\n  record_json TEXT NOT NULL,\n  updated_at INTEGER NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_current_conversation_bindings_target\n  ON current_conversation_bindings(target_session_key, updated_at DESC, binding_key);\nCREATE INDEX IF NOT EXISTS idx_current_conversation_bindings_conversation\n  ON current_conversation_bindings(channel, account_id, conversation_kind, conversation_id);\nCREATE INDEX IF NOT EXISTS idx_current_conversation_bindings_expires\n  ON current_conversation_bindings(expires_at, binding_key);\n\nCREATE TABLE IF NOT EXISTS plugin_binding_approvals (\n  plugin_root TEXT NOT NULL,\n  channel TEXT NOT NULL,\n  account_id TEXT NOT NULL,\n  plugin_id TEXT NOT NULL,\n  plugin_name TEXT,\n  approved_at INTEGER NOT NULL,\n  PRIMARY KEY (plugin_root, channel, account_id)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_plugin_binding_approvals_plugin\n  ON plugin_binding_approvals(plugin_id, approved_at DESC);\n\nCREATE TABLE IF NOT EXISTS task_delivery_state (\n  task_id TEXT NOT NULL PRIMARY KEY,\n  requester_origin_json TEXT,\n  last_notified_event_at INTEGER,\n  FOREIGN KEY (task_id) REFERENCES task_runs(task_id) ON DELETE CASCADE\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS flow_runs (\n  flow_id TEXT NOT NULL PRIMARY KEY,\n  shape TEXT,\n  sync_mode TEXT NOT NULL DEFAULT 'managed',\n  owner_key TEXT NOT NULL,\n  requester_origin_json TEXT,\n  controller_id TEXT,\n  revision INTEGER NOT NULL DEFAULT 0,\n  status TEXT NOT NULL,\n  notify_policy TEXT NOT NULL,\n  goal TEXT NOT NULL,\n  current_step TEXT,\n  blocked_task_id TEXT,\n  blocked_summary TEXT,\n  state_json TEXT,\n  wait_json TEXT,\n  cancel_requested_at INTEGER,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL,\n  ended_at INTEGER\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_flow_runs_status ON flow_runs(status);\nCREATE INDEX IF NOT EXISTS idx_flow_runs_owner_key ON flow_runs(owner_key);\nCREATE INDEX IF NOT EXISTS idx_flow_runs_updated_at ON flow_runs(updated_at);\n\n-- Durable meeting-capture sessions are gateway-global rather than agent-session\n-- transcripts. JSON/JSONL files are doctor import inputs or explicit CLI exports.\nCREATE TABLE IF NOT EXISTS meeting_transcript_sessions (\n  session_id TEXT NOT NULL,\n  started_at TEXT NOT NULL,\n  selector TEXT NOT NULL UNIQUE,\n  export_key TEXT NOT NULL,\n  session_slug TEXT NOT NULL,\n  provider_id TEXT NOT NULL,\n  title TEXT,\n  source_json TEXT NOT NULL,\n  source_account_id TEXT,\n  source_guild_id TEXT,\n  source_channel_id TEXT,\n  source_meeting_url TEXT,\n  source_thread_ts TEXT,\n  source_file_id TEXT,\n  stopped_at TEXT,\n  metadata_json TEXT,\n  metadata_agent_id TEXT,\n  export_manifest_json TEXT NOT NULL DEFAULT '{}',\n  export_pending_json TEXT NOT NULL DEFAULT '[]',\n  next_utterance_seq INTEGER NOT NULL DEFAULT 0 CHECK (next_utterance_seq >= 0),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= 0),\n  PRIMARY KEY (session_id, started_at)\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_started\n  ON meeting_transcript_sessions(started_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_id\n  ON meeting_transcript_sessions(session_id, started_at DESC);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_slug\n  ON meeting_transcript_sessions(session_slug, started_at DESC);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_export_key\n  ON meeting_transcript_sessions(export_key);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_source\n  ON meeting_transcript_sessions(provider_id, source_account_id, source_guild_id,\n    source_channel_id, source_meeting_url, source_thread_ts, source_file_id,\n    stopped_at DESC, started_at DESC, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_account\n  ON meeting_transcript_sessions(source_account_id);\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_sessions_agent\n  ON meeting_transcript_sessions(metadata_agent_id);\n\nCREATE TABLE IF NOT EXISTS meeting_transcript_utterances (\n  session_id TEXT NOT NULL,\n  session_started_at TEXT NOT NULL,\n  sequence INTEGER NOT NULL CHECK (sequence >= 0),\n  utterance_id TEXT,\n  started_at TEXT,\n  ended_at TEXT,\n  speaker_id TEXT,\n  speaker_label TEXT,\n  text TEXT NOT NULL,\n  final INTEGER CHECK (final IN (0, 1)),\n  metadata_json TEXT,\n  PRIMARY KEY (session_id, session_started_at, sequence),\n  FOREIGN KEY (session_id, session_started_at)\n    REFERENCES meeting_transcript_sessions(session_id, started_at)\n    ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_meeting_transcript_utterances_id\n  ON meeting_transcript_utterances(session_id, session_started_at, utterance_id)\n  WHERE utterance_id IS NOT NULL;\n\nCREATE TABLE IF NOT EXISTS meeting_transcript_summaries (\n  session_id TEXT NOT NULL,\n  session_started_at TEXT NOT NULL,\n  generated_at TEXT,\n  summary_json TEXT,\n  overview TEXT,\n  markdown TEXT,\n  utterance_count INTEGER NOT NULL CHECK (utterance_count >= 0),\n  PRIMARY KEY (session_id, session_started_at),\n  FOREIGN KEY (session_id, session_started_at)\n    REFERENCES meeting_transcript_sessions(session_id, started_at)\n    ON DELETE CASCADE,\n  CHECK (summary_json IS NOT NULL OR markdown IS NOT NULL)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS migration_runs (\n  id TEXT NOT NULL PRIMARY KEY,\n  started_at INTEGER NOT NULL,\n  finished_at INTEGER,\n  status TEXT NOT NULL,\n  report_json TEXT NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_migration_runs_started\n  ON migration_runs(started_at DESC, id);\n\nCREATE TABLE IF NOT EXISTS migration_sources (\n  source_key TEXT NOT NULL PRIMARY KEY,\n  migration_kind TEXT NOT NULL,\n  source_path TEXT NOT NULL,\n  target_table TEXT NOT NULL,\n  source_sha256 TEXT,\n  source_size_bytes INTEGER,\n  source_record_count INTEGER,\n  last_run_id TEXT NOT NULL,\n  status TEXT NOT NULL,\n  imported_at INTEGER NOT NULL,\n  removed_source INTEGER NOT NULL DEFAULT 0,\n  report_json TEXT NOT NULL,\n  FOREIGN KEY (last_run_id) REFERENCES migration_runs(id) ON DELETE CASCADE\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_migration_sources_path\n  ON migration_sources(source_path, migration_kind, target_table);\n\nCREATE INDEX IF NOT EXISTS idx_migration_sources_run\n  ON migration_sources(last_run_id, source_path);\n\nCREATE TABLE IF NOT EXISTS backup_runs (\n  id TEXT NOT NULL PRIMARY KEY,\n  created_at INTEGER NOT NULL,\n  archive_path TEXT NOT NULL,\n  status TEXT NOT NULL,\n  manifest_json TEXT NOT NULL\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_backup_runs_created\n  ON backup_runs(created_at DESC, id);\n\nCREATE TABLE IF NOT EXISTS worktrees (\n  id TEXT NOT NULL PRIMARY KEY,\n  repo_fingerprint TEXT NOT NULL,\n  repo_root TEXT NOT NULL,\n  path TEXT NOT NULL,\n  branch TEXT NOT NULL,\n  base_ref TEXT NOT NULL,\n  owner_kind TEXT NOT NULL CHECK (owner_kind IN ('manual', 'workboard', 'session')),\n  owner_id TEXT,\n  snapshot_ref TEXT,\n  provisioned_paths_json TEXT,\n  created_at INTEGER NOT NULL,\n  last_active_at INTEGER NOT NULL,\n  removed_at INTEGER,\n  run_end_cleanup_json TEXT,\n  gc_protection_json TEXT\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_worktrees_repo_fingerprint\n  ON worktrees(repo_fingerprint);\n\nCREATE INDEX IF NOT EXISTS idx_worktrees_removed_at\n  ON worktrees(removed_at);\n\nCREATE TABLE IF NOT EXISTS worktree_provisioned_file_chunks (\n  worktree_id TEXT NOT NULL,\n  path TEXT NOT NULL,\n  chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),\n  data BLOB NOT NULL,\n  PRIMARY KEY (worktree_id, path, chunk_index)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS worktree_templates (\n  cache_key TEXT NOT NULL PRIMARY KEY,\n  id TEXT NOT NULL UNIQUE,\n  repo_root TEXT NOT NULL,\n  common_dir TEXT NOT NULL,\n  worktree_root TEXT NOT NULL,\n  path TEXT NOT NULL,\n  backend TEXT NOT NULL,\n  source_commit TEXT NOT NULL,\n  content_key TEXT NOT NULL,\n  status TEXT NOT NULL CHECK (status IN ('preparing', 'ready')),\n  created_at INTEGER NOT NULL,\n  last_used_at INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS projects (\n  id TEXT NOT NULL PRIMARY KEY,\n  display_name TEXT NOT NULL,\n  repo_root TEXT NOT NULL,\n  origin_url TEXT,\n  source TEXT NOT NULL CHECK (source IN ('registered', 'cloned')),\n  created_at_ms INT NOT NULL,\n  updated_at_ms INT NOT NULL\n) STRICT;\n\n-- One explicitly retained, normalized private background per durable profile.\nCREATE TABLE IF NOT EXISTS user_background_images (\n  profile_id TEXT NOT NULL PRIMARY KEY REFERENCES user_profiles(id) ON DELETE CASCADE,\n  asset_id TEXT NOT NULL UNIQUE,\n  image BLOB NOT NULL CHECK (length(image) BETWEEN 1 AND 2097152),\n  width INTEGER NOT NULL CHECK (width BETWEEN 1 AND 2560),\n  height INTEGER NOT NULL CHECK (height BETWEEN 1 AND 2560)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS user_preferences (\n  profile_id TEXT NOT NULL,\n  pref_key TEXT NOT NULL,\n  value_json TEXT NOT NULL,\n  updated_at_ms INT NOT NULL,\n  PRIMARY KEY (profile_id, pref_key)\n) STRICT;\n\n-- Gateway-owned custom session group catalog (names + display order).\n-- Membership stays on each session entry's category field; this table only\n-- owns which groups exist and how operator UIs order them.\nCREATE TABLE IF NOT EXISTS session_groups (\n  name TEXT NOT NULL PRIMARY KEY,\n  position INTEGER NOT NULL,\n  created_at INTEGER NOT NULL,\n  cwd TEXT,\n  worktree INTEGER\n) STRICT;\n\n-- Gateway-owned durable cloud worker lifecycle. Provider-specific execution\n-- stays in plugins; this table records only core reconciliation facts.\nCREATE TABLE IF NOT EXISTS worker_environments (\n  environment_id TEXT NOT NULL PRIMARY KEY,\n  provider_id TEXT NOT NULL,\n  profile_id TEXT NOT NULL,\n  profile_snapshot_json TEXT NOT NULL,\n  last_activated_at_ms INTEGER,\n  preparation_key TEXT,\n  preparation_purpose TEXT,\n  preparation_demand_at_ms INTEGER,\n  preparation_expires_at_ms INTEGER,\n  preparation_consumed_at_ms INTEGER CHECK (\n    (preparation_key IS NULL AND preparation_demand_at_ms IS NULL\n      AND preparation_expires_at_ms IS NULL AND preparation_consumed_at_ms IS NULL)\n    OR\n    (preparation_key IS NOT NULL AND length(preparation_key) = 64\n      AND preparation_key NOT GLOB '*[^0-9a-f]*'\n      AND preparation_demand_at_ms IS NOT NULL\n      AND preparation_demand_at_ms BETWEEN 0 AND 9007199254740991\n      AND preparation_expires_at_ms IS NOT NULL\n      AND preparation_expires_at_ms > preparation_demand_at_ms\n      AND preparation_expires_at_ms <= 9007199254740991\n      AND (preparation_consumed_at_ms IS NULL\n        OR (preparation_consumed_at_ms >= preparation_demand_at_ms\n          AND preparation_consumed_at_ms < preparation_expires_at_ms)))\n  ),\n  provision_operation_id TEXT NOT NULL UNIQUE,\n  lease_id TEXT,\n  node_setup_id TEXT,\n  node_device_id TEXT,\n  ssh_host TEXT,\n  ssh_port INTEGER CHECK (ssh_port IS NULL OR (ssh_port >= 1 AND ssh_port <= 65535)),\n  ssh_user TEXT,\n  ssh_host_key TEXT,\n  ssh_key_ref_json TEXT,\n  desktop_json TEXT,\n  state TEXT NOT NULL CHECK (\n    state IN (\n      'requested',\n      'provisioning',\n      'bootstrapping',\n      'ready',\n      'attached',\n      'idle',\n      'draining',\n      'destroying',\n      'destroyed',\n      'failed',\n      'orphaned'\n    )\n  ),\n  bootstrap_bundle_hash TEXT,\n  bootstrap_openclaw_version TEXT,\n  bootstrap_protocol_features_json TEXT,\n  bootstrap_install_kind TEXT,\n  owner_epoch INTEGER NOT NULL DEFAULT 0 CHECK (owner_epoch >= 0),\n  teardown_terminal_state TEXT CHECK (teardown_terminal_state IN ('destroyed', 'failed')),\n  attached_session_ids_json TEXT NOT NULL DEFAULT '[]',\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  state_changed_at_ms INTEGER NOT NULL,\n  idle_since_at_ms INTEGER,\n  destroy_requested_at_ms INTEGER,\n  last_error TEXT,\n  shared_host INTEGER\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_worker_environments_provider_lease\n  ON worker_environments(provider_id, lease_id)\n  WHERE lease_id IS NOT NULL;\n\nCREATE INDEX IF NOT EXISTS idx_worker_environments_terminal_changed\n  ON worker_environments(state_changed_at_ms, environment_id);\n\n-- A dedicated node registers its fixed build paths before ready, then binds\n-- them once. The environment belongs to the Gateway's separate database.\nCREATE TABLE IF NOT EXISTS node_worker_prepared_workspaces (\n  preparation_key TEXT NOT NULL PRIMARY KEY CHECK (\n    length(preparation_key) = 64 AND preparation_key NOT GLOB '*[^0-9a-f]*'\n  ),\n  cache_key TEXT NOT NULL CHECK (\n    length(cache_key) = 64 AND cache_key NOT GLOB '*[^0-9a-f]*'\n  ),\n  gateway_namespace TEXT NOT NULL CHECK (length(gateway_namespace) > 0),\n  workspace_dir TEXT NOT NULL UNIQUE CHECK (length(workspace_dir) > 0),\n  home_dir TEXT NOT NULL CHECK (length(home_dir) > 0),\n  source_manifest_ref TEXT NOT NULL CHECK (\n    length(source_manifest_ref) = 71 AND substr(source_manifest_ref, 1, 7) = 'sha256:'\n      AND substr(source_manifest_ref, 8) NOT GLOB '*[^0-9a-f]*'\n  ),\n  prepared_manifest_ref TEXT NOT NULL CHECK (\n    length(prepared_manifest_ref) = 71 AND substr(prepared_manifest_ref, 1, 7) = 'sha256:'\n      AND substr(prepared_manifest_ref, 8) NOT GLOB '*[^0-9a-f]*'\n  ),\n  state TEXT NOT NULL CHECK (state IN ('available', 'bound', 'retiring', 'retired')),\n  environment_id TEXT NOT NULL CHECK (length(environment_id) > 0),\n  session_id TEXT,\n  session_key TEXT,\n  owner_epoch INTEGER CHECK (owner_epoch BETWEEN 1 AND 9007199254740991),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms BETWEEN 0 AND 9007199254740991),\n  bound_at_ms INTEGER CHECK (bound_at_ms BETWEEN created_at_ms AND 9007199254740991),\n  retired_at_ms INTEGER CHECK (\n    retired_at_ms BETWEEN coalesce(bound_at_ms, created_at_ms) AND 9007199254740991\n  ),\n  CHECK (\n    (session_id IS NULL AND session_key IS NULL AND owner_epoch IS NULL AND bound_at_ms IS NULL)\n    OR\n    (session_id IS NOT NULL AND length(session_id) > 0\n      AND session_key IS NOT NULL AND length(session_key) > 0\n      AND owner_epoch IS NOT NULL AND bound_at_ms IS NOT NULL)\n  ),\n  CHECK (\n    (state = 'available' AND bound_at_ms IS NULL AND retired_at_ms IS NULL)\n    OR (state = 'bound' AND bound_at_ms IS NOT NULL AND retired_at_ms IS NULL)\n    OR (state = 'retiring' AND retired_at_ms IS NULL)\n    OR (state = 'retired' AND retired_at_ms IS NOT NULL)\n  )\n) STRICT;\n\n-- Provider-advertised fallback ports preserve stable retry order separately\n-- from the downgrade-sensitive canonical worker environment row.\nCREATE TABLE IF NOT EXISTS worker_environment_ssh_fallback_ports (\n  environment_id TEXT NOT NULL,\n  position INTEGER NOT NULL CHECK (position >= 0 AND position <= 9),\n  port INTEGER NOT NULL CHECK (port >= 1 AND port <= 65535),\n  PRIMARY KEY (environment_id, position),\n  UNIQUE (environment_id, port),\n  FOREIGN KEY (environment_id) REFERENCES worker_environments(environment_id) ON DELETE CASCADE\n) STRICT;\n\n-- Logical sessions own repository intent and accepted artifact references,\n-- independently of the worker or rotating transcript session id.\nCREATE TABLE IF NOT EXISTS session_repository_workspaces (\n  workspace_id TEXT NOT NULL PRIMARY KEY CHECK (length(workspace_id) = 36),\n  agent_id TEXT NOT NULL CHECK (length(agent_id) BETWEEN 1 AND 128),\n  session_key TEXT NOT NULL CHECK (length(session_key) BETWEEN 1 AND 1024),\n  url TEXT NOT NULL CHECK (length(url) BETWEEN 1 AND 4096),\n  requested_ref TEXT CHECK (requested_ref IS NULL OR length(requested_ref) BETWEEN 1 AND 1024),\n  run_setup_script INTEGER NOT NULL DEFAULT 0 CHECK (run_setup_script IN (0, 1)),\n  base_commit TEXT CHECK (base_commit IS NULL OR length(base_commit) IN (40, 64)),\n  base_manifest_hash TEXT,\n  branch TEXT NOT NULL CHECK (length(branch) BETWEEN 1 AND 256),\n  checkpoint_ref TEXT,\n  manifest_hash TEXT,\n  revision INTEGER NOT NULL CHECK (revision >= 0),\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  UNIQUE (agent_id, session_key),\n  CHECK (base_manifest_hash IS NULL OR base_commit IS NOT NULL),\n  CHECK ((checkpoint_ref IS NULL AND manifest_hash IS NULL)\n    OR (checkpoint_ref IS NOT NULL AND manifest_hash IS NOT NULL AND base_manifest_hash IS NOT NULL))\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS github_repository_publication_requests (\n  request_id TEXT NOT NULL PRIMARY KEY,\n  owner_profile_id TEXT,\n  connection_generation TEXT,\n  idempotency_key TEXT NOT NULL,\n  request_digest TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  session_lifecycle_revision TEXT,\n  requester_authority_json TEXT,\n  session_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  workspace_id TEXT NOT NULL,\n  checkpoint_ref TEXT,\n  checkpoint_digest TEXT,\n  claim_id TEXT,\n  run_id TEXT,\n  environment_id TEXT,\n  owner_epoch INTEGER,\n  placement_generation INTEGER,\n  identity_source TEXT NOT NULL CHECK (identity_source IN ('system-detected', 'system-configured', 'agent-override', 'personal')),\n  identity_profile_id TEXT,\n  identity_account_id INTEGER NOT NULL,\n  identity_login TEXT NOT NULL,\n  title TEXT,\n  body TEXT,\n  status TEXT NOT NULL CHECK (status IN ('requested', 'publishing', 'needs_confirmation', 'published', 'failed')),\n  gateway_instance_id TEXT,\n  execution_id TEXT,\n  last_effect TEXT CHECK (last_effect IN ('push', 'pull_request')),\n  effect_state TEXT CHECK (effect_state IN ('dispatched', 'observed')),\n  push_repository TEXT,\n  repository TEXT,\n  branch TEXT NOT NULL,\n  base_branch TEXT,\n  source_head_commit TEXT,\n  source_index_tree TEXT,\n  workspace_tree TEXT,\n  previous_head_commit TEXT,\n  pushed_head_commit TEXT,\n  head_commit TEXT,\n  pull_request_url TEXT,\n  error_code TEXT,\n  next_action TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  reported_at_ms INTEGER,\n  CHECK ((identity_source = 'personal' AND owner_profile_id IS NOT NULL AND connection_generation IS NOT NULL)\n    OR (identity_source <> 'personal' AND owner_profile_id IS NULL AND connection_generation IS NULL)),\n  CHECK ((checkpoint_ref IS NULL AND checkpoint_digest IS NULL) OR (checkpoint_ref IS NOT NULL AND checkpoint_digest IS NOT NULL)),\n  CHECK ((last_effect IS NULL AND effect_state IS NULL) OR (last_effect IS NOT NULL AND effect_state IS NOT NULL))\n) STRICT;\nCREATE UNIQUE INDEX IF NOT EXISTS idx_github_repository_publication_shared_request\n  ON github_repository_publication_requests(session_id, idempotency_key) WHERE owner_profile_id IS NULL;\nCREATE UNIQUE INDEX IF NOT EXISTS idx_github_repository_publication_personal_request\n  ON github_repository_publication_requests(owner_profile_id, session_id, idempotency_key) WHERE owner_profile_id IS NOT NULL;\n\n-- Session placement lives in the shared state database so local admission,\n-- worker admission, and environment attachment use one durable authority.\nCREATE TABLE IF NOT EXISTS worker_session_placements (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  agent_id TEXT NOT NULL,\n  session_key TEXT NOT NULL,\n  execution_mode TEXT CHECK (execution_mode IN ('worker-turn', 'remote-exec')),\n  state TEXT NOT NULL CHECK (\n    state IN (\n      'local',\n      'requested',\n      'provisioning',\n      'syncing',\n      'starting',\n      'active',\n      'draining',\n      'reconciling',\n      'reclaimed',\n      'failed'\n    )\n  ),\n  environment_id TEXT,\n  transition_generation INTEGER NOT NULL DEFAULT 0 CHECK (transition_generation >= 0),\n  active_owner_epoch INTEGER CHECK (active_owner_epoch IS NULL OR active_owner_epoch >= 1),\n  workspace_base_manifest_ref TEXT,\n  remote_workspace_dir TEXT,\n  worker_bundle_hash TEXT,\n  last_transcript_ack_cursor INTEGER CHECK (\n    last_transcript_ack_cursor IS NULL OR last_transcript_ack_cursor >= 0\n  ),\n  last_live_event_ack_cursor INTEGER CHECK (\n    last_live_event_ack_cursor IS NULL OR last_live_event_ack_cursor >= 0\n  ),\n  recovery_error TEXT,\n  turn_claim_owner TEXT CHECK (turn_claim_owner IN ('local', 'worker')),\n  turn_claim_id TEXT,\n  turn_claim_run_id TEXT,\n  turn_claim_generation INTEGER CHECK (\n    turn_claim_generation IS NULL OR turn_claim_generation >= 0\n  ),\n  turn_claim_owner_epoch INTEGER CHECK (\n    turn_claim_owner_epoch IS NULL OR turn_claim_owner_epoch >= 1\n  ),\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  state_changed_at_ms INTEGER NOT NULL,\n  terminal_reason TEXT,\n  terminal_at_ms INTEGER,\n  CHECK (\n    (state IN ('local', 'requested')\n      AND environment_id IS NULL AND active_owner_epoch IS NULL\n      AND workspace_base_manifest_ref IS NULL AND remote_workspace_dir IS NULL\n      AND worker_bundle_hash IS NULL\n      AND last_transcript_ack_cursor IS NULL AND last_live_event_ack_cursor IS NULL\n      AND recovery_error IS NULL)\n    OR\n    (state IS 'provisioning'\n      AND active_owner_epoch IS NULL\n      AND workspace_base_manifest_ref IS NULL AND remote_workspace_dir IS NULL\n      AND worker_bundle_hash IS NULL\n      AND last_transcript_ack_cursor IS NULL AND last_live_event_ack_cursor IS NULL\n      AND recovery_error IS NULL)\n    OR\n    (state IS 'syncing'\n      AND environment_id IS NOT NULL AND active_owner_epoch IS NULL\n      AND workspace_base_manifest_ref IS NULL AND remote_workspace_dir IS NULL\n      AND worker_bundle_hash IS NOT NULL\n      AND last_transcript_ack_cursor IS NULL AND last_live_event_ack_cursor IS NULL\n      AND recovery_error IS NULL)\n    OR\n    (state IS 'starting'\n      AND environment_id IS NOT NULL AND active_owner_epoch IS NULL\n      AND workspace_base_manifest_ref IS NOT NULL AND remote_workspace_dir IS NOT NULL\n      AND worker_bundle_hash IS NOT NULL\n      AND last_transcript_ack_cursor IS NULL AND last_live_event_ack_cursor IS NULL\n      AND recovery_error IS NULL)\n    OR\n    (state IN ('active', 'draining', 'reconciling')\n      AND environment_id IS NOT NULL AND active_owner_epoch IS NOT NULL\n      AND workspace_base_manifest_ref IS NOT NULL AND remote_workspace_dir IS NOT NULL\n      AND worker_bundle_hash IS NOT NULL AND recovery_error IS NULL)\n    OR\n    (state IS 'reclaimed'\n      AND environment_id IS NOT NULL AND active_owner_epoch IS NOT NULL\n      AND workspace_base_manifest_ref IS NOT NULL AND remote_workspace_dir IS NOT NULL\n      AND worker_bundle_hash IS NOT NULL AND recovery_error IS NULL\n      AND turn_claim_owner IS NULL AND turn_claim_id IS NULL AND turn_claim_run_id IS NULL\n      AND turn_claim_generation IS NULL AND turn_claim_owner_epoch IS NULL)\n    OR\n    (state IS 'failed' AND recovery_error IS NOT NULL)\n  ),\n  CHECK (\n    (turn_claim_owner IS NULL AND turn_claim_id IS NULL AND turn_claim_run_id IS NULL\n      AND turn_claim_generation IS NULL AND turn_claim_owner_epoch IS NULL)\n    OR\n    (turn_claim_owner IS 'local' AND turn_claim_id IS NOT NULL\n      AND turn_claim_run_id IS NOT NULL AND turn_claim_generation IS NOT NULL\n      AND turn_claim_owner_epoch IS NULL)\n    OR\n    (turn_claim_owner IS 'worker' AND turn_claim_id IS NOT NULL\n      AND turn_claim_run_id IS NOT NULL AND turn_claim_generation IS NOT NULL\n      AND turn_claim_owner_epoch IS NOT NULL)\n  ),\n  CHECK (\n    turn_claim_owner IS NULL\n    OR\n    (turn_claim_owner IS 'local' AND (\n      state IN ('local', 'requested', 'failed')\n      OR (state IN ('active', 'draining') AND execution_mode IS 'remote-exec')\n    ))\n    OR\n    (turn_claim_owner IS 'worker' AND state IN ('active', 'draining')\n      AND (execution_mode IS NULL OR execution_mode IS 'worker-turn')\n      AND turn_claim_owner_epoch IS active_owner_epoch)\n  )\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_worker_session_placements_session_key\n  ON worker_session_placements(agent_id, session_key);\n\nCREATE INDEX IF NOT EXISTS idx_worker_session_placements_reconcile\n  ON worker_session_placements(updated_at_ms, session_id);\n\nCREATE INDEX IF NOT EXISTS idx_worker_session_placements_environment\n  ON worker_session_placements(environment_id)\n  WHERE environment_id IS NOT NULL;\n\n-- Planned placement moves retain their exact source CAS and bounded target\n-- without widening the stable placement-state vocabulary. The opaque operation\n-- id fences stale asynchronous completion; it is correlation, never authority.\nCREATE TABLE IF NOT EXISTS worker_session_placement_moves (\n  operation_id TEXT NOT NULL PRIMARY KEY,\n  session_id TEXT NOT NULL UNIQUE\n    REFERENCES worker_session_placements(session_id) ON DELETE CASCADE,\n  source_generation INTEGER NOT NULL CHECK (source_generation >= 0),\n  source_environment_id TEXT NOT NULL CHECK (\n    length(source_environment_id) BETWEEN 1 AND 256\n    AND source_environment_id = trim(source_environment_id)\n  ),\n  source_owner_epoch INTEGER NOT NULL CHECK (source_owner_epoch >= 1),\n  target_kind TEXT NOT NULL CHECK (target_kind IN ('gateway', 'profile', 'device')),\n  target_id TEXT,\n  -- Keep these nullable columns constraint-free so lazy ALTER TABLE produces the\n  -- same shape as fresh databases; placement-move code validates their values.\n  target_machine_class TEXT,\n  target_os TEXT,\n  -- Explicit source abandonment is a durable operator decision. Keep the bit\n  -- bare and nullable so same-version older readers can safely omit it.\n  abandon_source INTEGER,\n  last_error TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  CHECK (\n    (target_kind IS 'gateway' AND target_id IS NULL)\n    OR\n    (target_kind IN ('profile', 'device')\n      AND target_id IS NOT NULL\n      AND length(target_id) BETWEEN 1 AND 256\n      AND target_id = trim(target_id))\n  )\n) STRICT;\n\n-- Worker-visible session RPC authority is persisted against the exact turn\n-- claim. The launch descriptor is informative only; Gateway dispatch always\n-- revalidates this record and the live placement claim before executing.\nCREATE TABLE IF NOT EXISTS worker_turn_tool_authorities (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  environment_id TEXT NOT NULL,\n  owner_epoch INTEGER NOT NULL CHECK (owner_epoch >= 1),\n  placement_generation INTEGER NOT NULL CHECK (placement_generation >= 0),\n  claim_id TEXT NOT NULL,\n  run_id TEXT NOT NULL,\n  tool_names_json TEXT NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES worker_session_placements(session_id) ON DELETE CASCADE\n) STRICT;\n\n-- Tool-call ids are idempotency keys only within one exact source turn claim.\n-- A running operation from another Gateway instance is ambiguous and is never\n-- replayed. A persisted random seed separates durable downstream identities\n-- from Gateway authentication keys and survives ordinary process restarts.\nCREATE TABLE IF NOT EXISTS worker_session_tool_operations (\n  source_session_id TEXT NOT NULL,\n  source_claim_id TEXT NOT NULL,\n  tool_call_id TEXT NOT NULL,\n  tool_name TEXT NOT NULL CHECK (tool_name IN ('sessions_spawn', 'sessions_send')),\n  request_digest TEXT NOT NULL,\n  operation_seed TEXT NOT NULL,\n  status TEXT NOT NULL CHECK (status IN ('running', 'succeeded', 'failed', 'unknown')),\n  child_session_key TEXT,\n  result_json TEXT,\n  gateway_instance_id TEXT NOT NULL,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (source_session_id, source_claim_id, tool_call_id),\n  FOREIGN KEY (source_session_id)\n    REFERENCES worker_session_placements(session_id) ON DELETE CASCADE\n) STRICT;\n\n-- Local sandbox execution is a projection of a session-owned managed worktree.\n-- No cascade: an older binary must not discard pending edits with a session row.\nCREATE TABLE IF NOT EXISTS local_workspace_projections (\n  worktree_id TEXT NOT NULL PRIMARY KEY,\n  agent_id TEXT NOT NULL,\n  session_key TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  lifecycle_revision TEXT,\n  projection_path TEXT NOT NULL UNIQUE,\n  base_commit TEXT NOT NULL,\n  source_paths_json TEXT NOT NULL,\n  baseline_json TEXT,\n  baseline_ref TEXT,\n  pending_ref TEXT,\n  pending_target TEXT CHECK (pending_target IN ('canonical', 'projection')),\n  paused_runtimes_json TEXT,\n  journal_json TEXT,\n  journal_pack BLOB CHECK (journal_pack IS NULL OR length(journal_pack) <= 268435456),\n  revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),\n  created_at_ms INTEGER NOT NULL,\n  CHECK ((baseline_json IS NULL) = (baseline_ref IS NULL)),\n  CHECK ((journal_json IS NULL) = (journal_pack IS NULL))\n) STRICT;\n\n-- A reconciliation journal is written before managed-worktree mutation. The\n-- bounded Git base snapshot repairs any subset left by an interrupted apply.\nCREATE TABLE IF NOT EXISTS worker_workspace_reconciliations (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  environment_id TEXT NOT NULL,\n  owner_epoch INTEGER NOT NULL CHECK (owner_epoch >= 1),\n  placement_generation INTEGER NOT NULL CHECK (placement_generation >= 0),\n  base_manifest_ref TEXT NOT NULL,\n  current_manifest_ref TEXT NOT NULL,\n  plan_json TEXT NOT NULL,\n  base_pack BLOB NOT NULL CHECK (length(base_pack) <= 268435456),\n  created_at_ms INTEGER NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES worker_session_placements(session_id) ON DELETE CASCADE\n) STRICT;\n\n-- A completed remote turn is fenced from stale-claim teardown until its\n-- workspace result is durably reconciled into the managed worktree.\nCREATE TABLE IF NOT EXISTS worker_workspace_pending_results (\n  session_id TEXT NOT NULL PRIMARY KEY,\n  environment_id TEXT NOT NULL,\n  owner_epoch INTEGER NOT NULL CHECK (owner_epoch >= 1),\n  placement_generation INTEGER NOT NULL CHECK (placement_generation >= 0),\n  claim_id TEXT NOT NULL,\n  run_id TEXT NOT NULL,\n  gateway_instance_id TEXT NOT NULL,\n  recovery_requested_at_ms INTEGER,\n  workspace_accepted_at_ms INTEGER,\n  staged_result_ref TEXT,\n  repository_workspace_id TEXT,\n  created_at_ms INTEGER NOT NULL,\n  FOREIGN KEY (session_id) REFERENCES worker_session_placements(session_id) ON DELETE CASCADE\n) STRICT;\n\n-- GitHub publication intent records the authoritative session worktree. Cloud\n-- requests execute only after the exact turn claim's result is accepted locally.\n-- Secrets stay in the effective Gateway-owned GitHub profile and never enter\n-- this row or the worker protocol.\nCREATE TABLE IF NOT EXISTS github_publication_requests (\n  request_id TEXT NOT NULL PRIMARY KEY,\n  idempotency_key TEXT NOT NULL,\n  request_digest TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  session_key TEXT NOT NULL,\n  agent_id TEXT NOT NULL,\n  worktree_id TEXT NOT NULL,\n  repository_fingerprint TEXT NOT NULL,\n  claim_id TEXT,\n  run_id TEXT,\n  environment_id TEXT,\n  owner_epoch INTEGER CHECK (owner_epoch IS NULL OR owner_epoch >= 1),\n  placement_generation INTEGER CHECK (\n    placement_generation IS NULL OR placement_generation >= 0\n  ),\n  identity_source TEXT NOT NULL CHECK (\n    identity_source IN ('system-detected', 'system-configured', 'agent-override')\n  ),\n  identity_profile_id TEXT,\n  identity_account_id INTEGER NOT NULL CHECK (identity_account_id >= 1),\n  identity_login TEXT NOT NULL,\n  title TEXT,\n  body TEXT,\n  status TEXT NOT NULL CHECK (\n    status IN ('requested', 'publishing', 'published', 'failed')\n  ),\n  gateway_instance_id TEXT,\n  repository TEXT,\n  branch TEXT NOT NULL,\n  base_branch TEXT,\n  source_head_commit TEXT,\n  source_index_tree TEXT,\n  workspace_tree TEXT,\n  head_commit TEXT,\n  pull_request_url TEXT,\n  error_code TEXT,\n  next_action TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  reported_at_ms INTEGER,\n  UNIQUE (session_id, idempotency_key),\n  CHECK (\n    (claim_id IS NULL AND run_id IS NULL AND environment_id IS NULL\n      AND owner_epoch IS NULL AND placement_generation IS NULL)\n    OR\n    (claim_id IS NOT NULL AND run_id IS NOT NULL AND placement_generation IS NOT NULL\n      AND ((environment_id IS NULL AND owner_epoch IS NULL)\n        OR (environment_id IS NOT NULL AND owner_epoch IS NOT NULL)))\n  ),\n  CHECK (\n    (identity_source IS 'system-detected' AND identity_profile_id IS NULL)\n    OR\n    (identity_source IN ('system-configured', 'agent-override')\n      AND identity_profile_id IS NOT NULL)\n  ),\n  CHECK (\n    (source_head_commit IS NULL AND source_index_tree IS NULL AND workspace_tree IS NULL)\n    OR\n    (source_head_commit IS NOT NULL AND workspace_tree IS NOT NULL)\n  ),\n  CHECK (\n    (status IS 'published' AND pull_request_url IS NOT NULL AND error_code IS NULL\n      AND next_action IS NULL)\n    OR\n    (status IS 'failed' AND pull_request_url IS NULL AND error_code IS NOT NULL\n      AND next_action IS NOT NULL)\n    OR\n    (status IN ('requested', 'publishing') AND pull_request_url IS NULL\n      AND error_code IS NULL AND next_action IS NULL)\n  )\n) STRICT;\n\nCREATE INDEX IF NOT EXISTS idx_github_publication_requests_pending\n  ON github_publication_requests(status, updated_at_ms, request_id);\n\n-- Personal requests cannot be interpreted or resumed by older shared publishers.\nCREATE TABLE IF NOT EXISTS github_personal_publication_requests (\n  request_id TEXT NOT NULL PRIMARY KEY CHECK (length(request_id) = 36),\n  owner_profile_id TEXT NOT NULL CHECK (length(owner_profile_id) BETWEEN 1 AND 128),\n  connection_generation TEXT NOT NULL CHECK (length(connection_generation) = 36),\n  idempotency_key TEXT NOT NULL CHECK (length(idempotency_key) BETWEEN 1 AND 128),\n  request_digest TEXT NOT NULL CHECK (length(request_digest) = 64),\n  session_id TEXT NOT NULL CHECK (length(session_id) BETWEEN 1 AND 128),\n  session_key TEXT NOT NULL CHECK (length(session_key) BETWEEN 1 AND 1024),\n  agent_id TEXT NOT NULL CHECK (length(agent_id) BETWEEN 1 AND 128),\n  worktree_id TEXT NOT NULL CHECK (length(worktree_id) BETWEEN 1 AND 128),\n  repository_fingerprint TEXT NOT NULL CHECK (length(repository_fingerprint) BETWEEN 1 AND 256),\n  identity_source TEXT NOT NULL CHECK (identity_source = 'personal'),\n  identity_profile_id TEXT NOT NULL CHECK (length(identity_profile_id) = 36),\n  identity_account_id INTEGER NOT NULL CHECK (identity_account_id >= 1),\n  identity_login TEXT NOT NULL CHECK (length(identity_login) BETWEEN 1 AND 39),\n  title TEXT CHECK (title IS NULL OR length(title) BETWEEN 1 AND 256),\n  body TEXT CHECK (body IS NULL OR length(body) BETWEEN 1 AND 8192),\n  status TEXT NOT NULL CHECK (status IN ('requested', 'publishing', 'needs_confirmation', 'published', 'failed')),\n  gateway_instance_id TEXT CHECK (gateway_instance_id IS NULL OR length(gateway_instance_id) BETWEEN 1 AND 128),\n  execution_id TEXT CHECK (execution_id IS NULL OR length(execution_id) = 36),\n  last_effect TEXT CHECK (last_effect IS NULL OR last_effect IN ('push', 'pull_request')),\n  effect_state TEXT CHECK (effect_state IS NULL OR effect_state IN ('dispatched', 'observed')),\n  push_repository TEXT NOT NULL CHECK (length(push_repository) BETWEEN 3 AND 256),\n  repository TEXT NOT NULL CHECK (length(repository) BETWEEN 3 AND 256),\n  branch TEXT NOT NULL CHECK (length(branch) BETWEEN 1 AND 256),\n  base_branch TEXT NOT NULL CHECK (length(base_branch) BETWEEN 1 AND 256),\n  source_head_commit TEXT NOT NULL CHECK (length(source_head_commit) IN (40, 64)),\n  source_index_tree TEXT NOT NULL CHECK (length(source_index_tree) IN (40, 64)),\n  workspace_tree TEXT NOT NULL CHECK (length(workspace_tree) IN (40, 64)),\n  head_commit TEXT CHECK (head_commit IS NULL OR length(head_commit) IN (40, 64)),\n  pull_request_url TEXT CHECK (pull_request_url IS NULL OR length(pull_request_url) BETWEEN 1 AND 2048),\n  error_code TEXT CHECK (error_code IS NULL OR length(error_code) BETWEEN 1 AND 64),\n  next_action TEXT CHECK (next_action IS NULL OR length(next_action) BETWEEN 1 AND 1024),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= created_at_ms),\n  reported_at_ms INTEGER,\n  UNIQUE (owner_profile_id, session_id, idempotency_key),\n  CHECK ((status = 'publishing' AND gateway_instance_id IS NOT NULL AND execution_id IS NOT NULL) OR status <> 'publishing'),\n  CHECK ((last_effect IS NULL AND effect_state IS NULL) OR (last_effect IS NOT NULL AND effect_state IS NOT NULL)),\n  CHECK ((status = 'published' AND pull_request_url IS NOT NULL AND head_commit IS NOT NULL AND error_code IS NULL AND next_action IS NULL)\n    OR (status = 'failed' AND error_code IS NOT NULL AND next_action IS NOT NULL)\n    OR (status IN ('requested', 'publishing', 'needs_confirmation') AND error_code IS NULL AND next_action IS NULL))\n) STRICT;\nCREATE INDEX IF NOT EXISTS idx_github_personal_publication_owner_session\n  ON github_personal_publication_requests(owner_profile_id, session_id, created_at_ms);\nCREATE INDEX IF NOT EXISTS idx_github_personal_publication_pending\n  ON github_personal_publication_requests(status, updated_at_ms, request_id);\n\n-- Older readers validate both local receipt tables exactly. Their immutable\n-- lifecycle binding stays in a first-use companion so those schemas remain readable.\nCREATE TABLE IF NOT EXISTS github_publication_session_lifecycles (\n  publication_kind TEXT NOT NULL CHECK (publication_kind IN ('shared', 'personal')),\n  request_id TEXT NOT NULL,\n  lifecycle_revision TEXT,\n  requester_authority_json TEXT,\n  PRIMARY KEY (publication_kind, request_id)\n) STRICT;\n\n-- One active, opaque admission credential per worker environment. Plaintext\n-- may be retried until delivery acknowledgement but never enters durable state.\nCREATE TABLE IF NOT EXISTS worker_environment_credentials (\n  environment_id TEXT NOT NULL PRIMARY KEY,\n  credential_hash TEXT NOT NULL UNIQUE,\n  bundle_hash TEXT NOT NULL,\n  session_id TEXT,\n  rpc_set_version INTEGER NOT NULL CHECK (rpc_set_version >= 1),\n  owner_epoch INTEGER NOT NULL CHECK (owner_epoch >= 0),\n  expires_at_ms INTEGER NOT NULL CHECK (expires_at_ms >= 0),\n  delivered_at_ms INTEGER CHECK (delivered_at_ms >= 0),\n  FOREIGN KEY (environment_id) REFERENCES worker_environments(environment_id) ON DELETE CASCADE\n) STRICT;\n\n-- One durable sequence cursor per attached session owner epoch. The environment\n-- binding prevents independent workers with coincident epochs from sharing replay state.\nCREATE TABLE IF NOT EXISTS worker_transcript_commit_heads (\n  session_id TEXT NOT NULL,\n  run_epoch INTEGER NOT NULL CHECK (run_epoch >= 0),\n  environment_id TEXT NOT NULL,\n  next_seq INTEGER NOT NULL CHECK (next_seq >= 1),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= 0),\n  PRIMARY KEY (session_id, run_epoch)\n) STRICT;\n\n-- Pending rows preserve a claimed request across gateway restarts. Terminal rows\n-- cache the exact result returned for deterministic at-least-once replay.\nCREATE TABLE IF NOT EXISTS worker_transcript_commits (\n  session_id TEXT NOT NULL,\n  run_epoch INTEGER NOT NULL CHECK (run_epoch >= 0),\n  seq INTEGER NOT NULL CHECK (seq >= 1),\n  request_hash TEXT NOT NULL,\n  state TEXT NOT NULL CHECK (state IN ('pending', 'terminal')),\n  result_json TEXT,\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= 0),\n  PRIMARY KEY (session_id, run_epoch, seq),\n  FOREIGN KEY (session_id, run_epoch)\n    REFERENCES worker_transcript_commit_heads(session_id, run_epoch)\n    ON DELETE CASCADE,\n  CHECK (\n    (state = 'pending' AND result_json IS NULL) OR\n    (state = 'terminal' AND result_json IS NOT NULL)\n  )\n) STRICT;\n\n-- Pending rows preserve a claimed inference turn across gateway restarts.\n-- Terminal rows cache the exact outcome returned for deterministic replay.\nCREATE TABLE IF NOT EXISTS worker_inference_turns (\n  session_id TEXT NOT NULL,\n  run_epoch INTEGER NOT NULL CHECK (run_epoch >= 0),\n  run_id TEXT NOT NULL,\n  turn_id TEXT NOT NULL,\n  environment_id TEXT NOT NULL,\n  request_hash TEXT NOT NULL,\n  state TEXT NOT NULL CHECK (state IN ('pending', 'terminal')),\n  terminal_json TEXT,\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= 0),\n  PRIMARY KEY (session_id, run_epoch, run_id, turn_id),\n  FOREIGN KEY (environment_id) REFERENCES worker_environments(environment_id) ON DELETE CASCADE,\n  CHECK (\n    (state = 'pending' AND terminal_json IS NULL) OR\n    (state = 'terminal' AND terminal_json IS NOT NULL)\n  )\n) STRICT;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_worker_inference_turns_pending_run\n  ON worker_inference_turns(session_id, run_epoch, run_id)\n  WHERE state = 'pending';\n\nCREATE TABLE IF NOT EXISTS claw_installs (\n  agent_id TEXT NOT NULL PRIMARY KEY,\n  schema_version TEXT NOT NULL,\n  source_kind TEXT NOT NULL,\n  claw_name TEXT NOT NULL,\n  claw_version TEXT NOT NULL,\n  package_root TEXT NOT NULL,\n  manifest_path TEXT NOT NULL,\n  integrity_kind TEXT NOT NULL,\n  integrity TEXT NOT NULL,\n  source_byte_length INTEGER NOT NULL,\n  manifest_schema_version INTEGER NOT NULL,\n  plan_integrity TEXT NOT NULL,\n  workspace TEXT NOT NULL UNIQUE,\n  agent_config_digest TEXT NOT NULL,\n  agent_owned_paths_json TEXT NOT NULL,\n  bootstrap_source_path TEXT,\n  bootstrap_content_digest TEXT,\n  status TEXT NOT NULL CHECK (\n    status IN ('pending', 'workspace_ready', 'config_committed', 'complete', 'partial')\n  ),\n  added_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS claw_workspace_files (\n  agent_id TEXT NOT NULL,\n  target_path TEXT NOT NULL,\n  schema_version TEXT NOT NULL,\n  workspace TEXT NOT NULL,\n  source_path TEXT NOT NULL,\n  content_digest TEXT NOT NULL,\n  status TEXT NOT NULL,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (agent_id, target_path)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS claw_package_refs (\n  agent_id TEXT NOT NULL,\n  package_kind TEXT NOT NULL,\n  package_source TEXT NOT NULL,\n  package_ref TEXT NOT NULL,\n  package_version TEXT NOT NULL,\n  package_integrity TEXT NOT NULL,\n  schema_version TEXT NOT NULL,\n  claw_name TEXT NOT NULL,\n  package_status TEXT NOT NULL,\n  relationship TEXT NOT NULL CHECK (relationship IN ('managed', 'referenced')),\n  origin TEXT NOT NULL CHECK (origin IN ('claw-introduced', 'pre-existing')),\n  independent_owner INTEGER NOT NULL CHECK (independent_owner IN (0, 1)),\n  extension_id TEXT,\n  extension_format TEXT,\n  extension_detected_format TEXT,\n  extension_mapped_json TEXT,\n  extension_unavailable_json TEXT,\n  extension_adapter_identity TEXT,\n  installed_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (agent_id, package_kind, package_source, package_ref, package_version)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS claw_cron_refs (\n  agent_id TEXT NOT NULL,\n  manifest_id TEXT NOT NULL,\n  schema_version TEXT NOT NULL,\n  declaration_key TEXT NOT NULL UNIQUE,\n  scheduler_job_id TEXT UNIQUE,\n  status TEXT NOT NULL,\n  job_json TEXT NOT NULL,\n  error TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (agent_id, manifest_id)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS claw_mcp_server_refs (\n  agent_id TEXT NOT NULL,\n  name TEXT NOT NULL,\n  schema_version TEXT NOT NULL,\n  config_digest TEXT NOT NULL,\n  relationship TEXT NOT NULL CHECK (relationship IN ('managed', 'referenced')),\n  origin TEXT NOT NULL CHECK (origin IN ('claw-introduced', 'pre-existing')),\n  independent_owner INTEGER NOT NULL DEFAULT 0 CHECK (independent_owner IN (0, 1)),\n  status TEXT NOT NULL,\n  error TEXT,\n  created_at_ms INTEGER NOT NULL,\n  updated_at_ms INTEGER NOT NULL,\n  PRIMARY KEY (agent_id, name)\n) STRICT;\n\nCREATE TABLE IF NOT EXISTS user_profile_identities (\n  provider TEXT NOT NULL,\n  subject TEXT NOT NULL,\n  profile_id TEXT NOT NULL,\n  canonical_login TEXT,\n  created_at INTEGER NOT NULL,\n  authorization_id TEXT,\n  authorization_basis_json TEXT,\n  PRIMARY KEY (provider, subject)\n) STRICT;\nCREATE INDEX IF NOT EXISTS idx_user_profile_identities_profile_id\n  ON user_profile_identities(profile_id);\nCREATE UNIQUE INDEX IF NOT EXISTS idx_user_profile_identities_authorization\n  ON user_profile_identities(authorization_id);\n\nCREATE TABLE IF NOT EXISTS outbound_media_provenance (\n  realpath TEXT NOT NULL PRIMARY KEY,\n  kind TEXT NOT NULL,\n  version INTEGER NOT NULL,\n  sha256 TEXT NOT NULL,\n  size_bytes INTEGER NOT NULL,\n  created_at_ms INTEGER NOT NULL\n) STRICT;\n\n-- scope_id is non-null because SQLite treats NULLs as distinct in unique indexes/PKs,\n-- which would allow duplicate team rows. This PK also avoids a rebuild for identity scope.\nCREATE TABLE IF NOT EXISTS secret_store_entries (\n  scope_kind TEXT NOT NULL CHECK (scope_kind IN ('team', 'identity')),\n  scope_id TEXT NOT NULL,\n  name TEXT NOT NULL,\n  value TEXT NOT NULL,\n  kind TEXT NOT NULL CHECK (kind IN ('secret', 'env')),\n  created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),\n  updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= 0),\n  updated_by TEXT,\n  deleted_at_ms INTEGER,\n  allowed_hosts TEXT,\n  CHECK ((scope_kind = 'team' AND scope_id = '') OR (scope_kind = 'identity' AND length(scope_id) > 0)),\n  PRIMARY KEY (scope_kind, scope_id, name)\n) STRICT;\nCREATE INDEX IF NOT EXISTS secret_store_entries_live_idx\n  ON secret_store_entries (scope_kind, scope_id, name) WHERE deleted_at_ms IS NULL;\n";
+//#endregion
+//#region src/state/openclaw-database-seal-schema.ts
+function sqliteDatabaseSealSchemaFor(version = VERSION) {
+	return createHash("sha256").update(JSON.stringify([2, version])).update(OPENCLAW_AGENT_SCHEMA_SQL).update(OPENCLAW_STATE_SCHEMA_SQL).digest("hex");
+}
+//#endregion
+//#region src/infra/sqlite-clean-close-seal.ts
+const fullVerificationIntervalMs = 6048e5;
+function fileFields(file) {
+	return {
+		dev: file.dev.toString(),
+		ino: file.ino.toString(),
+		birthtime: readDatabaseIdentityBirthtime(file),
+		size: file.size.toString(),
+		mtimeNs: file.mtimeNs.toString()
+	};
+}
+function checksum(payload) {
+	return createHash("sha256").update(payload).digest("hex").slice(0, 16);
+}
+function hasNoJournal(pathname) {
+	return ["-wal", "-journal"].every((suffix) => {
+		try {
+			const file = fs.statSync(`${pathname}${suffix}`, { bigint: true });
+			return file.isFile() && file.size === 0n;
+		} catch (error) {
+			if (hasErrnoCode(error, "ENOENT")) return true;
+			throw error;
+		}
+	});
+}
+/** The caller supplies fstat from its retained descriptor; closing a new one can release SQLite locks. */
+function readSqliteCleanCloseSeal(pathname, schemaIdentity, file) {
+	try {
+		const sealPath = `${pathname}.seal`;
+		if (!fs.lstatSync(sealPath).isFile()) return;
+		const envelope = JSON.parse(fs.readFileSync(sealPath, "utf8"));
+		if (!isRecord(envelope) || typeof envelope.payload !== "string" || envelope.checksum !== checksum(envelope.payload)) return;
+		const payload = JSON.parse(envelope.payload);
+		if (!isRecord(payload) || payload.version !== 1 || payload.schemaIdentity !== schemaIdentity || typeof payload.verifiedAt !== "number" || !Number.isSafeInteger(payload.verifiedAt) || !("facts" in payload) || !file.isFile()) return;
+		const age = Date.now() - payload.verifiedAt;
+		if (age < 0 || age > fullVerificationIntervalMs || !Object.entries(fileFields(file)).every(([key, value]) => payload[key] === value) || !hasNoJournal(pathname)) return;
+		return {
+			verifiedAt: payload.verifiedAt,
+			facts: payload.facts
+		};
+	} catch {
+		return;
+	}
+}
+function invalidateSqliteCleanCloseSeal(pathname) {
+	try {
+		fs.unlinkSync(`${pathname}.seal`);
+	} catch (error) {
+		if (!hasErrnoCode(error, "ENOENT")) throw error;
+	}
+}
+function writeSqliteCleanCloseSeal(pathname, schemaIdentity, file, proof) {
+	try {
+		const sealPath = `${pathname}.seal`;
+		const existing = fs.lstatSync(sealPath, { throwIfNoEntry: false });
+		if (!file.isFile() || existing && !existing.isFile() || !hasNoJournal(pathname)) {
+			invalidateSqliteCleanCloseSeal(pathname);
+			return false;
+		}
+		const payload = JSON.stringify({
+			version: 1,
+			schemaIdentity,
+			...fileFields(file),
+			verifiedAt: proof.verifiedAt,
+			facts: proof.facts
+		});
+		fs.writeFileSync(sealPath, JSON.stringify({
+			payload,
+			checksum: checksum(payload)
+		}));
+		return true;
+	} catch {
+		try {
+			invalidateSqliteCleanCloseSeal(pathname);
+		} catch {}
+		return false;
+	}
+}
+//#endregion
+//#region src/infra/sqlite-database-admission-seal.ts
+const SQLITE_DATABASE_SEAL_SCHEMA = sqliteDatabaseSealSchemaFor();
+const integrityVerificationKey = {
+	name: "sqlite.full-verification",
+	read: (value) => typeof value === "number" && Number.isSafeInteger(value) ? value : void 0
+};
+const sealedKeys = /* @__PURE__ */ new Set([
+	"sqlite-schema",
+	"sqlite.full-verification",
+	"state.schema-version",
+	"state.runtime-schema",
+	"state.integrity",
+	"agent.completed-validation",
+	"agent.canonical-validation-receipt",
+	"agent.schema-metadata"
+]);
+function isSealedKey(name) {
+	return sealedKeys.has(name) || name.startsWith("memory.index-schema:");
+}
+function encodeSealValue(_key, value) {
+	if (value instanceof Map) return {
+		sealType: "map",
+		entries: [...value]
+	};
+	if (value instanceof Set) return {
+		sealType: "set",
+		entries: [...value]
+	};
+	if (value instanceof SharedArrayBuffer) return {
+		sealType: "shared",
+		entries: [...new Int32Array(value)]
+	};
+	return value;
+}
+function decodeSealValue(_key, value) {
+	if (!isRecord(value) || !Array.isArray(value.entries)) return value;
+	if (value.sealType === "map") return new Map(value.entries);
+	if (value.sealType === "set") return new Set(value.entries);
+	if (value.sealType === "shared") {
+		const shared = new SharedArrayBuffer(value.entries.length * Int32Array.BYTES_PER_ELEMENT);
+		new Int32Array(shared).set(value.entries);
+		return shared;
+	}
+	return value;
+}
+var SqliteDatabaseCleanCloseSeals = class {
+	constructor(publishFact, references) {
+		this.publishFact = publishFact;
+		this.references = references;
+		this.loaded = /* @__PURE__ */ new WeakSet();
+	}
+	markCreated(record) {
+		this.loaded.add(record);
+	}
+	load(record) {
+		if (threadId !== 0) return;
+		if (this.loaded.has(record)) return;
+		this.loaded.add(record);
+		const seal = readSqliteCleanCloseSeal(record.location, SQLITE_DATABASE_SEAL_SCHEMA, fs.fstatSync(record.descriptor, { bigint: true }));
+		if (!seal || typeof seal.facts !== "string") return;
+		try {
+			const facts = JSON.parse(seal.facts, decodeSealValue);
+			if (!Array.isArray(facts) || !facts.every((entry) => Array.isArray(entry) && entry.length === 3 && typeof entry[0] === "string" && isSealedKey(entry[0]) && typeof entry[1] === "boolean") || !facts.some(([name, , value]) => name === integrityVerificationKey.name && value === seal.verifiedAt) || !facts.some(([name, , value]) => name === "sqlite-schema" && isRecord(value))) return;
+			const schema = facts.find(([name]) => name === "sqlite-schema")?.[2];
+			if (!(schema.tableSql instanceof Map) || hasPendingAgentStartupColumns(schema.tableSql)) return;
+			for (const [name, schemaDependent, value] of facts) this.publishFact(record, {
+				name,
+				schemaDependent
+			}, value, readSqliteDatabaseFactRevision(record, schemaDependent));
+			Atomics.store(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.sealPresent, 1);
+		} catch {}
+	}
+	invalidate(location, record) {
+		invalidateSqliteCleanCloseSeal(record?.location ?? location);
+		if (record) Atomics.store(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.sealPresent, 0);
+	}
+	prepare(database, record, verifiedAt) {
+		const publish = this.preparePublication(database, record, verifiedAt);
+		if (record) this.references.retain(record);
+		let retained = record;
+		return {
+			publish: () => retained !== void 0 && publish(),
+			[Symbol.dispose]: () => {
+				const released = retained;
+				retained = void 0;
+				if (released) this.references.release(released);
+			}
+		};
+	}
+	preparePublication(database, record, verifiedAt) {
+		if (!record || database.isTransaction) return () => false;
+		if (verifiedAt === void 0) return () => false;
+		const facts = [...record.facts].filter(([name, fact]) => isSealedKey(name) && isSqliteDatabaseAdmissionFactCurrent(record, fact));
+		if (!facts.some(([name]) => name === "sqlite-schema")) return () => false;
+		const serialized = JSON.stringify(facts.map(([name, fact]) => [
+			name,
+			fact.schemaDependent,
+			fact.value
+		]), encodeSealValue);
+		return () => {
+			if (database.isOpen || readSqliteDatabaseGeneration(record, "retired") !== 0 || facts.some(([, fact]) => Atomics.load(new Int32Array(fact.current), 0) !== 1 || fact.revision !== readSqliteDatabaseFactRevision(record, fact.schemaDependent))) return false;
+			try {
+				const file = fs.fstatSync(record.descriptor, { bigint: true });
+				if (readSqliteDatabaseAdmissionIdentity(fs.statSync(record.location, { bigint: true })) !== record.identity) return false;
+				const written = writeSqliteCleanCloseSeal(record.location, SQLITE_DATABASE_SEAL_SCHEMA, file, {
+					verifiedAt,
+					facts: serialized
+				});
+				Atomics.store(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.sealPresent, written ? 1 : 0);
+				return written;
+			} catch {
+				return false;
+			}
+		};
+	}
+};
+//#endregion
+//#region src/global-state.ts
+let globalVerbose = false;
+function isVerbose() {
+	return globalVerbose;
+}
+//#endregion
+//#region src/infra/diagnostic-event-listener-presence.ts
+/** Process-wide listener counts used to avoid telemetry work without consumers. */
+const DIAGNOSTIC_EVENT_LISTENER_PRESENCE_KEY = Symbol.for("openclaw.diagnosticEventListenerPresence.v1");
+function getDiagnosticEventListenerPresence() {
+	const state = resolveGlobalSingleton(DIAGNOSTIC_EVENT_LISTENER_PRESENCE_KEY, () => ({
+		broadInterestCount: 0,
+		eventInterestDeltas: /* @__PURE__ */ new Map(),
+		marker: DIAGNOSTIC_EVENT_LISTENER_PRESENCE_KEY,
+		internalCount: 0,
+		trustedCount: 0
+	}));
+	state.broadInterestCount ??= 0;
+	state.eventInterestDeltas ??= /* @__PURE__ */ new Map();
+	return state;
+}
+function isInternalDiagnosticEventInterested(interest, type, trusted) {
+	return (!interest?.include || interest.include.includes(type)) && !interest?.exclude?.includes(type) && (!trusted || !interest?.includeTrusted || interest.includeTrusted.includes(type));
+}
+function hasInternalDiagnosticEventInterest(type) {
+	const state = getDiagnosticEventListenerPresence();
+	return state.broadInterestCount + (state.eventInterestDeltas.get(type) ?? 0) > 0;
+}
+//#endregion
+//#region src/infra/diagnostic-event-snapshot.ts
+function createDiagnosticMetadataForListener(metadata) {
+	return Object.freeze({ ...metadata });
+}
+function cloneDiagnosticValueForListener(value) {
+	return deepFreezeDiagnosticValue(structuredClone(value));
+}
+function deepFreezeDiagnosticValue(value, seen = /* @__PURE__ */ new WeakSet()) {
+	if (!value || typeof value !== "object") return value;
+	if (seen.has(value)) return value;
+	seen.add(value);
+	for (const nested of Array.isArray(value) ? value : Object.values(value)) deepFreezeDiagnosticValue(nested, seen);
+	return Object.freeze(value);
+}
+//#endregion
+//#region src/infra/diagnostic-model-request-provenance.ts
+const CORE_MODEL_REQUEST_LIFECYCLE_METADATA_KEY = "coreModelRequestLifecycle";
+//#endregion
+//#region src/infra/diagnostic-otel-listener-provenance.ts
+const trustedOtelDiagnosticListeners = /* @__PURE__ */ new WeakSet();
+function isTrustedOtelDiagnosticListener(listener) {
+	return trustedOtelDiagnosticListeners.has(listener);
+}
+//#endregion
+//#region src/infra/diagnostic-semantic-run-progress-provenance.ts
+const CORE_SEMANTIC_RUN_PROGRESS_METADATA_KEY = "coreSemanticRunProgress";
+//#endregion
+//#region src/infra/diagnostic-tool-execution-liveness.ts
+const TOOL_EXECUTION_LIVENESS_METADATA_KEY = "toolExecutionLiveness";
+resolveGlobalSingleton(Symbol.for("openclaw.diagnosticToolExecutionLiveness"), () => ({
+	context: new AsyncLocalStorage(),
+	events: /* @__PURE__ */ new WeakMap()
+}));
+//#endregion
+//#region src/infra/diagnostic-trace-context.ts
+const TRACE_ID_RE = /^[0-9a-f]{32}$/;
+const SPAN_ID_RE = /^[0-9a-f]{16}$/;
+const TRACE_FLAGS_RE = /^[0-9a-f]{2}$/;
+const DIAGNOSTIC_TRACE_SCOPE_STATE_KEY = Symbol.for("openclaw.diagnosticTraceScope.state.v1");
+function isNonZeroHex(value) {
+	return !/^0+$/.test(value);
+}
+function getDiagnosticTraceScopeState() {
+	return resolveGlobalSingleton(DIAGNOSTIC_TRACE_SCOPE_STATE_KEY, () => ({
+		marker: DIAGNOSTIC_TRACE_SCOPE_STATE_KEY,
+		storage: new AsyncLocalStorage()
+	}));
+}
+/** Returns whether a value is a non-zero W3C trace id. */
+function isValidDiagnosticTraceId(value) {
+	return typeof value === "string" && TRACE_ID_RE.test(value) && isNonZeroHex(value);
+}
+/** Returns whether a value is a non-zero W3C span id. */
+function isValidDiagnosticSpanId(value) {
+	return typeof value === "string" && SPAN_ID_RE.test(value) && isNonZeroHex(value);
+}
+/** Returns whether a value is a valid W3C trace-flags byte. */
+function isValidDiagnosticTraceFlags(value) {
+	return typeof value === "string" && TRACE_FLAGS_RE.test(value);
+}
+/** Returns the trace context bound to the current async scope. */
+function getActiveDiagnosticTraceContext() {
+	return getDiagnosticTraceScopeState().storage.getStore();
+}
+//#endregion
+//#region src/infra/diagnostic-trace-propagation.ts
+const DIAGNOSTIC_TRACE_PROPAGATION_STATE_KEY = Symbol.for("openclaw.diagnosticTracePropagation.state.v1");
+function getDiagnosticTracePropagationState() {
+	return resolveGlobalSingleton(DIAGNOSTIC_TRACE_PROPAGATION_STATE_KEY, () => ({
+		marker: DIAGNOSTIC_TRACE_PROPAGATION_STATE_KEY,
+		bridges: /* @__PURE__ */ new Set()
+	}));
+}
+function activeDiagnosticTracePropagationBridge() {
+	let active;
+	for (const bridge of getDiagnosticTracePropagationState().bridges) active = bridge;
+	return active;
+}
+function shouldPrepareDiagnosticTracePropagation(event) {
+	const bridge = activeDiagnosticTracePropagationBridge();
+	if (!bridge?.prepareEvent) return false;
+	if (!bridge.shouldPrepareEvent) return true;
+	try {
+		return bridge.shouldPrepareEvent(event);
+	} catch (error) {
+		console.error(`[diagnostic-trace-propagation] prepare filter error: ${String(error)}`);
+		return false;
+	}
+}
+function prepareDiagnosticTracePropagation(event, metadata) {
+	const bridge = activeDiagnosticTracePropagationBridge();
+	if (!bridge?.prepareEvent) return;
+	try {
+		bridge.prepareEvent(event, metadata);
+	} catch (error) {
+		console.error(`[diagnostic-trace-propagation] prepare error type=${event.type} seq=${event.seq}: ${String(error)}`);
+	}
+}
+//#endregion
+//#region src/infra/runtime-process-manifest.ts
+function createRuntimeProcessEntrypoints(currentModuleUrl) {
+	function runtimeProcessEntrypoint(modulePath) {
+		return {
+			currentModuleUrl,
+			sourceWorkerName: modulePath.startsWith("infra/") ? modulePath.slice(6) : `../${modulePath}`,
+			distWorkerPath: `${modulePath}.js`
+		};
+	}
+	return {
+		sqliteHeaderProbe: runtimeProcessEntrypoint("infra/sqlite-header-probe.worker"),
+		postgresBridge: runtimeProcessEntrypoint("infra/postgres-sync/bridge.worker"),
+		secretEgressProxy: runtimeProcessEntrypoint("secrets/egress-proxy/proxy.worker"),
+		codeModeNode: runtimeProcessEntrypoint("agents/code-mode-node.worker"),
+		cronReadOnly: runtimeProcessEntrypoint("cron/store/read-only.worker"),
+		stateRead: runtimeProcessEntrypoint("state/openclaw-state-read.worker"),
+		workerNativeLifecycle: runtimeProcessEntrypoint("infra/worker-native-lifecycle.worker"),
+		spawnBroker: runtimeProcessEntrypoint("process/spawn-broker/worker"),
+		cronStreamMatcher: runtimeProcessEntrypoint("gateway/cron-stream-matcher.worker"),
+		controlUiFile: runtimeProcessEntrypoint("gateway/control-ui-file.worker"),
+		publicSessionCard: runtimeProcessEntrypoint("gateway/control-ui-public-session-card.worker"),
+		nodeBootstrapArtifact: runtimeProcessEntrypoint("gateway/worker-environments/node-bootstrap-artifact.worker"),
+		nativeHookRelayClient: runtimeProcessEntrypoint("agents/harness/native-hook-relay-client.worker"),
+		computerHost: runtimeProcessEntrypoint("gateway/desktop/computer.worker"),
+		imageProcessor: runtimeProcessEntrypoint("media/image-processor.worker"),
+		fileToolPlanning: runtimeProcessEntrypoint("agents/sessions/tools/file-tool-planning.worker"),
+		fileToolRead: runtimeProcessEntrypoint("agents/sessions/tools/read-file.worker"),
+		attachmentProcessor: runtimeProcessEntrypoint("media/attachment-processor.worker"),
+		gitOperations: runtimeProcessEntrypoint("infra/git-operation.worker"),
+		gitPackCleanup: runtimeProcessEntrypoint("agents/worktrees/git-pack-cleanup.worker"),
+		fsSafeCopy: runtimeProcessEntrypoint("infra/fs-safe-copy.worker"),
+		sharedStateStore: runtimeProcessEntrypoint("state/openclaw-state.worker"),
+		authProfileInlineUsage: runtimeProcessEntrypoint("agents/auth-profiles/inline-usage.worker"),
+		pluginModelCatalogCredentials: runtimeProcessEntrypoint("agents/plugin-model-catalog.worker"),
+		agentDatabaseExecution: runtimeProcessEntrypoint("state/openclaw-agent-execution.worker"),
+		workspaceMemory: runtimeProcessEntrypoint("worker/memory-worker-entry"),
+		localAgentAvatar: runtimeProcessEntrypoint("agents/identity-avatar-file.worker"),
+		identityFile: runtimeProcessEntrypoint("agents/identity-file.worker"),
+		workspaceSkills: runtimeProcessEntrypoint("worker/skills-worker-entry"),
+		skillsDiscovery: runtimeProcessEntrypoint("skills/runtime/discovery.worker"),
+		boardStore: runtimeProcessEntrypoint("boards/sqlite-board-store.worker"),
+		progressCardStore: runtimeProcessEntrypoint("session-cards/progress-card-store.worker"),
+		sessionSharingStore: runtimeProcessEntrypoint("config/sessions/session-sharing-store.worker"),
+		sessionForkDomain: runtimeProcessEntrypoint("config/sessions/session-fork-domain.worker"),
+		sessionGoalOperations: runtimeProcessEntrypoint("config/sessions/goals-operations.worker"),
+		sessionLifecyclePlanningDomain: runtimeProcessEntrypoint("config/sessions/session-lifecycle-projection.worker"),
+		sessionMessageRewriteDomain: runtimeProcessEntrypoint("config/sessions/session-message-rewrite.worker"),
+		sessionDiskBudget: runtimeProcessEntrypoint("config/sessions/disk-budget.worker"),
+		heartbeatOutcomeStore: runtimeProcessEntrypoint("infra/heartbeat-outcome-store.worker"),
+		acpParentStreamStore: runtimeProcessEntrypoint("agents/subagents/spawn/acp-parent-stream-store.worker"),
+		messageToolRunOutcomeStore: runtimeProcessEntrypoint("infra/message-tool-run-outcome-store.worker"),
+		contextEngineTurnOutbox: runtimeProcessEntrypoint("agents/harness/context-engine-turn-outbox.worker"),
+		sqliteStore: runtimeProcessEntrypoint("infra/sqlite-store.worker"),
+		sqliteWriterAdmission: runtimeProcessEntrypoint("infra/sqlite-writer-admission.worker"),
+		agentSchemaInspection: runtimeProcessEntrypoint("state/openclaw-agent-schema-inspection.worker"),
+		stateMigrationSnapshot: runtimeProcessEntrypoint("infra/state-migrations.snapshot.worker"),
+		githubExec: runtimeProcessEntrypoint("agents/github-exec-launcher"),
+		sqliteReadOnly: runtimeProcessEntrypoint("infra/sqlite-readonly-location.worker"),
+		sqliteSnapshotStaging: runtimeProcessEntrypoint("infra/sqlite-snapshot-staging.worker"),
+		sqliteReadOnlyNativeResource: runtimeProcessEntrypoint("infra/sqlite-readonly-native-resource"),
+		sqliteSourceRevision: runtimeProcessEntrypoint("infra/sqlite-source-revision.worker"),
+		sqliteIntegrity: runtimeProcessEntrypoint("infra/sqlite-integrity.worker"),
+		sqliteCloseProbe: runtimeProcessEntrypoint("infra/bun-sqlite-close-probe.worker"),
+		preparedModelCatalog: runtimeProcessEntrypoint("agents/prepared-model-catalog.worker"),
+		providerPromptState: runtimeProcessEntrypoint("agents/embedded-agent-runner/provider-prompt-state.worker"),
+		updateRepair: runtimeProcessEntrypoint("infra/update-repair.worker"),
+		immutableBuild: runtimeProcessEntrypoint("infra/update-immutable-build.worker"),
+		updateMigratedFinalize: runtimeProcessEntrypoint("infra/update-migrated-finalize.worker"),
+		updateCandidateState: runtimeProcessEntrypoint("infra/update-candidate-state.worker"),
+		doctorLint: runtimeProcessEntrypoint("commands/doctor-lint.worker"),
+		doctor: runtimeProcessEntrypoint("commands/doctor.worker"),
+		databaseVerify: runtimeProcessEntrypoint("state/openclaw-database-verify.worker"),
+		stateOwnership: runtimeProcessEntrypoint("state/openclaw-state-ownership.worker"),
+		stateLeaseHeartbeat: runtimeProcessEntrypoint("state/openclaw-state-lease-heartbeat.worker"),
+		gatewayStateOwnerHeartbeat: runtimeProcessEntrypoint("infra/gateway-state-owner-heartbeat.worker"),
+		sessionTranscriptArchive: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-archive.worker"),
+		sessionTranscript: runtimeProcessEntrypoint("config/sessions/session-transcript.worker"),
+		workerTranscriptCommit: runtimeProcessEntrypoint("gateway/worker-environments/transcript-commit.worker"),
+		sessionManagerMetadata: runtimeProcessEntrypoint("agents/sessions/session-manager-metadata.worker"),
+		sessionTranscriptProjectionPublication: runtimeProcessEntrypoint("config/sessions/session-transcript-projection-publication.worker"),
+		sessionTranscriptReports: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-transcript-reports.worker"),
+		sessionTranscriptReconcile: runtimeProcessEntrypoint("config/sessions/session-transcript-reconcile.worker"),
+		tailscaleRouteOwner: runtimeProcessEntrypoint("infra/tailscale-route-owner.worker"),
+		serviceChildRelay: runtimeProcessEntrypoint("process/supervisor/service-child-relay"),
+		terminalPty: runtimeProcessEntrypoint("process/terminal-pty-worker"),
+		serviceChildGroupAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-group-anchor"),
+		serviceChildWindowsJobAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-windows-job-anchor"),
+		bunSqliteLibrary: runtimeProcessEntrypoint("infra/bun-sqlite-library")
+	};
+}
+var init_runtime_process_manifest = __esmMin((() => {}));
+//#endregion
+//#region src/infra/worker-diagnostic-script.ts
+init_runtime_process_manifest();
+const workerScriptNames = /* @__PURE__ */ new Set([
+	...Object.values(createRuntimeProcessEntrypoints(import.meta.url)).map((entry) => basename(entry.distWorkerPath)),
+	"catalog-page.worker.js",
+	"code-mode.worker.js",
+	"disk-budget.worker.js",
+	"document-extractor.worker.js",
+	"manager-index.worker.js",
+	"manager-search.worker.js",
+	"memory-index.worker.js",
+	"memory-search.worker.js",
+	"session-history.worker.js",
+	"audio-worker.runtime.js",
+	"realtime-quicksilver-audio.worker.js",
+	"realtime-quicksilver-socket.worker.js",
+	"telegram-ingress-worker.runtime.js"
+]);
+/** Imported diagnostics may contain arbitrary paths or names. Preserve only known scripts. */
+function normalizeDiagnosticWorkerScript(value) {
+	return typeof value === "string" && workerScriptNames.has(value) ? value : "other";
+}
+//#endregion
+//#region src/infra/diagnostic-events.ts
+const EMPTY_DIAGNOSTIC_PRIVATE_DATA = Object.freeze({});
+const MAX_ASYNC_DIAGNOSTIC_EVENTS = 1e4;
+const MAX_ASYNC_DIAGNOSTIC_EVENTS_PER_TURN = 100;
+const DIAGNOSTIC_EVENTS_STATE_KEY = Symbol.for("openclaw.diagnosticEvents.state.v1");
+const ASYNC_DIAGNOSTIC_EVENT_TYPES = /* @__PURE__ */ new Set([
+	"worker.request",
+	"diagnostic.gc",
+	"gateway.event_loop.sample",
+	"gateway.http.cancelled",
+	"gateway.rpc",
+	"tool.execution.started",
+	"tool.execution.completed",
+	"tool.execution.error",
+	"tool.execution.blocked",
+	"skill.used",
+	"exec.process.completed",
+	"exec.approval.followup_suppressed",
+	"message.delivery.started",
+	"message.delivery.completed",
+	"message.delivery.error",
+	"talk.event",
+	"model.call.started",
+	"model.call.completed",
+	"model.call.error",
+	"run.progress",
+	"run.execution_phase",
+	"agent.commentary",
+	"harness.run.completed",
+	"harness.run.error",
+	"context.assembled",
+	"log.record"
+]);
+const PRIORITY_ASYNC_DIAGNOSTIC_EVENT_TYPES = /* @__PURE__ */ new Set([
+	"tool.execution.completed",
+	"tool.execution.error",
+	"tool.execution.blocked",
+	"model.call.completed",
+	"model.call.error",
+	"harness.run.completed",
+	"harness.run.error"
+]);
+function getDiagnosticEventsState() {
+	const state = resolveGlobalSingleton(DIAGNOSTIC_EVENTS_STATE_KEY, () => ({
+		marker: DIAGNOSTIC_EVENTS_STATE_KEY,
+		enabled: true,
+		seq: 0,
+		listeners: /* @__PURE__ */ new Map(),
+		trustedListeners: /* @__PURE__ */ new Map(),
+		toolExecutionListeners: /* @__PURE__ */ new Set(),
+		toolExecutionSeq: 0,
+		dispatchDepth: 0,
+		asyncQueue: [],
+		asyncDrainScheduled: false,
+		asyncDroppedEvents: 0,
+		asyncDroppedTrustedEvents: 0,
+		asyncDroppedUntrustedEvents: 0,
+		asyncDroppedPriorityEvents: 0
+	}));
+	state.asyncDroppedEvents ??= 0;
+	state.asyncDroppedTrustedEvents ??= 0;
+	state.asyncDroppedUntrustedEvents ??= 0;
+	state.asyncDroppedPriorityEvents ??= 0;
+	state.toolExecutionListeners ??= /* @__PURE__ */ new Set();
+	state.toolExecutionSeq ??= 0;
+	return state;
+}
+/** Returns the current process-wide diagnostic dispatcher enable flag. */
+function areDiagnosticsEnabledForProcess() {
+	return getDiagnosticEventsState().enabled;
+}
+function dispatchDiagnosticEvent(state, enriched, metadata, privateData, options = {}) {
+	if (state.dispatchDepth > 100) {
+		console.error(`[diagnostic-events] recursion guard tripped at depth=${state.dispatchDepth}, dropping type=${enriched.type}`);
+		return;
+	}
+	state.dispatchDepth += 1;
+	try {
+		if (!options.trustedListenersOnly) for (const [listener, interest] of state.listeners) {
+			if (!isInternalDiagnosticEventInterested(interest, enriched.type, metadata.trusted)) continue;
+			try {
+				listener(cloneDiagnosticValueForListener(enriched), createDiagnosticMetadataForListener(metadata));
+			} catch (err) {
+				const errorMessage = err instanceof Error ? err.stack ?? err.message : String(err);
+				console.error(`[diagnostic-events] listener error type=${enriched.type} seq=${enriched.seq}: ${errorMessage}`);
+			}
+		}
+		for (const [listener, interest] of state.trustedListeners) {
+			if (!isInternalDiagnosticEventInterested(interest, enriched.type, metadata.trusted)) continue;
+			try {
+				const eventForListener = cloneDiagnosticValueForListener(enriched);
+				const metadataForListener = createDiagnosticMetadataForListener(metadata);
+				if (interest?.includePrivateData === false) listener(eventForListener, metadataForListener, EMPTY_DIAGNOSTIC_PRIVATE_DATA);
+				else if (isTrustedOtelDiagnosticListener(listener)) {
+					const cloned = structuredClone(privateData ?? {});
+					Reflect.deleteProperty(cloned, "hostPluginId");
+					listener(eventForListener, metadataForListener, deepFreezeDiagnosticValue(options.hostPluginId ? Object.assign(cloned, { hostPluginId: options.hostPluginId }) : cloned));
+				} else listener(eventForListener, metadataForListener, privateData ? cloneDiagnosticValueForListener(privateData) : Object.freeze({}));
+			} catch (err) {
+				const errorMessage = err instanceof Error ? err.stack ?? err.message : String(err);
+				console.error(`[diagnostic-events] trusted listener error type=${enriched.type} seq=${enriched.seq}: ${errorMessage}`);
+			}
+		}
+	} finally {
+		state.dispatchDepth -= 1;
+	}
+}
+function isPriorityAsyncDiagnosticEvent(entry) {
+	return entry.metadata.trusted && PRIORITY_ASYNC_DIAGNOSTIC_EVENT_TYPES.has(entry.event.type);
+}
+function noteAsyncDiagnosticDrop(state, entry) {
+	state.asyncDroppedEvents += 1;
+	if (entry.metadata.trusted) state.asyncDroppedTrustedEvents += 1;
+	else state.asyncDroppedUntrustedEvents += 1;
+	if (isPriorityAsyncDiagnosticEvent(entry)) state.asyncDroppedPriorityEvents += 1;
+}
+function makeRoomForPriorityAsyncDiagnosticEvent(state) {
+	const nonPriorityIndex = state.asyncQueue.findIndex((entry) => !isPriorityAsyncDiagnosticEvent(entry));
+	if (nonPriorityIndex >= 0) return state.asyncQueue.splice(nonPriorityIndex, 1)[0];
+	return state.asyncQueue.shift();
+}
+function scheduleAsyncDiagnosticDrain(state) {
+	if (state.asyncDrainScheduled) return;
+	state.asyncDrainScheduled = true;
+	setImmediate(() => {
+		state.asyncDrainScheduled = false;
+		const batch = state.asyncQueue.splice(0, MAX_ASYNC_DIAGNOSTIC_EVENTS_PER_TURN);
+		for (const entry of batch) dispatchDiagnosticEvent(state, entry.event, entry.metadata, entry.privateData, entry);
+		if (state.asyncQueue.length > 0) {
+			scheduleAsyncDiagnosticDrain(state);
+			return;
+		}
+		dispatchAsyncDiagnosticDropSummary(state);
+	});
+}
+function dispatchAsyncDiagnosticDropSummary(state) {
+	if (state.asyncDroppedEvents <= 0) return;
+	const droppedEvents = state.asyncDroppedEvents;
+	const droppedTrustedEvents = state.asyncDroppedTrustedEvents;
+	const droppedUntrustedEvents = state.asyncDroppedUntrustedEvents;
+	const droppedPriorityEvents = state.asyncDroppedPriorityEvents;
+	state.asyncDroppedEvents = 0;
+	state.asyncDroppedTrustedEvents = 0;
+	state.asyncDroppedUntrustedEvents = 0;
+	state.asyncDroppedPriorityEvents = 0;
+	dispatchDiagnosticEvent(state, enrichDiagnosticEvent(state, {
+		type: "diagnostic.async_queue.dropped",
+		droppedEvents,
+		...droppedTrustedEvents > 0 ? { droppedTrustedEvents } : {},
+		...droppedUntrustedEvents > 0 ? { droppedUntrustedEvents } : {},
+		...droppedPriorityEvents > 0 ? { droppedPriorityEvents } : {},
+		queueLength: state.asyncQueue.length,
+		maxQueueLength: MAX_ASYNC_DIAGNOSTIC_EVENTS,
+		drainBatchSize: MAX_ASYNC_DIAGNOSTIC_EVENTS_PER_TURN
+	}), createInternalDiagnosticMetadata(false));
+}
+function enrichDiagnosticEvent(state, event) {
+	const enriched = {};
+	for (const [key, value] of Object.entries(event)) {
+		if (isBlockedObjectKey(key)) continue;
+		enriched[key] = value;
+	}
+	enriched.trace ??= getActiveDiagnosticTraceContext();
+	state.seq += 1;
+	enriched.seq = state.seq;
+	enriched.ts = Date.now();
+	return enriched;
+}
+function createInternalDiagnosticMetadata(trusted) {
+	return {
+		internal: true,
+		trusted
+	};
+}
+function emitDiagnosticEventWithTrust(event, trusted, options = {}) {
+	const state = getDiagnosticEventsState();
+	if (trusted && isToolExecutionEventInput(event)) dispatchTrustedToolExecutionEvent(state, event);
+	if (!state.enabled) return;
+	if (event.type === "security.event" && options.allowSecurityEvent !== true) return;
+	const enriched = enrichDiagnosticEvent(state, event);
+	if (trusted && enriched.type === "diagnostic.gc") {
+		switch (enriched.kind) {
+			case "scavenge":
+			case "mark_sweep_compact":
+			case "incremental":
+			case "weak_processing": break;
+			default: enriched.kind = void 0;
+		}
+		enriched.thread = enriched.thread === void 0 || enriched.thread === "main" ? "main" : normalizeDiagnosticWorkerScript(enriched.thread);
+		if (enriched.thread !== "code-mode-node.worker.js" || typeof enriched.workerSlot !== "number" || !Number.isInteger(enriched.workerSlot) || enriched.workerSlot < 1 || enriched.workerSlot > 64) enriched.workerSlot = void 0;
+	}
+	const { hostPluginId, internal = false, privateData } = options;
+	const trustedTraceContext = options.trustedTraceContext === true;
+	const metadata = {
+		...internal ? createInternalDiagnosticMetadata(trusted) : { trusted },
+		...options.toolExecutionLiveness ? { [TOOL_EXECUTION_LIVENESS_METADATA_KEY]: options.toolExecutionLiveness } : {},
+		...options.coreModelRequestLifecycle ? { [CORE_MODEL_REQUEST_LIFECYCLE_METADATA_KEY]: options.coreModelRequestLifecycle } : {},
+		...options.coreSemanticRunProgress ? { [CORE_SEMANTIC_RUN_PROGRESS_METADATA_KEY]: options.coreSemanticRunProgress } : {},
+		...trustedTraceContext ? { trustedTraceContext } : {}
+	};
+	const prepareTracePropagation = trusted && !options.queuedPhase && shouldPrepareDiagnosticTracePropagation(enriched);
+	const queued = options.queuedPhase || ASYNC_DIAGNOSTIC_EVENT_TYPES.has(enriched.type);
+	if (queued) {
+		if (state.asyncQueue.length >= MAX_ASYNC_DIAGNOSTIC_EVENTS) {
+			if (!trusted || !PRIORITY_ASYNC_DIAGNOSTIC_EVENT_TYPES.has(enriched.type)) {
+				noteAsyncDiagnosticDrop(state, {
+					event: enriched,
+					metadata,
+					privateData,
+					hostPluginId
+				});
+				return;
+			}
+			const droppedEntry = makeRoomForPriorityAsyncDiagnosticEvent(state);
+			if (droppedEntry) noteAsyncDiagnosticDrop(state, droppedEntry);
+		}
+		state.asyncQueue.push({
+			event: enriched,
+			metadata,
+			privateData,
+			hostPluginId
+		});
+	}
+	if (prepareTracePropagation) prepareDiagnosticTracePropagation(cloneDiagnosticValueForListener(enriched), createDiagnosticMetadataForListener(metadata));
+	if (queued) scheduleAsyncDiagnosticDrain(state);
+	else dispatchDiagnosticEvent(state, enriched, metadata, privateData, { hostPluginId });
+}
+function isToolExecutionEventInput(event) {
+	return event.type === "tool.execution.started" || event.type === "tool.execution.completed" || event.type === "tool.execution.error" || event.type === "tool.execution.blocked";
+}
+function dispatchTrustedToolExecutionEvent(state, event) {
+	state.toolExecutionSeq += 1;
+	let enriched;
+	try {
+		enriched = cloneDiagnosticValueForListener({
+			...event,
+			seq: state.toolExecutionSeq,
+			ts: Date.now()
+		});
+	} catch (error) {
+		console.error(`[diagnostic-events] tool execution clone error type=${event.type}: ${String(error)}`);
+		return;
+	}
+	notifyListeners(state.toolExecutionListeners, enriched, (error) => {
+		console.error(`[diagnostic-events] tool execution listener error type=${enriched.type} seq=${enriched.seq}: ${String(error)}`);
+	});
+}
+/** Emits an untrusted diagnostic event from external/plugin-facing code. */
+function emitDiagnosticEvent(event) {
+	emitDiagnosticEventWithTrust(event, false);
+}
+/** Emits an untrusted event whose trace context came from OpenClaw-owned scope. */
+function emitDiagnosticEventWithTrustedTraceContext(event) {
+	emitDiagnosticEventWithTrust(event, false, { trustedTraceContext: true });
+}
+//#endregion
+//#region src/runtime.ts
+function shouldEmitRuntimeLog(env = process.env) {
+	if (env.VITEST !== "true") return true;
+	if (env.OPENCLAW_TEST_RUNTIME_LOG === "1") return true;
+	return typeof console.log.mock === "object";
+}
+function shouldEmitRuntimeStdout(env = process.env) {
+	if (env.VITEST !== "true") return true;
+	if (env.OPENCLAW_TEST_RUNTIME_LOG === "1") return true;
+	return typeof process.stdout.write.mock === "object";
+}
+function isPipeClosedError(err) {
+	const code = err?.code;
+	return code === "EPIPE" || code === "EIO";
+}
+function writeStdout(value) {
+	if (!shouldEmitRuntimeStdout()) return;
+	const line = value.endsWith("\n") ? value : `${value}\n`;
+	try {
+		process.stdout.write(line);
+	} catch (err) {
+		if (isPipeClosedError(err)) return;
+		throw err;
+	}
+}
+function createRuntimeIo() {
+	return {
+		log: (...args) => {
+			if (!shouldEmitRuntimeLog()) return;
+			console.log(...args);
+		},
+		error: (...args) => {
+			console.error(...args);
+		},
+		writeStdout,
+		writeJson: (value, space = 2) => {
+			writeStdout(JSON.stringify(value, void 0, space > 0 ? space : void 0));
+		}
+	};
+}
+({ ...createRuntimeIo() });
+//#endregion
+//#region packages/terminal-core/src/ansi-sequences.ts
+const ANSI_OSC_INTRODUCER_PATTERN = "(?:\\x1b\\]|\\x9d)";
+const ANSI_STRING_TERMINATOR_PATTERN = "(?:\\x1b\\\\|\\x07|\\x9c)";
+const ANSI_OSC_PATTERN = `${ANSI_OSC_INTRODUCER_PATTERN}[^\\x07\\x1b\\x9c]*${ANSI_STRING_TERMINATOR_PATTERN}`;
+const ANSI_COMPAT_CONTROL_SEQUENCE_PATTERN = "[\\u001B\\u009B][[\\]()#;?]*(?:\\d{1,4}(?:[;:]\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]";
+new RegExp(ANSI_OSC_PATTERN, "y");
+new RegExp(`${`${ANSI_OSC_INTRODUCER_PATTERN}[\\s\\S]*?${ANSI_STRING_TERMINATOR_PATTERN}`}|${ANSI_COMPAT_CONTROL_SEQUENCE_PATTERN}`, "y");
+new Intl.Segmenter(void 0, { granularity: "grapheme" });
+new RegExp(`[${String.fromCharCode(0)}-${String.fromCharCode(31)}${String.fromCharCode(127)}-${String.fromCharCode(159)}]`, "g");
+resolveGlobalSingleton(Symbol.for("openclaw.signalExitOwner"), () => ({}));
+resolveGlobalSet(Symbol.for("openclaw.signalExitBarriers"), "close-and-restart");
+resolveGlobalSet(Symbol.for("openclaw.signalExitGates"), "close-and-restart");
+resolveGlobalSet(Symbol.for("openclaw.signalExitFinalizers"), "close-and-restart");
+//#endregion
+//#region src/logging/timestamps.ts
+const validTimeZoneCache = /* @__PURE__ */ new Map();
+const timestampFormatterCache = /* @__PURE__ */ new Map();
+let hostTimeZone;
+let lastTimestampParts;
+function isValidTimeZone(tz) {
+	const cached = validTimeZoneCache.get(tz);
+	if (cached !== void 0) return cached;
+	let valid;
+	try {
+		new Intl.DateTimeFormat("en", { timeZone: tz }).format();
+		valid = true;
+	} catch {
+		valid = false;
+	}
+	validTimeZoneCache.set(tz, valid);
+	return valid;
+}
+function resolveEffectiveTimeZone(timeZone) {
+	const explicit = timeZone ?? process.env.TZ;
+	return explicit && isValidTimeZone(explicit) ? explicit : hostTimeZone ??= Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+function formatOffset(offsetRaw) {
+	return offsetRaw === "GMT" ? "+00:00" : offsetRaw.slice(3);
+}
+function getTimestampParts(date, timeZone) {
+	const effectiveTimeZone = resolveEffectiveTimeZone(timeZone);
+	const second = Math.floor(date.getTime() / 1e3);
+	if (lastTimestampParts?.second === second && lastTimestampParts.timeZone === effectiveTimeZone) return lastTimestampParts.parts;
+	let fmt = timestampFormatterCache.get(effectiveTimeZone);
+	if (!fmt) {
+		fmt = new Intl.DateTimeFormat("en", {
+			timeZone: effectiveTimeZone,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+			hour12: false,
+			fractionalSecondDigits: 3,
+			timeZoneName: "longOffset"
+		});
+		timestampFormatterCache.set(effectiveTimeZone, fmt);
+	}
+	const parts = {};
+	for (const part of fmt.formatToParts(date)) parts[part.type] = part.value;
+	lastTimestampParts = {
+		second,
+		timeZone: effectiveTimeZone,
+		parts
+	};
+	return parts;
+}
+function formatTimestamp(date, options) {
+	const style = options?.style ?? "medium";
+	const parts = getTimestampParts(date, options?.timeZone);
+	const offset = formatOffset(parts.timeZoneName ?? "GMT");
+	const milliseconds = String(date.getUTCMilliseconds()).padStart(3, "0");
+	switch (style) {
+		case "short": return `${parts.hour}:${parts.minute}:${parts.second}${offset}`;
+		case "medium": return `${parts.hour}:${parts.minute}:${parts.second}.${milliseconds}${offset}`;
+		case "long": return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.${milliseconds}${offset}`;
+	}
+	throw new Error("Unsupported timestamp style");
+}
+//#endregion
+//#region src/logging/json-console-line.ts
+function formatJsonConsoleLine(params) {
+	const envelope = {
+		...params.meta,
+		time: formatTimestamp(/* @__PURE__ */ new Date(), { style: "long" }),
+		level: params.level,
+		...params.subsystem ? { subsystem: params.subsystem } : {},
+		message: params.message
+	};
+	return JSON.stringify(redactLogRecordForTransport(envelope));
+}
+/** Formats diagnostics that must bypass console capture without bypassing JSON console style. */
+function formatConsoleDiagnosticLine(params) {
+	return (loggingState.overrideSettings?.consoleStyle ?? readLoggingConfig()?.consoleStyle) === "json" ? formatJsonConsoleLine(params) : params.message;
+}
+//#endregion
+//#region src/logging/levels.ts
+const ALLOWED_LOG_LEVELS = [
+	"silent",
+	"fatal",
+	"error",
+	"warn",
+	"info",
+	"debug",
+	"trace"
+];
+const MIN_LEVEL_BY_LOG_LEVEL = {
+	trace: 1,
+	debug: 2,
+	info: 3,
+	warn: 4,
+	error: 5,
+	fatal: 6,
+	silent: Number.POSITIVE_INFINITY
+};
+function tryParseLogLevel(level) {
+	if (typeof level !== "string") return;
+	const candidate = level.trim();
+	return ALLOWED_LOG_LEVELS.includes(candidate) ? candidate : void 0;
+}
+function normalizeLogLevel(level, fallback = "info") {
+	return tryParseLogLevel(level) ?? fallback;
+}
+function levelToMinLevel(level) {
+	return MIN_LEVEL_BY_LOG_LEVEL[level];
+}
+function isLogLevelEnabled(level, minimum) {
+	return level !== "silent" && minimum !== "silent" && levelToMinLevel(level) >= levelToMinLevel(minimum);
+}
+//#endregion
+//#region src/logging/env-log-level.ts
+/** Resolves OPENCLAW_LOG_LEVEL once per value, warning only when the invalid value changes. */
+function resolveEnvLogLevelOverride() {
+	const trimmed = normalizeOptionalString(process.env.OPENCLAW_LOG_LEVEL) ?? "";
+	if (!trimmed) {
+		loggingState.invalidEnvLogLevelValue = null;
+		return;
+	}
+	const parsed = tryParseLogLevel(trimmed);
+	if (parsed) {
+		loggingState.invalidEnvLogLevelValue = null;
+		return parsed;
+	}
+	if (loggingState.invalidEnvLogLevelValue !== trimmed) {
+		loggingState.invalidEnvLogLevelValue = trimmed;
+		const message = `[openclaw] Ignoring invalid OPENCLAW_LOG_LEVEL="${redactToolPayloadText(trimmed)}" (allowed: ${ALLOWED_LOG_LEVELS.join("|")}).`;
+		process.stderr.write(`${formatConsoleDiagnosticLine({
+			level: "warn",
+			message
+		})}\n`);
+	}
+}
+//#endregion
+//#region src/infra/tmp-openclaw-dir.ts
+/** Preferred shared OpenClaw temp root on POSIX systems when ownership and permissions are safe. */
+const DEFAULT_POSIX_TMP_ROOT = "/tmp/openclaw";
+let resolveSecureTempRootRuntime;
+function loadResolveSecureTempRoot() {
+	if (resolveSecureTempRootRuntime) return resolveSecureTempRootRuntime;
+	if (typeof SEALED_RUNTIME_BUILD === "boolean" && SEALED_RUNTIME_BUILD) throw new Error("sealed temp-root runtime was not registered before use");
+	if (typeof process.getBuiltinModule !== "function") throw new Error("Node module loading is unavailable for secure temp-root resolution");
+	resolveSecureTempRootRuntime = process.getBuiltinModule("module").createRequire(import.meta.url)("@openclaw/fs-safe/secure-temp-root").resolveSecureTempRoot;
+	return resolveSecureTempRootRuntime;
+}
+/** Resolves a safe OpenClaw temp root, falling back to user-scoped os.tmpdir paths when needed. */
+function resolvePreferredOpenClawTmpDir(options = {}) {
+	return loadResolveSecureTempRoot()({
+		...options,
+		preferredDir: options.preferredDir ?? "/tmp/openclaw",
+		fallbackPrefix: "openclaw",
+		warningPrefix: "[openclaw]",
+		unsafeFallbackLabel: "OpenClaw temp dir",
+		skipPreferredOnWindows: true
+	});
+}
+//#endregion
+//#region src/logging/log-file-shared.ts
+const LOG_PREFIX = "openclaw";
+const LOG_SUFFIX = ".log";
+function canUseNodeFs() {
+	try {
+		return process.getBuiltinModule?.("fs") !== void 0;
+	} catch {
+		return false;
+	}
+}
+function formatLocalDate(date) {
+	return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+//#endregion
+//#region src/logging/log-file-path.ts
+const ROLLING_LOG_FILE_RE = /^(openclaw(?:-[a-z0-9-]+)?)-(\d{4}-\d{2}-\d{2})\.log$/u;
+const MAX_LOG_PROFILE_SEGMENT_LENGTH = 220;
+function encodeLogProfileSegment(profile) {
+	let encoded = "";
+	for (const char of profile) if (/^[a-z0-9]$/u.test(char)) encoded += char;
+	else if (char === "-") encoded += "--";
+	else if (char === "_") encoded += "-0";
+	else if (/^[A-Z]$/u.test(char)) encoded += `-1${char.toLowerCase()}`;
+	else encoded += `-2${char.codePointAt(0)?.toString(16) ?? "0"}-`;
+	return encoded;
+}
+function resolveLogProfileSegment(env) {
+	const profile = env.OPENCLAW_PROFILE?.trim();
+	if (!profile || profile.toLowerCase() === "default") return null;
+	const encoded = encodeLogProfileSegment(profile);
+	if (encoded.length <= MAX_LOG_PROFILE_SEGMENT_LENGTH) return encoded;
+	return `-3${createHash("sha256").update(profile).digest("hex")}`;
+}
+/** Resolves today's default rolling log path for the active CLI profile. */
+function resolveDefaultRollingLogFile(options) {
+	const date = options?.date ?? /* @__PURE__ */ new Date();
+	const env = options?.env ?? process.env;
+	const logDir = options?.logDir ?? (canUseNodeFs() ? resolvePreferredOpenClawTmpDir() : "/tmp/openclaw");
+	const profileSegment = resolveLogProfileSegment(env);
+	const profileSuffix = profileSegment ? `-${profileSegment}` : "";
+	return path.join(logDir, `${LOG_PREFIX}${profileSuffix}-${formatLocalDate(date)}${LOG_SUFFIX}`);
+}
+/** Returns whether a configured path had the legacy default rolling filename shape. */
+function isLegacyRollingLogFilePath(file) {
+	const base = path.basename(file);
+	return base === `openclaw-YYYY-MM-DD.log` || ROLLING_LOG_FILE_RE.exec(base)?.[1] === "openclaw";
+}
+/** Advances a rolling log path to the requested date while preserving its profile family. */
+function resolveRollingLogFilePathForDate(file, date) {
+	const match = ROLLING_LOG_FILE_RE.exec(path.basename(file));
+	if (!match) return isLegacyRollingLogFilePath(file) ? path.join(path.dirname(file), `${LOG_PREFIX}-${formatLocalDate(date)}${LOG_SUFFIX}`) : file;
+	return path.join(path.dirname(file), `${match[1]}-${formatLocalDate(date)}${LOG_SUFFIX}`);
+}
+//#endregion
+//#region src/logging/logger-file-transport.ts
+const DEFAULT_MAX_QUEUED_RECORDS = 4096;
+const MAX_APPEND_BATCH_BYTES = 65536;
+const MAX_ROTATED_LOG_FILES = 5;
+const MAX_TRACKED_APPEND_FAILURE_FILES = 64;
+let queue = [];
+let queueStart = 0;
+let activeBatch = null;
+let activeIndex = 0;
+let droppedCount = 0;
+let droppedTarget = null;
+let maxQueuedRecords = DEFAULT_MAX_QUEUED_RECORDS;
+let scheduledFlush = null;
+let flushPromise = null;
+let drainGeneration = 0;
+let processExiting = false;
+let processHooksInstalled = false;
+let appendFile = appendRegularFile;
+const warnedRotationFiles = /* @__PURE__ */ new Map();
+const warnedAppendFiles = /* @__PURE__ */ new Set();
+let appendFailureTrackingSaturated = false;
+function rotatedLogPath(file, index) {
+	const ext = path.extname(file);
+	return `${file.slice(0, file.length - ext.length)}.${index}${ext}`;
+}
+/**
+* Creates a log directory and its missing parents with a bounded number of mkdir calls.
+* Node's recursive mkdirSync retries forever when a parent exists but refuses new
+* children (a deleted directory that is still mounted, such as a stale systemd
+* PrivateTmp), which would block the event loop inside the logger.
+*/
+function ensureLogDirectorySync(dir, createParents = true) {
+	try {
+		fs.mkdirSync(dir);
+	} catch (error) {
+		const code = extractErrorCode(error);
+		if (code === "EEXIST" && fs.statSync(dir).isDirectory()) return;
+		const parent = path.dirname(dir);
+		if (!createParents || code !== "ENOENT" || parent === dir) throw error;
+		ensureLogDirectorySync(parent);
+		ensureLogDirectorySync(dir, false);
+	}
+}
+function rotateLogFile(file) {
+	try {
+		ensureLogDirectorySync(path.dirname(file));
+		fs.rmSync(rotatedLogPath(file, MAX_ROTATED_LOG_FILES), { force: true });
+		for (let index = 4; index >= 1; index -= 1) {
+			const from = rotatedLogPath(file, index);
+			if (fs.existsSync(from)) fs.renameSync(from, rotatedLogPath(file, index + 1));
+		}
+		if (fs.existsSync(file)) fs.renameSync(file, rotatedLogPath(file, 1));
+		return true;
+	} catch {
+		return false;
+	}
+}
+async function getCurrentLogFileBytes(file) {
+	try {
+		return (await fs$1.stat(file)).size;
+	} catch {
+		return 0;
+	}
+}
+function getCurrentLogFileBytesSync(file) {
+	try {
+		return fs.statSync(file).size;
+	} catch {
+		return 0;
+	}
+}
+function buildDroppedMarker(target, count) {
+	const date = /* @__PURE__ */ new Date();
+	const message = `[openclaw] file log queue overflow; dropped ${count} oldest record${count === 1 ? "" : "s"}`;
+	const record = {
+		0: message,
+		_meta: {
+			date,
+			hostname: target.hostname,
+			logLevelName: "WARN",
+			name: "openclaw"
+		},
+		time: formatTimestamp(date, { style: "long" }),
+		hostname: target.hostname,
+		message,
+		dropped: count
+	};
+	return {
+		...target,
+		payload: `${JSON.stringify(record)}\n`
+	};
+}
+function writeFileTransportWarning(message, synchronous) {
+	try {
+		const line = `${formatConsoleDiagnosticLine({
+			level: "warn",
+			message: redactSensitiveText(message)
+		})}\n`;
+		if (synchronous) fs.writeSync(process.stderr.fd, line);
+		else process.stderr.write(line);
+		return true;
+	} catch {
+		return false;
+	}
+}
+function warnAboutRotationFailure(entry, synchronous) {
+	if (warnedRotationFiles.get(entry.file) === entry.maxFileBytes) return;
+	warnedRotationFiles.set(entry.file, entry.maxFileBytes);
+	writeFileTransportWarning(`[openclaw] log file rotation failed; continuing writes file=${entry.file} maxFileBytes=${entry.maxFileBytes}`, synchronous);
+}
+function warnAboutAppendFailure(entry, synchronous) {
+	if (warnedAppendFiles.has(entry.file)) return;
+	const saturated = warnedAppendFiles.size >= MAX_TRACKED_APPEND_FAILURE_FILES;
+	if (saturated && appendFailureTrackingSaturated) return;
+	if (!writeFileTransportWarning(saturated ? "[openclaw] log file append failure diagnostics saturated; suppressing new file targets" : `[openclaw] log file append failed; records dropped; check that the path is a writable regular file; file=${entry.file}`, synchronous)) return;
+	if (saturated) appendFailureTrackingSaturated = true;
+	else warnedAppendFiles.add(entry.file);
+}
+function clearAppendFailure(entry) {
+	if (warnedAppendFiles.delete(entry.file)) appendFailureTrackingSaturated = false;
+}
+function claimQueuedEntries() {
+	const entries = queueStart === 0 ? queue : [...queue.slice(queueStart), ...queue.slice(0, queueStart)];
+	queue = [];
+	queueStart = 0;
+	if (droppedCount > 0 && droppedTarget) entries.unshift(buildDroppedMarker(droppedTarget, droppedCount));
+	droppedCount = 0;
+	droppedTarget = null;
+	return entries;
+}
+function prepareWrite(entry, cursor, synchronous, entries, index) {
+	let payloadBytes = Buffer.byteLength(entry.payload, "utf8");
+	if (cursor.bytes > 0 && cursor.bytes + payloadBytes > entry.maxFileBytes) {
+		if (rotateLogFile(entry.file)) {
+			cursor.bytes = 0;
+			warnedRotationFiles.delete(entry.file);
+		} else warnAboutRotationFailure(entry, synchronous);
+	}
+	let nextIndex = index + 1;
+	if (synchronous) return {
+		payload: entry.payload,
+		payloadBytes,
+		nextIndex
+	};
+	const payloads = [entry.payload];
+	for (; nextIndex < entries.length; nextIndex += 1) {
+		const next = entries[nextIndex];
+		if (!next || next.file !== entry.file || next.maxFileBytes !== entry.maxFileBytes) break;
+		const nextBytes = Buffer.byteLength(next.payload, "utf8");
+		if (payloadBytes + nextBytes > MAX_APPEND_BATCH_BYTES || cursor.bytes + payloadBytes + nextBytes > entry.maxFileBytes) break;
+		payloads.push(next.payload);
+		payloadBytes += nextBytes;
+	}
+	return {
+		payload: payloads.join(""),
+		payloadBytes,
+		nextIndex
+	};
+}
+async function writeEntries(entries, generation) {
+	const cursors = /* @__PURE__ */ new Map();
+	for (let index = 0; index < entries.length;) {
+		if (generation !== drainGeneration || processExiting) return;
+		const entry = entries[index];
+		if (!entry) return;
+		let cursor = cursors.get(entry.file);
+		if (!cursor) {
+			cursor = { bytes: await getCurrentLogFileBytes(entry.file) };
+			if (generation !== drainGeneration || processExiting) return;
+			cursors.set(entry.file, cursor);
+		}
+		const batch = prepareWrite(entry, cursor, false, entries, index);
+		activeIndex = batch.nextIndex;
+		try {
+			await appendFile({
+				filePath: entry.file,
+				content: batch.payload
+			});
+			cursor.bytes += batch.payloadBytes;
+			clearAppendFailure(entry);
+		} catch {
+			warnAboutAppendFailure(entry, false);
+		} finally {
+			for (const written of entries.slice(index, batch.nextIndex)) written.payload = "";
+			index = batch.nextIndex;
+		}
+	}
+}
+function writeEntriesSync(entries) {
+	const cursors = /* @__PURE__ */ new Map();
+	for (let index = 0; index < entries.length;) {
+		const entry = entries[index];
+		if (!entry) return;
+		let cursor = cursors.get(entry.file);
+		if (!cursor) {
+			cursor = { bytes: getCurrentLogFileBytesSync(entry.file) };
+			cursors.set(entry.file, cursor);
+		}
+		const batch = prepareWrite(entry, cursor, true, entries, index);
+		try {
+			appendRegularFileSync({
+				filePath: entry.file,
+				content: batch.payload
+			});
+			cursor.bytes += batch.payloadBytes;
+			clearAppendFailure(entry);
+		} catch {
+			warnAboutAppendFailure(entry, true);
+		}
+		entry.payload = "";
+		index = batch.nextIndex;
+	}
+}
+async function runFlushLoop() {
+	const generation = drainGeneration;
+	for (;;) {
+		if (generation !== drainGeneration || processExiting) return;
+		const entries = claimQueuedEntries();
+		if (entries.length === 0) return;
+		activeBatch = entries;
+		activeIndex = 0;
+		await writeEntries(entries, generation);
+		if (generation !== drainGeneration) return;
+		activeBatch = null;
+		activeIndex = 0;
+	}
+}
+function startFlush() {
+	if (flushPromise || processExiting) return;
+	const running = runFlushLoop().catch(() => void 0);
+	flushPromise = running;
+	running.then(() => {
+		if (flushPromise === running) flushPromise = null;
+		if (queue.length > 0 || droppedCount > 0) scheduleFlush();
+	});
+}
+function scheduleFlush() {
+	if (scheduledFlush || flushPromise || processExiting) return;
+	scheduledFlush = setImmediate(() => {
+		scheduledFlush = null;
+		startFlush();
+	});
+}
+function handleProcessBeforeExit() {
+	flushFileLogQueue();
+}
+function handleProcessExit() {
+	processExiting = true;
+	drainFileLogQueueSync();
+}
+function installProcessHooks() {
+	if (processHooksInstalled) return;
+	processHooksInstalled = true;
+	process.on("beforeExit", handleProcessBeforeExit);
+	process.on("exit", handleProcessExit);
+}
+function removeProcessHooks() {
+	if (!processHooksInstalled) return;
+	process.removeListener("beforeExit", handleProcessBeforeExit);
+	process.removeListener("exit", handleProcessExit);
+	processHooksInstalled = false;
+}
+/** Enqueues one serialized record without waiting for filesystem I/O. */
+function enqueueFileLog(entry) {
+	if (processExiting) {
+		writeEntriesSync([entry]);
+		return;
+	}
+	installProcessHooks();
+	if (queue.length >= maxQueuedRecords) {
+		const dropped = queue[queueStart];
+		if (dropped) {
+			dropped.payload = "";
+			droppedTarget ??= dropped;
+			droppedCount += 1;
+		}
+		queue[queueStart] = entry;
+		queueStart = (queueStart + 1) % queue.length;
+	} else queue.push(entry);
+	scheduleFlush();
+}
+/** Waits until every record currently queued for the async transport has settled. */
+async function flushFileLogQueue() {
+	for (;;) {
+		if (scheduledFlush) {
+			clearImmediate(scheduledFlush);
+			scheduledFlush = null;
+		}
+		if (!flushPromise && (queue.length > 0 || droppedCount > 0)) startFlush();
+		const running = flushPromise;
+		if (!running) return;
+		await running;
+	}
+}
+/** Synchronously rescues pending records for process.exit() and crash-adjacent paths. */
+function drainFileLogQueueSync() {
+	if (scheduledFlush) {
+		clearImmediate(scheduledFlush);
+		scheduledFlush = null;
+	}
+	drainGeneration += 1;
+	const entries = activeBatch ? activeBatch.slice(activeIndex) : [];
+	activeBatch = null;
+	activeIndex = 0;
+	entries.push(...claimQueuedEntries());
+	writeEntriesSync(entries);
+}
+function setFileLogQueueMaxRecordsForTests(value) {
+	maxQueuedRecords = Math.max(1, value ?? DEFAULT_MAX_QUEUED_RECORDS);
+}
+function setFileLogAppenderForTests(value) {
+	appendFile = value ?? appendRegularFile;
+}
+function resetFileLogTransportForTests() {
+	drainFileLogQueueSync();
+	removeProcessHooks();
+	processExiting = false;
+	appendFile = appendRegularFile;
+	maxQueuedRecords = DEFAULT_MAX_QUEUED_RECORDS;
+	warnedRotationFiles.clear();
+	warnedAppendFiles.clear();
+	appendFailureTrackingSaturated = false;
+}
+const fileLogTransport = resolveGlobalSingleton(Symbol.for("openclaw.fileLogTransport"), () => {
+	if (process.env.VITEST !== "true") installProcessHooks();
+	return {
+		drainSync: drainFileLogQueueSync,
+		enqueue: enqueueFileLog,
+		flush: flushFileLogQueue,
+		resetForTests: resetFileLogTransportForTests,
+		setAppenderForTests: setFileLogAppenderForTests,
+		setMaxQueuedRecordsForTests: setFileLogQueueMaxRecordsForTests
+	};
+});
+//#endregion
+//#region src/logging/logger.ts
+const DEFAULT_LOG_FILE = `${DEFAULT_POSIX_TMP_ROOT}/openclaw.log`;
+const MAX_LOG_AGE_MS = 864e5;
+const DEFAULT_MAX_LOG_FILE_BYTES = 104857600;
+let cachedHostname = null;
+const MAX_DIAGNOSTIC_LOG_BINDINGS_JSON_CHARS = 8192;
+const MAX_DIAGNOSTIC_LOG_MESSAGE_CHARS = 4096;
+const MAX_DIAGNOSTIC_LOG_ATTRIBUTE_COUNT = 32;
+const MAX_DIAGNOSTIC_LOG_ATTRIBUTE_VALUE_CHARS = 2048;
+const MAX_DIAGNOSTIC_LOG_NAME_CHARS = 120;
+const MAX_FILE_LOG_CONTEXT_VALUE_CHARS = 512;
+const DIAGNOSTIC_LOG_ATTRIBUTE_KEY_RE = /^[A-Za-z0-9_.:-]{1,64}$/u;
+function clampLogText(value, maxChars) {
+	return value.length > maxChars ? `${truncateUtf16Safe(value, maxChars)}...(truncated)` : value;
+}
+function sanitizeDiagnosticLogText(value, maxChars) {
+	return clampLogText(redactSensitiveText(clampLogText(value, maxChars)), maxChars);
+}
+function normalizeDiagnosticLogName(value) {
+	if (!value || value.trim().startsWith("{")) return;
+	const sanitized = sanitizeDiagnosticLogText(value.trim(), MAX_DIAGNOSTIC_LOG_NAME_CHARS);
+	return DIAGNOSTIC_LOG_ATTRIBUTE_KEY_RE.test(sanitized) ? sanitized : void 0;
+}
+function assignDiagnosticLogAttribute(attributes, state, key, value) {
+	if (state.count >= MAX_DIAGNOSTIC_LOG_ATTRIBUTE_COUNT) return;
+	const normalizedKey = key.trim();
+	if (isBlockedObjectKey(normalizedKey)) return;
+	if (redactSensitiveText(normalizedKey) !== normalizedKey) return;
+	if (!DIAGNOSTIC_LOG_ATTRIBUTE_KEY_RE.test(normalizedKey)) return;
+	let attribute;
+	if (typeof value === "string") attribute = sanitizeDiagnosticLogText(value, MAX_DIAGNOSTIC_LOG_ATTRIBUTE_VALUE_CHARS);
+	else if (typeof value === "boolean" || typeof value === "number" && Number.isFinite(value)) attribute = value;
+	else return;
+	attributes[normalizedKey] = attribute;
+	state.count += 1;
+}
+function addDiagnosticLogAttributesFrom(attributes, state, source) {
+	if (!source) return;
+	for (const key in source) {
+		if (state.count >= MAX_DIAGNOSTIC_LOG_ATTRIBUTE_COUNT) break;
+		if (!Object.hasOwn(source, key) || key === "trace") continue;
+		assignDiagnosticLogAttribute(attributes, state, key, source[key]);
+	}
+}
+function isPlainLogRecordObject(value) {
+	if (!isRecord(value)) return false;
+	const prototype = Object.getPrototypeOf(value);
+	return prototype === Object.prototype || prototype === null;
+}
+function normalizeTraceContext(value) {
+	const candidate = asOptionalRecord(value);
+	if (!candidate || !isValidDiagnosticTraceId(candidate.traceId)) return;
+	if (candidate.spanId !== void 0 && !isValidDiagnosticSpanId(candidate.spanId)) return;
+	if (candidate.parentSpanId !== void 0 && !isValidDiagnosticSpanId(candidate.parentSpanId)) return;
+	if (candidate.traceFlags !== void 0 && !isValidDiagnosticTraceFlags(candidate.traceFlags)) return;
+	return {
+		traceId: candidate.traceId,
+		...candidate.spanId ? { spanId: candidate.spanId } : {},
+		...candidate.parentSpanId ? { parentSpanId: candidate.parentSpanId } : {},
+		...candidate.traceFlags ? { traceFlags: candidate.traceFlags } : {}
+	};
+}
+function extractTraceContext(value) {
+	return normalizeTraceContext(value) ?? normalizeTraceContext(asOptionalRecord(value)?.trace);
+}
+function getSortedNumericLogEntries(logObj) {
+	return Object.entries(logObj).filter(([key]) => /^\d+$/.test(key)).toSorted((a, b) => Number(a[0]) - Number(b[0]));
+}
+function normalizeFileLogContextValue(value) {
+	if (typeof value === "string") {
+		const normalized = value.trim();
+		return normalized ? clampLogText(normalized, MAX_FILE_LOG_CONTEXT_VALUE_CHARS) : void 0;
+	}
+	if (typeof value === "boolean" || typeof value === "number" && Number.isFinite(value)) return String(value);
+}
+function readFirstContextString(sources, keys) {
+	for (const source of sources) {
+		if (!source) continue;
+		for (const key of keys) {
+			const value = normalizeFileLogContextValue(source[key]);
+			if (value) return value;
+		}
+	}
+}
+function resolveLogHostname() {
+	if (cachedHostname) return cachedHostname;
+	const hostname = os.hostname().trim();
+	if (!hostname) return "unknown";
+	cachedHostname = hostname;
+	return hostname;
+}
+function withResolvedLogMetaHostname(meta, hostname) {
+	return isRecord(meta) ? {
+		...meta,
+		hostname
+	} : meta;
+}
+function extractLogBindingPrefix(numericArgs) {
+	if (typeof numericArgs[0] === "string" && numericArgs[0].length <= MAX_DIAGNOSTIC_LOG_BINDINGS_JSON_CHARS && numericArgs[0].trim().startsWith("{")) try {
+		const parsed = JSON.parse(numericArgs[0]);
+		if (isRecord(parsed)) return {
+			bindings: parsed,
+			args: numericArgs.slice(1)
+		};
+	} catch {}
+	return { args: numericArgs };
+}
+function resolveLogTraceContext(bindings, numericArgs) {
+	for (const value of [bindings, ...numericArgs]) {
+		const trace = extractTraceContext(value);
+		if (trace) return {
+			trace,
+			trustedTraceContext: false
+		};
+	}
+	const activeTrace = getActiveDiagnosticTraceContext();
+	return activeTrace ? {
+		trace: activeTrace,
+		trustedTraceContext: true
+	} : { trustedTraceContext: false };
+}
+function prepareFileLogRecord(logObj) {
+	const entries = getSortedNumericLogEntries(logObj);
+	const { bindings, args } = extractLogBindingPrefix(entries.map(([, value]) => value));
+	const { trace } = resolveLogTraceContext(bindings, args);
+	const structuredArg = isPlainLogRecordObject(args[0]) ? args[0] : void 0;
+	const sources = [
+		structuredArg,
+		bindings,
+		logObj
+	];
+	const metadataCount = structuredArg && typeof structuredArg.message !== "string" ? 1 : 0;
+	const messageParts = entries.slice(entries.length - args.length + metadataCount).map(([key, value]) => {
+		const part = {
+			key,
+			json: value != null && ![
+				"string",
+				"number",
+				"boolean",
+				"bigint"
+			].includes(typeof value) && !(value instanceof Error) && !(isPlainLogRecordObject(value) && typeof value.message === "string")
+		};
+		if (typeof value === "number" && !Number.isFinite(value)) part.primitiveText = String(value);
+		return part;
+	});
+	const agentId = readFirstContextString(sources, ["agent_id", "agentId"]);
+	const sessionId = readFirstContextString(sources, [
+		"session_id",
+		"sessionId",
+		"sessionKey"
+	]);
+	const channel = readFirstContextString(sources, ["channel", "messageProvider"]);
+	return {
+		fields: {
+			hostname: resolveLogHostname(),
+			...agentId ? { agent_id: agentId } : {},
+			...sessionId ? { session_id: sessionId } : {},
+			...channel ? { channel } : {},
+			...trace
+		},
+		messageParts
+	};
+}
+function buildDiagnosticLogRecord(logObj) {
+	const meta = logObj["_meta"];
+	const { bindings, args: numericArgs } = extractLogBindingPrefix(getSortedNumericLogEntries(logObj).map(([, value]) => value));
+	const { trace, trustedTraceContext } = resolveLogTraceContext(bindings, numericArgs);
+	const structuredArg = numericArgs[0];
+	const structuredBindings = isPlainLogRecordObject(structuredArg) ? structuredArg : void 0;
+	if (structuredBindings) numericArgs.shift();
+	let message = "";
+	if (numericArgs.length > 0 && typeof numericArgs[numericArgs.length - 1] === "string") message = sanitizeDiagnosticLogText(String(numericArgs.pop()), MAX_DIAGNOSTIC_LOG_MESSAGE_CHARS);
+	else if (numericArgs.length === 1 && (typeof numericArgs[0] === "number" || typeof numericArgs[0] === "boolean")) {
+		message = String(numericArgs[0]);
+		numericArgs.length = 0;
+	}
+	if (!message) message = "log";
+	const attributes = Object.create(null);
+	const attributeState = { count: 0 };
+	addDiagnosticLogAttributesFrom(attributes, attributeState, bindings);
+	addDiagnosticLogAttributesFrom(attributes, attributeState, structuredBindings);
+	const code = {};
+	if (meta?.path?.fileLine) {
+		const line = Number(meta.path.fileLine);
+		if (Number.isFinite(line)) code.line = line;
+	}
+	if (meta?.path?.method) code.functionName = sanitizeDiagnosticLogText(meta.path.method, MAX_DIAGNOSTIC_LOG_NAME_CHARS);
+	const loggerName = normalizeDiagnosticLogName(meta?.name);
+	const loggerParents = meta?.parentNames?.map(normalizeDiagnosticLogName).filter((name) => Boolean(name));
+	return {
+		event: {
+			type: "log.record",
+			level: meta?.logLevelName ?? "INFO",
+			message,
+			...loggerName ? { loggerName } : {},
+			...loggerParents?.length ? { loggerParents } : {},
+			...Object.keys(attributes).length > 0 ? { attributes } : {},
+			...Object.keys(code).length > 0 ? { code } : {},
+			...trace ? { trace } : {}
+		},
+		trustedTraceContext
+	};
+}
+function attachDiagnosticEventTransport(logger) {
+	logger.attachTransport({
+		format: () => "",
+		write: (logObj) => {
+			if (!areDiagnosticsEnabledForProcess() || !hasInternalDiagnosticEventInterest("log.record")) return;
+			try {
+				const record = buildDiagnosticLogRecord(redactSecrets(logObj));
+				(record.trustedTraceContext ? emitDiagnosticEventWithTrustedTraceContext : emitDiagnosticEvent)(record.event);
+			} catch {}
+		}
+	});
+}
+function canUseSilentVitestFileLogFastPath(envLevel) {
+	return process.env.VITEST === "true" && process.env.OPENCLAW_TEST_FILE_LOG !== "1" && !envLevel && !loggingState.overrideSettings;
+}
+function resolveDefaultActiveLogFile() {
+	if (process.env.VITEST === "true" && process.env.OPENCLAW_TEST_FILE_LOG === "1") return path.join(process.cwd(), ".artifacts", "test-logs", `${LOG_PREFIX}-vitest-${process.pid}-${formatLocalDate(/* @__PURE__ */ new Date())}${LOG_SUFFIX}`);
+	return resolveDefaultRollingLogFile();
+}
+function resolveSettings() {
+	if (!canUseNodeFs()) return {
+		level: "silent",
+		file: DEFAULT_LOG_FILE,
+		maxFileBytes: DEFAULT_MAX_LOG_FILE_BYTES,
+		rolling: false
+	};
+	const envLevel = resolveEnvLogLevelOverride();
+	if (canUseSilentVitestFileLogFastPath(envLevel)) return {
+		level: "silent",
+		file: resolveDefaultRollingLogFile(),
+		maxFileBytes: DEFAULT_MAX_LOG_FILE_BYTES,
+		rolling: true
+	};
+	const cfg = loggingState.overrideSettings ?? readLoggingConfig();
+	const defaultLevel = process.env.VITEST === "true" && process.env.OPENCLAW_TEST_FILE_LOG !== "1" ? "silent" : "info";
+	const fromConfig = normalizeLogLevel(cfg?.level, defaultLevel);
+	const level = envLevel ?? fromConfig;
+	const rolling = cfg?.file ? isLegacyRollingLogFilePath(cfg.file) : true;
+	return {
+		level,
+		file: resolveActiveLogFileWithMode(cfg?.file ?? resolveDefaultActiveLogFile(), rolling),
+		maxFileBytes: resolveMaxLogFileBytes(cfg?.maxFileBytes),
+		rolling
+	};
+}
+function getRuntimeSettings() {
+	const settings = loggingState.cachedSettings ?? resolveSettings();
+	loggingState.cachedSettings = settings;
+	return settings;
+}
+function isFileLogLevelEnabled(level) {
+	return isLogLevelEnabled(level, getRuntimeSettings().level);
+}
+function inheritLogLevel(logger, getLevel) {
+	let resolveLevel = getLevel;
+	Object.defineProperty(logger.settings, "minLevel", {
+		configurable: true,
+		enumerable: true,
+		get: () => resolveLevel(),
+		set: (level) => {
+			resolveLevel = () => level;
+		}
+	});
+}
+var RuntimeLogger = class extends Logger {
+	getSubLogger(settings, logObj) {
+		const minLevel = settings?.minLevel ?? this.settings.minLevel;
+		const child = super.getSubLogger({
+			...settings,
+			minLevel: minLevel === Infinity ? levelToMinLevel("fatal") : minLevel
+		}, logObj);
+		if (settings?.minLevel == null) inheritLogLevel(child, () => this.settings.minLevel);
+		else if (minLevel === Infinity) child.settings.minLevel = minLevel;
+		return child;
+	}
+};
+function buildLogger() {
+	const logger = new RuntimeLogger({
+		name: "openclaw",
+		mask: { keys: [] },
+		meta: { property: "_meta" },
+		minLevel: levelToMinLevel("fatal"),
+		type: "hidden"
+	});
+	inheritLogLevel(logger, () => levelToMinLevel(getRuntimeSettings().level));
+	let activeFile;
+	logger.attachTransport({
+		format: () => "",
+		write: (logObj) => {
+			try {
+				const settings = getRuntimeSettings();
+				if (settings.level === "silent") return;
+				const nextActiveFile = resolveActiveLogFileWithMode(settings.file, settings.rolling);
+				if (nextActiveFile !== activeFile) {
+					activeFile = nextActiveFile;
+					try {
+						ensureLogDirectorySync(path.dirname(activeFile));
+						if (settings.rolling) pruneOldRollingLogs(path.dirname(activeFile));
+					} catch {}
+				}
+				const time = formatTimestamp(logObj.date ?? /* @__PURE__ */ new Date(), { style: "long" });
+				const { fields, messageParts } = prepareFileLogRecord(logObj);
+				const line = serializeFileLogRecord({
+					...logObj,
+					_meta: withResolvedLogMetaHostname(logObj["_meta"], fields.hostname),
+					time,
+					...fields
+				}, messageParts);
+				fileLogTransport.enqueue({
+					file: activeFile,
+					hostname: fields.hostname,
+					maxFileBytes: settings.maxFileBytes,
+					payload: `${line}\n`
+				});
+			} catch {}
+		}
+	});
+	attachDiagnosticEventTransport(logger);
+	return logger;
+}
+function resolveMaxLogFileBytes(raw) {
+	if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return Math.floor(raw);
+	return DEFAULT_MAX_LOG_FILE_BYTES;
+}
+function getLogger() {
+	const cachedLogger = loggingState.cachedLogger;
+	if (cachedLogger) return cachedLogger;
+	getRuntimeSettings();
+	const logger = buildLogger();
+	loggingState.cachedLogger = logger;
+	return logger;
+}
+function getChildLogger(bindings, opts) {
+	const base = getLogger();
+	const name = bindings ? JSON.stringify(bindings) : void 0;
+	return base.getSubLogger({
+		name,
+		prefix: bindings ? [name ?? ""] : [],
+		...opts?.level ? { minLevel: levelToMinLevel(opts.level) } : {}
+	});
+}
+function resolveActiveLogFileWithMode(file, rolling) {
+	const expandedFile = expandHomePrefix(file);
+	return rolling ? resolveRollingLogFilePathForDate(expandedFile, /* @__PURE__ */ new Date()) : expandedFile;
+}
+function pruneOldRollingLogs(dir) {
+	try {
+		const entries = fs.readdirSync(dir, { withFileTypes: true });
+		const cutoff = Date.now() - MAX_LOG_AGE_MS;
+		for (const entry of entries) {
+			if (!entry.isFile()) continue;
+			if (!entry.name.startsWith(`openclaw-`) || !entry.name.endsWith(".log")) continue;
+			const fullPath = path.join(dir, entry.name);
+			try {
+				if (fs.statSync(fullPath).mtimeMs < cutoff) fs.rmSync(fullPath, { force: true });
+			} catch {}
+		}
+	} catch {}
+}
+//#endregion
+//#region src/logging/console.ts
+function normalizeConsoleLevel(level) {
+	if (isVerbose()) return "debug";
+	if (!level && process.env.VITEST === "true" && process.env.OPENCLAW_TEST_CONSOLE !== "1") return "silent";
+	return normalizeLogLevel(level, "info");
+}
+function normalizeConsoleStyle(style) {
+	if (style === "compact" || style === "json" || style === "pretty") return style;
+	if (!process.stdout.isTTY) return "compact";
+	return "pretty";
+}
+function resolveConsoleSettings() {
+	const envLevel = resolveEnvLogLevelOverride();
+	if (process.env.VITEST === "true" && process.env.OPENCLAW_TEST_CONSOLE !== "1" && !isVerbose() && !envLevel && !loggingState.overrideSettings) return {
+		level: "silent",
+		style: normalizeConsoleStyle(void 0)
+	};
+	const cfg = loggingState.overrideSettings ?? readLoggingConfig();
+	return {
+		level: envLevel ?? normalizeConsoleLevel(cfg?.consoleLevel),
+		style: normalizeConsoleStyle(cfg?.consoleStyle)
+	};
+}
+function getConsoleSettings() {
+	const cached = loggingState.cachedConsoleSettings;
+	if (cached) return cached;
+	const settings = resolveConsoleSettings();
+	loggingState.cachedConsoleSettings = settings;
+	return settings;
+}
+function shouldLogSubsystemToConsole(subsystem) {
+	const filter = loggingState.consoleSubsystemFilter;
+	if (!filter || filter.length === 0) return true;
+	const normalizedSubsystem = normalizeOptionalString(subsystem);
+	if (!normalizedSubsystem) return false;
+	return filter.some((prefix) => normalizedSubsystem === prefix || normalizedSubsystem.startsWith(`${prefix}/`));
+}
+`${process.release.name}${process.pid}`;
+function formatConsoleTimestamp(style) {
+	const now = /* @__PURE__ */ new Date();
+	if (style === "pretty") return formatTimestamp(now, { style: "short" }).replace(/[+-]\d{2}:\d{2}$/, "");
+	return formatTimestamp(now, { style: "long" });
+}
+(() => {
+	try {
+		const inspect = process.getBuiltinModule?.("util").inspect;
+		return typeof inspect === "function" ? inspect : null;
+	} catch {
+		return null;
+	}
+})();
+function isRichConsoleEnv() {
+	const term = normalizeLowercaseStringOrEmpty(process.env.TERM);
+	if (process.env.COLORTERM || process.env.TERM_PROGRAM) return true;
+	return term.length > 0 && term !== "dumb";
+}
+const consoleColors = [];
+function getColorForConsole() {
+	const level = typeof process.env.FORCE_COLOR === "string" && process.env.FORCE_COLOR.trim().length > 0 && process.env.FORCE_COLOR.trim() !== "0" || !process.env.NO_COLOR && (process.stdout.isTTY || process.stderr.isTTY || isRichConsoleEnv()) ? 1 : 0;
+	return consoleColors[level] ??= new Chalk({ level });
+}
+const SUBSYSTEM_COLORS = [
+	"cyan",
+	"green",
+	"yellow",
+	"blue",
+	"magenta",
+	"red"
+];
+const SUBSYSTEM_COLOR_OVERRIDES = /* @__PURE__ */ new Map([["gmail-watcher", "blue"]]);
+const SUBSYSTEM_PREFIXES_TO_DROP = /* @__PURE__ */ new Set([
+	"gateway",
+	"channels",
+	"providers"
+]);
+const CHANNEL_SUBSYSTEM_PREFIXES = /* @__PURE__ */ new Set([
+	"clickclack",
+	"discord",
+	"feishu",
+	"googlechat",
+	"imessage",
+	"irc",
+	"line",
+	"matrix",
+	"mattermost",
+	"msteams",
+	"nextcloud-talk",
+	"nostr",
+	"openclaw-weixin",
+	"qqbot",
+	"signal",
+	"slack",
+	"synology-chat",
+	"telegram",
+	"tlon",
+	"twitch",
+	"webchat",
+	"wecom",
+	"whatsapp",
+	"yuanbao",
+	"zalo",
+	"zalouser"
+]);
+function pickSubsystemColor(subsystem) {
+	const override = SUBSYSTEM_COLOR_OVERRIDES.get(subsystem);
+	if (override) return override;
+	let hash = 0;
+	for (let i = 0; i < subsystem.length; i += 1) hash = hash * 31 + subsystem.charCodeAt(i) | 0;
+	const idx = Math.abs(hash) % SUBSYSTEM_COLORS.length;
+	return expectDefined(SUBSYSTEM_COLORS[idx], "subsystem colors entry at idx");
+}
+function formatSubsystemForConsole(subsystem) {
+	const parts = subsystem.split("/").filter(Boolean);
+	const original = parts.join("/") || subsystem;
+	while (parts[0] !== void 0 && SUBSYSTEM_PREFIXES_TO_DROP.has(parts[0])) parts.shift();
+	const first = parts.at(0);
+	if (first === void 0) return original;
+	if (CHANNEL_SUBSYSTEM_PREFIXES.has(normalizeLowercaseStringOrEmpty(first))) return first;
+	return parts.slice(-2).join("/");
+}
+function stripRedundantSubsystemPrefixForConsole(message, displaySubsystem) {
+	if (!displaySubsystem) return message;
+	if (message.startsWith("[")) {
+		const closeIdx = message.indexOf("]");
+		if (closeIdx > 1) {
+			if (normalizeLowercaseStringOrEmpty(message.slice(1, closeIdx)) === normalizeLowercaseStringOrEmpty(displaySubsystem)) return message.slice(closeIdx + 1).replace(/^ */, "");
+		}
+	}
+	if (normalizeLowercaseStringOrEmpty(message.slice(0, displaySubsystem.length)) !== normalizeLowercaseStringOrEmpty(displaySubsystem)) return message;
+	const next = message.slice(displaySubsystem.length, displaySubsystem.length + 1);
+	if (next !== ":" && next !== " ") return message;
+	return message.slice(displaySubsystem.length).replace(/^ *:? */, "");
+}
+function createConsoleLineFormatter(subsystem) {
+	const displaySubsystem = formatSubsystemForConsole(subsystem);
+	const prefix = `[${displaySubsystem}]`;
+	const prefixColor = pickSubsystemColor(displaySubsystem);
+	return (level, message, style) => {
+		const color = getColorForConsole();
+		const levelColor = level === "error" || level === "fatal" ? color.red : level === "warn" ? color.yellow : level === "debug" || level === "trace" ? color.gray : color.cyan;
+		const displayMessage = stripRedundantSubsystemPrefixForConsole(redactSensitiveText(message), displaySubsystem);
+		const time = style === "pretty" || loggingState.consoleTimestampPrefix ? color.gray(formatConsoleTimestamp(style)) : "";
+		const prefixToken = color[prefixColor](prefix);
+		return `${time ? `${time} ${prefixToken}` : prefixToken} ${levelColor(displayMessage)}`;
+	};
+}
+function writeConsoleLine(level, line, opts = {}) {
+	const sanitized = process.platform === "win32" && process.env.GITHUB_ACTIONS === "true" ? line.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "?").replace(/[\uD800-\uDFFF]/g, "?") : line;
+	const redacted = opts.redacted ? sanitized : redactSensitiveText(sanitized);
+	const sink = loggingState.rawConsole ?? console;
+	if (loggingState.forceConsoleToStderr || level === "error" || level === "fatal") (sink.error ?? console.error)(redacted);
+	else if (level === "warn") (sink.warn ?? console.warn)(redacted);
+	else (sink.log ?? console.log)(redacted);
+}
+function shouldSuppressProbeConsoleLine(params) {
+	if (isVerbose()) return false;
+	if (params.level === "error" || params.level === "fatal") return false;
+	const message = typeof params.message === "string" ? params.message : "";
+	if (!params.suppressProbeMessages) return false;
+	if ((typeof params.meta?.runId === "string" ? params.meta.runId : typeof params.meta?.sessionId === "string" ? params.meta.sessionId : void 0)?.startsWith("probe-")) return true;
+	return /(sessionId|runId)=probe-/.test(message);
+}
+const CONSOLE_META_LEVELS = /* @__PURE__ */ new Set([
+	"warn",
+	"error",
+	"fatal"
+]);
+const CONSOLE_META_MAX_CHARS = 2048;
+function formatConsoleMetaValue(value) {
+	if (value === void 0) return;
+	if (typeof value === "string") return /\s|=/.test(value) || value.length === 0 ? JSON.stringify(value) : value;
+	if (value === null || typeof value === "number" || typeof value === "boolean") return String(value);
+	return JSON.stringify(value);
+}
+/** Preserve native error diagnostics before any sink reduces non-enumerable fields to `{}`. */
+function prepareLogMetaRecord(meta, stackHeadOnly = false) {
+	let prepared;
+	for (const [key, value] of Object.entries(meta)) if (value instanceof Error) {
+		prepared ??= { ...meta };
+		prepared[key] = {
+			name: value.name,
+			message: value.message,
+			errorCode: extractErrorCode(value),
+			stack: stackHeadOnly ? value.stack?.split("\n").slice(0, 6).join("\n") : value.stack
+		};
+	}
+	return prepared ?? meta;
+}
+/**
+* Renders structured fields as one compact `key=value` tail so warn/error/fatal
+* records keep their diagnostics in plain-text sinks such as journald, which only
+* see the console line. The JSON console style and the file sink carry the same
+* fields natively, so only plain styles call this.
+*
+* Fields pass through the shared console transport redactor before flattening, so
+* key-aware protection such as `apiToken` survives the loss of structure and the
+* length cap can only clip text that is already masked. That redactor also owns
+* circular references, bigints, and values with no JSON form, and returns parsed
+* data, so rendering a value here cannot re-enter a stateful `toJSON`.
+*/
+function formatConsoleMeta(meta) {
+	let redacted;
+	try {
+		redacted = redactLogRecordForTransport(meta);
+	} catch {
+		return "";
+	}
+	const parts = [];
+	for (const [key, value] of Object.entries(redacted)) {
+		const rendered = formatConsoleMetaValue(value);
+		if (rendered !== void 0) parts.push(`${key}=${rendered}`);
+	}
+	const joined = parts.join(" ");
+	return joined.length > CONSOLE_META_MAX_CHARS ? `${joined.slice(0, CONSOLE_META_MAX_CHARS)}...(truncated)` : joined;
+}
+function logToFile(fileLogger, level, message, meta) {
+	if (level === "silent") return;
+	if (meta && Object.keys(meta).length > 0) fileLogger[level](meta, message);
+	else fileLogger[level](message);
+}
+function createSubsystemLogger(subsystem) {
+	const resolvedSubsystem = normalizeOptionalString(subsystem) ?? "unknown";
+	const suppressProbeMessages = resolvedSubsystem === "agent/embedded" || resolvedSubsystem.startsWith("agent/embedded/") || resolvedSubsystem === "model-fallback" || resolvedSubsystem.startsWith("model-fallback/");
+	let fileChild;
+	let fileChildWithoutStack;
+	let formatConsoleLine;
+	const getFileLogger = (level) => {
+		fileChild ??= getChildLogger({ subsystem: resolvedSubsystem });
+		if (level === "error" || level === "fatal" || areDiagnosticsEnabledForProcess() && hasInternalDiagnosticEventInterest("log.record")) return fileChild;
+		if (!fileChildWithoutStack) {
+			fileChildWithoutStack = fileChild.getSubLogger({ stack: { capture: "off" } });
+			fileChildWithoutStack.settings.parentNames = fileChild.settings.parentNames;
+		}
+		return fileChildWithoutStack;
+	};
+	const emitLog = (level, message, meta) => {
+		const consoleSettings = getConsoleSettings();
+		const consoleEnabled = isLogLevelEnabled(level, consoleSettings.level) && shouldLogSubsystemToConsole(resolvedSubsystem);
+		const fileEnabled = isFileLogLevelEnabled(level);
+		if (!consoleEnabled && !fileEnabled) return;
+		let consoleMessageOverride;
+		let fileMeta = meta;
+		let consoleFields = meta;
+		if (meta && Object.keys(meta).length > 0) {
+			const { consoleMessage, ...rest } = meta;
+			if (typeof consoleMessage === "string") consoleMessageOverride = consoleMessage;
+			fileMeta = Object.keys(rest).length > 0 ? prepareLogMetaRecord(rest) : void 0;
+			consoleFields = fileMeta && consoleEnabled ? prepareLogMetaRecord(rest, true) : void 0;
+		}
+		if (fileEnabled) logToFile(getFileLogger(level), level, message, fileMeta);
+		if (!consoleEnabled) return;
+		const consoleMeta = consoleSettings.style !== "json" && consoleMessageOverride === void 0 && consoleFields && CONSOLE_META_LEVELS.has(level) ? formatConsoleMeta(consoleFields) : "";
+		const consoleMessage = consoleMessageOverride ?? (consoleMeta ? `${message} ${consoleMeta}` : message);
+		if (shouldSuppressProbeConsoleLine({
+			level,
+			suppressProbeMessages,
+			message: consoleMessage,
+			meta: consoleFields
+		})) return;
+		writeConsoleLine(level, consoleSettings.style === "json" ? formatJsonConsoleLine({
+			level,
+			subsystem: resolvedSubsystem,
+			message,
+			meta: consoleFields
+		}) : (formatConsoleLine ??= createConsoleLineFormatter(resolvedSubsystem))(level, consoleMessage, consoleSettings.style), { redacted: true });
+	};
+	return {
+		subsystem: resolvedSubsystem,
+		isEnabled(level, target = "any") {
+			const isConsoleEnabled = isLogLevelEnabled(level, getConsoleSettings().level) && shouldLogSubsystemToConsole(resolvedSubsystem);
+			const isFileEnabled = isFileLogLevelEnabled(level);
+			if (target === "console") return isConsoleEnabled;
+			if (target === "file") return isFileEnabled;
+			return isConsoleEnabled || isFileEnabled;
+		},
+		trace(message, meta) {
+			emitLog("trace", message, meta);
+		},
+		debug(message, meta) {
+			emitLog("debug", message, meta);
+		},
+		info(message, meta) {
+			emitLog("info", message, meta);
+		},
+		warn(message, meta) {
+			emitLog("warn", message, meta);
+		},
+		error(message, meta) {
+			emitLog("error", message, meta);
+		},
+		fatal(message, meta) {
+			emitLog("fatal", message, meta);
+		},
+		raw(message) {
+			if (isFileLogLevelEnabled("info")) logToFile(getFileLogger("info"), "info", message, { raw: true });
+			const consoleSettings = getConsoleSettings();
+			if (isLogLevelEnabled("info", consoleSettings.level) && shouldLogSubsystemToConsole(resolvedSubsystem)) {
+				if (shouldSuppressProbeConsoleLine({
+					level: "info",
+					suppressProbeMessages,
+					message
+				})) return;
+				writeConsoleLine("info", consoleSettings.style === "json" ? formatJsonConsoleLine({
+					level: "info",
+					subsystem: resolvedSubsystem,
+					message
+				}) : message, { redacted: consoleSettings.style === "json" });
+			}
+		},
+		child(name) {
+			return createSubsystemLogger(`${resolvedSubsystem}/${name}`);
+		}
+	};
+}
+resolveGlobalSingleton(Symbol.for("openclaw.sqliteCoordinatorError"), () => class CoordinatorError extends Error {
+	constructor(message, cause) {
+		super(message);
+		this.cause = cause;
+		this.name = "SqliteCoordinatorError";
+	}
+});
+createSubsystemLogger("sqlite/publication");
+const pendingPublications = resolveGlobalSingleton(Symbol.for("openclaw.sqlitePostCommitPublications"), () => /* @__PURE__ */ new WeakMap());
+const pendingTransactionState = resolveGlobalSingleton(Symbol.for("openclaw.sqliteTransactionState"), () => /* @__PURE__ */ new WeakMap());
+/** Snapshots read within this managed transaction can still roll back. */
+function hasSqlitePostCommitScope(db) {
+	return pendingPublications.has(sqlPublicationAnchor(db));
+}
+/**
+* Stage private transaction-local state that publishes before fallible observers.
+* Observer preparation follows every committed state update. All callbacks must not throw.
+*/
+function stageSqliteTransactionState(db, state) {
+	const pending = pendingTransactionState.get(sqlPublicationAnchor(db));
+	if (!pending) return false;
+	state.stage();
+	pending.push({
+		prepareCommit: state.prepareCommit,
+		commit: state.commit,
+		prepareObservers: state.prepareObservers,
+		invalidate: state.invalidate,
+		rollback: state.rollback
+	});
+	return true;
+}
+//#endregion
+//#region src/infra/sqlite-database-write-receipts.ts
+const state$1 = resolveGlobalSingleton(Symbol.for("openclaw.sqliteDatabaseWriteScopes"), () => ({
+	writeScopes: /* @__PURE__ */ new WeakMap(),
+	pendingWriteScopes: /* @__PURE__ */ new WeakMap(),
+	localScopeRevisions: /* @__PURE__ */ new WeakMap(),
+	localUnscopedRevisions: /* @__PURE__ */ new WeakMap()
+}));
+/** Scoped revisions borrow physical admission and publication from their existing owner. */
+function createSqliteDatabaseWriteReceipts(owner) {
+	/** A typed owner certifies all session keys affected by this synchronous kernel. */
+	function withSqliteDatabaseWriteScope(database, scope, run) {
+		const record = owner.admission(database);
+		if (!(record ? readSqliteDatabaseGeneration(record, "writeScopeRevision") > 0 : state$1.localScopeRevisions.has(database))) {
+			const value = run();
+			if (value instanceof Promise) throw new Error("SQLite write scopes cannot await work");
+			return value;
+		}
+		const keys = normalizedWriteScopes(scope);
+		const previous = state$1.writeScopes.get(database);
+		state$1.writeScopes.set(database, keys);
+		try {
+			const value = run();
+			if (value instanceof Promise) throw new Error("SQLite write scopes cannot await work");
+			return value;
+		} finally {
+			if (previous) state$1.writeScopes.set(database, previous);
+			else state$1.writeScopes.delete(database);
+		}
+	}
+	/** Authority and user callbacks cannot borrow their caller's certified mutation scope. */
+	function withoutSqliteDatabaseWriteScope(database, run) {
+		const previous = state$1.writeScopes.get(database);
+		state$1.writeScopes.delete(database);
+		try {
+			return run();
+		} finally {
+			if (previous) state$1.writeScopes.set(database, previous);
+		}
+	}
+	function ensureWriteScopes(record, keys) {
+		let changed = false;
+		for (const key of keys) {
+			const previous = record.writeScopes.get(key);
+			if (!previous || Atomics.load(previous.state, 1) !== 0) {
+				record.writeScopes.set(key, createScopeRevision());
+				if (threadId === 0) advanceSqliteDatabaseGeneration(record, "writeScopeRevision");
+				changed = true;
+			}
+		}
+		if (changed) {
+			advanceSqliteDatabaseGeneration(record, "publicationRevision");
+			owner.publish(record);
+		}
+	}
+	function createScopeRevision() {
+		return {
+			identity: randomUUID(),
+			state: new Int32Array(new SharedArrayBuffer(2 * Int32Array.BYTES_PER_ELEMENT))
+		};
+	}
+	/** Deletion owners retire only scopes whose stored identity has actually been removed. */
+	function retireSqliteDatabaseWriteScopes(database, scope) {
+		const keys = normalizedWriteScopes(scope);
+		const record = owner.admission(database);
+		const retire = () => {
+			if (!record) {
+				const local = state$1.localScopeRevisions.get(database);
+				for (const key of keys) local?.delete(key);
+				return;
+			}
+			if (isSqliteDatabaseAdmissionRetired(record)) return;
+			let changed = false;
+			for (const key of keys) {
+				const revision = record.writeScopes.get(key);
+				if (revision && Atomics.exchange(revision.state, 1, 1) === 0) changed = true;
+			}
+			if (changed) {
+				advanceSqliteDatabaseGeneration(record, "writeScopeRevision");
+				advanceSqliteDatabaseGeneration(record, "publicationRevision");
+				owner.publish(record);
+			}
+		};
+		if (!stageSqliteTransactionState(database, {
+			stage() {},
+			commit: retire,
+			rollback() {}
+		}) && !database.isTransaction) retire();
+	}
+	function scopedWriteToken(record, keys, pending) {
+		return JSON.stringify([
+			record.identity,
+			record.generationId,
+			readSqliteDatabaseGeneration(record, "schemaRevision"),
+			readSqliteDatabaseGeneration(record, "unscopedWriteRevision") + (pending === null ? 1 : 0) | 0,
+			keys.map((key) => [
+				key,
+				record.writeScopes.get(key).identity,
+				Atomics.load(record.writeScopes.get(key).state, 0) + (pending?.has(key) ? 1 : 0) | 0
+			])
+		]);
+	}
+	function localScopedWriteToken(database, keys, pending) {
+		return JSON.stringify([
+			"memory",
+			(state$1.localUnscopedRevisions.get(database) ?? 0) + (pending === null ? 1 : 0),
+			keys.map((key) => [
+				key,
+				state$1.localScopeRevisions.get(database).get(key).identity,
+				Atomics.load(state$1.localScopeRevisions.get(database).get(key).state, 0) + (pending?.has(key) ? 1 : 0) | 0
+			])
+		]);
+	}
+	function normalizedWriteScopes(scope) {
+		return [...new Set((typeof scope === "string" ? [scope] : scope).map((key) => typeof key === "string" ? JSON.stringify(["key", toUSVString(key)]) : JSON.stringify(["session-id", toUSVString(key.sessionId)])))].toSorted();
+	}
+	function ensureLocalWriteScopes(database, keys) {
+		const revisions = state$1.localScopeRevisions.get(database) ?? /* @__PURE__ */ new Map();
+		for (const key of keys) if (!revisions.has(key)) revisions.set(key, createScopeRevision());
+		state$1.localScopeRevisions.set(database, revisions);
+	}
+	function readScopedWriteToken(database, scope, includePending = false) {
+		const keys = normalizedWriteScopes(scope);
+		const record = owner.admission(database);
+		if (record) ensureWriteScopes(record, keys);
+		else ensureLocalWriteScopes(database, keys);
+		if (owner.readRevision(database) === void 0) return;
+		const pending = includePending ? state$1.pendingWriteScopes.get(database) : void 0;
+		return record ? scopedWriteToken(record, keys, pending) : localScopedWriteToken(database, keys, pending);
+	}
+	/** Per-key receipts survive unrelated committed writes. */
+	function readSqliteDatabaseScopedWriteToken(database, scope) {
+		return readScopedWriteToken(database, scope);
+	}
+	function readSqliteDatabaseScopedWriteTokenForPath(location, scope) {
+		const keys = normalizedWriteScopes(scope);
+		const record = owner.pathAdmission(location);
+		if (!record || isSqliteDatabaseAdmissionRetired(record)) return;
+		ensureWriteScopes(record, keys);
+		return scopedWriteToken(record, keys);
+	}
+	/** A cohort discovers all dependency scopes in one admission publication. */
+	function readSqliteDatabaseScopedWriteTokensForPath(location, scopes) {
+		const record = owner.pathAdmission(location);
+		if (!record || isSqliteDatabaseAdmissionRetired(record)) return;
+		const groups = scopes.map(normalizedWriteScopes);
+		ensureWriteScopes(record, groups.flat());
+		return groups.map((keys) => scopedWriteToken(record, keys));
+	}
+	/** Capture the exact post-commit token before any fallible publication executes. */
+	function readSqliteDatabasePendingScopedWriteToken(database, scope) {
+		return readScopedWriteToken(database, scope, true);
+	}
+	/** Host row caches retain a physical identity and receipt without opening SQLite. */
+	function readSqliteDatabaseWriteTokenForPath(location) {
+		const record = owner.pathAdmission(location);
+		if (!record || isSqliteDatabaseAdmissionRetired(record)) return;
+		return `${record.identity}:${record.generationId}:${readSqliteDatabaseGeneration(record, "writeRevision")}`;
+	}
+	/** Predict the token published when the current native mutation settles. */
+	function readSqliteDatabasePendingWriteToken(database) {
+		if (!database.isOpen || !database.isTransaction || !hasSqlitePostCommitScope(database) || owner.suspended(database)) return;
+		const record = owner.writer(database);
+		if (!record || isSqliteDatabaseAdmissionRetired(record)) return;
+		return `${record.identity}:${record.generationId}:${readSqliteDatabaseGeneration(record, "writeRevision") + 1 | 0}`;
+	}
+	return {
+		begin(database, unscoped) {
+			const scope = unscoped ? void 0 : state$1.writeScopes.get(database);
+			const pending = state$1.pendingWriteScopes.get(database);
+			if (!scope || pending === null) state$1.pendingWriteScopes.set(database, null);
+			else {
+				const keys = pending ?? /* @__PURE__ */ new Set();
+				for (const key of scope) keys.add(key);
+				state$1.pendingWriteScopes.set(database, keys);
+			}
+		},
+		finish(database, record) {
+			const keys = state$1.pendingWriteScopes.get(database);
+			state$1.pendingWriteScopes.delete(database);
+			let unscoped = !keys;
+			if (keys) {
+				const local = state$1.localScopeRevisions.get(database);
+				for (const key of keys) {
+					const localRevision = local?.get(key);
+					if (localRevision) Atomics.add(localRevision.state, 0, 1);
+					const revision = record?.writeScopes.get(key);
+					if (revision && Atomics.load(revision.state, 1) === 0) Atomics.add(revision.state, 0, 1);
+					else if (record && (revision || record.writeScopeRevision !== readSqliteDatabaseGeneration(record, "writeScopeRevision"))) unscoped = true;
+				}
+			}
+			if (unscoped) {
+				state$1.localUnscopedRevisions.set(database, (state$1.localUnscopedRevisions.get(database) ?? 0) + 1);
+				if (record) advanceSqliteDatabaseGeneration(record, "unscopedWriteRevision");
+			}
+		},
+		retireSqliteDatabaseWriteScopes,
+		withSqliteDatabaseWriteScope,
+		withoutSqliteDatabaseWriteScope,
+		readSqliteDatabaseScopedWriteToken,
+		readSqliteDatabaseScopedWriteTokenForPath,
+		readSqliteDatabaseScopedWriteTokensForPath,
+		readSqliteDatabasePendingScopedWriteToken,
+		readSqliteDatabaseWriteTokenForPath,
+		readSqliteDatabasePendingWriteToken
+	};
+}
+//#endregion
+//#region src/infra/sqlite-database-admission.ts
+const state = resolveGlobalSingleton(Symbol.for("openclaw.sqliteDatabaseAdmissions"), () => ({
+	registry: new SqliteDatabaseAdmissionRegistry(),
+	connections: /* @__PURE__ */ new WeakMap(),
+	openedIdentities: /* @__PURE__ */ new WeakMap(),
+	unproven: /* @__PURE__ */ new WeakSet(),
+	suspended: /* @__PURE__ */ new WeakSet(),
+	local: /* @__PURE__ */ new WeakMap(),
+	rolledBack: /* @__PURE__ */ new WeakSet(),
+	dataWriters: /* @__PURE__ */ new WeakMap(),
+	localWriteRevisions: /* @__PURE__ */ new WeakMap(),
+	writeListeners: /* @__PURE__ */ new WeakMap(),
+	ddlRevisions: /* @__PURE__ */ new WeakMap(),
+	schemaDirty: /* @__PURE__ */ new WeakSet(),
+	localSchemaRevisions: /* @__PURE__ */ new Map(),
+	misses: /* @__PURE__ */ new WeakMap(),
+	exchange: new AsyncLocalStorage(),
+	exchanging: false,
+	publication: 0,
+	seals: new SqliteDatabaseCleanCloseSeals(publishFact, {
+		retain: (record) => state.registry.changeReferences(record, 1),
+		release: releaseReference
+	})
+}));
+const scopedWrites = createSqliteDatabaseWriteReceipts({
+	admission,
+	pathAdmission,
+	readRevision: readSqliteDatabaseWriteRevision,
+	writer: (database) => state.dataWriters.get(database),
+	suspended: (database) => state.suspended.has(database),
+	publish(record) {
+		state.registry.publish(record);
+		exchange(record);
+	}
+});
+const { retireSqliteDatabaseWriteScopes, withSqliteDatabaseWriteScope, withoutSqliteDatabaseWriteScope, readSqliteDatabaseScopedWriteToken, readSqliteDatabaseScopedWriteTokenForPath, readSqliteDatabaseScopedWriteTokensForPath, readSqliteDatabasePendingScopedWriteToken, readSqliteDatabaseWriteTokenForPath, readSqliteDatabasePendingWriteToken } = scopedWrites;
+function exchange(target, create) {
+	const current = state.exchange.getStore();
+	if (!current || state.exchanging) return;
+	state.exchanging = true;
+	try {
+		const scope = typeof target === "string" ? { location: target } : { admissions: [target] };
+		const retired = typeof target !== "string" && isSqliteDatabaseAdmissionRetired(target);
+		installSqliteDatabaseAdmissions(current(retired ? [target] : captureSqliteDatabaseAdmissions(void 0, scope), retired ? void 0 : typeof target === "string" ? target : target.location, create));
+	} finally {
+		state.exchanging = false;
+	}
+}
+/** Identity descriptors stay open for the process: closing one can release SQLite's POSIX locks. */
+function retainSqliteDatabaseAdmissionLocation(location) {
+	const observed = fs.statSync(location, { bigint: true });
+	if (!observed.isFile()) return;
+	const key = readSqliteDatabaseAdmissionIdentity(observed);
+	const previous = state.registry.records.get(key);
+	if (previous && !isSqliteDatabaseAdmissionRetired(previous)) {
+		state.registry.observeLocation(location, key);
+		state.seals.load(previous);
+		return;
+	}
+	if (threadId !== 0) return;
+	const descriptor = state.registry.descriptors.get(key) ?? fs.openSync(location, "r");
+	const opened = fs.fstatSync(descriptor, { bigint: true });
+	if (!opened.isFile() || readSqliteDatabaseAdmissionIdentity(opened) !== key) throw new Error("SQLite database changed while retaining its admission identity");
+	const record = state.registry.retainDescriptor(fs.realpathSync.native(location), descriptor, opened);
+	state.registry.observeLocation(location, record.identity);
+	state.seals.load(record);
+}
+function pathAdmission(location) {
+	let retained = state.registry.forLocation(location);
+	if (!retained) {
+		exchange(location);
+		retained = state.registry.forLocation(location);
+	}
+	if (retained) {
+		state.seals.load(retained);
+		return retained;
+	}
+	try {
+		retainSqliteDatabaseAdmissionLocation(location);
+		return state.registry.forLocation(location);
+	} catch (error) {
+		if (hasErrnoCode(error, "ENOENT")) return;
+		throw error;
+	}
+}
+/** Resolve SQLite's absolute URLs and encoded filename form at filesystem boundaries. */
+function resolveSqliteDatabaseFilePath(location) {
+	if (!location.startsWith("file:")) return location;
+	const [uriFilename = ""] = location.slice(5).split(/[?#]/u, 1);
+	return uriFilename.startsWith("/") ? fileURLToPath(location) : decodeURIComponent(uriFilename);
+}
+/** Bracket native open so a pathname swap cannot lend the replacement file's admission. */
+function prepareSqliteDatabaseAdmission(location, options = {}) {
+	let filename = location;
+	let create = options.create;
+	if (!filename || filename === ":memory:") return;
+	if (filename.startsWith("file:")) {
+		const url = new URL(filename);
+		if (url.searchParams.get("mode") === "memory") return;
+		if (["ro", "rw"].includes(url.searchParams.get("mode") ?? "")) create = false;
+		filename = resolveSqliteDatabaseFilePath(filename);
+		if (!filename || filename === ":memory:") return;
+	}
+	try {
+		const file = fs.statSync(filename, { bigint: true });
+		if (!file.isFile()) return;
+		const observed = readSqliteDatabaseAdmissionIdentity(file);
+		state.registry.observeLocation(filename, observed);
+		return observed;
+	} catch (error) {
+		if (hasErrnoCode(error, "ENOENT")) {
+			if (!create) return;
+			if (threadId !== 0) {
+				const managed = state.exchange.getStore() !== void 0;
+				exchange(filename, true);
+				const opened = prepareSqliteDatabaseAdmission(filename);
+				if (managed && opened === void 0) throw new Error(`SQLite worker file creation requires host authority: ${filename}`, { cause: error });
+				return opened;
+			}
+			let descriptor;
+			try {
+				descriptor = fs.openSync(filename, "wx", 420);
+			} catch (creationError) {
+				if (hasErrnoCode(creationError, "EEXIST")) return prepareSqliteDatabaseAdmission(filename);
+				throw creationError;
+			}
+			const opened = fs.fstatSync(descriptor, { bigint: true });
+			const record = state.registry.retainDescriptor(fs.realpathSync.native(filename), descriptor, opened);
+			state.seals.markCreated(record);
+			if (prepareSqliteDatabaseAdmission(filename) !== record.identity) throw new Error("SQLite database changed identity during file creation", { cause: error });
+			return record.identity;
+		}
+		throw error;
+	}
+}
+function bindSqliteDatabaseAdmission(database, expected) {
+	state.connections.delete(database);
+	state.openedIdentities.delete(database);
+	state.unproven.delete(database);
+	const location = database.location();
+	if (!location || location === ":memory:") return;
+	const observed = prepareSqliteDatabaseAdmission(location);
+	if (expected !== void 0 && observed !== expected) throw new Error("SQLite database changed identity during native open");
+	if (!observed) return;
+	state.openedIdentities.set(database, observed);
+	if (expected === void 0) {
+		state.unproven.add(database);
+		return;
+	}
+	const record = state.registry.records.get(observed);
+	if (record && !isSqliteDatabaseAdmissionRetired(record)) retainConnection(database, record);
+}
+function admission(database, create = true) {
+	const expected = state.openedIdentities.get(database);
+	if (!database.isOpen || expected === void 0 || state.unproven.has(database)) return;
+	const retained = state.connections.get(database);
+	if (retained) return isSqliteDatabaseAdmissionRetired(retained) ? void 0 : retained;
+	const location = database.location();
+	if (!location || location === ":memory:") return;
+	const record = create && !database.isTransaction ? pathAdmission(location) : state.registry.records.get(expected);
+	if (record && record.identity !== expected) throw new Error("SQLite database changed identity before admission");
+	return record && !isSqliteDatabaseAdmissionRetired(record) ? retainConnection(database, record) : void 0;
+}
+function retainConnection(database, record) {
+	const expected = record.identity;
+	let current = record;
+	try {
+		for (;;) {
+			if (current.identity !== expected) throw new Error("SQLite database changed identity during native open");
+			const publish = state.registry.changeReferences(current, 1);
+			let retained = false;
+			try {
+				if (publish) exchange(current);
+				const retirement = readSqliteDatabaseGeneration(current, "retired");
+				if (retirement === 0) {
+					state.connections.set(database, current);
+					retained = true;
+					return current;
+				}
+				if (retirement !== 2) throw new Error("SQLite database admission retired during native open");
+			} finally {
+				if (!retained) state.registry.changeReferences(current, -1);
+			}
+			const location = database.location();
+			const replacement = database.isTransaction ? state.registry.records.get(expected) : location ? pathAdmission(location) : void 0;
+			if (!replacement || isSqliteDatabaseAdmissionRetired(replacement)) throw new Error("SQLite database admission unavailable during native open");
+			current = replacement;
+		}
+	} catch (error) {
+		state.openedIdentities.delete(database);
+		throw error;
+	}
+}
+/** Native close has settled; keep only descriptor custody, never the closed database's payloads. */
+function releaseSqliteDatabaseAdmission(database) {
+	const record = state.connections.get(database);
+	if (state.openedIdentities.delete(database) && record) {
+		state.local.delete(database);
+		releaseReference(record);
+	}
+}
+function releaseReference(record) {
+	if (state.registry.changeReferences(record, -1)) {
+		state.localSchemaRevisions.delete(record.identity);
+		exchange(record);
+	}
+}
+const { getSqliteDatabaseAdmission, getOrLoadSqliteDatabaseAdmissionForPath } = createSqliteDatabaseAdmissionReader({
+	state,
+	admission,
+	pathAdmission,
+	exchange,
+	publishFact
+});
+function publishFact(record, key, value, revision) {
+	if (key.writer === "host" && threadId !== 0) throw new Error("SQLite host-owned admission facts require the host publisher");
+	if (!publishSqliteDatabaseFact(record, key, value, revision, `${threadId}:${++state.publication}`)) return;
+	state.registry.publish(record);
+	exchange(record);
+}
+/** Publish one row-cache revision when a local native write settles. */
+function beginSqliteDatabaseWrite(database, unscoped = false) {
+	const record = admission(database);
+	if (record && Atomics.load(new Int32Array(record.generation), SqliteDatabaseGenerationSlot.sealPresent) === 1) state.seals.invalidate(record.location, record);
+	scopedWrites.begin(database, unscoped);
+	if (state.dataWriters.has(database)) return;
+	state.dataWriters.set(database, admission(database));
+}
+/** Native settlement invalidates row caches, including failed or rolled-back writes. */
+function finishSqliteDatabaseWrite(database) {
+	if (!state.dataWriters.has(database)) return;
+	const record = state.dataWriters.get(database);
+	state.dataWriters.delete(database);
+	state.localWriteRevisions.set(database, (state.localWriteRevisions.get(database) ?? 0) + 1);
+	scopedWrites.finish(database, record);
+	if (record) {
+		advanceSqliteDatabaseGeneration(record, "writeRevision");
+		const listeners = state.writeListeners.get(record);
+		if (listeners) notifyListeners(listeners, void 0);
+	}
+}
+/** Ordinary reads consume the last committed writer revision without a writer census. */
+function readSqliteDatabaseWriteRevision(connection) {
+	const database = sqlPublicationAnchor(connection);
+	if (!database.isOpen || state.suspended.has(database)) return;
+	const record = admission(database);
+	if (!record) {
+		const location = database.location();
+		return !location || location === ":memory:" ? state.localWriteRevisions.get(database) ?? 0 : void 0;
+	}
+	return readSqliteDatabaseGeneration(record, "writeRevision");
+}
+function publishSqliteDatabaseAdmission(database, key, value, options = {}) {
+	const anchor = sqlPublicationAnchor(database);
+	const record = admission(anchor, !database.isTransaction);
+	if (!record || isSqliteDatabaseAdmissionRetired(record) || state.suspended.has(anchor)) return;
+	if (key.writer === "host" && threadId !== 0) throw new Error("SQLite host-owned admission facts require the host publisher");
+	const revision = (key.schemaDependent ? options.schemaRevision : void 0) ?? readSqliteDatabaseFactRevision(record, key.schemaDependent);
+	const native = isPostgresSqlConnection(database) ? void 0 : getSqliteNativeAdmissionFacts(database);
+	if (!native && !database.isTransaction) {
+		publishFact(record, key, value, revision);
+		return;
+	}
+	const staged = {
+		value,
+		revision,
+		schemaDependent: key.schemaDependent === true,
+		ddlRevision: state.ddlRevisions.get(anchor) ?? 0
+	};
+	if (native) {
+		native.set(key.name, staged);
+		return;
+	}
+	const local = state.local.get(anchor) ?? /* @__PURE__ */ new Map();
+	state.local.set(anchor, local);
+	const previous = local.get(key.name);
+	const restore = () => {
+		if (state.local.get(anchor) !== local) return;
+		if (previous === void 0) local.delete(key.name);
+		else local.set(key.name, previous);
+	};
+	stageSqliteTransactionState(anchor, {
+		stage: () => local.set(key.name, staged),
+		rollback: restore,
+		commit: () => {
+			if (state.local.get(anchor) === local && local.get(key.name) === staged) {
+				local.delete(key.name);
+				if (staged.revision === readSqliteDatabaseFactRevision(record, staged.schemaDependent) && (!staged.schemaDependent || staged.ddlRevision === (state.ddlRevisions.get(anchor) ?? 0))) publishFact(record, key, value, staged.revision);
+			}
+		}
+	});
+}
+/** Track uncommitted DDL separately so it cannot revive a receipt validated before a later change. */
+function invalidateLocalSqliteSchemaAdmissions(database) {
+	const anchor = sqlPublicationAnchor(database);
+	const revision = state.ddlRevisions.get(anchor) ?? 0;
+	const dirty = state.schemaDirty.has(anchor);
+	const stage = () => {
+		state.ddlRevisions.set(anchor, revision + 1);
+		state.schemaDirty.add(anchor);
+	};
+	if (!stageSqliteTransactionState(anchor, {
+		stage,
+		commit: () => {},
+		rollback: () => {
+			state.ddlRevisions.set(anchor, revision);
+			if (!dirty) state.schemaDirty.delete(anchor);
+		}
+	})) stage();
+}
+/** Raw rollback cannot restore staging boundaries; require new facts in any remaining transaction. */
+function discardSqliteDatabaseTransactionAdmissions(database) {
+	const anchor = sqlPublicationAnchor(database);
+	const record = admission(anchor, false);
+	for (const pending of [isPostgresSqlConnection(database) ? void 0 : getSqliteNativeAdmissionFacts(database), state.local.get(anchor)]) {
+		for (const key of pending?.keys() ?? []) {
+			const previous = record?.facts.get(key);
+			if (previous) Atomics.store(new Int32Array(previous.current), 0, 0);
+		}
+		pending?.clear();
+	}
+	state.local.delete(anchor);
+	state.rolledBack.add(anchor);
+	if (!database.isTransaction) state.schemaDirty.delete(anchor);
+}
+/** The DDL owner advances committed format and acknowledges only its final validated receipts. */
+function publishSqliteDatabaseSchemaChange(database) {
+	const anchor = sqlPublicationAnchor(database);
+	const record = admission(anchor, false);
+	if (record) {
+		const previous = advanceSqliteDatabaseGeneration(record, "schemaRevision");
+		const ddlRevision = state.ddlRevisions.get(anchor) ?? 0;
+		for (const fact of state.local.get(anchor)?.values() ?? []) if (fact.schemaDependent && fact.revision === previous && fact.ddlRevision === ddlRevision) fact.revision = previous + 1;
+	} else {
+		const fileIdentity = state.openedIdentities.get(anchor);
+		if (fileIdentity) state.localSchemaRevisions.set(fileIdentity, (state.localSchemaRevisions.get(fileIdentity) ?? 0) + 1);
+	}
+	if (!database.isTransaction) state.schemaDirty.delete(anchor);
+}
+function getSqliteDatabaseSchemaRevision(connection) {
+	const database = sqlPublicationAnchor(connection);
+	const record = admission(database);
+	if (record) return readSqliteDatabaseGeneration(record, "schemaRevision");
+	const fileIdentity = state.openedIdentities.get(database);
+	return fileIdentity ? state.localSchemaRevisions.get(fileIdentity) ?? 0 : void 0;
+}
+function suspendSqliteDatabaseAdmission(database, suspended) {
+	if (suspended) state.suspended.add(database);
+	else state.suspended.delete(database);
+}
+function captureSqliteDatabaseAdmissions(cursor, scope) {
+	if (!scope) return state.registry.capture(cursor);
+	const identities = new Set(scope.admissions?.map((record) => record.identity));
+	if (scope.location !== void 0) {
+		const observed = state.registry.forLocation(scope.location)?.identity;
+		if (observed) identities.add(observed);
+	}
+	return state.registry.capture(cursor, identities);
+}
+function installSqliteDatabaseAdmissions(admissions) {
+	state.registry.install(admissions);
+}
+function withSqliteDatabaseAdmissionExchange(exchangeOwner, operation) {
+	return state.exchange.run(exchangeOwner, operation);
+}
+const inherited = readSqliteDatabaseAdmissions(getEnvironmentData(SQLITE_DATABASE_ADMISSIONS_KEY));
+if (inherited) installSqliteDatabaseAdmissions(inherited);
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/util.js
+function getEnumValues(entries) {
+	const numericValues = Object.values(entries).filter((v) => typeof v === "number");
+	return Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
+}
+function joinValues(array, separator = "|") {
+	return array.map((val) => stringifyPrimitive(val)).join(separator);
+}
+function jsonStringifyReplacer(_, value) {
+	if (typeof value === "bigint") return value.toString();
+	return value;
+}
+var Cached = class {
+	constructor(getter) {
+		this._getter = getter;
+		this._value = void 0;
+	}
+	get value() {
+		const getter = this._getter;
+		if (getter !== void 0) {
+			this._value = getter();
+			this._getter = void 0;
+		}
+		return this._value;
+	}
+};
+function cached(getter) {
+	return new Cached(getter);
+}
+function nullish(input) {
+	return input === null || input === void 0;
+}
+function cleanRegex(source) {
+	const start = source.startsWith("^") ? 1 : 0;
+	const end = source.endsWith("$") ? source.length - 1 : source.length;
+	return source.slice(start, end);
+}
+function floatSafeRemainder(val, step) {
+	const ratio = val / step;
+	const roundedRatio = Math.round(ratio);
+	const tolerance = 4 * Number.EPSILON * Math.max(Math.abs(ratio), 1);
+	if (Math.abs(ratio - roundedRatio) < tolerance) return 0;
+	return ratio - roundedRatio;
+}
+function assignProp(target, prop, value) {
+	Object.defineProperty(target, prop, {
+		value,
+		writable: true,
+		enumerable: true,
+		configurable: true
+	});
+}
+/**
+* Whichever object a def's `shape` currently answers from: the one the caller passed until the first read, the frozen copy after it.
+*
+* Its keys and descriptors read without invoking anything, which is what lets a discriminated union check its discriminator, and the cycle walk read a shape, without resolving a getter that references the schema being constructed. A def that answers `shape` from an accessor of its own has none.
+*/
+function rawShape(def) {
+	const desc = Object.getOwnPropertyDescriptor(def, "shape");
+	return desc?.get ? desc.get.raw : desc?.value;
+}
+function sourceShape(schema) {
+	return rawShape(schema._zod.def) ?? schema._zod.def.shape;
+}
+function deferProp(target, key, getter) {
+	Object.defineProperty(target, key, {
+		get() {
+			const value = getter();
+			assignProp(this, key, value);
+			return value;
+		},
+		enumerable: true,
+		configurable: true
+	});
+}
+function putProp(target, key, value) {
+	if (key in target) assignProp(target, key, value);
+	else target[key] = value;
+}
+/**
+* Copies `keys` of `source`'s shape onto `target`, each value passed through `wrap`.
+*
+* A key the source has resolved is copied through now, so the derived shape states it outright and nothing has to resolve it to learn what it holds. A key the source still defers stays deferred, and reads back through the source's own `shape`, so it resolves once and both shapes get that one schema.
+*/
+function mirrorShape(target, source, keys, wrap) {
+	const raw = sourceShape(source);
+	for (const key of keys) {
+		const desc = Object.getOwnPropertyDescriptor(raw, key);
+		if (!desc.enumerable) continue;
+		if (desc.get) deferProp(target, key, () => {
+			const value = source._zod.def.shape[key];
+			return wrap ? wrap(value, key) : value;
+		});
+		else putProp(target, key, wrap ? wrap(desc.value, key) : desc.value);
+	}
+}
+function mirrorProps(target, source) {
+	for (const key of Reflect.ownKeys(source)) {
+		const desc = Object.getOwnPropertyDescriptor(source, key);
+		if (!desc.enumerable) continue;
+		if (desc.get) deferProp(target, key, () => source[key]);
+		else putProp(target, key, desc.value);
+	}
+}
+function mergeDefs(...defs) {
+	const mergedDescriptors = {};
+	for (const def of defs) {
+		const descriptors = Object.getOwnPropertyDescriptors(def);
+		Object.assign(mergedDescriptors, descriptors);
+	}
+	return Object.defineProperties({}, mergedDescriptors);
+}
+function esc(str) {
+	return JSON.stringify(str);
+}
+function slugify(input) {
+	return input.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+const captureStackTrace = "captureStackTrace" in Error ? Error.captureStackTrace : (..._args) => {};
+function isObject$1(data) {
+	return typeof data === "object" && data !== null && !Array.isArray(data);
+}
+const allowsEval = /* @__PURE__*/ cached(() => {
+	if (globalConfig.jitless) return false;
+	if (typeof navigator !== "undefined" && navigator?.userAgent?.includes("Cloudflare")) return false;
+	try {
+		new Function("");
+		return true;
+	} catch (_) {
+		return false;
+	}
+});
+function isPlainObject(o) {
+	if (isObject$1(o) === false) return false;
+	const ctor = o.constructor;
+	if (ctor === void 0) return true;
+	if (typeof ctor !== "function") return true;
+	const prot = ctor.prototype;
+	if (isObject$1(prot) === false) return false;
+	if (Object.prototype.hasOwnProperty.call(prot, "isPrototypeOf") === false) return false;
+	return true;
+}
+function shallowClone(o) {
+	if (isPlainObject(o)) return { ...o };
+	if (Array.isArray(o)) return [...o];
+	if (o instanceof Map) return new Map(o);
+	if (o instanceof Set) return new Set(o);
+	return o;
+}
+const propertyKeyTypes = /* @__PURE__*/ new Set([
+	"string",
+	"number",
+	"symbol"
+]);
+function escapeRegex(str) {
+	return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function clone(inst, def, params) {
+	const cl = new inst._zod.constr(def ?? inst._zod.def);
+	if (!def || params?.parent) cl._zod.parent = inst;
+	return cl;
+}
+function normalizeParams(_params) {
+	const params = _params;
+	if (!params) return {};
+	if (typeof params === "string") return { error: () => params };
+	if (params?.message !== void 0) {
+		if (params?.error !== void 0) throw new Error("Cannot specify both `message` and `error` params");
+		params.error = params.message;
+	}
+	delete params.message;
+	if (typeof params.error === "string") return {
+		...params,
+		error: () => params.error
+	};
+	return params;
+}
+function stringifyPrimitive(value) {
+	if (typeof value === "bigint") return value.toString() + "n";
+	if (typeof value === "string") return `"${value}"`;
+	return `${value}`;
+}
+function optionalKeys(shape) {
+	return Object.keys(shape).filter((k) => {
+		return shape[k]._zod.optin !== void 0 && shape[k]._zod.optout === "optional";
+	});
+}
+const NUMBER_FORMAT_RANGES = /*@__PURE__*/ (() => ({
+	safeint: [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
+	int32: [-2147483648, 2147483647],
+	uint32: [0, 4294967295],
+	float32: [-34028234663852886e22, 34028234663852886e22],
+	float64: [-Number.MAX_VALUE, Number.MAX_VALUE]
+}))();
+const BIGINT_FORMAT_RANGES = {
+	int64: [/* @__PURE__*/ BigInt("-9223372036854775808"), /* @__PURE__*/ BigInt("9223372036854775807")],
+	uint64: [/* @__PURE__*/ BigInt(0), /* @__PURE__*/ BigInt("18446744073709551615")]
+};
+function pick(schema, mask) {
+	const currDef = schema._zod.def;
+	const checks = currDef.checks;
+	if (checks && checks.length > 0) throw new Error(".pick() cannot be used on object schemas containing refinements");
+	const newShape = {};
+	mirrorShape(newShape, schema, maskedKeys(schema, mask));
+	return clone(schema, mergeDefs(currDef, {
+		shape: newShape,
+		checks: []
+	}));
+}
+function maskedKeys(schema, mask) {
+	const raw = sourceShape(schema);
+	const keys = [];
+	for (const key of Reflect.ownKeys(mask)) {
+		if (!Object.getOwnPropertyDescriptor(raw, key)?.enumerable) throw new Error(`Unrecognized key: "${String(key)}"`);
+		if (mask[key]) keys.push(key);
+	}
+	return keys;
+}
+function omit(schema, mask) {
+	const currDef = schema._zod.def;
+	const checks = currDef.checks;
+	if (checks && checks.length > 0) throw new Error(".omit() cannot be used on object schemas containing refinements");
+	const omitted = new Set(maskedKeys(schema, mask));
+	const newShape = {};
+	mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)).filter((key) => !omitted.has(key)));
+	return clone(schema, mergeDefs(currDef, {
+		shape: newShape,
+		checks: []
+	}));
+}
+function extend(schema, shape) {
+	if (!isPlainObject(shape)) throw new Error("Invalid input to extend: expected a plain object");
+	const checks = schema._zod.def.checks;
+	if (checks && checks.length > 0) {
+		const existingShape = sourceShape(schema);
+		for (const key of Reflect.ownKeys(shape)) if (Object.getOwnPropertyDescriptor(existingShape, key) !== void 0) throw new Error("Cannot overwrite keys on object schemas containing refinements. Use `.safeExtend()` instead.");
+	}
+	return clone(schema, mergeDefs(schema._zod.def, { shape: extended(schema, shape) }));
+}
+function extended(schema, shape) {
+	const newShape = {};
+	mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)));
+	mirrorProps(newShape, shape);
+	return newShape;
+}
+function safeExtend(schema, shape) {
+	if (!isPlainObject(shape)) throw new Error("Invalid input to safeExtend: expected a plain object");
+	return clone(schema, mergeDefs(schema._zod.def, { shape: extended(schema, shape) }));
+}
+function merge(a, b) {
+	if (!b?._zod?.def) throw new Error("Invalid input to merge: expected an object schema. To merge a plain shape, use `.extend()`.");
+	if (a._zod.def.checks?.length) throw new Error(".merge() cannot be used on object schemas containing refinements. Use .safeExtend() instead.");
+	const newShape = {};
+	mirrorShape(newShape, a, Reflect.ownKeys(sourceShape(a)));
+	mirrorShape(newShape, b, Reflect.ownKeys(sourceShape(b)));
+	return clone(a, mergeDefs(a._zod.def, {
+		shape: newShape,
+		get catchall() {
+			return b._zod.def.catchall;
+		},
+		checks: b._zod.def.checks ?? []
+	}));
+}
+function partial(Class, schema, mask, name = "partial") {
+	const checks = schema._zod.def.checks;
+	if (checks && checks.length > 0) throw new Error(`.${name}() cannot be used on object schemas containing refinements`);
+	const selected = mask ? new Set(maskedKeys(schema, mask)) : void 0;
+	const newShape = {};
+	mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)), Class && ((value, key) => selected && !selected.has(key) ? value : new Class({
+		type: "optional",
+		innerType: value
+	})));
+	return clone(schema, mergeDefs(schema._zod.def, {
+		shape: newShape,
+		checks: []
+	}));
+}
+function required(Class, schema, mask) {
+	const selected = mask ? new Set(maskedKeys(schema, mask)) : void 0;
+	const newShape = {};
+	mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)), (value, key) => selected && !selected.has(key) ? value : new Class({
+		type: "nonoptional",
+		innerType: value
+	}));
+	return clone(schema, mergeDefs(schema._zod.def, { shape: newShape }));
+}
+function aborted(x, startIndex = 0) {
+	if (x.aborted === true) return true;
+	for (let i = startIndex; i < x.issues.length; i++) if (x.issues[i]?.continue !== true) return true;
+	return false;
+}
+function explicitlyAborted(x, startIndex = 0) {
+	if (x.aborted === true) return true;
+	for (let i = startIndex; i < x.issues.length; i++) if (x.issues[i]?.continue === false) return true;
+	return false;
+}
+function prefixIssues(path, issues) {
+	return issues.map((iss) => {
+		var _a;
+		(_a = iss).path ?? (_a.path = []);
+		iss.path.unshift(path);
+		return iss;
+	});
+}
+function unwrapMessage(message) {
+	return typeof message === "string" ? message : message?.message;
+}
+function attachSchema(issues, start, inst) {
+	var _a;
+	for (let i = start; i < issues.length; i++) (_a = issues[i]).schema ?? (_a.schema = inst);
+}
+function finalizeIssue(iss, ctx, config) {
+	var _a;
+	const traits = iss.inst?._zod?.traits;
+	if (traits?.has("$ZodType")) {
+		if (traits.has("$ZodCheck")) (_a = iss).schema ?? (_a.schema = iss.inst);
+		else iss.schema = iss.inst;
+	}
+	const schemaError = iss.schema !== iss.inst ? iss.schema?._zod.def?.error : void 0;
+	const message = iss.message ? iss.message : unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(schemaError?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config.customError?.(iss)) ?? unwrapMessage(config.localeError?.(iss)) ?? "Invalid input";
+	const full = {};
+	for (const k of Object.keys(iss)) {
+		if (k === "inst" || k === "schema" || k === "continue" || k === "input" || k === "__proto__") continue;
+		full[k] = iss[k];
+	}
+	full.path ?? (full.path = []);
+	full.message = message;
+	if (ctx?.reportInput) full.input = iss.input;
+	return full;
+}
+const highSurrogate = /[\uD800-\uDBFF]/;
+function codePointLength(str) {
+	const units = str.length;
+	if (!highSurrogate.test(str)) return units;
+	let count = units;
+	for (let i = 0; i < units - 1; i++) if ((str.charCodeAt(i) & 64512) === 55296 && (str.charCodeAt(i + 1) & 64512) === 56320) {
+		count--;
+		i++;
+	}
+	return count;
+}
+function getLengthableOrigin(input) {
+	if (Array.isArray(input)) return "array";
+	if (typeof input === "string") return "string";
+	return "unknown";
+}
+function parsedType(data) {
+	const t = typeof data;
+	switch (t) {
+		case "number": return Number.isNaN(data) ? "nan" : "number";
+		case "object": {
+			if (data === null) return "null";
+			if (Array.isArray(data)) return "array";
+			const obj = data;
+			if (obj && Object.getPrototypeOf(obj) !== Object.prototype && "constructor" in obj && obj.constructor) return obj.constructor.name;
+		}
+	}
+	return t;
+}
+function issue(...args) {
+	const [iss, input, inst] = args;
+	if (typeof iss === "string") return {
+		message: iss,
+		code: "custom",
+		input,
+		inst
+	};
+	return { ...iss };
+}
+/**
+* Installs a trait's members on its prototype. Each value builds that member for the instance on first read; the built value shadows the accessor as an own property, so a detached `const { parse } = schema` keeps working.
+*
+* Call this from a `proto` initializer, which runs once per prototype — never per instance.
+*/
+function members(proto, table) {
+	for (const key in table) {
+		const desc = Object.getOwnPropertyDescriptor(table, key);
+		if (desc.get) Object.defineProperty(proto, key, {
+			...desc,
+			enumerable: false
+		});
+		else defineBound(proto, key, desc.value);
+	}
+}
+/** Shadows a prototype member with an own value, so a getter that builds from the instance runs once. */
+function own(inst, key, value, enumerable = true) {
+	Object.defineProperty(inst, key, {
+		configurable: true,
+		writable: true,
+		enumerable,
+		value
+	});
+	return value;
+}
+/** Like {@link own}, for a member that was never an own data property and has to stay out of `Object.keys`. */
+function hide(inst, key, value) {
+	return own(inst, key, value, false);
+}
+/** Adds members a table derives from the instance: each builds on first read and shadows as own data, and assignment shadows the same way, as when these were own properties. */
+function derived(computes, table) {
+	for (const key in computes) {
+		const compute = computes[key];
+		Object.defineProperty(table, key, {
+			configurable: true,
+			enumerable: true,
+			get() {
+				return own(this, key, compute(this));
+			},
+			set(value) {
+				own(this, key, value);
+			}
+		});
+	}
+	return table;
+}
+function defineBound(proto, key, fn) {
+	Object.defineProperty(proto, key, {
+		configurable: true,
+		get() {
+			return this == null ? fn : own(this, key, fn.bind(this));
+		},
+		set(value) {
+			own(this, key, value);
+		}
+	});
+}
+/** Returns the prototype to install on, or `undefined` if this group is already installed on it. */
+function claim(inst, sentinel) {
+	const proto = Object.getPrototypeOf(inst);
+	return sentinel in proto ? void 0 : proto;
+}
+let installing;
+let broke = false;
+const breaker = {
+	configurable: true,
+	get() {
+		broke = true;
+	}
+};
+/**
+* Installs a lazily-derived internal on the `_zod` prototype of `inst`'s
+* constructor, computed from the internals object itself and cached there on
+* first read. One accessor per constructor rather than one per instance.
+*/
+function defineLazyInternal(inst, key, compute) {
+	const proto = Object.getPrototypeOf(inst._zod);
+	if (key in proto && installing !== inst._zod) {
+		installing = void 0;
+		return;
+	}
+	installing = inst._zod;
+	Object.defineProperty(proto, key, {
+		configurable: true,
+		get() {
+			Object.defineProperty(this, key, breaker);
+			const outer = broke;
+			broke = false;
+			try {
+				const value = compute(this);
+				if (broke) delete this[key];
+				else Object.defineProperty(this, key, {
+					configurable: true,
+					writable: true,
+					value
+				});
+				broke = broke || outer;
+				return value;
+			} catch (err) {
+				delete this[key];
+				broke = broke || outer;
+				throw err;
+			}
+		},
+		set(value) {
+			Object.defineProperty(this, key, {
+				configurable: true,
+				writable: true,
+				value
+			});
+		}
+	});
+}
+/**
+* Installs `key` on `inst`'s prototype, computed by `make` on first read and cached there as an own
+* data property. One accessor per constructor rather than one per instance, because an own accessor
+* puts every instance after the first into v8 dictionary mode. The key doubles as the sentinel.
+*/
+function installLazyProp(inst, key, make, enumerable) {
+	const proto = claim(inst, key);
+	if (!proto) return;
+	Object.defineProperty(proto, key, {
+		configurable: true,
+		get() {
+			const desc = {
+				configurable: true,
+				writable: true,
+				enumerable,
+				value: void 0
+			};
+			Object.defineProperty(this, key, desc);
+			desc.value = make(this);
+			Object.defineProperty(this, key, desc);
+			return desc.value;
+		},
+		set(value) {
+			Object.defineProperty(this, key, {
+				configurable: true,
+				writable: true,
+				enumerable,
+				value
+			});
+		}
+	});
+}
+/** Marks the thunk `_catch` synthesises for a constant catch value. `Function.length` cannot tell that thunk from a user callback — rest and defaulted parameters both report arity 0 — and a user callback reads `ctx.error`, whose issues only finalize correctly against the caller's per-parse error map. Provenance can say what arity cannot. A plain string key rather than `Symbol.for`, whose call at module scope no bundler can prove pure — the same shape that anchored `urlCanParse` into every build. */
+const CONSTANT_CATCH = "~constantCatch";
+/** Wraps a constant catch value in a thunk tagged with {@link CONSTANT_CATCH}. */
+function constantCatch(value) {
+	const fn = () => value;
+	fn[CONSTANT_CATCH] = true;
+	return fn;
+}
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/core.js
+var _a$5;
+const _zodDesc = {
+	value: void 0,
+	enumerable: false
+};
+let _E = "captureStackTrace" in Error ? Error : null;
+function newError(Definition) {
+	const E = _E;
+	if (E) {
+		const saved = E.stackTraceLimit;
+		if (typeof saved === "number") {
+			try {
+				E.stackTraceLimit = 0;
+			} catch {
+				_E = null;
+				return new Definition();
+			}
+			try {
+				return new Definition();
+			} finally {
+				E.stackTraceLimit = saved;
+			}
+		}
+	}
+	return new Definition();
+}
+function $constructor(name, initializer, proto, params) {
+	const zodProto = {};
+	function Internals(def) {
+		this.def = def;
+		this.constr = _;
+		this.traits = /* @__PURE__ */ new Set();
+	}
+	Internals.prototype = zodProto;
+	const protoMembers = proto;
+	const initialized = protoMembers && /* @__PURE__ */ new WeakSet();
+	function init(inst, def) {
+		if (!inst._zod) {
+			_zodDesc.value = new Internals(def);
+			try {
+				Object.defineProperty(inst, "_zod", _zodDesc);
+			} finally {
+				_zodDesc.value = void 0;
+			}
+		} else if (inst._zod.traits.has(name)) return;
+		inst._zod.traits.add(name);
+		initializer(inst, def);
+		if (initialized) {
+			const own = Object.getPrototypeOf(inst);
+			const ctorProto = inst._zod.constr.prototype;
+			let up = own;
+			while (up && up !== ctorProto) up = Object.getPrototypeOf(up);
+			const target = up ?? own;
+			if (!initialized.has(target)) {
+				initialized.add(target);
+				members(target, protoMembers);
+			}
+		}
+		const proto = _.prototype;
+		for (const k in proto) {
+			if (!Object.prototype.hasOwnProperty.call(proto, k)) continue;
+			if (!(k in inst)) inst[k] = proto[k].bind(inst);
+		}
+	}
+	const Parent = params?.Parent ?? Object;
+	class Definition extends Parent {}
+	Object.defineProperty(Definition, "name", { value: name });
+	function _(def) {
+		const inst = params?.Parent ? newError(Definition) : this;
+		init(inst, def);
+		const deferred = inst._zod.deferred;
+		if (deferred) {
+			for (const fn of deferred) fn();
+			inst._zod.deferred = void 0;
+		}
+		const pp = globalThis.__zod_globalConfig?.postProcessor;
+		if (pp) pp(inst);
+		return inst;
+	}
+	Object.defineProperty(_, "init", { value: init });
+	Object.defineProperty(_, Symbol.hasInstance, { value: (inst) => {
+		if (params?.Parent && inst instanceof params.Parent) return true;
+		return inst?._zod?.traits?.has(name);
+	} });
+	Object.defineProperty(_, "name", { value: name });
+	return _;
+}
+var $ZodAsyncError = class extends Error {
+	constructor() {
+		super(`Encountered Promise during synchronous parse. Use .parseAsync() instead.`);
+	}
+};
+var $ZodEncodeError = class extends Error {
+	constructor(name) {
+		super(`Encountered unidirectional transform during encode: ${name}`);
+		this.name = "ZodEncodeError";
+	}
+};
+(_a$5 = globalThis).__zod_globalConfig ?? (_a$5.__zod_globalConfig = {});
+const globalConfig = globalThis.__zod_globalConfig;
+function config(newConfig) {
+	if (newConfig) Object.assign(globalConfig, newConfig);
+	return globalConfig;
+}
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/errors.js
+function _getMessage() {
+	const internals = this._zod;
+	internals.message ?? (internals.message = JSON.stringify(internals.def, jsonStringifyReplacer, 2));
+	return internals.message;
+}
+function _setMessage(value) {
+	this._zod.message = value;
+}
+const _messageDesc = {
+	get: _getMessage,
+	set: _setMessage,
+	enumerable: true,
+	configurable: true
+};
+const _issuesDesc = {
+	value: void 0,
+	enumerable: false
+};
+const _installedToString = /* @__PURE__ */ new WeakSet([Object.prototype, Error.prototype]);
+const initializer$1 = (inst, def) => {
+	inst.name = "$ZodError";
+	_issuesDesc.value = def;
+	Object.defineProperty(inst, "issues", _issuesDesc);
+	_issuesDesc.value = void 0;
+	Object.defineProperty(inst, "message", _messageDesc);
+	const proto = Object.getPrototypeOf(inst);
+	if (!_installedToString.has(proto)) {
+		_installedToString.add(proto);
+		Object.defineProperty(proto, "toString", {
+			configurable: true,
+			enumerable: false,
+			get() {
+				const value = () => this.message;
+				Object.defineProperty(this, "toString", {
+					value,
+					configurable: true,
+					writable: true
+				});
+				return value;
+			},
+			set(value) {
+				Object.defineProperty(this, "toString", {
+					value,
+					configurable: true,
+					writable: true
+				});
+			}
+		});
+	}
+};
+const $ZodError = $constructor("$ZodError", initializer$1);
+$constructor("$ZodError", initializer$1, void 0, { Parent: Error });
+/** Get-or-create `obj[key]` as an own data property. A path segment naming an inherited member
+* ("toString", "constructor") would otherwise read through to the prototype, and assigning
+* "__proto__" would hit the setter instead of creating a key. */
+function node(obj, key, make) {
+	if (!Object.prototype.hasOwnProperty.call(obj, key)) {
+		if (key === "__proto__") Object.defineProperty(obj, key, {
+			value: make(),
+			writable: true,
+			enumerable: true,
+			configurable: true
+		});
+		else obj[key] = make();
+	}
+	return obj[key];
+}
+function flattenError(error, mapper = (issue) => issue.message) {
+	const fieldErrors = {};
+	const formErrors = [];
+	for (const sub of error.issues) if (sub.path.length > 0) node(fieldErrors, sub.path[0], () => []).push(mapper(sub));
+	else formErrors.push(mapper(sub));
+	return {
+		formErrors,
+		fieldErrors
+	};
+}
+function formatError(error, mapper = (issue) => issue.message) {
+	const fieldErrors = { _errors: [] };
+	const processError = (error, path = []) => {
+		for (const issue of error.issues) if (issue.code === "invalid_union" && issue.errors.length) issue.errors.map((issues) => processError({ issues }, [...path, ...issue.path]));
+		else if (issue.code === "invalid_key") processError({ issues: issue.issues }, [...path, ...issue.path]);
+		else if (issue.code === "invalid_element") processError({ issues: issue.issues }, [...path, ...issue.path]);
+		else {
+			const fullpath = [...path, ...issue.path];
+			if (fullpath.length === 0) fieldErrors._errors.push(mapper(issue));
+			else {
+				let curr = fieldErrors;
+				let i = 0;
+				while (i < fullpath.length) {
+					const el = fullpath[i];
+					const terminal = i === fullpath.length - 1;
+					if (el === "_errors") {
+						if (terminal) curr._errors.push(mapper(issue));
+						i++;
+						continue;
+					}
+					if (!Object.prototype.hasOwnProperty.call(curr, el)) Object.defineProperty(curr, el, {
+						value: { _errors: [] },
+						enumerable: true,
+						writable: true,
+						configurable: true
+					});
+					const node = curr[el];
+					if (terminal) node._errors.push(mapper(issue));
+					curr = node;
+					i++;
+				}
+			}
+		}
+	};
+	processError(error);
+	return fieldErrors;
+}
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/parse.js
+function finalizeParams(callee, params) {
+	return {
+		callee: params?.callee ?? callee,
+		Err: params?.Err
+	};
+}
+const _parse = (_Err) => {
+	const fn = (schema, value, _ctx, _params) => {
+		const ctx = _ctx ? {
+			..._ctx,
+			async: false
+		} : { async: false };
+		const result = schema._zod.run({
+			value,
+			issues: []
+		}, ctx);
+		if (result instanceof Promise) throw new $ZodAsyncError();
+		if (result.issues.length) {
+			const e = new ((_params?.Err) ?? _Err)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())));
+			captureStackTrace(e, _params?.callee ?? fn);
+			throw e;
+		}
+		return result.value;
+	};
+	return fn;
+};
+const _parseAsync = (_Err) => {
+	const fn = async (schema, value, _ctx, params) => {
+		const ctx = _ctx ? {
+			..._ctx,
+			async: true
+		} : { async: true };
+		let result = schema._zod.run({
+			value,
+			issues: []
+		}, ctx);
+		if (result instanceof Promise) result = await result;
+		if (result.issues.length) {
+			const e = new ((params?.Err) ?? _Err)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())));
+			captureStackTrace(e, params?.callee ?? fn);
+			throw e;
+		}
+		return result.value;
+	};
+	return fn;
+};
+const _safeParse = (_Err) => (schema, value, _ctx) => {
+	const ctx = _ctx ? {
+		..._ctx,
+		async: false
+	} : { async: false };
+	const result = schema._zod.run({
+		value,
+		issues: []
+	}, ctx);
+	if (result instanceof Promise) throw new $ZodAsyncError();
+	return result.issues.length ? failure(_Err, result.issues, ctx) : {
+		success: true,
+		data: result.value
+	};
+};
+function failure(Err, issues, ctx) {
+	let error;
+	return {
+		success: false,
+		get error() {
+			if (!error) {
+				error = new Err(issues.map((iss) => finalizeIssue(iss, ctx, config())));
+				issues = void 0;
+				ctx = void 0;
+			}
+			return error;
+		},
+		set error(e) {
+			error = e;
+			issues = void 0;
+			ctx = void 0;
+		}
+	};
+}
+const _safeParseAsync = (_Err) => async (schema, value, _ctx) => {
+	const ctx = _ctx ? {
+		..._ctx,
+		async: true
+	} : { async: true };
+	let result = schema._zod.run({
+		value,
+		issues: []
+	}, ctx);
+	if (result instanceof Promise) result = await result;
+	return result.issues.length ? failure(_Err, result.issues, ctx) : {
+		success: true,
+		data: result.value
+	};
+};
+const COMPILE_INVALID = /* @__PURE__ */ Symbol.for("zod.compile.invalid");
+const COMPILE_FALLBACK = /* @__PURE__ */ Symbol.for("zod.compile.fallback");
+const validate = ((schema, value, _ctx) => {
+	const validator = schema._zod.bag.validator;
+	if (validator !== void 0) {
+		if (validator(value) !== COMPILE_INVALID) return true;
+		if (validator.definite === true && _ctx === void 0) return false;
+	}
+	return validateFallback(schema, value, _ctx);
+});
+function validateFallback(schema, value, _ctx) {
+	const ctx = _ctx ? {
+		..._ctx,
+		async: false,
+		abortEarly: true
+	} : {
+		async: false,
+		abortEarly: true
+	};
+	const fallbackRun = schema._zod.bag.fallbackRun;
+	let result;
+	if (fallbackRun) {
+		ctx[COMPILE_FALLBACK] = true;
+		result = fallbackRun({
+			value,
+			issues: []
+		}, ctx);
+	} else result = schema._zod.run({
+		value,
+		issues: []
+	}, ctx);
+	if (result instanceof Promise) throw new $ZodAsyncError();
+	return result.issues.length === 0;
+}
+const validateAsync$1 = async (schema, value, _ctx) => {
+	const ctx = _ctx ? {
+		..._ctx,
+		async: true,
+		abortEarly: true
+	} : {
+		async: true,
+		abortEarly: true
+	};
+	let result = schema._zod.run({
+		value,
+		issues: []
+	}, ctx);
+	if (result instanceof Promise) result = await result;
+	return result.issues.length === 0;
+};
+const _encode = (_Err) => {
+	const parse = _parse(_Err);
+	const fn = (schema, value, _ctx, _params) => {
+		const ctx = _ctx ? {
+			..._ctx,
+			direction: "backward"
+		} : { direction: "backward" };
+		return parse(schema, value, ctx, finalizeParams(fn, _params));
+	};
+	return fn;
+};
+const _decode = (_Err) => {
+	const parse = _parse(_Err);
+	const fn = (schema, value, _ctx, _params) => {
+		return parse(schema, value, _ctx, finalizeParams(fn, _params));
+	};
+	return fn;
+};
+const _encodeAsync = (_Err) => {
+	const parseAsync = _parseAsync(_Err);
+	const fn = async (schema, value, _ctx, _params) => {
+		const ctx = _ctx ? {
+			..._ctx,
+			direction: "backward"
+		} : { direction: "backward" };
+		return await parseAsync(schema, value, ctx, finalizeParams(fn, _params));
+	};
+	return fn;
+};
+const _decodeAsync = (_Err) => {
+	const parseAsync = _parseAsync(_Err);
+	const fn = async (schema, value, _ctx, _params) => {
+		return await parseAsync(schema, value, _ctx, finalizeParams(fn, _params));
+	};
+	return fn;
+};
+const _safeEncode = (_Err) => (schema, value, _ctx) => {
+	const ctx = _ctx ? {
+		..._ctx,
+		direction: "backward"
+	} : { direction: "backward" };
+	return _safeParse(_Err)(schema, value, ctx);
+};
+const _safeDecode = (_Err) => (schema, value, _ctx) => {
+	return _safeParse(_Err)(schema, value, _ctx);
+};
+const _safeEncodeAsync = (_Err) => async (schema, value, _ctx) => {
+	const ctx = _ctx ? {
+		..._ctx,
+		direction: "backward"
+	} : { direction: "backward" };
+	return _safeParseAsync(_Err)(schema, value, ctx);
+};
+const _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
+	return _safeParseAsync(_Err)(schema, value, _ctx);
+};
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/regexes.js
+/**
+* @deprecated CUID v1 is deprecated by its authors due to information leakage
+* (timestamps embedded in the id). Use {@link cuid2} instead.
+* See https://github.com/paralleldrive/cuid.
+*/
+const cuid = /^[cC][0-9a-z]{6,}$/;
+const cuid2 = /^[0-9a-z]+$/;
+const ulid = /^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$/;
+const xid = /^[0-9a-vA-V]{20}$/;
+const ksuid = /^[A-Za-z0-9]{27}$/;
+const nanoid = /^[a-zA-Z0-9_-]{21}$/;
+function nanoidOfLength(length) {
+	return new RegExp(`^[a-zA-Z0-9_-]{${length}}$`);
+}
+/** ISO 8601-1 duration regex. Does not support the 8601-2 extensions like negative durations or fractional/negative components. */
+const duration = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
+/** A regex for any UUID-like identifier: 8-4-4-4-12 hex pattern */
+const guid = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
+/** Returns a regex for validating an RFC 9562/4122 UUID.
+*
+* @param version Optionally specify a version 1-8. If no version is specified, all versions are supported. */
+const uuid = (version) => {
+	if (!version) return /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
+	return new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`);
+};
+/** Practical email validation */
+const email = /^(?:[A-Za-z0-9_'+\-]+\.)*[A-Za-z0-9_'+\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
+const _emoji$1 = `^(?=[\\s\\S]*[\\p{Extended_Pictographic}\\p{Regional_Indicator}\\u20E3])[\\p{Extended_Pictographic}\\p{Emoji_Component}]+$`;
+function emoji() {
+	return new RegExp(_emoji$1, "u");
+}
+const ipv4 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/;
+const ipv6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
+const cidrv4 = /^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/([0-9]|[1-2][0-9]|3[0-2])$/;
+const cidrv6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))\/(12[0-8]|1[01][0-9]|[1-9]?[0-9])$/;
+const base64 = /^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$/;
+const base64url = /^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$/;
+const httpProtocol = /^https?$/;
+const e164 = /^\+[1-9]\d{6,14}$/;
+const dateSource = `(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))`;
+/** Anchors a pattern source. The interpolation lives here rather than at the call site because
+* esbuild will not drop a `@__PURE__` call whose own argument interpolates a variable, but it
+* will drop `anchor(dateSource)`. Keeping it inline pinned `date` into every bundle. */
+function anchor(source) {
+	return new RegExp(`^${source}$`);
+}
+const date = /*@__PURE__*/ anchor(dateSource);
+function timeSource(args) {
+	const hhmm = `(?:[01]\\d|2[0-3]):[0-5]\\d`;
+	return typeof args.precision === "number" ? args.precision === -1 ? `${hhmm}` : args.precision === 0 ? `${hhmm}:[0-5]\\d` : `${hhmm}:[0-5]\\d\\.\\d{${args.precision}}` : args.seconds ? `${hhmm}:[0-5]\\d(?:\\.\\d+)?` : `${hhmm}(?::[0-5]\\d(?:\\.\\d+)?)?`;
+}
+function time(args) {
+	return new RegExp(`^${timeSource(args)}$`);
+}
+function datetime(args) {
+	const opts = ["Z"];
+	if (args.offset) opts.push(`([+-](?:[01]\\d|2[0-3]):[0-5]\\d)`);
+	const qualified = `${timeSource({
+		precision: args.precision,
+		seconds: true
+	})}(?:${opts.join("|")})`;
+	const timeRegex = args.local ? `${qualified}|${timeSource({ precision: args.precision })}` : qualified;
+	return new RegExp(`^${dateSource}T(?:${timeRegex})$`);
+}
+const anyString = /^[\s\S]{0,}$/;
+const number$1 = /^-?\d+(?:\.\d+)?$/;
+const lowercase = /^[^A-Z]*$/;
+const uppercase = /^[^a-z]*$/;
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/checks.js
+const $ZodCheck = /*@__PURE__*/ $constructor("$ZodCheck", (inst, def) => {
+	var _a;
+	inst._zod ?? (inst._zod = {});
+	inst._zod.def = def;
+	(_a = inst._zod).onattach ?? (_a.onattach = []);
+});
+/** Default `when` for length-based checks: run only on non-nullish values with a `length`. */
+const _whenHasLength = (payload) => {
+	const val = payload.value;
+	return !nullish(val) && val.length !== void 0;
+};
+const numericOriginMap = {
+	number: "number",
+	bigint: "bigint",
+	object: "date"
+};
+const $ZodCheckLessThan = /*@__PURE__*/ $constructor("$ZodCheckLessThan", (inst, def) => {
+	$ZodCheck.init(inst, def);
+	const origin = numericOriginMap[typeof def.value];
+	inst._zod.check = (payload) => {
+		if (def.inclusive ? payload.value <= def.value : payload.value < def.value) return;
+		payload.issues.push({
+			origin: numericOriginMap[typeof payload.value] ?? origin,
+			code: "too_big",
+			maximum: typeof def.value === "object" ? def.value.getTime() : def.value,
+			input: payload.value,
+			inclusive: def.inclusive,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckGreaterThan = /*@__PURE__*/ $constructor("$ZodCheckGreaterThan", (inst, def) => {
+	$ZodCheck.init(inst, def);
+	const origin = numericOriginMap[typeof def.value];
+	inst._zod.check = (payload) => {
+		if (def.inclusive ? payload.value >= def.value : payload.value > def.value) return;
+		payload.issues.push({
+			origin: numericOriginMap[typeof payload.value] ?? origin,
+			code: "too_small",
+			minimum: typeof def.value === "object" ? def.value.getTime() : def.value,
+			input: payload.value,
+			inclusive: def.inclusive,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckMultipleOf = /*@__PURE__*/ $constructor("$ZodCheckMultipleOf", (inst, def) => {
+	$ZodCheck.init(inst, def);
+	inst._zod.check = (payload) => {
+		if (typeof payload.value !== typeof def.value) throw new Error("Cannot mix number and bigint in multiple_of check.");
+		if (typeof payload.value === "bigint" ? def.value !== BigInt(0) && payload.value % def.value === BigInt(0) : floatSafeRemainder(payload.value, def.value) === 0) return;
+		payload.issues.push({
+			origin: typeof payload.value,
+			code: "not_multiple_of",
+			divisor: def.value,
+			input: payload.value,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckNumberFormat = /*@__PURE__*/ $constructor("$ZodCheckNumberFormat", (inst, def) => {
+	$ZodCheck.init(inst, def);
+	def.format = def.format || "float64";
+	const isInt = def.format?.includes("int");
+	const origin = isInt ? "int" : "number";
+	const [minimum, maximum] = NUMBER_FORMAT_RANGES[def.format];
+	inst._zod.check = (payload) => {
+		const input = payload.value;
+		if (isInt) {
+			if (!Number.isInteger(input)) {
+				payload.issues.push({
+					expected: origin,
+					format: def.format,
+					code: "invalid_type",
+					continue: false,
+					input,
+					inst
+				});
+				return;
+			}
+			if (!Number.isSafeInteger(input)) {
+				if (input > 0) payload.issues.push({
+					input,
+					code: "too_big",
+					maximum: Number.MAX_SAFE_INTEGER,
+					note: "Integers must be within the safe integer range.",
+					inst,
+					origin,
+					inclusive: true,
+					continue: !def.abort
+				});
+				else payload.issues.push({
+					input,
+					code: "too_small",
+					minimum: Number.MIN_SAFE_INTEGER,
+					note: "Integers must be within the safe integer range.",
+					inst,
+					origin,
+					inclusive: true,
+					continue: !def.abort
+				});
+				return;
+			}
+		}
+		if (input < minimum) payload.issues.push({
+			origin: "number",
+			input,
+			code: "too_small",
+			minimum,
+			inclusive: true,
+			inst,
+			continue: !def.abort
+		});
+		if (input > maximum) payload.issues.push({
+			origin: "number",
+			input,
+			code: "too_big",
+			maximum,
+			inclusive: true,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckMaxLength = /*@__PURE__*/ $constructor("$ZodCheckMaxLength", (inst, def) => {
+	var _a;
+	$ZodCheck.init(inst, def);
+	(_a = inst._zod.def).when ?? (_a.when = _whenHasLength);
+	inst._zod.check = (payload) => {
+		const input = payload.value;
+		const units = input.length;
+		if ((typeof input === "string" && units > def.maximum ? codePointLength(input) : units) <= def.maximum) return;
+		const origin = getLengthableOrigin(input);
+		payload.issues.push({
+			origin,
+			code: "too_big",
+			maximum: def.maximum,
+			inclusive: true,
+			input,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckMinLength = /*@__PURE__*/ $constructor("$ZodCheckMinLength", (inst, def) => {
+	var _a;
+	$ZodCheck.init(inst, def);
+	(_a = inst._zod.def).when ?? (_a.when = _whenHasLength);
+	inst._zod.check = (payload) => {
+		const input = payload.value;
+		const units = input.length;
+		if ((typeof input === "string" && units >= def.minimum && units < def.minimum * 2 ? codePointLength(input) : units) >= def.minimum) return;
+		const origin = getLengthableOrigin(input);
+		payload.issues.push({
+			origin,
+			code: "too_small",
+			minimum: def.minimum,
+			inclusive: true,
+			input,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckLengthEquals = /*@__PURE__*/ $constructor("$ZodCheckLengthEquals", (inst, def) => {
+	var _a;
+	$ZodCheck.init(inst, def);
+	(_a = inst._zod.def).when ?? (_a.when = _whenHasLength);
+	inst._zod.check = (payload) => {
+		const input = payload.value;
+		const units = input.length;
+		const length = typeof input === "string" && units >= def.length && units <= def.length * 2 ? codePointLength(input) : units;
+		if (length === def.length) return;
+		const origin = getLengthableOrigin(input);
+		const tooBig = length > def.length;
+		payload.issues.push({
+			origin,
+			...tooBig ? {
+				code: "too_big",
+				maximum: def.length
+			} : {
+				code: "too_small",
+				minimum: def.length
+			},
+			inclusive: true,
+			exact: true,
+			input: payload.value,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckStringFormat = /*@__PURE__*/ $constructor("$ZodCheckStringFormat", (inst, def) => {
+	var _a, _b;
+	$ZodCheck.init(inst, def);
+	if (def.pattern) (_a = inst._zod).check ?? (_a.check = (payload) => {
+		def.pattern.lastIndex = 0;
+		if (def.pattern.test(payload.value)) return;
+		payload.issues.push({
+			origin: "string",
+			code: "invalid_format",
+			format: def.format,
+			input: payload.value,
+			...def.pattern ? { pattern: def.pattern.toString() } : {},
+			inst,
+			continue: !def.abort
+		});
+	});
+	else (_b = inst._zod).check ?? (_b.check = () => {});
+});
+const $ZodCheckRegex = /*@__PURE__*/ $constructor("$ZodCheckRegex", (inst, def) => {
+	$ZodCheckStringFormat.init(inst, def);
+	inst._zod.check = (payload) => {
+		def.pattern.lastIndex = 0;
+		if (def.pattern.test(payload.value)) return;
+		payload.issues.push({
+			origin: "string",
+			code: "invalid_format",
+			format: "regex",
+			input: payload.value,
+			pattern: def.pattern.toString(),
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckLowerCase = /*@__PURE__*/ $constructor("$ZodCheckLowerCase", (inst, def) => {
+	def.pattern ?? (def.pattern = lowercase);
+	$ZodCheckStringFormat.init(inst, def);
+});
+const $ZodCheckUpperCase = /*@__PURE__*/ $constructor("$ZodCheckUpperCase", (inst, def) => {
+	def.pattern ?? (def.pattern = uppercase);
+	$ZodCheckStringFormat.init(inst, def);
+});
+const $ZodCheckIncludes = /*@__PURE__*/ $constructor("$ZodCheckIncludes", (inst, def) => {
+	$ZodCheck.init(inst, def);
+	const escapedRegex = escapeRegex(def.includes);
+	def.pattern = new RegExp(typeof def.position === "number" ? `^.{${def.position},}${escapedRegex}` : escapedRegex);
+	inst._zod.check = (payload) => {
+		if (payload.value.includes(def.includes, def.position)) return;
+		payload.issues.push({
+			origin: "string",
+			code: "invalid_format",
+			format: "includes",
+			includes: def.includes,
+			input: payload.value,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckStartsWith = /*@__PURE__*/ $constructor("$ZodCheckStartsWith", (inst, def) => {
+	$ZodCheck.init(inst, def);
+	const pattern = new RegExp(`^${escapeRegex(def.prefix)}.*`);
+	def.pattern ?? (def.pattern = pattern);
+	inst._zod.check = (payload) => {
+		if (payload.value.startsWith(def.prefix)) return;
+		payload.issues.push({
+			origin: "string",
+			code: "invalid_format",
+			format: "starts_with",
+			prefix: def.prefix,
+			input: payload.value,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckEndsWith = /*@__PURE__*/ $constructor("$ZodCheckEndsWith", (inst, def) => {
+	$ZodCheck.init(inst, def);
+	const pattern = new RegExp(`.*${escapeRegex(def.suffix)}$`);
+	def.pattern ?? (def.pattern = pattern);
+	inst._zod.check = (payload) => {
+		if (payload.value.endsWith(def.suffix)) return;
+		payload.issues.push({
+			origin: "string",
+			code: "invalid_format",
+			format: "ends_with",
+			suffix: def.suffix,
+			input: payload.value,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCheckOverwrite = /*@__PURE__*/ $constructor("$ZodCheckOverwrite", (inst, def) => {
+	$ZodCheck.init(inst, def);
+	inst._zod.check = (payload) => {
+		payload.value = def.tx(payload.value);
+	};
+});
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/doc.js
+var Doc = class {
+	constructor(args = [], closed = {}) {
+		this.content = [];
+		this.indent = 0;
+		this.args = args;
+		this.closed = closed;
+	}
+	indented(fn) {
+		this.indent += 1;
+		try {
+			fn(this);
+		} finally {
+			this.indent -= 1;
+		}
+	}
+	write(arg) {
+		if (typeof arg === "function") {
+			arg(this, { execution: "sync" });
+			arg(this, { execution: "async" });
+			return;
+		}
+		const lines = arg.split("\n").filter((x) => x);
+		const minIndent = Math.min(...lines.map((x) => x.length - x.trimStart().length));
+		const dedented = lines.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
+		for (const line of dedented) this.content.push(line);
+	}
+	compile() {
+		const F = Function;
+		const content = this?.content ?? [``];
+		return new F(...Object.keys(this.closed), `return function (${this.args.join(", ")}) {\n${content.join("\n")}\n};`)(...Object.values(this.closed));
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/versions.js
+const version = {
+	major: 4,
+	minor: 6,
+	patch: 5
+};
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/schemas.js
+const $ZodType = /*@__PURE__*/ $constructor("$ZodType", (inst, def) => {
+	var _a;
+	inst ?? (inst = {});
+	inst._zod.def = def;
+	inst._zod.bag = inst._zod.bag || {};
+	inst._zod.version = version;
+	const defChecks = inst._zod.def.checks;
+	const checks = inst._zod.traits.has("$ZodCheck") ? [inst, ...defChecks ?? []] : defChecks?.length ? [...defChecks] : [];
+	for (const ch of checks) for (const fn of ch._zod.onattach) fn(inst);
+	if (checks.length === 0) {
+		(_a = inst._zod).deferred ?? (_a.deferred = []);
+		inst._zod.deferred?.push(() => {
+			inst._zod.run = inst._zod.parse;
+		});
+	} else {
+		const runChecks = (payload, checks, ctx) => {
+			if (payload.memo) return payload;
+			let isAborted = aborted(payload);
+			let asyncResult;
+			for (const ch of checks) {
+				if (ch._zod.def.when) {
+					if (explicitlyAborted(payload)) continue;
+					if (!ch._zod.def.when(payload)) continue;
+				} else if (isAborted) continue;
+				const currLen = payload.issues.length;
+				const _ = ch._zod.check(payload);
+				if (_ instanceof Promise && ctx?.async === false) throw new $ZodAsyncError();
+				if (asyncResult || _ instanceof Promise) asyncResult = (asyncResult ?? Promise.resolve()).then(async () => {
+					await _;
+					if (payload.issues.length === currLen) return;
+					attachSchema(payload.issues, currLen, inst);
+					if (!isAborted) isAborted = aborted(payload, currLen);
+				});
+				else {
+					if (payload.issues.length === currLen) continue;
+					attachSchema(payload.issues, currLen, inst);
+					if (!isAborted) isAborted = aborted(payload, currLen);
+				}
+			}
+			if (asyncResult) return asyncResult.then(() => {
+				return payload;
+			});
+			return payload;
+		};
+		const handleCanaryResult = (canary, payload, ctx) => {
+			if (aborted(canary)) {
+				canary.aborted = true;
+				return canary;
+			}
+			const checkResult = runChecks(payload, checks, ctx);
+			if (checkResult instanceof Promise) {
+				if (ctx.async === false) throw new $ZodAsyncError();
+				return checkResult.then((checkResult) => inst._zod.parse(checkResult, ctx));
+			}
+			return inst._zod.parse(checkResult, ctx);
+		};
+		inst._zod.run = (payload, ctx) => {
+			if (ctx.skipChecks) return inst._zod.parse(payload, ctx);
+			if (ctx.direction === "backward") {
+				const canary = inst._zod.parse({
+					value: payload.value,
+					issues: []
+				}, {
+					...ctx,
+					skipChecks: true
+				});
+				if (canary instanceof Promise) return canary.then((canary) => {
+					return handleCanaryResult(canary, payload, ctx);
+				});
+				return handleCanaryResult(canary, payload, ctx);
+			}
+			const result = inst._zod.parse(payload, ctx);
+			if (result instanceof Promise) {
+				if (ctx.async === false) throw new $ZodAsyncError();
+				return result.then((result) => runChecks(result, checks, ctx));
+			}
+			return runChecks(result, checks, ctx);
+		};
+	}
+}, {
+	get "~standard"() {
+		return hide(this, "~standard", standardProps(this));
+	},
+	set "~standard"(value) {
+		own(this, "~standard", value);
+	}
+});
+/** The Standard Schema surface for `inst`. Shared so wrappers can extend it without forcing it. */
+const toStandardResult = (r, ctx) => r.issues.length ? { issues: r.issues.map((iss) => finalizeIssue(iss, ctx, config())) } : { value: r.value };
+async function validateAsync(inst, value) {
+	const ctx = { async: true };
+	return toStandardResult(await inst._zod.run({
+		value,
+		issues: []
+	}, ctx), ctx);
+}
+function standardProps(inst) {
+	return {
+		validate: (value) => {
+			const ctx = { async: false };
+			try {
+				const r = inst._zod.run({
+					value,
+					issues: []
+				}, ctx);
+				if (!(r instanceof Promise)) return toStandardResult(r, ctx);
+			} catch (_) {}
+			return validateAsync(inst, value);
+		},
+		vendor: "zod",
+		version: 1
+	};
+}
+const $ZodString = /*@__PURE__*/ $constructor("$ZodString", (inst, def) => {
+	$ZodType.init(inst, def);
+	inst._zod.pattern = def.pattern ?? anyString;
+	inst._zod.parse = (payload, _) => {
+		if (def.coerce) try {
+			payload.value = String(payload.value);
+		} catch (_) {}
+		if (typeof payload.value === "string") return payload;
+		payload.issues.push({
+			expected: "string",
+			code: "invalid_type",
+			input: payload.value,
+			inst
+		});
+		return payload;
+	};
+});
+const $ZodStringFormat = /*@__PURE__*/ $constructor("$ZodStringFormat", (inst, def) => {
+	$ZodCheckStringFormat.init(inst, def);
+	$ZodString.init(inst, def);
+});
+const $ZodGUID = /*@__PURE__*/ $constructor("$ZodGUID", (inst, def) => {
+	def.pattern ?? (def.pattern = guid);
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodUUID = /*@__PURE__*/ $constructor("$ZodUUID", (inst, def) => {
+	if (def.version) {
+		const v = {
+			v1: 1,
+			v2: 2,
+			v3: 3,
+			v4: 4,
+			v5: 5,
+			v6: 6,
+			v7: 7,
+			v8: 8
+		}[def.version];
+		if (v === void 0) throw new Error(`Invalid UUID version: "${def.version}"`);
+		def.pattern ?? (def.pattern = uuid(v));
+	} else def.pattern ?? (def.pattern = uuid());
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodEmail = /*@__PURE__*/ $constructor("$ZodEmail", (inst, def) => {
+	def.pattern ?? (def.pattern = email);
+	$ZodStringFormat.init(inst, def);
+});
+function canParseURL(input) {
+	try {
+		if (typeof URL !== "undefined" && typeof URL.canParse === "function") return URL.canParse(input);
+		new URL(input);
+		return true;
+	} catch {
+		return false;
+	}
+}
+function validateURL(trimmed, def) {
+	if (!("normalize" in def) && !("hostname" in def) && !("protocol" in def)) return canParseURL(trimmed) || 2;
+	return parseURLObject(trimmed, def);
+}
+/** Parses a URL while preserving the non-normalizing HTTP guard. */
+function parseURLObject(trimmed, def) {
+	if (!def.normalize && def.protocol?.source === httpProtocol.source && !/^https?:\/\//i.test(trimmed)) return 1;
+	try {
+		if (typeof URL !== "undefined") {
+			const URLStatic = URL;
+			if (typeof URLStatic.parse === "function") return URLStatic.parse(trimmed) ?? 2;
+		}
+		return new URL(trimmed);
+	} catch {
+		return 2;
+	}
+}
+const asciiTabOrNewline = /[\t\n\r]/g;
+/** The URL parser deletes every ASCII tab, LF and CR from its input before it parses, so `new URL("https://exa\nmple.com")` reports on `example.com`. Applying the same deletion to the returned value closes the half of that divergence which can move the host; the parser's other rewrite, stripping C0 controls at the edges, cannot. */
+function stripTabAndNewline(value) {
+	return value.replace(asciiTabOrNewline, "");
+}
+function urlHostnameOk(url, hostname) {
+	hostname.lastIndex = 0;
+	return hostname.test(url.hostname);
+}
+function urlProtocolOk(url, protocol) {
+	protocol.lastIndex = 0;
+	return protocol.test(url.protocol.endsWith(":") ? url.protocol.slice(0, -1) : url.protocol);
+}
+const $ZodURL = /*@__PURE__*/ $constructor("$ZodURL", (inst, def) => {
+	$ZodStringFormat.init(inst, def);
+	inst._zod.check = (payload) => {
+		try {
+			const trimmed = payload.value.trim();
+			const url = validateURL(trimmed, def);
+			if (url === 1) {
+				payload.issues.push({
+					code: "invalid_format",
+					format: "url",
+					note: "Invalid URL format",
+					input: payload.value,
+					inst,
+					continue: !def.abort
+				});
+				return;
+			}
+			if (url === 2) {
+				payload.issues.push({
+					code: "invalid_format",
+					format: "url",
+					input: payload.value,
+					inst,
+					continue: !def.abort
+				});
+				return;
+			}
+			if (url === true) {
+				payload.value = stripTabAndNewline(trimmed);
+				return;
+			}
+			if (def.hostname && !urlHostnameOk(url, def.hostname)) payload.issues.push({
+				code: "invalid_format",
+				format: "url",
+				note: "Invalid hostname",
+				pattern: def.hostname.source,
+				input: payload.value,
+				inst,
+				continue: !def.abort
+			});
+			if (def.protocol && !urlProtocolOk(url, def.protocol)) payload.issues.push({
+				code: "invalid_format",
+				format: "url",
+				note: "Invalid protocol",
+				pattern: def.protocol.source,
+				input: payload.value,
+				inst,
+				continue: !def.abort
+			});
+			payload.value = def.normalize ? url.href : stripTabAndNewline(trimmed);
+			return;
+		} catch (_) {
+			payload.issues.push({
+				code: "invalid_format",
+				format: "url",
+				input: payload.value,
+				inst,
+				continue: !def.abort
+			});
+		}
+	};
+});
+const $ZodEmoji = /*@__PURE__*/ $constructor("$ZodEmoji", (inst, def) => {
+	def.pattern ?? (def.pattern = emoji());
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodNanoID = /*@__PURE__*/ $constructor("$ZodNanoID", (inst, def) => {
+	if (def.length !== void 0 && (!Number.isInteger(def.length) || def.length < 1)) throw new Error(`Invalid nanoid length: ${def.length}`);
+	def.pattern ?? (def.pattern = def.length === void 0 ? nanoid : nanoidOfLength(def.length));
+	$ZodStringFormat.init(inst, def);
+});
+/**
+* @deprecated CUID v1 is deprecated by its authors due to information leakage
+* (timestamps embedded in the id). Use {@link $ZodCUID2} instead.
+* See https://github.com/paralleldrive/cuid.
+*/
+const $ZodCUID = /*@__PURE__*/ $constructor("$ZodCUID", (inst, def) => {
+	def.pattern ?? (def.pattern = cuid);
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodCUID2 = /*@__PURE__*/ $constructor("$ZodCUID2", (inst, def) => {
+	def.pattern ?? (def.pattern = cuid2);
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodULID = /*@__PURE__*/ $constructor("$ZodULID", (inst, def) => {
+	def.pattern ?? (def.pattern = ulid);
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodXID = /*@__PURE__*/ $constructor("$ZodXID", (inst, def) => {
+	def.pattern ?? (def.pattern = xid);
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodKSUID = /*@__PURE__*/ $constructor("$ZodKSUID", (inst, def) => {
+	def.pattern ?? (def.pattern = ksuid);
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodISODateTime = /*@__PURE__*/ $constructor("$ZodISODateTime", (inst, def) => {
+	def.pattern ?? (def.pattern = datetime(def));
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodISODate = /*@__PURE__*/ $constructor("$ZodISODate", (inst, def) => {
+	def.pattern ?? (def.pattern = date);
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodISOTime = /*@__PURE__*/ $constructor("$ZodISOTime", (inst, def) => {
+	def.pattern ?? (def.pattern = time(def));
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodISODuration = /*@__PURE__*/ $constructor("$ZodISODuration", (inst, def) => {
+	def.pattern ?? (def.pattern = duration);
+	$ZodStringFormat.init(inst, def);
+});
+const $ZodIPv4 = /*@__PURE__*/ $constructor("$ZodIPv4", (inst, def) => {
+	def.pattern ?? (def.pattern = ipv4);
+	$ZodStringFormat.init(inst, def);
+});
+/** An IPv6 address is written with hex digits, colons and dots, and nothing else. The guard is what makes the check below an IPv6 check: `new URL("http://[...]")` parses an authority, not an address, so `@` and `\` re-delimit it and `"::@1\\"` validates against the host `0.0.0.1`. The URL parser also deletes ASCII tab, LF and CR rather than failing, which is how `"::1\n"` validated as `::1`. */
+const ipv6Alphabet = /^[0-9a-fA-F:.]+$/;
+function isValidIPv6(value) {
+	if (!ipv6Alphabet.test(value)) return false;
+	return canParseURL(`http://[${value}]`);
+}
+const $ZodIPv6 = /*@__PURE__*/ $constructor("$ZodIPv6", (inst, def) => {
+	def.pattern ?? (def.pattern = ipv6);
+	$ZodStringFormat.init(inst, def);
+	inst._zod.check = (payload) => {
+		if (!isValidIPv6(payload.value)) payload.issues.push({
+			code: "invalid_format",
+			format: "ipv6",
+			input: payload.value,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodCIDRv4 = /*@__PURE__*/ $constructor("$ZodCIDRv4", (inst, def) => {
+	def.pattern ?? (def.pattern = cidrv4);
+	$ZodStringFormat.init(inst, def);
+});
+function isValidCIDRv6(value) {
+	const parts = value.split("/");
+	if (parts.length !== 2) return false;
+	const [address, prefix] = parts;
+	if (!prefix) return false;
+	const prefixNum = Number(prefix);
+	if (`${prefixNum}` !== prefix) return false;
+	if (prefixNum < 0 || prefixNum > 128) return false;
+	return isValidIPv6(address);
+}
+const $ZodCIDRv6 = /*@__PURE__*/ $constructor("$ZodCIDRv6", (inst, def) => {
+	def.pattern ?? (def.pattern = cidrv6);
+	$ZodStringFormat.init(inst, def);
+	inst._zod.check = (payload) => {
+		if (!isValidCIDRv6(payload.value)) payload.issues.push({
+			code: "invalid_format",
+			format: "cidrv6",
+			input: payload.value,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+function isValidBase64(data) {
+	if (data === "") return true;
+	if (/\s/.test(data)) return false;
+	if (data.length % 4 !== 0) return false;
+	try {
+		atob(data);
+		return true;
+	} catch {
+		return false;
+	}
+}
+const base64Charset = /^[0-9a-zA-Z+/]*={0,2}$/;
+const $ZodBase64 = /*@__PURE__*/ $constructor("$ZodBase64", (inst, def) => {
+	def.pattern ?? (def.pattern = base64Charset);
+	$ZodStringFormat.init(inst, def);
+	inst._zod.check = (payload) => {
+		if (isValidBase64(payload.value)) return;
+		payload.issues.push({
+			code: "invalid_format",
+			format: "base64",
+			input: payload.value,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const base64urlCharset = /^[A-Za-z0-9_-]*$/;
+function isValidBase64URL(data) {
+	if (!base64urlCharset.test(data)) return false;
+	const base64 = data.replace(/[-_]/g, (c) => c === "-" ? "+" : "/");
+	return isValidBase64(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
+}
+const $ZodBase64URL = /*@__PURE__*/ $constructor("$ZodBase64URL", (inst, def) => {
+	def.pattern ?? (def.pattern = base64urlCharset);
+	$ZodStringFormat.init(inst, def);
+	inst._zod.check = (payload) => {
+		if (isValidBase64URL(payload.value)) return;
+		payload.issues.push({
+			code: "invalid_format",
+			format: "base64url",
+			input: payload.value,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodE164 = /*@__PURE__*/ $constructor("$ZodE164", (inst, def) => {
+	def.pattern ?? (def.pattern = e164);
+	$ZodStringFormat.init(inst, def);
+});
+function isValidJWT(token, algorithm = null) {
+	try {
+		const tokensParts = token.split(".");
+		if (tokensParts.length !== 3) return false;
+		const [header] = tokensParts;
+		if (!header) return false;
+		const parsedHeader = JSON.parse(atob(header));
+		if ("typ" in parsedHeader && parsedHeader?.typ !== "JWT") return false;
+		if (!parsedHeader.alg) return false;
+		if (algorithm && (!("alg" in parsedHeader) || parsedHeader.alg !== algorithm)) return false;
+		return true;
+	} catch {
+		return false;
+	}
+}
+const $ZodJWT = /*@__PURE__*/ $constructor("$ZodJWT", (inst, def) => {
+	$ZodStringFormat.init(inst, def);
+	inst._zod.check = (payload) => {
+		if (isValidJWT(payload.value, def.alg)) return;
+		payload.issues.push({
+			code: "invalid_format",
+			format: "jwt",
+			input: payload.value,
+			inst,
+			continue: !def.abort
+		});
+	};
+});
+const $ZodNumber = /*@__PURE__*/ $constructor("$ZodNumber", (inst, def) => {
+	$ZodType.init(inst, def);
+	inst._zod.pattern = number$1;
+	inst._zod.parse = (payload, _ctx) => {
+		if (def.coerce) try {
+			payload.value = Number(payload.value);
+		} catch (_) {}
+		const input = payload.value;
+		if (typeof input === "number" && !Number.isNaN(input) && Number.isFinite(input)) return payload;
+		const received = typeof input === "number" ? Number.isNaN(input) ? "NaN" : !Number.isFinite(input) ? String(input) : void 0 : void 0;
+		payload.issues.push({
+			expected: "number",
+			code: "invalid_type",
+			input,
+			inst,
+			...received ? { received } : {}
+		});
+		return payload;
+	};
+});
+const $ZodNumberFormat = /*@__PURE__*/ $constructor("$ZodNumberFormat", (inst, def) => {
+	$ZodCheckNumberFormat.init(inst, def);
+	$ZodNumber.init(inst, def);
+});
+const $ZodUnknown = /*@__PURE__*/ $constructor("$ZodUnknown", (inst, def) => {
+	$ZodType.init(inst, def);
+	inst._zod.parse = (payload) => payload;
+});
+const $ZodNever = /*@__PURE__*/ $constructor("$ZodNever", (inst, def) => {
+	$ZodType.init(inst, def);
+	inst._zod.parse = (payload, _ctx) => {
+		payload.issues.push({
+			expected: "never",
+			code: "invalid_type",
+			input: payload.value,
+			inst
+		});
+		return payload;
+	};
+});
+function handleArrayResult(result, final, index) {
+	if (result.issues.length) final.issues.push(...prefixIssues(index, result.issues));
+	final.value[index] = result.value;
+}
+const $ZodArray = /*@__PURE__*/ $constructor("$ZodArray", (inst, def) => {
+	$ZodType.init(inst, def);
+	const memo = globalConfig.memoizer;
+	memo?.attach(inst);
+	inst._zod.parse = (payload, ctx) => {
+		const input = payload.value;
+		if (!Array.isArray(input)) {
+			payload.issues.push({
+				expected: "array",
+				code: "invalid_type",
+				input,
+				inst
+			});
+			return payload;
+		}
+		payload.value = memo ? memo.alloc(inst, payload, Array(input.length), ctx) : Array(input.length);
+		const proms = [];
+		const abortEarly = ctx?.abortEarly;
+		for (let i = 0; i < input.length; i++) {
+			const item = input[i];
+			const result = def.element._zod.run({
+				value: item,
+				issues: []
+			}, ctx);
+			if (result instanceof Promise) proms.push(result.then((result) => handleArrayResult(result, payload, i)));
+			else {
+				handleArrayResult(result, payload, i);
+				if (abortEarly && result.issues.length !== 0 && aborted(result)) break;
+			}
+		}
+		if (proms.length) return Promise.all(proms).then(() => payload);
+		return payload;
+	};
+});
+function handlePropertyResult(result, final, key, input, optin, optout) {
+	const isPresent = key in input;
+	const isOptionalOut = optout === "optional";
+	if (!isPresent && isOptionalOut && optin === "optional") return;
+	if (result.issues.length) {
+		if (optin !== void 0 && isOptionalOut && !isPresent) return;
+		final.issues.push(...prefixIssues(key, result.issues));
+	}
+	if (!isPresent && optin === void 0) {
+		if (!result.issues.length) final.issues.push({
+			code: "invalid_type",
+			expected: "nonoptional",
+			input: void 0,
+			path: [key]
+		});
+		return;
+	}
+	if (result.value === void 0) {
+		if (isPresent || optin === "defaulted" && !isOptionalOut) final.value[key] = void 0;
+	} else final.value[key] = result.value;
+}
+const NO_SYMBOL_KEYS = [];
+function normalizeDef(def) {
+	const keys = Object.keys(def.shape);
+	const ownSymbols = Object.getOwnPropertySymbols(def.shape);
+	const symbolKeys = ownSymbols.length ? ownSymbols : NO_SYMBOL_KEYS;
+	const allKeys = symbolKeys.length ? [...keys, ...symbolKeys] : keys;
+	for (const k of allKeys) if (!def.shape?.[k]?._zod?.traits?.has("$ZodType")) throw new Error(`Invalid element at key "${String(k)}": expected a Zod schema`);
+	const okeys = optionalKeys(def.shape);
+	return {
+		...def,
+		allKeys,
+		symbolKeys,
+		keySet: new Set(keys),
+		numKeys: keys.length,
+		optionalKeys: new Set(okeys)
+	};
+}
+function handleCatchall(proms, input, payload, ctx, def, inst, abortEarly) {
+	const unrecognized = [];
+	const keySet = def.keySet;
+	const _catchall = def.catchall._zod;
+	const t = _catchall.def.type;
+	const optin = _catchall.optin;
+	const optout = _catchall.optout;
+	let seen = 0;
+	for (const key in input) {
+		if (abortEarly && payload.issues.length !== seen) {
+			if (aborted(payload, seen)) break;
+			seen = payload.issues.length;
+		}
+		if (keySet.has(key)) continue;
+		if (key === "__proto__") {
+			if (t === "never") unrecognized.push(key);
+			continue;
+		}
+		if (t === "never") {
+			unrecognized.push(key);
+			continue;
+		}
+		const r = _catchall.run({
+			value: input[key],
+			issues: []
+		}, ctx);
+		if (r instanceof Promise) proms.push(r.then((r) => handlePropertyResult(r, payload, key, input, optin, optout)));
+		else handlePropertyResult(r, payload, key, input, optin, optout);
+	}
+	if (unrecognized.length) payload.issues.push({
+		code: "unrecognized_keys",
+		keys: unrecognized,
+		input,
+		inst,
+		continue: true
+	});
+	if (!proms.length) return payload;
+	return Promise.all(proms).then(() => {
+		return payload;
+	});
+}
+const $ZodObject = /*@__PURE__*/ $constructor("$ZodObject", (inst, def) => {
+	$ZodType.init(inst, def);
+	const desc = Object.getOwnPropertyDescriptor(def, "shape");
+	const sh = desc?.get ? desc.get.raw : def.shape ?? {};
+	if (sh) {
+		const get = () => {
+			const newSh = { ...sh };
+			Object.defineProperty(def, "shape", { value: newSh });
+			get.raw = newSh;
+			return newSh;
+		};
+		get.raw = sh;
+		Object.defineProperty(def, "shape", { get });
+	}
+	const _normalized = cached(() => normalizeDef(def));
+	defineLazyInternal(inst, "propValues", (zod) => {
+		const shape = zod.def.shape;
+		const propValues = {};
+		for (const key in shape) {
+			const field = shape[key]._zod;
+			if (field.values) {
+				if (!Object.prototype.hasOwnProperty.call(propValues, key)) assignProp(propValues, key, /* @__PURE__ */ new Set());
+				for (const v of field.values) propValues[key].add(v);
+				if (field.optin !== void 0) propValues[key].add(void 0);
+			}
+		}
+		return propValues;
+	});
+	const isObject = isObject$1;
+	const catchall = def.catchall;
+	let value;
+	const memo = globalConfig.memoizer;
+	memo?.attach(inst);
+	inst._zod.parse = (payload, ctx) => {
+		value ?? (value = _normalized.value);
+		const input = payload.value;
+		if (!isObject(input)) {
+			payload.issues.push({
+				expected: "object",
+				code: "invalid_type",
+				input,
+				inst
+			});
+			return payload;
+		}
+		payload.value = memo ? memo.alloc(inst, payload, {}, ctx) : {};
+		const proms = [];
+		const shape = value.shape;
+		const abortEarly = ctx?.abortEarly;
+		let seen = payload.issues.length;
+		for (const key of value.allKeys) {
+			if (abortEarly && payload.issues.length !== seen) {
+				if (aborted(payload, seen)) break;
+				seen = payload.issues.length;
+			}
+			if (key === "__proto__") continue;
+			const el = shape[key];
+			const optin = el._zod.optin;
+			const optout = el._zod.optout;
+			const r = el._zod.run({
+				value: input[key],
+				issues: []
+			}, ctx);
+			if (r instanceof Promise) proms.push(r.then((r) => handlePropertyResult(r, payload, key, input, optin, optout)));
+			else handlePropertyResult(r, payload, key, input, optin, optout);
+		}
+		if (!catchall) return proms.length ? Promise.all(proms).then(() => payload) : payload;
+		return handleCatchall(proms, input, payload, ctx, _normalized.value, inst, abortEarly === true);
+	};
+});
+const $ZodObjectJIT = /*@__PURE__*/ $constructor("$ZodObjectJIT", (inst, def) => {
+	$ZodObject.init(inst, def);
+	const superParse = inst._zod.parse;
+	const _normalized = cached(() => normalizeDef(def));
+	const memo = globalConfig.memoizer;
+	const generateFastpass = (shape) => {
+		const normalized = _normalized.value;
+		const syms = normalized.symbolKeys;
+		const doc = new Doc(["payload", "ctx"], {
+			shape,
+			inst,
+			memo,
+			syms
+		});
+		const parseStr = (k) => `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
+		const prefixStr = (id, k) => `
+          let ${id}_ab = false;
+          for (let i = 0; i < ${id}.issues.length; i++) {
+            const iss = ${id}.issues[i];
+            iss.path = iss.path ? [${k}, ...iss.path] : [${k}];
+            payload.issues.push(iss);
+            if (iss.continue !== true) ${id}_ab = true;
+          }
+          if (${id}_ab && ctx && ctx.abortEarly) {
+            payload.value = newResult;
+            return payload;
+          }`;
+		doc.write(`const input = payload.value;`);
+		const ids = Object.create(null);
+		let counter = 0;
+		for (const key of normalized.allKeys) ids[key] = `key_${counter++}`;
+		doc.write(memo ? `const newResult = memo.alloc(inst, payload, {}, ctx);` : `const newResult = {};`);
+		for (const key of normalized.allKeys) {
+			if (key === "__proto__") continue;
+			const id = ids[key];
+			const k = typeof key === "symbol" ? `syms[${syms.indexOf(key)}]` : esc(key);
+			const isPresent = `${k} in input`;
+			const schema = shape[key];
+			const optin = schema?._zod?.optin;
+			const isOptionalIn = optin !== void 0;
+			const isOptionalOut = schema?._zod?.optout === "optional";
+			doc.write(`const ${id} = ${parseStr(k)};`);
+			if (isOptionalIn && isOptionalOut) {
+				const assign = optin === "optional" ? `${id}_present` : `${id}.value !== undefined || ${id}_present`;
+				doc.write(`
+        const ${id}_present = ${isPresent};
+        if (!${id}.issues.length || ${id}_present) {
+          if (${id}.issues.length) {${prefixStr(id, k)}
+          }
+
+          if (${assign}) {
+            newResult[${k}] = ${id}.value;
+          }
+        }
+
+      `);
+			} else if (!isOptionalIn) doc.write(`
+        const ${id}_present = ${isPresent};
+        if (${id}.issues.length) {${prefixStr(id, k)}
+        }
+        if (!${id}_present && !${id}.issues.length) {
+          payload.issues.push({
+            code: "invalid_type",
+            expected: "nonoptional",
+            input: undefined,
+            path: [${k}]
+          });
+          if (ctx && ctx.abortEarly) {
+            payload.value = newResult;
+            return payload;
+          }
+        }
+
+        if (${id}_present) {
+          newResult[${k}] = ${id}.value;
+        }
+
+      `);
+			else {
+				doc.write(`
+        if (${id}.issues.length) {${prefixStr(id, k)}
+        }
+      `);
+				if (optin === "defaulted") doc.write(`newResult[${k}] = ${id}.value;`);
+				else doc.write(`
+        if (${id}.value !== undefined || ${isPresent}) {
+          newResult[${k}] = ${id}.value;
+        }
+      `);
+			}
+		}
+		doc.write(`payload.value = newResult;`);
+		doc.write(`return payload;`);
+		return doc.compile();
+	};
+	let fastpass;
+	const isObject = isObject$1;
+	const jit = !globalConfig.jitless;
+	const fastEnabled = jit && allowsEval.value;
+	const catchall = def.catchall;
+	let value;
+	inst._zod.parse = (payload, ctx) => {
+		value ?? (value = _normalized.value);
+		const input = payload.value;
+		if (!isObject(input)) {
+			payload.issues.push({
+				expected: "object",
+				code: "invalid_type",
+				input,
+				inst
+			});
+			return payload;
+		}
+		if (jit && fastEnabled && ctx?.async === false && ctx.jitless !== true) {
+			if (!fastpass) fastpass = generateFastpass(def.shape);
+			payload = fastpass(payload, ctx);
+			if (!catchall) return payload;
+			return handleCatchall([], input, payload, ctx, value, inst, ctx?.abortEarly === true);
+		}
+		return superParse(payload, ctx);
+	};
+});
+function handleUnionResults(results, final, inst, ctx) {
+	for (const result of results) if (result.issues.length === 0) {
+		final.value = result.value;
+		return final;
+	}
+	const nonaborted = results.filter((r) => !aborted(r));
+	if (nonaborted.length === 1) {
+		final.value = nonaborted[0].value;
+		return nonaborted[0];
+	}
+	final.issues.push({
+		code: "invalid_union",
+		input: final.value,
+		inst,
+		errors: results.map((result) => result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+	});
+	return final;
+}
+const $ZodUnion = /*@__PURE__*/ $constructor("$ZodUnion", (inst, def) => {
+	$ZodType.init(inst, def);
+	defineLazyInternal(inst, "optin", (zod) => zod.def.options.some((o) => o._zod.optin === "defaulted") ? "defaulted" : zod.def.options.some((o) => o._zod.optin !== void 0) ? "optional" : void 0);
+	defineLazyInternal(inst, "optout", (zod) => zod.def.options.some((o) => o._zod.optout === "optional") ? "optional" : void 0);
+	defineLazyInternal(inst, "values", (zod) => {
+		if (zod.def.options.every((o) => o._zod.values)) return new Set(zod.def.options.flatMap((option) => Array.from(option._zod.values)));
+	});
+	defineLazyInternal(inst, "pattern", (zod) => {
+		if (zod.def.options.every((o) => o._zod.pattern)) {
+			const patterns = zod.def.options.map((o) => o._zod.pattern);
+			return new RegExp(`^(${patterns.map((p) => cleanRegex(p.source)).join("|")})$`);
+		}
+	});
+	const first = def.options.length === 1 ? def.options[0]._zod.run : null;
+	inst._zod.parse = (payload, ctx) => {
+		if (first) return first(payload, ctx);
+		let async = false;
+		const results = [];
+		for (const option of def.options) {
+			const result = option._zod.run({
+				value: payload.value,
+				issues: []
+			}, ctx);
+			if (result instanceof Promise) {
+				results.push(result);
+				async = true;
+			} else {
+				if (result.issues.length === 0) return result;
+				results.push(result);
+			}
+		}
+		if (!async) return handleUnionResults(results, payload, inst, ctx);
+		return Promise.all(results).then((results) => {
+			return handleUnionResults(results, payload, inst, ctx);
+		});
+	};
+});
+function discriminatorMap(def) {
+	const map = /* @__PURE__ */ new Map();
+	for (const option of def.options) {
+		const values = option._zod.propValues?.[def.discriminator];
+		if (!values || values.size === 0) throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(option)}"`);
+		for (const value of values) if (map.has(value)) {
+			if (value !== void 0) throw new Error(`Duplicate discriminator value "${String(value)}"`);
+			map.set(value, null);
+		} else map.set(value, option);
+	}
+	return map;
+}
+const $ZodDiscriminatedUnion = /*@__PURE__*/ $constructor("$ZodDiscriminatedUnion", (inst, def) => {
+	def.inclusive = false;
+	$ZodUnion.init(inst, def);
+	const _super = inst._zod.parse;
+	defineLazyInternal(inst, "propValues", (zod) => {
+		const propValues = {};
+		let undefinedCount = 0;
+		for (const option of zod.def.options) {
+			const pv = option._zod.propValues;
+			if (!pv || Object.keys(pv).length === 0) throw new Error(`Invalid discriminated union option at index "${zod.def.options.indexOf(option)}"`);
+			if (pv[zod.def.discriminator]?.has(void 0)) undefinedCount++;
+			for (const [k, v] of Object.entries(pv)) {
+				if (!Object.prototype.hasOwnProperty.call(propValues, k)) assignProp(propValues, k, /* @__PURE__ */ new Set());
+				for (const val of v) propValues[k].add(val);
+			}
+		}
+		if (!zod.def.unionFallback && undefinedCount > 1) propValues[zod.def.discriminator]?.delete(void 0);
+		return propValues;
+	});
+	def.options.forEach((option, i) => {
+		const propShape = rawShape(option._zod.def);
+		if (propShape && !Object.prototype.hasOwnProperty.call(propShape, def.discriminator)) throw new Error(`Invalid discriminated union option at index "${i}"`);
+	});
+	const disc = cached(() => discriminatorMap(def));
+	inst._zod.parse = (payload, ctx) => {
+		const input = payload.value;
+		if (!isObject$1(input)) {
+			payload.issues.push({
+				code: "invalid_type",
+				expected: "object",
+				input,
+				inst
+			});
+			return payload;
+		}
+		const value = input?.[def.discriminator];
+		const opt = disc.value.get(value);
+		if (opt && (value !== void 0 || ctx.direction !== "backward")) return opt._zod.run(payload, ctx);
+		if (def.unionFallback || ctx.direction === "backward") return _super(payload, ctx);
+		payload.issues.push({
+			code: "invalid_union",
+			errors: [],
+			note: "No matching discriminator",
+			discriminator: def.discriminator,
+			options: Array.from(disc.value.keys()).filter((value) => disc.value.get(value) !== null),
+			input,
+			path: [def.discriminator],
+			inst
+		});
+		return payload;
+	};
+});
+const $ZodIntersection = /*@__PURE__*/ $constructor("$ZodIntersection", (inst, def) => {
+	$ZodType.init(inst, def);
+	inst._zod.parse = (payload, ctx) => {
+		const input = payload.value;
+		const left = def.left._zod.run({
+			value: input,
+			issues: []
+		}, ctx);
+		const right = def.right._zod.run({
+			value: input,
+			issues: []
+		}, ctx);
+		if (left instanceof Promise || right instanceof Promise) return Promise.all([left, right]).then(([left, right]) => {
+			return handleIntersectionResults(payload, left, right);
+		});
+		return handleIntersectionResults(payload, left, right);
+	};
+});
+function mergeValues(a, b) {
+	if (a === b) return {
+		valid: true,
+		data: a
+	};
+	if (a instanceof Date && b instanceof Date && +a === +b) return {
+		valid: true,
+		data: a
+	};
+	if (isPlainObject(a) && isPlainObject(b)) {
+		const bKeys = Object.keys(b);
+		const sharedKeys = Object.keys(a).filter((key) => bKeys.indexOf(key) !== -1);
+		const newObj = {
+			...a,
+			...b
+		};
+		if (Object.prototype.hasOwnProperty.call(newObj, "__proto__")) delete newObj.__proto__;
+		for (const key of sharedKeys) {
+			if (key === "__proto__") continue;
+			const sharedValue = mergeValues(a[key], b[key]);
+			if (!sharedValue.valid) return {
+				valid: false,
+				mergeErrorPath: [key, ...sharedValue.mergeErrorPath]
+			};
+			newObj[key] = sharedValue.data;
+		}
+		return {
+			valid: true,
+			data: newObj
+		};
+	}
+	if (Array.isArray(a) && Array.isArray(b)) {
+		if (a.length !== b.length) return {
+			valid: false,
+			mergeErrorPath: []
+		};
+		const newArray = [];
+		for (let index = 0; index < a.length; index++) {
+			const itemA = a[index];
+			const itemB = b[index];
+			const sharedValue = mergeValues(itemA, itemB);
+			if (!sharedValue.valid) return {
+				valid: false,
+				mergeErrorPath: [index, ...sharedValue.mergeErrorPath]
+			};
+			newArray.push(sharedValue.data);
+		}
+		return {
+			valid: true,
+			data: newArray
+		};
+	}
+	return {
+		valid: false,
+		mergeErrorPath: []
+	};
+}
+function handleIntersectionResults(result, left, right) {
+	const unrecKeys = /* @__PURE__ */ new Map();
+	let unrecIssue;
+	const keyIssues = /* @__PURE__ */ new Map();
+	const collect = (iss, side) => {
+		let keys;
+		if (iss.code === "unrecognized_keys" && !iss.path?.length) {
+			unrecIssue ?? (unrecIssue = iss);
+			keys = iss.keys;
+		} else if (iss.code === "invalid_key" && iss.origin === "record" && iss.path?.length === 1) {
+			const k = String(iss.path[0]);
+			if (!keyIssues.has(k)) keyIssues.set(k, iss);
+			keys = [k];
+		} else return false;
+		for (const k of keys) {
+			if (!unrecKeys.has(k)) unrecKeys.set(k, {});
+			unrecKeys.get(k)[side] = true;
+		}
+		return true;
+	};
+	for (const iss of left.issues) if (!collect(iss, "l")) result.issues.push(iss);
+	for (const iss of right.issues) if (!collect(iss, "r")) result.issues.push(iss);
+	const bothKeys = [...unrecKeys].filter(([, f]) => f.l && f.r).map(([k]) => k);
+	if (bothKeys.length) {
+		const aggregated = unrecIssue ? bothKeys.filter((k) => unrecIssue.keys.includes(k)) : [];
+		if (aggregated.length) result.issues.push({
+			...unrecIssue,
+			keys: aggregated
+		});
+		for (const k of bothKeys) if (!aggregated.includes(k) && keyIssues.has(k)) result.issues.push(keyIssues.get(k));
+	}
+	const merged = mergeValues(left.value, right.value);
+	if (!merged.valid) {
+		if (aborted(result)) return result;
+		throw new Error(`Unmergable intersection. Error path: ${JSON.stringify(merged.mergeErrorPath)}`);
+	}
+	result.value = merged.data;
+	return result;
+}
+const $ZodEnum = /*@__PURE__*/ $constructor("$ZodEnum", (inst, def) => {
+	$ZodType.init(inst, def);
+	const values = getEnumValues(def.entries);
+	const valuesSet = new Set(values);
+	inst._zod.values = valuesSet;
+	defineLazyInternal(inst, "pattern", (zod) => {
+		const patternValues = getEnumValues(zod.def.entries).filter((k) => propertyKeyTypes.has(typeof k));
+		return new RegExp(patternValues.length ? `^(${patternValues.map((o) => escapeRegex(o.toString())).join("|")})$` : "^[^\\s\\S]$");
+	});
+	inst._zod.parse = (payload, _ctx) => {
+		const input = payload.value;
+		if (valuesSet.has(input)) return payload;
+		payload.issues.push({
+			code: "invalid_value",
+			values,
+			input,
+			inst
+		});
+		return payload;
+	};
+});
+const $ZodLiteral = /*@__PURE__*/ $constructor("$ZodLiteral", (inst, def) => {
+	$ZodType.init(inst, def);
+	const values = new Set(def.values);
+	inst._zod.values = values;
+	defineLazyInternal(inst, "pattern", (zod) => {
+		const vals = zod.def.values;
+		return new RegExp(vals.length ? `^(${vals.map((o) => typeof o === "string" ? escapeRegex(o) : o ? escapeRegex(o.toString()) : String(o)).join("|")})$` : "^[^\\s\\S]$");
+	});
+	inst._zod.parse = (payload, _ctx) => {
+		const input = payload.value;
+		if (values.has(input)) return payload;
+		payload.issues.push({
+			code: "invalid_value",
+			values: def.values,
+			input,
+			inst
+		});
+		return payload;
+	};
+});
+const $ZodTransform = /*@__PURE__*/ $constructor("$ZodTransform", (inst, def) => {
+	$ZodType.init(inst, def);
+	inst._zod.optin = "optional";
+	globalConfig.memoizer?.guard(inst);
+	inst._zod.parse = (payload, ctx) => {
+		if (ctx.direction === "backward") throw new $ZodEncodeError(inst.constructor.name);
+		const _out = def.transform(payload.value, payload);
+		if (ctx.async) return (_out instanceof Promise ? _out : Promise.resolve(_out)).then((output) => {
+			payload.value = output;
+			return payload;
+		});
+		if (_out instanceof Promise) throw new $ZodAsyncError();
+		payload.value = _out;
+		return payload;
+	};
+});
+function handleOptionalResult(payload, result) {
+	payload.value = result.issues.length ? void 0 : result.value;
+	return payload;
+}
+const $ZodOptional = /*@__PURE__*/ $constructor("$ZodOptional", (inst, def) => {
+	$ZodType.init(inst, def);
+	defineLazyInternal(inst, "optin", (zod) => zod.def.innerType._zod.optin === "defaulted" ? "defaulted" : "optional");
+	inst._zod.optout = "optional";
+	defineLazyInternal(inst, "values", (zod) => {
+		const values = zod.def.innerType._zod.values;
+		return values ? /* @__PURE__ */ new Set([...values, void 0]) : void 0;
+	});
+	defineLazyInternal(inst, "pattern", (zod) => {
+		const pattern = zod.def.innerType._zod.pattern;
+		return pattern ? new RegExp(`^(${cleanRegex(pattern.source)})?$`) : void 0;
+	});
+	inst._zod.parse = (payload, ctx) => {
+		if (payload.value === void 0) {
+			if (def.innerType._zod.optin !== "defaulted") return payload;
+			const result = def.innerType._zod.run({
+				value: payload.value,
+				issues: []
+			}, ctx);
+			if (result instanceof Promise) return result.then((result) => handleOptionalResult(payload, result));
+			return handleOptionalResult(payload, result);
+		}
+		return def.innerType._zod.run(payload, ctx);
+	};
+});
+const $ZodExactOptional = /*@__PURE__*/ $constructor("$ZodExactOptional", (inst, def) => {
+	$ZodOptional.init(inst, def);
+	defineLazyInternal(inst, "values", (zod) => zod.def.innerType._zod.values);
+	defineLazyInternal(inst, "pattern", (zod) => zod.def.innerType._zod.pattern);
+	inst._zod.parse = (payload, ctx) => {
+		return def.innerType._zod.run(payload, ctx);
+	};
+});
+const $ZodNullable = /*@__PURE__*/ $constructor("$ZodNullable", (inst, def) => {
+	$ZodType.init(inst, def);
+	defineLazyInternal(inst, "optin", (zod) => zod.def.innerType._zod.optin);
+	defineLazyInternal(inst, "optout", (zod) => zod.def.innerType._zod.optout);
+	defineLazyInternal(inst, "pattern", (zod) => {
+		const pattern = zod.def.innerType._zod.pattern;
+		return pattern ? new RegExp(`^(${cleanRegex(pattern.source)}|null)$`) : void 0;
+	});
+	defineLazyInternal(inst, "values", (zod) => {
+		return zod.def.innerType._zod.values ? /* @__PURE__ */ new Set([...zod.def.innerType._zod.values, null]) : void 0;
+	});
+	inst._zod.parse = (payload, ctx) => {
+		if (payload.value === null) return payload;
+		return def.innerType._zod.run(payload, ctx);
+	};
+});
+const $ZodDefault = /*@__PURE__*/ $constructor("$ZodDefault", (inst, def) => {
+	$ZodType.init(inst, def);
+	inst._zod.optin = "defaulted";
+	defineLazyInternal(inst, "values", (zod) => zod.def.innerType._zod.values);
+	inst._zod.parse = (payload, ctx) => {
+		if (ctx.direction === "backward") return def.innerType._zod.run(payload, ctx);
+		if (payload.value === void 0) {
+			payload.value = def.defaultValue;
+			/**
+			* $ZodDefault returns the default value immediately in forward direction.
+			* It doesn't pass the default value into the validator ("prefault"). There's no reason to pass the default value through validation. The validity of the default is enforced by TypeScript statically. Otherwise, it's the responsibility of the user to ensure the default is valid. In the case of pipes with divergent in/out types, you can specify the default on the `in` schema of your ZodPipe to set a "prefault" for the pipe.   */
+			return payload;
+		}
+		const result = def.innerType._zod.run(payload, ctx);
+		if (result instanceof Promise) return result.then((result) => handleDefaultResult(result, def));
+		return handleDefaultResult(result, def);
+	};
+});
+function handleDefaultResult(payload, def) {
+	if (payload.value === void 0) payload.value = def.defaultValue;
+	return payload;
+}
+const $ZodPrefault = /*@__PURE__*/ $constructor("$ZodPrefault", (inst, def) => {
+	$ZodType.init(inst, def);
+	inst._zod.optin = "defaulted";
+	defineLazyInternal(inst, "values", (zod) => zod.def.innerType._zod.values);
+	inst._zod.parse = (payload, ctx) => {
+		if (ctx.direction === "backward") return def.innerType._zod.run(payload, ctx);
+		if (payload.value === void 0) payload.value = def.defaultValue;
+		return def.innerType._zod.run(payload, ctx);
+	};
+});
+const $ZodNonOptional = /*@__PURE__*/ $constructor("$ZodNonOptional", (inst, def) => {
+	$ZodType.init(inst, def);
+	defineLazyInternal(inst, "values", (zod) => {
+		const v = zod.def.innerType._zod.values;
+		return v ? new Set([...v].filter((x) => x !== void 0)) : void 0;
+	});
+	inst._zod.parse = (payload, ctx) => {
+		const result = def.innerType._zod.run(payload, ctx);
+		if (result instanceof Promise) return result.then((result) => handleNonOptionalResult(result, inst));
+		return handleNonOptionalResult(result, inst);
+	};
+});
+function handleNonOptionalResult(payload, inst) {
+	if (!payload.issues.length && payload.value === void 0) payload.issues.push({
+		code: "invalid_type",
+		expected: "nonoptional",
+		input: payload.value,
+		inst
+	});
+	return payload;
+}
+function handleCatchResult(payload, result, def, ctx) {
+	if (!result.issues.length) {
+		payload.value = result.value;
+		if (result.memo) payload.memo = true;
+		return payload;
+	}
+	payload.value = def.catchValue({
+		...result,
+		value: payload.value,
+		error: { issues: result.issues.map((iss) => finalizeIssue(iss, ctx, config())) },
+		input: payload.value
+	});
+	return payload;
+}
+const $ZodCatch = /*@__PURE__*/ $constructor("$ZodCatch", (inst, def) => {
+	$ZodType.init(inst, def);
+	defineLazyInternal(inst, "optin", (zod) => zod.def.innerType._zod.optin === "defaulted" ? "defaulted" : "optional");
+	defineLazyInternal(inst, "optout", (zod) => zod.def.innerType._zod.optout);
+	defineLazyInternal(inst, "values", (zod) => zod.def.innerType._zod.values);
+	inst._zod.parse = (payload, ctx) => {
+		if (ctx.direction === "backward") return def.innerType._zod.run(payload, ctx);
+		const result = def.innerType._zod.run({
+			value: payload.value,
+			issues: []
+		}, ctx);
+		if (result instanceof Promise) return result.then((result) => handleCatchResult(payload, result, def, ctx));
+		return handleCatchResult(payload, result, def, ctx);
+	};
+});
+const $ZodPipe = /*@__PURE__*/ $constructor("$ZodPipe", (inst, def) => {
+	$ZodType.init(inst, def);
+	defineLazyInternal(inst, "values", (zod) => zod.def.in._zod.values);
+	defineLazyInternal(inst, "optin", (zod) => zod.def.in._zod.optin);
+	defineLazyInternal(inst, "optout", (zod) => zod.def.out._zod.optout);
+	defineLazyInternal(inst, "propValues", (zod) => zod.def.in._zod.propValues);
+	inst._zod.parse = (payload, ctx) => {
+		if (ctx.direction === "backward") {
+			const right = def.out._zod.run(payload, ctx);
+			if (right instanceof Promise) return right.then((right) => handlePipeResult(right, def.in, ctx));
+			return handlePipeResult(right, def.in, ctx);
+		}
+		const left = def.in._zod.run(payload, ctx);
+		if (left instanceof Promise) return left.then((left) => handlePipeResult(left, def.out, ctx));
+		return handlePipeResult(left, def.out, ctx);
+	};
+});
+function handlePipeResult(left, next, ctx) {
+	if (left.issues.some((iss) => iss.code !== "unrecognized_keys")) {
+		left.aborted = true;
+		return left;
+	}
+	return next._zod.run({
+		value: left.value,
+		issues: left.issues
+	}, ctx);
+}
+const $ZodReadonly = /*@__PURE__*/ $constructor("$ZodReadonly", (inst, def) => {
+	$ZodType.init(inst, def);
+	defineLazyInternal(inst, "propValues", (zod) => zod.def.innerType._zod.propValues);
+	defineLazyInternal(inst, "values", (zod) => zod.def.innerType._zod.values);
+	defineLazyInternal(inst, "optin", (zod) => zod.def.innerType?._zod?.optin);
+	defineLazyInternal(inst, "optout", (zod) => zod.def.innerType?._zod?.optout);
+	inst._zod.parse = (payload, ctx) => {
+		if (ctx.direction === "backward") return def.innerType._zod.run(payload, ctx);
+		const result = def.innerType._zod.run(payload, ctx);
+		if (result instanceof Promise) return result.then(handleReadonlyResult);
+		return handleReadonlyResult(result);
+	};
+});
+function handleReadonlyResult(payload) {
+	if (!payload.memo) payload.value = Object.freeze(payload.value);
+	return payload;
+}
+const $ZodCustom = /*@__PURE__*/ $constructor("$ZodCustom", (inst, def) => {
+	$ZodCheck.init(inst, def);
+	$ZodType.init(inst, def);
+	inst._zod.parse = (payload, _) => {
+		return payload;
+	};
+	inst._zod.check = (payload) => {
+		const input = payload.value;
+		const r = def.fn(input);
+		if (r instanceof Promise) return r.then((r) => handleRefineResult(r, payload, input, inst));
+		handleRefineResult(r, payload, input, inst);
+	};
+});
+function handleRefineResult(result, payload, input, inst) {
+	if (!result) {
+		const _iss = {
+			code: "custom",
+			input,
+			inst,
+			path: [...inst._zod.def.path ?? []],
+			continue: !inst._zod.def.abort
+		};
+		if (inst._zod.def.params) _iss.params = inst._zod.def.params;
+		payload.issues.push(issue(_iss));
+	}
+}
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/memoizer.js
+var $ZodCyclicError = class extends Error {
+	constructor() {
+		super(`Cannot parse a reference cycle that closes through a transform`);
+		this.name = "ZodCyclicError";
+	}
+};
+/** Keyed off the context object every schema in one parse call already shares. */
+const STATE = "~memo";
+const NO_ISSUES = [];
+function isRef(value) {
+	return value !== null && typeof value === "object";
+}
+function cloneIssues(issues) {
+	return issues.map((iss) => iss.path ? {
+		...iss,
+		path: iss.path.slice()
+	} : { ...iss });
+}
+const recursive = /*@__PURE__*/ new WeakMap();
+/** What the walk established, in order of certainty: ordered so the strongest answer among children wins. */
+const NONE = 0;
+const ASSUMED = 1;
+const PROVEN = 2;
+/** Whether this schema's subtree contains a cycle, so one parse can re-enter it. */
+function isRecursive(inst, stack, resolve) {
+	const cached = recursive.get(inst);
+	if (cached !== void 0) return cached ? PROVEN : NONE;
+	if (stack.has(inst)) return PROVEN;
+	stack.add(inst);
+	let result = NONE;
+	const check = (child) => {
+		if (result !== PROVEN && child?._zod) {
+			const answer = isRecursive(child, stack, resolve);
+			if (answer > result) result = answer;
+		}
+	};
+	const shape = (sh, spread) => {
+		let answer = NONE;
+		for (const key of Reflect.ownKeys(sh)) {
+			const desc = Object.getOwnPropertyDescriptor(sh, key);
+			if (spread && !desc.enumerable) continue;
+			const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve) : NONE;
+			if (child > answer) answer = child;
+		}
+		return answer;
+	};
+	const merge = (answer) => {
+		if (answer > result) result = answer;
+	};
+	const def = inst._zod.def;
+	switch (def.type) {
+		case "object": {
+			const raw = rawShape(def);
+			merge(raw ? shape(raw, true) : ASSUMED);
+			check(def.catchall);
+			break;
+		}
+		case "array":
+			check(def.element);
+			break;
+		case "tuple":
+			for (const el of def.items) check(el);
+			check(def.rest);
+			break;
+		case "record":
+		case "map":
+			check(def.keyType);
+			check(def.valueType);
+			break;
+		case "set":
+			check(def.valueType);
+			break;
+		case "union":
+			for (const el of def.options) check(el);
+			break;
+		case "intersection":
+			check(def.left);
+			check(def.right);
+			break;
+		case "optional":
+		case "nullable":
+		case "default":
+		case "prefault":
+		case "catch":
+		case "readonly":
+		case "nonoptional":
+		case "promise":
+		case "success":
+			check(def.innerType);
+			break;
+		case "pipe":
+			check(def.in);
+			check(def.out);
+			break;
+		case "function":
+			check(def.input);
+			check(def.output);
+			break;
+		case "lazy": {
+			const inner = def._cachedInner ?? (resolve ? inst._zod.innerType : void 0);
+			merge(inner ? isRecursive(inner, stack, false) : ASSUMED);
+			break;
+		}
+		case "template_literal":
+		case "string":
+		case "number":
+		case "int":
+		case "boolean":
+		case "bigint":
+		case "symbol":
+		case "undefined":
+		case "null":
+		case "void":
+		case "never":
+		case "any":
+		case "unknown":
+		case "date":
+		case "nan":
+		case "enum":
+		case "literal":
+		case "file":
+		case "transform":
+		case "custom": break;
+		default: for (const key in def) {
+			const desc = Object.getOwnPropertyDescriptor(def, key);
+			if (!desc || desc.get) continue;
+			const value = desc.value;
+			if (!value || typeof value !== "object") continue;
+			if (value._zod) check(value);
+			else if (Array.isArray(value)) for (const el of value) check(el);
+		}
+	}
+	stack.delete(inst);
+	return settle(inst, result);
+}
+/** An assumed answer must not outlive the resolution that settles it, so only a certain one is cached. */
+function settle(inst, answer) {
+	if (answer !== ASSUMED) recursive.set(inst, answer === PROVEN);
+	return answer;
+}
+function bucketFor(state, inst) {
+	let bucket = state.buckets.get(inst);
+	if (!bucket) {
+		bucket = /* @__PURE__ */ new WeakMap();
+		state.buckets.set(inst, bucket);
+	}
+	return bucket;
+}
+let handoff;
+const open = [];
+const memo = {
+	alloc(_inst, payload, empty) {
+		const bucket = handoff;
+		if (!bucket) return empty;
+		handoff = void 0;
+		const entry = {
+			value: empty,
+			issues: null
+		};
+		bucket.set(payload.value, entry);
+		open.push(entry);
+		return empty;
+	},
+	guard(inst) {
+		var _a;
+		(_a = inst._zod).deferred ?? (_a.deferred = []);
+		inst._zod.deferred.push(() => {
+			const base = inst._zod.parse;
+			const wrapped = (payload, ctx) => {
+				if (ctx.direction !== "backward" && isBackEdge(ctx, payload.value)) throw new $ZodCyclicError();
+				return base(payload, ctx);
+			};
+			inst._zod.parse = wrapped;
+			if (inst._zod.run === base) inst._zod.run = wrapped;
+		});
+	},
+	attach(inst) {
+		var _a;
+		let isRecursiveInst;
+		let rechecked = false;
+		let lastCtx;
+		let lastBucket;
+		(_a = inst._zod).deferred ?? (_a.deferred = []);
+		inst._zod.deferred.push(() => {
+			const base = inst._zod.parse;
+			const wrapped = (payload, ctx) => {
+				if (isRecursiveInst === void 0) {
+					const walked = isRecursive(inst, /* @__PURE__ */ new Set(), false);
+					if (walked === NONE) {
+						inst._zod.parse = base;
+						if (inst._zod.run === wrapped) inst._zod.run = base;
+						return base(payload, ctx);
+					}
+					if (walked === PROVEN || rechecked) isRecursiveInst = true;
+					else rechecked = true;
+				}
+				const input = payload.value;
+				if (!isRef(input)) return base(payload, ctx);
+				let state = ctx[STATE];
+				if (!state) {
+					state = {
+						buckets: /* @__PURE__ */ new WeakMap(),
+						backEdges: void 0
+					};
+					ctx[STATE] = state;
+				}
+				let bucket;
+				if (lastCtx === ctx) bucket = lastBucket;
+				else {
+					bucket = bucketFor(state, inst);
+					lastCtx = ctx;
+					lastBucket = bucket;
+				}
+				const hit = bucket.get(input);
+				if (hit) {
+					payload.value = hit.value;
+					if (hit.issues) {
+						if (hit.issues.length) payload.issues.push(...cloneIssues(hit.issues));
+					} else {
+						payload.memo = true;
+						state.backEdges ?? (state.backEdges = /* @__PURE__ */ new WeakSet());
+						state.backEdges.add(hit.value);
+					}
+					return payload;
+				}
+				handoff = bucket;
+				const depth = open.length;
+				const result = base(payload, ctx);
+				handoff = void 0;
+				const entry = open.length > depth ? open.pop() : void 0;
+				if (result instanceof Promise) return result.then((r) => {
+					if (entry) entry.issues = r.issues.length ? cloneIssues(r.issues) : NO_ISSUES;
+					return r;
+				});
+				if (entry) entry.issues = result.issues.length ? cloneIssues(result.issues) : NO_ISSUES;
+				return result;
+			};
+			inst._zod.parse = wrapped;
+			if (inst._zod.run === base) inst._zod.run = wrapped;
+		});
+	}
+};
+/** The memoizer that gives containers cycle support. `zod` installs it by default; `zod/mini` opts in with `config({ memoizer: memoizer() })`. */
+function memoizer() {
+	return memo;
+}
+/** Whether this value is a node a back-edge resolved to before it finished. */
+function isBackEdge(ctx, value) {
+	const backEdges = ctx[STATE]?.backEdges;
+	return backEdges !== void 0 && isRef(value) && backEdges.has(value);
+}
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/locales/en.js
+const error = () => {
+	const Sizable = {
+		string: {
+			unit: "characters",
+			verb: "to have"
+		},
+		file: {
+			unit: "bytes",
+			verb: "to have"
+		},
+		array: {
+			unit: "items",
+			verb: "to have"
+		},
+		set: {
+			unit: "items",
+			verb: "to have"
+		},
+		map: {
+			unit: "entries",
+			verb: "to have"
+		}
+	};
+	function getSizing(origin) {
+		return Sizable[origin] ?? null;
+	}
+	const FormatDictionary = {
+		regex: "input",
+		email: "email address",
+		url: "URL",
+		emoji: "emoji",
+		uuid: "UUID",
+		uuidv4: "UUIDv4",
+		uuidv6: "UUIDv6",
+		nanoid: "nanoid",
+		guid: "GUID",
+		cuid: "cuid",
+		cuid2: "cuid2",
+		ulid: "ULID",
+		xid: "XID",
+		ksuid: "KSUID",
+		datetime: "ISO datetime",
+		date: "ISO date",
+		time: "ISO time",
+		duration: "ISO duration",
+		ipv4: "IPv4 address",
+		ipv6: "IPv6 address",
+		mac: "MAC address",
+		cidrv4: "IPv4 range",
+		cidrv6: "IPv6 range",
+		base64: "base64-encoded string",
+		base64url: "base64url-encoded string",
+		json_string: "JSON string",
+		e164: "E.164 number",
+		currency_code: "currency code",
+		credit_card: "credit card number",
+		iban: "IBAN",
+		jwt: "JWT",
+		template_literal: "input"
+	};
+	const TypeDictionary = { nan: "NaN" };
+	function getTypeName(type, input) {
+		if (type === "number" && typeof input === "number" && !Number.isFinite(input)) return String(input);
+		return TypeDictionary[type] ?? type;
+	}
+	return (issue) => {
+		switch (issue.code) {
+			case "invalid_type": return `Invalid input: expected ${getTypeName(issue.expected)}, received ${getTypeName(parsedType(issue.input), issue.input)}`;
+			case "invalid_value":
+				if (issue.values.length === 1) return `Invalid input: expected ${stringifyPrimitive(issue.values[0])}`;
+				return `Invalid option: expected one of ${joinValues(issue.values, "|")}`;
+			case "too_big": {
+				const adj = issue.exact ? "exactly " : issue.inclusive ? "<=" : "<";
+				const sizing = getSizing(issue.origin);
+				if (sizing) return `Too big: expected ${issue.origin ?? "value"} to have ${adj}${issue.maximum.toString()} ${sizing.unit ?? "elements"}`;
+				return `Too big: expected ${issue.origin ?? "value"} to be ${adj}${issue.maximum.toString()}`;
+			}
+			case "too_small": {
+				const adj = issue.exact ? "exactly " : issue.inclusive ? ">=" : ">";
+				const sizing = getSizing(issue.origin);
+				if (sizing) return `Too small: expected ${issue.origin} to have ${adj}${issue.minimum.toString()} ${sizing.unit}`;
+				return `Too small: expected ${issue.origin} to be ${adj}${issue.minimum.toString()}`;
+			}
+			case "invalid_format": {
+				const _issue = issue;
+				if (_issue.format === "starts_with") return `Invalid string: must start with "${_issue.prefix}"`;
+				if (_issue.format === "ends_with") return `Invalid string: must end with "${_issue.suffix}"`;
+				if (_issue.format === "includes") return `Invalid string: must include "${_issue.includes}"`;
+				if (_issue.format === "regex") return `Invalid string: must match pattern ${_issue.pattern}`;
+				return `Invalid ${FormatDictionary[_issue.format] ?? issue.format}`;
+			}
+			case "not_multiple_of": return `Invalid number: must be a multiple of ${issue.divisor}`;
+			case "unrecognized_keys": return `Unrecognized key${issue.keys.length > 1 ? "s" : ""}: ${joinValues(issue.keys, ", ")}`;
+			case "invalid_key": return `Invalid key in ${issue.origin}`;
+			case "invalid_union":
+				if (issue.options && Array.isArray(issue.options) && issue.options.length > 0) return `Invalid discriminator value. Expected ${issue.options.map((o) => `'${o}'`).join(" | ")}`;
+				if (issue.inclusive === false) return "Invalid input: more than one option matched";
+				return "Invalid input";
+			case "invalid_element": return `Invalid value in ${issue.origin}`;
+			default: return `Invalid input`;
+		}
+	};
+};
+function en_default() {
+	return { localeError: error() };
+}
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/registries.js
+var _a$4;
+var $ZodRegistry = class {
+	constructor() {
+		this._map = /* @__PURE__ */ new WeakMap();
+		this._idmap = /* @__PURE__ */ new Map();
+	}
+	add(schema, ..._meta) {
+		const meta = _meta[0];
+		this._map.set(schema, meta);
+		if (meta && typeof meta === "object" && "id" in meta) this._idmap.set(meta.id, schema);
+		return this;
+	}
+	clear() {
+		this._map = /* @__PURE__ */ new WeakMap();
+		this._idmap = /* @__PURE__ */ new Map();
+		return this;
+	}
+	remove(schema) {
+		const meta = this._map.get(schema);
+		if (meta && typeof meta === "object" && "id" in meta) this._idmap.delete(meta.id);
+		this._map.delete(schema);
+		return this;
+	}
+	get(schema) {
+		const p = schema._zod.parent;
+		if (p) {
+			const pm = { ...this.get(p) ?? {} };
+			delete pm.id;
+			const f = {
+				...pm,
+				...this._map.get(schema)
+			};
+			return Object.keys(f).length ? f : void 0;
+		}
+		return this._map.get(schema);
+	}
+	has(schema) {
+		return this._map.has(schema);
+	}
+};
+function registry() {
+	return new $ZodRegistry();
+}
+(_a$4 = globalThis).__zod_globalRegistry ?? (_a$4.__zod_globalRegistry = registry());
+const globalRegistry = globalThis.__zod_globalRegistry;
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/api.js
+function snapshotChecks(def) {
+	if (def.checks) def.checks = [...def.checks];
+	return def;
+}
+// @__NO_SIDE_EFFECTS__
+function _string(Class, params) {
+	return new Class(snapshotChecks({
+		type: "string",
+		...normalizeParams(params)
+	}));
+}
+// @__NO_SIDE_EFFECTS__
+function _email(Class, params) {
+	return new Class({
+		type: "string",
+		format: "email",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _guid(Class, params) {
+	return new Class({
+		type: "string",
+		format: "guid",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _uuid(Class, params) {
+	return new Class({
+		type: "string",
+		format: "uuid",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _uuidv4(Class, params) {
+	return new Class({
+		type: "string",
+		format: "uuid",
+		check: "string_format",
+		abort: false,
+		version: "v4",
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _uuidv6(Class, params) {
+	return new Class({
+		type: "string",
+		format: "uuid",
+		check: "string_format",
+		abort: false,
+		version: "v6",
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _uuidv7(Class, params) {
+	return new Class({
+		type: "string",
+		format: "uuid",
+		check: "string_format",
+		abort: false,
+		version: "v7",
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _url(Class, params) {
+	return new Class({
+		type: "string",
+		format: "url",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _emoji(Class, params) {
+	return new Class({
+		type: "string",
+		format: "emoji",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _nanoid(Class, params) {
+	return new Class({
+		type: "string",
+		format: "nanoid",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+/**
+* @deprecated CUID v1 is deprecated by its authors due to information leakage
+* (timestamps embedded in the id). Use {@link _cuid2} instead.
+* See https://github.com/paralleldrive/cuid.
+*/
+// @__NO_SIDE_EFFECTS__
+function _cuid(Class, params) {
+	return new Class({
+		type: "string",
+		format: "cuid",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _cuid2(Class, params) {
+	return new Class({
+		type: "string",
+		format: "cuid2",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _ulid(Class, params) {
+	return new Class({
+		type: "string",
+		format: "ulid",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _xid(Class, params) {
+	return new Class({
+		type: "string",
+		format: "xid",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _ksuid(Class, params) {
+	return new Class({
+		type: "string",
+		format: "ksuid",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _ipv4(Class, params) {
+	return new Class({
+		type: "string",
+		format: "ipv4",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _ipv6(Class, params) {
+	return new Class({
+		type: "string",
+		format: "ipv6",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _cidrv4(Class, params) {
+	return new Class({
+		type: "string",
+		format: "cidrv4",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _cidrv6(Class, params) {
+	return new Class({
+		type: "string",
+		format: "cidrv6",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _base64(Class, params) {
+	return new Class({
+		type: "string",
+		format: "base64",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _base64url(Class, params) {
+	return new Class({
+		type: "string",
+		format: "base64url",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _e164(Class, params) {
+	return new Class({
+		type: "string",
+		format: "e164",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _jwt(Class, params) {
+	return new Class({
+		type: "string",
+		format: "jwt",
+		check: "string_format",
+		abort: false,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _isoDateTime(Class, params) {
+	return new Class({
+		type: "string",
+		format: "datetime",
+		check: "string_format",
+		offset: false,
+		local: false,
+		precision: null,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _isoDate(Class, params) {
+	return new Class({
+		type: "string",
+		format: "date",
+		check: "string_format",
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _isoTime(Class, params) {
+	return new Class({
+		type: "string",
+		format: "time",
+		check: "string_format",
+		precision: null,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _isoDuration(Class, params) {
+	return new Class({
+		type: "string",
+		format: "duration",
+		check: "string_format",
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _number(Class, params) {
+	return new Class(snapshotChecks({
+		type: "number",
+		checks: [],
+		...normalizeParams(params)
+	}));
+}
+// @__NO_SIDE_EFFECTS__
+function _int(Class, params) {
+	return new Class({
+		type: "number",
+		check: "number_format",
+		abort: false,
+		format: "safeint",
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _unknown(Class) {
+	return new Class({ type: "unknown" });
+}
+// @__NO_SIDE_EFFECTS__
+function _never(Class, params) {
+	return new Class({
+		type: "never",
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _lt(value, params) {
+	return new $ZodCheckLessThan({
+		check: "less_than",
+		...normalizeParams(params),
+		value,
+		inclusive: false
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _lte(value, params) {
+	return new $ZodCheckLessThan({
+		check: "less_than",
+		...normalizeParams(params),
+		value,
+		inclusive: true
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _gt(value, params) {
+	return new $ZodCheckGreaterThan({
+		check: "greater_than",
+		...normalizeParams(params),
+		value,
+		inclusive: false
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _gte(value, params) {
+	return new $ZodCheckGreaterThan({
+		check: "greater_than",
+		...normalizeParams(params),
+		value,
+		inclusive: true
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _multipleOf(value, params) {
+	return new $ZodCheckMultipleOf({
+		check: "multiple_of",
+		...normalizeParams(params),
+		value
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _maxLength(maximum, params) {
+	return new $ZodCheckMaxLength({
+		check: "max_length",
+		...normalizeParams(params),
+		maximum
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _minLength(minimum, params) {
+	return new $ZodCheckMinLength({
+		check: "min_length",
+		...normalizeParams(params),
+		minimum
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _length(length, params) {
+	return new $ZodCheckLengthEquals({
+		check: "length_equals",
+		...normalizeParams(params),
+		length
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _regex(pattern, params) {
+	return new $ZodCheckRegex({
+		check: "string_format",
+		format: "regex",
+		...normalizeParams(params),
+		pattern
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _lowercase(params) {
+	return new $ZodCheckLowerCase({
+		check: "string_format",
+		format: "lowercase",
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _uppercase(params) {
+	return new $ZodCheckUpperCase({
+		check: "string_format",
+		format: "uppercase",
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _includes(includes, params) {
+	return new $ZodCheckIncludes({
+		check: "string_format",
+		format: "includes",
+		...normalizeParams(params),
+		includes
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _startsWith(prefix, params) {
+	return new $ZodCheckStartsWith({
+		check: "string_format",
+		format: "starts_with",
+		...normalizeParams(params),
+		prefix
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _endsWith(suffix, params) {
+	return new $ZodCheckEndsWith({
+		check: "string_format",
+		format: "ends_with",
+		...normalizeParams(params),
+		suffix
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _overwrite(tx) {
+	return new $ZodCheckOverwrite({
+		check: "overwrite",
+		tx
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _normalize(form) {
+	return /* @__PURE__ */ _overwrite((input) => input.normalize(form));
+}
+// @__NO_SIDE_EFFECTS__
+function _trim() {
+	return /* @__PURE__ */ _overwrite((input) => input.trim());
+}
+// @__NO_SIDE_EFFECTS__
+function _toLowerCase() {
+	return /* @__PURE__ */ _overwrite((input) => input.toLowerCase());
+}
+// @__NO_SIDE_EFFECTS__
+function _toUpperCase() {
+	return /* @__PURE__ */ _overwrite((input) => input.toUpperCase());
+}
+// @__NO_SIDE_EFFECTS__
+function _slugify() {
+	return /* @__PURE__ */ _overwrite((input) => slugify(input));
+}
+// @__NO_SIDE_EFFECTS__
+function _array(Class, element, params) {
+	return new Class({
+		type: "array",
+		element,
+		...normalizeParams(params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _refine(Class, fn, _params) {
+	return new Class({
+		type: "custom",
+		check: "custom",
+		fn,
+		...normalizeParams(_params)
+	});
+}
+// @__NO_SIDE_EFFECTS__
+function _superRefine(fn, params) {
+	const ch = /* @__PURE__ */ _check((payload) => {
+		payload.addIssue = (issue$2) => {
+			if (typeof issue$2 === "string") payload.issues.push(issue(issue$2, payload.value, ch._zod.def));
+			else {
+				const _issue = issue$2;
+				if (_issue.fatal) _issue.continue = false;
+				_issue.code ?? (_issue.code = "custom");
+				if (!("input" in _issue)) _issue.input = payload.value;
+				_issue.inst ?? (_issue.inst = ch);
+				_issue.continue ?? (_issue.continue = !ch._zod.def.abort);
+				payload.issues.push(issue(_issue));
+			}
+		};
+		return fn(payload.value, payload);
+	}, params);
+	return ch;
+}
+// @__NO_SIDE_EFFECTS__
+function _check(fn, params) {
+	const ch = new $ZodCheck({
+		check: "custom",
+		...normalizeParams(params)
+	});
+	ch._zod.check = fn;
+	return ch;
+}
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/to-json-schema.js
+function assignProps(target, ...sources) {
+	for (const source of sources) for (const key of Reflect.ownKeys(source)) if (Object.prototype.propertyIsEnumerable.call(source, key)) assignProp(target, key, source[key]);
+	return target;
+}
+function initializeContext(params) {
+	let target = params?.target ?? "draft-2020-12";
+	if (target === "draft-4") target = "draft-04";
+	if (target === "draft-7") target = "draft-07";
+	return {
+		processors: params.processors ?? {},
+		metadataRegistry: params?.metadata ?? globalRegistry,
+		target,
+		unrepresentable: params?.unrepresentable ?? "throw",
+		override: params?.override ?? (() => {}),
+		io: params?.io ?? "output",
+		counter: 0,
+		seen: /* @__PURE__ */ new Map(),
+		sharedDefsExtractedFor: void 0,
+		sharedEmitDoneFor: void 0,
+		cycles: params?.cycles ?? "ref",
+		reused: params?.reused ?? "inline",
+		intersections: [],
+		deferred: [],
+		external: params?.external ?? void 0
+	};
+}
+/**
+* Applies the `unrepresentable` setting at a site that has no JSON Schema equivalent. Throws
+* `message` unless the setting (or the handler's return value) says otherwise. Returns `true` if a
+* custom JSON Schema was written into `json`, in which case the caller must not write its own.
+*/
+function handleUnrepresentable(schema, ctx, json, params, message) {
+	const result = typeof ctx.unrepresentable === "function" ? ctx.unrepresentable({
+		zodSchema: schema,
+		path: params.path,
+		message
+	}) : ctx.unrepresentable;
+	if (result === "any") return false;
+	if (result === void 0 || result === "throw") throw new Error(message);
+	Object.assign(json, result);
+	return true;
+}
+function processSchema(schema, ctx, _params = {
+	path: [],
+	schemaPath: []
+}) {
+	var _a;
+	const def = schema._zod.def;
+	const seen = ctx.seen.get(schema);
+	if (seen) {
+		seen.count++;
+		if (_params.schemaPath.includes(schema)) seen.cycle = _params.path;
+		return seen.schema;
+	}
+	const result = {
+		schema: {},
+		count: 1,
+		cycle: void 0,
+		path: _params.path
+	};
+	ctx.seen.set(schema, result);
+	ctx.sharedDefsExtractedFor = void 0;
+	ctx.sharedEmitDoneFor = void 0;
+	const overrideSchema = schema._zod.toJSONSchema?.();
+	if (overrideSchema) result.schema = overrideSchema;
+	else {
+		const params = {
+			..._params,
+			schemaPath: [..._params.schemaPath, schema],
+			path: _params.path
+		};
+		if (schema._zod.processJSONSchema) schema._zod.processJSONSchema(ctx, result.schema, params);
+		else {
+			const _json = result.schema;
+			const processor = ctx.processors[def.type];
+			if (!processor) throw new Error(`[toJSONSchema]: Non-representable type encountered: ${def.type}`);
+			processor(schema, ctx, _json, params);
+		}
+		const parent = schema._zod.parent;
+		if (parent) {
+			if (!result.ref) result.ref = parent;
+			processSchema(parent, ctx, params);
+			ctx.seen.get(parent).isParent = true;
+		}
+	}
+	const meta = ctx.metadataRegistry.get(schema);
+	if (meta) assignProps(result.schema, meta);
+	if (ctx.io === "input" && isTransforming(schema)) {
+		delete result.schema.examples;
+		delete result.schema.default;
+	}
+	if (ctx.io === "input" && "_prefault" in result.schema) (_a = result.schema).default ?? (_a.default = result.schema._prefault);
+	delete result.schema._prefault;
+	return ctx.seen.get(schema).schema;
+}
+function encodeJSONPointerSegment(segment) {
+	return segment.replace(/~/g, "~0").replace(/\//g, "~1");
+}
+function extractDefs(ctx, schema) {
+	const root = ctx.seen.get(schema);
+	if (!root) throw new Error("Unprocessed schema. This is a bug in Zod.");
+	if (ctx.external && ctx.sharedDefsExtractedFor === ctx.external) return;
+	const idToSchema = /* @__PURE__ */ new Map();
+	for (const entry of ctx.seen.entries()) {
+		const id = ctx.metadataRegistry.get(entry[0])?.id;
+		if (id) {
+			const existing = idToSchema.get(id);
+			if (existing && existing !== entry[0]) throw new Error(`Duplicate schema id "${id}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
+			idToSchema.set(id, entry[0]);
+		}
+	}
+	const makeURI = (entry) => {
+		const defsSegment = ctx.target === "draft-2020-12" ? "$defs" : "definitions";
+		if (ctx.external) {
+			const externalId = ctx.external.registry.get(entry[0])?.id;
+			const uriGenerator = ctx.external.uri ?? ((id) => id);
+			if (externalId) return { ref: uriGenerator(externalId) };
+			const id = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
+			entry[1].defId = id;
+			return {
+				defId: id,
+				ref: `${uriGenerator("__shared")}#/${defsSegment}/${encodeJSONPointerSegment(id)}`
+			};
+		}
+		const uriPrefix = `#`;
+		const defUriPrefix = `${uriPrefix}/${defsSegment}/`;
+		if (entry[1] === root && !entry[1].schema.id) return { ref: uriPrefix };
+		const defId = entry[1].schema.id ?? `__schema${ctx.counter++}`;
+		return {
+			defId,
+			ref: defUriPrefix + encodeJSONPointerSegment(defId)
+		};
+	};
+	const extractToDef = (entry) => {
+		if (entry[1].schema.$ref) return;
+		const seen = entry[1];
+		const { ref, defId } = makeURI(entry);
+		seen.def = { ...seen.schema };
+		if (defId) seen.defId = defId;
+		const schema = seen.schema;
+		for (const key in schema) delete schema[key];
+		schema.$ref = ref;
+	};
+	if (ctx.cycles === "throw") for (const entry of ctx.seen.entries()) {
+		const seen = entry[1];
+		if (seen.cycle) throw new Error(`Cycle detected: #/${seen.cycle?.join("/")}/<root>
+
+Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.`);
+	}
+	for (const entry of ctx.seen.entries()) {
+		const seen = entry[1];
+		if (schema === entry[0]) {
+			extractToDef(entry);
+			continue;
+		}
+		if (ctx.external) {
+			const ext = ctx.external.registry.get(entry[0])?.id;
+			if (schema !== entry[0] && ext) {
+				extractToDef(entry);
+				continue;
+			}
+		}
+		if (ctx.metadataRegistry.get(entry[0])?.id) {
+			extractToDef(entry);
+			continue;
+		}
+		if (seen.cycle) {
+			extractToDef(entry);
+			continue;
+		}
+		if (seen.count > 1) {
+			if (ctx.reused === "ref") extractToDef(entry);
+		}
+	}
+	if (ctx.external) ctx.sharedDefsExtractedFor = ctx.external;
+}
+/** Rewrites `anyOf: [{type: "a"}, {type: "b"}]` to `type: ["a", "b"]`, which every JSON Schema draft treats as equivalent and most consumers render far better for the nullable case. Only branches that are a bare type assertion qualify — anything carrying a constraint, `$ref`, `const` or metadata is left alone. Runs after `flattenRef`, so a branch an override decorated or `$defs` extraction turned into a `$ref` is no longer bare and correctly stays in `anyOf`. `oneOf` is excluded: `integer` and `number` overlap, so "exactly one" and "at least one" are not the same there. OpenAPI 3.0 is excluded: its `type` must be a single string. */
+function compactTypeUnion(schema) {
+	const options = schema.anyOf;
+	if (!Array.isArray(options) || options.length === 0 || schema.type !== void 0) return;
+	const types = [];
+	for (const option of options) {
+		if (!option || typeof option !== "object") return;
+		compactTypeUnion(option);
+		const keys = Object.keys(option);
+		if (keys.length !== 1 || keys[0] !== "type") return;
+		const type = option.type;
+		for (const member of Array.isArray(type) ? type : [type]) {
+			if (typeof member !== "string") return;
+			if (!types.includes(member)) types.push(member);
+		}
+	}
+	delete schema.anyOf;
+	schema.type = types.length === 1 ? types[0] : types;
+}
+/** Keywords `foldIntersection` knows how to combine. Anything else — `$ref`, `patternProperties`,
+* an annotation like `description` — makes a member unfoldable, so a constraint this does not
+* understand leaves the `allOf` alone instead of being silently dropped or misattributed. */
+const FOLDABLE_KEYS = /* @__PURE__ */ new Set([
+	"type",
+	"properties",
+	"required",
+	"additionalProperties"
+]);
+const UNION_KEYS = ["oneOf", "anyOf"];
+/** A member's constraint on a key it does not declare itself. A `catchall` states one; `false`, an absent `additionalProperties`, and the empty schema a loose object emits state nothing. */
+function undeclaredConstraint(member) {
+	const extra = member.additionalProperties;
+	if (extra === void 0 || extra === false || typeof extra !== "object" || extra === null) return null;
+	return Object.keys(extra).length ? extra : null;
+}
+/** Combines object members into the single object they describe together, or returns `null` if any of them carries a keyword outside {@link FOLDABLE_KEYS}. */
+function foldObjects(members) {
+	const objects = [];
+	for (const member of members) {
+		if (typeof member !== "object" || member.type !== "object") return null;
+		for (const key in member) if (!FOLDABLE_KEYS.has(key)) return null;
+		objects.push(member);
+	}
+	const properties = {};
+	const required = /* @__PURE__ */ new Set();
+	for (const object of objects) {
+		for (const key in object.properties) {
+			if (Object.prototype.hasOwnProperty.call(properties, key)) continue;
+			const parts = [];
+			for (const other of objects) {
+				const part = other.properties?.[key] ?? undeclaredConstraint(other);
+				if (part === null || part === void 0) continue;
+				if (!parts.some((seen) => JSON.stringify(seen) === JSON.stringify(part))) parts.push(part);
+			}
+			assignProp(properties, key, parts.length === 1 ? parts[0] : foldObjects(parts) ?? { allOf: parts });
+		}
+		for (const key of object.required ?? []) required.add(key);
+	}
+	const folded = {
+		type: "object",
+		properties
+	};
+	if (required.size) folded.required = [...required];
+	if (objects.every((object) => object.additionalProperties === false)) folded.additionalProperties = false;
+	else {
+		const constraints = [];
+		for (const object of objects) {
+			const constraint = undeclaredConstraint(object);
+			if (constraint && !constraints.some((seen) => JSON.stringify(seen) === JSON.stringify(constraint))) constraints.push(constraint);
+		}
+		if (constraints.length === 1) folded.additionalProperties = constraints[0];
+		else if (constraints.length > 1) folded.additionalProperties = { allOf: constraints };
+	}
+	return folded;
+}
+/** `additionalProperties` in an `allOf` member sees only that member's own `properties`, so two
+* closed object members reject each other's keys and the schema validates nothing. Zod's parser
+* pools the key sets instead — `handleIntersectionResults` reports a key as unrecognized only when
+* *every* side rejects it — so the emitted schema has to pool them too, and folding the members
+* into one object is the encoding that says so on every target.
+*
+* This runs from `finalize`, after `extractDefs`, which is what keeps it clear of the `$ref`
+* machinery: a member extracted into `$defs` is already a `$ref` by now and declines to fold, so it
+* keeps its reference and its own closedness rather than being inlined as a stale copy. */
+function foldIntersection(json) {
+	const allOf = json.allOf;
+	if (!Array.isArray(allOf) || allOf.length < 2) return;
+	for (const key of FOLDABLE_KEYS) if (key in json) return;
+	const unions = allOf.filter((m) => UNION_KEYS.some((k) => Array.isArray(m[k])));
+	let folded = null;
+	if (!unions.length) folded = foldObjects(allOf);
+	else {
+		const union = unions[0];
+		const keyword = UNION_KEYS.find((k) => Array.isArray(union[k]));
+		if (Object.keys(union).length !== 1) return;
+		const rest = allOf.filter((m) => m !== union);
+		const branches = union[keyword].map((branch) => foldObjects([...rest, branch]));
+		if (branches.some((b) => !b)) return;
+		folded = { [keyword]: branches };
+	}
+	if (!folded) return;
+	delete json.allOf;
+	assignProps(json, folded);
+}
+function finalize(ctx, schema) {
+	const root = ctx.seen.get(schema);
+	if (!root) throw new Error("Unprocessed schema. This is a bug in Zod.");
+	const flattenRef = (zodSchema) => {
+		const seen = ctx.seen.get(zodSchema);
+		if (seen.ref === null) return;
+		const schema = seen.def ?? seen.schema;
+		const _cached = { ...schema };
+		const ref = seen.ref;
+		seen.ref = null;
+		if (ref) {
+			flattenRef(ref);
+			const refSeen = ctx.seen.get(ref);
+			const refSchema = refSeen.schema;
+			if (refSchema.$ref && (ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0")) {
+				schema.allOf = schema.allOf ?? [];
+				schema.allOf.push(refSchema);
+			} else assignProps(schema, refSchema);
+			assignProps(schema, _cached);
+			if (zodSchema._zod.parent === ref) for (const key in schema) {
+				if (key === "$ref" || key === "allOf") continue;
+				if (!(key in _cached)) delete schema[key];
+			}
+			if (refSchema.$ref && refSeen.def) for (const key in schema) {
+				if (key === "$ref" || key === "allOf") continue;
+				if (key in refSeen.def && JSON.stringify(schema[key]) === JSON.stringify(refSeen.def[key])) delete schema[key];
+			}
+		}
+		const parent = zodSchema._zod.parent;
+		if (parent && parent !== ref) {
+			flattenRef(parent);
+			const parentSeen = ctx.seen.get(parent);
+			if (parentSeen?.schema.$ref) {
+				schema.$ref = parentSeen.schema.$ref;
+				if (parentSeen.def) for (const key in schema) {
+					if (key === "$ref" || key === "allOf") continue;
+					if (key in parentSeen.def && JSON.stringify(schema[key]) === JSON.stringify(parentSeen.def[key])) delete schema[key];
+				}
+			}
+		}
+		ctx.override({
+			zodSchema,
+			jsonSchema: schema,
+			path: seen.path ?? []
+		});
+	};
+	if (!ctx.external || ctx.sharedEmitDoneFor !== ctx.external) {
+		for (const entry of [...ctx.seen.entries()].reverse()) flattenRef(entry[0]);
+		if (ctx.target !== "openapi-3.0") for (const entry of ctx.seen.entries()) compactTypeUnion(entry[1].def ?? entry[1].schema);
+		for (const rewrite of ctx.deferred) rewrite();
+		if (ctx.intersections.length) {
+			const carriers = /* @__PURE__ */ new Map();
+			for (const seen of ctx.seen.values()) for (const json of [seen.schema, seen.def]) {
+				const allOf = json?.allOf;
+				if (!Array.isArray(allOf)) continue;
+				const existing = carriers.get(allOf);
+				if (existing) existing.push(json);
+				else carriers.set(allOf, [json]);
+			}
+			for (const allOf of ctx.intersections) for (const json of carriers.get(allOf) ?? []) foldIntersection(json);
+		}
+	}
+	const result = {};
+	if (ctx.target === "draft-2020-12") result.$schema = "https://json-schema.org/draft/2020-12/schema";
+	else if (ctx.target === "draft-07") result.$schema = "http://json-schema.org/draft-07/schema#";
+	else if (ctx.target === "draft-04") result.$schema = "http://json-schema.org/draft-04/schema#";
+	else if (ctx.target === "openapi-3.0") {}
+	if (ctx.external?.uri) {
+		const id = ctx.external.registry.get(schema)?.id;
+		if (!id) throw new Error("Schema is missing an `id` property");
+		result.$id = ctx.external.uri(id);
+	}
+	assignProps(result, root.defId ? root.schema : root.def ?? root.schema);
+	const rootMetaId = ctx.metadataRegistry.get(schema)?.id;
+	if (rootMetaId !== void 0 && result.id === rootMetaId) delete result.id;
+	const defs = ctx.external?.defs ?? {};
+	if (!ctx.external || ctx.sharedEmitDoneFor !== ctx.external) for (const entry of ctx.seen.entries()) {
+		const seen = entry[1];
+		if (seen.def && seen.defId) {
+			if (seen.def.id === seen.defId) delete seen.def.id;
+			assignProp(defs, seen.defId, seen.def);
+		}
+	}
+	if (ctx.external) ctx.sharedEmitDoneFor = ctx.external;
+	if (ctx.external) {} else if (Object.keys(defs).length > 0) {
+		if (ctx.target === "draft-2020-12") result.$defs = defs;
+		else result.definitions = defs;
+	}
+	try {
+		const finalized = JSON.parse(JSON.stringify(result));
+		Object.defineProperty(finalized, "~standard", {
+			value: {
+				...schema["~standard"],
+				jsonSchema: {
+					input: createStandardJSONSchemaMethod(schema, "input", ctx.processors),
+					output: createStandardJSONSchemaMethod(schema, "output", ctx.processors)
+				}
+			},
+			enumerable: false,
+			writable: false
+		});
+		return finalized;
+	} catch (_err) {
+		throw new Error("Error converting schema to JSON.");
+	}
+}
+function isTransforming(_schema, _ctx) {
+	const ctx = _ctx ?? { seen: /* @__PURE__ */ new Set() };
+	if (ctx.seen.has(_schema)) return false;
+	ctx.seen.add(_schema);
+	const def = _schema._zod.def;
+	if (def.type === "transform") return true;
+	if (def.type === "array") return isTransforming(def.element, ctx);
+	if (def.type === "set") return isTransforming(def.valueType, ctx);
+	if (def.type === "lazy") return isTransforming(def.getter(), ctx);
+	if (def.type === "promise" || def.type === "optional" || def.type === "nonoptional" || def.type === "nullable" || def.type === "readonly" || def.type === "default" || def.type === "prefault" || def.type === "catch") return isTransforming(def.innerType, ctx);
+	if (def.type === "intersection") return isTransforming(def.left, ctx) || isTransforming(def.right, ctx);
+	if (def.type === "record" || def.type === "map") return isTransforming(def.keyType, ctx) || isTransforming(def.valueType, ctx);
+	if (def.type === "pipe") {
+		if (_schema._zod.traits.has("$ZodCodec")) return true;
+		return isTransforming(def.in, ctx) || isTransforming(def.out, ctx);
+	}
+	if (def.type === "object") {
+		for (const key in def.shape) if (isTransforming(def.shape[key], ctx)) return true;
+		return false;
+	}
+	if (def.type === "union") {
+		for (const option of def.options) if (isTransforming(option, ctx)) return true;
+		return false;
+	}
+	if (def.type === "tuple") {
+		for (const item of def.items) if (isTransforming(item, ctx)) return true;
+		if (def.rest && isTransforming(def.rest, ctx)) return true;
+		return false;
+	}
+	return false;
+}
+/**
+* Creates a toJSONSchema method for a schema instance.
+* This encapsulates the logic of initializing context, processing, extracting defs, and finalizing.
+*/
+const createToJSONSchemaMethod = (schema, processors = {}) => (params) => {
+	const ctx = initializeContext({
+		...params,
+		processors
+	});
+	processSchema(schema, ctx);
+	extractDefs(ctx, schema);
+	return finalize(ctx, schema);
+};
+const createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) => {
+	const { libraryOptions, target } = params ?? {};
+	const ctx = initializeContext({
+		...libraryOptions ?? {},
+		target,
+		io,
+		processors
+	});
+	processSchema(schema, ctx);
+	extractDefs(ctx, schema);
+	return finalize(ctx, schema);
+};
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/json-schema-processors.js
+const narrowMin = (agg, key, value) => {
+	if (agg[key] === void 0 || value > agg[key]) agg[key] = value;
+};
+const narrowMax = (agg, key, value) => {
+	if (agg[key] === void 0 || value < agg[key]) agg[key] = value;
+};
+const narrowBoth = (agg, value) => {
+	narrowMin(agg, "minimum", value);
+	narrowMax(agg, "maximum", value);
+};
+const addDivisor = (agg, value) => {
+	agg.multipleOf ?? (agg.multipleOf = []);
+	if (!agg.multipleOf.includes(value)) agg.multipleOf.push(value);
+};
+const addPattern = (agg, pattern) => {
+	agg.patterns ?? (agg.patterns = /* @__PURE__ */ new Set());
+	agg.patterns.add(pattern);
+};
+const intersectMime = (agg, mime) => {
+	agg.mime = agg.mime ? agg.mime.filter((m) => mime.includes(m)) : [...mime];
+};
+const setFormat = (agg, format) => {
+	agg.format = format;
+	if (format.includes("int")) agg.isInt = true;
+};
+const minContributor = (agg, def) => narrowMin(agg, "minimum", def.minimum);
+const maxContributor = (agg, def) => narrowMax(agg, "maximum", def.maximum);
+const formatContributor = (ranges) => (agg, def) => {
+	setFormat(agg, def.format);
+	const [minimum, maximum] = ranges[def.format];
+	narrowMin(agg, "minimum", minimum);
+	narrowMax(agg, "maximum", maximum);
+};
+const contributors = {
+	greater_than: (agg, def) => narrowMin(agg, def.inclusive ? "minimum" : "exclusiveMinimum", def.value),
+	less_than: (agg, def) => narrowMax(agg, def.inclusive ? "maximum" : "exclusiveMaximum", def.value),
+	multiple_of: (agg, def) => addDivisor(agg, def.value),
+	number_format: formatContributor(NUMBER_FORMAT_RANGES),
+	bigint_format: formatContributor(BIGINT_FORMAT_RANGES),
+	min_length: minContributor,
+	max_length: maxContributor,
+	length_equals: (agg, def) => narrowBoth(agg, def.length),
+	min_size: minContributor,
+	max_size: maxContributor,
+	size_equals: (agg, def) => narrowBoth(agg, def.size),
+	string_format: (agg, def) => {
+		setFormat(agg, def.format);
+		if (def.pattern) addPattern(agg, def.pattern);
+		if (def.format === "base64" || def.format === "base64url") agg.contentEncoding = def.format;
+		if (def.local || def.precision === -1) agg.laxFormat = true;
+	},
+	mime_type: (agg, def) => intersectMime(agg, def.mime)
+};
+function aggregateChecks(schema) {
+	const agg = {};
+	const def = schema._zod.def;
+	const list = schema._zod.traits.has("$ZodCheck") ? [schema, ...def.checks ?? []] : def.checks ?? [];
+	for (const ch of list) contributors[ch._zod.def.check]?.(agg, ch._zod.def);
+	const bag = schema._zod.bag;
+	if (bag.minimum !== void 0) narrowMin(agg, "minimum", bag.minimum);
+	if (bag.exclusiveMinimum !== void 0) narrowMin(agg, "exclusiveMinimum", bag.exclusiveMinimum);
+	if (bag.maximum !== void 0) narrowMax(agg, "maximum", bag.maximum);
+	if (bag.exclusiveMaximum !== void 0) narrowMax(agg, "exclusiveMaximum", bag.exclusiveMaximum);
+	if (bag.multipleOf !== void 0) addDivisor(agg, bag.multipleOf);
+	if (bag.format !== void 0) {
+		agg.format ?? (agg.format = bag.format);
+		if (bag.format.includes("int")) agg.isInt = true;
+	}
+	if (bag.mime) intersectMime(agg, bag.mime);
+	for (const pattern of bag.patterns ?? []) addPattern(agg, pattern);
+	return agg;
+}
+const formatMap = {
+	guid: "uuid",
+	url: "uri",
+	datetime: "date-time",
+	json_string: "json-string",
+	regex: ""
+};
+const exactPatterns = /* @__PURE__ */ new Map([[base64Charset, base64], [base64urlCharset, base64url]]);
+const exactPattern = (p) => exactPatterns.get(p) ?? p;
+const stringProcessor = (schema, ctx, _json, _params) => {
+	const json = _json;
+	json.type = "string";
+	const { minimum, maximum, format, patterns, contentEncoding, laxFormat } = aggregateChecks(schema);
+	if (typeof minimum === "number") json.minLength = minimum;
+	if (typeof maximum === "number") json.maxLength = maximum;
+	if (format) {
+		json.format = formatMap[format] ?? format;
+		if (json.format === "") delete json.format;
+		if (format === "time" || laxFormat) delete json.format;
+	}
+	if (contentEncoding) json.contentEncoding = contentEncoding;
+	if (patterns && patterns.size > 0) {
+		const patternList = [...patterns].map(exactPattern);
+		if (patternList.length === 1) json.pattern = patternList[0].source;
+		else if (patternList.length > 1) json.allOf = [...patternList.map((regex) => ({
+			...ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0" ? { type: "string" } : {},
+			pattern: regex.source
+		}))];
+	}
+};
+const numberProcessor = (schema, ctx, _json, params) => {
+	const json = _json;
+	const { minimum, maximum, multipleOf, exclusiveMaximum, exclusiveMinimum, isInt } = aggregateChecks(schema);
+	json.type = isInt ? "integer" : "number";
+	const exMin = typeof exclusiveMinimum === "number" && exclusiveMinimum >= (minimum ?? Number.NEGATIVE_INFINITY);
+	const exMax = typeof exclusiveMaximum === "number" && exclusiveMaximum <= (maximum ?? Number.POSITIVE_INFINITY);
+	const legacy = ctx.target === "draft-04" || ctx.target === "openapi-3.0";
+	if (exMin) {
+		if (legacy) {
+			json.minimum = exclusiveMinimum;
+			json.exclusiveMinimum = true;
+		} else json.exclusiveMinimum = exclusiveMinimum;
+	} else if (typeof minimum === "number") json.minimum = minimum;
+	if (exMax) {
+		if (legacy) {
+			json.maximum = exclusiveMaximum;
+			json.exclusiveMaximum = true;
+		} else json.exclusiveMaximum = exclusiveMaximum;
+	} else if (typeof maximum === "number") json.maximum = maximum;
+	if (multipleOf) {
+		const divisors = /* @__PURE__ */ new Set();
+		for (const divisor of multipleOf) if (Number.isFinite(divisor) && divisor !== 0) divisors.add(Math.abs(divisor));
+		else handleUnrepresentable(schema, ctx, json, params, `A multipleOf divisor of ${divisor} cannot be represented in JSON Schema`);
+		const [first, ...rest] = divisors;
+		if (first !== void 0) json.multipleOf = first;
+		if (rest.length) json.allOf = [...json.allOf ?? [], ...rest.map((m) => ({ multipleOf: m }))];
+	}
+};
+const neverProcessor = (_schema, _ctx, json, _params) => {
+	json.not = {};
+};
+const enumProcessor = (schema, _ctx, json, _params) => {
+	const def = schema._zod.def;
+	const values = getEnumValues(def.entries);
+	if (values.length === 0) {
+		json.not = {};
+		return;
+	}
+	if (values.every((v) => typeof v === "number")) json.type = "number";
+	if (values.every((v) => typeof v === "string")) json.type = "string";
+	json.enum = values;
+};
+const literalProcessor = (schema, ctx, json, params) => {
+	const def = schema._zod.def;
+	if (def.values.length === 0) {
+		json.not = {};
+		return;
+	}
+	const vals = [];
+	for (const val of def.values) if (val === void 0) {
+		if (handleUnrepresentable(schema, ctx, json, params, "Literal `undefined` cannot be represented in JSON Schema")) return;
+	} else if (typeof val === "bigint") {
+		if (handleUnrepresentable(schema, ctx, json, params, "BigInt literals cannot be represented in JSON Schema")) return;
+		vals.push(Number(val));
+	} else vals.push(val);
+	if (vals.length === 0) {} else if (vals.length === 1) {
+		const val = vals[0];
+		json.type = val === null ? "null" : typeof val;
+		if (ctx.target === "draft-04" || ctx.target === "openapi-3.0") json.enum = [val];
+		else json.const = val;
+	} else {
+		if (vals.every((v) => typeof v === "number")) json.type = "number";
+		if (vals.every((v) => typeof v === "string")) json.type = "string";
+		if (vals.every((v) => typeof v === "boolean")) json.type = "boolean";
+		if (vals.every((v) => v === null)) json.type = "null";
+		json.enum = vals;
+	}
+};
+const customProcessor = (schema, ctx, json, params) => {
+	handleUnrepresentable(schema, ctx, json, params, "Custom types cannot be represented in JSON Schema");
+};
+const transformProcessor = (schema, ctx, json, params) => {
+	handleUnrepresentable(schema, ctx, json, params, "Transforms cannot be represented in JSON Schema");
+};
+const arrayProcessor = (schema, ctx, _json, params) => {
+	const json = _json;
+	const def = schema._zod.def;
+	const { minimum, maximum } = aggregateChecks(schema);
+	if (typeof minimum === "number") json.minItems = minimum;
+	if (typeof maximum === "number") json.maxItems = maximum;
+	json.type = "array";
+	json.items = processSchema(def.element, ctx, {
+		...params,
+		path: [...params.path, "items"]
+	});
+};
+function inputOptin(schema) {
+	const def = schema._zod.def;
+	if (def.type === "pipe" && def.in._zod.traits.has("$ZodTransform")) return inputOptin(def.out);
+	if (def.type === "catch") return inputOptin(def.innerType);
+	return schema._zod.optin;
+}
+const objectProcessor = (schema, ctx, _json, params) => {
+	const json = _json;
+	const def = schema._zod.def;
+	const shape = def.shape;
+	if (Object.getOwnPropertySymbols(shape).length && handleUnrepresentable(schema, ctx, json, params, "Symbol keys cannot be represented in JSON Schema")) return;
+	json.type = "object";
+	json.properties = {};
+	for (const key in shape) assignProp(json.properties, key, processSchema(shape[key], ctx, {
+		...params,
+		path: [
+			...params.path,
+			"properties",
+			key
+		]
+	}));
+	const requiredKeys = [];
+	for (const key of Object.keys(shape)) {
+		const field = def.shape[key];
+		if (ctx.io === "input" ? inputOptin(field) === void 0 : field._zod.optout === void 0) requiredKeys.push(key);
+	}
+	if (requiredKeys.length > 0) json.required = requiredKeys;
+	if (def.catchall?._zod.def.type === "never") json.additionalProperties = false;
+	else if (!def.catchall) {
+		if (ctx.io === "output") json.additionalProperties = false;
+	} else if (def.catchall) json.additionalProperties = processSchema(def.catchall, ctx, {
+		...params,
+		path: [...params.path, "additionalProperties"]
+	});
+};
+const unionProcessor = (schema, ctx, json, params) => {
+	const def = schema._zod.def;
+	const isExclusive = def.inclusive === false;
+	const options = def.options.map((x, i) => processSchema(x, ctx, {
+		...params,
+		path: [
+			...params.path,
+			isExclusive ? "oneOf" : "anyOf",
+			i
+		]
+	}));
+	if (isExclusive) json.oneOf = options;
+	else json.anyOf = options;
+};
+const intersectionProcessor = (schema, ctx, json, params) => {
+	const def = schema._zod.def;
+	const a = processSchema(def.left, ctx, {
+		...params,
+		path: [
+			...params.path,
+			"allOf",
+			0
+		]
+	});
+	const b = processSchema(def.right, ctx, {
+		...params,
+		path: [
+			...params.path,
+			"allOf",
+			1
+		]
+	});
+	const isSimpleIntersection = (val) => "allOf" in val && Object.keys(val).length === 1;
+	const allOf = [...isSimpleIntersection(a) ? a.allOf : [a], ...isSimpleIntersection(b) ? b.allOf : [b]];
+	json.allOf = allOf;
+	ctx.intersections.push(allOf);
+};
+const nullableProcessor = (schema, ctx, json, params) => {
+	const def = schema._zod.def;
+	const inner = processSchema(def.innerType, ctx, params);
+	const seen = ctx.seen.get(schema);
+	if (ctx.target === "openapi-3.0") {
+		seen.ref = def.innerType;
+		json.nullable = true;
+	} else json.anyOf = [inner, { type: "null" }];
+};
+const nonoptionalProcessor = (schema, ctx, _json, params) => {
+	const def = schema._zod.def;
+	processSchema(def.innerType, ctx, params);
+	const seen = ctx.seen.get(schema);
+	seen.ref = def.innerType;
+};
+/** Round-trips a default value through JSON so the emitted schema is guaranteed to be valid JSON.
+* A BigInt has no reliable encoding, so it goes through `unrepresentable` like any other
+* unrepresentable value. Returns a sentinel when the caller must not write a default of its own. */
+const UNREPRESENTABLE_DEFAULT = Symbol();
+function serializeDefaultValue(value, schema, ctx, json, params) {
+	let unrepresentable = false;
+	const serialized = JSON.stringify(value, (_, val) => {
+		if (typeof val !== "bigint") return val;
+		unrepresentable = true;
+		return null;
+	});
+	if (!unrepresentable) return JSON.parse(serialized);
+	handleUnrepresentable(schema, ctx, json, params, "BigInt defaults cannot be represented in JSON Schema");
+	return UNREPRESENTABLE_DEFAULT;
+}
+const defaultProcessor = (schema, ctx, json, params) => {
+	const def = schema._zod.def;
+	processSchema(def.innerType, ctx, params);
+	const seen = ctx.seen.get(schema);
+	seen.ref = def.innerType;
+	const value = serializeDefaultValue(def.defaultValue, schema, ctx, json, params);
+	if (value !== UNREPRESENTABLE_DEFAULT) json.default = value;
+};
+const prefaultProcessor = (schema, ctx, json, params) => {
+	const def = schema._zod.def;
+	processSchema(def.innerType, ctx, params);
+	const seen = ctx.seen.get(schema);
+	seen.ref = def.innerType;
+	if (ctx.io !== "input") return;
+	const value = serializeDefaultValue(def.defaultValue, schema, ctx, json, params);
+	if (value !== UNREPRESENTABLE_DEFAULT) json._prefault = value;
+};
+const catchProcessor = (schema, ctx, json, params) => {
+	const def = schema._zod.def;
+	processSchema(def.innerType, ctx, params);
+	const seen = ctx.seen.get(schema);
+	seen.ref = def.innerType;
+	let catchValue;
+	try {
+		catchValue = def.catchValue(void 0);
+	} catch {
+		handleUnrepresentable(schema, ctx, json, params, "Dynamic catch values are not supported in JSON Schema");
+		return;
+	}
+	json.default = catchValue;
+};
+const pipeProcessor = (schema, ctx, _json, params) => {
+	const def = schema._zod.def;
+	const inIsTransform = def.in._zod.traits.has("$ZodTransform");
+	const innerType = ctx.io === "input" ? inIsTransform ? def.out : def.in : def.out;
+	processSchema(innerType, ctx, params);
+	const seen = ctx.seen.get(schema);
+	seen.ref = innerType;
+};
+const readonlyProcessor = (schema, ctx, json, params) => {
+	const def = schema._zod.def;
+	processSchema(def.innerType, ctx, params);
+	const seen = ctx.seen.get(schema);
+	seen.ref = def.innerType;
+	json.readOnly = true;
+};
+const optionalProcessor = (schema, ctx, _json, params) => {
+	const def = schema._zod.def;
+	processSchema(def.innerType, ctx, params);
+	const seen = ctx.seen.get(schema);
+	seen.ref = def.innerType;
+};
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/errors.js
+const _installedErrorProtos = /* @__PURE__ */ new WeakSet([Object.prototype, Error.prototype]);
+function _lazyMethod(proto, key, make) {
+	Object.defineProperty(proto, key, {
+		configurable: true,
+		enumerable: false,
+		get() {
+			const value = make(this);
+			Object.defineProperty(this, key, {
+				value,
+				configurable: true,
+				writable: true
+			});
+			return value;
+		},
+		set(value) {
+			Object.defineProperty(this, key, {
+				value,
+				configurable: true,
+				writable: true
+			});
+		}
+	});
+}
+const initializer = (inst, issues) => {
+	$ZodError.init(inst, issues);
+	inst.name = "ZodError";
+	const proto = Object.getPrototypeOf(inst);
+	if (_installedErrorProtos.has(proto)) return;
+	_installedErrorProtos.add(proto);
+	_lazyMethod(proto, "format", (self) => (mapper) => formatError(self, mapper));
+	_lazyMethod(proto, "flatten", (self) => (mapper) => flattenError(self, mapper));
+	_lazyMethod(proto, "addIssue", (self) => (issue) => {
+		self.issues.push(issue);
+		self.message = JSON.stringify(self.issues, jsonStringifyReplacer, 2);
+	});
+	_lazyMethod(proto, "addIssues", (self) => (issues) => {
+		self.issues.push(...issues);
+		self.message = JSON.stringify(self.issues, jsonStringifyReplacer, 2);
+	});
+	Object.defineProperty(proto, "isEmpty", {
+		configurable: true,
+		enumerable: false,
+		get() {
+			return this.issues.length === 0;
+		}
+	});
+};
+const ZodRealError = /*@__PURE__*/ $constructor("ZodError", initializer, void 0, { Parent: Error });
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/parse.js
+const parse$1 = /* @__PURE__ */ _parse(ZodRealError);
+const parseAsync = /* @__PURE__ */ _parseAsync(ZodRealError);
+const safeParse = /* @__PURE__ */ _safeParse(ZodRealError);
+const safeParseAsync = /* @__PURE__ */ _safeParseAsync(ZodRealError);
+const encode = /* @__PURE__ */ _encode(ZodRealError);
+const decode = /* @__PURE__ */ _decode(ZodRealError);
+const encodeAsync = /* @__PURE__ */ _encodeAsync(ZodRealError);
+const decodeAsync = /* @__PURE__ */ _decodeAsync(ZodRealError);
+const safeEncode = /* @__PURE__ */ _safeEncode(ZodRealError);
+const safeDecode = /* @__PURE__ */ _safeDecode(ZodRealError);
+const safeEncodeAsync = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
+const safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
+//#endregion
+//#region node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/classic/schemas.js
+function _ensureDefaultLocale() {
+	if (!globalConfig.localeError) config(en_default());
+}
+function _ensureDefaultMemoizer() {
+	if (!globalConfig.memoizer) config({ memoizer: memoizer() });
+}
+const ZodType = /*@__PURE__*/ $constructor("ZodType", (inst, def) => {
+	_ensureDefaultLocale();
+	$ZodType.init(inst, def);
+	inst.def = def;
+	inst.type = def.type;
+	return inst;
+}, {
+	check(...chks) {
+		const def = this.def;
+		return this.clone(mergeDefs(def, { checks: [...def.checks ?? [], ...chks.map((ch) => typeof ch === "function" ? { _zod: {
+			check: ch,
+			def: { check: "custom" },
+			onattach: []
+		} } : ch)] }), { parent: true });
+	},
+	with(...chks) {
+		return this.check(...chks);
+	},
+	clone(def, params) {
+		return clone(this, def, params);
+	},
+	brand() {
+		return this;
+	},
+	register(reg, meta) {
+		reg.add(this, meta);
+		return this;
+	},
+	refine(check, params) {
+		return this.check(refine(check, params));
+	},
+	superRefine(refinement, params) {
+		return this.check(superRefine(refinement, params));
+	},
+	overwrite(fn) {
+		return this.check(/* @__PURE__ */ _overwrite(fn));
+	},
+	optional() {
+		return optional(this);
+	},
+	exactOptional() {
+		return exactOptional(this);
+	},
+	nullable() {
+		return nullable(this);
+	},
+	nullish() {
+		return optional(nullable(this));
+	},
+	nonoptional(params) {
+		return nonoptional(this, params);
+	},
+	array() {
+		return array(this);
+	},
+	or(arg) {
+		return union([this, arg]);
+	},
+	and(arg) {
+		return intersection(this, arg);
+	},
+	transform(tx) {
+		return pipe(this, transform(tx));
+	},
+	default(d) {
+		return _default(this, d);
+	},
+	prefault(d) {
+		return prefault(this, d);
+	},
+	catch(params) {
+		return _catch(this, params);
+	},
+	pipe(target) {
+		return pipe(this, target);
+	},
+	readonly() {
+		return readonly(this);
+	},
+	describe(description) {
+		const cl = this.clone();
+		globalRegistry.add(cl, { description });
+		return cl;
+	},
+	meta(...args) {
+		if (args.length === 0) return globalRegistry.get(this);
+		const cl = this.clone();
+		globalRegistry.add(cl, args[0]);
+		return cl;
+	},
+	isOptional() {
+		return this.safeParse(void 0).success;
+	},
+	isNullable() {
+		return this.safeParse(null).success;
+	},
+	apply(fn, ...args) {
+		return args.length === 0 ? fn(this) : fn(this, ...args);
+	},
+	get "~standard"() {
+		return hide(this, "~standard", {
+			...standardProps(this),
+			jsonSchema: {
+				input: createStandardJSONSchemaMethod(this, "input"),
+				output: createStandardJSONSchemaMethod(this, "output")
+			}
+		});
+	},
+	set "~standard"(value) {
+		own(this, "~standard", value);
+	},
+	parse: function _parse(data, params) {
+		return parse$1(this, data, params, { callee: _parse });
+	},
+	parseAsync: async function _parseAsync(data, params) {
+		return await parseAsync(this, data, params, { callee: _parseAsync });
+	},
+	safeParse(data, params) {
+		return safeParse(this, data, params);
+	},
+	async safeParseAsync(data, params) {
+		return safeParseAsync(this, data, params);
+	},
+	get spa() {
+		return this?.safeParseAsync;
+	},
+	set spa(value) {
+		own(this, "spa", value);
+	},
+	validate(data, params) {
+		return validate(this, data, params);
+	},
+	validateAsync(data, params) {
+		return validateAsync$1(this, data, params);
+	},
+	encode: function _encode(data, params) {
+		return encode(this, data, params, { callee: _encode });
+	},
+	decode: function _decode(data, params) {
+		return decode(this, data, params, { callee: _decode });
+	},
+	encodeAsync: async function _encodeAsync(data, params) {
+		return await encodeAsync(this, data, params, { callee: _encodeAsync });
+	},
+	decodeAsync: async function _decodeAsync(data, params) {
+		return await decodeAsync(this, data, params, { callee: _decodeAsync });
+	},
+	safeEncode(data, params) {
+		return safeEncode(this, data, params);
+	},
+	safeDecode(data, params) {
+		return safeDecode(this, data, params);
+	},
+	async safeEncodeAsync(data, params) {
+		return safeEncodeAsync(this, data, params);
+	},
+	async safeDecodeAsync(data, params) {
+		return safeDecodeAsync(this, data, params);
+	},
+	toJSONSchema(params) {
+		return createToJSONSchemaMethod(this, {})(params);
+	},
+	get description() {
+		return globalRegistry.get(this)?.description;
+	},
+	get _def() {
+		return this._zod.def;
+	}
+});
+/** @internal */
+const _ZodString = /*@__PURE__*/ $constructor("_ZodString", (inst, def) => {
+	$ZodString.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => stringProcessor(inst, ctx, json, params);
+}, /*@__PURE__*/ derived({
+	format: (inst) => aggregateChecks(inst).format ?? null,
+	minLength: (inst) => aggregateChecks(inst).minimum ?? null,
+	maxLength: (inst) => aggregateChecks(inst).maximum ?? null
+}, {
+	regex(...args) {
+		return this.check(/* @__PURE__ */ _regex(...args));
+	},
+	includes(...args) {
+		return this.check(/* @__PURE__ */ _includes(...args));
+	},
+	startsWith(...args) {
+		return this.check(/* @__PURE__ */ _startsWith(...args));
+	},
+	endsWith(...args) {
+		return this.check(/* @__PURE__ */ _endsWith(...args));
+	},
+	min(...args) {
+		return this.check(/* @__PURE__ */ _minLength(...args));
+	},
+	max(...args) {
+		return this.check(/* @__PURE__ */ _maxLength(...args));
+	},
+	length(...args) {
+		return this.check(/* @__PURE__ */ _length(...args));
+	},
+	nonempty(...args) {
+		return this.check(/* @__PURE__ */ _minLength(1, ...args));
+	},
+	lowercase(params) {
+		return this.check(/* @__PURE__ */ _lowercase(params));
+	},
+	uppercase(params) {
+		return this.check(/* @__PURE__ */ _uppercase(params));
+	},
+	trim() {
+		return this.check(/* @__PURE__ */ _trim());
+	},
+	normalize(...args) {
+		return this.check(/* @__PURE__ */ _normalize(...args));
+	},
+	toLowerCase() {
+		return this.check(/* @__PURE__ */ _toLowerCase());
+	},
+	toUpperCase() {
+		return this.check(/* @__PURE__ */ _toUpperCase());
+	},
+	slugify() {
+		return this.check(/* @__PURE__ */ _slugify());
+	}
+}));
+const ZodString = /*@__PURE__*/ $constructor("ZodString", (inst, def) => {
+	$ZodString.init(inst, def);
+	_ZodString.init(inst, def);
+}, {
+	email(params) {
+		return this.check(/* @__PURE__ */ _email(ZodEmail, params));
+	},
+	url(params) {
+		return this.check(/* @__PURE__ */ _url(ZodURL, params));
+	},
+	jwt(params) {
+		return this.check(/* @__PURE__ */ _jwt(ZodJWT, params));
+	},
+	emoji(params) {
+		return this.check(/* @__PURE__ */ _emoji(ZodEmoji, params));
+	},
+	guid(params) {
+		return this.check(/* @__PURE__ */ _guid(ZodGUID, params));
+	},
+	uuid(params) {
+		return this.check(/* @__PURE__ */ _uuid(ZodUUID, params));
+	},
+	uuidv4(params) {
+		return this.check(/* @__PURE__ */ _uuidv4(ZodUUID, params));
+	},
+	uuidv6(params) {
+		return this.check(/* @__PURE__ */ _uuidv6(ZodUUID, params));
+	},
+	uuidv7(params) {
+		return this.check(/* @__PURE__ */ _uuidv7(ZodUUID, params));
+	},
+	nanoid(params) {
+		return this.check(/* @__PURE__ */ _nanoid(ZodNanoID, params));
+	},
+	cuid(params) {
+		return this.check(/* @__PURE__ */ _cuid(ZodCUID, params));
+	},
+	cuid2(params) {
+		return this.check(/* @__PURE__ */ _cuid2(ZodCUID2, params));
+	},
+	ulid(params) {
+		return this.check(/* @__PURE__ */ _ulid(ZodULID, params));
+	},
+	base64(params) {
+		return this.check(/* @__PURE__ */ _base64(ZodBase64, params));
+	},
+	base64url(params) {
+		return this.check(/* @__PURE__ */ _base64url(ZodBase64URL, params));
+	},
+	xid(params) {
+		return this.check(/* @__PURE__ */ _xid(ZodXID, params));
+	},
+	ksuid(params) {
+		return this.check(/* @__PURE__ */ _ksuid(ZodKSUID, params));
+	},
+	ipv4(params) {
+		return this.check(/* @__PURE__ */ _ipv4(ZodIPv4, params));
+	},
+	ipv6(params) {
+		return this.check(/* @__PURE__ */ _ipv6(ZodIPv6, params));
+	},
+	cidrv4(params) {
+		return this.check(/* @__PURE__ */ _cidrv4(ZodCIDRv4, params));
+	},
+	cidrv6(params) {
+		return this.check(/* @__PURE__ */ _cidrv6(ZodCIDRv6, params));
+	},
+	e164(params) {
+		return this.check(/* @__PURE__ */ _e164(ZodE164, params));
+	},
+	datetime(params) {
+		return this.check(/* @__PURE__ */ _isoDateTime(ZodISODateTime, params));
+	},
+	date(params) {
+		return this.check(/* @__PURE__ */ _isoDate(ZodISODate, params));
+	},
+	time(params) {
+		return this.check(/* @__PURE__ */ _isoTime(ZodISOTime, params));
+	},
+	duration(params) {
+		return this.check(/* @__PURE__ */ _isoDuration(ZodISODuration, params));
+	}
+});
+function string(params) {
+	return /* @__PURE__ */ _string(ZodString, params);
+}
+const ZodStringFormat = /*@__PURE__*/ $constructor("ZodStringFormat", (inst, def) => {
+	$ZodStringFormat.init(inst, def);
+	_ZodString.init(inst, def);
+});
+const ZodISODateTime = /*@__PURE__*/ $constructor("ZodISODateTime", (inst, def) => {
+	$ZodISODateTime.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodISODate = /*@__PURE__*/ $constructor("ZodISODate", (inst, def) => {
+	$ZodISODate.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodISOTime = /*@__PURE__*/ $constructor("ZodISOTime", (inst, def) => {
+	$ZodISOTime.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodISODuration = /*@__PURE__*/ $constructor("ZodISODuration", (inst, def) => {
+	$ZodISODuration.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodEmail = /*@__PURE__*/ $constructor("ZodEmail", (inst, def) => {
+	$ZodEmail.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodGUID = /*@__PURE__*/ $constructor("ZodGUID", (inst, def) => {
+	$ZodGUID.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodUUID = /*@__PURE__*/ $constructor("ZodUUID", (inst, def) => {
+	$ZodUUID.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodURL = /*@__PURE__*/ $constructor("ZodURL", (inst, def) => {
+	$ZodURL.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodEmoji = /*@__PURE__*/ $constructor("ZodEmoji", (inst, def) => {
+	$ZodEmoji.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodNanoID = /*@__PURE__*/ $constructor("ZodNanoID", (inst, def) => {
+	$ZodNanoID.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+/**
+* @deprecated CUID v1 is deprecated by its authors due to information leakage
+* (timestamps embedded in the id). Use {@link ZodCUID2} instead.
+* See https://github.com/paralleldrive/cuid.
+*/
+const ZodCUID = /*@__PURE__*/ $constructor("ZodCUID", (inst, def) => {
+	$ZodCUID.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodCUID2 = /*@__PURE__*/ $constructor("ZodCUID2", (inst, def) => {
+	$ZodCUID2.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodULID = /*@__PURE__*/ $constructor("ZodULID", (inst, def) => {
+	$ZodULID.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodXID = /*@__PURE__*/ $constructor("ZodXID", (inst, def) => {
+	$ZodXID.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodKSUID = /*@__PURE__*/ $constructor("ZodKSUID", (inst, def) => {
+	$ZodKSUID.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodIPv4 = /*@__PURE__*/ $constructor("ZodIPv4", (inst, def) => {
+	$ZodIPv4.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodIPv6 = /*@__PURE__*/ $constructor("ZodIPv6", (inst, def) => {
+	$ZodIPv6.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodCIDRv4 = /*@__PURE__*/ $constructor("ZodCIDRv4", (inst, def) => {
+	$ZodCIDRv4.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodCIDRv6 = /*@__PURE__*/ $constructor("ZodCIDRv6", (inst, def) => {
+	$ZodCIDRv6.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodBase64 = /*@__PURE__*/ $constructor("ZodBase64", (inst, def) => {
+	$ZodBase64.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodBase64URL = /*@__PURE__*/ $constructor("ZodBase64URL", (inst, def) => {
+	$ZodBase64URL.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodE164 = /*@__PURE__*/ $constructor("ZodE164", (inst, def) => {
+	$ZodE164.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodJWT = /*@__PURE__*/ $constructor("ZodJWT", (inst, def) => {
+	$ZodJWT.init(inst, def);
+	ZodStringFormat.init(inst, def);
+});
+const ZodNumber = /*@__PURE__*/ $constructor("ZodNumber", (inst, def) => {
+	$ZodNumber.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => numberProcessor(inst, ctx, json, params);
+	inst.isFinite = true;
+}, /*@__PURE__*/ derived({
+	minValue: (inst) => {
+		const { minimum, exclusiveMinimum } = aggregateChecks(inst);
+		return Math.max(minimum ?? Number.NEGATIVE_INFINITY, exclusiveMinimum ?? Number.NEGATIVE_INFINITY);
+	},
+	maxValue: (inst) => {
+		const { maximum, exclusiveMaximum } = aggregateChecks(inst);
+		return Math.min(maximum ?? Number.POSITIVE_INFINITY, exclusiveMaximum ?? Number.POSITIVE_INFINITY);
+	},
+	isInt: (inst) => {
+		const { isInt, multipleOf } = aggregateChecks(inst);
+		return !!isInt || !!multipleOf?.some(Number.isSafeInteger);
+	},
+	format: (inst) => aggregateChecks(inst).format ?? null
+}, {
+	gt(value, params) {
+		return this.check(/* @__PURE__ */ _gt(value, params));
+	},
+	gte(value, params) {
+		return this.check(/* @__PURE__ */ _gte(value, params));
+	},
+	min(value, params) {
+		return this.check(/* @__PURE__ */ _gte(value, params));
+	},
+	lt(value, params) {
+		return this.check(/* @__PURE__ */ _lt(value, params));
+	},
+	lte(value, params) {
+		return this.check(/* @__PURE__ */ _lte(value, params));
+	},
+	max(value, params) {
+		return this.check(/* @__PURE__ */ _lte(value, params));
+	},
+	int(params) {
+		return this.check(int(params));
+	},
+	safe(params) {
+		return this.check(int(params));
+	},
+	positive(params) {
+		return this.check(/* @__PURE__ */ _gt(0, params));
+	},
+	nonnegative(params) {
+		return this.check(/* @__PURE__ */ _gte(0, params));
+	},
+	negative(params) {
+		return this.check(/* @__PURE__ */ _lt(0, params));
+	},
+	nonpositive(params) {
+		return this.check(/* @__PURE__ */ _lte(0, params));
+	},
+	multipleOf(value, params) {
+		return this.check(/* @__PURE__ */ _multipleOf(value, params));
+	},
+	step(value, params) {
+		return this.check(/* @__PURE__ */ _multipleOf(value, params));
+	},
+	finite() {
+		return this;
+	}
+}));
+function number(params) {
+	return /* @__PURE__ */ _number(ZodNumber, params);
+}
+const ZodNumberFormat = /*@__PURE__*/ $constructor("ZodNumberFormat", (inst, def) => {
+	$ZodNumberFormat.init(inst, def);
+	ZodNumber.init(inst, def);
+});
+function int(params) {
+	return /* @__PURE__ */ _int(ZodNumberFormat, params);
+}
+const ZodUnknown = /*@__PURE__*/ $constructor("ZodUnknown", (inst, def) => {
+	$ZodUnknown.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => void 0;
+});
+function unknown() {
+	return /* @__PURE__ */ _unknown(ZodUnknown);
+}
+const ZodNever = /*@__PURE__*/ $constructor("ZodNever", (inst, def) => {
+	$ZodNever.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => neverProcessor(inst, ctx, json, params);
+});
+function never(params) {
+	return /* @__PURE__ */ _never(ZodNever, params);
+}
+const ZodArray = /*@__PURE__*/ $constructor("ZodArray", (inst, def) => {
+	_ensureDefaultMemoizer();
+	$ZodArray.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => arrayProcessor(inst, ctx, json, params);
+	inst.element = def.element;
+}, {
+	min(n, params) {
+		return this.check(/* @__PURE__ */ _minLength(n, params));
+	},
+	nonempty(params) {
+		return this.check(/* @__PURE__ */ _minLength(1, params));
+	},
+	max(n, params) {
+		return this.check(/* @__PURE__ */ _maxLength(n, params));
+	},
+	length(n, params) {
+		return this.check(/* @__PURE__ */ _length(n, params));
+	},
+	unwrap() {
+		return this.element;
+	}
+});
+function array(element, params) {
+	return /* @__PURE__ */ _array(ZodArray, element, params);
+}
+const ZodObject = /*@__PURE__*/ $constructor("ZodObject", (inst, def) => {
+	_ensureDefaultMemoizer();
+	$ZodObjectJIT.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => objectProcessor(inst, ctx, json, params);
+	installLazyProp(inst, "shape", (self) => self._zod.def.shape, false);
+}, {
+	keyof() {
+		return _enum(Object.keys(this._zod.def.shape));
+	},
+	catchall(catchall) {
+		return this.clone(mergeDefs(this._zod.def, { catchall }));
+	},
+	passthrough() {
+		return this.clone(mergeDefs(this._zod.def, { catchall: unknown() }));
+	},
+	loose() {
+		return this.clone(mergeDefs(this._zod.def, { catchall: unknown() }));
+	},
+	strict() {
+		return this.clone(mergeDefs(this._zod.def, { catchall: never() }));
+	},
+	strip() {
+		return this.clone(mergeDefs(this._zod.def, { catchall: void 0 }));
+	},
+	extend(incoming) {
+		return extend(this, incoming);
+	},
+	safeExtend(incoming) {
+		return safeExtend(this, incoming);
+	},
+	merge(other) {
+		return merge(this, other);
+	},
+	pick(mask) {
+		return pick(this, mask);
+	},
+	omit(mask) {
+		return omit(this, mask);
+	},
+	partial(...args) {
+		return partial(ZodOptional, this, args[0]);
+	},
+	exactPartial(...args) {
+		return partial(ZodExactOptional, this, args[0], "exactPartial");
+	},
+	required(...args) {
+		return required(ZodNonOptional, this, args[0]);
+	}
+});
+function object(shape, params) {
+	const def = {
+		type: "object",
+		shape: shape ?? {},
+		...normalizeParams(params)
+	};
+	return new ZodObject(def);
+}
+function strictObject(shape, params) {
+	return new ZodObject({
+		type: "object",
+		shape,
+		catchall: never(),
+		...normalizeParams(params)
+	});
+}
+const ZodUnion = /*@__PURE__*/ $constructor("ZodUnion", (inst, def) => {
+	$ZodUnion.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => unionProcessor(inst, ctx, json, params);
+	inst.options = def.options;
+});
+function union(options, params) {
+	return new ZodUnion({
+		type: "union",
+		options,
+		...normalizeParams(params)
+	});
+}
+const ZodDiscriminatedUnion = /*@__PURE__*/ $constructor("ZodDiscriminatedUnion", (inst, def) => {
+	ZodUnion.init(inst, def);
+	$ZodDiscriminatedUnion.init(inst, def);
+});
+function discriminatedUnion(discriminator, options, params) {
+	return new ZodDiscriminatedUnion({
+		type: "union",
+		options,
+		discriminator,
+		...normalizeParams(params)
+	});
+}
+const ZodIntersection = /*@__PURE__*/ $constructor("ZodIntersection", (inst, def) => {
+	$ZodIntersection.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => intersectionProcessor(inst, ctx, json, params);
+});
+function intersection(left, right) {
+	return new ZodIntersection({
+		type: "intersection",
+		left,
+		right
+	});
+}
+const ZodEnum = /*@__PURE__*/ $constructor("ZodEnum", (inst, def) => {
+	$ZodEnum.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => enumProcessor(inst, ctx, json, params);
+	inst.enum = def.entries;
+	inst.options = [...inst._zod.values];
+	const keys = new Set(Object.keys(def.entries));
+	inst.extract = (values, params) => {
+		const newEntries = {};
+		for (const value of values) if (keys.has(value)) newEntries[value] = def.entries[value];
+		else throw new Error(`Key ${value} not found in enum`);
+		return new ZodEnum({
+			...def,
+			checks: [],
+			...normalizeParams(params),
+			entries: newEntries
+		});
+	};
+	inst.exclude = (values, params) => {
+		const newEntries = { ...def.entries };
+		for (const value of values) if (keys.has(value)) delete newEntries[value];
+		else throw new Error(`Key ${value} not found in enum`);
+		return new ZodEnum({
+			...def,
+			checks: [],
+			...normalizeParams(params),
+			entries: newEntries
+		});
+	};
+});
+function _enum(values, params) {
+	const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+	return new ZodEnum({
+		type: "enum",
+		entries,
+		...normalizeParams(params)
+	});
+}
+const ZodLiteral = /*@__PURE__*/ $constructor("ZodLiteral", (inst, def) => {
+	$ZodLiteral.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => literalProcessor(inst, ctx, json, params);
+	inst.values = new Set(def.values);
+	Object.defineProperty(inst, "value", { get() {
+		if (def.values.length > 1) throw new Error("This schema contains multiple valid literal values. Use `.values` instead.");
+		return def.values[0];
+	} });
+});
+function literal(value, params) {
+	return new ZodLiteral({
+		type: "literal",
+		values: Array.isArray(value) ? value : [value],
+		...normalizeParams(params)
+	});
+}
+const ZodTransform = /*@__PURE__*/ $constructor("ZodTransform", (inst, def) => {
+	_ensureDefaultMemoizer();
+	$ZodTransform.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => transformProcessor(inst, ctx, json, params);
+	inst._zod.parse = (payload, _ctx) => {
+		if (_ctx.direction === "backward") throw new $ZodEncodeError(inst.constructor.name);
+		payload.addIssue = (issue$1) => {
+			if (typeof issue$1 === "string") payload.issues.push(issue(issue$1, payload.value, def));
+			else {
+				const _issue = issue$1;
+				if (_issue.fatal) _issue.continue = false;
+				_issue.code ?? (_issue.code = "custom");
+				if (!("input" in _issue)) _issue.input = payload.value;
+				_issue.inst ?? (_issue.inst = inst);
+				payload.issues.push(issue(_issue));
+			}
+		};
+		const output = def.transform(payload.value, payload);
+		if (output instanceof Promise) return output.then((output) => {
+			payload.value = output;
+			return payload;
+		});
+		payload.value = output;
+		return payload;
+	};
+});
+function transform(fn) {
+	return new ZodTransform({
+		type: "transform",
+		transform: fn
+	});
+}
+const ZodOptional = /*@__PURE__*/ $constructor("ZodOptional", (inst, def) => {
+	$ZodOptional.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => optionalProcessor(inst, ctx, json, params);
+	inst.unwrap = () => inst._zod.def.innerType;
+});
+function optional(innerType) {
+	return new ZodOptional({
+		type: "optional",
+		innerType
+	});
+}
+const ZodExactOptional = /*@__PURE__*/ $constructor("ZodExactOptional", (inst, def) => {
+	$ZodExactOptional.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => optionalProcessor(inst, ctx, json, params);
+	inst.unwrap = () => inst._zod.def.innerType;
+});
+function exactOptional(innerType) {
+	return new ZodExactOptional({
+		type: "optional",
+		innerType
+	});
+}
+const ZodNullable = /*@__PURE__*/ $constructor("ZodNullable", (inst, def) => {
+	$ZodNullable.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => nullableProcessor(inst, ctx, json, params);
+	inst.unwrap = () => inst._zod.def.innerType;
+});
+function nullable(innerType) {
+	return new ZodNullable({
+		type: "nullable",
+		innerType
+	});
+}
+const ZodDefault = /*@__PURE__*/ $constructor("ZodDefault", (inst, def) => {
+	$ZodDefault.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => defaultProcessor(inst, ctx, json, params);
+	inst.unwrap = () => inst._zod.def.innerType;
+	inst.removeDefault = inst.unwrap;
+});
+function _default(innerType, defaultValue) {
+	return new ZodDefault({
+		type: "default",
+		innerType,
+		get defaultValue() {
+			return typeof defaultValue === "function" ? defaultValue() : shallowClone(defaultValue);
+		}
+	});
+}
+const ZodPrefault = /*@__PURE__*/ $constructor("ZodPrefault", (inst, def) => {
+	$ZodPrefault.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => prefaultProcessor(inst, ctx, json, params);
+	inst.unwrap = () => inst._zod.def.innerType;
+});
+function prefault(innerType, defaultValue) {
+	return new ZodPrefault({
+		type: "prefault",
+		innerType,
+		get defaultValue() {
+			return typeof defaultValue === "function" ? defaultValue() : shallowClone(defaultValue);
+		}
+	});
+}
+const ZodNonOptional = /*@__PURE__*/ $constructor("ZodNonOptional", (inst, def) => {
+	$ZodNonOptional.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => nonoptionalProcessor(inst, ctx, json, params);
+	inst.unwrap = () => inst._zod.def.innerType;
+});
+function nonoptional(innerType, params) {
+	return new ZodNonOptional({
+		type: "nonoptional",
+		innerType,
+		...normalizeParams(params)
+	});
+}
+const ZodCatch = /*@__PURE__*/ $constructor("ZodCatch", (inst, def) => {
+	$ZodCatch.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => catchProcessor(inst, ctx, json, params);
+	inst.unwrap = () => inst._zod.def.innerType;
+	inst.removeCatch = inst.unwrap;
+});
+function _catch(innerType, catchValue) {
+	return new ZodCatch({
+		type: "catch",
+		innerType,
+		catchValue: typeof catchValue === "function" ? catchValue : constantCatch(catchValue)
+	});
+}
+const ZodPipe = /*@__PURE__*/ $constructor("ZodPipe", (inst, def) => {
+	$ZodPipe.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => pipeProcessor(inst, ctx, json, params);
+	inst.in = def.in;
+	inst.out = def.out;
+});
+function pipe(in_, out) {
+	return new ZodPipe({
+		type: "pipe",
+		in: in_,
+		out
+	});
+}
+const ZodReadonly = /*@__PURE__*/ $constructor("ZodReadonly", (inst, def) => {
+	$ZodReadonly.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => readonlyProcessor(inst, ctx, json, params);
+	inst.unwrap = () => inst._zod.def.innerType;
+});
+function readonly(innerType) {
+	return new ZodReadonly({
+		type: "readonly",
+		innerType
+	});
+}
+const ZodCustom = /*@__PURE__*/ $constructor("ZodCustom", (inst, def) => {
+	$ZodCustom.init(inst, def);
+	ZodType.init(inst, def);
+	inst._zod.processJSONSchema = (ctx, json, params) => customProcessor(inst, ctx, json, params);
+});
+function refine(fn, _params = {}) {
+	return /* @__PURE__ */ _refine(ZodCustom, fn, _params);
+}
+function superRefine(fn, params) {
+	return /* @__PURE__ */ _superRefine(fn, params);
+}
+//#endregion
+//#region src/utils/zod-parse.ts
+/**
+* Null-returning Zod parse helpers for plugin and runtime boundaries.
+*
+* Callers use these where invalid external payloads should be ignored or
+* recovered from without constructing and catching validation errors.
+*/
+/** Safely validates an unknown value with a Zod schema, returning null on validation failure. */
+function safeParseWithSchema(schema, value) {
+	const parsed = schema.safeParse(value);
+	return parsed.success ? parsed.data : null;
+}
+/** Parses JSON, then safely validates it with a Zod schema, returning null for parse or schema failures. */
+function safeParseJsonWithSchema(schema, raw) {
+	try {
+		return safeParseWithSchema(schema, JSON.parse(raw));
+	} catch {
+		return null;
+	}
+}
+//#endregion
+//#region src/infra/update-managed-service-handoff-schema.ts
+const text = string().min(1).max(4096);
+const nativeProcessIdentityShape = {
+	pid: number().int().positive(),
+	startIdentity: text.max(128)
+};
+const processIdentitySchema = strictObject({
+	...nativeProcessIdentityShape,
+	startIdentitySource: literal("argv-sha256").nullable().optional()
+}).refine(({ startIdentity, startIdentitySource }) => startIdentitySource === "argv-sha256" ? /^win32-argv-sha256:[a-f0-9]{64}$/.test(startIdentity) : !startIdentity.startsWith("win32-argv-sha256:"));
+const managedHandoffBootSchema = union([
+	strictObject({
+		platform: _enum(["linux", "darwin"]),
+		identity: string().regex(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i)
+	}),
+	strictObject({
+		platform: literal("win32"),
+		identity: string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{7}Z$/)
+	}),
+	strictObject({
+		platform: literal("freebsd"),
+		identity: string().regex(/^[a-f0-9]{32}$/)
+	})
+]);
+const nativeLifetimeSchema = strictObject({
+	kind: literal("native"),
+	unit: text,
+	scope: text,
+	placement: discriminatedUnion("kind", [strictObject({ kind: literal("pending") }), strictObject({
+		kind: literal("attached"),
+		invocation: string().regex(/^[a-f0-9]{32}$/i)
+	})])
+});
+const cancellationProtocol = literal("original-cancellation-v1");
+const updateAction = strictObject({
+	kind: literal("update"),
+	mutationProtocol: cancellationProtocol
+}).extend({
+	mutationProtocol: cancellationProtocol.optional(),
+	custody: _enum(["reserved", "bound"]).optional()
+});
+const actionSchema = discriminatedUnion("kind", [updateAction, strictObject({
+	kind: literal("triage"),
+	phase: _enum([
+		"reserved",
+		"running",
+		"closing",
+		"closed",
+		"uncertain"
+	]),
+	lifetime: discriminatedUnion("kind", [strictObject({
+		kind: literal("foreground"),
+		boot: managedHandoffBootSchema
+	}), nativeLifetimeSchema])
+}).refine((action) => action.phase !== "running" || action.lifetime.kind !== "native" || action.lifetime.placement.kind === "attached")]);
+const sourcePath = text.refine(path.isAbsolute, "Native source path must be absolute");
+const digest = string().regex(/^[a-f0-9]{64}$/);
+const nativeBorrowerSourceSchema = strictObject({
+	runId: text,
+	transactionId: text,
+	claimId: text,
+	revision: number().int().nonnegative(),
+	recordSha256: digest,
+	serviceKey: sourcePath,
+	configPaths: array(sourcePath).min(1).max(512),
+	lifetimeId: text
+});
+const nativeBorrowerSchema = strictObject({
+	id: string().uuid(),
+	phase: _enum(["reserved", "admitted"]),
+	source: nativeBorrowerSourceSchema
+});
+const commonPayload = {
+	executor: processIdentitySchema,
+	helper: processIdentitySchema,
+	action: actionSchema
+};
+const originalUpdateSchema = strictObject({
+	version: literal(2),
+	executor: processIdentitySchema,
+	helper: processIdentitySchema,
+	action: updateAction
+});
+const originalGenerationSchema = strictObject({
+	key: text,
+	owner: text,
+	payload: string().min(1),
+	updatedAt: number().int().nonnegative()
+});
+discriminatedUnion("version", [
+	strictObject({
+		version: literal(4),
+		executor: processIdentitySchema,
+		helper: processIdentitySchema,
+		action: updateAction,
+		cancellation: originalGenerationSchema
+	}).refine((value) => {
+		const original = safeParseJsonWithSchema(originalUpdateSchema, value.cancellation.payload);
+		return original !== null && JSON.stringify(original.helper) === JSON.stringify(value.helper) && JSON.stringify(original.executor) === JSON.stringify(value.executor) && JSON.stringify(original.action) === JSON.stringify(value.action) && (JSON.stringify(value.helper) === JSON.stringify(value.executor) || original.action.mutationProtocol === "original-cancellation-v1");
+	}),
+	strictObject({
+		version: literal(2),
+		...commonPayload,
+		mutationOriginal: originalGenerationSchema.optional()
+	}).refine((value) => {
+		if (!value.mutationOriginal) return true;
+		const original = safeParseJsonWithSchema(originalUpdateSchema, value.mutationOriginal.payload);
+		return original !== null && !value.mutationOriginal.key.includes("/.openclaw-update-child-") && original.action.mutationProtocol === "original-cancellation-v1";
+	}),
+	strictObject({
+		version: literal(3),
+		...commonPayload,
+		action: strictObject({ kind: literal("update") }),
+		nativeBorrower: nativeBorrowerSchema
+	})
+]);
+strictObject({
+	version: literal(1),
+	...nativeProcessIdentityShape
+});
+//#endregion
+//#region src/infra/gateway-lock-payload.ts
+const [uuidBoot, windowsBoot, freebsdBoot] = managedHandoffBootSchema.options;
+const host = string().min(1);
+const GatewayProcessNamespaceSchema = discriminatedUnion("platform", [
+	uuidBoot.extend({
+		host,
+		platform: literal("linux"),
+		pidNsInode: string().min(1)
+	}),
+	uuidBoot.extend({
+		host,
+		platform: literal("darwin")
+	}),
+	windowsBoot.extend({ host }),
+	freebsdBoot.extend({ host })
+]);
+object({
+	pid: number(),
+	ownerId: string().min(1).optional(),
+	/** A cold opener may wait for this transient owner, never enter while it is held. */
+	stateOwnerKind: literal("schema").optional(),
+	/** Present when Gateway cron writes use the dynamic-default ownership projection. */
+	cronOwnerProjection: literal("dynamic-default-v1").optional(),
+	createdAt: string(),
+	startupPhase: literal("starting").optional(),
+	configPath: string(),
+	port: number().int().min(1).max(65535).optional(),
+	role: _enum([
+		"gateway",
+		"agent-embedded",
+		"skill-workshop-apply",
+		"sqlite-maintenance"
+	]).optional(),
+	stateDir: string().optional(),
+	startTime: number().optional(),
+	processNamespace: GatewayProcessNamespaceSchema.nullable().optional()
+});
+//#endregion
+//#region src/infra/gateway-state-owner-record.ts
+var StateDatabaseAccessError = class extends Error {
+	constructor(..._args) {
+		super(..._args);
+		this.name = "StateDatabaseAccessError";
+	}
+};
+resolveGlobalSingleton(Symbol.for("openclaw.gatewayStateOwnerContentionError"), () => class StateOwnerContentionError extends Error {
+	constructor(databasePath, cause, holderDetail, holder) {
+		super(`OpenClaw state database is busy at ${databasePath}. ${holderDetail ? `${holderDetail} ` : ""}Wait for the other OpenClaw process to finish, then retry. If it persists, run \`openclaw gateway status\` and check for other OpenClaw processes using the same state directory. A running Gateway can hold this ownership until it stops; stop it through its service manager or original terminal before retrying.`);
+		this.databasePath = databasePath;
+		this.cause = cause;
+		this.holderDetail = holderDetail;
+		this.holder = holder;
+		this.name = "GatewayStateOwnerContentionError";
+	}
+});
+resolveGlobalSingleton(Symbol.for("openclaw.stateDatabaseMaintenanceScopeError"), () => class extends StateDatabaseAccessError {
+	constructor(databasePath) {
+		super(`Internal state ownership error at ${databasePath}: this process holds maintenance ownership without an active schema lease or maintenance scope. Retry the command; if it persists, report this error.`);
+		this.databasePath = databasePath;
+		this.name = "StateDatabaseMaintenanceScopeError";
+	}
+});
+const StateDatabaseAdmissionPendingError = resolveGlobalSingleton(Symbol.for("openclaw.stateDatabaseAdmissionPendingError"), () => class extends StateDatabaseAccessError {
+	constructor(databasePath, message) {
+		super(message);
+		this.databasePath = databasePath;
+	}
+});
+resolveGlobalSingleton(Symbol.for("openclaw.stateDatabaseOfflineMaintenanceError"), () => class extends StateDatabaseAccessError {
+	constructor(databasePath, message) {
+		super(message);
+		this.databasePath = databasePath;
+	}
+});
+//#endregion
+//#region src/infra/sqlite-reader-lifecycle.ts
+const readerOwners = resolveGlobalSingleton(Symbol.for("openclaw.sqliteReaderOwners"), () => new AsyncLocalStorage());
+const activeReaders = resolveGlobalSingleton(Symbol.for("openclaw.sqliteActiveReaders"), () => ({
+	byDatabase: /* @__PURE__ */ new WeakMap(),
+	byPath: /* @__PURE__ */ new Map()
+}));
+const connections = resolveGlobalSingleton(Symbol.for("openclaw.sqliteReaderConnections"), () => ({
+	nextId: 0,
+	byDatabase: /* @__PURE__ */ new WeakMap(),
+	byPath: /* @__PURE__ */ new Map(),
+	finalizer: new FinalizationRegistry((connection) => forgetConnection(connection))
+}));
+/** The same Windows file can arrive with a namespaced or differently cased path. */
+function sqliteReaderDatabasePathKey(databasePath) {
+	const resolved = path.resolve(databasePath);
+	return process.platform === "win32" ? normalizeWindowsPathForComparison(resolved) : resolved;
+}
+function boundedOperation(operation) {
+	return (operation.trim() || "sqlite reader").slice(0, 120);
+}
+/** Mutable diagnostic counters only; never source or write authority. */
+function currentSqliteOperationTiming() {
+	return readerOwners.getStore()?.timing;
+}
+function currentOwner(fallbackOperation, capturedOwner) {
+	const inherited = capturedOwner ?? readerOwners.getStore();
+	return {
+		operation: boundedOperation(inherited?.operation ?? fallbackOperation),
+		ownerKind: inherited?.ownerKind ?? (isMainThread ? "main" : "worker"),
+		...inherited?.actorId !== void 0 ? { actorId: inherited.actorId } : {}
+	};
+}
+function connectionFor(database) {
+	let connection = connections.byDatabase.get(database);
+	if (!connection) {
+		const now = Date.now();
+		const location = database.location();
+		connection = {
+			id: ++connections.nextId,
+			path: location ? sqliteReaderDatabasePathKey(location) : void 0,
+			database: new WeakRef(database),
+			owner: currentOwner("sqlite connection"),
+			openedAtMs: now
+		};
+		connections.byDatabase.set(database, connection);
+		if (connection.path) {
+			const entries = connections.byPath.get(connection.path) ?? /* @__PURE__ */ new Map();
+			entries.set(connection.id, connection);
+			connections.byPath.set(connection.path, entries);
+		}
+		connections.finalizer.register(database, connection, connection);
+	}
+	return connection;
+}
+/** Forget observations only; explicit reader custody belongs to its caller. */
+function forgetConnection(connection) {
+	if (connection.path) {
+		const entries = connections.byPath.get(connection.path);
+		entries?.delete(connection.id);
+		if (entries?.size === 0) connections.byPath.delete(connection.path);
+	}
+	const database = connection.database.deref();
+	if (database && connections.byDatabase.get(database) === connection) connections.byDatabase.delete(database);
+	connections.finalizer.unregister(connection);
+}
+/** Register weak metadata without replacing native methods or acquiring lifecycle custody. */
+function registerSqliteReaderConnection(database) {
+	if (database.isOpen) connectionFor(database);
+}
+function retainSqliteReader(database, fallbackOperation, capturedOwner) {
+	const connection = connectionFor(database);
+	const now = Date.now();
+	const reader = {
+		...currentOwner(fallbackOperation, capturedOwner),
+		kind: "iterator",
+		connectionId: connection.id,
+		threadId,
+		startedAtMs: now,
+		lastProgressAtMs: now
+	};
+	const token = Symbol(reader.operation);
+	const databaseReaders = activeReaders.byDatabase.get(database) ?? /* @__PURE__ */ new Map();
+	databaseReaders.set(token, reader);
+	activeReaders.byDatabase.set(database, databaseReaders);
+	const databasePath = connection.path;
+	const pathReaders = databasePath ? activeReaders.byPath.get(databasePath) ?? /* @__PURE__ */ new Map() : void 0;
+	pathReaders?.set(token, reader);
+	if (databasePath && pathReaders) activeReaders.byPath.set(databasePath, pathReaders);
+	return {
+		progress() {
+			if (databaseReaders.has(token)) reader.lastProgressAtMs = Date.now();
+		},
+		release() {
+			if (!databaseReaders.delete(token)) return;
+			if (databaseReaders.size === 0 && activeReaders.byDatabase.get(database) === databaseReaders) activeReaders.byDatabase.delete(database);
+			pathReaders?.delete(token);
+			if (databasePath && pathReaders?.size === 0 && activeReaders.byPath.get(databasePath) === pathReaders) activeReaders.byPath.delete(databasePath);
+		}
+	};
+}
+process.hrtime;
+const retainedWorkerErrorCode = Symbol.for("openclaw.sqliteWorkerErrorCode");
+resolveGlobalSingleton(Symbol.for("openclaw.sqliteWorkerOpenRefusedError"), () => class OpenRefusedError extends Error {
+	constructor(originalError) {
+		super("SQLite worker admission was refused before agent open", { cause: originalError });
+		this.originalError = originalError;
+		this.name = "SqliteWorkerOpenRefusedError";
+	}
+});
+resolveGlobalSingleton(Symbol.for("openclaw.sqliteWorkerAdmissionTimeoutError"), () => class AdmissionTimeoutError extends Error {
+	constructor() {
+		super("SQLite host admission timed out; retry after transaction rollback");
+		this.code = "admission-timeout";
+		this.name = "SqliteWorkerAdmissionTimeoutError";
+	}
+});
+var SqliteWorkerError = class extends Error {
+	constructor(message, code) {
+		super(message);
+		this.code = code;
+		this.name = "SqliteWorkerError";
+		Object.defineProperty(this, retainedWorkerErrorCode, { value: code });
+	}
+};
+//#endregion
+//#region src/infra/sqlite-worker-database-admission-relay.ts
+const REQUESTED = 0;
+const GRANTED = 1;
+const admissionUpstream = resolveGlobalSingleton(Symbol.for("openclaw.sqliteDatabaseAdmissionUpstream"), () => ({}));
+/** A served worker relays descendant facts through its existing lifetime channel. */
+function bindSqliteDatabaseAdmissionUpstream(port) {
+	const current = admissionUpstream.connection;
+	if (current) {
+		if (current.port !== port) throw new SqliteWorkerError("SQLite admission upstream changed owner", "closed");
+		return;
+	}
+	const connection = {
+		port,
+		closed: false
+	};
+	admissionUpstream.connection = connection;
+	port.once("close", () => {
+		connection.closed = true;
+	});
+	port.unref();
+}
+/** Format facts use this private channel independently of transaction authority. */
+function exchangeSqliteDatabaseAdmissions(port, admissions, location, create) {
+	return exchangeDatabaseAdmissions(port, admissions, location, create);
+}
+function exchangeDatabaseAdmissions(port, admissions, location, create) {
+	const { port1, port2 } = new MessageChannel();
+	const decision = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+	const timing = currentSqliteOperationTiming();
+	const startedAt = Date.now();
+	try {
+		port.postMessage({
+			kind: "sqlite-database-admissions",
+			admissions,
+			location,
+			create,
+			port: port2,
+			decision: decision.buffer
+		}, [port2]);
+		while (Atomics.load(decision, 0) === REQUESTED) Atomics.wait(decision, 0, REQUESTED);
+		const outcome = Atomics.load(decision, 0);
+		if (outcome === 4 && location && create === true) throw new StateDatabaseAdmissionPendingError(location, `OpenClaw state at ${location} is undergoing schema admission; retry when it finishes.`);
+		if (outcome !== GRANTED) throw new SqliteWorkerError("SQLite admission facts exchange failed", "unavailable");
+		const reply = readSqliteDatabaseAdmissions(receiveMessageOnPort(port1)?.message);
+		if (!reply) throw new SqliteWorkerError("SQLite admission facts reply is unavailable", "unavailable");
+		return reply;
+	} finally {
+		if (timing) timing.databaseAdmissionWaitMs += Date.now() - startedAt;
+		port1.close();
+		port2.close();
+	}
+}
+//#endregion
 //#region src/infra/worker-idle-gc.ts
+const IDLE_GC_DELAY_MS = 1e3;
 const IDLE_GC_GROWTH_BYTES = 33554432;
 let collectedHeap = 0;
 let session;
-let pending;
+let pending$1;
 let collecting = false;
 let idle = false;
 let generation = 0;
+async function collectWorkerIdleGarbage() {
+	pending$1 = void 0;
+	if (process.memoryUsage().heapUsed <= collectedHeap + IDLE_GC_GROWTH_BYTES) return;
+	const collectingGeneration = generation;
+	collecting = true;
+	try {
+		if (!session) {
+			const connection = new Session();
+			connection.connect();
+			session = connection;
+		}
+		await session.post("HeapProfiler.collectGarbage");
+		collecting = false;
+		if (collectingGeneration === generation) collectedHeap = process.memoryUsage().heapUsed;
+		else if (idle) scheduleWorkerIdleGc();
+	} catch (error) {
+		collecting = false;
+		if (error instanceof Error && error.message.startsWith("Inspector error -32601:")) session = null;
+		else process.emitWarning(error instanceof Error ? error : String(error));
+	}
+}
 /** Only native worker owners call this after releasing their operation's payloads. */
 function scheduleWorkerIdleGc() {
-	if (isMainThread || process.versions.bun) return;
+	if (isMainThread || session === null) return;
 	idle = true;
-	if (pending || collecting) return;
-	pending = setImmediate(() => {
-		pending = void 0;
-		if (getHeapStatistics().used_heap_size <= collectedHeap + IDLE_GC_GROWTH_BYTES) return;
-		const collectingGeneration = generation;
-		collecting = true;
-		try {
-			if (!session) {
-				const connection = new Session();
-				connection.connect();
-				session = connection;
-			}
-			session.post("HeapProfiler.collectGarbage", (error) => {
-				collecting = false;
-				if (error) process.emitWarning(error);
-				else if (collectingGeneration === generation) collectedHeap = getHeapStatistics().used_heap_size;
-				else if (idle) scheduleWorkerIdleGc();
-			});
-		} catch (error) {
-			collecting = false;
-			process.emitWarning(error instanceof Error ? error : String(error));
-		}
-	});
-	pending.unref();
+	if (pending$1 || collecting) return;
+	if (process.memoryUsage().heapUsed <= collectedHeap + IDLE_GC_GROWTH_BYTES) return;
+	pending$1 = setTimeout(() => {
+		collectWorkerIdleGarbage();
+	}, IDLE_GC_DELAY_MS).unref();
 }
 /** A new operation takes precedence over collection of the preceding idle heap. */
 function cancelWorkerIdleGc() {
 	generation++;
 	idle = false;
-	clearImmediate(pending);
-	pending = void 0;
+	clearTimeout(pending$1);
+	pending$1 = void 0;
+}
+//#endregion
+//#region src/infra/gc-observer.ts
+const kinds = {
+	[constants.NODE_PERFORMANCE_GC_MINOR]: "scavenge",
+	[constants.NODE_PERFORMANCE_GC_MAJOR]: "mark_sweep_compact",
+	[constants.NODE_PERFORMANCE_GC_INCREMENTAL]: "incremental",
+	[constants.NODE_PERFORMANCE_GC_WEAKCB]: "weak_processing"
+};
+/** One observer per isolate owner; native batches travel together on worker ports. */
+function observeGcSamples(publish) {
+	if (!PerformanceObserver.supportedEntryTypes.includes("gc")) return;
+	const activatedAt = performance$1.now();
+	let active = true;
+	const observer = new PerformanceObserver((list) => {
+		if (!active) return;
+		const samples = [];
+		for (const entry of list.getEntries()) {
+			const kind = kinds[entry.detail.kind];
+			if (kind && entry.startTime >= activatedAt) samples.push({
+				kind,
+				durationMs: entry.duration
+			});
+		}
+		if (samples.length) publish(samples);
+	});
+	observer.observe({ entryTypes: ["gc"] });
+	return () => {
+		active = false;
+		observer.disconnect();
+	};
 }
 //#endregion
 //#region src/infra/worker-memory.ts
+const MAX_PENDING_GC_SAMPLES = 256;
 /** Publish isolate-local counters without sharing the task transport or keeping it alive. */
 function serveWorkerMemorySamples(parent) {
 	const { port1, port2 } = new MessageChannel();
+	const heapSizeLimitBytes = process.versions.bun ? void 0 : getHeapStatistics().heap_size_limit;
+	let gc;
+	const flushGc = () => {
+		if (gc) {
+			port1.postMessage({ gc });
+			gc = void 0;
+		}
+	};
 	const sample = () => {
 		const { heapUsed, heapTotal, external, arrayBuffers } = process.memoryUsage();
 		port1.postMessage({
 			heapUsed,
 			heapTotal,
 			external,
-			arrayBuffers
+			arrayBuffers,
+			heapSizeLimitBytes,
+			gc
 		});
+		gc = void 0;
 	};
-	port1.on("message", sample);
+	let stopGc;
+	port1.on("message", (request) => {
+		if (request) {
+			if (request.gc) stopGc ??= observeGcSamples((samples) => {
+				(gc ??= []).push(...samples);
+				if (gc.length >= MAX_PENDING_GC_SAMPLES) flushGc();
+			});
+			else {
+				stopGc?.();
+				stopGc = void 0;
+				gc = void 0;
+			}
+		} else sample();
+	});
+	port1.once("close", () => {
+		stopGc?.();
+		gc = void 0;
+	});
 	port1.on("messageerror", () => port1.close());
 	port1.unref();
 	sample();
@@ -5169,6 +15146,11 @@ function serveWorkerMemorySamples(parent) {
 		status: "memory",
 		port: port2
 	}, [port2]);
+	return () => {
+		stopGc?.();
+		flushGc();
+		port1.close();
+	};
 }
 //#endregion
 //#region src/infra/worker-task-server.ts
@@ -5179,29 +15161,65 @@ function serveWorkerTasks(handler, options = {}) {
 /** Every served worker closes its agent database readers by path between tasks; owners may add more. */
 function serveOwnedWorkerTasks(handler, options = {}) {
 	let memoryPort;
-	let memorySamplesStarted = false;
-	serveOwnedWorkerTasks$1(handler, {
+	let taskPort;
+	let databaseAdmissionPort;
+	let closeMemorySamples;
+	const runWithDatabaseAdmission = async (operation) => {
+		const port = databaseAdmissionPort;
+		if (!port) return operation();
+		let active = true;
+		try {
+			return await withSqliteDatabaseAdmissionExchange((admissions, location, create) => {
+				if (!active) throw new Error("SQLite admission facts outlived their worker task");
+				return exchangeSqliteDatabaseAdmissions(port, admissions, location, create);
+			}, operation);
+		} finally {
+			active = false;
+		}
+	};
+	serveOwnedWorkerTasks$1((input, channel, control) => runWithDatabaseAdmission(() => handler(input, channel, control)), {
 		...options,
-		closeResource: async (key) => {
+		closeResource: (key) => runWithDatabaseAdmission(async () => {
 			const request = decodeAgentDatabaseReaderRequest(key);
 			if (!request && !options.closeResource) throw new Error("Worker does not own retained resources");
 			if (request) await applyAgentDatabaseReaderRequest(request);
 			if (!request || request.kind === "close") await options.closeResource?.(key);
-		}
+		})
 	}, {
+		selectStartupPort(message) {
+			if (!isRecord(message) || message.type !== "openclaw.worker-task-port") return;
+			if (!(message.port instanceof MessagePort)) throw new Error("Retained worker task port is invalid");
+			taskPort = message.port;
+			return taskPort;
+		},
 		initialize(port) {
 			loggingState.forceConsoleToStderr = true;
 			memoryPort = port;
 		},
+		onReady() {
+			taskPort?.postMessage({ status: "ready" }, []);
+		},
 		onMessage(sampleMemory) {
-			if (sampleMemory && !memorySamplesStarted) {
-				memorySamplesStarted = true;
-				serveWorkerMemorySamples(memoryPort);
-			}
+			if (sampleMemory && !closeMemorySamples) closeMemorySamples = serveWorkerMemorySamples(memoryPort);
 			cancelWorkerIdleGc();
 		},
-		installTaskContext: installDeletedAgentDatabaseFences,
-		onIdle: scheduleWorkerIdleGc
+		installTaskContext(context) {
+			installDeletedAgentDatabaseFences(context.deletedAgentDatabaseFences);
+			if (context.databaseAdmissionPort) bindSqliteDatabaseAdmissionUpstream(context.databaseAdmissionPort);
+			databaseAdmissionPort ??= context.databaseAdmissionPort;
+		},
+		onIdle() {
+			scheduleOpenClawCompileCacheFlush();
+			if (options.idleGc !== false) scheduleWorkerIdleGc();
+		},
+		onRetire() {
+			cancelWorkerIdleGc();
+			try {
+				closeMemorySamples?.();
+			} finally {
+				databaseAdmissionPort?.close();
+			}
+		}
 	});
 }
 //#endregion
@@ -20338,7 +30356,7 @@ var SqliteConnection = class {
 };
 //#endregion
 //#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/sqlite/sqlite-query-compiler.js
-const ID_WRAP_REGEX = /"/g;
+const ID_WRAP_REGEX$1 = /"/g;
 const JSON_PATH_MEMBER_ESCAPE_REGEX = /[\\'"]/g;
 var SqliteQueryCompiler = class extends DefaultQueryCompiler {
 	visitOrAction(node) {
@@ -20364,7 +30382,7 @@ var SqliteQueryCompiler = class extends DefaultQueryCompiler {
 		return "autoincrement";
 	}
 	sanitizeIdentifier(identifier) {
-		return identifier.replace(ID_WRAP_REGEX, "\"\"");
+		return identifier.replace(ID_WRAP_REGEX$1, "\"\"");
 	}
 	sanitizeJSONPathMemberValue(value) {
 		return value.replace(JSON_PATH_MEMBER_ESCAPE_REGEX, (char) => char === "\\" ? "\\\\" : char === "'" ? "''" : "\\\"");
@@ -20499,6 +30517,305 @@ var SqliteDialect = class {
 	}
 };
 //#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/util/stack-trace-utils.js
+function extendStackTrace(err, stackError) {
+	if (isStackHolder(err) && stackError.stack) {
+		const stackExtension = stackError.stack.split("\n").slice(1).join("\n");
+		err.stack += `\n${stackExtension}`;
+		return err;
+	}
+	return err;
+}
+function isStackHolder(obj) {
+	return isObject(obj) && isString(obj.stack);
+}
+//#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/postgres/postgres-driver.js
+const PRIVATE_RELEASE_METHOD = Symbol();
+var PostgresDriver = class {
+	#config;
+	#connections = /* @__PURE__ */ new WeakMap();
+	#pool;
+	constructor(config) {
+		this.#config = freeze({ ...config });
+	}
+	async init(options) {
+		this.#pool = isFunction(this.#config.pool) ? await this.#config.pool(options) : this.#config.pool;
+	}
+	async acquireConnection(options) {
+		const client = await this.#pool.connect();
+		let connection = this.#connections.get(client);
+		if (!connection) {
+			connection = new PostgresConnection(client, {
+				controlClient: this.#config.controlClient || this.#pool.Client,
+				cursor: this.#config.cursor ?? null,
+				poolOptions: this.#pool.options
+			});
+			this.#connections.set(client, connection);
+			if (this.#config.onCreateConnection) await this.#config.onCreateConnection(connection, options);
+		}
+		if (this.#config.onReserveConnection) await this.#config.onReserveConnection(connection, options);
+		return connection;
+	}
+	async beginTransaction(connection, settings) {
+		let sql = "begin";
+		if (settings.isolationLevel || settings.accessMode) {
+			sql = "start transaction";
+			if (settings.isolationLevel) sql += ` isolation level ${settings.isolationLevel}`;
+			if (settings.accessMode) sql += ` ${settings.accessMode}`;
+		}
+		await connection.executeQuery(CompiledQuery.raw(sql));
+	}
+	async commitTransaction(connection) {
+		await connection.executeQuery(CompiledQuery.raw("commit"));
+	}
+	async rollbackTransaction(connection) {
+		await connection.executeQuery(CompiledQuery.raw("rollback"));
+	}
+	async savepoint(connection, savepointName, compileQuery) {
+		await connection.executeQuery(compileQuery(parseSavepointCommand("savepoint", savepointName), createQueryId()));
+	}
+	async rollbackToSavepoint(connection, savepointName, compileQuery) {
+		await connection.executeQuery(compileQuery(parseSavepointCommand("rollback to", savepointName), createQueryId()));
+	}
+	async releaseSavepoint(connection, savepointName, compileQuery) {
+		await connection.executeQuery(compileQuery(parseSavepointCommand("release", savepointName), createQueryId()));
+	}
+	async releaseConnection(connection) {
+		connection[PRIVATE_RELEASE_METHOD]();
+	}
+	async destroy() {
+		if (this.#pool) {
+			const pool = this.#pool;
+			this.#pool = void 0;
+			await pool.end();
+		}
+	}
+};
+var PostgresConnection = class {
+	#client;
+	#options;
+	#queryId;
+	#pid;
+	constructor(client, options) {
+		this.#client = client;
+		this.#options = options;
+	}
+	async cancelQuery(controlConnectionProvider) {
+		return await this.#executeControlQuery(`select pg_cancel_backend(${this.#pid})`, controlConnectionProvider);
+	}
+	async collectSessionInfo() {
+		if (this.#pid) return;
+		const { processID } = this.#client;
+		if (processID) this.#pid = processID;
+		else {
+			const { rows: [{ pid }] } = await this.#client.query("select pg_backend_pid() as pid", []);
+			this.#pid = Number(pid);
+		}
+	}
+	async executeQuery(compiledQuery) {
+		try {
+			this.#queryId = compiledQuery.queryId;
+			const { command, rowCount, rows } = await this.#client.query(compiledQuery.sql, compiledQuery.parameters);
+			return {
+				numAffectedRows: command === "INSERT" || command === "UPDATE" || command === "DELETE" || command === "MERGE" ? BigInt(rowCount) : void 0,
+				rows: rows ?? []
+			};
+		} catch (err) {
+			throw extendStackTrace(err, /* @__PURE__ */ new Error());
+		} finally {
+			this.#queryId = void 0;
+		}
+	}
+	async killSession(controlConnectionProvider) {
+		return await this.#executeControlQuery(`select pg_terminate_backend(${this.#pid})`, controlConnectionProvider);
+	}
+	async *streamQuery(compiledQuery, chunkSize) {
+		if (!this.#options.cursor) throw new Error("`cursor` is not present in your postgres dialect config. It's required to make streaming work in postgres.");
+		this.#queryId = compiledQuery.queryId;
+		const cursor = this.#client.query(new this.#options.cursor(compiledQuery.sql, compiledQuery.parameters.slice()));
+		try {
+			while (true) {
+				const rows = await cursor.read(chunkSize);
+				if (rows.length === 0) break;
+				yield { rows };
+			}
+		} finally {
+			await cursor.close();
+			this.#queryId = void 0;
+		}
+	}
+	[PRIVATE_RELEASE_METHOD]() {
+		this.#client.release();
+	}
+	async #executeControlQuery(query, controlConnectionProvider) {
+		if (!this.#queryId) return;
+		const { controlClient: Client, poolOptions } = this.#options;
+		const queryIdToCancel = this.#queryId;
+		if (!Client) return await controlConnectionProvider(async (controlConnection) => {
+			if (queryIdToCancel.queryId === this.#queryId?.queryId) await controlConnection.executeQuery(CompiledQuery.raw(query, []));
+		});
+		const controlClient = new Client({
+			...poolOptions,
+			password: "password" in poolOptions ? poolOptions.password : void 0
+		});
+		try {
+			await controlClient.connect();
+			if (queryIdToCancel.queryId !== this.#queryId.queryId) return;
+			await controlClient.query(query, []);
+		} finally {
+			controlClient.end();
+		}
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/postgres/postgres-introspector.js
+var PostgresIntrospector = class {
+	#db;
+	constructor(db) {
+		this.#db = db;
+	}
+	async getSchemas() {
+		return (await this.#db.selectFrom("pg_catalog.pg_namespace").select("nspname").$castTo().execute()).map((it) => ({ name: it.nspname }));
+	}
+	async getTables(options = { withInternalKyselyTables: false }) {
+		let query = this.#db.selectFrom("pg_catalog.pg_attribute as a").innerJoin("pg_catalog.pg_class as c", "a.attrelid", "c.oid").innerJoin("pg_catalog.pg_namespace as ns", "c.relnamespace", "ns.oid").innerJoin("pg_catalog.pg_type as typ", "a.atttypid", "typ.oid").innerJoin("pg_catalog.pg_namespace as dtns", "typ.typnamespace", "dtns.oid").select([
+			"a.attname as column",
+			"a.attnotnull as not_null",
+			"a.atthasdef as has_default",
+			"c.relname as table",
+			"c.relkind as table_type",
+			"ns.nspname as schema",
+			"typ.typname as type",
+			"dtns.nspname as type_schema",
+			sql`col_description(a.attrelid, a.attnum)`.as("column_description"),
+			sql`pg_get_serial_sequence(quote_ident(ns.nspname) || '.' || quote_ident(c.relname), a.attname)`.as("auto_incrementing")
+		]).where("c.relkind", "in", [
+			"r",
+			"v",
+			"p",
+			"f"
+		]).where("ns.nspname", "!~", "^pg_").where("ns.nspname", "!=", "information_schema").where("ns.nspname", "!=", "crdb_internal").where(sql`has_schema_privilege(ns.nspname, 'USAGE')`).where("a.attnum", ">=", 0).where("a.attisdropped", "!=", true).orderBy("ns.nspname").orderBy("c.relname").orderBy("a.attnum").$castTo();
+		if (!options.withInternalKyselyTables) query = query.where("c.relname", "!=", DEFAULT_MIGRATION_TABLE).where("c.relname", "!=", DEFAULT_MIGRATION_LOCK_TABLE);
+		const rawColumns = await query.execute();
+		return this.#parseTableMetadata(rawColumns);
+	}
+	#parseTableMetadata(columns) {
+		const tables = [];
+		const schemas = /* @__PURE__ */ new Map();
+		for (const column of columns) {
+			let schema = schemas.get(column.schema);
+			if (!schema) {
+				schema = /* @__PURE__ */ new Map();
+				schemas.set(column.schema, schema);
+			}
+			let table = schema.get(column.table);
+			if (!table) {
+				table = freeze({
+					columns: [],
+					isForeign: column.table_type === "f",
+					isView: column.table_type === "v",
+					name: column.table,
+					schema: column.schema
+				});
+				schema.set(column.table, table);
+				tables.push(table);
+			}
+			table.columns.push(freeze({
+				comment: column.column_description ?? void 0,
+				dataType: column.type,
+				dataTypeSchema: column.type_schema,
+				hasDefaultValue: column.has_default,
+				isAutoIncrementing: column.auto_incrementing !== null,
+				isNullable: !column.not_null,
+				name: column.column
+			}));
+		}
+		return tables;
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/postgres/postgres-query-compiler.js
+const ID_WRAP_REGEX = /"/g;
+var PostgresQueryCompiler = class extends DefaultQueryCompiler {
+	sanitizeIdentifier(identifier) {
+		return identifier.replace(ID_WRAP_REGEX, "\"\"");
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/postgres/postgres-adapter.js
+const LOCK_ID = BigInt("3853314791062309107");
+const LOCK_TIMEOUT_MILLISECONDS = 36e5;
+var PostgresAdapter = class extends DialectAdapterBase {
+	get supportsTransactionalDdl() {
+		return true;
+	}
+	get supportsReturning() {
+		return true;
+	}
+	async acquireMigrationLock(db, _opt) {
+		await sql`
+    with set_timeout as (
+      select set_config('lock_timeout', '${sql.lit(LOCK_TIMEOUT_MILLISECONDS)}', true) as config_val
+    )
+    select pg_advisory_lock(${sql.lit(LOCK_ID)})
+    from set_timeout`.execute(db);
+	}
+	async releaseMigrationLock(db, _opt) {
+		await sql`select pg_advisory_unlock(${sql.lit(LOCK_ID)})`.execute(db);
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/kysely@0.29.6/node_modules/kysely/dist/dialect/postgres/postgres-dialect.js
+/**
+* PostgreSQL dialect that uses the [pg](https://node-postgres.com/) library.
+*
+* The constructor takes an instance of {@link PostgresDialectConfig}.
+*
+* ```ts
+* import { Pool } from 'pg'
+*
+* new PostgresDialect({
+*   pool: new Pool({
+*     database: 'some_db',
+*     host: 'localhost',
+*   })
+* })
+* ```
+*
+* If you want the pool to only be created once it's first used, `pool`
+* can be a function:
+*
+* ```ts
+* import { Pool } from 'pg'
+*
+* new PostgresDialect({
+*   pool: async () => new Pool({
+*     database: 'some_db',
+*     host: 'localhost',
+*   })
+* })
+* ```
+*/
+var PostgresDialect = class {
+	#config;
+	constructor(config) {
+		this.#config = config;
+	}
+	createDriver() {
+		return new PostgresDriver(this.#config);
+	}
+	createQueryCompiler() {
+		return new PostgresQueryCompiler();
+	}
+	createAdapter() {
+		return new PostgresAdapter();
+	}
+	createIntrospector(db) {
+		return new PostgresIntrospector(db);
+	}
+};
+//#endregion
 //#region node-version.mjs
 const NODE_RELEASE_VERSION_RE = /^v?((?:0|[1-9]\d*))\.((?:0|[1-9]\d*))\.((?:0|[1-9]\d*))(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
 const NODE_RELEASE_FLOORS = [{
@@ -20549,105 +30866,28 @@ function renderProcessNodeVersionCheck() {
 }
 renderProcessNodeVersionCheck();
 //#endregion
-//#region src/infra/sqlite-reader-lifecycle.ts
-const readerOwners = resolveGlobalSingleton(Symbol.for("openclaw.sqliteReaderOwners"), () => new AsyncLocalStorage());
-const activeReaders = resolveGlobalSingleton(Symbol.for("openclaw.sqliteActiveReaders"), () => ({
-	byDatabase: /* @__PURE__ */ new WeakMap(),
-	byPath: /* @__PURE__ */ new Map()
-}));
-const connections = resolveGlobalSingleton(Symbol.for("openclaw.sqliteReaderConnections"), () => ({
-	nextId: 0,
-	byDatabase: /* @__PURE__ */ new WeakMap(),
-	byPath: /* @__PURE__ */ new Map(),
-	finalizer: new FinalizationRegistry((connection) => forgetConnection(connection))
-}));
-/** The same Windows file can arrive with a namespaced or differently cased path. */
-function sqliteReaderDatabasePathKey(databasePath) {
-	const resolved = path.resolve(databasePath);
-	return process.platform === "win32" ? normalizeWindowsPathForComparison(resolved) : resolved;
-}
-function boundedOperation(operation) {
-	return (operation.trim() || "sqlite reader").slice(0, 120);
-}
-function currentOwner(fallbackOperation, capturedOwner) {
-	const inherited = capturedOwner ?? readerOwners.getStore();
-	return {
-		operation: boundedOperation(inherited?.operation ?? fallbackOperation),
-		ownerKind: inherited?.ownerKind ?? (isMainThread ? "main" : "worker"),
-		...inherited?.actorId !== void 0 ? { actorId: inherited.actorId } : {}
-	};
-}
-function connectionFor(database) {
-	let connection = connections.byDatabase.get(database);
-	if (!connection) {
-		const now = Date.now();
-		const location = database.location();
-		connection = {
-			id: ++connections.nextId,
-			path: location ? sqliteReaderDatabasePathKey(location) : void 0,
-			database: new WeakRef(database),
-			owner: currentOwner("sqlite connection"),
-			openedAtMs: now
-		};
-		connections.byDatabase.set(database, connection);
-		if (connection.path) {
-			const entries = connections.byPath.get(connection.path) ?? /* @__PURE__ */ new Map();
-			entries.set(connection.id, connection);
-			connections.byPath.set(connection.path, entries);
+//#region src/infra/sql-query-compiler.ts
+const templateFragments = (fragments, _value) => fragments;
+const sqliteStringSetFragments = templateFragments`(SELECT value FROM json_each(${0}))`;
+const sqliteStringSetEntriesFragments = templateFragments`json_each(${0})`;
+/** Lower only the shared string-set primitive; arbitrary raw SQL stays caller-owned. */
+var OpenClawPostgresQueryCompiler = class extends PostgresQueryCompiler {
+	visitRaw(node) {
+		const values = node.sqlFragments === sqliteStringSetFragments;
+		if (!values && node.sqlFragments !== sqliteStringSetEntriesFragments) {
+			super.visitRaw(node);
+			return;
 		}
-		connections.finalizer.register(database, connection, connection);
+		this.append(values ? "(SELECT value FROM json_array_elements_text(" : "(SELECT ordinality - 1 AS key, value FROM json_array_elements_text(");
+		this.compileList(node.parameters);
+		this.append(values ? "::json) AS value)" : "::json) WITH ORDINALITY AS entries(value, ordinality))");
 	}
-	return connection;
-}
-/** Forget observations only; explicit reader custody belongs to its caller. */
-function forgetConnection(connection) {
-	if (connection.path) {
-		const entries = connections.byPath.get(connection.path);
-		entries?.delete(connection.id);
-		if (entries?.size === 0) connections.byPath.delete(connection.path);
+};
+var OpenClawPostgresDialect = class extends PostgresDialect {
+	createQueryCompiler() {
+		return new OpenClawPostgresQueryCompiler();
 	}
-	const database = connection.database.deref();
-	if (database && connections.byDatabase.get(database) === connection) connections.byDatabase.delete(database);
-	connections.finalizer.unregister(connection);
-}
-/** Register weak metadata without replacing native methods or acquiring lifecycle custody. */
-function registerSqliteReaderConnection(database) {
-	if (database.isOpen) connectionFor(database);
-}
-function retainSqliteReader(database, fallbackOperation, capturedOwner) {
-	const connection = connectionFor(database);
-	const now = Date.now();
-	const reader = {
-		...currentOwner(fallbackOperation, capturedOwner),
-		kind: "iterator",
-		connectionId: connection.id,
-		threadId,
-		startedAtMs: now,
-		lastProgressAtMs: now
-	};
-	const token = Symbol(reader.operation);
-	const databaseReaders = activeReaders.byDatabase.get(database) ?? /* @__PURE__ */ new Map();
-	databaseReaders.set(token, reader);
-	activeReaders.byDatabase.set(database, databaseReaders);
-	const databasePath = connection.path;
-	const pathReaders = databasePath ? activeReaders.byPath.get(databasePath) ?? /* @__PURE__ */ new Map() : void 0;
-	pathReaders?.set(token, reader);
-	if (databasePath && pathReaders) activeReaders.byPath.set(databasePath, pathReaders);
-	let released = false;
-	return {
-		progress() {
-			if (!released) reader.lastProgressAtMs = Date.now();
-		},
-		release() {
-			if (released) return;
-			released = true;
-			databaseReaders.delete(token);
-			if (databaseReaders.size === 0 && activeReaders.byDatabase.get(database) === databaseReaders) activeReaders.byDatabase.delete(database);
-			pathReaders?.delete(token);
-			if (databasePath && pathReaders?.size === 0 && activeReaders.byPath.get(databasePath) === pathReaders) activeReaders.byPath.delete(databasePath);
-		}
-	};
-}
+};
 //#endregion
 //#region src/infra/kysely-sync.ts
 const nodeVersion = parseNodeReleaseVersion(process.versions.node);
@@ -20663,7 +30903,19 @@ const supportsRepreparedAll = !process.versions.bun && (nodeVersion?.major === 2
 const compileOnlySqliteDialect = new SqliteDialect({ database: async () => {
 	throw new Error("getNodeSqliteKysely() returns a compile-only Kysely facade; use executeSqliteQuerySync() to execute node:sqlite queries.");
 } });
+const postgresKyselyByDatabase = /* @__PURE__ */ new WeakMap();
+const compileOnlyPostgresDialect = new OpenClawPostgresDialect({ pool: async () => {
+	throw new Error("getNodeSqliteKysely() returns a compile-only Kysely facade.");
+} });
 function getNodeSqliteKysely(db) {
+	if (isPostgresSqlConnection(db)) {
+		let kysely = postgresKyselyByDatabase.get(db);
+		if (!kysely) {
+			kysely = new Kysely({ dialect: compileOnlyPostgresDialect });
+			postgresKyselyByDatabase.set(db, kysely);
+		}
+		return kysely;
+	}
 	const existing = kyselyByDatabase.get(db);
 	if (existing) return existing;
 	const kysely = new Kysely({ dialect: compileOnlySqliteDialect });
@@ -20675,8 +30927,26 @@ function reportNodeSqliteKyselyQueryError(db, error) {
 		queryErrorHandlerByDatabase.get(db)?.(error);
 	} catch {}
 }
+function releaseSqliteIterator(iterator, reader, failed, cleanupErrorMessage) {
+	let cleanupError;
+	try {
+		iterator.return?.();
+	} catch (error) {
+		cleanupError = error;
+	}
+	reader.release();
+	if (!failed && cleanupError !== void 0) throw toErrorObject(cleanupError, cleanupErrorMessage);
+}
 /** Execute a compiled Kysely query synchronously against node:sqlite. */
 function executeCompiledSqliteQuerySync(db, compiledQuery, firstRowOnly = false, parameters = compiledQuery.parameters) {
+	if (isPostgresSqlConnection(db)) {
+		const result = db.query(compiledQuery.sql, parameters);
+		const rows = firstRowOnly ? result.rows.slice(0, 1) : result.rows;
+		return result.columns.length > 0 ? { rows } : {
+			rows: [],
+			numAffectedRows: BigInt(result.rowCount)
+		};
+	}
 	try {
 		const sql = compiledQuery.sql;
 		installStatementInvalidation(db);
@@ -20689,7 +30959,6 @@ function executeCompiledSqliteQuerySync(db, compiledQuery, firstRowOnly = false,
 				if (supportsRepreparedAll) return { rows: statement.all(...parameters) };
 				const iterator = statement.iterate(...parameters);
 				const reader = retainSqliteReader(db, "kysely eager query");
-				let cleanupError;
 				let failed = false;
 				let failure;
 				const rows = [];
@@ -20702,14 +30971,8 @@ function executeCompiledSqliteQuerySync(db, compiledQuery, firstRowOnly = false,
 					failed = true;
 					failure = error;
 				}
-				try {
-					iterator.return?.();
-				} catch (error) {
-					cleanupError = error;
-				}
-				reader.release();
+				releaseSqliteIterator(iterator, reader, failed, "SQLite query cleanup failed");
 				if (failed) throw toErrorObject(failure, "SQLite query failed");
-				if (cleanupError !== void 0) throw toErrorObject(cleanupError, "SQLite query cleanup failed");
 				return { rows };
 			}
 			statement.setReadBigInts(true);
@@ -20848,82 +31111,10 @@ function isSqliteWalResetSafeVersion(value) {
 `${probeSqlite.toString()}`;
 //#endregion
 //#region src/infra/runtime-process-entrypoints.ts
-function runtimeProcessEntrypoint(modulePath) {
-	return {
-		currentModuleUrl: import.meta.url,
-		sourceWorkerName: modulePath.startsWith("infra/") ? modulePath.slice(6) : `../${modulePath}`,
-		distWorkerPath: `${modulePath}.js`
-	};
-}
 var runtimeProcessEntrypoints;
 var init_runtime_process_entrypoints = __esmMin((() => {
-	runtimeProcessEntrypoints = {
-		secretEgressProxy: runtimeProcessEntrypoint("secrets/egress-proxy/proxy.worker"),
-		codeModeNode: runtimeProcessEntrypoint("agents/code-mode-node.worker"),
-		cronReadOnly: runtimeProcessEntrypoint("cron/store/read-only.worker"),
-		stateRead: runtimeProcessEntrypoint("state/openclaw-state-read.worker"),
-		workerNativeLifecycle: runtimeProcessEntrypoint("infra/worker-native-lifecycle.worker"),
-		spawnBroker: runtimeProcessEntrypoint("process/spawn-broker/worker"),
-		cronStreamMatcher: runtimeProcessEntrypoint("gateway/cron-stream-matcher.worker"),
-		controlUiFile: runtimeProcessEntrypoint("gateway/control-ui-file.worker"),
-		nodeBootstrapArtifact: runtimeProcessEntrypoint("gateway/worker-environments/node-bootstrap-artifact.worker"),
-		nativeHookRelayClient: runtimeProcessEntrypoint("agents/harness/native-hook-relay-client.worker"),
-		computerHost: runtimeProcessEntrypoint("gateway/desktop/computer.worker"),
-		imageProcessor: runtimeProcessEntrypoint("media/image-processor.worker"),
-		fileToolPlanning: runtimeProcessEntrypoint("agents/sessions/tools/file-tool-planning.worker"),
-		attachmentProcessor: runtimeProcessEntrypoint("media/attachment-processor.worker"),
-		gitOperations: runtimeProcessEntrypoint("infra/git-operation.worker"),
-		fsSafeCopy: runtimeProcessEntrypoint("infra/fs-safe-copy.worker"),
-		sharedStateStore: runtimeProcessEntrypoint("state/openclaw-state.worker"),
-		authProfileInlineUsage: runtimeProcessEntrypoint("agents/auth-profiles/inline-usage.worker"),
-		pluginModelCatalogCredentials: runtimeProcessEntrypoint("agents/plugin-model-catalog.worker"),
-		agentDatabaseExecution: runtimeProcessEntrypoint("state/openclaw-agent-execution.worker"),
-		workspaceMemory: runtimeProcessEntrypoint("worker/memory-worker-entry"),
-		localAgentAvatar: runtimeProcessEntrypoint("agents/identity-avatar-file.worker"),
-		identityFile: runtimeProcessEntrypoint("agents/identity-file.worker"),
-		workspaceSkills: runtimeProcessEntrypoint("worker/skills-worker-entry"),
-		boardStore: runtimeProcessEntrypoint("boards/sqlite-board-store.worker"),
-		progressCardStore: runtimeProcessEntrypoint("session-cards/progress-card-store.worker"),
-		sessionSharingStore: runtimeProcessEntrypoint("config/sessions/session-sharing-store.worker"),
-		heartbeatOutcomeStore: runtimeProcessEntrypoint("infra/heartbeat-outcome-store.worker"),
-		acpParentStreamStore: runtimeProcessEntrypoint("agents/subagents/spawn/acp-parent-stream-store.worker"),
-		messageToolRunOutcomeStore: runtimeProcessEntrypoint("infra/message-tool-run-outcome-store.worker"),
-		contextEngineTurnOutbox: runtimeProcessEntrypoint("agents/harness/context-engine-turn-outbox.worker"),
-		sqliteStore: runtimeProcessEntrypoint("infra/sqlite-store.worker"),
-		agentSchemaInspection: runtimeProcessEntrypoint("state/openclaw-agent-schema-inspection.worker"),
-		stateMigrationSnapshot: runtimeProcessEntrypoint("infra/state-migrations.snapshot.worker"),
-		githubExec: runtimeProcessEntrypoint("agents/github-exec-launcher"),
-		sqliteReadOnly: runtimeProcessEntrypoint("infra/sqlite-readonly-location.worker"),
-		sqliteSnapshotStaging: runtimeProcessEntrypoint("infra/sqlite-snapshot-staging.worker"),
-		sqliteReadOnlyNativeResource: runtimeProcessEntrypoint("infra/sqlite-readonly-native-resource"),
-		sqliteSourceRevision: runtimeProcessEntrypoint("infra/sqlite-source-revision.worker"),
-		sqliteIntegrity: runtimeProcessEntrypoint("infra/sqlite-integrity.worker"),
-		sqliteCloseProbe: runtimeProcessEntrypoint("infra/bun-sqlite-close-probe.worker"),
-		preparedModelCatalog: runtimeProcessEntrypoint("agents/prepared-model-catalog.worker"),
-		providerPromptState: runtimeProcessEntrypoint("agents/embedded-agent-runner/provider-prompt-state.worker"),
-		updateRepair: runtimeProcessEntrypoint("infra/update-repair.worker"),
-		updateMigratedFinalize: runtimeProcessEntrypoint("infra/update-migrated-finalize.worker"),
-		updateCandidateState: runtimeProcessEntrypoint("infra/update-candidate-state.worker"),
-		doctorLint: runtimeProcessEntrypoint("commands/doctor-lint.worker"),
-		doctor: runtimeProcessEntrypoint("commands/doctor.worker"),
-		databaseVerify: runtimeProcessEntrypoint("state/openclaw-database-verify.worker"),
-		stateOwnership: runtimeProcessEntrypoint("state/openclaw-state-ownership.worker"),
-		stateLeaseHeartbeat: runtimeProcessEntrypoint("state/openclaw-state-lease-heartbeat.worker"),
-		gatewayStateOwnerHeartbeat: runtimeProcessEntrypoint("infra/gateway-state-owner-heartbeat.worker"),
-		sessionTranscriptArchive: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-archive.worker"),
-		sessionTranscript: runtimeProcessEntrypoint("config/sessions/session-transcript.worker"),
-		workerTranscriptCommit: runtimeProcessEntrypoint("gateway/worker-environments/transcript-commit.worker"),
-		sessionManagerMetadata: runtimeProcessEntrypoint("agents/sessions/session-manager-metadata.worker"),
-		sessionTranscriptProjectionPublication: runtimeProcessEntrypoint("config/sessions/session-transcript-projection-publication.worker"),
-		sessionTranscriptReports: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-transcript-reports.worker"),
-		sessionTranscriptReconcile: runtimeProcessEntrypoint("config/sessions/session-transcript-reconcile.worker"),
-		tailscaleRouteOwner: runtimeProcessEntrypoint("infra/tailscale-route-owner.worker"),
-		serviceChildRelay: runtimeProcessEntrypoint("process/supervisor/service-child-relay"),
-		terminalPty: runtimeProcessEntrypoint("process/terminal-pty-worker"),
-		serviceChildGroupAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-group-anchor"),
-		serviceChildWindowsJobAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-windows-job-anchor"),
-		bunSqliteLibrary: runtimeProcessEntrypoint("infra/bun-sqlite-library")
-	};
+	init_runtime_process_manifest();
+	runtimeProcessEntrypoints = createRuntimeProcessEntrypoints(import.meta.url);
 })), RUNTIME_MODULE_OPTIONS;
 var init_runtime_binary = __esmMin((() => {
 	RUNTIME_MODULE_OPTIONS = /* @__PURE__ */ new Set([
@@ -20975,7 +31166,7 @@ async function cleanupProbe(worker, directory, background) {
 		if (worker) {
 			if (background) worker.unref();
 			await raceWithTimeout(worker.terminate(), 5e3, () => {
-				throw new Error("SQLite close probe termination timed out after 5000ms");
+				throw new Error("SQLite close check termination timed out after 5000ms");
 			}, { ref: !background });
 			await setImmediate$1(void 0, { ref: !background });
 		}
@@ -20985,7 +31176,7 @@ async function cleanupProbe(worker, directory, background) {
 		});
 	} catch (error) {
 		worker?.unref();
-		const reason = `SQLite close probe cleanup failed: ${String(error)}; retained ${directory}`;
+		const reason = `SQLite close check cleanup failed: ${String(error)}; retained ${directory}`;
 		process.emitWarning(reason, { code: "SQLITE_CLOSE_PROBE_CLEANUP" });
 		return reason;
 	}
@@ -21007,17 +31198,17 @@ async function probeSqliteNativeClose() {
 		result = await new Promise((resolve, reject) => {
 			running.once("message", (value) => {
 				if (typeof value !== "string") {
-					reject(/* @__PURE__ */ new Error("Invalid SQLite close probe reply"));
+					reject(/* @__PURE__ */ new Error("Invalid SQLite close check reply"));
 					return;
 				}
 				resolve({
 					explicitSqliteCloseReleasesNativeResources: value === "",
-					reason: value || "Native close probe passed"
+					reason: value || "Native close check passed"
 				});
 			});
 			running.once("error", reject);
-			running.once("exit", (code) => reject(/* @__PURE__ */ new Error(`SQLite close probe exited before its reply (${code})`)));
-			deadline = setTimeout(() => reject(/* @__PURE__ */ new Error("SQLite close probe timed out after 10000ms")), 1e4);
+			running.once("exit", (code) => reject(/* @__PURE__ */ new Error(`SQLite close check exited before its reply (${code})`)));
+			deadline = setTimeout(() => reject(/* @__PURE__ */ new Error("SQLite close check timed out after 10000ms")), 1e4);
 		});
 	} catch (error) {
 		result = {
@@ -21046,7 +31237,8 @@ var init_bun_sqlite_close_probe = __esmMin((() => {
 //#region src/infra/bun-sqlite-library.ts
 const WORKER_SELECTION_KEY = "openclaw.bunSqliteLibrarySelection";
 const WORKER_CAPABILITIES_KEY = "openclaw.sqliteRuntimeCapabilities";
-function createCapabilities(deps) {
+const SQLITE_NATIVE_RUNTIME_ADMISSION_KEY = "openclaw.sqliteNativeRuntimeAdmission";
+function createCapabilities(select) {
 	let decision;
 	let initialization;
 	let earlyTopologyOwners = 0;
@@ -21058,8 +31250,8 @@ function createCapabilities(deps) {
 	function decide(value) {
 		if (!decision) {
 			decision = Object.freeze(value);
-			deps.publish(decision);
-			if (decision.explicitSqliteCloseReleasesNativeResources && earlyTopologyOwners > 0) deps.warn(`SQLite close became capable after ${earlyTopologyOwners} topology owners were created; those owners remain conservative`);
+			setEnvironmentData(WORKER_CAPABILITIES_KEY, decision);
+			if (decision.explicitSqliteCloseReleasesNativeResources && earlyTopologyOwners > 0) process.emitWarning(`SQLite close became capable after ${earlyTopologyOwners} topology owners were created; those owners remain conservative`, { code: "SQLITE_EARLY_TOPOLOGY" });
 		}
 		return decision;
 	}
@@ -21072,16 +31264,16 @@ function createCapabilities(deps) {
 	}
 	function settled() {
 		if (decision) return decision;
-		if (!deps.isBun) return decide({
+		if (!process.versions.bun) return decide({
 			explicitSqliteCloseReleasesNativeResources: true,
 			decided: true,
 			reason: "Node runtime"
 		});
-		if (deps.platform === "win32") return decide(conservative("Bun Windows native-close conformance is not qualified"));
-		if (!deps.isMainThread) return decide({
+		if (process.platform === "win32") return decide(conservative("Bun Windows native-close conformance is not qualified"));
+		if (!isMainThread) return decide({
 			...pending,
 			reason: "Parent did not complete SQLite close admission",
-			...deps.inherited
+			...getEnvironmentData(WORKER_CAPABILITIES_KEY)
 		});
 	}
 	return {
@@ -21095,17 +31287,18 @@ function createCapabilities(deps) {
 		},
 		initialize() {
 			initialization ??= (async () => {
-				deps.select();
+				select();
 				const ready = settled();
 				if (ready) return ready;
 				try {
-					if (deps.forceConservative) return decide(conservative("SQLite close optimization disabled by internal diagnostic flag"));
+					if (parseDiagnosticEnvFlags(process.env.OPENCLAW_DIAGNOSTICS).flags.some((flag) => flag.toLowerCase() === "sqlite.close.conservative")) return decide(conservative("SQLite close optimization disabled by internal diagnostic flag"));
+					const { probeSqliteNativeClose } = await Promise.resolve().then(() => (init_bun_sqlite_close_probe(), bun_sqlite_close_probe_exports));
 					return decide({
-						...await deps.probe(),
+						...await probeSqliteNativeClose(),
 						decided: true
 					});
 				} catch (error) {
-					return decide(conservative(`SQLite close probe failed: ${String(error)}`));
+					return decide(conservative(`SQLite close check failed: ${String(error)}`));
 				}
 			})();
 			return initialization;
@@ -21137,44 +31330,50 @@ function selectLibrary(path) {
 	const { Database } = createRequire(import.meta.url)("bun:sqlite");
 	Database.setCustomSQLite(path);
 }
-function createSelector(deps) {
+function createSelector() {
 	let selection;
 	let failure;
 	return (options = {}) => {
 		if (failure) throw failure;
 		if (selection) return selection;
-		const override = options.explicitPath ?? (deps.env.OPENCLAW_SQLITE_LIBRARY?.trim() || void 0);
-		if (!deps.isBun || deps.platform !== "darwin") {
+		const override = options.explicitPath ?? (process.env.OPENCLAW_SQLITE_LIBRARY?.trim() || void 0);
+		if (!process.versions.bun || process.platform !== "darwin") {
 			selection = override ? {
 				source: "runtime",
 				ignoredOverride: "OPENCLAW_SQLITE_LIBRARY requires Bun on macOS"
 			} : { source: "runtime" };
 			return selection;
 		}
-		const prefix = deps.env.HOMEBREW_PREFIX?.trim();
+		const prefix = process.env.HOMEBREW_PREFIX?.trim();
 		const candidates = override !== void 0 ? [override] : [.../* @__PURE__ */ new Set([
 			...prefix ? [posix.join(prefix, "opt/sqlite/lib/libsqlite3.dylib")] : [],
 			"/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib",
 			"/usr/local/opt/sqlite/lib/libsqlite3.dylib",
 			"/opt/local/lib/libsqlite3.dylib"
 		])];
+		const unusable = [];
 		for (const path of candidates) {
 			let probe;
+			let present = true;
 			try {
 				try {
-					probe = deps.probe(path);
+					probe = probeLibrary(path);
 				} catch (error) {
-					throw deps.exists(path) ? error : new Error("missing file", { cause: error });
+					present = existsSync(path);
+					throw present ? error : new Error("missing file", { cause: error });
 				}
 				if (!isSqliteWalResetSafeVersion(probe.version)) throw new Error(`SQLite version ${probe.version} below the WAL safety floor`);
 				if (!probe.extensionLoadingSupported) throw new Error("built with SQLITE_OMIT_LOAD_EXTENSION");
 			} catch (error) {
-				if (override === void 0) continue;
+				if (override === void 0) {
+					if (present) unusable.push(`${path} (${error instanceof Error ? error.message : String(error)})`);
+					continue;
+				}
 				failure = selectionError(path, error);
 				throw failure;
 			}
 			try {
-				deps.select(path);
+				selectLibrary(path);
 			} catch (error) {
 				failure = selectionError(path, error);
 				throw failure;
@@ -21187,8 +31386,8 @@ function createSelector(deps) {
 			};
 			return selection;
 		}
-		selection = { source: "runtime" };
-		return selection;
+		failure = /* @__PURE__ */ new Error(`No supported SQLite library for Bun on macOS (${process.arch})` + (unusable.length > 0 ? `; unusable: ${unusable.join(", ")}` : "") + `. Apple's system SQLite fails OpenClaw's read-only database connections. Install one with brew install sqlite, or set OPENCLAW_SQLITE_LIBRARY to a libsqlite3.dylib built for ${process.arch}.`);
+		throw failure;
 	};
 }
 function selectionError(path, error) {
@@ -21213,17 +31412,9 @@ function inheritedSelection() {
 	throw new Error("Invalid inherited SQLite library selection");
 }
 function createRuntimeSelector() {
-	const isBun = Boolean(process.versions.bun);
-	const sharedLibrary = isBun && process.platform === "darwin";
+	const sharedLibrary = Boolean(process.versions.bun) && process.platform === "darwin";
 	const inherited = sharedLibrary && !isMainThread ? inheritedSelection() : void 0;
-	const select = createSelector({
-		isBun,
-		platform: process.platform,
-		env: process.env,
-		exists: existsSync,
-		probe: probeLibrary,
-		select: selectLibrary
-	});
+	const select = createSelector();
 	let published = false;
 	return (options) => {
 		const selection = inherited ?? select(options);
@@ -21237,33 +31428,16 @@ function createRuntimeSelector() {
 function runtimeSelector() {
 	return resolveGlobalSingleton(Symbol.for("openclaw.bunSqliteLibrarySelection"), createRuntimeSelector);
 }
-function capabilities(options) {
-	const deps = options?.internals;
-	if (deps) return deps.owner ??= createCapabilities(deps);
+function capabilities() {
 	const select = runtimeSelector();
-	return select.capabilities ??= createCapabilities({
-		isBun: Boolean(process.versions.bun),
-		platform: process.platform,
-		isMainThread,
-		get inherited() {
-			return getEnvironmentData(WORKER_CAPABILITIES_KEY);
-		},
-		select,
-		probe: async () => (await Promise.resolve().then(() => (init_bun_sqlite_close_probe(), bun_sqlite_close_probe_exports))).probeSqliteNativeClose(),
-		publish: (value) => setEnvironmentData(WORKER_CAPABILITIES_KEY, value),
-		warn: (message) => process.emitWarning(message, { code: "SQLITE_EARLY_TOPOLOGY" }),
-		get forceConservative() {
-			return parseDiagnosticEnvFlags(process.env.OPENCLAW_DIAGNOSTICS).flags.some((flag) => flag.toLowerCase() === "sqlite.close.conservative");
-		}
-	});
+	return select.capabilities ??= createCapabilities(select);
 }
-function getSqliteRuntimeCapabilities(options) {
-	return capabilities(options).get();
+function getSqliteRuntimeCapabilities() {
+	return capabilities().get();
 }
 /** Select once, before any SQLite open; shared across CLI and bundled SDK module graphs. */
 function ensureSqliteLibrarySelected(options) {
-	const dependencies = options?.internals;
-	return (dependencies ? dependencies.selector ??= createSelector(dependencies) : runtimeSelector())(options);
+	return runtimeSelector()(options);
 }
 //#endregion
 //#region src/infra/semver.ts
@@ -21273,13 +31447,304 @@ function compareValidSemver(left, right) {
 	return parsedLeft && parsedRight ? parsedLeft.compare(parsedRight) : null;
 }
 //#endregion
+//#region src/infra/sqlite-schema-mutation.ts
+function schemaStatement(sql) {
+	if (/^(?:CREATE|ALTER|DROP|REINDEX|VACUUM)\b/iu.test(sql)) return true;
+	const catalogWrite = /^(?:INSERT(?: OR \w+)? INTO|UPDATE(?: OR \w+)?|DELETE FROM|REPLACE INTO)\s+/iu.exec(sql);
+	if (catalogWrite) {
+		const target = readSqlToken(sql, catalogWrite[0].length)?.raw ?? "";
+		const name = target.slice(findSqlCharacter(target, ".") + 1);
+		return ["sqlite_schema", "sqlite_master"].includes(normalizeSqlIdentifier(name));
+	}
+	if (!/^PRAGMA\b/iu.test(sql)) return false;
+	const argumentsAt = [findSqlCharacter(sql, "="), findSqlCharacter(sql, "(")].filter((position) => position >= 0);
+	if (argumentsAt.length === 0) return false;
+	const qualified = sql.slice(6, Math.min(...argumentsAt)).trim();
+	const name = qualified.slice(findSqlCharacter(qualified, ".") + 1).trim();
+	const pragma = name.startsWith("'") && name.endsWith("'") ? name.slice(1, -1).toLowerCase() : normalizeSqlIdentifier(name);
+	return ["user_version", "schema_version"].includes(pragma);
+}
+function changesSchema(sql) {
+	if (!/\b(?:CREATE|ALTER|DROP|REINDEX|VACUUM|PRAGMA|INSERT|UPDATE|DELETE|REPLACE)\b/iu.test(sql)) return false;
+	let remaining = normalizeSqlWhitespace(sql);
+	while (remaining) {
+		remaining = remaining.replace(/^[\s;]+/u, "");
+		const end = findSqlCharacter(remaining, ";");
+		if (schemaStatement(end < 0 ? remaining : remaining.slice(0, end))) return true;
+		remaining = end < 0 ? "" : remaining.slice(end + 1);
+	}
+	return false;
+}
+function createsOnlyTemporaryObject(sql) {
+	let remaining = normalizeSqlWhitespace(sql);
+	const kind = /^\s*CREATE\s+(?:TEMP|TEMPORARY)\s+(TABLE|TRIGGER)\b/iu.exec(remaining)?.[1]?.toUpperCase();
+	if (!kind) return false;
+	let end = findSqlCharacter(remaining, ";");
+	if (kind === "TABLE") return end < 0 || remaining.slice(end + 1).trim() === "";
+	while (end >= 0) {
+		remaining = remaining.slice(end + 1).trim();
+		end = findSqlCharacter(remaining, ";");
+		const step = (end < 0 ? remaining : remaining.slice(0, end)).trim();
+		if (/^END$/iu.test(step)) return end < 0 || remaining.slice(end + 1).trim() === "";
+	}
+	return false;
+}
+function changesOnlyTemporaryTable(sql) {
+	const normalized = normalizeSqlWhitespace(sql);
+	const end = findSqlCharacter(normalized, ";");
+	if (end >= 0 && normalized.slice(end + 1).trim() !== "") return false;
+	return /^CREATE\s+(?:TEMP|TEMPORARY)\s+TABLE\b/iu.test(normalized) || /^DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:temp|"temp"|`temp`|\[temp\])\s*\./iu.test(normalized);
+}
+function changesData(sql) {
+	return hasUnquotedSqlKeyword(sql, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/giu);
+}
+function temporaryWriteTables(sql) {
+	const tables = [];
+	let remaining = normalizeSqlWhitespace(sql);
+	while (remaining) {
+		remaining = remaining.replace(/^[\s;]+/u, "");
+		const end = findSqlCharacter(remaining, ";");
+		const statement = end < 0 ? remaining : remaining.slice(0, end);
+		if (changesData(statement)) {
+			const table = /^(?:INSERT(?: OR \w+)? INTO|REPLACE INTO|UPDATE(?: OR \w+)?|DELETE FROM)\s+(?:temp|"temp"|`temp`|\[temp\])\s*\.\s*("(?:[^"]|"")+"|`(?:[^`]|``)+`|\[[^\]]+\]|[a-z_]\w*)(?=\s|\(|$)/iu.exec(statement)?.[1];
+			if (table === void 0) return;
+			tables.push(normalizeSqlIdentifier(table));
+		}
+		remaining = end < 0 ? "" : remaining.slice(end + 1);
+	}
+	return tables;
+}
+const sqlLeadingTrivia = /^(?:\s|;|--[^\n]*(?:\n|$)|\/\*(?:[^*]|\*(?!\/))*(?:\*\/|$))*/u;
+const transactionControlPrefix = /^(BEGIN|SAVEPOINT|COMMIT|END|RELEASE|ROLLBACK)\b/i;
+function readTransactionControl(sql, mode) {
+	let control;
+	let outerRollback = false;
+	let otherChanges = false;
+	let statements = 0;
+	let remaining = sql;
+	while (remaining) {
+		remaining = remaining.replace(sqlLeadingTrivia, "");
+		if (!remaining) break;
+		statements += 1;
+		const end = remaining.includes(";") ? findSqlCharacter(remaining, ";") : -1;
+		const statement = end < 0 ? remaining : remaining.slice(0, end);
+		const next = transactionControlPrefix.exec(statement)?.[1]?.toUpperCase();
+		if (next === "ROLLBACK") {
+			control = next;
+			otherChanges ||= outerRollback;
+			outerRollback = !/^ROLLBACK(?: TRANSACTION)? TO\b/iu.test(normalizeSqlWhitespace(statement));
+			otherChanges ||= !outerRollback;
+		} else if (next || !/^SELECT\b/iu.test(statement) && (changesSchema(statement) || changesData(statement))) otherChanges = true;
+		control ||= next;
+		if (end < 0 || mode === "statement") break;
+		remaining = remaining.slice(end + 1);
+	}
+	return control ? {
+		kind: control,
+		single: statements === 1,
+		outerRollback: outerRollback && !otherChanges
+	} : void 0;
+}
+function canPreserveTransactionSnapshot(control, inTransaction) {
+	return Boolean(inTransaction && control?.single && (control.kind === "SAVEPOINT" || control.kind === "RELEASE" || control.kind === "ROLLBACK"));
+}
+function classifySqliteMutation(sql, mode) {
+	const schemaChange = changesSchema(sql);
+	const dataChange = changesData(sql);
+	const temporaryTableSchemaChange = schemaChange && changesOnlyTemporaryTable(sql);
+	return {
+		schemaChange,
+		mainSchemaChange: schemaChange && !temporaryTableSchemaChange && !createsOnlyTemporaryObject(sql),
+		temporaryTableSchemaChange,
+		dataChange,
+		temporaryWriteTables: dataChange ? temporaryWriteTables(sql) : void 0,
+		control: readTransactionControl(sql, mode)
+	};
+}
+//#endregion
+//#region src/infra/sqlite-native-observer.ts
+/** The runtime owner reuses its prepared one-row library probe, once per process load. */
+function probeSqliteIteratorBehavior(statement) {
+	const previous = statement.iterate();
+	previous.next();
+	previous.next();
+	const nextAfterDoneIsTerminal = previous.next().done === true;
+	previous.return?.();
+	const current = statement.iterate();
+	try {
+		current.next();
+		previous.return?.();
+		return {
+			nextAfterDoneIsTerminal,
+			returnAfterDoneIsInert: current.next().done === true
+		};
+	} finally {
+		current.return?.();
+	}
+}
+const pending = resolveGlobalSingleton(Symbol.for("openclaw.sqliteNativeExecution"), () => /* @__PURE__ */ new WeakMap());
+const iteratorFinalizer = new FinalizationRegistry((lifetimes) => {
+	for (const lifetime of lifetimes) lifetime.finish(false, true);
+});
+function createIteratorLifetime(active, activeIterators) {
+	const lifetime = {
+		finished: false,
+		invalidated: false,
+		pause: () => lifetime.stopObservation(),
+		invalidate: () => {
+			lifetime.invalidated = true;
+			lifetime.finish();
+		},
+		stopObservation: (succeeded = false, abandoned = false) => {
+			const previous = lifetime.observed;
+			lifetime.observed = void 0;
+			activeIterators.delete(lifetime);
+			previous?.finish(succeeded, abandoned);
+		},
+		finish: (succeeded = false, abandoned = false) => {
+			if (!lifetime.finished) {
+				lifetime.finished = true;
+				active.delete(lifetime);
+				lifetime.stopObservation(succeeded, abandoned);
+			}
+		}
+	};
+	active.add(lifetime);
+	return lifetime;
+}
+const bindingMutation = {
+	schemaChange: false,
+	mainSchemaChange: false,
+	temporaryTableSchemaChange: false,
+	dataChange: false,
+	temporaryWriteTables: void 0,
+	control: void 0
+};
+/** Dispose callbacks may refuse close; native custody expires only after SQLite has closed. */
+function observeSqliteNativeClose(database, onClose) {
+	for (const method of ["close", Symbol.dispose]) {
+		if (typeof database[method] !== "function") continue;
+		const close = database[method].bind(database);
+		database[method] = () => {
+			try {
+				close();
+			} finally {
+				if (!database.isOpen) onClose();
+			}
+		};
+	}
+}
+function callStatement(method, bindings) {
+	return Reflect.apply(method, void 0, bindings);
+}
+/** Native callbacks can mutate from any SQL, including SELECT and retained prepared statements. */
+function observeSqliteNativeOperations(database, native, observe) {
+	const begin = (mutation, phase) => {
+		const observed = observe(mutation, phase);
+		pending.set(database, (pending.get(database) ?? 0) + 1);
+		return {
+			...observed,
+			finish(succeeded, abandoned) {
+				try {
+					observed.finish(succeeded, abandoned);
+				} finally {
+					const remaining = (pending.get(database) ?? 1) - 1;
+					if (remaining === 0) pending.delete(database);
+					else pending.set(database, remaining);
+				}
+			}
+		};
+	};
+	const activeIterators = /* @__PURE__ */ new Set();
+	const execute = (operation, mutation, phase = "execute") => {
+		const observed = begin(mutation, phase);
+		let succeeded = false;
+		try {
+			const result = operation();
+			if (phase !== "bind") observed.stepped?.();
+			succeeded = true;
+			return result;
+		} finally {
+			observed.finish(succeeded);
+		}
+	};
+	database.exec = (sql) => execute(() => native.DatabaseSync.prototype.exec.call(database, sql), classifySqliteMutation(sql, "batch"), "exec");
+	database.prepare = (...prepareArgs) => {
+		const statement = native.DatabaseSync.prototype.prepare.call(database, ...prepareArgs);
+		const mutation = classifySqliteMutation(prepareArgs[0], "statement");
+		const run = Object.hasOwn(statement, "run") ? statement.run.bind(statement) : void 0;
+		const get = Object.hasOwn(statement, "get") ? statement.get.bind(statement) : void 0;
+		const all = Object.hasOwn(statement, "all") ? statement.all.bind(statement) : void 0;
+		const iterate = Object.hasOwn(statement, "iterate") ? statement.iterate.bind(statement) : void 0;
+		const active = /* @__PURE__ */ new Set();
+		let registered = false;
+		const reset = (operation, kind = "reuse") => {
+			if (active.size === 0) return operation();
+			const previous = [...active];
+			const result = operation();
+			for (const lifetime of previous) if (kind === "return") lifetime.pause();
+			else lifetime.invalidate();
+			return result;
+		};
+		const wrap = (resolve) => (...bindings) => execute(() => reset(() => callStatement(resolve(), bindings)), mutation);
+		statement.run = wrap(() => run ?? native.StatementSync.prototype.run.bind(statement));
+		statement.get = wrap(() => get ?? native.StatementSync.prototype.get.bind(statement));
+		statement.all = wrap(() => all ?? native.StatementSync.prototype.all.bind(statement));
+		statement.iterate = (...bindings) => {
+			if (!registered) {
+				iteratorFinalizer.register(statement, active);
+				registered = true;
+			}
+			const rows = execute(() => reset(() => callStatement(iterate ?? native.StatementSync.prototype.iterate.bind(statement), bindings)), bindingMutation, "bind");
+			const reference = new WeakRef(rows);
+			let done = false;
+			const lifetime = createIteratorLifetime(active, activeIterators);
+			const nativeNext = rows.next;
+			const nativeReturn = rows.return;
+			rows.next = function(...args) {
+				if (this !== reference.deref() || lifetime.invalidated || done || !database.isOpen) return nativeNext.apply(this, args);
+				if (lifetime.finished) {
+					lifetime.finished = false;
+					active.add(lifetime);
+				}
+				lifetime.observed ??= begin(mutation, "iterate");
+				activeIterators.add(lifetime);
+				const result = nativeNext.apply(this, args);
+				if (result.done) {
+					done = native.iteratorBehavior.nextAfterDoneIsTerminal;
+					if (done) lifetime.finish(true);
+					else lifetime.stopObservation(true);
+				} else lifetime.observed?.stepped?.();
+				return result;
+			};
+			if (nativeReturn) rows.return = function(...args) {
+				if (this !== reference.deref() || done && native.iteratorBehavior.returnAfterDoneIsInert || !database.isOpen) return nativeReturn.apply(this, args);
+				const result = execute(() => lifetime.finished || lifetime.invalidated ? nativeReturn.apply(this, args) : reset(() => nativeReturn.apply(this, args), "return"), bindingMutation, "bind");
+				done = result.done === true;
+				lifetime.finish();
+				return result;
+			};
+			return rows;
+		};
+		for (const method of ["close", Symbol.dispose]) {
+			const close = statement[method]?.bind(statement);
+			if (close) statement[method] = () => reset(close, "finalize");
+		}
+		return statement;
+	};
+	observeSqliteNativeClose(database, () => {
+		for (const lifetime of activeIterators) lifetime.invalidate();
+	});
+	return execute;
+}
+//#endregion
 //#region src/infra/sqlite-pinned-read-snapshot.ts
 const snapshots = resolveGlobalSingleton(Symbol.for("openclaw.sqlitePinnedReadSnapshots"), () => /* @__PURE__ */ new WeakMap());
 function getSqlitePinnedReadSnapshot(db) {
 	return snapshots.get(db);
 }
-/** Pin an implicit read snapshot without requiring transaction-control authorization. */
-function runSqlitePinnedReadSnapshotSync(db, operation) {
+/** First schema admission consumes the same cookie that pins its catalog capture. */
+function runSqliteSchemaReadSnapshotSync(db, operation) {
 	const parent = snapshots.get(db);
 	snapshots.set(db, parent ?? {});
 	try {
@@ -21287,7 +31752,7 @@ function runSqlitePinnedReadSnapshotSync(db, operation) {
 			const snapshot = statement.iterate();
 			try {
 				const first = snapshot.next();
-				if (first.done) throw new Error("SQLite schema version query returned no row");
+				if (first.done) throw new Error("SQLite schema_version query returned no row");
 				return operation(Number(first.value.schema_version));
 			} finally {
 				snapshot.return?.();
@@ -21298,326 +31763,481 @@ function runSqlitePinnedReadSnapshotSync(db, operation) {
 	}
 }
 //#endregion
-//#region src/infra/sqlite-schema-sql.ts
-function findSqlCharacter(sql, character) {
-	let index = 0;
-	while (index < sql.length) {
-		const next = skipSqlQuotedOrComment(sql, index);
-		if (next !== index) {
-			index = next;
-			continue;
-		}
-		if (sql[index] === character) return index;
-		index += 1;
+//#region src/infra/sqlite-schema-admission.ts
+const schemaAdmission = {
+	name: "sqlite-schema",
+	schemaDependent: true,
+	read: (value) => {
+		return isRecord(value) ? value : void 0;
 	}
-	return -1;
+};
+const textEncodingAdmission = {
+	name: "sqlite-text-encoding",
+	read: (value) => typeof value === "string" ? value : void 0
+};
+/** Native metadata read shared by admission and pre-admission migrations. */
+function readSqliteTextEncoding(database) {
+	const retained = getSqliteDatabaseAdmission(database, textEncodingAdmission);
+	if (retained !== void 0) return retained;
+	const encoding = executeWithCachedStatement(database, "PRAGMA encoding", [], (s) => s.get());
+	if (typeof encoding?.encoding !== "string") throw new Error("SQLite did not report its text encoding");
+	return encoding.encoding;
 }
-function skipSqlQuotedOrComment(sql, index) {
-	const quoted = skipSqlQuoted(sql, index, sql[index] ?? "");
-	return quoted !== index ? quoted : skipSqlComment(sql, index);
-}
-function skipSqlQuoted(sql, index, quote) {
-	if (quote !== "'" && quote !== "\"" && quote !== "`" && quote !== "[") return index;
-	const closingQuote = quote === "[" ? "]" : quote;
-	let cursor = index + 1;
-	while (cursor < sql.length) {
-		if (sql[cursor] !== closingQuote) {
-			cursor += 1;
-			continue;
-		}
-		if (quote !== "[" && sql[cursor + 1] === closingQuote) {
-			cursor += 2;
-			continue;
-		}
-		return cursor + 1;
-	}
-	return sql.length;
-}
-function skipSqlComment(sql, index) {
-	if (sql.startsWith("--", index)) {
-		const newline = sql.indexOf("\n", index + 2);
-		return newline === -1 ? sql.length : newline + 1;
-	}
-	if (sql.startsWith("/*", index)) {
-		const close = sql.indexOf("*/", index + 2);
-		return close === -1 ? sql.length : close + 2;
-	}
-	return index;
-}
-//#endregion
-//#region src/infra/sqlite-worker-identity.ts
-const useDatabaseBirthtime = process.platform !== "linux";
-function databaseFileIdentityKey(file) {
-	return `${file.dev}:${file.ino}`;
-}
-function readDatabaseIdentityBirthtime(file) {
-	return useDatabaseBirthtime ? file.birthtimeNs.toString() : "0";
-}
-/** Native SQLite namespaces are filesystem locators, not distinct database owners. */
-function normalizeDatabasePath(location) {
-	const normalized = process.platform === "win32" ? normalizeWindowsPathPreservingCase(location) : location;
-	return process.platform === "win32" && !/^(?:[a-z]:[\\/]|[\\/]{2})/iu.test(normalized) ? location : normalized;
-}
-function existingIdentity(file, canonicalFile, canonicalPath) {
-	if (!file.isFile()) throw new Error("SQLite worker database path must identify a regular file");
-	if (file.dev !== canonicalFile.dev || file.ino !== canonicalFile.ino || readDatabaseIdentityBirthtime(file) !== readDatabaseIdentityBirthtime(canonicalFile)) throw new Error("SQLite database pathname changed during admission");
-	return {
-		key: `file:${databaseFileIdentityKey(file)}`,
-		canonicalPath: normalizeDatabasePath(canonicalPath),
-		birthtime: readDatabaseIdentityBirthtime(file)
-	};
-}
-/** Inspect a native-owner path without replacing its diagnostic for a non-file target. */
-function inspectDatabasePathIdentitySync(databasePath) {
-	const resolvedPath = path.resolve(databasePath);
-	let file;
-	try {
-		file = statSync(resolvedPath, { bigint: true });
-	} catch (error) {
-		if (!hasErrnoCode(error, "ENOENT")) throw error;
-	}
-	if (file) {
-		if (!file.isFile()) return;
-		const canonicalPath = realpathSync.native(resolvedPath);
-		return existingIdentity(file, statSync(canonicalPath, { bigint: true }), canonicalPath);
-	}
-	const missing = [];
-	let ancestor = resolvedPath;
-	while (true) try {
-		const canonicalPath = normalizeDatabasePath(path.join(realpathSync.native(ancestor), ...missing));
-		return {
-			key: `path:${canonicalPath}`,
-			canonicalPath
+/** Capture the physical catalog for admission or pre-admission schema maintenance. */
+function captureSqliteSchemaFacts(database, revision = 0, validateUserVersion) {
+	const retainedTextEncoding = getSqliteDatabaseAdmission(database, textEncodingAdmission);
+	const captured = runSqliteSchemaReadSnapshotSync(database, (schemaVersion) => {
+		const version = executeWithCachedStatement(database, "PRAGMA user_version", [], (s) => s.get());
+		const userVersion = Number(version?.user_version ?? 0);
+		validateUserVersion?.(userVersion);
+		const textEncoding = retainedTextEncoding ?? readSqliteTextEncoding(database);
+		const objects = executeWithCachedStatement(database, "SELECT type, name, tbl_name, sql FROM main.sqlite_schema WHERE type IN ('table', 'view', 'index', 'trigger')", [], (s) => s.all());
+		const facts = {
+			admissionId: randomUUID(),
+			revision,
+			userVersion,
+			textEncoding,
+			schemaVersion,
+			tables: /* @__PURE__ */ new Set(),
+			views: /* @__PURE__ */ new Set(),
+			tableSql: /* @__PURE__ */ new Map(),
+			indexes: /* @__PURE__ */ new Set(),
+			indexDefinitions: /* @__PURE__ */ new Map(),
+			triggers: /* @__PURE__ */ new Map()
 		};
-	} catch (error) {
-		if (!hasErrnoCode(error, "ENOENT")) throw error;
-		missing.unshift(path.basename(ancestor));
-		const parent = path.dirname(ancestor);
-		if (parent === ancestor) throw error;
-		ancestor = parent;
+		for (const row of objects) {
+			if (typeof row.name !== "string") continue;
+			const sql = typeof row.sql === "string" ? row.sql : null;
+			switch (row.type) {
+				case "table":
+					facts.tables.add(row.name);
+					facts.tableSql.set(row.name, sql);
+					break;
+				case "view":
+					facts.views.add(row.name);
+					break;
+				case "index":
+					facts.indexes.add(row.name);
+					if (typeof row.tbl_name === "string") facts.indexDefinitions.set(row.name, {
+						table: row.tbl_name,
+						sql
+					});
+					break;
+				case "trigger": if (typeof row.tbl_name === "string") facts.triggers.set(row.name, {
+					table: row.tbl_name,
+					sql
+				});
+			}
+		}
+		return facts;
+	});
+	if (retainedTextEncoding === void 0 && (captured.tables.size > 0 || captured.views.size > 0)) publishSqliteDatabaseAdmission(database, textEncodingAdmission, captured.textEncoding);
+	return captured;
+}
+function captureTrackedSqliteSchemaFacts(database, owner, validateUserVersion) {
+	owner.capturing = true;
+	try {
+		return captureSqliteSchemaFacts(database, owner.revision, validateUserVersion);
+	} finally {
+		owner.capturing = false;
 	}
 }
-/** Capture identity before yielding; worker admission requires a regular file or absent path. */
-function readDatabasePathIdentitySync(databasePath) {
-	const identity = inspectDatabasePathIdentitySync(databasePath);
-	if (!identity) throw new Error("SQLite worker database path must identify a regular file");
-	return identity;
-}
-//#endregion
-//#region src/infra/sqlite-schema-facts.ts
-const scopes = resolveGlobalSingleton(Symbol.for("openclaw.sqliteSchemaScopes"), () => {
-	const byIdentity = /* @__PURE__ */ new Map();
-	const release = (scope) => {
-		scope.users -= 1;
-		if (scope.users === 0 && scope.key && byIdentity.get(scope.key) === scope) byIdentity.delete(scope.key);
-	};
-	return {
-		byIdentity,
-		release,
-		finalizer: new FinalizationRegistry(release)
-	};
-});
-const owners = resolveGlobalSingleton(Symbol.for("openclaw.sqliteSchemaFacts"), () => /* @__PURE__ */ new WeakMap());
-function invalidate(owner) {
+function invalidateTrackedSqliteSchemaFacts(owner) {
 	owner.revision += 1;
 	owner.facts = void 0;
 }
-function bindScope(database, owner) {
-	if (owner.scope) return owner.scope;
-	const location = database.location();
-	const key = location ? readDatabasePathIdentitySync(location).key : void 0;
-	const scope = key && scopes.byIdentity.get(key) || {
-		key,
-		revision: 0,
-		users: 0
+//#endregion
+//#region src/infra/sqlite-schema-lifetime.ts
+function observeSchemaLifetime(database, owner, snapshot) {
+	if (owner.snapshot && owner.snapshot !== snapshot) {
+		if (!database.isTransaction || !owner.transactionCatalogBound) invalidateTrackedSqliteSchemaFacts(owner);
+		owner.snapshot = void 0;
+		owner.qualifiedSnapshot = void 0;
+	}
+	const processRevision = getSqliteDatabaseSchemaRevision(database);
+	const scopeChanged = owner.processRevision !== void 0 && owner.processRevision !== processRevision;
+	if (scopeChanged && !owner.transactionalSchema && (database.isTransaction && owner.transactionCatalogBound || owner.facts && snapshot && owner.qualifiedSnapshot === snapshot)) {
+		owner.transactionalFacts ||= database.isTransaction;
+		owner.snapshot = snapshot;
+		return false;
+	}
+	owner.processRevision = processRevision;
+	if (scopeChanged) invalidateTrackedSqliteSchemaFacts(owner);
+	if ((owner.transactionalSchema || owner.transactionalTempSchema || owner.transactionalFacts) && !database.isTransaction) {
+		if (owner.transactionalSchema) publishSqliteDatabaseSchemaChange(database);
+		invalidateTrackedSqliteSchemaFacts(owner);
+		owner.transactionalSchema = false;
+		owner.transactionalTempSchema = false;
+		owner.transactionalFacts = false;
+	}
+	return scopeChanged;
+}
+//#endregion
+//#region src/infra/sqlite-schema-scope.ts
+function observeSqliteTransactionState(database, owner) {
+	const inTransaction = database.isTransaction;
+	if (owner.transactionOpen !== inTransaction) {
+		if (owner.transactionOpen) owner.mutationRevision += 1;
+		owner.transactionOpen = inTransaction;
+		owner.transactionMutationRevision = void 0;
+		owner.transactionSnapshot = void 0;
+		owner.transactionRead = false;
+		owner.transactionCatalogBound = false;
+	}
+}
+function finishSqliteReadScope(database, owner, wasTransaction, expiresRead, succeeded, openingMutationRevision) {
+	const inTransaction = database.isTransaction;
+	if (!succeeded && wasTransaction && !inTransaction) owner.mutationRevision += 1;
+	owner.transactionOpen = inTransaction;
+	if (!wasTransaction || !inTransaction) owner.transactionMutationRevision = inTransaction ? openingMutationRevision : void 0;
+	if (wasTransaction !== inTransaction || expiresRead) {
+		owner.transactionSnapshot = void 0;
+		owner.transactionRead = false;
+		owner.transactionCatalogBound = false;
+	}
+}
+//#endregion
+//#region src/infra/sqlite-temp-generation-schema.ts
+function prepareSqliteTempTrackingSchema(database, schema) {
+	const { createSql, objects } = prepareTranscriptIndexSchema(schema);
+	const definitions = new Map(objects.map((object) => [object.name.toLowerCase(), object]));
+	const names = objects.map((object) => object.name);
+	const tableNames = objects.filter((object) => object.type === "table").map((object) => object.name);
+	const parameters = [...names, ...tableNames];
+	const existing = executeWithCachedStatement(database, `SELECT type, name, tbl_name, sql FROM temp.sqlite_schema
+     WHERE name COLLATE NOCASE IN (${names.map(() => "?").join(",")})
+       OR (type = 'trigger' AND tbl_name COLLATE NOCASE IN (${tableNames.map(() => "?").join(",")}))`, parameters, (statement) => statement.all(...parameters));
+	const unexpected = existing.some((row) => {
+		const declared = typeof row.name === "string" ? definitions.get(row.name.toLowerCase()) : void 0;
+		return !declared || row.type !== declared.type || row.tbl_name !== declared.table || typeof row.sql !== "string" || normalizeSchemaSql(row.sql) !== normalizeSchemaSql(declared.sql);
+	});
+	return {
+		sql: createSql(new Set(existing.flatMap((row) => row.type === "trigger" && typeof row.name === "string" ? [row.name.toLowerCase()] : []))),
+		unexpected
 	};
-	if (key) scopes.byIdentity.set(key, scope);
-	scope.users += 1;
-	owner.scope = scope;
-	owner.scopeRevision = scope.revision;
-	scopes.finalizer.register(database, scope, owner);
-	return scope;
 }
-function publishSchemaChange(database, owner) {
-	const scope = bindScope(database, owner);
-	scope.revision += 1;
-	owner.scopeRevision = scope.revision;
+function prepareTranscriptIndexSchema(schema) {
+	const status = quoteSqliteIdentifier(schema.statusTable);
+	const pending = quoteSqliteIdentifier(schema.pendingTable);
+	const index = quoteSqliteIdentifier(schema.pendingIndex);
+	const statusTable = `${status} (
+    id INTEGER PRIMARY KEY CHECK (id = 1), sibling_write_revision INTEGER NOT NULL,
+    schema_version INTEGER NOT NULL, complete INTEGER NOT NULL, after_session TEXT,
+    completed_traversals INTEGER NOT NULL
+  ) STRICT`;
+	const pendingTable = `${pending} (session_id TEXT PRIMARY KEY, state INTEGER NOT NULL) STRICT`;
+	const pendingIndex = `${index} ON ${pending}(state, session_id)`;
+	const triggers = schema.observedTables.flatMap((table) => [
+		"INSERT",
+		"UPDATE",
+		"DELETE"
+	].map((operation) => {
+		const name = `openclaw_${table}_projection_${operation.toLowerCase()}`;
+		const sources = operation === "UPDATE" ? ["OLD", "NEW"] : [operation === "DELETE" ? "OLD" : "NEW"];
+		return {
+			name,
+			table,
+			definition: `TRIGGER ${quoteSqliteIdentifier(name)} AFTER ${operation} ON main.${quoteSqliteIdentifier(table)}
+          WHEN ${sources.map((source) => `NOT EXISTS (
+                SELECT 1 FROM ${pending}
+                WHERE session_id = ${source}.session_id AND state = 0
+              )`).join(" OR ")} BEGIN
+            ${sources.map((source) => `
+                  UPDATE ${pending} SET state = 0 WHERE session_id = ${source}.session_id;
+                  INSERT INTO ${pending}
+                    SELECT ${source}.session_id, 0 WHERE NOT EXISTS (
+                      SELECT 1 FROM ${pending} WHERE session_id = ${source}.session_id
+                    );`).join("\n")}
+          END`
+		};
+	}));
+	const createSql = (existingTriggers) => `
+    CREATE TEMP TABLE IF NOT EXISTS ${statusTable};
+    INSERT OR IGNORE INTO temp.${status} VALUES (1, -1, -1, 0, NULL, 0);
+    UPDATE temp.${status} SET sibling_write_revision = -1;
+    CREATE TEMP TABLE IF NOT EXISTS ${pendingTable};
+    CREATE INDEX IF NOT EXISTS temp.${pendingIndex};
+    ${triggers.map(({ name, definition }) => {
+		return `${existingTriggers.has(name.toLowerCase()) ? `DROP TRIGGER IF EXISTS temp.${quoteSqliteIdentifier(name)};` : ""}CREATE TEMP ${definition};`;
+	}).join("\n")}
+  `;
+	return {
+		createSql,
+		objects: [
+			{
+				name: schema.statusTable,
+				type: "table",
+				table: schema.statusTable,
+				sql: `CREATE TABLE ${statusTable}`
+			},
+			{
+				name: schema.pendingTable,
+				type: "table",
+				table: schema.pendingTable,
+				sql: `CREATE TABLE ${pendingTable}`
+			},
+			{
+				name: schema.pendingIndex,
+				type: "index",
+				table: schema.pendingTable,
+				sql: `CREATE INDEX ${pendingIndex}`
+			},
+			...triggers.map((trigger) => ({
+				name: trigger.name,
+				type: "trigger",
+				table: trigger.table,
+				sql: `CREATE ${trigger.definition}`
+			}))
+		]
+	};
 }
+//#endregion
+//#region src/infra/sqlite-schema-facts.ts
+const owners = resolveGlobalSingleton(Symbol.for("openclaw.sqliteSchemaFacts"), () => /* @__PURE__ */ new WeakMap());
 /** Schema publications outside DDL (such as a deferred version marker) share this revision. */
 function invalidateSqliteSchemaFacts(database) {
+	invalidateSchemaFacts(database, true);
+}
+function invalidateSchemaFacts(database, publish, change = "main", notify = change !== "temp") {
 	const owner = owners.get(database);
 	if (owner) {
-		bindScope(database, owner);
-		invalidate(owner);
-		owner.transactionalSchema ||= database.isTransaction;
-		if (!database.isTransaction) publishSchemaChange(database, owner);
+		const changesMain = change === "main";
+		owner.isolatedTempTables.clear();
+		if (database.isTransaction) owner.transactionMutationRevision = void 0;
+		if (changesMain) invalidateLocalSqliteSchemaAdmissions(database);
+		if (changesMain && database.isTransaction && !owner.transactionalSchema) owner.transactionBaseFacts = owner.facts;
+		if (notify) for (const listener of owner.mutationListeners ?? []) listener(void 0);
+		invalidateTrackedSqliteSchemaFacts(owner);
+		owner.transactionalSchema ||= changesMain && database.isTransaction;
+		owner.transactionalTempSchema ||= change === "temp" && database.isTransaction;
+		owner.pendingSchema ||= changesMain && owner.nativeDepth > 0;
+		if (publish && changesMain && !database.isTransaction && owner.nativeDepth === 0) publishSqliteDatabaseSchemaChange(database);
 	}
 }
-function changesSchema(sql) {
-	return /\b(?:CREATE|ALTER|DROP|REINDEX|VACUUM)\b|\bPRAGMA\b[\s\S]*\b(?:user_version|schema_version|writable_schema)\b[\s\S]*[=(]/i.test(sql);
-}
-const transactionControlPrefix = /^(?:\s|;|--[^\n]*(?:\n|$)|\/\*(?:[^*]|\*(?!\/))*\*\/)*(BEGIN|SAVEPOINT|COMMIT|END|RELEASE|ROLLBACK)\b/i;
-function batchTransactionControl(sql) {
-	let control;
-	let remaining = sql;
-	while (remaining) {
-		const next = transactionControlPrefix.exec(remaining)?.[1]?.toUpperCase();
-		if (next === "ROLLBACK") return next;
-		control ||= next;
-		const end = remaining.includes(";") ? findSqlCharacter(remaining, ";") : -1;
-		if (end < 0) break;
-		remaining = remaining.slice(end + 1);
-	}
-	return control;
-}
-function callStatement(method, [first, ...remaining]) {
-	if (first === void 0) return method();
-	if (typeof first === "object" && first !== null && !ArrayBuffer.isView(first)) return method(first, ...remaining);
-	return method(first, ...remaining);
-}
-function trackSchemaChanges(database, owner, native) {
-	const settle = (boundary = false) => {
-		if ((boundary || !database.isTransaction) && (owner.transactionalSchema || owner.transactionalFacts)) {
-			if (owner.transactionalSchema) publishSchemaChange(database, owner);
-			invalidate(owner);
+function trackSchemaChanges(database, owner, native, writable) {
+	const settle = (boundary = false, rolledBack = false) => {
+		if (rolledBack) {
+			const snapshot = getSqlitePinnedReadSnapshot(database);
+			const facts = snapshot && (owner.transactionalSchema ? owner.transactionBaseFacts : owner.facts);
+			discardSqliteDatabaseTransactionAdmissions(database);
+			invalidateTrackedSqliteSchemaFacts(owner);
+			owner.transactionalSchema = false;
+			owner.transactionalTempSchema = false;
+			owner.transactionalFacts = false;
+			if (snapshot && owner.admitted && !owner.authorizerActive) {
+				owner.facts = facts ? {
+					...facts,
+					revision: owner.revision
+				} : captureTrackedSqliteSchemaFacts(database, owner);
+				owner.snapshot = snapshot;
+				owner.qualifiedSnapshot = snapshot;
+			}
+			owner.transactionBaseFacts = void 0;
+			return;
+		}
+		if ((boundary || !database.isTransaction) && (owner.transactionalSchema || owner.transactionalTempSchema || owner.transactionalFacts)) {
+			if (owner.transactionalSchema) publishSqliteDatabaseSchemaChange(database);
+			invalidateTrackedSqliteSchemaFacts(owner);
 			owner.transactionalSchema &&= database.isTransaction;
+			owner.transactionalTempSchema &&= database.isTransaction;
 			owner.transactionalFacts = false;
 		}
 	};
-	const execute = (operation, schemaChange, control) => {
-		if (owner.transactionalSchema && !owner.scope) bindScope(database, owner);
-		settle();
-		const invalidates = schemaChange || control === "ROLLBACK" && owner.transactionalSchema;
-		if (invalidates) invalidateSqliteSchemaFacts(database);
-		try {
-			return operation();
-		} finally {
-			if (invalidates) invalidateSqliteSchemaFacts(database);
-			settle(Boolean(control));
-		}
-	};
-	database.exec = (sql) => execute(() => native.DatabaseSync.prototype.exec.call(database, sql), changesSchema(sql), batchTransactionControl(sql));
-	database.prepare = (...prepareArgs) => {
-		const [sql] = prepareArgs;
-		const statement = native.DatabaseSync.prototype.prepare.call(database, ...prepareArgs);
-		const schemaChange = changesSchema(sql);
-		const control = transactionControlPrefix.exec(sql)?.[1]?.toUpperCase();
-		if (schemaChange || control) {
-			const run = Object.hasOwn(statement, "run") ? statement.run.bind(statement) : void 0;
-			const get = Object.hasOwn(statement, "get") ? statement.get.bind(statement) : void 0;
-			const all = Object.hasOwn(statement, "all") ? statement.all.bind(statement) : void 0;
-			const iterate = Object.hasOwn(statement, "iterate") ? statement.iterate.bind(statement) : void 0;
-			statement.run = (...bindings) => execute(() => callStatement(run ?? native.StatementSync.prototype.run.bind(statement), bindings), schemaChange, control);
-			statement.get = (...bindings) => execute(() => callStatement(get ?? native.StatementSync.prototype.get.bind(statement), bindings), schemaChange, control);
-			statement.all = (...bindings) => execute(() => callStatement(all ?? native.StatementSync.prototype.all.bind(statement), bindings), schemaChange, control);
-			statement.iterate = function* (...bindings) {
-				if (owner.transactionalSchema && !owner.scope) bindScope(database, owner);
-				settle();
-				const invalidates = schemaChange || control === "ROLLBACK" && owner.transactionalSchema;
-				if (invalidates) invalidateSqliteSchemaFacts(database);
-				try {
-					yield* callStatement(iterate ?? native.StatementSync.prototype.iterate.bind(statement), bindings);
-				} finally {
-					if (invalidates) invalidateSqliteSchemaFacts(database);
-					settle(Boolean(control));
+	const execute = observeSqliteNativeOperations(database, native, (mutation, phase) => {
+		if (owner.settling) return { finish: () => {} };
+		const { control, dataChange } = mutation;
+		const schemaChange = control?.outerRollback === true ? false : mutation.schemaChange;
+		const mainSchemaChange = mutation.mainSchemaChange && control?.outerRollback !== true;
+		observeSqliteTransactionState(database, owner);
+		const snapshot = phase === "bind" ? void 0 : getSqlitePinnedReadSnapshot(database);
+		const iterator = phase !== "bind" && !snapshot && !owner.capturing ? {} : void 0;
+		if (snapshot && snapshot !== owner.snapshot && !owner.capturing) {
+			if (database.isTransaction && (owner.transactionRead || owner.transactionCatalogBound) && owner.processRevision !== getSqliteDatabaseSchemaRevision(database)) {
+				if (!owner.transactionCatalogBound) invalidateTrackedSqliteSchemaFacts(owner);
+				owner.transactionalFacts = true;
+			} else {
+				observeSchemaLifetime(database, owner, void 0);
+				if (!owner.facts && !owner.transactionalSchema) {
+					const retained = getSqliteDatabaseAdmission(database, schemaAdmission);
+					if (retained) owner.facts = {
+						...retained,
+						revision: owner.revision
+					};
 				}
-			};
+			}
+			owner.snapshot = snapshot;
+			owner.qualifiedSnapshot = snapshot;
 		}
-		return statement;
+		if (owner.nativeDepth === 0) settle();
+		const wasTransaction = database.isTransaction;
+		if (writable && !wasTransaction && (control?.kind === "BEGIN" || control?.kind === "SAVEPOINT")) getSqliteDatabaseSchemaRevision(database);
+		const openingMutationRevision = !wasTransaction && control?.kind === "BEGIN" && control.single ? owner.mutationRevision : void 0;
+		if (!wasTransaction && control?.kind === "BEGIN" && owner.admitted) getAdmittedSqliteSchemaFacts(database);
+		const expiresRead = Boolean(control) && !canPreserveTransactionSnapshot(control, wasTransaction);
+		const rollback = control?.kind === "ROLLBACK";
+		const rollsBackSchema = rollback && owner.transactionalSchema && !control.outerRollback;
+		const notifySchema = schemaChange && !mutation.temporaryTableSchemaChange || rollback && owner.transactionalSchema;
+		const schemaInvalidation = mainSchemaChange || rollsBackSchema ? "main" : rollback ? owner.transactionalTempSchema && !owner.transactionalSchema ? "temp" : "rollback" : mutation.temporaryTableSchemaChange ? "temp" : "local";
+		if (rollback) discardSqliteDatabaseTransactionAdmissions(database);
+		if (schemaChange || rollback) invalidateSchemaFacts(database, false, schemaInvalidation, notifySchema);
+		if (dataChange || mutation.temporaryTableSchemaChange || control?.kind === "ROLLBACK") owner.mutationRevision += 1;
+		if (phase !== "bind" && wasTransaction && !control && owner.readDepth === 0 && !owner.transactionCatalogBound) owner.transactionRead = true;
+		const changesReadScope = schemaChange || dataChange || control !== void 0;
+		const temporaryWrite = mutation.temporaryWriteTables?.every((table) => owner.isolatedTempTables.has(table));
+		if (dataChange && !temporaryWrite || mainSchemaChange) beginSqliteDatabaseWrite(database, mainSchemaChange || owner.nativeDepth > 0);
+		if (changesReadScope) owner.mutationDepth += 1;
+		owner.nativeDepth += 1;
+		const finishAdmissions = beginSqliteDatabaseAdmissionOperation(database);
+		const pendingBefore = owner.schemaMutationRevision;
+		if (mainSchemaChange) owner.schemaMutationRevision += 1;
+		owner.pendingSchema ||= mainSchemaChange;
+		if (iterator) owner.unmanagedSnapshots.add(iterator);
+		return {
+			stepped: () => {
+				if (database.isTransaction && !control && !owner.transactionRead && !owner.transactionCatalogBound && owner.facts && owner.processRevision === getSqliteDatabaseSchemaRevision(database)) owner.transactionCatalogBound = true;
+			},
+			finish: (succeeded, abandoned) => {
+				if (iterator && owner.unmanagedSnapshots.delete(iterator) && owner.iteratorFacts) {
+					invalidateTrackedSqliteSchemaFacts(owner);
+					owner.iteratorFacts = false;
+				}
+				finishAdmissions();
+				owner.nativeDepth -= 1;
+				if (changesReadScope) owner.mutationDepth -= 1;
+				if (!database.isOpen) return;
+				if (schemaChange || rollback) {
+					if (rollback) discardSqliteDatabaseTransactionAdmissions(database);
+					invalidateSchemaFacts(database, false, schemaInvalidation, notifySchema);
+				}
+				const rolledBack = succeeded && wasTransaction && control?.outerRollback === true && !database.isTransaction && !mainSchemaChange && owner.schemaMutationRevision === pendingBefore;
+				if (rolledBack) {
+					settle(false, true);
+					owner.pendingSchema = false;
+				}
+				if (owner.nativeDepth === 0) {
+					owner.settling = true;
+					try {
+						const changedSchema = owner.pendingSchema || owner.transactionalSchema;
+						if (!rolledBack && owner.pendingSchema && !database.isTransaction && !owner.transactionalSchema) publishSqliteDatabaseSchemaChange(database);
+						if (!rolledBack) settle(expiresRead);
+						if (changedSchema && !database.isTransaction && !rolledBack) {
+							invalidateTrackedSqliteSchemaFacts(owner);
+							if (!succeeded) discardSqliteDatabaseTransactionAdmissions(database);
+							if (owner.admitted && !owner.authorizerActive && !abandoned) {
+								getAdmittedSqliteSchemaFacts(database);
+								owner.transactionBaseFacts = void 0;
+							}
+						}
+						owner.pendingSchema = false;
+					} finally {
+						owner.settling = false;
+					}
+				}
+				finishSqliteReadScope(database, owner, wasTransaction, expiresRead, succeeded, openingMutationRevision);
+				if (owner.mutationDepth === 0 && !database.isTransaction) finishSqliteDatabaseWrite(database);
+				owner.transactionRead ||= database.isTransaction && Boolean(control && !control.single);
+			}
+		};
+	});
+	observeSqliteNativeClose(database, () => {
+		finishSqliteDatabaseWrite(database);
+		releaseSqliteDatabaseAdmission(database);
+	});
+	owner.installTempTrackingSchema = (schema) => {
+		const { sql, unexpected } = prepareSqliteTempTrackingSchema(database, schema);
+		try {
+			execute(() => native.DatabaseSync.prototype.exec.call(database, sql), {
+				schemaChange: unexpected,
+				mainSchemaChange: unexpected,
+				temporaryTableSchemaChange: false,
+				dataChange: true,
+				temporaryWriteTables: [],
+				control: void 0
+			});
+			if (!unexpected) for (const table of [schema.statusTable, schema.pendingTable]) owner.isolatedTempTables.add(table.toLowerCase());
+		} catch (error) {
+			invalidateSqliteSchemaFacts(database);
+			throw error;
+		}
 	};
 	if (typeof database.setAuthorizer === "function") database.setAuthorizer = (callback) => {
 		native.DatabaseSync.prototype.setAuthorizer.call(database, callback);
 		owner.authorizerActive = callback !== null;
-		invalidate(owner);
+		suspendSqliteDatabaseAdmission(database, owner.authorizerActive);
+		invalidateTrackedSqliteSchemaFacts(owner);
 	};
 	registerNodeSqliteDisposeCallback(database, () => {
-		invalidate(owner);
-		owner.dataVersion = void 0;
-		owner.readDataVersion = void 0;
-		if (owner.scope) {
-			scopes.finalizer.unregister(owner);
-			scopes.release(owner.scope);
-			owner.scope = void 0;
-			owner.scopeRevision = void 0;
-		}
+		invalidateTrackedSqliteSchemaFacts(owner);
+		owner.readRevision = void 0;
+		owner.transactionSnapshot = void 0;
 	});
 }
-/** Always execute a fresh probe; compare versions only on the same connection. */
-function readSqliteDataVersion(database) {
-	const row = executeWithCachedStatement(database, "PRAGMA data_version", [], (statement) => statement.get());
-	if (typeof row?.data_version !== "number") throw new Error("SQLite did not return a numeric PRAGMA data_version");
-	return row.data_version;
-}
-/** Foreign commits are observed on the next operation; SQLite owns snapshot visibility. */
-function readSqliteCacheDataVersion(database) {
-	const tracked = owners.get(database);
-	const owner = tracked?.admitted ? tracked : void 0;
-	if (owner && !owner.authorizerActive && owner.readDataVersion !== void 0) return owner.readDataVersion;
-	const dataVersion = readSqliteDataVersion(database);
-	if (owner) {
-		if (owner.dataVersion !== dataVersion) {
-			const facts = owner.facts;
-			if (!(facts && runSqlitePinnedReadSnapshotSync(database, (schemaVersion) => {
-				const userVersion = executeWithCachedStatement(database, "PRAGMA user_version", [], (s) => s.get());
-				return facts.schemaVersion === schemaVersion && facts.userVersion === userVersion?.user_version;
-			}))) invalidate(owner);
-			owner.dataVersion = dataVersion;
-		}
-		if (owner.readDepth > 0 && !owner.authorizerActive) owner.readDataVersion = dataVersion;
-	}
-	return dataVersion;
-}
 /** Install at native open, before callers can retain statements or install an authorizer. */
-function trackSqliteSchema(database, native) {
+function trackSqliteSchema(database, native, writable = true) {
 	if (!owners.has(database)) {
 		const owner = {
 			admitted: false,
 			revision: 0,
 			readDepth: 0,
+			mutationRevision: 0,
+			mutationDepth: 0,
+			transactionOpen: database.isOpen && database.isTransaction,
+			transactionRead: false,
+			transactionCatalogBound: false,
+			nativeDepth: 0,
+			pendingSchema: false,
+			schemaMutationRevision: 0,
+			settling: false,
+			capturing: false,
 			transactionalSchema: false,
+			transactionalTempSchema: false,
 			transactionalFacts: false,
-			authorizerActive: false
+			authorizerActive: false,
+			unmanagedSnapshots: /* @__PURE__ */ new Set(),
+			isolatedTempTables: /* @__PURE__ */ new Set(),
+			iteratorFacts: false
 		};
 		owners.set(database, owner);
-		trackSchemaChanges(database, owner, native);
+		trackSchemaChanges(database, owner, native, writable);
+		const retained = getSqliteDatabaseAdmission(database, schemaAdmission, { existingOnly: true });
+		if (retained) {
+			owner.admitted = true;
+			owner.facts = {
+				...retained,
+				revision: owner.revision
+			};
+			owner.processRevision = getSqliteDatabaseSchemaRevision(database);
+		}
 	}
 }
-/** Schema changes revoke the admission; ordinary reads consume its recorded facts. */
-function getAdmittedSqliteSchemaFacts(database) {
+/** Consume the physical database's admitted facts and owner-published schema changes. */
+function getAdmittedSqliteSchemaFacts(database, validateUserVersion) {
+	if (isPostgresSqlConnection(database)) return;
 	const owner = owners.get(database);
 	if (!owner?.admitted || owner.authorizerActive) return;
-	readSqliteCacheDataVersion(database);
 	const snapshot = getSqlitePinnedReadSnapshot(database);
-	if (owner.snapshot && owner.snapshot !== snapshot) {
-		invalidate(owner);
-		owner.snapshot = void 0;
-	}
-	const scope = bindScope(database, owner);
-	if (owner.scopeRevision !== scope.revision) {
-		invalidate(owner);
-		owner.scopeRevision = scope.revision;
-	}
-	if ((owner.transactionalSchema || owner.transactionalFacts) && !database.isTransaction) {
-		if (owner.transactionalSchema) publishSchemaChange(database, owner);
-		invalidate(owner);
-		owner.transactionalSchema = false;
-		owner.transactionalFacts = false;
-	}
+	const unknownSnapshot = database.isTransaction && (owner.transactionRead || owner.transactionCatalogBound) && owner.processRevision !== getSqliteDatabaseSchemaRevision(database) || owner.unmanagedSnapshots.size > 0;
+	const scopeChanged = observeSchemaLifetime(database, owner, snapshot);
 	if (!owner.facts) {
 		owner.snapshot = snapshot;
-		owner.transactionalFacts = database.isTransaction;
-		owner.facts = runSqlitePinnedReadSnapshotSync(database, (schemaVersion) => {
-			const userVersion = executeWithCachedStatement(database, "PRAGMA user_version", [], (s) => s.get());
-			const tables = executeWithCachedStatement(database, "SELECT name, sql FROM main.sqlite_schema WHERE type = 'table'", [], (s) => s.all());
-			return {
-				revision: owner.revision,
-				userVersion: Number(userVersion?.user_version ?? 0),
-				schemaVersion,
-				tables: new Set(tables.flatMap((row) => typeof row.name === "string" ? [row.name] : [])),
-				tableSql: new Map(tables.flatMap((row) => typeof row.name === "string" ? [[row.name, typeof row.sql === "string" ? row.sql : null]] : []))
+		owner.transactionalFacts ||= database.isTransaction && (owner.readDepth === 0 || scopeChanged);
+		const localSnapshot = unknownSnapshot || Boolean(snapshot) || owner.transactionalSchema;
+		const retained = owner.transactionalSchema || localSnapshot ? void 0 : getSqliteDatabaseAdmission(database, schemaAdmission);
+		if (retained) {
+			validateUserVersion?.(retained.userVersion);
+			owner.facts = {
+				...retained,
+				revision: owner.revision
 			};
-		});
-	}
+			return owner.facts;
+		}
+		const schemaRevision = getSqliteDatabaseSchemaRevision(database);
+		owner.facts = captureTrackedSqliteSchemaFacts(database, owner, validateUserVersion);
+		owner.iteratorFacts ||= owner.unmanagedSnapshots.size > 0;
+		owner.qualifiedSnapshot = snapshot;
+		owner.transactionCatalogBound ||= database.isTransaction;
+		if (!localSnapshot) publishSqliteDatabaseAdmission(database, schemaAdmission, owner.facts, { schemaRevision });
+	} else validateUserVersion?.(owner.facts.userVersion);
 	return owner.facts;
 }
 //#endregion
@@ -21689,21 +32309,72 @@ function assertSqliteWalResetSafeVersion(version, nodeVersion) {
 	if (isSqliteWalResetSafeVersion(version)) return;
 	const variables = process.config?.variables;
 	const isShared = variables?.node_shared_sqlite === true || variables?.node_shared_sqlite === "true";
-	throw new Error(`OpenClaw requires SQLite 3.51.3+, 3.50.7+ within 3.50.x, or 3.44.6+ within 3.44.x for WAL safety; Node ${nodeVersion} ${isShared ? "uses shared system" : "embeds"} SQLite ${version}, which is affected by the upstream WAL-reset database corruption bug. ${isShared ? "Upgrade the system SQLite library to one of those safe versions, or use a Node build embedding a safe version." : "Upgrade to Node 24.16.0+ or 26.1.0+ before retrying."}`);
+	throw new Error(`OpenClaw requires SQLite 3.51.3+, 3.50.7+ within 3.50.x, or 3.44.6+ within 3.44.x for WAL safety; Node ${nodeVersion} ${isShared ? "uses shared system" : "embeds"} SQLite ${version}, which is affected by the upstream WAL-reset database corruption bug. ${isShared ? "Upgrade the system SQLite library to one of those safe versions, or use a Node build embedding a safe version." : "Upgrade to Node 24.22.1+ or 26.12.1+ before retrying."}`);
+}
+function sqliteNativeRuntimeIdentity() {
+	return {
+		pid: process.pid,
+		executable: process.execPath,
+		nodeVersion: process.versions.node,
+		bunVersion: process.versions.bun,
+		library: ensureSqliteLibrarySelected()
+	};
+}
+function parseSqliteNativeRuntimeAdmission(value) {
+	if (!isRecord(value) || value.format !== 1 || typeof value.version !== "string" || typeof value.extensionLoadingSupported !== "boolean" || !isRecord(value.iteratorBehavior) || typeof value.iteratorBehavior.nextAfterDoneIsTerminal !== "boolean" || typeof value.iteratorBehavior.returnAfterDoneIsInert !== "boolean") return;
+	const runtime = sqliteNativeRuntimeIdentity();
+	if (!isDeepStrictEqual(value.runtime, runtime)) return;
+	return {
+		format: 1,
+		runtime,
+		version: value.version,
+		extensionLoadingSupported: value.extensionLoadingSupported,
+		iteratorBehavior: {
+			nextAfterDoneIsTerminal: value.iteratorBehavior.nextAfterDoneIsTerminal,
+			returnAfterDoneIsInert: value.iteratorBehavior.returnAfterDoneIsInert
+		}
+	};
 }
 function assertSafeSqliteRuntime(sqlite) {
-	if (validatedSqliteModule === sqlite) return;
+	if (validatedSqliteModule?.sqlite === sqlite) return validatedSqliteModule.iteratorBehavior;
+	const inherited = isMainThread ? void 0 : parseSqliteNativeRuntimeAdmission(getEnvironmentData(SQLITE_NATIVE_RUNTIME_ADMISSION_KEY));
+	if (inherited) {
+		assertSqliteWalResetSafeVersion(inherited.version, process.versions.node);
+		compareValidSemver(inherited.version, "3.45.0");
+		inherited.extensionLoadingSupported;
+		validatedSqliteModule = {
+			sqlite,
+			iteratorBehavior: inherited.iteratorBehavior
+		};
+		return inherited.iteratorBehavior;
+	}
 	const database = new sqlite.DatabaseSync(":memory:");
+	let version;
+	let extensions;
+	let iteratorBehavior;
 	try {
-		const row = database.prepare("SELECT sqlite_version() AS version").get();
-		const version = typeof row?.version === "string" ? row.version : "unknown";
+		const statement = database.prepare("SELECT sqlite_version() AS version, sqlite_compileoption_used('OMIT_LOAD_EXTENSION') AS omitted");
+		const row = statement.get();
+		version = typeof row?.version === "string" ? row.version : "unknown";
 		assertSqliteWalResetSafeVersion(version, process.versions.node);
-		compareValidSemver(version, "3.45.0");
-		database.prepare("SELECT sqlite_compileoption_used('OMIT_LOAD_EXTENSION') AS omitted").get()?.omitted;
-		validatedSqliteModule = sqlite;
+		extensions = row?.omitted === 0;
+		iteratorBehavior = probeSqliteIteratorBehavior(statement);
 	} finally {
 		database.close();
 	}
+	compareValidSemver(version, "3.45.0");
+	validatedSqliteModule = {
+		sqlite,
+		iteratorBehavior
+	};
+	setEnvironmentData(SQLITE_NATIVE_RUNTIME_ADMISSION_KEY, {
+		format: 1,
+		runtime: sqliteNativeRuntimeIdentity(),
+		version,
+		extensionLoadingSupported: extensions,
+		iteratorBehavior
+	});
+	return iteratorBehavior;
 }
 /** Load node:sqlite after installing the process warning filter. */
 function requireNodeSqlite() {
@@ -21722,21 +32393,87 @@ function requireNodeSqlite() {
 function openNodeSqliteDatabase(location, options) {
 	const sqlite = requireNodeSqlite();
 	const resolvedLocation = resolveNodeSqliteLocation(location);
+	const identity = options?.open === false ? void 0 : prepareSqliteDatabaseAdmission(resolvedLocation, { create: options?.readOnly !== true });
 	const database = new sqlite.DatabaseSync(resolvedLocation, options ?? {});
-	trackSqliteSchema(database, sqlite);
+	if (database.isOpen) try {
+		bindSqliteDatabaseAdmission(database, identity);
+	} catch (error) {
+		database.close();
+		throw error;
+	}
+	database.open = () => {
+		const reopenedIdentity = prepareSqliteDatabaseAdmission(resolvedLocation, { create: options?.readOnly !== true });
+		sqlite.DatabaseSync.prototype.open.call(database);
+		try {
+			bindSqliteDatabaseAdmission(database, reopenedIdentity);
+		} catch (error) {
+			database.close();
+			throw error;
+		}
+	};
+	trackSqliteSchema(database, {
+		DatabaseSync: sqlite.DatabaseSync,
+		StatementSync: sqlite.StatementSync,
+		iteratorBehavior: assertSafeSqliteRuntime(sqlite)
+	}, options?.readOnly !== true);
 	if (!getSqliteRuntimeCapabilities().explicitSqliteCloseReleasesNativeResources) registerNodeSqliteDisposeCallback(database, () => {});
 	registerSqliteReaderConnection(database);
 	return database;
 }
 //#endregion
 //#region src/infra/sqlite-busy-timeout.ts
+const { busyTimeoutByDatabase, trackedDatabases } = resolveGlobalSingleton(Symbol.for("openclaw.sqliteBusyTimeout"), () => ({
+	busyTimeoutByDatabase: /* @__PURE__ */ new WeakMap(),
+	trackedDatabases: /* @__PURE__ */ new WeakSet()
+}));
+function rememberSqliteBusyTimeout(database, busyTimeoutMs) {
+	if (!trackedDatabases.has(database)) {
+		trackedDatabases.add(database);
+		registerNodeSqliteDisposeCallback(database, () => busyTimeoutByDatabase.delete(database));
+	}
+	busyTimeoutByDatabase.set(database, busyTimeoutMs);
+}
 function normalizeSqliteNonNegativeInteger(value, label) {
 	if (!Number.isInteger(value) || value < 0) throw new Error(`${label} must be a non-negative integer`);
 	return value;
 }
+/** All policy changes on a managed connection go through this owner. */
 function setSqliteBusyTimeout(database, busyTimeoutMs) {
 	const normalizedTimeoutMs = normalizeSqliteNonNegativeInteger(busyTimeoutMs, "busyTimeoutMs");
+	if (busyTimeoutByDatabase.get(database) === normalizedTimeoutMs) return;
 	database.exec(`PRAGMA busy_timeout = ${normalizedTimeoutMs}`);
+	rememberSqliteBusyTimeout(database, normalizedTimeoutMs);
+}
+//#endregion
+//#region src/infra/database-engine/postgres-catalog.ts
+function readPostgresCatalog(value) {
+	if (!Array.isArray(value) || !value.every((item) => item !== null && typeof item === "object" && typeof item.table === "string" && typeof item.kind === "string" && "value" in item)) throw new Error("PostgreSQL did not return catalog facts");
+	return value;
+}
+//#endregion
+//#region src/infra/database-engine/physical-facts.ts
+const admissionKey = {
+	name: "database.engine.schema",
+	schemaDependent: true,
+	read(value) {
+		if (value && typeof value === "object" && "engine" in value && value.engine === "postgres" && "admissionId" in value && typeof value.admissionId === "string" && "store" in value && typeof value.store === "string" && "namespace" in value && typeof value.namespace === "string" && "storeId" in value && typeof value.storeId === "string" && "version" in value && typeof value.version === "number" && "capabilities" in value && value.capabilities !== null && typeof value.capabilities === "object" && "serverMajor" in value.capabilities && typeof value.capabilities.serverMajor === "number" && value.capabilities.serverMajor >= 16 && "serverEncoding" in value.capabilities && value.capabilities.serverEncoding === "UTF8" && "clientEncoding" in value.capabilities && value.capabilities.clientEncoding === "UTF8" && "catalog" in value) return {
+			engine: "postgres",
+			admissionId: value.admissionId,
+			store: value.store,
+			namespace: value.namespace,
+			storeId: value.storeId,
+			version: value.version,
+			capabilities: {
+				serverMajor: value.capabilities.serverMajor,
+				serverEncoding: "UTF8",
+				clientEncoding: "UTF8"
+			},
+			catalog: readPostgresCatalog(value.catalog)
+		};
+	}
+};
+function getPostgresPhysicalFacts(db) {
+	return getSqliteDatabaseAdmission(db, admissionKey);
 }
 //#endregion
 //#region src/infra/sqlite-schema-issues.ts
@@ -21747,11 +32484,77 @@ var SqliteSchemaMismatchError = class extends Error {
 		this.name = "SqliteSchemaMismatchError";
 	}
 };
+//#endregion
+//#region src/state/openclaw-state-db-admission.ts
+function getStateSchemaFacts(database) {
+	return isPostgresSqlConnection(database) ? getPostgresPhysicalFacts(database) : getAdmittedSqliteSchemaFacts(database);
+}
+const versionKey = {
+	name: "state.schema-version",
+	schemaDependent: true,
+	read(value) {
+		if (typeof value === "object" && value !== null && "userVersion" in value && typeof value.userVersion === "number" && "contentVersion" in value && typeof value.contentVersion === "number") return {
+			userVersion: value.userVersion,
+			contentVersion: value.contentVersion
+		};
+	}
+};
+const connectionVersions = /* @__PURE__ */ new WeakMap();
+function rememberConnectionVersion(database, value) {
+	const previous = connectionVersions.get(database);
+	const install = (entry) => {
+		if (entry) connectionVersions.set(database, entry);
+		else connectionVersions.delete(database);
+	};
+	if (!stageSqliteTransactionState(database, {
+		stage: () => install(value),
+		commit: () => {},
+		rollback: () => install(previous)
+	})) install(value);
+}
+function schemaVersionKey(admissionId) {
+	return {
+		name: `state.schema-version:${admissionId}`,
+		read: versionKey.read
+	};
+}
+function getStateSchemaVersionAdmission(database) {
+	const schema = getStateSchemaFacts(database);
+	if (!schema) return;
+	const retained = connectionVersions.get(database);
+	if (retained?.schema === schema) return retained.facts;
+	const history = getSqliteDatabaseAdmission(database, schemaVersionKey(schema.admissionId));
+	const currentSchema = history ? void 0 : getSqliteDatabaseAdmission(database, schemaAdmission);
+	if (!history && !isPostgresSqlConnection(database) && currentSchema?.admissionId !== schema.admissionId) return;
+	const facts = history ?? getSqliteDatabaseAdmission(database, versionKey);
+	if (facts) {
+		rememberConnectionVersion(database, {
+			schema,
+			facts
+		});
+		if (!history) publishSqliteDatabaseAdmission(database, schemaVersionKey(schema.admissionId), facts);
+	}
+	return facts;
+}
+/** A cold snapshot may discover historical facts without replacing a newer publication. */
+function rememberStateSchemaVersionAdmission(database, facts) {
+	const schema = getStateSchemaFacts(database);
+	if (!schema) return;
+	rememberConnectionVersion(database, {
+		schema,
+		facts
+	});
+	const current = getSqliteDatabaseAdmission(database, schemaAdmission);
+	if (!isPostgresSqlConnection(database) && current?.admissionId !== schema.admissionId) return;
+	publishSqliteDatabaseAdmission(database, schemaVersionKey(schema.admissionId), facts);
+	publishSqliteDatabaseAdmission(database, versionKey, facts);
+}
 resolveGlobalSingleton(Symbol.for("openclaw.sqliteInspectionOperations"), () => /* @__PURE__ */ new WeakMap());
 resolveGlobalSingleton(Symbol.for("openclaw.sqliteNativeOpenFailures"), () => /* @__PURE__ */ new WeakSet());
 //#endregion
 //#region src/state/openclaw-state-db-schema-helpers.ts
 function tableExists(db, tableName) {
+	if (isPostgresSqlConnection(db)) return getPostgresPhysicalFacts(db)?.catalog.some((fact) => fact.table === tableName && fact.kind === "table") ?? false;
 	const schema = getAdmittedSqliteSchemaFacts(db);
 	if (schema) return schema.tables.has(tableName);
 	return executeWithCachedStatement(db, "SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ?", [tableName], (statement) => statement.get(tableName))?.ok === 1;
@@ -21778,27 +32581,42 @@ function normalizeOpenClawStateSchemaReadError(error, pathname) {
 const CONTENT_VERSION_KEY = "state.schema.contentVersion";
 const contentVersionQuery = createSqliteQueryCache((db) => prepareSqliteQuerySync(db, () => getNodeSqliteKysely(db).selectFrom("config_machine_state").select("value_json").where("state_key", "=", CONTENT_VERSION_KEY)));
 /** Content and its marker commit together, even while older readers retain their version floor. */
-function readStateSchemaContentVersion(db) {
-	return readContentVersion(db, getAdmittedSqliteSchemaFacts(db)?.userVersion ?? readSqliteUserVersion(db));
+function readStateSchemaContentVersion(db, published, readRow = readStateSchemaContentVersionRow) {
+	if (isPostgresSqlConnection(db)) {
+		const facts = getStateSchemaVersionAdmission(db);
+		if (!facts) throw new Error("Missing PostgreSQL state schema admission; use the matching OpenClaw version or restore the matching PostgreSQL schema and anchor.");
+		return Math.max(published ?? facts.userVersion, facts.contentVersion);
+	}
+	const admitted = getStateSchemaVersionAdmission(db);
+	if (admitted) return Math.max(published ?? admitted.userVersion, admitted.contentVersion);
+	const version = getAdmittedSqliteSchemaFacts(db)?.userVersion ?? readSqliteUserVersion(db);
+	const contentVersion = parseContentVersion(tableExists(db, "config_machine_state") ? readRow(db)?.value_json : void 0);
+	rememberStateSchemaVersionAdmission(db, {
+		userVersion: version,
+		contentVersion
+	});
+	return Math.max(published ?? version, contentVersion);
 }
-function readContentVersion(db, published) {
-	if (!tableExists(db, "config_machine_state")) return published;
-	const row = contentVersionQuery(db)().rows[0];
-	if (!row) return published;
+function readStateSchemaContentVersionRow(db) {
+	return contentVersionQuery(db)().rows[0];
+}
+function parseContentVersion(valueJson) {
+	if (valueJson === void 0) return 0;
 	let contentVersion;
 	try {
-		contentVersion = JSON.parse(row.value_json);
+		contentVersion = valueJson === null ? null : JSON.parse(valueJson);
 	} catch (cause) {
 		throw new SqliteSchemaMismatchError(`Invalid shared state schema content version in ${CONTENT_VERSION_KEY}.`, { cause });
 	}
 	if (typeof contentVersion !== "number" || !Number.isSafeInteger(contentVersion) || contentVersion < 0) throw new SqliteSchemaMismatchError(`Invalid shared state schema content version in ${CONTENT_VERSION_KEY}.`);
-	return Math.max(published, contentVersion);
+	return contentVersion;
 }
-function assertSupportedStateSchemaVersion(db, pathname) {
+function assertSupportedStateSchemaVersion(db, pathname, prepared, readRow) {
+	if (isPostgresSqlConnection(db)) return readStateSchemaContentVersion(db);
 	try {
-		const userVersion = getAdmittedSqliteSchemaFacts(db)?.userVersion ?? readSqliteUserVersion(db);
-		const contentVersion = userVersion > 20 ? userVersion : readStateSchemaContentVersion(db);
-		if (contentVersion > 20) throw createNewerSqliteSchemaVersionError("OpenClaw state database", pathname, contentVersion, 20);
+		const userVersion = prepared?.userVersion ?? getStateSchemaVersionAdmission(db)?.userVersion ?? getAdmittedSqliteSchemaFacts(db)?.userVersion ?? readSqliteUserVersion(db);
+		const contentVersion = prepared?.contentVersion ?? (userVersion > 22 ? userVersion : readStateSchemaContentVersion(db, userVersion, readRow));
+		if (contentVersion > 22) throw createNewerSqliteSchemaVersionError("OpenClaw state database", pathname, contentVersion, 22);
 		return userVersion;
 	} catch (error) {
 		throw normalizeOpenClawStateSchemaReadError(error, pathname);

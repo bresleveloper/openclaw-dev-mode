@@ -1,0 +1,1 @@
+import{r as e,t}from"./worker-chunk-Yo9f-v0c.mjs";e();export{t as autoMigrateLegacyPluginDoctorState};

@@ -21,8 +21,6 @@ type EnsureOpenClawPathOpts = {
   platform?: NodeJS.Platform;
   /** Existing PATH value to merge with; defaults to process.env.PATH. */
   pathEnv?: string;
-  /** Opt-in to append cwd/node_modules/.bin after trusted system paths. */
-  allowProjectLocalBin?: boolean;
 };
 
 function isExecutable(filePath: string): boolean {
@@ -145,10 +143,7 @@ function candidateBinDirs(
 
   // Project-local installs are a common repo-based attack vector (bin hijacking). Keep this
   // disabled by default; if an operator explicitly enables it, only append (never prepend).
-  const allowProjectLocalBin =
-    opts.allowProjectLocalBin === true ||
-    isTruthyEnvValue(process.env.OPENCLAW_ALLOW_PROJECT_LOCAL_BIN);
-  if (allowProjectLocalBin && cwd) {
+  if (isTruthyEnvValue(process.env.OPENCLAW_ALLOW_PROJECT_LOCAL_BIN) && cwd) {
     const localBinDir = path.join(cwd, "node_modules", ".bin");
     if (isExecutable(path.join(localBinDir, "openclaw"))) {
       append.push(localBinDir);
@@ -187,9 +182,13 @@ function candidateBinDirs(
   if (npmPrefix) {
     append.push(path.join(npmPrefix, "bin"));
   }
-  const miseDataDir = resolveMiseDataDir({ homeDir, platform });
-  const miseShims = path.join(miseDataDir, "shims");
-  if (isKnownPathDir(existingPathParts, miseShims)) {
+  // Validate the complete candidate so significant spaces in the data root survive.
+  const miseShims = normalizeTrustedPackageManagerRoot({
+    value: path.join(resolveMiseDataDir({ homeDir, platform }), "shims"),
+    cwd,
+    homeDir,
+  });
+  if (miseShims) {
     append.push(miseShims);
   }
   if (platform === "darwin") {
@@ -198,8 +197,13 @@ function candidateBinDirs(
       path.join(homeDir, "Library", "pnpm"),
     );
   }
-  if (process.env.XDG_BIN_HOME) {
-    append.push(process.env.XDG_BIN_HOME);
+  const xdgBinHome = normalizeTrustedPackageManagerRoot({
+    value: process.env.XDG_BIN_HOME,
+    cwd,
+    homeDir,
+  });
+  if (xdgBinHome) {
+    append.push(xdgBinHome);
   }
   append.push(path.join(homeDir, ".local", "bin"));
   append.push(path.join(homeDir, ".npm-global", "bin"));

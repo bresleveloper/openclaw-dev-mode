@@ -1,2 +1,2 @@
-import { n as listRuntimeVideoGenerationProviders, t as generateVideo } from "../runtime-B2iNE0Lk.mjs";
+import { n as listRuntimeVideoGenerationProviders, t as generateVideo } from "../runtime-Co_qmbtF.mjs";
 export { generateVideo, listRuntimeVideoGenerationProviders };

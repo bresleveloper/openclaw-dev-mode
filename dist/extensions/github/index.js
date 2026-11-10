@@ -1,5 +1,5 @@
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { n as GITHUB_ITEM_PATH_PATTERN, t as GITHUB_COMMIT_PATH_PATTERN } from "../../targets-RjAEePy1.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import { n as GITHUB_ITEM_PATH_PATTERN, t as GITHUB_COMMIT_PATH_PATTERN } from "../../targets-kQjMXg4U.mjs";
 //#region extensions/github/index.ts
 var github_default = definePluginEntry({
 	id: "github",
@@ -32,7 +32,7 @@ var github_default = definePluginEntry({
 			"github.detail",
 			"github.image"
 		]) api.registerGatewayMethod(method, async (options) => {
-			const { githubHandlers } = await import("../../handlers-By8bNyYv.mjs");
+			const { githubHandlers } = await import("../../handlers-CniRjHQI.mjs");
 			await githubHandlers[method](options);
 		}, {
 			scope: "operator.read",

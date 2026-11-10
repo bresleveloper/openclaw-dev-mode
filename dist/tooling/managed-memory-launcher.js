@@ -236,7 +236,7 @@ if (!scope || !bin || shell !== "true" && shell !== "false" || !Number.isSafeInt
 			resolve(75);
 		});
 		child.once("exit", (status, signal) => {
-			exitSignal = signal ?? received ?? void 0;
+			exitSignal = received ?? signal ?? void 0;
 			resolve(exitSignal ? signalExitCode(exitSignal) : status ?? 75);
 		});
 	});

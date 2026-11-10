@@ -1,0 +1,3 @@
+import { c as normalizeEd25519PublicKeyBase64Url, l as publicKeyRawBase64UrlFromEd25519Pem, u as signEd25519Payload } from "./ed25519-signature-DxLj6ug0.mjs";
+import { i as verifyDeviceSignature, n as loadDeviceIdentityIfPresent, r as loadOrCreateDeviceIdentity, t as deriveDeviceIdFromPublicKey } from "./device-identity-8y_iX6az.mjs";
+export { deriveDeviceIdFromPublicKey, loadDeviceIdentityIfPresent, loadOrCreateDeviceIdentity, normalizeEd25519PublicKeyBase64Url as normalizeDevicePublicKeyBase64Url, publicKeyRawBase64UrlFromEd25519Pem as publicKeyRawBase64UrlFromPem, signEd25519Payload as signDevicePayload, verifyDeviceSignature };

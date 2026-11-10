@@ -1,13 +1,13 @@
-import { u as toErrorObject } from "../error-coercion-CvJK4lmH.mjs";
+import { d as toErrorObject } from "../error-coercion-BwMr25F8.mjs";
 import { t as createDeferredCore } from "../deferred-D0La5CRk.mjs";
 import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
 import { t as SpawnBrokerError } from "../protocol-foRdUdX7.mjs";
-import { c as createBrokerSender, i as encodeNativeWorkerFailure, r as decodeNativeWorkerFailure, s as createBrokerReceiver, t as BrokerNativeResourceCloseError } from "../resource-protocol-DwwJYD9n.mjs";
-import { t as serveWorkerMemorySamples } from "../worker-memory-RbSetjGQ.mjs";
-import { deserialize, serialize } from "node:v8";
-import { connect } from "node:net";
+import { a as encodeNativeWorkerFailure, c as createBrokerReceiver, i as decodeNativeWorkerFailure, l as createBrokerSender, r as spawnBrokerStartupNowMs, t as BrokerNativeResourceCloseError } from "../resource-protocol-Bh2jG53d.mjs";
+import { n as serveWorkerMemorySamples, t as WORKER_TASK_PORT_MESSAGE } from "../worker-task-transport-CU6xz65-.mjs";
 import { MessageChannel, MessagePort, SHARE_ENV, Worker, parentPort, setEnvironmentData, workerData } from "node:worker_threads";
+import { connect } from "node:net";
 import { setImmediate } from "node:timers/promises";
+import { deserialize, serialize } from "node:v8";
 //#region src/process/spawn-broker/resource-socket.ts
 /** Byte transport only: socket closure says nothing about a resource's native lifetime. */
 function createBrokerResourceSocket(socket, handlers) {
@@ -176,7 +176,7 @@ function attachBrokerNativeResource(attachment, target, observe, fail) {
 			message: receive,
 			close(error) {
 				if (closed || failure) return;
-				if (!connected && !ready && attachment.startupDeadline !== void 0 && Date.now() < attachment.startupDeadline) {
+				if (!connected && !ready && attachment.startupDeadline !== void 0 && spawnBrokerStartupNowMs() < attachment.startupDeadline) {
 					retryTimer = setTimeout(start, 10);
 					return;
 				}
@@ -193,7 +193,7 @@ function attachBrokerNativeResource(attachment, target, observe, fail) {
 	};
 	const startupTimer = attachment.startupDeadline === void 0 ? void 0 : setTimeout(() => {
 		if (!ready) lose(/* @__PURE__ */ new Error("Spawn broker readiness deadline exceeded"));
-	}, Math.max(0, attachment.startupDeadline - Date.now()));
+	}, Math.max(0, attachment.startupDeadline - spawnBrokerStartupNowMs()));
 	start();
 	const assertAvailable = () => {
 		if (failure) throw failure;
@@ -339,6 +339,7 @@ function create(request) {
 	const id = request.id;
 	const { environment, shareEnvironment, ...options } = request.options;
 	const descriptor = request.resource;
+	const taskPort = request.taskPort;
 	let resourcePorts;
 	let childData = options.workerData;
 	let workerTransfers = request.transferList;
@@ -363,6 +364,7 @@ function create(request) {
 	} catch (error) {
 		resourcePorts?.port1.close();
 		resourcePorts?.port2.close();
+		taskPort?.close();
 		send({
 			type: "create-error",
 			id,
@@ -375,23 +377,29 @@ function create(request) {
 		joined: false
 	};
 	workers.set(id, lifetime);
-	if (resourcePorts && descriptor) {
-		const resourcePort = resourcePorts.port1;
-		lifetime.resource = {
-			port: resourcePort,
-			owner: attachBrokerNativeResource(descriptor.attachment, resourcePort, (response) => send({
-				type: "resource-message",
-				id,
-				response
-			}), (error) => {
-				send({
-					type: "error",
+	const fail = (error) => {
+		send({
+			type: "error",
+			id,
+			error
+		});
+		stop(id, lifetime);
+	};
+	try {
+		if (resourcePorts && descriptor) {
+			const resourcePort = resourcePorts.port1;
+			lifetime.resource = {
+				port: resourcePort,
+				owner: attachBrokerNativeResource(descriptor.attachment, resourcePort, (response) => send({
+					type: "resource-message",
 					id,
-					error
-				});
-				stop(id, lifetime);
-			})
-		};
+					response
+				}), fail)
+			};
+		}
+	} catch (error) {
+		taskPort?.close();
+		throw error;
 	}
 	worker.on("message", (value) => {
 		send({
@@ -407,15 +415,9 @@ function create(request) {
 			error
 		});
 	});
-	worker.on("error", (error) => {
-		send({
-			type: "error",
-			id,
-			error
-		});
-		stop(id, lifetime);
-	});
+	worker.on("error", fail);
 	worker.once("exit", (code) => {
+		taskPort?.close();
 		(async () => {
 			await setImmediate();
 			lifetime.nativeJoined = { code };
@@ -431,11 +433,20 @@ function create(request) {
 			error
 		}));
 	});
-	send({
-		type: "created",
-		id,
-		threadId: worker.threadId
-	});
+	try {
+		send({
+			type: "created",
+			id,
+			threadId: worker.threadId
+		});
+		if (taskPort) worker.postMessage({
+			type: WORKER_TASK_PORT_MESSAGE,
+			port: taskPort
+		}, [taskPort]);
+	} catch (error) {
+		taskPort?.close();
+		fail(error);
+	}
 }
 port.on("message", (message) => {
 	if (message.type === "create") {

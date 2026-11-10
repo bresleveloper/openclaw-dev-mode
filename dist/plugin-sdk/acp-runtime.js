@@ -1,7 +1,9 @@
-import { i as isAcpRuntimeError, n as AcpRuntimeError } from "../errors-m4L_1YUz.mjs";
-import { a as consumeAcpTurnStream, n as getAcpSessionManager } from "../manager-daMVnzH0.mjs";
-import { i as requireAcpRuntimeBackend, o as unregisterAcpRuntimeBackend, r as registerAcpRuntimeBackend, t as getAcpRuntimeBackend } from "../registry-CQAJvYwl.mjs";
-import { c as readAcpSessionEntryAsync, t as readAcpSessionEntry } from "../session-meta-DUw-8Na0.mjs";
-import { t as tryDispatchAcpReplyHook } from "../acpx-CGn6vrgL.mjs";
-import { n as testing, t as resolveAcpSessionAvailability } from "../acp-runtime-BJ_PFH5p.mjs";
-export { AcpRuntimeError, testing as __testing, testing, consumeAcpTurnStream, getAcpRuntimeBackend, getAcpSessionManager, isAcpRuntimeError, readAcpSessionEntry, readAcpSessionEntryAsync, registerAcpRuntimeBackend, requireAcpRuntimeBackend, resolveAcpSessionAvailability, tryDispatchAcpReplyHook, unregisterAcpRuntimeBackend };
+import { i as rethrowIncognitoSessionError, r as IncognitoSessionSyncAccessError, t as IncognitoSessionEndedError } from "../incognito-session-error-Dsi9IsoJ.mjs";
+import { i as isAcpRuntimeError, n as AcpRuntimeError } from "../errors-C8Hasc_X.mjs";
+import { o as unregisterAcpRuntimeBackend, r as registerAcpRuntimeBackend, t as getAcpRuntimeBackend } from "../registry-S4l3N3eT.mjs";
+import { a as consumeAcpTurnStream, n as getAcpSessionManager } from "../manager-Cge77N9B.mjs";
+import { t as prepareAcpSessionEntryRead } from "../session-meta-read-C9RqVGp2.mjs";
+import { t as readAcpSessionEntry } from "../session-meta-DC-FqIqd.mjs";
+import { t as tryDispatchAcpReplyHook } from "../acpx-XKojYCKI.mjs";
+import { n as resolveAcpSessionAvailability, r as testing, t as readAcpSessionEntryAsync } from "../acp-runtime-D-yfzhXb.mjs";
+export { AcpRuntimeError, IncognitoSessionEndedError, IncognitoSessionSyncAccessError, consumeAcpTurnStream, getAcpRuntimeBackend, getAcpSessionManager, isAcpRuntimeError, prepareAcpSessionEntryRead, readAcpSessionEntry, readAcpSessionEntryAsync, registerAcpRuntimeBackend, resolveAcpSessionAvailability, rethrowIncognitoSessionError, testing, tryDispatchAcpReplyHook, unregisterAcpRuntimeBackend };

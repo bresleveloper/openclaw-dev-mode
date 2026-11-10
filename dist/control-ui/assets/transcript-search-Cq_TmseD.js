@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{ao as t,ro as n}from"./control-ui-core-BKhTeqAN.js";async function r(e){if(e.isCurrent&&!e.isCurrent())return{results:[],sessions:[]};let{limit:t,offset:r,includeDerivedTitles:i,includeLastMessage:a,ownerFirst:o,rowMode:s,source:c,...l}=n(e.listOptions);return e.client.request(`sessions.search`,{query:e.query,limit:25,scope:l})}function i(){return(i=e((()=>{t()})))()}export{r as n,i as t};
+//# sourceMappingURL=transcript-search-Cq_TmseD.js.map

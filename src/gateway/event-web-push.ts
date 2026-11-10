@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
 import { normalizeOptionalString } from "@openclaw/normalization-core";
+import {
+  extractErrorCode,
+  formatErrorMessage,
+  readErrorName,
+} from "@openclaw/normalization-core/error-coercion";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { buildControlUiSessionPath } from "@openclaw/session-url-contract";
 import type { WebPushNotificationCategory } from "../../packages/gateway-protocol/src/schema/push.js";
@@ -23,6 +28,7 @@ import { QUESTIONS_SCOPE } from "./method-scopes.js";
 import { ADMIN_SCOPE, READ_SCOPE } from "./operator-scopes.js";
 import type { GatewayBroadcastOpts } from "./server-broadcast-types.js";
 import { canReceiveSessionEvent } from "./session-sharing.js";
+import type { SessionViewerPresenceDeclarations } from "./session-viewer-presence.js";
 import {
   listCurrentWebPushTargets,
   withCurrentWebPushAuthority,
@@ -120,6 +126,7 @@ function resolveEventWebPushNotification(
 /** Routes attention events to offline browsers without expanding live session visibility. */
 export function createEventWebPushDelivery(params: {
   getRuntimeConfig: () => OpenClawConfig;
+  viewers?: Pick<SessionViewerPresenceDeclarations, "isViewedOnDevice">;
   log?: Pick<SubsystemLogger, "warn">;
   stateDir?: string;
 }) {
@@ -131,11 +138,14 @@ export function createEventWebPushDelivery(params: {
     opts?: GatewayBroadcastOpts,
     mention?: HumanMentionWebPush,
   ): void => {
+    let stage = "subscriptions";
     void (async () => {
       if (!(await hasBoundWebPushSubscriptions(params.stateDir))) {
         return;
       }
+      stage = "sender";
       const sender = await prepareWebPushNotificationSender(params.stateDir);
+      stage = "authority";
       const agentId = normalizeOptionalString(
         opts?.agentId ?? (isRecord(payload) ? payload.agentId : undefined),
       );
@@ -173,6 +183,8 @@ export function createEventWebPushDelivery(params: {
                 : [READ_SCOPE],
             ...(mention ? { visibilityScopes: [ADMIN_SCOPE] } : {}),
           });
+          // Only an unambiguous session can be matched against one device's viewer declarations.
+          const viewedSessionKey = sessionKeys.length === 1 ? sessionKeys[0] : undefined;
           const agentLabel = normalizeWebPushDisplayLabel(agentId);
           const groups = new Map<
             string,
@@ -209,6 +221,15 @@ export function createEventWebPushDelivery(params: {
               // Multi-user events without an authoritative session owner are not broadcast offline.
               continue;
             }
+            if (
+              notification.category === "agent-finished" &&
+              viewedSessionKey !== undefined &&
+              params.viewers?.isViewedOnDevice(target.subscription.deviceId, viewedSessionKey) ===
+                true
+            ) {
+              // This device already shows the reply; other devices and categories still notify.
+              continue;
+            }
             const prefix = preferences.label ? `${preferences.label} · ` : "";
             const title = `${prefix}${notification.title}`;
             const body =
@@ -231,8 +252,9 @@ export function createEventWebPushDelivery(params: {
             .digest("base64url")
             .slice(0, 32);
           return {
-            start: () =>
-              Promise.all(
+            start: () => {
+              stage = "delivery";
+              return Promise.all(
                 [...groups.values()].map((group) =>
                   sender({
                     subscriptions: group.subscriptions,
@@ -250,7 +272,8 @@ export function createEventWebPushDelivery(params: {
                     },
                   }),
                 ),
-              ),
+              );
+            },
           };
         },
       );
@@ -266,9 +289,16 @@ export function createEventWebPushDelivery(params: {
           failed,
         });
       }
-    })().catch(() => {
-      // Transport failures can contain endpoints and payload bytes; log only the closed category.
-      log.warn("event Web Push delivery could not complete", { category: notification.category });
+    })().catch((error: unknown) => {
+      log.warn("event Web Push delivery could not complete", {
+        category: notification.category,
+        stage,
+        error: formatErrorMessage(error),
+        errorName: readErrorName(error),
+        errorCode: extractErrorCode(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        retry: false,
+      });
     });
   };
 

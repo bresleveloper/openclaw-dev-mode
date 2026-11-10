@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{n as t,r as n,t as r}from"./session-background-X7GLgzsi.js";function i(){return(i=e((()=>{n()})))()}i();export{r as SessionBackground,t as backgroundSourceForSurface};
+//# sourceMappingURL=session-background-N95fiC3-.js.map

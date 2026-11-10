@@ -8,12 +8,13 @@ import {
   TRANSCRIPT_EXPORT_FILE_NAMES,
   TRANSCRIPT_PATH_SEGMENT_MAX_BYTES,
 } from "../transcripts/store-artifacts.js";
-import { openNodeSqliteDatabase } from "./node-sqlite.js";
+import { openSqliteReadOnlyDatabase } from "./sqlite-snapshot-source.js";
 import {
   hasMatchingRecordedTranscriptArtifact,
   isRecordedCanonicalTranscriptExport,
 } from "./state-migrations.meeting-transcripts-files.js";
 import type { LegacyMeetingTranscriptsDetection } from "./state-migrations.meeting-transcripts.types.js";
+import { decodeUtf8Input } from "./utf8-input.js";
 
 type MeetingTranscriptExportOwnership = {
   selector: string;
@@ -73,7 +74,7 @@ export function resolveMeetingTranscriptExportOwnership(params: {
       if (stat.isSymbolicLink() || !stat.isFile()) {
         return undefined;
       }
-      const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8")) as {
+      const metadata = JSON.parse(decodeUtf8Input(fs.readFileSync(metadataPath), metadataPath)) as {
         sessionId?: unknown;
         startedAt?: unknown;
       };
@@ -190,7 +191,7 @@ export function readMeetingTranscriptMigrationDetectionState(params: {
     pendingImportCount: 0,
     hasOversizedSessionSlugs: false,
   });
-  const read = ({ db: database }: { db: import("node:sqlite").DatabaseSync }) => {
+  const read = ({ db: database }: { db: import("./sql-connection.js").SqlConnection }) => {
     const tables = new Set(
       database
         .prepare(
@@ -253,7 +254,7 @@ export function readMeetingTranscriptMigrationDetectionState(params: {
   if (!fs.existsSync(databasePath)) {
     return empty();
   }
-  const database = openNodeSqliteDatabase(databasePath, { readOnly: true });
+  const database = openSqliteReadOnlyDatabase(databasePath, { readOnly: true });
   try {
     return read({ db: database });
   } finally {

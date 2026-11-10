@@ -42,13 +42,16 @@ export type PluginInstanceCallLease = {
 export interface PluginInstanceResource {
   readonly pluginId: string;
   quiesce(): boolean;
-  dispose(beforeCleanup?: () => void | Promise<void>): Promise<PluginInstanceDisposalResult>;
+  dispose(
+    beforeCleanup?: () => void | Promise<void>,
+    options?: { waitForSettlement?: boolean },
+  ): Promise<PluginInstanceDisposalResult>;
 }
 
 /** Captured code custody survives retiring a runtime until recovery consumes or releases it. */
 export type PluginModuleLoaderRecovery = {
   bind(instance: PluginModuleLoaderOwner): void;
-  dispose(): void;
+  dispose(): Promise<void>;
 };
 
 /** Runtime and setup loaders use the same instance-owned captured source. */
@@ -70,7 +73,6 @@ export interface PluginModuleLoaderOwner extends PluginInstanceResource, PluginI
 export interface PluginInvocationInstance extends PluginModuleLoaderOwner {
   /** The current invocation's call or retained-consumer token is still admitted. */
   readonly hasActiveCall: boolean;
-  /** This instance's replacement is reserved and still joins the given live token. */
   holdsPendingReplacement(token: object): boolean;
   readonly slots: Map<string | symbol, { runtime: unknown }>;
   wrap<T>(value: T): T;

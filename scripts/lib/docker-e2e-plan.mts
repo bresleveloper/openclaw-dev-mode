@@ -9,7 +9,6 @@ import { resolveUpgradeSurvivorConfigStepsForBaseline } from "../e2e/lib/upgrade
 import {
   BUNDLED_PLUGIN_INSTALL_UNINSTALL_SHARDS,
   allReleasePathLanes,
-  fleetCacheLane,
   mainLanes,
   normalizeReleaseProfile,
   publicInstallerLanes,
@@ -65,7 +64,6 @@ export const RELEASE_PATH_PROFILE = "release-path";
 
 type LiveMode = "all" | "only" | "skip";
 type DockerProfile = typeof DEFAULT_PROFILE | typeof RELEASE_PATH_PROFILE;
-type UpgradeSurvivorExpansion = { lanes: DockerE2eLane[]; omittedLaneNames: string[] };
 type InertTargetContract = {
   mode: "inert";
   source: { readText: (relativePath: string) => string | null };
@@ -497,12 +495,12 @@ function expandUpgradeSurvivorBaselineLanes(
   rawScenarios = "",
   allowExecutableContract = false,
   frozenTarget?: InertTargetContract,
-): UpgradeSurvivorExpansion {
-  const hasUpgradeSurvivorLane = poolLanes.some(
+) {
+  const survivorLanes = poolLanes.filter(
     (poolLane) =>
       poolLane.name === "published-upgrade-survivor" || poolLane.name === "update-migration",
   );
-  if (!hasUpgradeSurvivorLane) {
+  if (survivorLanes.length === 0) {
     return { lanes: poolLanes, omittedLaneNames: [] };
   }
   const baselineSpecs = parseUpgradeSurvivorBaselineSpecs(rawBaselineSpecs);
@@ -542,10 +540,6 @@ function expandUpgradeSurvivorBaselineLanes(
         packageRecoveryBaselines(scenario).map((baselineSpec) => ({ baselineSpec, scenario })),
       ),
   ];
-  const survivorLanes = poolLanes.filter(
-    (poolLane) =>
-      poolLane.name === "published-upgrade-survivor" || poolLane.name === "update-migration",
-  );
   const omittedLaneNames = survivorLanes.flatMap((poolLane) =>
     scenarioCells(unsupportedScenarios).map(({ baselineSpec, scenario }) =>
       expandedUpgradeSurvivorLaneName(poolLane.name, baselineSpec, scenario),
@@ -633,11 +627,11 @@ function applyLiveMode(poolLanes: DockerE2eLane[], mode: LiveMode): DockerE2eLan
 }
 
 export function laneWeight(poolLane: DockerE2eLane): number {
-  return Math.max(1, poolLane.weight ?? 1);
+  return Math.max(1, poolLane.weight);
 }
 
 export function laneResources(poolLane: DockerE2eLane): string[] {
-  return [...new Set(["docker", ...(poolLane.resources ?? [])])];
+  return [...new Set(["docker", ...poolLane.resources])];
 }
 
 export function laneSummary(poolLane: DockerE2eLane): string {
@@ -668,7 +662,6 @@ export function findLaneByName(name: string): DockerE2eLane | undefined {
     [
       ...allReleasePathLanes({ includeOpenWebUI: true }),
       ...publicInstallerLanes,
-      fleetCacheLane,
       ...mainLanes,
       ...tailLanes,
     ],
@@ -687,26 +680,18 @@ function laneCredentialRequirements(poolLane: DockerE2eLane): string[] {
   if (poolLane.name === "install-e2e-anthropic") {
     credentials.push("anthropic");
   }
-  if (resources.includes("live:openai")) {
-    credentials.push("openai");
-  }
-  if (resources.includes("live:codex")) {
-    credentials.push("codex");
-  }
-  if (resources.includes("live:claude")) {
-    credentials.push(poolLane.name === "live-anthropic-cache" ? "anthropic-api-key" : "anthropic");
-  }
-  if (resources.includes("live:droid")) {
-    credentials.push("factory");
-  }
-  if (resources.includes("live:gemini")) {
-    credentials.push("gemini");
-  }
-  if (resources.includes("live:opencode")) {
-    credentials.push("opencode");
-  }
-  if (resources.includes("live:telegram")) {
-    credentials.push("telegram");
+  for (const [resource, credential] of [
+    ["live:openai", "openai"],
+    ["live:codex", "codex"],
+    ["live:claude", poolLane.name === "live-anthropic-cache" ? "anthropic-api-key" : "anthropic"],
+    ["live:droid", "factory"],
+    ["live:gemini", "gemini"],
+    ["live:opencode", "opencode"],
+    ["live:telegram", "telegram"],
+  ] as const) {
+    if (resources.includes(resource)) {
+      credentials.push(credential);
+    }
   }
   return credentials;
 }
@@ -830,15 +815,10 @@ export function requiredPrepublishPluginPackagesForLanes(
       }
     }
   }
-  for (const packageName of (officialExternalChannelCatalog.entries ?? [])
+  for (const packageName of officialExternalChannelCatalog.entries
     .filter((entry) => {
-      const channelId = entry.openclaw?.channel?.id;
-      const install = entry.openclaw?.install;
-      return (
-        typeof entry.name === "string" &&
-        configuredChannelIds.has(channelId) &&
-        install?.npmSpec === entry.name
-      );
+      const { channel, install } = entry.openclaw;
+      return configuredChannelIds.has(channel.id) && install.npmSpec === entry.name;
     })
     .map((entry) => entry.name)) {
     requiredPackages.add(packageName);
@@ -914,7 +894,6 @@ export function resolveDockerE2ePlan(options: DockerE2ePlanOptions) {
       releaseProfile: "full",
     }),
     ...publicInstallerLanes,
-    fleetCacheLane,
     ...mainLanes,
     ...tailLanes,
   ]);
@@ -1048,11 +1027,9 @@ export function resolveDockerE2ePlan(options: DockerE2ePlanOptions) {
     throw new Error("unsupported frozen target lanes require authorized scenario omissions");
   }
   const configuredTailLanes =
-    selectedLanes || releaseLanes
+    selectedLanes || releaseLanes || options.liveMode === "only"
       ? []
-      : options.liveMode === "only"
-        ? []
-        : applyLiveMode(tailLanes, options.liveMode);
+      : applyLiveMode(tailLanes, options.liveMode);
   const orderedLanes = options.orderLanes(configuredLanes, options.timingStore);
   const orderedTailLanes = options.orderLanes(configuredTailLanes, options.timingStore);
   return {

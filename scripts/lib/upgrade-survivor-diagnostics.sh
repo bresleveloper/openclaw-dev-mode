@@ -6,6 +6,7 @@ prepare_diagnostics_capture() {
     ! rm -f "$ARTIFACT_DIR/diagnostics/raw.json" "$ARTIFACT_DIR/diagnostics/post-core.json" "$ARTIFACT_DIR/summary.json" \
       "$ARTIFACT_DIR/update.json" "$ARTIFACT_DIR/repair.json" "$ARTIFACT_DIR/recovery-update.json" \
       "$ARTIFACT_DIR"/update-noop.{json,err} \
+      "$ARTIFACT_DIR"/doctor-lint.{json,err} \
       "$ARTIFACT_DIR/candidate-cohort.json" \
       "$ARTIFACT_DIR"/native-assignment-{eligibility,baseline,first-hop,proof,ready,phase}.json \
       "$ARTIFACT_DIR"/native-assignment-inventory-{after-first-hop,before-recovery,after-recovery,live-final}.json \
@@ -15,6 +16,8 @@ prepare_diagnostics_capture() {
       "$ARTIFACT_DIR"/backup-rollback-{create,restore}.json \
       "$ARTIFACT_DIR"/backup-rollback-{create,restore}.json.err \
       "$ARTIFACT_DIR/legacy-operator-restored-index.json" \
+      "$ARTIFACT_DIR/legacy-operator-pending-delivery.json" \
+      "$ARTIFACT_DIR/legacy-operator-pending-delivery-before-start.json" \
       "$ARTIFACT_DIR"/restored-index-{post-update,candidate-import,rollback}.json \
       "$ARTIFACT_DIR"/legacy-operator-baseline-turn.{out,err} \
       "$ARTIFACT_DIR"/legacy-operator-candidate-turn.{out,err} \

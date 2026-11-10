@@ -1,23 +1,25 @@
-import { a as resolveAgentDir, d as resolveAgentWorkspaceDir } from "../../agent-scope-config-CDYpzA0r.mjs";
-import { n as createNormalizedPluginsConfig } from "../../config-state-DY_WJYue.mjs";
-import { o as resolveRememberAcrossConversations } from "../../config-utils-DnfHy8-v.mjs";
-import { a as getMemoryCapabilityRegistration } from "../../memory-state-Cx8Kzhx0.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { n as resolveLivePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
-import "../../agent-runtime-CozKBj9N.mjs";
-import "../../memory-core-host-runtime-core-BZil17-O.mjs";
-import "../../memory-host-core-DN_I2RgE.mjs";
+import { n as createNormalizedPluginsConfig } from "../../config-state-DkDfCu7E.mjs";
+import { a as resolveAgentDir, f as resolveAgentWorkspaceDir } from "../../agent-scope-config-fjA2T9Gz.mjs";
+import { o as resolveRememberAcrossConversations } from "../../config-utils-DvW0vXFD.mjs";
+import { i as rethrowIncognitoSessionError } from "../../incognito-session-error-Dsi9IsoJ.mjs";
+import { a as getMemoryCapabilityRegistration } from "../../memory-state-CrbG6eAa.mjs";
+import "../../session-store-runtime-DVNFhqCK.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import { n as resolveLivePluginConfigObject } from "../../plugin-config-runtime-Dm1sl1ov.mjs";
+import "../../agent-runtime-DkCKSFV_.mjs";
+import "../../memory-core-host-runtime-core-CNLFAky0.mjs";
+import "../../memory-host-core-DPUr2gMF.mjs";
 import { L as MAX_SETUP_GRACE_TIMEOUT_MS, M as HOOK_TIMEOUT_RECOVERY_GRACE_MS, R as MAX_TIMEOUT_MS, l as ACTIVE_MEMORY_STATUS_PREFIX } from "../../types-DgEaE0BK.mjs";
-import { a as normalizePluginConfig, n as hasDeprecatedModelFallbackPolicy, o as readActiveMemoryConfig, t as applyCliRuntimeRecallTimeoutDefault } from "../../config-BzmnyTfk.mjs";
-import { n as resolveRecallEscalationDecision } from "../../escalation-Cps8b7xi.mjs";
-import { n as buildSearchQuery, o as getModelRef, r as extractRecentTurns, t as buildQuery } from "../../query-BSMExMts.mjs";
-import { n as buildRecallOutcomePrefix, t as buildPromptPrefix } from "../../prompt-DM3fsjGv.mjs";
-import { h as toSingleLineErrorMessage, i as forgetActiveRecallRun } from "../../recall-state-BkoI2py5.mjs";
-import { i as resolveCanonicalSessionKeyFromSessionId, o as resolveStatusUpdateAgentId, r as persistPluginStatusLines } from "../../session-nN0gieHo.mjs";
-import { t as createActiveMemoryHookDeadline } from "../../transcript-J6g5hRC3.mjs";
-import { t as maybeResolveActiveRecall } from "../../recall-BLPZT_V6.mjs";
-import { a as isAllowedChatId, c as isSessionActiveMemoryDisabled, d as resolveCommandSessionKey, f as setSessionActiveMemoryDisabled, i as isActiveMemoryPluginEnabled, l as lacksAdminToMutateActiveMemoryGlobal, m as updateActiveMemoryGlobalEnabledInConfig, n as formatActiveMemoryCommandHelp, o as isEligibleInteractiveSession, p as shouldSkipActiveMemoryForHarnessSession, r as isActiveMemoryGloballyEnabled, s as isEnabledForAgent, t as ACTIVE_MEMORY_GLOBAL_MUTATION_ADMIN_REQUIRED_TEXT, u as resolveChatType } from "../../session-policy-DMc8OD-p.mjs";
-import { a as resolveTriggerRecall, r as forgetTriggerRecallRun } from "../../trigger-recall-Mm_7C47a.mjs";
+import { a as normalizePluginConfig, n as hasDeprecatedModelFallbackPolicy, o as readActiveMemoryConfig, t as applyCliRuntimeRecallTimeoutDefault } from "../../config-CMGCj_3o.mjs";
+import { n as resolveRecallEscalationDecision } from "../../escalation-DGeqPFqJ.mjs";
+import { n as buildSearchQuery, o as getModelRef, r as extractRecentTurns, t as buildQuery } from "../../query-DycvI6qp.mjs";
+import { n as buildRecallOutcomePrefix, t as buildPromptPrefix } from "../../prompt-CZfRlJpx.mjs";
+import { h as toSingleLineErrorMessage, i as forgetActiveRecallRun } from "../../recall-state-Dft8llHW.mjs";
+import { i as prepareActiveMemorySession, o as resolveStatusUpdateAgentId, r as persistPluginStatusLines } from "../../session-9uL8nZcW.mjs";
+import { t as createActiveMemoryHookDeadline } from "../../transcript-DQm3XeOf.mjs";
+import { t as maybeResolveActiveRecall } from "../../recall-pL49Xfvl.mjs";
+import { a as isAllowedChatId, c as isSessionActiveMemoryDisabled, d as resolveCommandSessionKey, f as setSessionActiveMemoryDisabled, i as isActiveMemoryPluginEnabled, l as lacksAdminToMutateActiveMemoryGlobal, m as updateActiveMemoryGlobalEnabledInConfig, n as formatActiveMemoryCommandHelp, o as isEligibleInteractiveSession, p as shouldSkipActiveMemoryForHarnessSession, r as isActiveMemoryGloballyEnabled, s as isEnabledForAgent, t as ACTIVE_MEMORY_GLOBAL_MUTATION_ADMIN_REQUIRED_TEXT, u as resolveChatType } from "../../session-policy-FEjgCzVH.mjs";
+import { a as resolveTriggerRecall, r as forgetTriggerRecallRun } from "../../trigger-recall-D9lgYgJU.mjs";
 //#region extensions/active-memory/index.ts
 var active_memory_default = definePluginEntry({
 	id: "active-memory",
@@ -38,7 +40,7 @@ var active_memory_default = definePluginEntry({
 		};
 		warnDeprecatedModelFallbackPolicy(api.pluginConfig);
 		const refreshLiveConfigFromRuntime = () => {
-			const livePluginConfig = resolveLivePluginConfigObject(api.runtime.config?.current ? () => api.runtime.config.current() : void 0, "active-memory", api.pluginConfig);
+			const livePluginConfig = resolveLivePluginConfigObject(() => api.runtime.config.current(), "active-memory", api.pluginConfig);
 			const liveConfig = readCurrentConfig();
 			const effectivePluginConfig = !isActiveMemoryPluginEnabled(liveConfig) ? { enabled: false } : livePluginConfig ?? {};
 			config = normalizePluginConfig(effectivePluginConfig, liveConfig, resolveSelectedRecallToolNames(liveConfig));
@@ -84,7 +86,7 @@ var active_memory_default = definePluginEntry({
 						return { text: `Active Memory: ${enabled ? "on" : "off"} globally.` };
 					}
 				}
-				const sessionKey = resolveCommandSessionKey({
+				const sessionKey = await resolveCommandSessionKey({
 					api,
 					config,
 					sessionKey: ctx.sessionKey,
@@ -93,11 +95,17 @@ var active_memory_default = definePluginEntry({
 				if (!sessionKey) return { text: "Active Memory: session toggle unavailable because this command has no session context." };
 				const commandAgentId = resolveStatusUpdateAgentId({ sessionKey });
 				const liveConfig = readCurrentConfig();
-				if (!(isEnabledForAgent(config, commandAgentId) || config.enabled && resolveRememberAcrossConversations(liveConfig, commandAgentId))) return { text: "Active Memory: off for this session." };
-				if (action === "status") return { text: `Active Memory: ${await isSessionActiveMemoryDisabled({
-					api,
-					sessionKey
-				}) ? "off" : "on"} for this session.` };
+				const triggerRecallConfigured = isEnabledForAgent(config, commandAgentId);
+				const rememberEnabled = config.enabled && resolveRememberAcrossConversations(liveConfig, commandAgentId);
+				if (!triggerRecallConfigured && !rememberEnabled) return { text: "Active Memory: off for this session." };
+				if (action === "status") return { text: [
+					`Active Memory: ${await isSessionActiveMemoryDisabled({
+						api,
+						sessionKey
+					}) ? "off" : "on"} for this session.`,
+					`Trigger recall configuration: ${triggerRecallConfigured ? "on" : "off"} for agent ${commandAgentId}.`,
+					`Remember across conversations setting: ${rememberEnabled ? "on" : "off"}.`
+				].join("\n") };
 				if (enabled !== void 0) {
 					await setSessionActiveMemoryDisabled({
 						api,
@@ -135,7 +143,7 @@ var active_memory_default = definePluginEntry({
 				provider: ctx.modelProviderId,
 				model: ctx.modelId
 			}) ?? {};
-			const cliDispatchEligibility = api.runtime.agent.resolveCliBackendDispatchEligibility({
+			const cliDispatchEligibility = await api.runtime.agent.resolveCliBackendDispatchEligibilityAsync({
 				provider: timeoutModelRef.provider,
 				model: timeoutModelRef.model,
 				config: liveConfig,
@@ -160,11 +168,18 @@ var active_memory_default = definePluginEntry({
 			const handlerPromise = (async () => {
 				try {
 					const resolvedAgentId = resolveStatusUpdateAgentId(ctx);
-					const resolvedSessionKey = ctx.sessionKey?.trim() || (resolvedAgentId ? resolveCanonicalSessionKeyFromSessionId({
-						api,
-						agentId: resolvedAgentId,
-						sessionId: ctx.sessionId
-					}) : void 0);
+					const storePath = api.runtime.agent.session.resolveStorePath(liveConfig.session?.store, { agentId: resolvedAgentId || void 0 });
+					let preparedSession;
+					let resolvedSessionKey = ctx.sessionKey?.trim() || void 0;
+					if (!resolvedSessionKey && resolvedAgentId) {
+						preparedSession = await prepareActiveMemorySession({
+							api,
+							agentId: resolvedAgentId,
+							sessionId: ctx.sessionId,
+							storePath
+						});
+						resolvedSessionKey = preparedSession.sessionKey;
+					}
 					const effectiveAgentId = resolvedAgentId || resolveStatusUpdateAgentId({ sessionKey: resolvedSessionKey });
 					const publishPrependContext = (parts) => {
 						const prependContext = parts.filter(Boolean).join("\n");
@@ -194,11 +209,16 @@ var active_memory_default = definePluginEntry({
 						toolAuthority.assertActive();
 						return;
 					}
-					if (shouldSkipActiveMemoryForHarnessSession({
+					preparedSession ??= resolvedSessionKey ? await prepareActiveMemorySession({
 						api,
 						agentId: effectiveAgentId,
-						sessionKey: resolvedSessionKey
-					})) {
+						sessionKey: resolvedSessionKey,
+						storePath
+					}) : {
+						entry: void 0,
+						readFailed: false
+					};
+					if (shouldSkipActiveMemoryForHarnessSession(preparedSession)) {
 						logRecallSkipped("harness-session");
 						return;
 					}
@@ -287,6 +307,7 @@ var active_memory_default = definePluginEntry({
 								authorityFingerprint: toolAuthority.fingerprint,
 								debug: (message) => api.logger.debug?.(message)
 							}).catch((error) => {
+								rethrowIncognitoSessionError(error);
 								api.logger.debug?.(`active-memory: lane-1 trigger recall failed: ${toSingleLineErrorMessage(error)}`);
 								return {
 									hasStrongHit: false,
@@ -296,6 +317,10 @@ var active_memory_default = definePluginEntry({
 							toolAuthority.assertActive();
 							if (laneOne.context && laneOne.injectedCount > 0 && invocationConfig.logging) api.logger.info?.(`active-memory: lane-1 injected ${laneOne.injectedCount} trigger-matched entries`);
 						} else api.logger.debug?.("active-memory: lane-1 trigger recall skipped: preflight budget exhausted");
+					} else if (invocationConfig.enabled && effectiveAgentId && !activeMemoryConfigured) {
+						const line = `active-memory: lane-1 skipped reason=agent-not-configured agent=${effectiveAgentId}`;
+						api.logger.debug?.(line);
+						if (invocationConfig.logging) api.logger.info?.(line);
 					}
 					const laneOneContext = laneOne.context;
 					const activeMemoryAllowed = activeMemoryConfigured && chatType !== void 0 && invocationConfig.allowedChatTypes.includes(chatType) && chatIdAllowed;
@@ -304,7 +329,7 @@ var active_memory_default = definePluginEntry({
 					if (productRecallRequested && !productRecallEligible) api.logger.warn?.("active-memory: the current memory provider does not support protected private transcript recall; skipping Remember across conversations");
 					const productRecallToolName = productRecallEligible && deterministicRecallToolName && authorityAllowedRecallTools.includes(deterministicRecallToolName) ? deterministicRecallToolName : void 0;
 					const productRecallAllowed = Boolean(productRecallToolName);
-					if (productRecallEligible && !productRecallAllowed) api.logger.warn?.(`active-memory: ${deterministicRecallToolName ?? "the provider's deterministic recall tool"} is unavailable; skipping Remember across conversations private transcript recall`);
+					if (productRecallEligible && !productRecallAllowed) api.logger.warn?.(`active-memory: ${deterministicRecallToolName ?? "the provider's direct recall tool"} is unavailable; skipping Remember across conversations private transcript recall`);
 					if (!activeMemoryAllowed && !productRecallAllowed) {
 						await skipRecall("destination-not-allowed");
 						return publishPrependContext([laneOneContext]);
@@ -344,6 +369,8 @@ var active_memory_default = definePluginEntry({
 						agentId: effectiveAgentId,
 						sessionKey: resolvedSessionKey,
 						sessionId: ctx.sessionId,
+						sessionEntry: preparedSession.entry,
+						storePath,
 						messageProvider: ctx.messageProvider,
 						channelId: ctx.channelId,
 						query,
@@ -362,6 +389,7 @@ var active_memory_default = definePluginEntry({
 					});
 					return publishPrependContext([laneOneContext, result.summary ? buildPromptPrefix(result.summary) : result.status === "unavailable" ? buildRecallOutcomePrefix(result.status) : void 0]);
 				} catch (error) {
+					rethrowIncognitoSessionError(error);
 					if (deadlineController.signal.aborted) return;
 					const message = toSingleLineErrorMessage(error);
 					api.logger.warn?.(`active-memory: before_prompt_build failed, skipping memory lookup: ${message}`);

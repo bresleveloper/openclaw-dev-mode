@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-CfqO_x0G.mjs";function createSystemAgentUserTurnRecorder(e){let t=n({input:{text:e},target:()=>void 0});return delete t.captureModelPromptProjection,t}var r=e((()=>{t()}));export{r as n,createSystemAgentUserTurnRecorder as t};

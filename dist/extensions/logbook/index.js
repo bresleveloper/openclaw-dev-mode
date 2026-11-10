@@ -1,28 +1,27 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
-import { t as coerceErrorMessage } from "../../error-coercion-CvJK4lmH.mjs";
-import { a as resolveGlobalSingleton } from "../../global-singleton-0m-JziJW.mjs";
+import { n as coerceErrorMessage } from "../../error-coercion-BwMr25F8.mjs";
+import { a as resolveGlobalSingleton } from "../../global-singleton-DrXvEBww.mjs";
 import { o as asRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { a as canonicalPathFromExistingAncestor } from "../../fs-safe-BUXBSN-4.mjs";
-import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
+import { t as formatErrorMessage } from "../../errors-DPfGDWk1.mjs";
+import { a as canonicalPathFromExistingAncestor } from "../../fs-safe-6Z4UiMS4.mjs";
+import { c as SqliteWorkerError } from "../../sqlite-worker-contract-DhDutMia.mjs";
+import { Ng as errorShape } from "../../src-pLJQA6J5.mjs";
 import { t as KeyedAsyncQueue } from "../../keyed-async-queue-CTreGrmR.mjs";
-import { c as SqliteWorkerError } from "../../sqlite-worker-contract-C51cJHzg.mjs";
-import { l as openSqliteWorkerStore } from "../../sqlite-worker-store-CsIRv3py.mjs";
-import { t as ErrorCodes } from "../../gateway-error-details-DIefe7Zy.mjs";
-import { f as errorShape } from "../../error-codes-Dh56LniQ.mjs";
+import { t as ErrorCodes } from "../../gateway-error-details-Cl-eEOTQ.mjs";
 import { t as canonicalizeBase64 } from "../../base64-CU53EX1R.mjs";
-import "../../error-runtime-BmospGvZ.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../sqlite-runtime-Ch9K5Xik.mjs";
-import "../../file-access-runtime-BMp89X4Y.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../media-runtime-BQh7AQ_g.mjs";
-import "../../gateway-runtime-DMDKFL1_.mjs";
-import "../../global-singleton-yHEs_vfD.mjs";
-import { a as revisionWindow, c as OBSERVATION_JSON_SCHEMA, d as buildCardsPrompt, f as buildObservationInstructions, l as buildAskPrompt, m as dayKeyFor, n as parseCardsJson, o as selectBatchFrames, p as buildStandupPrompt, r as parseObservationSegments, s as validateCardCoverage, t as CARD_LOOKBACK_MS, u as buildCardsCorrectionPrompt } from "../../analyze-BRtMrrch.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../sqlite-runtime-COh9hQA9.mjs";
+import "../../file-access-runtime-DZTMkCCU.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../media-runtime-CmxLZuo1.mjs";
+import "../../gateway-runtime-DVShvn9X.mjs";
+import { t as openEngineWorkerStore } from "../../database-engine-runtime-Dw5qNSWG.mjs";
+import { a as revisionWindow, c as OBSERVATION_JSON_SCHEMA, d as buildCardsPrompt, f as buildObservationInstructions, l as buildAskPrompt, m as dayKeyFor, n as parseCardsJson, o as selectBatchFrames, p as buildStandupPrompt, r as parseObservationSegments, s as validateCardCoverage, t as CARD_LOOKBACK_MS, u as buildCardsCorrectionPrompt } from "../../analyze-Dh2JSzjn.mjs";
 import { pathToFileURL } from "node:url";
-import path from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 //#region extensions/logbook/src/config.ts
 const DEFAULTS = {
 	captureEnabled: true,
@@ -94,11 +93,11 @@ var LogbookStore = class LogbookStore {
 	static async open(dataDir, workerModuleUrl) {
 		if (!dataDir) throw new Error("Logbook data directory is required");
 		const root = await canonicalPathFromExistingAncestor(path.resolve(dataDir));
-		const worker = await openSqliteWorkerStore({
+		const worker = await openEngineWorkerStore({
 			moduleUrl: workerModuleUrl,
 			databasePath: path.join(dataDir, "logbook.sqlite"),
 			input: { dataDir: root }
-		});
+		}, void 0);
 		return new LogbookStore(dataDir, worker, acquireLogbookFrameIo(root));
 	}
 	constructor(dataDir, worker, frameIo) {
@@ -515,7 +514,6 @@ var LogbookService = class {
 		};
 		this.analysisInFlight = true;
 		return this.trackOperation(async () => {
-			let handedOff = false;
 			try {
 				await store.resetErrorBatches();
 				if (!await store.nextPendingBatch()) {
@@ -525,13 +523,11 @@ var LogbookService = class {
 					};
 				}
 				this.requireStore();
-				this.analysisInFlight = false;
-				this.analysisTick();
-				handedOff = true;
-				return { started: true };
 			} finally {
-				if (!handedOff) this.analysisInFlight = false;
+				this.analysisInFlight = false;
 			}
+			this.analysisTick();
+			return { started: true };
 		});
 	}
 	async analysisTick() {
@@ -539,9 +535,13 @@ var LogbookService = class {
 		if (this.deps.scheduler.signal.aborted || this.analysisInFlight || !store) return;
 		if (!this.resolveVisionModel().ref) {
 			const now = Date.now();
-			if (now - this.lastModelMissingLogMs > MODEL_MISSING_LOG_INTERVAL_MS) {
-				this.lastModelMissingLogMs = now;
-				this.deps.logger.warn(`logbook: analysis paused; ${MODEL_MISSING_MESSAGE}`);
+			if (now - this.lastModelMissingLogMs > MODEL_MISSING_LOG_INTERVAL_MS) try {
+				if ((await store.countUnbatchedActiveFrames() > 0 || Boolean(await store.nextPendingBatch())) && !this.deps.scheduler.signal.aborted) {
+					this.lastModelMissingLogMs = now;
+					this.deps.logger.warn(`logbook: analysis paused; ${MODEL_MISSING_MESSAGE}`);
+				}
+			} catch (error) {
+				if (!this.deps.scheduler.signal.aborted) this.deps.logger.error(`logbook: analysis tick failed: ${String(error)}`);
 			}
 			return;
 		}
@@ -838,7 +838,7 @@ var logbook_default = definePluginEntry({
 		cap: "screen",
 		dangerous: false,
 		handle: async (paramsJSON) => {
-			const { handleLogbookSnapshot } = await import("../../node-host-rQtmvGcv.mjs");
+			const { handleLogbookSnapshot } = await import("../../node-host-Gr4H3zFM.mjs");
 			let params;
 			try {
 				params = paramsJSON ? JSON.parse(paramsJSON) : void 0;
@@ -851,17 +851,6 @@ var logbook_default = definePluginEntry({
 	register(api) {
 		const config = logbookConfigSchema.parse(api.pluginConfig);
 		let service = null;
-		let opening = null;
-		let generation = 0;
-		let stopping;
-		let retired = false;
-		const stopService = () => {
-			generation++;
-			const current = service ?? opening;
-			service = null;
-			opening = null;
-			return stopping ??= current?.stop();
-		};
 		const requireService = () => {
 			if (!service) throw new Error("Logbook service is not running");
 			return service;
@@ -899,11 +888,6 @@ var logbook_default = definePluginEntry({
 			id: "logbook",
 			apiVersion: 2,
 			start: async (ctx) => {
-				if (retired) throw new Error("Logbook plugin runtime has been retired");
-				const currentGeneration = ++generation;
-				await stopping;
-				if (retired || currentGeneration !== generation) return;
-				stopping = void 0;
 				if (!api.runtimeSource) throw new Error("Logbook requires an OpenClaw host with runtime entrypoint metadata");
 				const next = new LogbookService(config, {
 					runtime: api.runtime,
@@ -913,30 +897,18 @@ var logbook_default = definePluginEntry({
 					dataDir: path.join(ctx.stateDir, "logbook"),
 					workerModuleUrl: new URL(`./src/store.worker${path.extname(api.runtimeSource)}`, pathToFileURL(api.runtimeSource))
 				});
-				opening = next;
 				try {
 					await next.start();
-					if (retired || currentGeneration !== generation) {
-						await next.stop();
-						return;
-					}
 					service = next;
 				} catch (error) {
 					await next.stop();
 					throw error;
-				} finally {
-					if (opening === next) opening = null;
 				}
 			},
-			stop: stopService
-		});
-		api.lifecycle.registerRuntimeLifecycle({
-			id: "logbook-service",
-			cleanup: ({ reason, sessionKey, runId }) => {
-				if (sessionKey === void 0 && runId === void 0 && (reason === "restart" || reason === "disable")) {
-					retired = true;
-					return stopService();
-				}
+			async stop() {
+				const current = service;
+				service = null;
+				await current?.stop();
 			}
 		});
 		const registerRead = (method, run) => api.registerGatewayMethod(method, handle(run), { scope: "operator.read" });

@@ -1,18 +1,17 @@
-import { t as openNodeSqliteDatabase } from "../../node-sqlite-XIcwmOrl.mjs";
 import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-DR7bHNl9.mjs";
-import "../../sqlite-runtime-Ch9K5Xik.mjs";
+import { o as sdkOpenNodeSqliteDatabase } from "../../sqlite-runtime-COh9hQA9.mjs";
 import { n as withTempWorkspace } from "../../fs-safe-compat-Cbx7s6au.mjs";
-import "../../temp-path-C5ZA6ftW.mjs";
-import { i as applyMigrationManualItem, l as markMigrationItemConflict, r as applyMigrationConfigPatchItem, u as markMigrationItemError, y as summarizeMigrationItems } from "../../migration-BeM6IrM8.mjs";
-import { a as resolvePlannedMigrationTargets, i as copyMigrationFileItem, o as withCachedMigrationConfigRuntime, r as copyMemoryMigrationFileItem, s as writeMigrationReport, t as archiveMigrationItem } from "../../migration-runtime-BOM5W2_O.mjs";
-import { t as appendItem } from "../../helpers-B2SzrrLy.mjs";
-import { c as HERMES_REASON_MODEL_PROVIDER_CONFLICT, f as findHermesModelProviderDependency, p as readHermesModelDetails } from "../../items-Ow1uFW0E.mjs";
-import { t as applyAuthItem } from "../../auth-CgAkFjLJ.mjs";
-import { t as applyModelItem } from "../../model-DW3elluA.mjs";
-import { t as applySecretItem } from "../../secrets-C67LiIns.mjs";
-import { t as buildHermesPlan } from "../../plan-DmZuY_Ti.mjs";
-import path from "node:path";
+import "../../temp-path-D_RJiwsA.mjs";
+import { i as applyMigrationManualItem, l as markMigrationItemConflict, r as applyMigrationConfigPatchItem, u as markMigrationItemError, v as summarizeMigrationItems } from "../../migration-Cf1WpRKe.mjs";
+import { a as resolvePlannedMigrationTargets, i as copyMigrationFileItem, o as withCachedMigrationConfigRuntime, r as copyMemoryMigrationFileItem, s as writeMigrationReport, t as archiveMigrationItem } from "../../migration-runtime-Dymng054.mjs";
+import { t as appendItem } from "../../helpers-DpSlwpMA.mjs";
+import { c as HERMES_REASON_MODEL_PROVIDER_CONFLICT, f as findHermesModelProviderDependency, p as readHermesModelDetails } from "../../items-CmgOTpzO.mjs";
+import { t as applyAuthItem } from "../../auth-B8Y368e8.mjs";
+import { t as applyModelItem } from "../../model-Bt_FfGPN.mjs";
+import { t as applySecretItem } from "../../secrets-fdpEuFoy.mjs";
+import { t as buildHermesPlan } from "../../plan-CnjwlAMW.mjs";
 import fs from "node:fs/promises";
+import path from "node:path";
 //#region extensions/migrate-hermes/apply.ts
 const HERMES_SQLITE_SNAPSHOT_PREFIX = "openclaw-migrate-hermes-sqlite-";
 function isHermesMemoryOnlyCopyItem(item) {
@@ -39,7 +38,7 @@ async function archiveHermesItem(item, reportDir) {
 			prefix: HERMES_SQLITE_SNAPSHOT_PREFIX
 		}, async ({ dir: tempDir }) => {
 			const snapshotPath = path.join(tempDir, path.basename(sourcePath));
-			const source = openNodeSqliteDatabase(sourcePath, { readOnly: true });
+			const source = sdkOpenNodeSqliteDatabase(sourcePath, { readOnly: true });
 			try {
 				source.exec("PRAGMA busy_timeout = 30000;");
 				source.prepare("VACUUM INTO ?").run(snapshotPath);

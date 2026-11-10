@@ -1,7 +1,7 @@
 import { r as asNullableRecord } from "../../record-coerce-TIsquoVR.mjs";
-import "../../runtime-doctor-migrations-4UZBewWQ.mjs";
-import { u as isLegacyXaiBuiltinModel } from "../../model-definitions-BTg9V4Hq.mjs";
-import { t as isXaiProviderId } from "../../provider-id-BvdhW5fW.mjs";
+import "../../runtime-doctor-migrations-BuGkvNDu.mjs";
+import { u as isLegacyXaiBuiltinModel } from "../../model-definitions-Bv0caRc4.mjs";
+import { t as isXaiProviderId } from "../../provider-id-BklI9wmC.mjs";
 //#region extensions/xai/doctor-contract-api.ts
 const RETIRED_REASONING_MODELS = /* @__PURE__ */ new Set([
 	"grok-4-1-fast",

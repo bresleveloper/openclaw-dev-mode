@@ -1,2 +1,2 @@
-import { t as buildCodexMigrationProvider } from "./.setup/provider-BSbSQNdE.mjs";
+import { t as buildCodexMigrationProvider } from "./.setup/provider-Qq1Nu-eB.mjs";
 export { buildCodexMigrationProvider as buildMigrationProvider };

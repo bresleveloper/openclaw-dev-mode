@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";function t(e){return(e.protocol===`http:`||e.protocol===`https:`)&&(e.protocol=e.protocol===`https:`?`wss:`:`ws:`),e}function n(e,n=globalThis.location?.href){let r=t(new URL(n??globalThis.location.href,globalThis.location?.href)),i=t(new URL(e,r));if(i.protocol!==`ws:`&&i.protocol!==`wss:`)throw Error(`Gateway stream URL must use WebSocket transport`);return i.toString()}function r(){return(r=e((()=>{})))()}export{n,r as t};
+//# sourceMappingURL=gateway-websocket-url-BW0hi5Wr.js.map

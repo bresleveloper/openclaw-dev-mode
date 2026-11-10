@@ -1,4 +1,5 @@
-// Shared test setup installs common Vitest mocks and cleanup behavior.
+// Native-loader projects replace execArgv, so their setup also owns SQLite admission.
+import "./vitest/vitest.sqlite-preload.mts";
 import { vi } from "vitest";
 import { setForkUpdateBlockForTest } from "../src/infra/fork-update-block.js";
 import { installProcessWarningFilter } from "../src/infra/warning-filter.js";
@@ -50,6 +51,11 @@ setForkUpdateBlockForTest(false);
 // Tests frequently point bundled plugin discovery at temp fixture roots. Production still rejects
 // arbitrary OPENCLAW_BUNDLED_PLUGINS_DIR overrides unless this Vitest-only opt-in is present.
 process.env.OPENCLAW_TEST_TRUST_BUNDLED_PLUGINS_DIR ??= "1";
+// The Codex plugin selects a newer PATH-installed Codex once per process. Tests
+// must not probe the developer's own install; selection tests reset this slot.
+(globalThis as Record<PropertyKey, unknown>)[Symbol.for("openclaw.codexInstalledAppServer")] = {
+  selection: Promise.resolve(undefined),
+};
 // Vitest fork workers can load transitive lockfile helpers many times per worker.
 // Raise listener budget to avoid noisy MaxListeners warnings and warning-stack overhead.
 const TEST_PROCESS_MAX_LISTENERS = 256;

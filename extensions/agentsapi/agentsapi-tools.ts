@@ -1,4 +1,5 @@
 import type { AgentToolParam } from "openai/resources/beta/agents/agents";
+import { resolveStoredSessionPermissionPolicy } from "openclaw/plugin-sdk/agent-harness-attempt-runtime";
 import {
   applyEmbeddedAttemptToolsAllow,
   buildAgentHookContextChannelFields,
@@ -63,7 +64,6 @@ type ToolDelivery = AgentHarnessMessagingDeliveryFacts &
   >;
 
 export type AgentsApiToolExecutionResult = AgentsApiFunctionResult & {
-  sourceReplyDelivered?: true;
   terminate?: true;
 };
 
@@ -77,12 +77,12 @@ export type AgentsApiToolSurface = {
 };
 
 /** Gateway functions retain host authority; shell and file tools stay in the hosted VM. */
-export function buildAgentsApiToolSurface(
+export async function buildAgentsApiToolSurface(
   params: AgentHarnessAttemptParamsV2,
   signal: AbortSignal,
   assertCurrent: () => void,
   registerCleanup: (cleanup: (reason: string) => Promise<void>) => void,
-): AgentsApiToolSurface {
+): Promise<AgentsApiToolSurface> {
   assertCurrent();
   const agentId = params.agentId;
   if (!agentId) {
@@ -98,13 +98,13 @@ export function buildAgentsApiToolSurface(
     ...params,
     sessionKey: policySessionKey,
   }).channelId;
-  const createToolSurface = params.hostCapabilities.createToolSurface;
-  if (!createToolSurface) {
+  const createToolSurfaceAsync = params.hostCapabilities.createToolSurfaceAsync;
+  if (!createToolSurfaceAsync) {
     throw new Error("Agents API tool construction requires a current host capability");
   }
   const constructed = params.disableTools
     ? []
-    : createToolSurface(
+    : await createToolSurfaceAsync(
         {
           ...runContext,
           agentId,
@@ -117,6 +117,12 @@ export function buildAgentsApiToolSurface(
           agentDir: params.agentDir ?? resolveAgentDir(params.config ?? {}, agentId),
           workspaceDir: params.workspaceDir,
           cwd,
+          sessionPermissionPolicy: resolveStoredSessionPermissionPolicy(
+            params,
+            params.workspaceDir,
+          ),
+          requireWorkspaceOnly: params.requireWorkspaceOnly,
+          exec: { ...params.execOverrides, config: params.config, elevated: params.bashElevated },
           spawnWorkspaceDir: params.workspaceDir,
           preparedModelRuntime: params.preparedModelRuntime,
           skillsSnapshot: params.skillsSnapshot,
@@ -168,6 +174,8 @@ export function buildAgentsApiToolSurface(
         },
         { cwd },
       );
+  assertCurrent();
+  signal.throwIfAborted();
   const tools = applyEmbeddedAttemptToolsAllow(
     // Search stays native; requester yields and image generation are outside this prototype.
     constructed.filter(
@@ -453,9 +461,11 @@ export function buildAgentsApiToolSurface(
                 result: raw,
                 isError: rawIsError,
               });
+              // An omitted final takes the run's default; cron sends do not end the turn.
+              const messageFinal = resolveMessageFinal(executedArgs, params);
               terminate =
-                sourceReplyDelivered ||
-                (raw.terminate === true && !(sourceRouteDelivered && executedArgs.final === false));
+                (sourceReplyDelivered && messageFinal) ||
+                (raw.terminate === true && !(sourceRouteDelivered && !messageFinal));
               if (sourceReplyDelivered) {
                 delivery.sourceReplyDelivered = true;
               }
@@ -470,7 +480,7 @@ export function buildAgentsApiToolSurface(
                 messagingContext,
                 delivery,
                 signal,
-                sourceRouteDelivered ? executedArgs.final !== false : undefined,
+                sourceRouteDelivered ? messageFinal : undefined,
               );
               // Presentation failures cannot downgrade a completed host mutation's receipt.
               observeTerminal(
@@ -532,11 +542,20 @@ export function buildAgentsApiToolSurface(
       );
       return {
         ...nativeResult,
-        ...(sourceReplyDelivered ? { sourceReplyDelivered: true as const } : {}),
         ...(terminate ? { terminate: true as const } : {}),
       };
     },
   };
+}
+
+/** Whether a delivered source send ends the turn; an omitted `final` takes the run's default. */
+function resolveMessageFinal(
+  args: Record<string, unknown>,
+  params: Pick<AgentHarnessAttemptParamsV2, "messageToolFinalByDefault">,
+): boolean {
+  return args.final === undefined
+    ? params.messageToolFinalByDefault !== false
+    : args.final !== false;
 }
 
 function recordDelivery(
@@ -558,7 +577,7 @@ function recordDelivery(
       recordAgentHarnessMessagingDelivery({
         facts: delivery,
         sourceReplyPayload: payload,
-        sourceReplyFinal: args.final !== false,
+        sourceReplyFinal: resolveMessageFinal(args, params),
       });
     } else {
       const routedArgs = {

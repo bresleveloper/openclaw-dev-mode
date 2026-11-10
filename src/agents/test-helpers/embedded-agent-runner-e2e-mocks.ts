@@ -32,7 +32,7 @@ type EmbeddedRunnerBackoffMockOptions = {
   sleepWithAbort: (ms: number, abortSignal?: AbortSignal) => unknown;
 };
 
-export function createEmptyPreparedModelRuntimeSnapshot(
+function createEmptyPreparedModelRuntimeSnapshot(
   input: PreparedModelRuntimeInput,
   pluginRegistry?: PreparedModelRuntimeSnapshot["pluginRegistry"],
 ): PreparedModelRuntimeSnapshot {

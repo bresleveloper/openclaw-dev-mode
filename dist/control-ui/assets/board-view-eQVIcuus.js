@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{r as t,t as n}from"./board-view-0QU4ZeEl.js";function r(){return(r=e((()=>{t()})))()}r();export{n as BoardView};
+//# sourceMappingURL=board-view-eQVIcuus.js.map

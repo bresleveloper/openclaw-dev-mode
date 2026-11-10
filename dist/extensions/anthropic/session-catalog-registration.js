@@ -1,2 +1,2 @@
-import { n as registerClaudeSessionDiscovery, t as createClaudeSessionNodeInvokePolicies } from "../../session-catalog-registration-Bj-Y5p0o.mjs";
+import { n as registerClaudeSessionDiscovery, t as createClaudeSessionNodeInvokePolicies } from "../../session-catalog-registration-C-fNCCst.mjs";
 export { createClaudeSessionNodeInvokePolicies, registerClaudeSessionDiscovery };

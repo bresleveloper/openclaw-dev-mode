@@ -312,8 +312,8 @@ const visitorListDetailsSchema = Type.Object({
 			maximum: Number.MAX_SAFE_INTEGER
 		})),
 		grantId: Type.Optional(Type.String({ description: "Stable selector for canceling this invitation." })),
-		profileId: Type.Optional(Type.String({ description: "Canonical person selector for visitor_revoke." })),
-		githubLogin: Type.Optional(Type.String({ description: "Current verified GitHub identity selected by the Gateway profile, when available. Use grantId to cancel one invitation; GitHub input selects its immutable account and the canonical person's recorded grants." })),
+		profileId: Type.Optional(Type.String({ description: "Person ID for visitor_revoke." })),
+		githubLogin: Type.Optional(Type.String({ description: "Current verified GitHub identity selected by the Gateway profile, when available. Use grantId to cancel one invitation; GitHub input selects its immutable account and the person's recorded grants." })),
 		invitedAt: Type.String(),
 		expiresAt: expiresAtSchema,
 		state: Type.Union([
@@ -386,7 +386,7 @@ function createVisitorTools(context) {
 		{
 			name: "visitor_revoke",
 			label: "Revoke visitor",
-			description: "Remove the recorded Visitor invitations selected for a canonical profileId, or cancel one invitation by grantId, including before first sign-in. Use the IDs returned by visitor_list or visitor_invite. Person selection keeps the selected identity current at local commit and before policy requests. Already committed expirations remain ended if cleanup fails. Email targets that address. GitHub login targets its immutable account and its canonical person's recorded invitations. An explicit email or GitHub login can remove that target's unmanaged policy entry. Do not combine profileId or grantId with another selector. Preserves saved work, existing PRs and independent staff access. Already absent grants are a no-op.",
+			description: "Remove the recorded Visitor invitations selected for a profileId, or cancel one invitation by grantId, including before first sign-in. Use the IDs returned by visitor_list or visitor_invite. Person selection keeps the selected identity current at local commit and before policy requests. Already committed expirations remain ended if cleanup fails. Email targets that address. GitHub login targets its immutable account and its person's recorded invitations. An explicit email or GitHub login can remove that target's unmanaged policy entry. Do not combine profileId or grantId with another selector. Preserves saved work, existing PRs and independent staff access. Already absent grants are a no-op.",
 			parameters: Type.Object({
 				...identityFields$1,
 				profileId: Type.Optional(Type.String({
@@ -438,7 +438,7 @@ function visitorGrantTarget(grant) {
 }
 const emailSchema = z.string().trim().max(254).pipe(z.email()).transform((email) => email.toLowerCase());
 const identityFields = {
-	github: z.string().trim().regex(/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/).transform((login) => login.toLowerCase()).optional(),
+	github: z.string().trim().min(1).transform((login) => login.toLowerCase()).optional(),
 	email: emailSchema.optional()
 };
 const revokeSchema = z.strictObject({
@@ -451,10 +451,6 @@ const inviteSchema = z.strictObject({
 	days: z.number().int().min(1).max(3650).optional(),
 	forever: z.boolean().optional()
 }).refine((input) => input.email !== void 0 !== (input.github !== void 0));
-const githubSchema = z.object({
-	id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-	login: identityFields.github.unwrap()
-});
 const grantIdSchema = z.uuid();
 const DAY_MS = 864e5;
 const MAX_TIMER_DELAY_MS = 2147483647;
@@ -468,13 +464,13 @@ function expiryText(expiresAt) {
 	return expiresAt === null ? "never (explicit forever grant)" : new Date(expiresAt).toISOString();
 }
 var VisitorAccessService = class {
-	constructor(config, store, policy, logger, readAccess, fetcher = fetch, signal) {
+	constructor(config, store, policy, logger, readAccess, resolveGitHubAccount, signal) {
 		this.config = config;
 		this.store = store;
 		this.policy = policy;
 		this.logger = logger;
 		this.readAccess = readAccess;
-		this.fetcher = fetcher;
+		this.resolveGitHubAccount = resolveGitHubAccount;
 		this.signal = signal;
 		this.pending = Promise.resolve();
 		this.grants = /* @__PURE__ */ new Map();
@@ -591,27 +587,26 @@ var VisitorAccessService = class {
 	async resolveTarget(input) {
 		if (input.email) return { target: input.email };
 		if (!input.github) throw new VisitorAccessError("Provide an email or GitHub login.");
-		let response;
-		let body;
-		try {
-			response = await this.fetcher(`https://api.github.com/users/${encodeURIComponent(input.github)}`, {
-				headers: {
-					Accept: "application/vnd.github+json",
-					"User-Agent": "OpenClaw-visitor-access"
-				},
-				redirect: "error",
-				signal: this.signal ? AbortSignal.any([this.signal, AbortSignal.timeout(15e3)]) : AbortSignal.timeout(15e3)
-			});
-			if (!response.ok) throw new Error("GitHub lookup failed");
-			body = await response.json();
-		} catch {
-			throw new VisitorAccessError("GitHub account lookup failed. Check the login and retry.");
+		if (!this.resolveGitHubAccount) throw new VisitorAccessError("This Gateway cannot resolve GitHub accounts. Update OpenClaw before managing GitHub visitors.");
+		const result = await this.resolveGitHubAccount({
+			login: input.github,
+			signal: this.signal
+		});
+		this.assertOpen();
+		if (result.error) {
+			const { statusCode, retryAtMs, credentialConfigured, message } = result.error;
+			if (statusCode === 404) throw new VisitorAccessError(`GitHub login ${input.github} was not found. Check the login and retry.`);
+			if (statusCode === 400) throw new VisitorAccessError(`${input.github} is not a valid GitHub login. Check the login and retry.`);
+			if (statusCode === 429) {
+				const retry = retryAtMs === void 0 ? "retry later" : `retry after ${new Date(retryAtMs).toISOString()}`;
+				const hint = credentialConfigured ? "" : " Configure gateway.controlUi.github.token to increase the GitHub API quota.";
+				throw new VisitorAccessError(`GitHub rate limit reached while resolving ${input.github}; ${retry}.${hint}`);
+			}
+			throw new VisitorAccessError(`GitHub account lookup failed (${message}). Retry later.`);
 		}
-		const result = githubSchema.safeParse(body);
-		if (!result.success) throw new VisitorAccessError("GitHub returned an invalid account identity. Check the login and retry.");
 		return {
-			target: result.data.id,
-			githubLogin: result.data.login
+			target: result.accountId,
+			githubLogin: result.login
 		};
 	}
 	invite(raw, { invitedVia, assertCurrent }) {
@@ -688,7 +683,7 @@ var VisitorAccessService = class {
 			const profileId = input.profileId ?? (directTarget === void 0 ? void 0 : selection?.profileId(directTarget));
 			const profile = profileId ? selection?.resolveProfile(profileId) : void 0;
 			if (!input.email && input.github && typeof directTarget === "number") selection?.assertGithubSelection(input.github, directTarget);
-			if (input.profileId && !profile) throw new VisitorAccessError("Profile not found. Use the current canonical profileId from visitor_list.");
+			if (input.profileId && !profile) throw new VisitorAccessError("Profile not found. Use the current profileId from visitor_list.");
 			const access = profile && !input.profileId ? await this.readAccess(recordedAccountIds) : selection;
 			assertCurrent();
 			const selected = profile ? entries.filter(({ value }) => access?.profileId(visitorGrantTarget(value)) === profile.id) : input.grantId ? entries.filter(({ value }) => value.grantId === input.grantId) : entries.filter(({ key }) => directTarget !== void 0 && key === visitorTargetKey(directTarget));
@@ -859,7 +854,7 @@ function registerVisitorPlugin(api) {
 		namespace: "visitor-grants",
 		maxEntries: 500,
 		overflowPolicy: "reject-new"
-	}), new VisitorPolicyClient(config, fetch, lifetime.signal, () => api.runtime.config.current().gateway?.auth?.trustedProxy?.cloudflareAccessOidc), api.logger, createVisitorAccessReader(api.runtime), fetch, lifetime.signal);
+	}), new VisitorPolicyClient(config, fetch, lifetime.signal, () => api.runtime.config.current().gateway?.auth?.trustedProxy?.cloudflareAccessOidc), api.logger, createVisitorAccessReader(api.runtime), api.runtime.gateway.resolveGitHubAccount, lifetime.signal);
 	const runtime = {
 		service,
 		errorText: (error) => visitorErrorText(error, config.apiToken)

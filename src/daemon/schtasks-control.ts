@@ -9,17 +9,22 @@ import { sleep } from "../utils.js";
 import { resolveGatewayServiceProbeHosts } from "./gateway-service-probe-hosts.js";
 import { formatLine } from "./output.js";
 import { OPENCLAW_WRAPPER_ENV_KEY, resolveOpenClawWrapperPath } from "./program-args.js";
-import { execSchtasks } from "./schtasks-exec.js";
+import { execScheduledTaskEnabledChange, execSchtasks } from "./schtasks-exec.js";
 import {
   readScheduledTaskCommand,
   resolveTaskName,
   resolveTaskScriptPath,
 } from "./schtasks-layout.js";
-import { describeUnverifiedPortListeners } from "./schtasks-port-diagnostics.js";
+import {
+  describeUnverifiedPortListeners,
+  waitForGatewayPortRelease,
+} from "./schtasks-port-diagnostics.js";
 import {
   findInstalledProcessPid,
   isNodeHostArgv,
   readWindowsProcessSnapshot,
+} from "./schtasks-process-snapshot.js";
+import {
   resolveScheduledTaskCommandPort,
   resolveScheduledTaskGatewayContext,
   resolveScheduledTaskOwnedGatewayPids,
@@ -27,7 +32,6 @@ import {
   terminateGatewayProcessTree,
   terminateScheduledTaskGatewayListeners,
   terminateScheduledTaskNodeHost,
-  waitForGatewayPortRelease,
 } from "./schtasks-process.js";
 import {
   assertSchtasksAvailable,
@@ -69,36 +73,29 @@ type ScheduledTaskRestartResult = GatewayServiceRestartResult & {
 };
 export type ScheduledTaskActivation = "scheduled-task" | "direct-fallback";
 
-function runtimeSignature(runtime: Awaited<ReturnType<typeof readScheduledTaskRuntime>> | null) {
-  return [runtime?.state, runtime?.lastRunTime, runtime?.lastRunResult, runtime?.detail]
-    .filter(Boolean)
-    .join("|");
-}
-
 async function shouldFallbackScheduledTaskLaunch(params: {
   env: GatewayServiceEnv;
   scriptPath: string;
 }): Promise<boolean> {
-  const readLaunchObservation = async (
-    timeoutMs?: number,
-  ): Promise<{
-    state: "running" | "not-yet-run" | "stopped-success" | "other";
-    signature: string;
-  }> => {
+  const readLaunchObservation = async (timeoutMs?: number) => {
     const runtime = await readScheduledTaskRuntime(params.env, { timeoutMs }).catch(() => null);
+    let state: "running" | "not-yet-run" | "stopped-success" | "other" = "other";
     if (runtime?.status === "running") {
-      return { state: "running", signature: runtimeSignature(runtime) };
+      state = "running";
+    } else if (runtime?.status === "stopped") {
+      // SCHED_S_TASK_HAS_NOT_RUN is history, and only a stopped task is a fallback candidate.
+      if (runtime.lastRunResult === "267011") {
+        state = "not-yet-run";
+      } else if (runtime.lastRunResult === "0") {
+        state = "stopped-success";
+      }
     }
-    if (runtime?.status !== "stopped") {
-      return { state: "other", signature: runtimeSignature(runtime) };
-    }
-    // SCHED_S_TASK_HAS_NOT_RUN is history, and only a stopped task is a fallback candidate.
-    if (runtime.lastRunResult === "267011") {
-      return { state: "not-yet-run", signature: runtimeSignature(runtime) };
-    }
-    return runtime.lastRunResult === "0"
-      ? { state: "stopped-success", signature: runtimeSignature(runtime) }
-      : { state: "other", signature: runtimeSignature(runtime) };
+    return {
+      state,
+      signature: [runtime?.state, runtime?.lastRunTime, runtime?.lastRunResult, runtime?.detail]
+        .filter(Boolean)
+        .join("|"),
+    };
   };
 
   const hasLaunchEvidence = async (): Promise<boolean> => {
@@ -193,8 +190,10 @@ export async function runScheduledTaskOrThrow(params: {
   onMutation?: () => void;
   assertCurrent?: () => void;
   allowFallback?: boolean;
+  beforeEffect?: () => void;
 }): Promise<ScheduledTaskActivation> {
   params.assertCurrent?.();
+  params.beforeEffect?.();
   const run = await execSchtasks(["/Run", "/TN", params.taskName]);
   if (run.code !== 0) {
     throw new Error(`schtasks run failed: ${run.stderr || run.stdout}`.trim());
@@ -206,7 +205,12 @@ export async function runScheduledTaskOrThrow(params: {
     return "scheduled-task";
   }
   if (params.allowFallback !== false && !shouldManageGatewayListenerPort(params.env)) {
-    await launchFallbackTaskScript(params.env, undefined, params.assertCurrent);
+    await launchFallbackTaskScript(
+      params.env,
+      undefined,
+      params.assertCurrent,
+      params.beforeEffect,
+    );
     return "direct-fallback";
   }
   throw new Error(
@@ -309,24 +313,25 @@ async function changeScheduledTaskEnabledState(params: {
     }
   }
 
-  const action = params.enabled ? "/ENABLE" : "/DISABLE";
+  const action = params.enabled ? "enable" : "disable";
   await params.beforeMutation?.();
   params.assertCurrent?.();
-  const result = await execSchtasks(["/Change", "/TN", taskName, action]);
+  const result = await execScheduledTaskEnabledChange(taskName, params.enabled);
   if (result.code !== 0) {
     const detail = (result.stderr || result.stdout).trim() || "unknown error";
-    const changeError = new Error(
-      `schtasks ${params.enabled ? "enable" : "disable"} failed: ${detail}`,
-    );
+    const changeError = new Error(`Scheduled Task ${action} failed: ${detail}`);
+    if (result.hresult === -2147024891) {
+      throw Object.assign(changeError, { code: "EACCES" });
+    }
     if (!params.enabled && params.restoreOnFailure !== false) {
       // A timeout can follow a committed /DISABLE, so restore the proven prior state.
       try {
         await params.beforeMutation?.("restore");
         params.assertCurrent?.("restore");
-        const restore = await execSchtasks(["/Change", "/TN", taskName, "/ENABLE"]);
+        const restore = await execScheduledTaskEnabledChange(taskName, true);
         if (restore.code !== 0) {
           const restoreDetail = (restore.stderr || restore.stdout).trim() || "unknown error";
-          throw new Error(`schtasks enable failed: ${restoreDetail}`);
+          throw new Error(`Scheduled Task enable failed: ${restoreDetail}`);
         }
       } catch (restoreError) {
         throw new ScheduledTaskAutoStartRecoveryError(
@@ -415,18 +420,21 @@ export async function stopScheduledTask(params: GatewayServiceControlArgs): Prom
   );
 }
 
-async function stopRegisteredScheduledTask({
+export async function stopRegisteredScheduledTask({
   env,
   stdout,
   assertCurrent,
+  beforeMutation,
   warn,
   onEndMutation,
+  onProcessStopped,
   restart = false,
   onSettlement,
   onRecovery,
 }: GatewayServiceControlArgs & {
   env: GatewayServiceEnv;
   onEndMutation?: () => void;
+  onProcessStopped?: () => void;
   restart?: boolean;
   onSettlement?: (fact: ScheduledTaskSettlement) => void;
   onRecovery?: () => void;
@@ -442,10 +450,12 @@ async function stopRegisteredScheduledTask({
     {
       warn: warn ?? ((message) => stdout.write(`Warning: ${message}\n`)),
       onStopped: onEndMutation,
+      beforeMutation,
       restart,
       onSettlement,
       onRecovery,
       end: async () => {
+        await beforeMutation?.();
         assertCurrent?.();
         const res = await execSchtasks(["/End", "/TN", taskName]);
         if (!restart && res.code !== 0 && !isScheduledTaskDefinitelyNotRunning(taskName)) {
@@ -457,13 +467,18 @@ async function stopRegisteredScheduledTask({
       },
     },
   );
+  if (terminated?.length) {
+    onProcessStopped?.();
+  }
   if (!manageGatewayPort) {
-    await terminateScheduledTaskNodeHost(env, assertCurrent);
-    await terminateInstalledStartupRuntime(env, assertCurrent);
+    if ((await terminateScheduledTaskNodeHost(env, assertCurrent, beforeMutation)).length) {
+      onProcessStopped?.();
+    }
+    await terminateInstalledStartupRuntime(env, assertCurrent, beforeMutation);
   }
   if (terminated !== null && stopPort) {
     const probeHosts = stopContext?.probeHosts ?? [];
-    if (!(await waitForGatewayPortRelease(stopPort, 5_000, { probeHosts }))) {
+    if (!(await waitForGatewayPortRelease(stopPort, probeHosts))) {
       const listenerDetails = await describeUnverifiedPortListeners(stopPort, probeHosts);
       throw new Error(
         `gateway port ${stopPort} is still busy ${restart ? "before restart" : "after stop"}; remaining listener ownership could not be verified.${listenerDetails}`,
@@ -478,6 +493,7 @@ export async function startScheduledTask({
   env,
   onMutation,
   assertCurrent,
+  beforeEffect,
   preserveAutoStart,
 }: GatewayServiceControlArgs): Promise<void> {
   const effectiveEnv = env ?? (process.env as GatewayServiceEnv);
@@ -493,6 +509,7 @@ export async function startScheduledTask({
       stdout,
       () => reportMutation("startup-entry-start"),
       assertCurrent,
+      beforeEffect,
     );
     return;
   }
@@ -578,6 +595,7 @@ export async function startScheduledTask({
   await runScheduledTaskOrThrow({
     taskName,
     assertCurrent,
+    beforeEffect,
     allowFallback: preserveAutoStart !== true,
     env: effectiveEnv,
     scriptPath: resolveTaskScriptPath(effectiveEnv),
@@ -626,9 +644,9 @@ export async function restartRegisteredScheduledTask(params: {
       );
     }
     if (replacementRuntime.status === "running" && replacementRuntime.pid) {
-      await terminateGatewayProcessTree(replacementRuntime.pid, 300, params.assertCurrent);
+      await terminateGatewayProcessTree(replacementRuntime.pid, params.assertCurrent);
     }
-    if (port && !(await waitForGatewayPortRelease(port, 5_000, { probeHosts }))) {
+    if (port && !(await waitForGatewayPortRelease(port, probeHosts))) {
       throw new Error(`replacement gateway port ${port} is occupied by an unverified process`);
     }
   }
@@ -665,7 +683,7 @@ export async function restartRegisteredScheduledTask(params: {
         () => null,
       );
       if (failedRuntime?.status === "running" && failedRuntime.pid) {
-        await terminateGatewayProcessTree(failedRuntime.pid, 300, params.assertCurrent);
+        await terminateGatewayProcessTree(failedRuntime.pid, params.assertCurrent);
       }
       throw new Error("Replacement Windows Scheduled Task did not produce running evidence.");
     }

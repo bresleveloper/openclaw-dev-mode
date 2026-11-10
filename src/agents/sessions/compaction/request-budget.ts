@@ -19,10 +19,17 @@ export type CompactionRequestBudget = Readonly<{
 /** Input preservation exists before the foreground prompt can supply a token budget. */
 export type CompactionRequestConstraints = Readonly<{
   requestBudget?: CompactionRequestBudget;
+  /** Source of the active run, including after its input has been processed. */
+  requestFromEntryId?: string;
   pendingUserEntryId?: string;
 }>;
 
 const promptRequestBudgets = new WeakMap<PromptOptions, CompactionRequestBudget>();
+
+function estimateVariableRequestTokens(messages: AgentMessage[], prompt: string): number {
+  const estimateTokens = createFreshLlmBoundaryTokenEstimator({});
+  return estimateTokens({ messages, prompt }) - estimateTokens({ messages: [], prompt: "" });
+}
 
 /** Bind prepared foreground facts to the exact owned prompt invocation, outside public options. */
 export function attachPromptCompactionRequestBudget(
@@ -77,15 +84,9 @@ export function createCompactionRequestBudget(params: {
   const additionalContextTokens =
     estimateCompactionHistoryTokens(params.pendingContextMessages ?? []) +
     pendingQueuedContextTokens;
-  let additiveTokens = 0;
-  if (params.pendingAdditivePrompt) {
-    const estimateAdditiveTokens = createFreshLlmBoundaryTokenEstimator({});
-    additiveTokens =
-      estimateAdditiveTokens({
-        messages: [],
-        prompt: params.pendingAdditivePrompt,
-      }) - estimateAdditiveTokens({ messages: [], prompt: "" });
-  }
+  const additiveTokens = params.pendingAdditivePrompt
+    ? estimateVariableRequestTokens([], params.pendingAdditivePrompt)
+    : 0;
   return {
     contextWindow: params.contextWindow,
     reserveTokens: params.reserveTokens,
@@ -139,12 +140,7 @@ export function estimateCompactionHistoryTokens(
         budget?.pendingUserTokens ?? budget?.pendingTokens ?? 0,
       )
     : 0;
-  const estimateTokens = createFreshLlmBoundaryTokenEstimator({});
-  return (
-    estimateTokens({ messages, prompt: "" }) -
-    estimateTokens({ messages: [], prompt: "" }) -
-    overlap
-  );
+  return estimateVariableRequestTokens(messages, "") - overlap;
 }
 
 export function estimateCompactedRequestTokens(

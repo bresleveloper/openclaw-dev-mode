@@ -1,5 +1,5 @@
-import { c as parseTelegramTopicConversation, rn as mergeTelegramAccountConfig } from "../../agent-harness-runtime-Du4B564s.js";
-import { C as normalizeTelegramCommandName, S as normalizeTelegramCommandDescription, a as buildTelegramModelsProviderChannelData, i as buildCommandsPaginationKeyboard, n as TelegramInteractiveHandlerRegistration, r as TelegramInteractiveHandlerResult, t as TelegramInteractiveHandlerContext, w as resolveTelegramCustomCommands, y as TELEGRAM_COMMAND_NAME_PATTERN } from "../../interactive-dispatch-GaBiEuto.js";
+import { Wo as parseTelegramTopicConversation, iS as mergeTelegramAccountConfig } from "../../config-contracts-CY87ANNp.js";
+import { C as normalizeTelegramCommandName, S as normalizeTelegramCommandDescription, a as buildTelegramModelsProviderChannelData, i as buildCommandsPaginationKeyboard, n as TelegramInteractiveHandlerRegistration, r as TelegramInteractiveHandlerResult, t as TelegramInteractiveHandlerContext, w as resolveTelegramCustomCommands, y as TELEGRAM_COMMAND_NAME_PATTERN } from "../../interactive-dispatch-pvkEgBdy.js";
 //#region extensions/telegram/src/setup-contract.d.ts
 export declare const singleAccountKeysToMove: string[];
 //#endregion

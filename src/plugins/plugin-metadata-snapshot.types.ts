@@ -52,6 +52,7 @@ export type PluginMetadataSnapshotOwnerMaps = {
   providerAuthAliases?: ReadonlyMap<string, readonly PluginProviderAuthAliasCandidate[]>;
   providerEndpoints?: readonly PluginManifestProviderEndpoint[];
   providerRequests?: ReadonlyMap<string, PluginManifestProviderRequestProvider>;
+  providersManagingOwnAvailability?: ReadonlySet<string>;
 };
 
 type PluginMetadataSnapshotMetrics = {
@@ -91,7 +92,7 @@ export type PluginMetadataRegistryView = Pick<
   PluginMetadataSnapshot,
   "index" | "manifestRegistry" | "discovery" | "workspaceDir"
 > &
-  Partial<Pick<PluginMetadataSnapshot, "declaredProviderOwners">>;
+  Partial<Pick<PluginMetadataSnapshot, "declaredProviderOwners" | "normalizePluginId">>;
 
 /** Acquired workspace facts before the fleet publishes one immutable snapshot. */
 export type PluginMetadataSnapshotInput = Pick<

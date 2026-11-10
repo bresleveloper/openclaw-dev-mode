@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{c as t,d as n,p as r}from"./worker-chunk-QwmOL2bA.mjs";function presentTranscriptSession(e,t=r(),i){return{...e,active:n(e),providerName:i,activeSubscription:t.some(t=>t.state===`armed`&&t.session.sessionId===e.sessionId&&t.session.startedAt===e.startedAt)}}var i=e((()=>{t()}));export{presentTranscriptSession as n,i as t};

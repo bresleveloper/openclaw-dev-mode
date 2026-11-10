@@ -1,6 +1,6 @@
-import { j as isRecord, r as defineStrayPluginEntryConfigMigration } from "./runtime-doctor-migrations-BhouWAUC.js";
+import { L as isRecord, r as defineStrayPluginEntryConfigMigration } from "./runtime-doctor-migrations-Bq3PkBbD.js";
 import { c as number, g as unknown, h as union, i as boolean, l as object, o as email, p as string, s as literal, t as _enum } from "./schemas-C5K39dqU.js";
-import "./string-coerce-runtime-CM4JCyJk.js";
+import "./string-coerce-runtime-D5jaFnkP.js";
 new TextDecoder("utf-8", { fatal: true });
 //#endregion
 //#region extensions/reef/protocol/guard.ts
@@ -65,7 +65,7 @@ function normalizeCompatibilityConfig({ cfg }) {
 	const reef = cfg.channels?.reef;
 	let config = cfg;
 	const changes = [];
-	if (isRecord(reef) && hasRetiredReefPolicyConfig(reef)) {
+	if (hasRetiredReefPolicyConfig(reef)) {
 		const next = structuredClone(cfg);
 		const nextReef = next.channels?.reef;
 		if (isRecord(nextReef)) {

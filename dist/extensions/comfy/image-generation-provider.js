@@ -1,4 +1,4 @@
-import { DEFAULT_COMFY_MODEL, isComfyCapabilityConfigured, runComfyWorkflow } from "./workflow-runtime.js";
+import { DEFAULT_COMFY_MODEL, isComfyCapabilityConfigured, isComfyCapabilityConfiguredAsync, runComfyWorkflow } from "./workflow-runtime.js";
 //#region extensions/comfy/image-generation-provider.ts
 function buildComfyImageGenerationProvider() {
 	return {
@@ -7,6 +7,11 @@ function buildComfyImageGenerationProvider() {
 		defaultModel: DEFAULT_COMFY_MODEL,
 		models: [DEFAULT_COMFY_MODEL],
 		isConfigured: ({ cfg, agentDir }) => isComfyCapabilityConfigured({
+			cfg,
+			agentDir,
+			capability: "image"
+		}),
+		isConfiguredAsync: ({ cfg, agentDir }) => isComfyCapabilityConfiguredAsync({
 			cfg,
 			agentDir,
 			capability: "image"

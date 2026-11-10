@@ -113,6 +113,14 @@ Import an unpacked Open Knowledge Format bundle into wiki concept pages.
 
 The importer reads every non-reserved `.md` concept document in the OKF directory tree, requires a non-empty `type` field, and treats unknown OKF `type` values as generic concepts. Reserved OKF `index.md` and `log.md` files are not imported as concepts.
 
+OKF documents, including the bundle's `index.md`, must contain valid UTF-8.
+Malformed concept documents are skipped with an `unreadable-entry` warning;
+other valid concepts still import. Any import warning also prevents stale-page
+pruning, so a damaged source cannot remove its previously imported concept.
+An unreadable root `index.md` stops the import before concept pages are changed,
+because that file determines the bundle identity. Convert the affected source
+to UTF-8 and retry the import.
+
 Imported pages are flattened under `concepts/` so existing wiki compile, search, get, digest, and dashboard flows see them immediately. The original OKF concept ID, `type`, `resource`, `tags`, timestamp, source path, and full frontmatter are preserved in the page frontmatter. Internal OKF markdown links are rewritten to the generated wiki pages; broken or external links are left unchanged. Import always recompiles the vault afterward.
 
 Examples:
@@ -155,7 +163,7 @@ Use `wiki search` for wiki-specific ranking and provenance. For one broad shared
 
 Search modes:
 
-- `find-person`: aliases, handles, socials, canonical IDs, and person pages
+- `find-person`: aliases, handles, socials, primary IDs, and person pages
 - `route-question`: ask-for/best-used-for hints and relationship context
 - `source-evidence`: source pages and structured evidence fields
 - `raw-claim`: structured claim text with claim/evidence metadata
@@ -174,7 +182,7 @@ Text output includes `Claim:` and `Evidence:` lines when a result matches a stru
 ### `wiki get <lookup>`
 
 Read a wiki page by id or relative path. Compiled claim IDs are resolved first.
-After vault activation, an existing, visible canonical Markdown path reads only
+After vault activation, an existing, visible Markdown path reads only
 the requested page. A fresh CLI process still validates the compiled snapshot
 against the vault; missing indexes or snapshots can trigger automatic compilation.
 Missing or invalid candidates, extensionless paths, basenames, and page IDs
@@ -222,6 +230,10 @@ openclaw wiki chatgpt import --export ./conversations.json --dry-run
 | `--dry-run`       | `false`    | Preview created/updated/skipped counts without writing pages. |
 
 A non-dry-run import that changes any page records an import run id, printed in the summary, needed for rollback.
+
+Export files and existing source pages must resolve to regular files. Named pipes
+and other special files are rejected without waiting for data. Replace the affected
+path with a regular file and retry.
 
 ### `wiki chatgpt rollback <run-id>`
 

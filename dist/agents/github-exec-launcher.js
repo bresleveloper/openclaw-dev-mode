@@ -1,7 +1,7 @@
 import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
-import { v as readSecureFile } from "../fs-safe-BUXBSN-4.mjs";
-import path from "node:path";
+import { v as readSecureFile } from "../fs-safe-6Z4UiMS4.mjs";
 import fs from "node:fs/promises";
+import path from "node:path";
 import { parseDocument } from "yaml";
 import { inspectPathPermissions } from "@openclaw/fs-safe/permissions";
 //#region src/agents/github-exec-credential.ts

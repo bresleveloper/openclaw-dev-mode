@@ -1,2 +1,2 @@
-import { a as setWhatsAppRuntime } from "./.setup/runtime-BLlToOi6.mjs";
+import { a as setWhatsAppRuntime } from "./.setup/runtime-Botmatgn.mjs";
 export { setWhatsAppRuntime };

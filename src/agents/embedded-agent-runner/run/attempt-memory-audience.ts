@@ -1,3 +1,4 @@
+import { resolveSessionStorePathForScope } from "../../../config/sessions/session-store-path.js";
 import type { SessionEntry } from "../../../config/sessions/types.js";
 import type { OpenClawConfig } from "../../../config/types.openclaw.js";
 import {
@@ -47,6 +48,8 @@ export async function resolveEmbeddedAttemptMemoryAudience(params: {
       sessionId: params.sessionId,
       senderIsOwner: params.senderIsOwner,
       storePath: params.admission.storePath,
+      resolveAgentStorePath: (hopAgentId) =>
+        resolveSessionStorePathForScope({ agentId: hopAgentId }, params.config),
       assertCallerCurrent: params.assertCallerCurrent,
     },
     params.admission.entry,
@@ -54,12 +57,15 @@ export async function resolveEmbeddedAttemptMemoryAudience(params: {
   if (resolution.status === "granted") {
     return { memoryAudience: resolution.audience, release: resolution.release };
   }
-  // A denial grants no private or conversation memory; legacy rows need an
-  // operator-visible reason because respawning is the only repair.
-  if (resolution.legacyLineage) {
-    log.warn(`memory audience unavailable: ${resolution.reason}`);
-  } else {
-    log.debug(`memory audience unavailable: ${resolution.reason}`);
-  }
+  // A denial grants no private or conversation memory, and memory tools then
+  // fail pointing at this entry. Stale lineage warns because its reason names
+  // the only repair; every other denial stays visible at info.
+  const message = `memory audience unavailable: ${resolution.reason}`;
+  const meta = {
+    event: "memory_audience_denied",
+    kind: resolution.kind,
+    sessionKey: params.sessionKey,
+  };
+  log[resolution.kind === "stale-lineage" ? "warn" : "info"](message, meta);
   return { release: retainedAudience };
 }

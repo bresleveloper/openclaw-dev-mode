@@ -1,4 +1,4 @@
-import { a as getServedViewerAsset, r as VIEWER_RUNTIME_PATH } from "./.setup/viewer-assets-C646cpoV.mjs";
+import { a as getServedViewerAsset, r as VIEWER_RUNTIME_PATH } from "./.setup/viewer-assets-D_VrsDqE.mjs";
 import { buildPluginConfigSchema, definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { mapPluginConfigIssues } from "openclaw/plugin-sdk/extension-shared";
 import { asFiniteNumber, asNonArrayRecord, asOptionalRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
@@ -124,22 +124,15 @@ function normalizePathSeparators(pathname) {
 	if (collapsed.length <= 1) return collapsed;
 	return collapsed.replace(/\/+$/, "");
 }
-function resolveDotSegments(pathname) {
-	try {
-		return new URL(pathname, "http://localhost").pathname;
-	} catch {
-		return pathname;
-	}
-}
 function normalizePathForSecurity(pathname) {
-	return normalizePathSeparators(normalizeLowercaseStringOrEmpty$1(resolveDotSegments(pathname))) || "/";
+	return normalizePathSeparators(normalizeLowercaseStringOrEmpty$1(URL.parse(pathname, "http://localhost")?.pathname ?? pathname)) || "/";
 }
-function buildCanonicalPathCandidates(pathname, maxDecodePasses = MAX_PATH_DECODE_PASSES) {
+function buildCanonicalPathCandidates(pathname) {
 	const candidates = /* @__PURE__ */ new Set([normalizePathForSecurity(pathname)]);
 	let decoded = pathname;
 	let malformedEncoding = false;
 	let decodePasses = 0;
-	for (let pass = 0; pass < maxDecodePasses; pass++) {
+	for (let pass = 0; pass < MAX_PATH_DECODE_PASSES; pass++) {
 		let nextDecoded;
 		try {
 			nextDecoded = decodeURIComponent(decoded);
@@ -458,11 +451,7 @@ function createDiffsHttpHandler(params) {
 		if (!parsed) return false;
 		if (parsed.pathname.startsWith("/plugins/diffs/assets/")) return await serveAsset(req, res, parsed.pathname, params.logger);
 		if (!parsed.pathname.startsWith(VIEW_PREFIX)) return false;
-		const accessConfig = params.resolveAccessConfig?.() ?? {
-			allowRemoteViewer: params.allowRemoteViewer,
-			trustedProxies: params.trustedProxies,
-			allowRealIpFallback: params.allowRealIpFallback
-		};
+		const accessConfig = params.resolveAccessConfig();
 		const access = resolveViewerAccess(req, {
 			trustedProxies: accessConfig.trustedProxies,
 			allowRealIpFallback: accessConfig.allowRealIpFallback
@@ -588,10 +577,9 @@ const DIFFS_AGENT_GUIDANCE = [
 const DEFAULT_TTL_MS = 18e5;
 const MAX_TTL_MS = 216e5;
 const SWEEP_FALLBACK_AGE_MS = 864e5;
-const DEFAULT_CLEANUP_INTERVAL_MS = 3e5;
+const CLEANUP_INTERVAL_MS = 3e5;
 const CLEANUP_CONCURRENCY = 4;
 const MAX_DECODED_HTML_BYTES = 67108864;
-const ARTIFACT_ID_ATTEMPTS = 8;
 const VIEWER_PREFIX = "/plugins/diffs/view";
 const EMPTY_BLOB = /* @__PURE__ */ new Uint8Array();
 const gzipAsync = promisify(gzip);
@@ -608,7 +596,6 @@ var DiffArtifactStore = class {
 		this.rootDir = path.resolve(params.rootDir);
 		this.blobStore = params.blobStore;
 		this.logger = params.logger;
-		this.cleanupIntervalMs = params.cleanupIntervalMs === void 0 ? DEFAULT_CLEANUP_INTERVAL_MS : Math.max(0, Math.floor(params.cleanupIntervalMs));
 	}
 	async createArtifact(params) {
 		const html = Buffer.from(params.html, "utf8");
@@ -658,34 +645,24 @@ var DiffArtifactStore = class {
 			format,
 			...params.context ? { context: params.context } : {}
 		};
-		for (let attempt = 0; attempt < ARTIFACT_ID_ATTEMPTS; attempt += 1) {
-			const id = crypto.randomBytes(10).toString("hex");
-			if (!await this.registerIfAbsentWithCleanup(id, EMPTY_BLOB, metadata, ttlMs)) continue;
-			const artifactDir = this.artifactDir(id);
-			try {
-				await fs$1.mkdir(this.rootDir, { recursive: true });
-				await fs$1.mkdir(artifactDir);
-				const entry = await this.blobStore.lookup(id);
-				if (!entry || !isRenderedFileMetadata(entry.metadata)) throw new Error(`Diff file artifact expired before materialization: ${id}`);
-				this.renderingFileIds.add(id);
-				this.scheduleCleanup();
-				return {
-					id,
-					filePath: path.join(artifactDir, `preview.${format}`),
-					expiresAt: resolveEntryExpiresAt(entry),
-					...params.context ? { context: params.context } : {}
-				};
-			} catch (error) {
-				await this.blobStore.delete(id).catch(() => false);
-				await fs$1.rm(artifactDir, {
-					recursive: true,
-					force: true
-				}).catch(() => {});
-				if (isFileExists(error)) continue;
-				throw error;
-			}
+		const entry = await this.registerUnique(EMPTY_BLOB, metadata, ttlMs);
+		const id = entry.key;
+		const artifactDir = this.artifactDir(id);
+		try {
+			await fs$1.mkdir(this.rootDir, { recursive: true });
+			await fs$1.mkdir(artifactDir);
+		} catch (error) {
+			await this.blobStore.delete(id).catch(() => false);
+			throw error;
 		}
-		throw new Error("Failed to allocate a unique diff file artifact id.");
+		this.renderingFileIds.add(id);
+		this.scheduleCleanup();
+		return {
+			id,
+			filePath: path.join(artifactDir, `preview.${format}`),
+			expiresAt: resolveEntryExpiresAt(entry),
+			...params.context ? { context: params.context } : {}
+		};
 	}
 	async completeFileArtifact(id) {
 		try {
@@ -749,9 +726,8 @@ var DiffArtifactStore = class {
 		if (orphanCleanup.hasError) throw orphanCleanup.firstError;
 	}
 	async registerUnique(bytes, metadata, ttlMs) {
-		for (let attempt = 0; attempt < ARTIFACT_ID_ATTEMPTS; attempt += 1) {
-			const id = crypto.randomBytes(10).toString("hex");
-			if (!await this.registerIfAbsentWithCleanup(id, bytes, metadata, ttlMs)) continue;
+		const id = crypto.randomBytes(10).toString("hex");
+		if (await this.registerIfAbsentWithCleanup(id, bytes, metadata, ttlMs)) {
 			const entry = await this.blobStore.lookup(id);
 			if (entry) return entry;
 		}
@@ -768,7 +744,6 @@ var DiffArtifactStore = class {
 	}
 	async deleteExpiredFile(entry) {
 		if (!isRenderedFileMetadata(entry.metadata) || this.renderingFileIds.has(entry.key)) return;
-		if (await this.blobStore.lookup(entry.key)) return;
 		await fs$1.rm(this.artifactDir(entry.key), {
 			recursive: true,
 			force: true
@@ -777,7 +752,7 @@ var DiffArtifactStore = class {
 	scheduleCleanup() {
 		const now = Date.now();
 		if (this.cleanupStopped || this.cleanupInFlight || now < this.nextCleanupAt) return;
-		this.nextCleanupAt = now + this.cleanupIntervalMs;
+		this.nextCleanupAt = now + CLEANUP_INTERVAL_MS;
 		this.cleanupExpired().catch((error) => {
 			this.nextCleanupAt = 0;
 			this.logger?.warn(`Failed to clean expired diff artifacts: ${String(error)}`);
@@ -835,9 +810,6 @@ function isArtifactContext(value) {
 		"agentAccountId"
 	]);
 	return Object.entries(context).every(([key, entry]) => allowed.has(key) && (entry === void 0 || typeof entry === "string"));
-}
-function isFileExists(error) {
-	return error instanceof Error && "code" in error && error.code === "EEXIST";
 }
 function isFileNotFound(error) {
 	return error instanceof Error && "code" in error && error.code === "ENOENT";
@@ -1588,25 +1560,18 @@ async function renderDiffDocument(input, options, target = "both") {
 	const imageBodyHtml = imageSections.length ? [...lead, ...imageSections].join("\n") : void 0;
 	const viewerRuntime = sections.some((section) => section.usesLanguagePack) ? "language-pack" : "base";
 	const imageTypography = resolveDiffTypography(buildImageRenderOptions(options).presentation);
+	const document = (bodyHtml, runtimeMode) => buildHtmlDocument({
+		title,
+		bodyHtml,
+		theme: options.presentation.theme,
+		imageMaxWidth: options.image.maxWidth,
+		imageTypography,
+		runtimeMode,
+		viewerRuntime
+	});
 	return {
-		...viewerBodyHtml ? { html: buildHtmlDocument({
-			title,
-			bodyHtml: viewerBodyHtml,
-			theme: options.presentation.theme,
-			imageMaxWidth: options.image.maxWidth,
-			imageTypography,
-			runtimeMode: "viewer",
-			viewerRuntime
-		}) } : {},
-		...imageBodyHtml ? { imageHtml: buildHtmlDocument({
-			title,
-			bodyHtml: imageBodyHtml,
-			theme: options.presentation.theme,
-			imageMaxWidth: options.image.maxWidth,
-			imageTypography,
-			runtimeMode: "image",
-			viewerRuntime
-		}) } : {},
+		...viewerBodyHtml ? { html: document(viewerBodyHtml, "viewer") } : {},
+		...imageBodyHtml ? { imageHtml: document(imageBodyHtml, "image") } : {},
 		title,
 		fileCount: sections.length,
 		inputKind: input.kind,
@@ -1629,7 +1594,7 @@ const MAX_TITLE_BYTES = 1024;
 const MAX_PATH_BYTES = 2048;
 const MAX_LANG_BYTES = 128;
 const MAX_DIFF_ARTIFACT_TTL_SECONDS = 21600;
-const loadDiffsBrowserRuntime = createLazyRuntimeModule(() => import("./.setup/browser.runtime-B8JeyUXz.mjs"));
+const loadDiffsBrowserRuntime = createLazyRuntimeModule(() => import("./.setup/browser.runtime-DP8xInXM.mjs"));
 const DiffsToolSchema = Type.Object({
 	before: Type.Optional(Type.String({ description: "Original text content." })),
 	after: Type.Optional(Type.String({ description: "Updated text content." })),
@@ -1745,7 +1710,7 @@ function createDiffsTool(params) {
 			} : void 0;
 			if (mode === "view") return textResult(`Diff viewer ready.\n${viewerUrl}`, viewerDetails);
 			try {
-				const screenshotter = params.screenshotter ?? new (await (loadDiffsBrowserRuntime())).PlaywrightDiffScreenshotter({ config });
+				const screenshotter = new (await (loadDiffsBrowserRuntime())).PlaywrightDiffScreenshotter({ config });
 				const html = requireRenderedHtml(rendered.imageHtml, "image");
 				const artifactFile = await params.store.createStandaloneFileArtifact({
 					format: image.format,
@@ -1829,10 +1794,10 @@ function buildArtifactContext(context) {
 	return Object.keys(artifactContext).length > 0 ? artifactContext : void 0;
 }
 function normalizeDiffInput(params) {
-	const patch = params.patch?.trim();
+	const patch = params.patch;
 	const before = params.before;
 	const after = params.after;
-	if (patch) {
+	if (patch?.trim()) {
 		assertMaxBytes(patch, "patch", MAX_PATCH_BYTES);
 		if (before !== void 0 || after !== void 0) throw new PluginToolInputError("Provide either patch or before/after input, not both.");
 		const title = params.title?.trim();
@@ -1909,16 +1874,15 @@ function registerDiffsPlugin(api) {
 		start: () => store.startCleanup(),
 		stop: () => store.stopCleanup()
 	});
-	const resolveCurrentPluginConfig = () => resolveLivePluginConfigObject(api.runtime.config?.current ? () => api.runtime.config.current() : void 0, "diffs", api.pluginConfig) ?? {};
+	const resolveCurrentPluginConfig = () => resolveLivePluginConfigObject(() => api.runtime.config.current(), "diffs", api.pluginConfig) ?? {};
 	const resolveCurrentAccessConfig = () => {
-		const currentConfig = api.runtime.config?.current?.() ?? api.config;
+		const currentConfig = api.runtime.config.current();
 		return {
 			allowRemoteViewer: resolveDiffsPluginSecurity(resolveCurrentPluginConfig()).allowRemoteViewer,
 			trustedProxies: currentConfig.gateway?.trustedProxies,
 			allowRealIpFallback: currentConfig.gateway?.allowRealIpFallback === true
 		};
 	};
-	const initialAccessConfig = resolveCurrentAccessConfig();
 	api.registerTool((ctx) => {
 		const pluginConfig = resolveCurrentPluginConfig();
 		return createDiffsTool({
@@ -1937,16 +1901,13 @@ function registerDiffsPlugin(api) {
 		handler: createDiffsHttpHandler({
 			store,
 			logger: api.logger,
-			allowRemoteViewer: initialAccessConfig.allowRemoteViewer,
-			trustedProxies: initialAccessConfig.trustedProxies,
-			allowRealIpFallback: initialAccessConfig.allowRealIpFallback,
 			resolveAccessConfig: resolveCurrentAccessConfig
 		})
 	});
 	api.on("before_prompt_build", async () => ({ prependSystemContext: DIFFS_AGENT_GUIDANCE }));
 }
 function resolveDiffsLanguagePackAvailability(api) {
-	const plugins = (api.runtime.config?.current?.() ?? api.config).plugins;
+	const plugins = api.runtime.config.current().plugins;
 	if (plugins?.enabled === false) return false;
 	if (plugins?.deny?.includes(DIFFS_LANGUAGE_PACK_PLUGIN_ID)) return false;
 	if (plugins?.allow && !plugins.allow.includes(DIFFS_LANGUAGE_PACK_PLUGIN_ID)) return false;

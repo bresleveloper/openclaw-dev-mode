@@ -1,4 +1,4 @@
-import { DEFAULT_COMFY_MODEL, isComfyCapabilityConfigured, runComfyWorkflow } from "./workflow-runtime.js";
+import { DEFAULT_COMFY_MODEL, isComfyCapabilityConfigured, isComfyCapabilityConfiguredAsync, runComfyWorkflow } from "./workflow-runtime.js";
 //#region extensions/comfy/music-generation-provider.ts
 const COMFY_MAX_INPUT_IMAGES = 1;
 function resolveInputImage(inputImage) {
@@ -17,6 +17,11 @@ function buildComfyMusicGenerationProvider() {
 		defaultModel: DEFAULT_COMFY_MODEL,
 		models: [DEFAULT_COMFY_MODEL],
 		isConfigured: ({ cfg, agentDir }) => isComfyCapabilityConfigured({
+			cfg,
+			agentDir,
+			capability: "music"
+		}),
+		isConfiguredAsync: ({ cfg, agentDir }) => isComfyCapabilityConfiguredAsync({
 			cfg,
 			agentDir,
 			capability: "music"

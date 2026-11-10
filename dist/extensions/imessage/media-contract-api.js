@@ -1,2 +1,2 @@
-import { n as resolveIMessageAttachmentRoots, r as resolveIMessageRemoteAttachmentRoots, t as DEFAULT_IMESSAGE_ATTACHMENT_ROOTS } from "./.setup/media-contract-DjQGZlfl.mjs";
+import { n as resolveIMessageAttachmentRoots, r as resolveIMessageRemoteAttachmentRoots, t as DEFAULT_IMESSAGE_ATTACHMENT_ROOTS } from "./.setup/media-contract-BwWs5PM7.mjs";
 export { DEFAULT_IMESSAGE_ATTACHMENT_ROOTS, resolveIMessageAttachmentRoots, resolveIMessageAttachmentRoots as resolveInboundAttachmentRoots, resolveIMessageRemoteAttachmentRoots, resolveIMessageRemoteAttachmentRoots as resolveRemoteInboundAttachmentRoots };

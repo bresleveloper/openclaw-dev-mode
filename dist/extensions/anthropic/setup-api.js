@@ -1,10 +1,10 @@
-import { i as CLAUDE_CLI_MODEL_ALIASES, n as CLAUDE_CLI_CLEAR_ENV, o as CLAUDE_CLI_SESSION_ID_FIELDS, r as CLAUDE_CLI_DEFAULT_MODEL_REF, s as OPENCLAW_MCP_TOOL_PREFIX, t as CLAUDE_CLI_BACKEND_ID } from "./.setup/cli-constants-DdiQJ1Sq.mjs";
+import { i as CLAUDE_CLI_MODEL_ALIASES, n as CLAUDE_CLI_CLEAR_ENV, o as CLAUDE_CLI_SESSION_ID_FIELDS, r as CLAUDE_CLI_DEFAULT_MODEL_REF, s as OPENCLAW_MCP_TOOL_PREFIX, t as CLAUDE_CLI_BACKEND_ID } from "./.setup/cli-constants-CXYrFWjU.mjs";
 import { n as parseClaudeCliJsonlEvent, r as parseClaudeCliJsonlLifecycleEvent } from "./.setup/cli-output-iGeO18JR.mjs";
-import { normalizeOptionalLowercaseString } from "openclaw/plugin-sdk/string-coerce-runtime";
-import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { createHmac, randomBytes } from "node:crypto";
-import { resolveAgentConfig } from "openclaw/plugin-sdk/agent-scope-runtime";
+import { isRecord, normalizeOptionalLowercaseString, normalizeSortedUniqueTrimmedStringList } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { requiresClaudeMandatoryAdaptiveThinking, resolveClaudeHaiku55ModelIdentity } from "openclaw/plugin-sdk/claude-model-runtime";
+import { createHmac, randomBytes } from "node:crypto";
+import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { resolveAgentConfig } from "openclaw/plugin-sdk/agent-scope-runtime";
 import { resolveExecModePolicy } from "openclaw/plugin-sdk/exec-approvals-runtime";
 //#region extensions/anthropic/cli-shared.ts
 const CLAUDE_LEGACY_SKIP_PERMISSIONS_ARG = "--dangerously-skip-permissions";
@@ -73,7 +73,7 @@ function resolveClaudeCliThinkingEnv(thinkingLevel, modelId) {
 	}
 }
 function isOpenClawRequestedYolo(context) {
-	const exec = (context?.agentId ? resolveAgentConfig(context.config ?? {}, context.agentId)?.tools?.exec : void 0) ?? context?.config?.tools?.exec;
+	const exec = (context.agentId ? resolveAgentConfig(context.config ?? {}, context.agentId)?.tools?.exec : void 0) ?? context.config?.tools?.exec;
 	return resolveExecModePolicy({
 		mode: exec?.mode,
 		security: exec?.security ?? "full",
@@ -81,8 +81,8 @@ function isOpenClawRequestedYolo(context) {
 	}).mode === "full";
 }
 /** Keep filesystem settings user-scoped and normalize native permission flags together. */
-function normalizeClaudeBackendArgs(args, permissionMode) {
-	if (!args) return permissionMode ? [CLAUDE_PERMISSION_MODE_ARG, permissionMode] : args;
+function normalizeClaudeBackendArgs(context) {
+	const args = context.baseArgs;
 	const normalized = [];
 	let hasPermissionMode = false;
 	let hasSettingSources = false;
@@ -119,7 +119,7 @@ function normalizeClaudeBackendArgs(args, permissionMode) {
 		normalized.push(arg);
 	}
 	if (!hasSettingSources) normalized.push(CLAUDE_SETTING_SOURCES_ARG, CLAUDE_SAFE_SETTING_SOURCES);
-	if (permissionMode && !hasPermissionMode) normalized.push(CLAUDE_PERMISSION_MODE_ARG, permissionMode);
+	if (!hasPermissionMode && context.controlOperation !== "compact" && isOpenClawRequestedYolo(context)) normalized.push(CLAUDE_PERMISSION_MODE_ARG, "bypassPermissions");
 	return normalized;
 }
 function applyClaudeCliEffortArgs(args, thinkingLevel, modelId) {
@@ -287,28 +287,26 @@ function resolveClaudeCliRestrictedExecutionArgs(baseArgs, availability) {
 	});
 	normalized.push(CLAUDE_SETTING_SOURCES_ARG, "", CLAUDE_SETTINGS_ARG, CLAUDE_RESTRICTED_SETTINGS, CLAUDE_DISABLE_SLASH_COMMANDS_ARG, CLAUDE_NO_CHROME_ARG, CLAUDE_STRICT_MCP_CONFIG_ARG, CLAUDE_TOOLS_ARG, availability.native.join(","));
 	if (availability.openClaw.length > 0) normalized.push(CLAUDE_ALLOWED_TOOLS_ARG, availability.openClaw.map((toolName) => `${OPENCLAW_MCP_TOOL_PREFIX}${toolName}`).join(","));
-	const denials = [.../* @__PURE__ */ new Set([...preservedDenials.map((entry) => entry.trim()).filter(Boolean), ...availability.openClaw.length === 0 ? [CLAUDE_DENY_MCP_TOOLS_VALUE] : []])].toSorted();
+	const denials = normalizeSortedUniqueTrimmedStringList([...preservedDenials, ...availability.openClaw.length === 0 ? [CLAUDE_DENY_MCP_TOOLS_VALUE] : []]);
 	if (denials.length > 0) normalized.push(CLAUDE_DISALLOWED_TOOLS_ARG, denials.join(","));
 	return normalized;
 }
 function resolveClaudeCliExecutionArgs(context, options = {}) {
+	const normalizedArgs = normalizeClaudeBackendArgs(context);
 	const baseArgs = context.hostOwnedTools?.includes("exec") ? [
-		...stripClaudeArgs(context.baseArgs, { variadicValue: /* @__PURE__ */ new Set([CLAUDE_DISALLOWED_TOOLS_ARG, "--disallowed-tools"]) }),
+		...stripClaudeArgs(normalizedArgs, { variadicValue: /* @__PURE__ */ new Set([CLAUDE_DISALLOWED_TOOLS_ARG, "--disallowed-tools"]) }),
 		CLAUDE_DISALLOWED_TOOLS_ARG,
-		[.../* @__PURE__ */ new Set([...readClaudeToolDenials(context.baseArgs), "Bash"])].join(",")
-	] : context.baseArgs;
+		[.../* @__PURE__ */ new Set([...readClaudeToolDenials(normalizedArgs), "Bash"])].join(",")
+	] : normalizedArgs;
 	const executionArgs = context.executionMode === "side-question" ? resolveClaudeCliSideQuestionExecutionArgs(baseArgs) : applyClaudeCliEffortArgs(baseArgs, context.thinkingLevel, context.modelId);
 	const resolvedArgs = context.toolAvailability ? resolveClaudeCliRestrictedExecutionArgs(executionArgs, context.toolAvailability) : executionArgs;
 	return options.excludeDynamicSystemPromptSections && context.executionMode !== "side-question" ? [...resolvedArgs, CLAUDE_EXCLUDE_DYNAMIC_SYSTEM_PROMPT_SECTIONS_ARG] : resolvedArgs;
 }
-function normalizeClaudeBackendConfig(config, context) {
+function normalizeClaudeBackendConfig(config) {
 	const output = config.output ?? "jsonl";
 	const input = config.input ?? "stdin";
-	const permissionMode = isOpenClawRequestedYolo(context) ? "bypassPermissions" : void 0;
 	return {
 		...config,
-		args: normalizeClaudeBackendArgs(config.args, permissionMode),
-		resumeArgs: normalizeClaudeBackendArgs(config.resumeArgs, permissionMode),
 		output,
 		liveSession: config.liveSession ?? (output === "jsonl" && input === "stdin" ? "claude-stdio" : void 0),
 		input
@@ -352,6 +350,16 @@ const CLAUDE_NATIVE_TOOL_CAPABILITIES = {
 function projectClaudeNativeToolAuthority(nativeTools) {
 	const selected = new Set(nativeTools.map((name) => name.trim().toLowerCase()));
 	return [...new Set(Object.entries(CLAUDE_NATIVE_TOOL_CAPABILITIES).filter(([name]) => selected.has(name)).map(([, capability]) => capability))];
+}
+const CLAUDE_MANAGED_NATIVE_TOOLS = ["Agent", "Workflow"];
+/** Operator selection under `plugins.entries.anthropic.config.managedNativeTools`. */
+function resolveClaudeManagedNativeTools(ctx) {
+	const pluginConfig = ctx.config?.plugins?.entries?.anthropic?.config;
+	const selection = isRecord(pluginConfig) ? pluginConfig.managedNativeTools : void 0;
+	if (!isRecord(selection)) return [];
+	const agents = isRecord(selection.agents) ? selection.agents : void 0;
+	const selected = Object.hasOwn(agents ?? {}, ctx.agentId) ? agents?.[ctx.agentId] : selection.default;
+	return Array.isArray(selected) ? CLAUDE_MANAGED_NATIVE_TOOLS.filter((name) => selected.includes(name)) : [];
 }
 function createClaudeCliAuthInput(params) {
 	const trimmed = params.value.trim();
@@ -418,9 +426,9 @@ function buildAnthropicCliBackend(options = {}) {
 		nativeToolMode: "selectable",
 		hostOwnedTools: ["exec", "process"],
 		toolAvailabilityEnforcement: "execution-args",
-		isolatesInstructionsWithExactTools: true,
 		transformSystemPrompt: ({ systemPrompt, openClawMcpToolNames }) => appendClaudeCliToolNamingGuidance(systemPrompt, openClawMcpToolNames),
 		projectNativeToolAuthority: projectClaudeNativeToolAuthority,
+		resolveManagedNativeTools: resolveClaudeManagedNativeTools,
 		sideQuestionToolMode: "disabled",
 		ownsNativeCompaction: true,
 		manualCompaction: {
@@ -479,7 +487,7 @@ function buildAnthropicCliBackend(options = {}) {
 				const authInput = resolveClaudeCliAuthInput(credentialContext.authCredential);
 				const isolatedCompletion = credentialContext.isolatedCompletionPrompt !== void 0;
 				const cliExecution = !isolatedCompletion && context.executionMode === "agent" ? { async *execute(executionContext) {
-					const { executeClaudeCli } = await import("./.setup/cli.runtime-5Pq7Tvht.mjs");
+					const { executeClaudeCli } = await import("./.setup/cli.runtime-DXQ4h1hv.mjs");
 					executionContext.assertCurrent?.();
 					yield* executeClaudeCli(executionContext, authInput?.secretInput);
 				} } : void 0;

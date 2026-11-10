@@ -1,89 +1,163 @@
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
-import fs, { closeSync, createWriteStream, openSync, readSync, readdirSync } from "node:fs";
+import fs, { closeSync, createWriteStream, existsSync, openSync, readSync, readdirSync } from "node:fs";
 import { setTimeout } from "node:timers/promises";
 import path from "node:path";
 import { URL as URL$1, fileURLToPath, pathToFileURL } from "node:url";
 import { AsyncLocalStorage } from "node:async_hooks";
 import os, { platform } from "node:os";
 import { getSystemErrorName } from "node:util";
-//#region src/infra/runtime-process-entrypoints.ts
-function runtimeProcessEntrypoint(modulePath) {
-	return {
-		currentModuleUrl: import.meta.url,
-		sourceWorkerName: modulePath.startsWith("infra/") ? modulePath.slice(6) : `../${modulePath}`,
-		distWorkerPath: `${modulePath}.js`
-	};
-}
-const runtimeProcessEntrypoints = {
-	secretEgressProxy: runtimeProcessEntrypoint("secrets/egress-proxy/proxy.worker"),
-	codeModeNode: runtimeProcessEntrypoint("agents/code-mode-node.worker"),
-	cronReadOnly: runtimeProcessEntrypoint("cron/store/read-only.worker"),
-	stateRead: runtimeProcessEntrypoint("state/openclaw-state-read.worker"),
-	workerNativeLifecycle: runtimeProcessEntrypoint("infra/worker-native-lifecycle.worker"),
-	spawnBroker: runtimeProcessEntrypoint("process/spawn-broker/worker"),
-	cronStreamMatcher: runtimeProcessEntrypoint("gateway/cron-stream-matcher.worker"),
-	controlUiFile: runtimeProcessEntrypoint("gateway/control-ui-file.worker"),
-	nodeBootstrapArtifact: runtimeProcessEntrypoint("gateway/worker-environments/node-bootstrap-artifact.worker"),
-	nativeHookRelayClient: runtimeProcessEntrypoint("agents/harness/native-hook-relay-client.worker"),
-	computerHost: runtimeProcessEntrypoint("gateway/desktop/computer.worker"),
-	imageProcessor: runtimeProcessEntrypoint("media/image-processor.worker"),
-	fileToolPlanning: runtimeProcessEntrypoint("agents/sessions/tools/file-tool-planning.worker"),
-	attachmentProcessor: runtimeProcessEntrypoint("media/attachment-processor.worker"),
-	gitOperations: runtimeProcessEntrypoint("infra/git-operation.worker"),
-	fsSafeCopy: runtimeProcessEntrypoint("infra/fs-safe-copy.worker"),
-	sharedStateStore: runtimeProcessEntrypoint("state/openclaw-state.worker"),
-	authProfileInlineUsage: runtimeProcessEntrypoint("agents/auth-profiles/inline-usage.worker"),
-	pluginModelCatalogCredentials: runtimeProcessEntrypoint("agents/plugin-model-catalog.worker"),
-	agentDatabaseExecution: runtimeProcessEntrypoint("state/openclaw-agent-execution.worker"),
-	workspaceMemory: runtimeProcessEntrypoint("worker/memory-worker-entry"),
-	localAgentAvatar: runtimeProcessEntrypoint("agents/identity-avatar-file.worker"),
-	identityFile: runtimeProcessEntrypoint("agents/identity-file.worker"),
-	workspaceSkills: runtimeProcessEntrypoint("worker/skills-worker-entry"),
-	boardStore: runtimeProcessEntrypoint("boards/sqlite-board-store.worker"),
-	progressCardStore: runtimeProcessEntrypoint("session-cards/progress-card-store.worker"),
-	sessionSharingStore: runtimeProcessEntrypoint("config/sessions/session-sharing-store.worker"),
-	heartbeatOutcomeStore: runtimeProcessEntrypoint("infra/heartbeat-outcome-store.worker"),
-	acpParentStreamStore: runtimeProcessEntrypoint("agents/subagents/spawn/acp-parent-stream-store.worker"),
-	messageToolRunOutcomeStore: runtimeProcessEntrypoint("infra/message-tool-run-outcome-store.worker"),
-	contextEngineTurnOutbox: runtimeProcessEntrypoint("agents/harness/context-engine-turn-outbox.worker"),
-	sqliteStore: runtimeProcessEntrypoint("infra/sqlite-store.worker"),
-	agentSchemaInspection: runtimeProcessEntrypoint("state/openclaw-agent-schema-inspection.worker"),
-	stateMigrationSnapshot: runtimeProcessEntrypoint("infra/state-migrations.snapshot.worker"),
-	githubExec: runtimeProcessEntrypoint("agents/github-exec-launcher"),
-	sqliteReadOnly: runtimeProcessEntrypoint("infra/sqlite-readonly-location.worker"),
-	sqliteSnapshotStaging: runtimeProcessEntrypoint("infra/sqlite-snapshot-staging.worker"),
-	sqliteReadOnlyNativeResource: runtimeProcessEntrypoint("infra/sqlite-readonly-native-resource"),
-	sqliteSourceRevision: runtimeProcessEntrypoint("infra/sqlite-source-revision.worker"),
-	sqliteIntegrity: runtimeProcessEntrypoint("infra/sqlite-integrity.worker"),
-	sqliteCloseProbe: runtimeProcessEntrypoint("infra/bun-sqlite-close-probe.worker"),
-	preparedModelCatalog: runtimeProcessEntrypoint("agents/prepared-model-catalog.worker"),
-	providerPromptState: runtimeProcessEntrypoint("agents/embedded-agent-runner/provider-prompt-state.worker"),
-	updateRepair: runtimeProcessEntrypoint("infra/update-repair.worker"),
-	updateMigratedFinalize: runtimeProcessEntrypoint("infra/update-migrated-finalize.worker"),
-	updateCandidateState: runtimeProcessEntrypoint("infra/update-candidate-state.worker"),
-	doctorLint: runtimeProcessEntrypoint("commands/doctor-lint.worker"),
-	doctor: runtimeProcessEntrypoint("commands/doctor.worker"),
-	databaseVerify: runtimeProcessEntrypoint("state/openclaw-database-verify.worker"),
-	stateOwnership: runtimeProcessEntrypoint("state/openclaw-state-ownership.worker"),
-	stateLeaseHeartbeat: runtimeProcessEntrypoint("state/openclaw-state-lease-heartbeat.worker"),
-	gatewayStateOwnerHeartbeat: runtimeProcessEntrypoint("infra/gateway-state-owner-heartbeat.worker"),
-	sessionTranscriptArchive: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-archive.worker"),
-	sessionTranscript: runtimeProcessEntrypoint("config/sessions/session-transcript.worker"),
-	workerTranscriptCommit: runtimeProcessEntrypoint("gateway/worker-environments/transcript-commit.worker"),
-	sessionManagerMetadata: runtimeProcessEntrypoint("agents/sessions/session-manager-metadata.worker"),
-	sessionTranscriptProjectionPublication: runtimeProcessEntrypoint("config/sessions/session-transcript-projection-publication.worker"),
-	sessionTranscriptReports: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-transcript-reports.worker"),
-	sessionTranscriptReconcile: runtimeProcessEntrypoint("config/sessions/session-transcript-reconcile.worker"),
-	tailscaleRouteOwner: runtimeProcessEntrypoint("infra/tailscale-route-owner.worker"),
-	serviceChildRelay: runtimeProcessEntrypoint("process/supervisor/service-child-relay"),
-	terminalPty: runtimeProcessEntrypoint("process/terminal-pty-worker"),
-	serviceChildGroupAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-group-anchor"),
-	serviceChildWindowsJobAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-windows-job-anchor"),
-	bunSqliteLibrary: runtimeProcessEntrypoint("infra/bun-sqlite-library")
+//#region \0rolldown/runtime.js
+var __esmMin = (fn, res, err) => () => {
+	if (err) throw err[0];
+	try {
+		return fn && (res = fn(fn = 0)), res;
+	} catch (e) {
+		throw err = [e], e;
+	}
 };
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/byte-budget.js
+//#region node-runtime-env.mjs
+function parseNodeOptionsEnvVar(value) {
+	const tokens = [];
+	let token = "";
+	let inQuotes = false;
+	const nodeOptions = value ?? "";
+	for (let index = 0; index < nodeOptions.length; index += 1) {
+		let char = nodeOptions.charAt(index);
+		if (char === "\\" && inQuotes) {
+			index += 1;
+			if (index >= nodeOptions.length) return null;
+			char = nodeOptions.charAt(index);
+		} else if (char === " " && !inQuotes) {
+			if (token.length > 0) {
+				tokens.push(token);
+				token = "";
+			}
+			continue;
+		} else if (char === "\"") {
+			inQuotes = !inQuotes;
+			continue;
+		}
+		token += char;
+	}
+	if (inQuotes) return null;
+	if (token.length > 0) tokens.push(token);
+	return tokens;
+}
+function isNodeStartupHook(arg) {
+	return /^(?:--(?:import|require|(?:experimental-)?loader)(?:=|$)|-r)/u.test(arg.replaceAll("_", "-"));
+}
+/** Dedicated process owners must not inherit the caller's instrumentation loaders. */
+function stripNodeStartupHooks(nodeOptions) {
+	const args = parseNodeOptionsEnvVar(nodeOptions);
+	if (args === null) throw new Error("Invalid NODE_OPTIONS for process owner");
+	if (!args.some(isNodeStartupHook)) return nodeOptions;
+	const retained = [];
+	for (let index = 0; index < args.length; index += 1) {
+		const arg = args[index];
+		if (isNodeStartupHook(arg)) {
+			if (arg === "-r" || arg.startsWith("--") && !arg.includes("=")) index += 1;
+		} else retained.push("\"" + arg.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"") + "\"");
+	}
+	return retained.join(" ");
+}
+//#endregion
+//#region src/infra/runtime-process-manifest.ts
+function createRuntimeProcessEntrypoints(currentModuleUrl) {
+	function runtimeProcessEntrypoint(modulePath) {
+		return {
+			currentModuleUrl,
+			sourceWorkerName: modulePath.startsWith("infra/") ? modulePath.slice(6) : `../${modulePath}`,
+			distWorkerPath: `${modulePath}.js`
+		};
+	}
+	return {
+		sqliteHeaderProbe: runtimeProcessEntrypoint("infra/sqlite-header-probe.worker"),
+		postgresBridge: runtimeProcessEntrypoint("infra/postgres-sync/bridge.worker"),
+		secretEgressProxy: runtimeProcessEntrypoint("secrets/egress-proxy/proxy.worker"),
+		codeModeNode: runtimeProcessEntrypoint("agents/code-mode-node.worker"),
+		cronReadOnly: runtimeProcessEntrypoint("cron/store/read-only.worker"),
+		stateRead: runtimeProcessEntrypoint("state/openclaw-state-read.worker"),
+		workerNativeLifecycle: runtimeProcessEntrypoint("infra/worker-native-lifecycle.worker"),
+		spawnBroker: runtimeProcessEntrypoint("process/spawn-broker/worker"),
+		cronStreamMatcher: runtimeProcessEntrypoint("gateway/cron-stream-matcher.worker"),
+		controlUiFile: runtimeProcessEntrypoint("gateway/control-ui-file.worker"),
+		publicSessionCard: runtimeProcessEntrypoint("gateway/control-ui-public-session-card.worker"),
+		nodeBootstrapArtifact: runtimeProcessEntrypoint("gateway/worker-environments/node-bootstrap-artifact.worker"),
+		nativeHookRelayClient: runtimeProcessEntrypoint("agents/harness/native-hook-relay-client.worker"),
+		computerHost: runtimeProcessEntrypoint("gateway/desktop/computer.worker"),
+		imageProcessor: runtimeProcessEntrypoint("media/image-processor.worker"),
+		fileToolPlanning: runtimeProcessEntrypoint("agents/sessions/tools/file-tool-planning.worker"),
+		fileToolRead: runtimeProcessEntrypoint("agents/sessions/tools/read-file.worker"),
+		attachmentProcessor: runtimeProcessEntrypoint("media/attachment-processor.worker"),
+		gitOperations: runtimeProcessEntrypoint("infra/git-operation.worker"),
+		gitPackCleanup: runtimeProcessEntrypoint("agents/worktrees/git-pack-cleanup.worker"),
+		fsSafeCopy: runtimeProcessEntrypoint("infra/fs-safe-copy.worker"),
+		sharedStateStore: runtimeProcessEntrypoint("state/openclaw-state.worker"),
+		authProfileInlineUsage: runtimeProcessEntrypoint("agents/auth-profiles/inline-usage.worker"),
+		pluginModelCatalogCredentials: runtimeProcessEntrypoint("agents/plugin-model-catalog.worker"),
+		agentDatabaseExecution: runtimeProcessEntrypoint("state/openclaw-agent-execution.worker"),
+		workspaceMemory: runtimeProcessEntrypoint("worker/memory-worker-entry"),
+		localAgentAvatar: runtimeProcessEntrypoint("agents/identity-avatar-file.worker"),
+		identityFile: runtimeProcessEntrypoint("agents/identity-file.worker"),
+		workspaceSkills: runtimeProcessEntrypoint("worker/skills-worker-entry"),
+		skillsDiscovery: runtimeProcessEntrypoint("skills/runtime/discovery.worker"),
+		boardStore: runtimeProcessEntrypoint("boards/sqlite-board-store.worker"),
+		progressCardStore: runtimeProcessEntrypoint("session-cards/progress-card-store.worker"),
+		sessionSharingStore: runtimeProcessEntrypoint("config/sessions/session-sharing-store.worker"),
+		sessionForkDomain: runtimeProcessEntrypoint("config/sessions/session-fork-domain.worker"),
+		sessionGoalOperations: runtimeProcessEntrypoint("config/sessions/goals-operations.worker"),
+		sessionLifecyclePlanningDomain: runtimeProcessEntrypoint("config/sessions/session-lifecycle-projection.worker"),
+		sessionMessageRewriteDomain: runtimeProcessEntrypoint("config/sessions/session-message-rewrite.worker"),
+		sessionDiskBudget: runtimeProcessEntrypoint("config/sessions/disk-budget.worker"),
+		heartbeatOutcomeStore: runtimeProcessEntrypoint("infra/heartbeat-outcome-store.worker"),
+		acpParentStreamStore: runtimeProcessEntrypoint("agents/subagents/spawn/acp-parent-stream-store.worker"),
+		messageToolRunOutcomeStore: runtimeProcessEntrypoint("infra/message-tool-run-outcome-store.worker"),
+		contextEngineTurnOutbox: runtimeProcessEntrypoint("agents/harness/context-engine-turn-outbox.worker"),
+		sqliteStore: runtimeProcessEntrypoint("infra/sqlite-store.worker"),
+		sqliteWriterAdmission: runtimeProcessEntrypoint("infra/sqlite-writer-admission.worker"),
+		agentSchemaInspection: runtimeProcessEntrypoint("state/openclaw-agent-schema-inspection.worker"),
+		stateMigrationSnapshot: runtimeProcessEntrypoint("infra/state-migrations.snapshot.worker"),
+		githubExec: runtimeProcessEntrypoint("agents/github-exec-launcher"),
+		sqliteReadOnly: runtimeProcessEntrypoint("infra/sqlite-readonly-location.worker"),
+		sqliteSnapshotStaging: runtimeProcessEntrypoint("infra/sqlite-snapshot-staging.worker"),
+		sqliteReadOnlyNativeResource: runtimeProcessEntrypoint("infra/sqlite-readonly-native-resource"),
+		sqliteSourceRevision: runtimeProcessEntrypoint("infra/sqlite-source-revision.worker"),
+		sqliteIntegrity: runtimeProcessEntrypoint("infra/sqlite-integrity.worker"),
+		sqliteCloseProbe: runtimeProcessEntrypoint("infra/bun-sqlite-close-probe.worker"),
+		preparedModelCatalog: runtimeProcessEntrypoint("agents/prepared-model-catalog.worker"),
+		providerPromptState: runtimeProcessEntrypoint("agents/embedded-agent-runner/provider-prompt-state.worker"),
+		updateRepair: runtimeProcessEntrypoint("infra/update-repair.worker"),
+		immutableBuild: runtimeProcessEntrypoint("infra/update-immutable-build.worker"),
+		updateMigratedFinalize: runtimeProcessEntrypoint("infra/update-migrated-finalize.worker"),
+		updateCandidateState: runtimeProcessEntrypoint("infra/update-candidate-state.worker"),
+		doctorLint: runtimeProcessEntrypoint("commands/doctor-lint.worker"),
+		doctor: runtimeProcessEntrypoint("commands/doctor.worker"),
+		databaseVerify: runtimeProcessEntrypoint("state/openclaw-database-verify.worker"),
+		stateOwnership: runtimeProcessEntrypoint("state/openclaw-state-ownership.worker"),
+		stateLeaseHeartbeat: runtimeProcessEntrypoint("state/openclaw-state-lease-heartbeat.worker"),
+		gatewayStateOwnerHeartbeat: runtimeProcessEntrypoint("infra/gateway-state-owner-heartbeat.worker"),
+		sessionTranscriptArchive: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-archive.worker"),
+		sessionTranscript: runtimeProcessEntrypoint("config/sessions/session-transcript.worker"),
+		workerTranscriptCommit: runtimeProcessEntrypoint("gateway/worker-environments/transcript-commit.worker"),
+		sessionManagerMetadata: runtimeProcessEntrypoint("agents/sessions/session-manager-metadata.worker"),
+		sessionTranscriptProjectionPublication: runtimeProcessEntrypoint("config/sessions/session-transcript-projection-publication.worker"),
+		sessionTranscriptReports: runtimeProcessEntrypoint("config/sessions/session-accessor.sqlite-transcript-reports.worker"),
+		sessionTranscriptReconcile: runtimeProcessEntrypoint("config/sessions/session-transcript-reconcile.worker"),
+		tailscaleRouteOwner: runtimeProcessEntrypoint("infra/tailscale-route-owner.worker"),
+		serviceChildRelay: runtimeProcessEntrypoint("process/supervisor/service-child-relay"),
+		terminalPty: runtimeProcessEntrypoint("process/terminal-pty-worker"),
+		serviceChildGroupAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-group-anchor"),
+		serviceChildWindowsJobAnchor: runtimeProcessEntrypoint("process/supervisor/service-child-windows-job-anchor"),
+		bunSqliteLibrary: runtimeProcessEntrypoint("infra/bun-sqlite-library")
+	};
+}
+//#endregion
+//#region src/infra/runtime-process-entrypoints.ts
+const runtimeProcessEntrypoints = createRuntimeProcessEntrypoints(import.meta.url);
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/byte-budget.js
 function normalizeMaxBytes(value, options = {}) {
 	const selected = value === void 0 ? options.defaultValue : value;
 	if (selected === void 0 || selected === Number.POSITIVE_INFINITY) return selected;
@@ -91,35 +165,39 @@ function normalizeMaxBytes(value, options = {}) {
 	return selected;
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/errors.js
-const OPERATIONAL_CODES = /* @__PURE__ */ new Set([
-	"helper-failed",
-	"helper-unavailable",
-	"not-empty",
-	"not-found",
-	"not-removable",
-	"permission-unverified",
-	"read-failed",
-	"timeout",
-	"unsupported-platform"
-]);
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/errors.js
 function categorizeFsSafeError(code) {
 	return OPERATIONAL_CODES.has(code) ? "operational" : "policy";
 }
-var FsSafeError = class extends Error {
-	code;
-	category;
-	details;
-	constructor(code, message, options = {}) {
-		super(message, options);
-		this.name = "FsSafeError";
-		this.code = code;
-		this.category = categorizeFsSafeError(code);
-		this.details = options.details;
-	}
-};
+var OPERATIONAL_CODES, FsSafeError;
+var init_errors = __esmMin((() => {
+	OPERATIONAL_CODES = /* @__PURE__ */ new Set([
+		"helper-failed",
+		"helper-unavailable",
+		"not-empty",
+		"not-found",
+		"not-removable",
+		"permission-unverified",
+		"read-failed",
+		"timeout",
+		"unsupported-platform"
+	]);
+	FsSafeError = class extends Error {
+		code;
+		category;
+		details;
+		constructor(code, message, options = {}) {
+			super(message, options);
+			this.name = "FsSafeError";
+			this.code = code;
+			this.category = categorizeFsSafeError(code);
+			this.details = options.details;
+		}
+	};
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/bounded-read.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/bounded-read.js
+init_errors();
 const READ_CHUNK_BYTES = 65536;
 const MAX_INITIAL_READ_BYTES = 16777216;
 function createInitialBuffer(maxBytes, size, allocate = Buffer.allocUnsafe) {
@@ -187,7 +265,50 @@ function readFileDescriptorBoundedSync(fd, maxBytes) {
 	});
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/string-coerce.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/exact-identity.js
+init_errors();
+/** Copy scalars from one observation; never try to recover rounded identity bits. */
+function exactFileIdentity(stat) {
+	const { dev, ino } = stat;
+	if (typeof dev !== "bigint" && !Number.isSafeInteger(dev) || typeof ino !== "bigint" && !Number.isSafeInteger(ino)) throw new FsSafeError("path-mismatch", "file identity is not exact");
+	return Object.freeze({
+		dev: BigInt(dev),
+		ino: BigInt(ino)
+	});
+}
+/** Node stores unsigned libuv fields in a signed BigInt64Array. */
+function numberStatScalar(value) {
+	return typeof value === "bigint" ? Number(BigInt.asUintN(64, value)) : Number(value);
+}
+/** Legacy metadata view of the very same bigint observation. */
+function numberStats(stat) {
+	const result = Object.create(fs.Stats.prototype);
+	for (const field of [
+		"dev",
+		"mode",
+		"nlink",
+		"uid",
+		"gid",
+		"rdev",
+		"blksize",
+		"ino",
+		"size",
+		"blocks"
+	]) result[field] = numberStatScalar(stat[field]);
+	for (const field of [
+		"atime",
+		"mtime",
+		"ctime",
+		"birthtime"
+	]) {
+		const ns = stat[`${field}Ns`];
+		const remainder = (ns % 1000000000n + 1000000000n) % 1000000000n;
+		result[`${field}Ms`] = Number((ns - remainder) / 1000000000n) * 1e3 + Number(remainder) / 1e6;
+	}
+	return result;
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/string-coerce.js
 function normalizeNullableString(value) {
 	if (typeof value !== "string") return null;
 	const trimmed = value.trim();
@@ -202,8 +323,9 @@ function normalizeOptionalLowercaseString(value) {
 function normalizeLowercaseStringOrEmpty(value) {
 	return normalizeOptionalLowercaseString(value) ?? "";
 }
+var init_string_coerce = __esmMin((() => {}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-path-syntax.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-path-syntax.js
 function isWindowsSeparator(value, offset) {
 	const code = value.charCodeAt(offset);
 	return code === 47 || code === 92;
@@ -255,8 +377,9 @@ function windowsShareOrDeviceRoot(value) {
 	if (rootedWindowsDriveColonIndex(value) === 5) return void 0;
 	return asciiLowercase(head === "unc" ? `\\\\${authority[1]}\\${authority[2]}` : `${spelled.slice(0, 4)}${authority[0]}`);
 }
+var init_windows_path_syntax = __esmMin((() => {}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-path-alias.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-path-alias.js
 function isExactlyUnderWindowsPath(trusted, value) {
 	const root = trusted.replaceAll("/", "\\").replace(/(?<=.)\\+$/, "");
 	const candidate = value.replaceAll("/", "\\");
@@ -335,10 +458,12 @@ function assertNoWindowsPathAliasForPlatform(value, kind, message, platform) {
 function assertNoWindowsPathAlias(value, kind = "filesystem", message = "path uses a Windows filesystem namespace alias", platform = process.platform) {
 	assertNoWindowsPathAliasForPlatform(value, kind, message, platform);
 }
+var init_windows_path_alias = __esmMin((() => {
+	init_errors();
+	init_windows_path_syntax();
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/local-file-access.js
-const ENCODED_FILE_URL_SEPARATOR_RE = /%(?:2f|5c)/i;
-const FILE_URL_PREFIX_RE = /^file:\/\//i;
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/local-file-access.js
 function isFileUrl(input) {
 	return FILE_URL_PREFIX_RE.test(input);
 }
@@ -372,55 +497,16 @@ function trySafeFileURLToPath(fileUrl, platform = process.platform) {
 		return;
 	}
 }
+var ENCODED_FILE_URL_SEPARATOR_RE, FILE_URL_PREFIX_RE;
+var init_local_file_access = __esmMin((() => {
+	init_string_coerce();
+	init_windows_path_alias();
+	init_windows_path_syntax();
+	ENCODED_FILE_URL_SEPARATOR_RE = /%(?:2f|5c)/i;
+	FILE_URL_PREFIX_RE = /^file:\/\//i;
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/device-path.js
-const POSIX_BLOCKED_DEVICE_PATHS = /* @__PURE__ */ new Set([
-	"/dev/zero",
-	"/dev/random",
-	"/dev/urandom",
-	"/dev/full",
-	"/dev/stdin",
-	"/dev/stdout",
-	"/dev/stderr",
-	"/dev/tty",
-	"/dev/console"
-]);
-const WINDOWS_RESERVED_DEVICE_NAMES = /* @__PURE__ */ new Set([
-	"CON",
-	"PRN",
-	"AUX",
-	"NUL",
-	"CLOCK$",
-	"CONIN$",
-	"CONOUT$",
-	"COM1",
-	"COM2",
-	"COM3",
-	"COM4",
-	"COM5",
-	"COM6",
-	"COM7",
-	"COM8",
-	"COM9",
-	"COM¹",
-	"COM²",
-	"COM³",
-	"LPT1",
-	"LPT2",
-	"LPT3",
-	"LPT4",
-	"LPT5",
-	"LPT6",
-	"LPT7",
-	"LPT8",
-	"LPT9",
-	"LPT¹",
-	"LPT²",
-	"LPT³"
-]);
-const WINDOWS_SEPARATOR_CHAR_CODE = 92;
-const WINDOWS_IGNORED_SPACE_CHAR_CODE = 32;
-const WINDOWS_IGNORED_DOT_CHAR_CODE = 46;
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/device-path.js
 function trimTrailingWindowsSeparators(value) {
 	let end = value.length;
 	while (end > 0 && value.charCodeAt(end - 1) === WINDOWS_SEPARATOR_CHAR_CODE) end -= 1;
@@ -490,9 +576,59 @@ function matchUnsafeDeviceReadPath(filePath, options = {}) {
 function isUnsafeDeviceReadPath(filePath, options) {
 	return matchUnsafeDeviceReadPath(filePath, options) !== void 0;
 }
+var POSIX_BLOCKED_DEVICE_PATHS, WINDOWS_RESERVED_DEVICE_NAMES, WINDOWS_SEPARATOR_CHAR_CODE, WINDOWS_IGNORED_SPACE_CHAR_CODE, WINDOWS_IGNORED_DOT_CHAR_CODE;
+var init_device_path = __esmMin((() => {
+	init_local_file_access();
+	POSIX_BLOCKED_DEVICE_PATHS = /* @__PURE__ */ new Set([
+		"/dev/zero",
+		"/dev/random",
+		"/dev/urandom",
+		"/dev/full",
+		"/dev/stdin",
+		"/dev/stdout",
+		"/dev/stderr",
+		"/dev/tty",
+		"/dev/console"
+	]);
+	WINDOWS_RESERVED_DEVICE_NAMES = /* @__PURE__ */ new Set([
+		"CON",
+		"PRN",
+		"AUX",
+		"NUL",
+		"CLOCK$",
+		"CONIN$",
+		"CONOUT$",
+		"COM1",
+		"COM2",
+		"COM3",
+		"COM4",
+		"COM5",
+		"COM6",
+		"COM7",
+		"COM8",
+		"COM9",
+		"COM¹",
+		"COM²",
+		"COM³",
+		"LPT1",
+		"LPT2",
+		"LPT3",
+		"LPT4",
+		"LPT5",
+		"LPT6",
+		"LPT7",
+		"LPT8",
+		"LPT9",
+		"LPT¹",
+		"LPT²",
+		"LPT³"
+	]);
+	WINDOWS_SEPARATOR_CHAR_CODE = 92;
+	WINDOWS_IGNORED_SPACE_CHAR_CODE = 32;
+	WINDOWS_IGNORED_DOT_CHAR_CODE = 46;
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/file-observation.js
-const active = new AsyncLocalStorage();
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/file-observation.js
 function recordFileObservationFailure(error, kind) {
 	const failures = active.getStore();
 	if (!failures) return;
@@ -500,8 +636,12 @@ function recordFileObservationFailure(error, kind) {
 	if (!kinds) failures.set(error, kinds = /* @__PURE__ */ new Set());
 	kinds.add(kind);
 }
+var active;
+var init_file_observation = __esmMin((() => {
+	active = new AsyncLocalStorage();
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/strict-file-identity.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/strict-file-identity.js
 function fileIdentityMismatchError() {
 	const error = new FsSafeError("path-mismatch", "file identity changed or could not be verified");
 	recordFileObservationFailure(error, "identity");
@@ -538,15 +678,21 @@ function inspectFileIdentitySync(inspect, expected, platform = process.platform,
 	}
 	throw mismatch();
 }
+var init_strict_file_identity = __esmMin((() => {
+	init_errors();
+	init_file_observation();
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native-binding.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-binding.js
 function captureNativeFdClose(binding) {
 	if (typeof binding.closeOwnedFd !== "function") throw new FsSafeError("helper-unavailable", "native descriptor ownership is unavailable");
 	return binding.closeOwnedFd.bind(binding);
 }
+var init_native_binding = __esmMin((() => {
+	init_errors();
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native-config.js
-let overrideConfig = {};
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-config.js
 function parseMode(value) {
 	if (!value) return;
 	const normalized = value.trim().toLowerCase();
@@ -557,14 +703,43 @@ function parseMode(value) {
 function getFsSafeNativeConfig() {
 	return { mode: overrideConfig.mode ?? parseMode(process.env.FS_SAFE_NATIVE_MODE) ?? parseMode(process.env.OPENCLAW_FS_SAFE_NATIVE_MODE) ?? "auto" };
 }
+var overrideConfig;
+var init_native_config = __esmMin((() => {
+	overrideConfig = {};
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native.js
-const require = createRequire(import.meta.url);
-const runNativeInitialization = AsyncLocalStorage.snapshot();
-let binding;
-let loadError;
-let attempted = false;
-let loadBinding = loadBundledBinding;
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native.js
+function loadFailure(error, packageName) {
+	try {
+		return classifyLoadFailure(error, packageName);
+	} catch {
+		return {
+			reason: "load-failed",
+			code: "UNKNOWN"
+		};
+	}
+}
+function classifyLoadFailure(error, packageName) {
+	const code = typeof error === "object" && error !== null && "code" in error ? error.code : void 0;
+	if (code === "MODULE_NOT_FOUND" && error instanceof Error && error.message.split("\n", 1)[0] === `Cannot find module '${packageName}'`) try {
+		resolvePackage(packageName);
+	} catch (resolutionError) {
+		if (resolutionError instanceof Error && "code" in resolutionError && resolutionError.code === "MODULE_NOT_FOUND" && resolutionError.message.split("\n", 1)[0] === `Cannot find module '${packageName}'`) return { reason: "package-missing" };
+	}
+	return {
+		reason: "load-failed",
+		code: typeof code === "string" && [
+			"ERR_DLOPEN_FAILED",
+			"MODULE_NOT_FOUND",
+			"ERR_MODULE_NOT_FOUND",
+			"ERR_PACKAGE_PATH_NOT_EXPORTED",
+			"ERR_INVALID_PACKAGE_CONFIG",
+			"EACCES",
+			"EPERM",
+			"ENOENT"
+		].includes(code) ? code : "UNKNOWN"
+	};
+}
 function isMuslFilename(file) {
 	return file.includes("libc.musl-") || file.includes("ld-musl-");
 }
@@ -642,45 +817,118 @@ function isMusl() {
 	return false;
 }
 function targetFor(platform, arch, musl) {
-	if (platform === "win32" && arch === "x64") return "win32-x64-msvc";
+	if (platform === "win32" && (arch === "x64" || arch === "arm64")) return `win32-${arch}-msvc`;
 	if (platform === "darwin" && arch === "x64") return "darwin-x64";
 	if (platform === "darwin" && arch === "arm64") return "darwin-arm64";
+	if (platform === "freebsd" && (arch === "x64" || arch === "arm64")) return `freebsd-${arch}`;
 	if (platform === "linux" && (arch === "x64" || arch === "arm64")) return `linux-${arch}-${musl ? "musl" : "gnu"}`;
 }
 function bundledTarget() {
-	return targetFor(process.platform, process.arch, isMusl());
+	const musl = isMusl();
+	selectedTarget = targetFor(process.platform, process.arch, musl);
+	targetDescription = selectedTarget ?? `${process.platform}-${process.arch}${process.platform === "linux" ? `-${musl ? "musl" : "gnu"}` : ""}`;
+	return selectedTarget;
 }
 function nativePackageForTarget(target) {
 	return `@openclaw/fs-safe-${target}`;
 }
 function loadBundledBinding() {
 	const target = bundledTarget();
-	if (!target) throw new Error(`Unsupported OS or architecture: ${process.platform}-${process.arch}`);
+	if (!target) {
+		loadOutcome = { reason: "unsupported-target" };
+		throw new Error(`Unsupported OS or architecture: ${process.platform}-${process.arch}`);
+	}
 	const loaded = runNativeInitialization(() => require(nativePackageForTarget(target)));
+	if (typeof loaded.closeOwnedFd !== "function") loadOutcome = {
+		reason: "capability-missing",
+		capabilities: ["closeOwnedFd"]
+	};
 	captureNativeFdClose(loaded);
 	return loaded;
 }
-function getNativeBinding() {
+function selectNativeBinding(native, ...capabilities) {
+	if (!native) return void 0;
+	const missing = capabilities.filter((name) => typeof native[name] !== "function");
+	if (missing.length === 0) return native;
+	if (getFsSafeNativeConfig().mode === "require") throw new FsSafeError("helper-unavailable", `native fs-safe capabilities unavailable: ${missing.join(", ")}`);
+}
+function getNativeBinding(...capabilities) {
 	const { mode } = getFsSafeNativeConfig();
 	if (mode === "off") return void 0;
 	if (!attempted) {
 		attempted = true;
 		try {
 			const loaded = loadBinding();
+			if (typeof loaded.closeOwnedFd !== "function") loadOutcome = {
+				reason: "capability-missing",
+				capabilities: ["closeOwnedFd"]
+			};
 			captureNativeFdClose(loaded);
 			binding = loaded;
+			loadOutcome = { reason: "loaded" };
 		} catch (error) {
 			loadError = error;
+			if (loadOutcome.reason === "not-probed") {
+				selectedTarget ??= bundledTarget();
+				loadOutcome = loadFailure(error, nativePackageForTarget(selectedTarget ?? `${process.platform}-${process.arch}`));
+			}
 		}
 	}
-	if (binding) return binding;
+	if (binding) return selectNativeBinding(binding, ...capabilities);
 	if (mode === "require") throw new FsSafeError("helper-unavailable", "native fs-safe helper is unavailable", { cause: loadError });
 }
+var require, runNativeInitialization, binding, loadError, attempted, loadBinding, resolvePackage, loadOutcome, selectedTarget, targetDescription;
+var init_native = __esmMin((() => {
+	init_errors();
+	init_native_binding();
+	init_native_config();
+	require = createRequire(import.meta.url);
+	runNativeInitialization = AsyncLocalStorage.snapshot();
+	attempted = false;
+	loadBinding = loadBundledBinding;
+	resolvePackage = (name) => require.resolve(name);
+	loadOutcome = { reason: "not-probed" };
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/realpath.js
-const runtimePlatform = process.versions.bun ? platform() : void 0;
-const bunPosix = runtimePlatform === "darwin" || runtimePlatform === "linux" ? runtimePlatform : void 0;
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-appcontainer.js
+/** The native owner caches immutable primary-token membership across Workers. */
+function isWindowsAppContainer(binding) {
+	if (!binding.isWindowsAppContainer) return void 0;
+	try {
+		const membership = binding.isWindowsAppContainer();
+		if (typeof membership !== "boolean") throw new Error("Invalid AppContainer membership");
+		return membership;
+	} catch (cause) {
+		throw new FsSafeError("permission-unverified", "Windows process token membership could not be verified", { cause });
+	}
+}
+var init_windows_appcontainer = __esmMin((() => {
+	init_errors();
+}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/realpath.js
 function resolve(input, native) {
+	if (native && process.platform === "win32") try {
+		return fs.realpathSync.native(input);
+	} catch (error) {
+		if (error.code !== "EPERM" || error.syscall !== "realpath") throw error;
+		let binding;
+		try {
+			binding = getNativeBinding();
+		} catch {
+			binding = void 0;
+		}
+		if (!binding || !isWindowsAppContainer(binding)) throw error;
+		if (!binding?.resolveWindowsCanonicalPath) throw new FsSafeError("helper-unavailable", "Windows canonicalization after a denied DOS-name query requires the native binding", { cause: error });
+		let resolved;
+		try {
+			resolved = binding.resolveWindowsCanonicalPath(input);
+		} catch (cause) {
+			throw new FsSafeError("path-mismatch", "Windows canonical path cannot be verified safely", { cause });
+		}
+		if (resolved === null) throw error;
+		return resolved;
+	}
 	if (bunPosix) {
 		if (input.includes("\0")) throw Object.assign(/* @__PURE__ */ new TypeError("realpath input must not contain null bytes"), { code: "ERR_INVALID_ARG_VALUE" });
 		const binding = getNativeBinding();
@@ -700,23 +948,29 @@ function resolve(input, native) {
 	}
 	return native ? fs.realpathSync.native(input) : fs.realpathSync(input);
 }
-const realpathSync = Object.assign((input) => resolve(input, false), { native: (input) => resolve(input, true) });
+var runtimePlatform, bunPosix, realpathSync;
+var init_realpath = __esmMin((() => {
+	init_errors();
+	init_native();
+	init_native_config();
+	init_windows_appcontainer();
+	runtimePlatform = process.versions.bun ? platform() : void 0;
+	bunPosix = runtimePlatform === "darwin" || runtimePlatform === "linux" ? runtimePlatform : void 0;
+	realpathSync = Object.assign((input) => resolve(input, false), { native: (input) => resolve(input, true) });
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/safe-path-segment.js
-const DRIVE_RELATIVE_SEGMENT = /(?:^|\/)[A-Za-z]:(?!\\)/;
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/safe-path-segment.js
 function assertNoDriveRelativePathSegments(value, label) {
 	if (DRIVE_RELATIVE_SEGMENT.test(value)) throw new FsSafeError("invalid-path", `${label} must not contain a drive letter`);
 	return value;
 }
+var DRIVE_RELATIVE_SEGMENT;
+var init_safe_path_segment = __esmMin((() => {
+	init_errors();
+	DRIVE_RELATIVE_SEGMENT = /(?:^|\/)[A-Za-z]:(?!\\)/;
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/path.js
-const NOT_FOUND_CODES = /* @__PURE__ */ new Set(["ENOENT", "ENOTDIR"]);
-const SYMLINK_OPEN_CODES = /* @__PURE__ */ new Set([
-	"ELOOP",
-	"EINVAL",
-	"ENOTSUP"
-]);
-const POSIX_SEPARATOR_CHAR_CODE = 47;
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/path.js
 function normalizeWindowsPathForComparison(input) {
 	let normalized = path.win32.normalize(input);
 	if (normalized.startsWith("\\\\?\\")) {
@@ -768,8 +1022,22 @@ function isPathRelativeEscape(relativePath) {
 	} else if (segment !== "" && segment !== ".") depth += 1;
 	return false;
 }
+var NOT_FOUND_CODES, SYMLINK_OPEN_CODES, POSIX_SEPARATOR_CHAR_CODE;
+var init_path = __esmMin((() => {
+	init_errors();
+	init_windows_path_alias();
+	init_device_path();
+	NOT_FOUND_CODES = /* @__PURE__ */ new Set(["ENOENT", "ENOTDIR"]);
+	SYMLINK_OPEN_CODES = /* @__PURE__ */ new Set([
+		"ELOOP",
+		"EINVAL",
+		"ENOTSUP"
+	]);
+	POSIX_SEPARATOR_CHAR_CODE = 47;
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/read-open-flags.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/read-open-flags.js
+init_strict_file_identity();
 function resolveReadOpenFlags(options) {
 	const constants = options?.constants ?? fs.constants;
 	const noFollow = process.platform !== "win32" && options?.followSymlinks !== true && typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0;
@@ -777,7 +1045,7 @@ function resolveReadOpenFlags(options) {
 	return constants.O_RDONLY | noFollow | nonBlocking;
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/error-detail.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/error-detail.js
 const UNSAFE_ERROR_DETAIL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu;
 function formatErrorDetail(value) {
 	return value.replace(UNSAFE_ERROR_DETAIL_CHARACTERS, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
@@ -788,7 +1056,7 @@ function shortPath(value) {
 	return formatErrorDetail(value === home ? "~" : value.startsWith(prefix) ? `~${path.sep}${value.slice(prefix.length)}` : value);
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/root-path-errors.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/root-path-errors.js
 const rootPathEscapeErrors = /* @__PURE__ */ new WeakSet();
 function rootPathEscapeError(message) {
 	const error = new Error(message);
@@ -806,10 +1074,27 @@ function symlinkEscapeError(params) {
 	return rootPathEscapeError(`Symlink escapes ${params.boundaryLabel} (${shortPath(params.rootCanonicalPath)}): ${shortPath(params.symlinkPath)}`);
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native-directory-observation.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-stat-identity.js
+/** Native stat identities are unsigned; Node BigIntStats preserves them as signed bits. */
+function statIdentityFromNative(value) {
+	return value <= 9223372036854775807n || process.versions.bun ? value : BigInt.asIntN(64, value);
+}
+function isNativeStatIdentity(value) {
+	return typeof value === "bigint" && value >= 0n && value <= 18446744073709551615n;
+}
+var init_native_stat_identity = __esmMin((() => {}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-directory-observation.js
+init_errors();
+init_native_stat_identity();
 function validateNativeDirectoryObservation(observation) {
-	if (!observation || typeof observation.dev !== "bigint" || observation.dev < 0n || typeof observation.ino !== "bigint" || observation.ino < 0n || typeof observation.realPath !== "string" || observation.realPath.includes("\0") || !path.isAbsolute(observation.realPath) && !path.win32.isAbsolute(observation.realPath)) throw new FsSafeError("path-mismatch", "native directory observation is invalid");
-	return observation;
+	if (!observation || !isNativeStatIdentity(observation.dev) || !isNativeStatIdentity(observation.ino) || typeof observation.realPath !== "string" || observation.realPath.includes("\0") || !path.isAbsolute(observation.realPath) && !path.win32.isAbsolute(observation.realPath)) throw new FsSafeError("path-mismatch", "native directory observation is invalid");
+	const dev = statIdentityFromNative(observation.dev), ino = statIdentityFromNative(observation.ino);
+	return dev === observation.dev && ino === observation.ino ? observation : {
+		...observation,
+		dev,
+		ino
+	};
 }
 /** Exact identity, type, and canonical path captured from one retained handle. */
 function inspectNativeDirectoryObservation(backend, pathname, expected, platform = process.platform) {
@@ -826,7 +1111,7 @@ function isNativeDirectoryObservationGuard(guard) {
 	return typeof guard === "object" && guard !== null && guard.nativeDirectoryObservation === true;
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/root-errors.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/root-errors.js
 function directoryComponentNotDirectoryError(cause) {
 	return cause === void 0 ? new FsSafeError("not-file", "directory component must be a directory") : new FsSafeError("not-file", "directory component must be a directory", { cause });
 }
@@ -837,8 +1122,11 @@ function hardlinkedPathNotAllowedError() {
 function errorCauseOptions(error) {
 	return { cause: error instanceof Error ? error : void 0 };
 }
+var init_root_errors = __esmMin((() => {
+	init_errors();
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/directory-entry-path.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/directory-entry-path.js
 /** Strip only trailing separators: lstat must inspect the entry, not follow a leaf link. */
 function directoryEntryPath(dir, platform = process.platform) {
 	const windows = platform === "win32";
@@ -855,8 +1143,9 @@ function directoryEntryPath(dir, platform = process.platform) {
 	while (end > rootLength && (dir[end - 1] === "/" || windows && dir[end - 1] === "\\")) end--;
 	return end === rootLength || end === dir.length ? dir : dir.slice(0, end);
 }
+var init_directory_entry_path = __esmMin((() => {}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/stat-observation.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/stat-observation.js
 function safeNumber(value) {
 	return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
@@ -909,8 +1198,11 @@ function observeStatSync(inspect, expected, initial, platform = process.platform
 function inspectStatObservationSync(inspect, expected, initial, platform = process.platform) {
 	return observeStatSync(inspect, expected, initial, platform, true);
 }
+var init_stat_observation = __esmMin((() => {
+	init_strict_file_identity();
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/directory-guard.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/directory-guard.js
 function directoryOperationPath(dir) {
 	assertNoWindowsPathAlias(dir, "filesystem");
 	return pathForWindowsFilesystem(directoryEntryPath(dir));
@@ -935,8 +1227,17 @@ function extendDirectoryObservationGuard(observation, dir, realPath) {
 	guard.realPath = realPath;
 	return guard;
 }
+var init_directory_guard = __esmMin((() => {
+	init_strict_file_identity();
+	init_root_errors();
+	init_windows_path_alias();
+	init_directory_entry_path();
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/root-boundary.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/root-boundary.js
+init_directory_guard();
+init_path();
+init_realpath();
 function windowsComparisonSpelling(original) {
 	if (/^\\\\\?\\UNC\\/i.test(original)) return `\\\\${original.slice(8)}`;
 	if (original.startsWith("\\\\?\\")) return original.slice(4);
@@ -1070,7 +1371,12 @@ function admitPathInsideRoot(params) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/root-path-existing.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/root-path-existing.js
+init_errors();
+init_path();
+init_realpath();
+init_windows_path_alias();
+init_root_errors();
 function absolutePathWithRawSegments(candidate) {
 	if (path.sep !== "\\") {
 		if (path.isAbsolute(candidate)) return candidate;
@@ -1180,7 +1486,11 @@ function resolveSymlinkHopPath(symlinkPath, mode, rejectUnresolved) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/root-path-observation.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/root-path-observation.js
+init_directory_guard();
+init_errors();
+init_realpath();
+init_stat_observation();
 var RootPathObservationError = class extends Error {
 	error;
 	parentReceipt;
@@ -1296,6 +1606,12 @@ function captureRootPathObservedDirectory(observation, observed, publicPath, can
 	} else observation.directoryGuard = extendDirectoryObservationGuard(observed, publicPath, admitted.path);
 	return true;
 }
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/root-path.js
+init_errors();
+init_path();
+init_safe_path_segment();
+init_windows_path_alias();
 Object.freeze({
 	allowFinalSymlinkForUnlink: false,
 	allowFinalHardlinkForUnlink: false
@@ -1627,7 +1943,7 @@ function assertInsideBoundary(params) {
 	throw new Error(`Path resolves outside ${params.boundaryLabel} (${shortPath(params.rootCanonicalPath)}): ${shortPath(params.absolutePath)}`);
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/root-symlink-policy.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/root-symlink-policy.js
 function readSymlinkResolution(symlinks) {
 	return {
 		rejectSymlinks: symlinks !== "follow-within-root" && symlinks !== "follow-parents-within-root",
@@ -1635,7 +1951,12 @@ function readSymlinkResolution(symlinks) {
 	};
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/pinned-open.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/pinned-open.js
+init_device_path();
+init_errors();
+init_strict_file_identity();
+init_windows_path_alias();
+init_realpath();
 function isExpectedPathError(error) {
 	const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
 	return code === "ENOENT" || code === "ENOTDIR" || code === "ELOOP";
@@ -1648,10 +1969,11 @@ function openPinnedFileSync(params) {
 	const rejectPathSymlink = params.rejectPathSymlink === true;
 	const statPolicy = {
 		rejectHardlinks: params.rejectHardlinks,
+		rejectLeafSymlinks: params.rejectLeafSymlinks,
 		maxBytes: params.maxBytes
 	};
 	const openReadFlags = resolveReadOpenFlags({ constants: ioFs.constants });
-	let fd = null;
+	let fd = params.admittedFd ?? null;
 	try {
 		assertNoWindowsPathAlias(filePath, "filesystem", "file path uses a Windows filesystem namespace alias");
 		if (resolvedPath !== void 0) assertNoWindowsPathAlias(resolvedPath, "filesystem", "resolved path uses a Windows filesystem namespace alias");
@@ -1676,8 +1998,7 @@ function openPinnedFileSync(params) {
 			assertAllowedStat(stat, allowedType, statPolicy);
 			return stat;
 		});
-		fd = ioFs.openSync(realPath, openReadFlags);
-		const openedStat = ioFs.fstatSync(fd);
+		fd ??= ioFs.openSync(realPath, openReadFlags);
 		const identity = inspectFileIdentitySync(() => {
 			const stat = ioFs.fstatSync(fd, { bigint: true });
 			assertAllowedStat(stat, allowedType, statPolicy);
@@ -1688,12 +2009,14 @@ function openPinnedFileSync(params) {
 			assertAllowedStat(stat, allowedType, statPolicy);
 			return stat;
 		}, identity);
+		const admittedPath = params.finalAdmission?.({
+			path: realPath,
+			descriptorIdentity: identity
+		}) ?? realPath;
+		const openedStat = numberStats(identity);
 		const opened = {
 			ok: true,
-			path: params.finalAdmission?.({
-				path: realPath,
-				descriptorIdentity: identity
-			}) ?? realPath,
+			path: admittedPath,
 			fd,
 			stat: openedStat,
 			identity
@@ -1723,12 +2046,18 @@ function openPinnedFileSync(params) {
 	}
 }
 function assertAllowedStat(stat, allowedType, params) {
+	if (stat.isSymbolicLink() && params.rejectLeafSymlinks) throw new FsSafeError("symlink", "symlink not allowed");
 	if (stat.isSymbolicLink() || !(allowedType === "directory" ? stat.isDirectory() : stat.isFile())) throw new FsSafeError("not-file", "path does not have the required file type");
 	if (params.rejectHardlinks && stat.isFile() && stat.nlink > 1n) throw new FsSafeError("hardlink", "path must not be hardlinked");
 	if (params.maxBytes !== void 0 && stat.isFile() && stat.size > params.maxBytes) throw new FsSafeError("too-large", "file exceeds byte limit");
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/root-file-final-admission.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/root-file-final-admission.js
+init_errors();
+init_realpath();
+init_root_errors();
+init_strict_file_identity();
+init_windows_path_alias();
 function rootIdentityMismatch(cause) {
 	return new FsSafeError("path-mismatch", "canonical root directory identity changed or could not be verified", cause === void 0 ? {} : { cause });
 }
@@ -1800,7 +2129,9 @@ function createRootFileFinalAdmission(ioFs, root, boundaryLabel, rejectHardlinks
 	};
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/root-file.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/root-file.js
+init_windows_path_alias();
+init_errors();
 function absoluteRootFilePath(filePath) {
 	if (path.isAbsolute(filePath)) return filePath;
 	const drive = path.parse(filePath).root;
@@ -1849,6 +2180,8 @@ function finalizeRootFileOpen(params) {
 		maxBytes: params.maxBytes,
 		allowedType: params.allowedType,
 		ioFs: params.ioFs,
+		admittedFd: params.admittedFd,
+		rejectLeafSymlinks: params.rejectLeafSymlinks,
 		finalAdmission: createRootFileFinalAdmission(params.ioFs, resolved.rootObservation, resolved.boundaryLabel, rejectHardlinks)
 	});
 	if (!opened.ok) return opened;
@@ -1857,6 +2190,7 @@ function finalizeRootFileOpen(params) {
 		path: opened.path,
 		fd: opened.fd,
 		stat: opened.stat,
+		exactIdentity: exactFileIdentity(opened.identity),
 		rootRealPath: resolved.rootRealPath
 	};
 }
@@ -1892,7 +2226,8 @@ function toRootObservationError(error) {
 	};
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/json.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/json.js
+init_windows_path_alias();
 function isRecord(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -1983,7 +2318,6 @@ function normalizeRuntimeBasename(execPath) {
 	const lastSlash = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
 	return (lastSlash === -1 ? trimmed : trimmed.slice(lastSlash + 1)).trim().toLowerCase();
 }
-/** Returns whether an executable path names a Bun runtime binary. */
 function isBunRuntime(execPath) {
 	const base = normalizeRuntimeBasename(execPath);
 	return base === "bun" || base === "bun.exe";
@@ -2053,6 +2387,36 @@ function resolveRuntimeProcessEntrypointUrl(name) {
 	return sealedEntrypoints.get(name) ?? resolveRuntimeWorkerUrl(runtimeProcessEntrypoints[name]);
 }
 //#endregion
+//#region packages/normalization-core/src/expect.ts
+/** Returns the value or throws with the named context; use for genuine invariants only. */
+function expectDefined(value, context) {
+	if (value === null || value === void 0) throw new Error("expected " + context + " to be defined");
+	return value;
+}
+//#endregion
+//#region packages/normalization-core/src/stable-node-path.ts
+/**
+* Returns stable Homebrew paths for a versioned Cellar Node executable.
+* Availability remains caller-owned so packages can reuse the path contract
+* without importing another package's filesystem/runtime layer.
+*/
+function stableHomebrewNodePathCandidates(nodePath) {
+	const cellarMatch = nodePath.match(/^(.+?)[\\/]Cellar[\\/]([^\\/]+)[\\/][^\\/]+[\\/]bin[\\/]node$/);
+	if (!cellarMatch) return [];
+	const prefix = expectDefined(cellarMatch[1], "cellar match capture group 1");
+	const formula = expectDefined(cellarMatch[2], "cellar match capture group 2");
+	const pathModule = nodePath.includes("\\") ? path.win32 : path.posix;
+	const candidates = [pathModule.join(prefix, "opt", formula, "bin", "node")];
+	if (formula === "node") candidates.push(pathModule.join(prefix, "bin", "node"));
+	return candidates;
+}
+//#endregion
+//#region src/infra/stable-node-path.ts
+function resolveLaunchableNodePath(nodePath = process.execPath) {
+	if (existsSync(nodePath)) return nodePath;
+	return stableHomebrewNodePathCandidates(nodePath).find(existsSync) ?? nodePath;
+}
+//#endregion
 //#region packages/normalization-core/src/error-coercion.ts
 function readProperty(value, key) {
 	try {
@@ -2100,7 +2464,6 @@ function runServiceChildRelay() {
 	let anchor;
 	let parentLost = false;
 	let forcedSequence;
-	let signalError;
 	let anchorExit;
 	let parentLineageFds = [];
 	let parentLineageReleased = false;
@@ -2110,19 +2473,10 @@ function runServiceChildRelay() {
 			process.send?.(message, () => {});
 		} catch {}
 	};
-	const reportRetirement = () => {
-		if (generation && forcedSequence !== void 0) report({
-			type: "retirement",
-			generation,
-			sequence: forcedSequence,
-			anchorExited: anchorExit !== void 0,
-			signalError
-		});
-	};
 	const settleAnchorExit = () => {
 		if (!anchorExit || !parentLineageReleased) return;
-		if (forcedSequence !== void 0 && !parentLost && process.connected) reportRetirement();
-		else process.exit(anchorExit.code === 0 || anchorExit.signal === "SIGKILL" ? 0 : 1);
+		process.exitCode = anchorExit.code === 0 || anchorExit.signal === "SIGKILL" ? 0 : 1;
+		if (process.connected) process.disconnect?.();
 	};
 	const releaseParentLineage = async () => {
 		if (parentLineageFds.length > 0) {
@@ -2161,23 +2515,26 @@ function runServiceChildRelay() {
 		});
 	};
 	process.once("disconnect", notifyParentLoss);
-	process.once("SIGTERM", notifyParentLoss);
-	process.once("SIGINT", notifyParentLoss);
+	process.on("SIGTERM", notifyParentLoss);
+	process.on("SIGINT", notifyParentLoss);
 	process.on("message", (raw) => {
 		const start = raw;
 		if (start?.type === "cancel") {
 			if (!generation || !anchor || start.generation !== generation || start.signal !== "SIGKILL" || !Number.isSafeInteger(start.sequence) || start.sequence <= 0 || forcedSequence !== void 0) return;
 			forcedSequence = start.sequence;
 			if (!anchorExit) try {
-				if (!anchor.kill("SIGKILL")) signalError ??= "retained anchor SIGKILL was not delivered";
+				if (!anchor.kill("SIGKILL")) throw new Error("retained anchor SIGKILL was not delivered");
 			} catch (error) {
-				signalError = error instanceof Error ? error.message : String(error);
+				report({
+					type: "relay-error",
+					generation,
+					error: error instanceof Error ? error.message : String(error)
+				});
 			}
-			reportRetirement();
 			return;
 		}
 		if (generation) return;
-		if (!start || start.type !== "start" || !start.generation) {
+		if (!start || start.type !== "start" && start.type !== "prepare" || !start.generation) {
 			process.exitCode = 1;
 			return;
 		}
@@ -2206,11 +2563,14 @@ function runServiceChildRelay() {
 		]) if (fd !== void 0) setStdioEntry(stdio, fd, fd);
 		reserveStdioEntry(stdio, "ipc");
 		try {
-			anchor = spawn(process.execPath, resolveRuntimeWorkerArgv(anchorUrl), {
+			const executable = resolveLaunchableNodePath();
+			const env = { ...process.env };
+			if (env.NODE_OPTIONS !== void 0) env.NODE_OPTIONS = stripNodeStartupHooks(env.NODE_OPTIONS);
+			anchor = spawn(executable, resolveRuntimeWorkerArgv(anchorUrl, executable), {
 				stdio,
 				detached: true,
 				windowsHide: true,
-				env: process.env
+				env
 			});
 		} catch (error) {
 			report({
@@ -2260,10 +2620,7 @@ function runServiceChildRelay() {
 			});
 		});
 		anchor.once("error", (error) => {
-			if (forcedSequence !== void 0) {
-				signalError = error.message;
-				reportRetirement();
-			} else report({
+			report({
 				type: "relay-error",
 				generation,
 				error: error.message

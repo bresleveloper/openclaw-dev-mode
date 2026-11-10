@@ -68,12 +68,6 @@ export type TelegramDebounceEntry = {
   channelIngressResolvers: readonly TelegramChannelIngressResolver[];
 };
 
-interface TelegramInboundBuffers {
-  cancelPending: (target: TelegramPendingInboundTarget) => void;
-  inboundDebouncer: ReturnType<typeof createInboundDebouncer<TelegramDebounceEntry>>;
-  resolveTelegramDebounceLane: (msg: Message) => TelegramDebounceLane;
-}
-
 const spooledReplayParticipants = (entries: readonly TelegramDebounceEntry[]) =>
   entries.flatMap((entry) =>
     entry.spooledReplayParticipant ? [entry.spooledReplayParticipant] : [],
@@ -85,13 +79,11 @@ export function createTelegramInboundBuffers({
 }: {
   params: Pick<RegisterTelegramHandlerParams, "cfg" | "accountId" | "bot" | "runtime" | "opts">;
   message: TelegramMessagePipeline;
-}): TelegramInboundBuffers {
+}) {
   const {
     mergeDispatchDedupeClaims,
     releaseDispatchDedupeClaims,
-    buildFailedProcessingResult,
     settleSpooledReplayParticipants,
-    spooledReplayOptions,
     processMessageWithReplyChain,
   } = message;
   const readConfig = createRuntimeConfigReader(cfg);
@@ -258,21 +250,15 @@ export function createTelegramInboundBuffers({
                   batched && last.debounceLane !== "forward" ? "text-batch" : "inbound-debounce",
                 threadSpec: first.threadSpec,
                 ...promptContextBoundaryOptions(
-                  batched
-                    ? latestPromptContextMinTimestampMs(
-                        ...entries.map((entry) => entry.promptContextMinTimestampMs),
-                      )
-                    : first.promptContextMinTimestampMs,
-                  batched
-                    ? latestPromptContextAmbientWatermark(
-                        ...entries.map((entry) => entry.promptContextAmbientWatermark),
-                      )
-                    : first.promptContextAmbientWatermark,
+                  latestPromptContextMinTimestampMs(
+                    ...entries.map((entry) => entry.promptContextMinTimestampMs),
+                  ),
+                  latestPromptContextAmbientWatermark(
+                    ...entries.map((entry) => entry.promptContextAmbientWatermark),
+                  ),
                 ),
-                ...spooledReplayOptions(participants),
-                channelIngressResolvers: batched
-                  ? entries.flatMap((entry) => entry.channelIngressResolvers)
-                  : first.channelIngressResolvers,
+                ...(participants.length > 0 ? { spooledReplay: true } : {}),
+                channelIngressResolvers: entries.flatMap((entry) => entry.channelIngressResolvers),
               },
               dispatchDedupeClaims,
               spooledReplayParticipants: participants,
@@ -282,14 +268,14 @@ export function createTelegramInboundBuffers({
             });
             settleSpooledReplayParticipants(participants, result);
           } catch (error) {
-            settleSpooledReplayParticipants(participants, buildFailedProcessingResult(error));
+            settleSpooledReplayParticipants(participants, { kind: "failed-retryable", error });
             throw error;
           }
         },
       }),
     onError: (error, items) => {
       const participants = spooledReplayParticipants(items);
-      settleSpooledReplayParticipants(participants, buildFailedProcessingResult(error));
+      settleSpooledReplayParticipants(participants, { kind: "failed-retryable", error });
       runtime.error?.(danger(`telegram debounce flush failed: ${String(error)}`));
       if (participants.length > 0) {
         return;

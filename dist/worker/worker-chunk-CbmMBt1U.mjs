@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,n,r,i=e((()=>{t=1048576,n=1048576,r=4*n}));export{i,n,r,t};

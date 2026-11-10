@@ -28,10 +28,14 @@ export type WorkerTaskChannel = {
 };
 
 export type WorkerTaskServerHost<TaskContext> = {
+  selectStartupPort?: (message: unknown) => MessagePort | undefined;
   initialize: (port: MessagePort) => void;
+  onReady?: () => void;
   onMessage: (sampleMemory: boolean) => void;
   installTaskContext: (context: TaskContext) => void;
   onIdle: () => void;
+  /** Release host-owned diagnostics after task and resource receipts settle. */
+  onRetire?: () => void | Promise<void>;
 };
 
 /** Pool dispatch is serial per worker; resource closures and handlers settle before successors. */
@@ -45,13 +49,18 @@ export function serveOwnedWorkerTasks<Output, TaskContext>(
     transferList?: (value: Output) => Transferable[];
     closeResource?: (key?: string) => void | Promise<void>;
     encodeResourceError?: (error: unknown) => unknown;
+    /** Unknown native state cannot publish a reusable task failure before isolate exit. */
+    retireOnError?: boolean;
   },
   host: WorkerTaskServerHost<TaskContext>,
 ): void {
-  const port = parentPort;
-  if (!port) {
+  if (!parentPort) {
     return;
   }
+  const startupPort = parentPort;
+  let port = startupPort;
+  let receivedStartup = false;
+  let retiring = false;
   host.initialize(port);
   let active: WorkerConversation | undefined;
   let execution = Promise.resolve();
@@ -59,7 +68,7 @@ export function serveOwnedWorkerTasks<Output, TaskContext>(
   let cancelledResponse: { taskId: number; responseId: number } | undefined;
   port.on(
     "message",
-    (message: {
+    function receive(message: {
       input: unknown;
       taskId: number;
       interactive?: boolean;
@@ -70,7 +79,23 @@ export function serveOwnedWorkerTasks<Output, TaskContext>(
       key?: string;
       resourcePort?: MessagePort;
       sampleMemory?: boolean;
-    }) => {
+    }) {
+      if (retiring) {
+        message.resourcePort?.close();
+        return;
+      }
+      if (!receivedStartup) {
+        receivedStartup = true;
+        const taskPort = host.selectStartupPort?.(message);
+        if (taskPort) {
+          port.off("message", receive);
+          port = taskPort;
+          host.initialize(port);
+          port.on("message", receive);
+          host.onReady?.();
+          return;
+        }
+      }
       host.onMessage(message.sampleMemory === true);
       if (message.closeResource && message.resourcePort) {
         const receipt = message.resourcePort;
@@ -78,6 +103,9 @@ export function serveOwnedWorkerTasks<Output, TaskContext>(
         resourceClosures = resourceClosures
           .then(() => precedingExecution)
           .then(async () => {
+            if (retiring) {
+              throw new Error("Worker is retiring after a terminal task failure");
+            }
             if (!options.closeResource) {
               throw new Error("Worker does not own retained resources");
             }
@@ -96,7 +124,7 @@ export function serveOwnedWorkerTasks<Output, TaskContext>(
           })
           .finally(() => {
             receipt.close();
-            if (!active) {
+            if (!active && !retiring) {
               host.onIdle();
             }
           });
@@ -226,13 +254,46 @@ export function serveOwnedWorkerTasks<Output, TaskContext>(
           );
         })
         .catch((error: unknown) => {
+          if (options.retireOnError) {
+            retiring = true;
+            return;
+          }
           port.postMessage({
             status: "failed",
             taskId: task.taskId,
             error: error instanceof Error ? error.message : String(error),
           });
         })
-        .finally(() => host.onIdle());
+        .finally(() => {
+          if (!retiring) {
+            host.onIdle();
+            return;
+          }
+          // Queued resource receipts depend on this execution. Join them after
+          // returning, not from inside the execution they are waiting for.
+          const retire = async () => {
+            try {
+              await resourceClosures;
+            } finally {
+              try {
+                await host.onRetire?.();
+              } finally {
+                process.exitCode = 1;
+                try {
+                  port.close();
+                } finally {
+                  if (port !== startupPort) {
+                    startupPort.close();
+                  }
+                }
+              }
+            }
+          };
+          void retire().catch(() => {
+            process.exitCode = 1;
+          });
+        });
     },
   );
+  host.onReady?.();
 }

@@ -1,4 +1,4 @@
-import { n as resolveManagedLlamaCppProviderConfig, t as MANAGED_LLAMA_CPP_CONFIG_REQUIRED_MESSAGE } from "./.setup/managed-provider-config-D0abOkC_.mjs";
+import { n as resolveManagedLlamaCppProviderConfig, t as MANAGED_LLAMA_CPP_CONFIG_REQUIRED_MESSAGE } from "./.setup/managed-provider-config-BuFqNTx1.mjs";
 //#region extensions/llama-cpp/provider-policy-api.ts
 function inspectEmbeddingProviderSetup(params) {
 	if (params.provider !== "local") return null;

@@ -1,0 +1,1 @@
+import{i as e,n as t}from"./worker-chunk-BO-t3cTw.mjs";e();export{t as doctorShellCompletion};

@@ -1,7 +1,7 @@
 import { a as resolveWhatsAppAccount } from "./.setup/accounts-F0vHuze2.mjs";
-import { r as getWhatsAppConnectionController } from "./.setup/connection-controller-runtime-context-hgLJoRc8.mjs";
-import { s as resolveJidToE164 } from "./.setup/targets-runtime-Dls-Xh4F.mjs";
-import { n as registerWhatsAppLoginTool } from "./.setup/agent-tools-login-B7VEvJO7.mjs";
+import { r as getWhatsAppConnectionController } from "./.setup/connection-controller-runtime-context-x8C_unRx.mjs";
+import { s as resolveJidToE164 } from "./.setup/targets-runtime-D5ryyPxh.mjs";
+import { n as registerWhatsAppLoginTool } from "./.setup/agent-tools-login-n7QVE3Am.mjs";
 import { createActionGate, stringEnum } from "openclaw/plugin-sdk/channel-actions";
 import path from "node:path";
 import { resolveOAuthDir } from "openclaw/plugin-sdk/state-paths";
@@ -81,11 +81,7 @@ function resolveCallWindowMs(pcmBytes, sampleRate) {
 }
 async function resolveRequesterE164(params) {
 	const senderId = params.requesterSenderId.trim();
-	if (!senderId.includes("@")) try {
-		return normalizeE164(senderId.replace(/^whatsapp:/i, ""));
-	} catch {
-		return null;
-	}
+	if (!senderId.includes("@")) return normalizeE164(senderId.replace(/^whatsapp:/i, ""));
 	const account = resolveWhatsAppAccount({
 		cfg: params.cfg,
 		accountId: params.accountId
@@ -101,7 +97,7 @@ async function resolveLinkedWhatsAppSelfE164(params) {
 	if (!controller) return null;
 	const identity = controller.getSelfIdentity();
 	if (!identity) return null;
-	if (identity.e164) return normalizeE164(identity.e164);
+	if (identity.e164) return identity.e164;
 	const account = resolveWhatsAppAccount({
 		cfg: params.cfg,
 		accountId: params.accountId

@@ -1,10 +1,10 @@
 import { t as createDeferredCore } from "../deferred-D0La5CRk.mjs";
 import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
-import { r as signalProcessTree } from "../kill-tree-ecObdMeW.mjs";
+import { r as signalProcessTree } from "../kill-tree-D8IW3UNJ.mjs";
 import "../tailscale-route-owner-protocol-B2D1XMya.mjs";
 import process from "node:process";
-import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
+import { execFile, spawn } from "node:child_process";
 //#region src/infra/tailscale-route-owner.worker.ts
 const READY_MARKER = "Press Ctrl+C to exit.";
 const OUTPUT_LIMIT = 2e5;
@@ -20,11 +20,19 @@ function parseStart(raw) {
 	if (!Array.isArray(argv) || !argv.every((entry) => typeof entry === "string") || argv.length === 0) throw new Error("invalid Tailscale route-owner start payload");
 	return { argv };
 }
+const pendingReports = /* @__PURE__ */ new Set();
 function send(message) {
-	if (!process.connected || !process.send) return;
-	try {
-		process.send(message, () => void 0);
-	} catch {}
+	const sendMessage = process.send?.bind(process);
+	if (!process.connected || !sendMessage) return;
+	const report = new Promise((resolve) => {
+		try {
+			sendMessage(message, () => resolve());
+		} catch {
+			resolve();
+		}
+	});
+	pendingReports.add(report);
+	report.then(() => pendingReports.delete(report));
 }
 async function signalChild(child, signal, privileged, onError) {
 	if (typeof child.pid !== "number" || child.pid <= 0) return;
@@ -127,28 +135,43 @@ function runTailscaleRouteOwner(start, sendMessage = send) {
 		stop
 	};
 }
-if (process.argv[2] === "--openclaw-tailscale-route-owner") try {
-	const owner = runTailscaleRouteOwner(parseStart(process.argv[3]));
-	for (const signal of [
-		"SIGINT",
-		"SIGTERM",
-		"SIGHUP"
-	]) process.once(signal, owner.stop);
-	process.once("disconnect", owner.stop);
-	process.once("message", (message) => {
-		if (isRecord(message) && message.type === "stop") owner.stop();
-	});
-	if (!process.connected) owner.stop();
-	owner.exited.then((exit) => process.exit(exit.stopping ? 0 : 1));
-} catch (error) {
-	send({
-		type: "failed",
-		code: null,
-		signal: null,
-		stdout: "",
-		stderr: error instanceof Error ? error.message : String(error)
-	});
-	process.exit(1);
+if (process.argv[2] === "--openclaw-tailscale-route-owner") {
+	let finalExitCode = 0;
+	try {
+		const owner = runTailscaleRouteOwner(parseStart(process.argv[3]));
+		const signals = [
+			"SIGINT",
+			"SIGTERM",
+			"SIGHUP"
+		];
+		const onMessage = (message) => {
+			if (isRecord(message) && message.type === "stop") owner.stop();
+		};
+		for (const signal of signals) process.on(signal, owner.stop);
+		process.once("disconnect", owner.stop);
+		process.once("message", onMessage);
+		try {
+			if (!process.connected) owner.stop();
+			finalExitCode = (await owner.exited).stopping ? 0 : 1;
+		} finally {
+			for (const signal of signals) process.off(signal, owner.stop);
+			process.off("disconnect", owner.stop);
+			process.off("message", onMessage);
+		}
+	} catch (error) {
+		send({
+			type: "failed",
+			code: null,
+			signal: null,
+			stdout: "",
+			stderr: error instanceof Error ? error.message : String(error)
+		});
+		finalExitCode = 1;
+	} finally {
+		await Promise.all(pendingReports);
+		if (process.connected) process.disconnect?.();
+		process.exitCode = finalExitCode;
+	}
 }
 //#endregion
 export { runTailscaleRouteOwner };

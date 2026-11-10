@@ -78,6 +78,7 @@ export const UPDATE_FOREIGN_DESTINATION_REASON = "global-install-foreign-destina
 export const UPDATE_GLOBAL_PERMISSION_REASON = "global-install-permission-denied";
 export const UPDATE_ENVIRONMENT_FAILURE_REASONS: ReadonlySet<string> = new Set([
   "node-runtime-preflight",
+  "preflight-node-runtime-incompatible",
   "source-artifact-ownership",
   UPDATE_GLOBAL_PERMISSION_REASON,
   UPDATE_FOREIGN_DESTINATION_REASON,
@@ -108,6 +109,7 @@ export const SKIPPED_UPDATE_OUTCOMES: Readonly<Record<string, "pending" | "noop"
   "still-starting": "noop",
   "managed-service-handoff-already-running": "noop",
   "managed-service-handoff-cancelled": "noop",
+  "managed-service-handoff-unavailable": "noop",
   "container-image-install": "noop",
   "unmanaged-package-install": "noop",
   "package-update-requires-cli": "noop",

@@ -1,6 +1,7 @@
-import { o as openclaw_plugin_default, r as CEREBRAS_MODEL_DISCOVERY } from "./.setup/provider-catalog-DycAcVkn.mjs";
+import { o as openclaw_plugin_default, r as CEREBRAS_MODEL_DISCOVERY } from "./.setup/provider-catalog-BiNR-qKR.mjs";
 import { applyCerebrasConfig } from "./onboard.js";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
+import { applyModelCompatPatch } from "openclaw/plugin-sdk/provider-model-shared";
 var cerebras_default = defineSingleProviderPluginEntry({
 	id: "cerebras",
 	name: "Cerebras Provider",
@@ -19,7 +20,11 @@ var cerebras_default = defineSingleProviderPluginEntry({
 			discoveryMode: "strict",
 			allowExplicitBaseUrl: true,
 			liveModelDiscovery: CEREBRAS_MODEL_DISCOVERY
-		}
+		},
+		normalizeResolvedModel: ({ model }) => model.api === "openai-completions" && model.baseUrl.trim().replace(/\/+$/u, "") === "https://api.cerebras.ai/v1" ? applyModelCompatPatch(model, {
+			supportsPromptCacheKey: model.compat?.supportsPromptCacheKey ?? true,
+			supportsLongCacheRetention: model.compat?.supportsLongCacheRetention ?? false
+		}) : model
 	}
 });
 //#endregion

@@ -1,25 +1,27 @@
 #!/usr/bin/env node
 import { c as isRecord } from "./record-coerce-TIsquoVR.mjs";
-import { a as getNodeSqliteKysely, r as executeSqliteQuerySync } from "./kysely-sync-K7ftY-g4.mjs";
+import { i as stripAnsi, n as sanitizeForLog } from "./ansi-Xy3t0ZdY.mjs";
 import { Et as _enum, Fn as object, Jn as string, Nt as array, Pn as number, nr as tuple, qn as strictObject, xn as literal } from "./schemas-BOYIvvln.mjs";
+import { i as executeSqliteQuerySync, o as getNodeSqliteKysely } from "./kysely-sync-9fPQaMlh.mjs";
+import { c as redactSupportString } from "./diagnostic-support-redaction-BP5XqJ7g.mjs";
 import { t as findCrabboxBinary } from "./crabbox-binary-BMI8aWfR.mjs";
-import { t as ensureManagedCrabboxBinary } from "./cli-runtime-api-kxHcuVYc.mjs";
+import { t as ensureManagedCrabboxBinary } from "./cli-runtime-api-BdQukdpi.mjs";
 import { n as resolvePathEnvKey, r as resolveWindowsCmdExePath } from "./windows-cmd-helpers-6q_bkE4I.mjs";
-import { n as hasUnjoinedWork, r as loadManagedChildSpawner, t as finalizeManagedChild } from "./managed-child-process-DzXLUTpR.mjs";
-import { c as captureSourceWitness, i as recoverDiscoveredStaging, n as createStaging, o as captureClaimNamespace, r as discoverStaging, s as preserveCrabboxArtifacts, t as createMirrorStaging } from "./crabbox-staging-6ve2pz0K.mjs";
+import { a as ManagedCleanupCancelled, n as hasUnjoinedWork, o as claimManagedCleanup, r as loadManagedChildSpawner, s as failManagedCleanup, t as finalizeManagedChild } from "./managed-child-process-egv5a-YW.mjs";
+import { c as captureSourceWitness, i as recoverDiscoveredStaging, n as createStaging, o as captureClaimNamespace, r as discoverStaging, s as preserveCrabboxArtifacts, t as createMirrorStaging } from "./crabbox-staging-B_Cae6dZ.mjs";
 import { accessSync, chmodSync, closeSync, constants, copyFileSync, existsSync, fstatSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, readlinkSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, statfsSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { delimiter, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { homedir, tmpdir } from "node:os";
-import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { homedir, tmpdir } from "node:os";
+import { delimiter, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { execFileSync, spawnSync } from "node:child_process";
 import { copyFileDescriptorSync } from "@openclaw/fs-safe/advanced";
 import { FsSafeError } from "@openclaw/fs-safe/errors";
 import { setImmediate } from "node:timers/promises";
-import { sha256FileSync } from "@openclaw/fs-safe/durability";
 import { isUtf8 } from "node:buffer";
-import { StringDecoder } from "node:string_decoder";
+import { sha256FileSync } from "@openclaw/fs-safe/durability";
 import { addAbortSignal } from "node:stream";
+import { StringDecoder } from "node:string_decoder";
 import { buffer } from "node:stream/consumers";
 import { DatabaseSync } from "node:sqlite";
 //#region scripts/crabbox-routing-policy.mts
@@ -653,16 +655,12 @@ function prepareCrabboxSourceCapsule(options) {
 			}
 			const entry = sourceStat(repoRoot, path);
 			const source = entry.kind === "present" ? mirrorStatStamp(entry.stat) : entry.kind;
-			if (observed.has(path) && observed.get(path) !== source) throw new Error(`source changed while freezing ${JSON.stringify(path)}; retry after edits finish`);
 			observed.set(path, source);
 			if (entry.kind !== "present" || entry.stat.isDirectory()) return entry.kind;
 			const info = entry.stat;
 			const sourcePath = join(repoRoot, path);
 			if (info.isSymbolicLink()) {
-				const bytes = readlinkSync(sourcePath, { encoding: "buffer" });
-				const after = sourceStat(repoRoot, path);
-				if (after.kind !== "present" || !after.stat.isSymbolicLink() || after.stat.ino !== info.ino || !readlinkSync(sourcePath, { encoding: "buffer" }).equals(bytes) || mirrorStatStamp(after.stat) !== source) throw new Error(`symlink changed while freezing ${JSON.stringify(path)}; retry after edits finish`);
-				writeFrozen(path, bytes, "120000");
+				writeFrozen(path, readlinkSync(sourcePath, { encoding: "buffer" }), "120000");
 				return "present";
 			}
 			if (!info.isFile()) throw new Error(`source capsule has an unsupported file kind at ${JSON.stringify(path)}`);
@@ -671,6 +669,7 @@ function prepareCrabboxSourceCapsule(options) {
 			const fd = openSync(sourcePath, constants.O_RDONLY | constants.O_NOFOLLOW);
 			try {
 				const opened = fstatSync(fd);
+				if (!opened.isFile() || opened.dev !== info.dev || opened.ino !== info.ino) throw new Error(`source capsule file identity changed: ${JSON.stringify(path)}`);
 				let operation = "mkdir";
 				let output;
 				try {
@@ -689,8 +688,7 @@ function prepareCrabboxSourceCapsule(options) {
 						if (error?.syscall === "write" || error instanceof FsSafeError && error.code === "helper-failed") throw writeFailure(path, "write file", error);
 						throw error;
 					}
-					const after = sourceStat(repoRoot, path);
-					if (!opened.isFile() || after.kind !== "present" || opened.ino !== info.ino || opened.ino !== after.stat.ino || mirrorStatStamp(opened) !== source || mirrorStatStamp(after.stat) !== source || opened.mode !== info.mode || opened.mode !== after.stat.mode || opened.size !== after.stat.size || opened.mtimeMs !== after.stat.mtimeMs || copied !== opened.size) throw new Error(`source changed while freezing ${JSON.stringify(path)}; retry after edits finish`);
+					if (copied !== opened.size) throw new Error(`source changed while freezing ${JSON.stringify(path)}; retry after edits finish`);
 					try {
 						chmodSync(destination, mode === "100755" ? 493 : 420);
 					} catch (error) {
@@ -1003,22 +1001,6 @@ function prepareCrabboxSourceCapsule(options) {
 		], privateEnv);
 		refreshIndex([...paths.filter((path) => !warm || !retained.has(path)), bundleFile]);
 		if (cache) copyFileSync(join(directory, ".git", "index"), join(directory, ".git", "mirror-candidate-index"));
-		for (const [path, source] of observed) if (stamp(path) !== source) throw new Error(`source changed while freezing ${JSON.stringify(path)}; retry after edits finish`);
-		const localStage = relative(repoRoot, staging.root);
-		const localStagePrefix = localStage && localStage !== ".." && !localStage.startsWith(`..${sep}`) && !isAbsolute(localStage) ? `${localStage.split(sep).join("/")}/` : void 0;
-		const finalEligible = git(repoRoot, [
-			"ls-files",
-			"--cached",
-			"--others",
-			"--exclude-standard",
-			"-z"
-		]).split("\0").filter(Boolean).filter((path) => !localStagePrefix || !path.startsWith(localStagePrefix));
-		if (git(repoRoot, ["rev-parse", "HEAD"]).trim() !== sourceSha || git(repoRoot, [
-			"ls-files",
-			"-v",
-			"--stage",
-			"-z"
-		]) !== trackedRecords || finalEligible.join("\0") !== eligiblePaths.join("\0")) throw new Error("source revision, index, or eligibility changed while freezing; retry after edits finish");
 		rmSync(linkBlobs, {
 			recursive: true,
 			force: true
@@ -1472,6 +1454,7 @@ const DEPENDENCY_INPUTS = [
 const ENVIRONMENT_INPUTS = [
 	".crabbox.yaml",
 	".github/actions/prepare-testbox-shell",
+	".github/actions/setup-android-toolchain",
 	".node-version",
 	"scripts/crabbox-wrapper.mjs",
 	"scripts/crabbox-wrapper.mts",
@@ -1614,10 +1597,6 @@ function prepareTestboxLeaseFreshness({ args, command = args, env, provider, rep
 		retained: args[0] === "warmup" || keep || Boolean(id),
 		keepOnFailure,
 		assertCurrent() {
-			const latest = buildTestboxLeaseFingerprint(repoRoot, args, env);
-			const changed = testboxLeaseStaleReasons(current, latest);
-			if (current.headSha !== latest.headSha) changed.unshift("headSha");
-			if (changed.length > 0) throw new Error(`Testbox inputs changed during preparation (${changed.join(", ")}); rerun from the current checkout`);
 			assertAllocationReceipt(stateDir, id, current);
 		},
 		attribution: {
@@ -1645,7 +1624,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 if (args[0] === "--") args.shift();
 if (args[0] === "staging") {
-	const { runStagingCommand } = await import("./crabbox-staging-C39s7M7x.mjs");
+	const { runStagingCommand } = await import("./crabbox-staging-DLU2PEBN.mjs");
 	process.exit(await runStagingCommand(args.slice(1), fullCheckoutSyncRoot(false), {
 		cwd: repoRoot,
 		binary: findCrabboxBinary({
@@ -1826,7 +1805,7 @@ const awsMacosCorepackEntrypoints = /* @__PURE__ */ new Set([
 	"corepack"
 ]);
 const awsMacosBunEntrypoints = /* @__PURE__ */ new Set(["bun", "bunx"]);
-const awsMacosBunVersion = "1.4.2";
+const awsMacosBunVersion = "1.4.4";
 const awsMacosSwiftEntrypoints = /* @__PURE__ */ new Set(["swift", "xcodebuild"]);
 const awsMacosSwiftScriptTargets = /* @__PURE__ */ new Set([
 	"mac:package",
@@ -1999,7 +1978,8 @@ function checkedOutput(command, commandArgs, timeoutMs = resolveMetadataProbeTim
 	return {
 		status: result.error?.name === "Error" && result.signal === "SIGKILL" ? 124 : result.status ?? 1,
 		text: `${result.stdout ?? ""}${result.stderr ?? ""}`.trim(),
-		stdout: (result.stdout ?? "").trim()
+		stdout: (result.stdout ?? "").trim(),
+		stderr: (result.stderr ?? "").trim()
 	};
 }
 function recoveryCommand(commandArgs) {
@@ -2298,17 +2278,18 @@ function crabboxProviderReadiness(provider, context) {
 	const brokerReady = !managed || broker?.status === "ok";
 	const brokerAuthFailure = result?.checks.some((check) => check.status === "failed" && check.details?.class === "broker_auth") === true;
 	const ready = result?.ok === true && brokerReady;
-	const diagnostic = compactDiagnosticText(doctor.text);
+	const cliError = doctor.stderr || (/^[[{]/u.test(doctor.stdout) ? "" : doctor.stdout);
+	const diagnostic = result ? doctorFailureDiagnostic(result, brokerReady) : compactDiagnosticText(cliError);
 	return {
 		ready,
-		reason: ready ? "doctor-ready" : result ? `doctor exited ${doctor.status}${diagnostic ? `: ${diagnostic}` : ""}` : `invalid doctor JSON${diagnostic ? `: ${diagnostic}` : ""}`,
+		reason: ready ? "doctor-ready" : result ? `doctor exited ${doctor.status}${diagnostic ? `: ${diagnostic}` : ""}` : `invalid doctor JSON (exit ${doctor.status})${diagnostic ? `: ${diagnostic}` : ""}`,
 		...ready ? {} : { recovery: `run \`${recoveryCommand(doctorArgs)}\`` },
 		brokerReady,
 		brokerAuthFailure
 	};
 }
 function isDoctorCheck(value) {
-	return isRecord(value) && typeof value.status === "string" && Boolean(value.status) && typeof value.check === "string" && Boolean(value.check) && (value.details === void 0 || isRecord(value.details) && Object.values(value.details).every((detail) => typeof detail === "string"));
+	return isRecord(value) && typeof value.status === "string" && Boolean(value.status) && typeof value.check === "string" && Boolean(value.check) && (value.message === void 0 || typeof value.message === "string") && (value.details === void 0 || isRecord(value.details) && Object.values(value.details).every((detail) => typeof detail === "string"));
 }
 function parseDoctorResult(value, provider, status) {
 	try {
@@ -2322,9 +2303,25 @@ function parseDoctorResult(value, provider, status) {
 	}
 }
 function compactDiagnosticText(value, maxLength = 500) {
-	const compact = value.replace(/\s+/gu, " ").trim();
-	if (compact.length <= maxLength) return compact;
-	return `${compact.slice(0, Math.max(0, maxLength - 3))}...`;
+	const plain = stripAnsi(value).split(/\r\n?|\n/u).map(sanitizeForLog).join("\n");
+	const compact = redactSupportString(plain, {
+		env: process.env,
+		stateDir: ""
+	}, { maxLength: Number.MAX_SAFE_INTEGER }).replace(/\s+/gu, " ").trim();
+	return compact.length <= maxLength ? compact : `${compact.slice(0, maxLength - 3)}...`;
+}
+function doctorFailureDiagnostic(result, brokerReady) {
+	const failed = result.checks.filter((check) => ["failed", "missing"].includes(check.status.trim().toLowerCase()));
+	const summaries = failed.slice(0, 4).map((check) => {
+		const reason = [...["class", "hint"].flatMap((key) => {
+			const value = check.details?.[key];
+			return value ? [`${key}=${compactDiagnosticText(value, 80)}`] : [];
+		}), ...check.message ? [compactDiagnosticText(check.message, 160)] : []].join(" ");
+		return `${compactDiagnosticText(check.check, 60)} (${check.status.trim().toLowerCase()})${reason ? `: ${reason}` : ""}`;
+	});
+	if (failed.length > summaries.length) summaries.push(`${failed.length - summaries.length} more failed checks omitted`);
+	if (!brokerReady && !failed.some((check) => check.check === "broker")) summaries.push("broker: required ok check missing");
+	return summaries.join("; ");
 }
 function formatProviderReadiness(readiness) {
 	return [...readiness.entries()].map(([candidate, status]) => `${candidate}:${status.ready ? "ready" : status.reason}`).join(",");
@@ -2351,11 +2348,15 @@ function enforceBrokeredCloud(commandArgs, provider, explicit, routedReadiness) 
 	const canonicalProvider = canonicalProviderName(provider);
 	const readiness = routedReadiness ?? crabboxProviderReadiness(canonicalProvider, effectiveTargetContext(commandArgs));
 	if ("brokerAuthFailure" in readiness && readiness.brokerAuthFailure) {
-		const instructions = [`[crabbox] provider=${canonicalProvider} requires managed Crabbox broker authentication for OpenClaw proof.`, `[crabbox] run \`${recoveryCommand([
-			"login",
-			"--url",
-			"https://crabbox.openclaw.ai"
-		])}\`, then retry.`];
+		const instructions = [
+			`[crabbox] provider=${canonicalProvider} requires managed Crabbox broker authentication for OpenClaw proof.`,
+			`[crabbox] ${readiness.reason}.`,
+			`[crabbox] run \`${recoveryCommand([
+				"login",
+				"--url",
+				"https://crabbox.openclaw.ai"
+			])}\`, then retry.`
+		];
 		if (canonicalProvider !== "aws") instructions.push(`[crabbox] direct ${canonicalProvider} debugging requires an original \`--provider ${canonicalProvider}\`, no \`--workload\`, and OPENCLAW_CRABBOX_ALLOW_DIRECT_CLOUD=1.`);
 		console.error(instructions.join("\n"));
 		process.exit(2);
@@ -2516,7 +2517,6 @@ function restoreTemporaryLeaseClaimPath(claimPath) {
 			encoding: "utf8",
 			mode: 384
 		});
-		if (readFileSync(claimPath, "utf8") !== original) return;
 		renameSync(temporaryPath, claimPath);
 	} finally {
 		rmSync(temporaryPath, { force: true });
@@ -2589,7 +2589,7 @@ function replaceRunPayload(invocation, payload) {
 	return normalizedArgs;
 }
 function renderRunShellCommand(invocation, join = shellJoin) {
-	return invocation.options.has("shell") && invocation.commandArgs.length === 1 ? invocation.commandArgs[0] : join(invocation.commandArgs);
+	return invocation.options.has("shell") && invocation.commandArgs.length === 1 ? invocation.commandArgs[0] ?? "" : join(invocation.commandArgs);
 }
 function replaceRunCommandWithShell(initialInvocation, shellCommand) {
 	let invocation = initialInvocation;
@@ -3480,7 +3480,7 @@ function remoteAwsMacosJsBootstrap({ packageManager = false, bun = false, source
 	const bootstrap = [
 		"openclaw_crabbox_bootstrap_macos_js() {",
 		"tool_root=\"${OPENCLAW_CRABBOX_MACOS_TOOLCHAIN_DIR:-$HOME/.openclaw-crabbox-toolchain}\";",
-		`node_version=${shellQuote(process.env.OPENCLAW_CRABBOX_MACOS_NODE_VERSION?.trim() || "24.21.0")};`,
+		`node_version=${shellQuote(process.env.OPENCLAW_CRABBOX_MACOS_NODE_VERSION?.trim() || "24.22.1")};`,
 		"arch=\"$(uname -m)\";",
 		"case \"$arch\" in arm64) node_arch=arm64 ;; x86_64) node_arch=x64 ;; *) echo \"unsupported macOS arch: $arch\" >&2; return 2 ;; esac;",
 		"macos_locale=\"${OPENCLAW_CRABBOX_MACOS_LOCALE:-en_US.UTF-8}\";",
@@ -3539,7 +3539,7 @@ function remoteWsl2JsBootstrap({ packageManager = false, sourceBootstrap = "" } 
 	const bootstrap = [
 		"openclaw_crabbox_bootstrap_wsl2_js() {",
 		"tool_root=\"${OPENCLAW_CRABBOX_WSL2_TOOLCHAIN_DIR:-$HOME/.openclaw-crabbox-toolchain}\";",
-		`node_version=${shellQuote(process.env.OPENCLAW_CRABBOX_WSL2_NODE_VERSION?.trim() || "24.21.0")};`,
+		`node_version=${shellQuote(process.env.OPENCLAW_CRABBOX_WSL2_NODE_VERSION?.trim() || "24.22.1")};`,
 		"arch=\"$(uname -m)\";",
 		"case \"$arch\" in arm64|aarch64) node_arch=arm64 ;; x86_64|amd64) node_arch=x64 ;; *) echo \"unsupported WSL2 arch: $arch\" >&2; return 2 ;; esac;",
 		"if [ -z \"${TMPDIR:-}\" ]; then export TMPDIR=\"/tmp\"; fi;",
@@ -4213,11 +4213,11 @@ function injectFullCheckoutLeaseReclaim(commandArgs) {
 	normalizedArgs.splice(commandOptionEnd(normalizedArgs), 0, "--reclaim");
 	return normalizedArgs;
 }
-function injectRemoteTestboxCi(commandArgs, providerName) {
+function injectRemoteTestboxCi(commandArgs, providerName, sourceBootstrap) {
 	if (commandArgs[0] !== "run" || canonicalProviderName(providerName) !== "blacksmith-testbox") return commandArgs;
 	const invocation = parseCommandInvocation(help.text, commandArgs);
 	if (invocation.start < 0) return commandArgs;
-	return replaceRunCommandWithShell(invocation, `export CI=true; ${renderRunShellCommand(invocation)}`);
+	return replaceRunCommandWithShell(invocation, `export CI=true; ${sourceBootstrap ? `${sourceBootstrap} || exit $?; ` : ""}exec node scripts/crabbox-remote-redact.mjs -- bash -c ${shellQuote(renderRunShellCommand(invocation))}`);
 }
 async function applyRunTransforms(initialInvocation, initialFacts, options) {
 	const testboxWorkspace = canonicalProviderName(options.provider) === "blacksmith-testbox";
@@ -4245,7 +4245,7 @@ async function applyRunTransforms(initialInvocation, initialFacts, options) {
 				writeFileSync(scriptPath, wrapRemoteScript(script, `${sourceBootstrap} || exit $?\nexport CI=true`));
 				chmodSync(scriptPath, 448);
 				transformedArgs = replaceRunScript(invocation, scriptPath);
-			} else if (invocation.start >= 0 && !isAwsMacosRemoteTarget(transformedArgs, options.provider)) transformedArgs = replaceRunCommandWithShell(invocation, `${sourceBootstrap} || exit $?; ${renderRunShellCommand(invocation)}`);
+			} else if (invocation.start >= 0 && !testboxWorkspace && !isAwsMacosRemoteTarget(transformedArgs, options.provider)) transformedArgs = replaceRunCommandWithShell(invocation, `${sourceBootstrap} || exit $?; ${renderRunShellCommand(invocation)}`);
 		}
 		invocation = parseCommandInvocation(help.text, transformedArgs);
 		transformedArgs = injectRemoteAwsMacosJsBootstrap(invocation, facts, options.provider, sourceBootstrap);
@@ -4254,7 +4254,7 @@ async function applyRunTransforms(initialInvocation, initialFacts, options) {
 		invocation = parseCommandInvocation(help.text, transformedArgs);
 		transformedArgs = injectRemoteWindowsHydratedNodeModulesBootstrap(invocation, facts, options.provider);
 		return {
-			args: injectRemoteTestboxCi(transformedArgs, options.provider),
+			args: injectRemoteTestboxCi(transformedArgs, options.provider, sourceBootstrap),
 			wsl2ScriptBootstrap: {
 				...wsl2ScriptBootstrap,
 				cleanup() {
@@ -4339,7 +4339,7 @@ if (canonicalProvider === "blacksmith-testbox") {
 enforceBrokeredCloud(normalizedArgs, provider, Boolean(commandProviderValue), providerSelection.readiness?.get(canonicalProvider));
 if (canonicalProvider === "blacksmith-testbox") {
 	const envProviderLocal = process.env.CRABBOX_PROVIDER?.trim();
-	console.error(`[crabbox] provider=blacksmith-testbox ${commandProviderValue ? "explicit" : envProviderLocal ? "from CRABBOX_PROVIDER" : "from config"}; if Testbox is queued or down, ${commandProviderValue ? "rerun without --provider to use .crabbox.yaml" : envProviderLocal ? "unset CRABBOX_PROVIDER to use .crabbox.yaml" : "pass another --provider to override it"}`);
+	console.error(`[crabbox] provider=blacksmith-testbox ${commandProviderValue ? "explicit" : envProviderLocal ? "from CRABBOX_PROVIDER" : "from config"}; if queued or unavailable, stop this task's allocation and use PR CI or a safe local scope. Keep platform-specific proof pending; do not chain providers.`);
 	console.error("[crabbox] delegated Testbox proof uses the wrapper exitCode and timing JSON; the linked Actions run can show cancelled during external lease cleanup");
 	enforceCrabboxOwnedBlacksmithLease(normalizedArgs);
 }
@@ -4500,6 +4500,7 @@ function cleanupOnce() {
 	if (cleanupSucceeded !== void 0) return cleanupSucceeded;
 	cleanupSucceeded = false;
 	if (!childTreeSettled) {
+		failManagedCleanup();
 		try {
 			sourceStaging?.hold("writers");
 		} catch {}
@@ -4623,6 +4624,15 @@ if (sourceStaging?.recorded) {
 	}
 	const leaseId = optionValue(normalizedArgs, "--id");
 	sourceStaging.admitted(namespace, leaseId ? [leaseId] : void 0);
+}
+try {
+	await claimManagedCleanup();
+	await preparationCheckpoint();
+} catch (error) {
+	if (error instanceof ManagedCleanupCancelled) cancellationSignal ??= error.signal;
+	await preparationCheckpoint(error);
+	cleanupOnce();
+	throw error;
 }
 const child = spawnManagedChild(childInvocation.command, childInvocation.args, {
 	cwd: childCwd,

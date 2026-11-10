@@ -1,0 +1,1 @@
+{"version":3,"file":"agent-avatar-BUEV9Coq.js","names":["__esmMin","init_agent_avatar$1","AgentAvatar","init_agent_avatar"],"sources":["../../../ui/src/components/agent-avatar.ts"],"sourcesContent":["export { AgentAvatar } from \"./solid/agent-avatar.tsx\";\n"],"mappings":""}

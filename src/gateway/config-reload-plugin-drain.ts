@@ -4,6 +4,7 @@ import {
   type PluginRuntimeApplication,
 } from "../plugins/lifecycle.js";
 import type { GatewayReloadPlan } from "./config-reload-plan.js";
+import { PluginAdmittedWorkTimeoutError } from "./server-plugin-reload-cleanup.js";
 import { GatewayConfigReloadSupersededError } from "./server-reload-contracts.js";
 
 export function isConfigReloadSuperseded(error: unknown): boolean {
@@ -16,11 +17,28 @@ export function isConfigReloadSuperseded(error: unknown): boolean {
   return cause instanceof GatewayConfigReloadSupersededError;
 }
 
-/** Retain a failed automatic drain until its generation or pending settings settle. */
-export function createConfigPluginDrainTracker() {
+/**
+ * Retain a failed automatic drain until its generation or pending settings settle,
+ * and schedule the replacement again once the failed plugins' work settles.
+ */
+export function createConfigPluginDrainTracker(params: {
+  signal: AbortSignal;
+  onWorkSettled: () => void;
+}) {
   let failure:
-    | { error: PluginRuntimeApplicationError; paths: readonly string[]; reported: boolean }
+    | {
+        error: PluginRuntimeApplicationError;
+        paths: readonly string[];
+        observation: AbortController;
+        retriesWhenIdle: boolean;
+        observing: boolean;
+        reported: boolean;
+      }
     | undefined;
+  const clear = () => {
+    failure?.observation.abort();
+    failure = undefined;
+  };
   const hasPendingFailure = (plan?: GatewayReloadPlan) =>
     failure?.paths.some((failedPath) =>
       plan?.changedPaths.some(
@@ -33,7 +51,7 @@ export function createConfigPluginDrainTracker() {
   return {
     assertCanApply(plan: GatewayReloadPlan) {
       if (failure && failure.error.details.generation !== getPluginRuntimeGeneration()) {
-        failure = undefined;
+        clear();
       }
       if (
         plan.reloadPlugins &&
@@ -53,13 +71,43 @@ export function createConfigPluginDrainTracker() {
         !error.details.committed &&
         !isConfigReloadSuperseded(error)
       ) {
-        failure = { error, paths: plan.reloadPluginPaths ?? [], reported: false };
+        clear();
+        const timeout =
+          error.cause instanceof PluginAdmittedWorkTimeoutError ? error.cause : undefined;
+        const current = {
+          error,
+          paths: plan.reloadPluginPaths ?? [],
+          observation: new AbortController(),
+          retriesWhenIdle: timeout !== undefined,
+          observing: false,
+          reported: false,
+        };
+        failure = current;
       }
+    },
+    observeAfterReceipt() {
+      const current = failure;
+      const timeout = current?.error.cause;
+      if (!current || current.observing || !(timeout instanceof PluginAdmittedWorkTimeoutError)) {
+        return;
+      }
+      current.observing = true;
+      // The failed write receipt must settle before its turn can release retained work.
+      const signal = AbortSignal.any([params.signal, current.observation.signal]);
+      void Promise.all(timeout.instances.map((instance) => instance.waitForIdle(signal))).then(
+        () => {
+          if (failure === current) {
+            clear();
+            params.onWorkSettled();
+          }
+        },
+        () => {},
+      );
     },
     applied(plan?: GatewayReloadPlan, runtime?: PluginRuntimeApplication) {
       // Clear reverted settings only after the candidate applies, including unrelated plugin edits.
       if (!plan?.reloadPlugins || runtime || !hasPendingFailure(plan)) {
-        failure = undefined;
+        clear();
       }
     },
     shouldReport(error: unknown) {
@@ -69,6 +117,10 @@ export function createConfigPluginDrainTracker() {
       const report = !failure.reported;
       failure.reported = true;
       return report;
+    },
+    /** Whether the deferring failure clears itself once its timed-out work settles. */
+    retriesWhenIdle() {
+      return failure?.retriesWhenIdle ?? false;
     },
   };
 }

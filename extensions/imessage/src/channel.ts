@@ -29,7 +29,7 @@ import {
   shouldSuppressLocalIMessageExecApprovalPrompt,
 } from "./approval-native.js";
 import { resolveIMessageDirectChatService } from "./chat-context.js";
-import { createIMessageConversationBindingManager } from "./conversation-bindings.js";
+import { createIMessageConversationBindingManagerV2 } from "./conversation-bindings.js";
 import {
   matchIMessageAcpConversation,
   normalizeIMessageAcpConversationId,
@@ -46,6 +46,7 @@ import {
 } from "./monitor/sanitize-outbound.js";
 import { normalizeIMessageMessagingTarget } from "./normalize.js";
 import type { IMessageProbe } from "./probe.js";
+import { registerIMessageSendStatus } from "./send-status.js";
 import { imessageSetupContract } from "./setup-core.js";
 import {
   createIMessagePluginBase,
@@ -279,7 +280,7 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount, IMessageProb
         supportsCurrentConversationBinding: true,
         bindingStore: "adapter",
         createManager: ({ cfg, accountId }) =>
-          createIMessageConversationBindingManager({
+          createIMessageConversationBindingManagerV2({
             cfg,
             accountId: accountId ?? undefined,
           }),
@@ -303,7 +304,7 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount, IMessageProb
       messaging: {
         normalizeTarget: normalizeIMessageMessagingTarget,
         inferTargetChatType: ({ to }) => inferIMessageTargetChatType(to),
-        resolveOutboundSessionRoute: (params) => resolveIMessageOutboundSessionRoute(params),
+        resolveOutboundSessionRoute: resolveIMessageOutboundSessionRoute,
         targetResolver: {
           looksLikeId: looksLikeIMessageExplicitTargetId,
           hint: "<phone|email|chat_id:ID|auto:contact|imessage:contact|sms:contact>",
@@ -366,13 +367,15 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount, IMessageProb
       gateway: {
         apiVersion: 2,
         startAccount: async (ctx) => {
-          const conversationBindings = createIMessageConversationBindingManager({
+          const conversationBindings = createIMessageConversationBindingManagerV2({
             cfg: ctx.cfg,
             accountId: ctx.accountId,
           });
+          const sendStatus = registerIMessageSendStatus(ctx);
           try {
             return await (await loadIMessageChannelRuntime()).startIMessageGatewayAccount(ctx);
           } finally {
+            sendStatus?.dispose();
             conversationBindings.stop();
           }
         },

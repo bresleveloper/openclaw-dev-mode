@@ -1,5 +1,5 @@
-import { a as defineChannelAliasMigration, j as isRecord, o as stripRetiredChannelKeys } from "./runtime-doctor-migrations-BhouWAUC.js";
-import "./string-coerce-runtime-CM4JCyJk.js";
+import { L as isRecord, a as defineChannelAliasMigration, o as stripRetiredChannelKeys } from "./runtime-doctor-migrations-Bq3PkBbD.js";
+import "./string-coerce-runtime-D5jaFnkP.js";
 //#region extensions/matrix/src/doctor-contract.ts
 function parseMatrixStreamingMode(value) {
 	if (typeof value !== "string") return null;

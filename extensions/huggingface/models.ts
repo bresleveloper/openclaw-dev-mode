@@ -5,6 +5,7 @@ import {
   readLiveModelCatalogStringField,
 } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { buildManifestModelProviderConfig } from "openclaw/plugin-sdk/provider-catalog-shared";
+import { resolveDefaultModelMaxTokens } from "openclaw/plugin-sdk/provider-model-shared";
 import type { ModelDefinitionConfig } from "openclaw/plugin-sdk/provider-model-types";
 import {
   fetchWithSsrFGuard,
@@ -15,7 +16,6 @@ import manifest from "./openclaw.plugin.json" with { type: "json" };
 
 const HUGGINGFACE_MANIFEST_CATALOG = manifest.modelCatalog.providers.huggingface;
 export const HUGGINGFACE_BASE_URL = HUGGINGFACE_MANIFEST_CATALOG.baseUrl;
-export const HUGGINGFACE_POLICY_SUFFIXES = ["cheapest", "fastest"] as const;
 const HUGGINGFACE_DISCOVERY_TIMEOUT_MS = 30_000;
 
 const HUGGINGFACE_DEFAULT_COST = {
@@ -26,7 +26,6 @@ const HUGGINGFACE_DEFAULT_COST = {
 };
 
 const HUGGINGFACE_DEFAULT_CONTEXT_WINDOW = 131072;
-const HUGGINGFACE_DEFAULT_MAX_TOKENS = 8192;
 
 type HFModelEntry = {
   id: string;
@@ -48,11 +47,6 @@ export const HUGGINGFACE_MODEL_CATALOG: ModelDefinitionConfig[] = buildManifestM
   providerId: "huggingface",
   catalog: HUGGINGFACE_MANIFEST_CATALOG,
 }).models;
-
-export function isHuggingfacePolicyLocked(modelRef: string): boolean {
-  const ref = modelRef.trim();
-  return HUGGINGFACE_POLICY_SUFFIXES.some((suffix) => ref.endsWith(`:${suffix}`) || ref === suffix);
-}
 
 function isReasoningModelHeuristic(modelId: string): boolean {
   const lower = normalizeLowercaseStringOrEmpty(modelId);
@@ -99,6 +93,8 @@ function projectHuggingfaceModels(rows: readonly unknown[]): ModelDefinitionConf
     const providerContexts = providers
       .map((provider) => provider?.context_length)
       .filter((context): context is number => typeof context === "number" && context > 0);
+    const servedContextWindow =
+      providerContexts.length > 0 ? Math.min(...providerContexts) : undefined;
     const model: ModelDefinitionConfig = catalogById.get(id) ?? {
       id,
       name: displayNameFromApiEntry(entry),
@@ -107,12 +103,13 @@ function projectHuggingfaceModels(rows: readonly unknown[]): ModelDefinitionConf
         Array.isArray(modalities) && modalities.includes("image") ? ["text", "image"] : ["text"],
       cost: HUGGINGFACE_DEFAULT_COST,
       contextWindow: HUGGINGFACE_DEFAULT_CONTEXT_WINDOW,
-      maxTokens: HUGGINGFACE_DEFAULT_MAX_TOKENS,
+      maxTokens: resolveDefaultModelMaxTokens(
+        servedContextWindow ?? HUGGINGFACE_DEFAULT_CONTEXT_WINDOW,
+      ),
     };
     models.push({
       ...model,
-      contextWindow:
-        providerContexts.length > 0 ? Math.min(...providerContexts) : model.contextWindow,
+      contextWindow: servedContextWindow ?? model.contextWindow,
       ...(providers.some((provider) => provider?.supports_tools === false)
         ? { compat: { ...model.compat, supportsTools: false } }
         : {}),

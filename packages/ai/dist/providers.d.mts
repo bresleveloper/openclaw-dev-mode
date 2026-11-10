@@ -1,5 +1,5 @@
-import { n as ApiRegistry } from "./api-registry-B3rC2qu3.mjs";
-import { n as clampOpenAIPromptCacheKey, t as OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH } from "./openai-prompt-cache-CFviG_D4.mjs";
+import { n as ApiRegistry } from "./api-registry-gDt0faai.mjs";
+import { n as clampOpenAIPromptCacheKey, t as OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH } from "./openai-prompt-cache-DgjD-UL5.mjs";
 //#region packages/ai/src/providers/register-builtins.d.ts
 /** Source id used for built-in API provider registrations. */
 export declare const BUILT_IN_API_PROVIDER_SOURCE_ID = "core:built-in";

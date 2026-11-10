@@ -16,7 +16,28 @@ enum GatewayLaunchAgentManager {
         var isInferredLegacyInstall = false
         var sourcePrefix: [String]?
         var serviceAuthority: ServiceAuthority?
+
+        /// Flags remain exact invocation custody; bundle identity uses its concrete packaged files.
+        func matchesBundledRuntime(_ runtime: BundledRuntime) -> Bool {
+            let concrete = GatewayLaunchAgentManager.concreteServicePrefix(self.prefix)
+            // Services installed before the stable service path still name the per-build Bun.
+            guard concrete.first == runtime.bun.resolvingSymlinksInPath().path ||
+                (concrete.first == runtime.serviceBun.resolvingSymlinksInPath().path &&
+                    FileManager.default.contentsEqual(atPath: runtime.serviceBun.path, andPath: runtime.bun.path)),
+                let entry = GatewayLaunchAgentManager.serviceCLIEntrypoint(concrete),
+                let sqliteLibrary,
+                URL(fileURLWithPath: sqliteLibrary).resolvingSymlinksInPath() ==
+                runtime.sqliteLibrary.resolvingSymlinksInPath()
+            else { return false }
+            return GatewayLaunchAgentManager.serviceCLIEntrypoints.contains {
+                runtime.packageRoot.appendingPathComponent($0).resolvingSymlinksInPath() == entry
+            }
+        }
     }
+
+    private static let serviceCLIEntrypoints = [
+        "openclaw.mjs", "dist/index.js", "dist/index.mjs", "dist/entry.js", "dist/entry.mjs",
+    ]
 
     private static let logger = Logger(subsystem: "ai.openclaw", category: "gateway.launchd")
     private static let disableLaunchAgentMarker = "disable-launchagent"
@@ -24,9 +45,7 @@ enum GatewayLaunchAgentManager {
     /// migration lease. Keep the app from killing healthy migration work before it can finish.
     static let startupMigrationTolerance: TimeInterval = 120
     /// A launchd PID started at login has no install evidence, and a cold start after reboot can
-    /// outlast the first-run budget (a real reboot measured about 139s on Apple silicon). The app
-    /// re-proves that the same PID owns the port at every deadline, so this wider budget only
-    /// delays repair of a PID that is still alive and still holding the port.
+    /// outlast the first-run budget (a real reboot measured about 139s on Apple silicon).
     static let reusedLaunchdColdStartTolerance: TimeInterval = 300
 
     private static var disableLaunchAgentMarkerURL: URL {
@@ -112,8 +131,7 @@ enum GatewayLaunchAgentManager {
     }
 
     static func isLaunchAgentWriteDisabled() -> Bool {
-        if FileManager().fileExists(atPath: self.disableLaunchAgentMarkerURL.path) { return true }
-        return false
+        FileManager().fileExists(atPath: self.disableLaunchAgentMarkerURL.path)
     }
 
     static func applyAttachOnlyRuntimeOverride() -> String? {
@@ -122,26 +140,19 @@ enum GatewayLaunchAgentManager {
 
     static func setLaunchAgentWriteDisabled(_ disabled: Bool) -> String? {
         let marker = self.disableLaunchAgentMarkerURL
-        if disabled {
-            do {
+        do {
+            if disabled {
                 try FileManager().createDirectory(
                     at: marker.deletingLastPathComponent(),
                     withIntermediateDirectories: true)
                 if !FileManager().fileExists(atPath: marker.path) {
                     FileManager().createFile(atPath: marker.path, contents: nil)
                 }
-            } catch {
-                return error.localizedDescription
-            }
-            return nil
-        }
-
-        if FileManager().fileExists(atPath: marker.path) {
-            do {
+            } else if FileManager().fileExists(atPath: marker.path) {
                 try FileManager().removeItem(at: marker)
-            } catch {
-                return error.localizedDescription
             }
+        } catch {
+            return error.localizedDescription
         }
         return nil
     }
@@ -256,6 +267,7 @@ enum GatewayLaunchAgentManager {
                 allowUnconfigured: allowUnconfigured,
                 runtime: runtime,
                 launchAgentExists: existed)
+            var resumedRuntime: BundledRuntime?
             if !existed, let preserved = whenMissingCLI {
                 guard let executable = preserved.prefix.first, executable.hasPrefix("/"),
                       ["node", "bun"].contains(URL(fileURLWithPath: executable).lastPathComponent)
@@ -265,12 +277,17 @@ enum GatewayLaunchAgentManager {
                 if preserved.hadRuntimePin ||
                     !self.isManagedNode(executable, stateDirectory: AppProfile.current.stateDirectoryURL())
                 {
-                    arguments += ["--runtime-path", preserved.sourcePrefix?.first ?? executable]
+                    let runtimePath = preserved.sourcePrefix?.first ?? executable
+                    arguments += ["--runtime-path", runtimePath]
+                    // A resume onto the stable service Bun needs its build staged there first.
+                    resumedRuntime = preserved.prefix.last.flatMap(BundledRuntime.init(serviceEntrypoint:))
+                        .flatMap { $0.serviceBun.path == runtimePath ? $0 : nil }
                 }
             }
             return await self.runDaemonCommand(
                 arguments,
                 runtime: runtime,
+                serviceRuntime: runtime ?? resumedRuntime,
                 installedCLI: installedCLI,
                 expectedServiceAuthority: custody,
                 checkCurrent: checkCurrent)
@@ -280,12 +297,6 @@ enum GatewayLaunchAgentManager {
         if let error = custody.currentError() { return error }
         guard !self.isLaunchAgentWriteDisabled() else { return "Gateway service changes are disabled" }
         let label = custody.plist.deletingPathExtension().lastPathComponent
-        // Stop runs on every remote/unconfigured launch. Without this profile's plist there is
-        // nothing to boot out, but the CLI would still take shared service-update locks.
-        guard custody.definition.plist != nil else {
-            self.logger.info("launchd disable skipped: no LaunchAgent installed for \(label)")
-            return nil
-        }
         self.logger.info("launchd disable requested via CLI for \(label)")
         return await self.runDaemonCommand(
             ["uninstall"], expectedServiceAuthority: custody, checkCurrent: checkCurrent)
@@ -330,7 +341,7 @@ enum GatewayLaunchAgentManager {
         if allowUnconfigured { arguments.append("--allow-unconfigured") }
         // Existing services retain core's saved runtime intent unless the app update or migration owns replacement.
         if let runtime, !launchAgentExists || replaceRuntime {
-            arguments += ["--runtime", "bun", "--runtime-path", runtime.bun.path]
+            arguments += ["--runtime", "bun", "--runtime-path", runtime.serviceBun.path]
         }
         return arguments
     }
@@ -441,6 +452,7 @@ enum GatewayLaunchAgentManager {
                 launchAgentExists: exists,
                 replaceRuntime: true),
             runtime: runtime,
+            serviceRuntime: runtime,
             installedCLI: environment.map {
                 InstalledServiceCLI(
                     prefix: runtime.cliCommand,
@@ -488,22 +500,10 @@ enum GatewayLaunchAgentManager {
             programArguments: snapshot.programArguments,
             environmentFile: environmentFile,
             environmentWrapper: environmentWrapper),
-            let service = command.firstIndex(of: subcommand), service >= 2,
-            let executable = command.first,
-            ["node", "bun"].contains(URL(fileURLWithPath: executable).lastPathComponent)
+            let service = command.firstIndex(of: subcommand), service >= 2
         else { return nil }
         let prefix = Array(command[..<service])
-        let entry = prefix.dropFirst().drop(while: {
-            ($0 == "--no-install" && URL(fileURLWithPath: executable).lastPathComponent == "bun") ||
-                $0.hasPrefix("--max-old-space-size=") ||
-                $0.hasPrefix("--max-old-space-size-percentage=") || $0.hasPrefix("--max-heap-size=")
-        })
-        guard entry.count == 1, let script = entry.first, script.hasPrefix("/") else { return nil }
-        let url = URL(fileURLWithPath: script)
-        guard url.lastPathComponent == "openclaw.mjs" ||
-            (url.deletingLastPathComponent().lastPathComponent == "dist" &&
-                ["index.js", "index.mjs", "entry.js", "entry.mjs"].contains(url.lastPathComponent))
-        else { return nil }
+        guard self.serviceCLIEntrypoint(prefix) != nil else { return nil }
         return InstalledServiceCLI(
             prefix: self.concreteServicePrefix(prefix),
             sqliteLibrary: snapshot.environment["OPENCLAW_SQLITE_LIBRARY"],
@@ -511,6 +511,20 @@ enum GatewayLaunchAgentManager {
             usesGeneratedEnvironment: snapshot.programArguments.first == "/bin/sh" ||
                 snapshot.programArguments.first == environmentWrapper.path,
             sourcePrefix: prefix)
+    }
+
+    private static func serviceCLIEntrypoint(_ prefix: [String]) -> URL? {
+        guard let executable = prefix.first,
+              ["node", "bun"].contains(URL(fileURLWithPath: executable).lastPathComponent)
+        else { return nil }
+        let entry = prefix.dropFirst().drop(while: {
+            ($0 == "--no-install" && URL(fileURLWithPath: executable).lastPathComponent == "bun") ||
+                $0.hasPrefix("--max-old-space-size=") ||
+                $0.hasPrefix("--max-old-space-size-percentage=") || $0.hasPrefix("--max-heap-size=")
+        })
+        guard entry.count == 1, let script = entry.first, script.hasPrefix("/") else { return nil }
+        let url = URL(fileURLWithPath: script)
+        return self.serviceCLIEntrypoints.contains { url.path.hasSuffix("/" + $0) } ? url : nil
     }
 
     static func kickstart() async -> String? {
@@ -549,17 +563,7 @@ enum GatewayLaunchAgentManager {
 
     static func launchdGatewayLogPath() -> String {
         let snapshot = self.launchdConfigSnapshot()
-        if let stdout = snapshot?.stdoutPath?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !stdout.isEmpty
-        {
-            return stdout
-        }
-        if let stderr = snapshot?.stderrPath?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !stderr.isEmpty
-        {
-            return stderr
-        }
-        return LogLocator.launchdGatewayLogPath
+        return snapshot?.stdoutPath?.nonEmpty ?? snapshot?.stderrPath?.nonEmpty ?? LogLocator.launchdGatewayLogPath
     }
 }
 
@@ -582,10 +586,13 @@ extension GatewayLaunchAgentManager {
             timeout: 15,
             quiet: true,
             installedCLI: installedCLI)
-        guard result.success else {
-            throw ServiceInspectionError(message: result.message ?? "Gateway service inspection failed")
+        let payload: Data?
+        switch result {
+        case let .success(data): payload = data
+        case let .failure(message):
+            throw ServiceInspectionError(message: message ?? "Gateway service inspection failed")
         }
-        guard let payload = result.payload else { return nil }
+        guard let payload else { return nil }
         guard
             let json = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
             let service = json["service"] as? [String: Any]
@@ -635,10 +642,9 @@ extension GatewayLaunchAgentManager {
         return Int32(pid)
     }
 
-    private struct CommandResult {
-        let success: Bool
-        let payload: Data?
-        let message: String?
+    private enum CommandResult {
+        case success(Data?)
+        case failure(String?)
     }
 
     static let runtimePinSelectionChanged = "Gateway service or runtime pin changed before installation. " +
@@ -655,22 +661,40 @@ extension GatewayLaunchAgentManager {
         timeout: Double = Self.startupMigrationTolerance,
         quiet: Bool = false,
         runtime: BundledRuntime? = nil,
+        serviceRuntime: BundledRuntime? = nil,
         installedCLI: InstalledServiceCLI? = nil,
+        restoring: InstalledServiceCLI? = nil,
         legacyAuthority: InstalledServiceCLI? = nil,
         expectedServiceAuthority: ServiceAuthority? = nil,
         checkCurrent: (@MainActor @Sendable () async throws -> Void)? = nil) async -> String?
     {
+        // An install that pins `serviceRuntime` runs its Bun from the stable service path.
+        var finishStaging: (@Sendable (Bool) -> Void)?
+        if let serviceRuntime, args.first == "install" {
+            do { finishStaging = try await serviceRuntime.stageServiceBun() } catch {
+                return "The Gateway service runtime could not be prepared (\(error.localizedDescription)). " +
+                    "Retry, or reinstall OpenClaw.app if it keeps failing."
+            }
+        }
         let result = await self.runDaemonCommandResult(
             args,
             timeout: timeout,
             quiet: quiet,
             runtime: runtime,
             installedCLI: installedCLI,
+            restoring: restoring,
             legacyAuthority: legacyAuthority,
             expectedServiceAuthority: expectedServiceAuthority,
             checkCurrent: checkCurrent)
-        if result.success { return nil }
-        return result.message ?? "Gateway daemon command failed"
+        if case let .failure(message) = result {
+            // The installer can publish the service and then fail, so settle on what is installed.
+            let installedRoot = self.installedServiceCLI()?.prefix.last
+                .flatMap(BundledRuntime.init(serviceEntrypoint:))?.root.resolvingSymlinksInPath()
+            finishStaging?(installedRoot != nil && installedRoot == serviceRuntime?.root.resolvingSymlinksInPath())
+            return message ?? "Gateway daemon command failed"
+        }
+        finishStaging?(true)
+        return nil
     }
 
     private static func runDaemonCommandResult(
@@ -679,36 +703,58 @@ extension GatewayLaunchAgentManager {
         quiet: Bool,
         runtime: BundledRuntime? = nil,
         installedCLI: InstalledServiceCLI? = nil,
+        restoring: InstalledServiceCLI? = nil,
         legacyAuthority: InstalledServiceCLI? = nil,
         expectedServiceAuthority: ServiceAuthority? = nil,
         checkCurrent: (@MainActor @Sendable () async throws -> Void)? = nil) async -> CommandResult
     {
+        var arguments = args
+        let selectedCLI: InstalledServiceCLI?
+        if let restoring {
+            guard let runtime, installedCLI == nil,
+                  let executable = restoring.prefix.first, let entrypoint = restoring.prefix.last,
+                  let data = try? JSONSerialization.data(withJSONObject: [
+                      "entrypoint": entrypoint,
+                      "executable": executable,
+                      "sqliteLibrary": restoring.sqliteLibrary as Any? ?? NSNull(),
+                  ], options: [.sortedKeys, .withoutEscapingSlashes]),
+                  let restoration = String(bytes: data, encoding: .utf8)
+            else {
+                return .failure("Gateway recovery requires this app's bundled installer. Reinstall OpenClaw.app.")
+            }
+            selectedCLI = InstalledServiceCLI(
+                prefix: runtime.cliCommand,
+                sqliteLibrary: runtime.sqliteLibrary.path,
+                environment: restoring.environment)
+            if args.first == "install" { arguments += ["--restore-service-cli", restoration] }
+        } else {
+            selectedCLI = installedCLI
+        }
         let beforeSpawn: (@Sendable () -> String?)?
         if args.first.map(["install", "uninstall", "restart"].contains) == true {
             let custody: ServiceAuthority
             do { custody = try expectedServiceAuthority ?? self.gatewayServiceAuthority() } catch {
-                return CommandResult(success: false, payload: nil, message: error.localizedDescription)
+                return .failure(error.localizedDescription)
             }
-            let authority = legacyAuthority ?? installedCLI
+            let authority = legacyAuthority ?? restoring ?? selectedCLI
             beforeSpawn = {
                 guard !self.isLaunchAgentWriteDisabled() else { return "Gateway service changes are disabled" }
                 if let error = custody.currentError() { return error }
-                if let installedCLI, let error = self.serviceCommandPathError(for: installedCLI) { return error }
+                if let selectedCLI, let error = self.serviceCommandPathError(for: selectedCLI) { return error }
                 guard let authority else { return nil }
                 return self.serviceCommandPathError(for: authority) ?? self.legacyServiceAuthorityError(for: authority)
             }
         } else {
             beforeSpawn = nil
         }
-        let invocation = await self.daemonInvocation(runtime: runtime, installedCLI: installedCLI)
-        var arguments = args
+        let invocation = await self.daemonInvocation(runtime: runtime, installedCLI: selectedCLI)
         if args.first == "install", invocation.supportsExpectedRuntimePin {
             let observation = await self.executeDaemonCommand(
                 ["status", "--deep", "--json", "--no-probe"],
                 invocation: invocation,
                 timeout: timeout,
                 quiet: true)
-            guard observation.success, let payload = observation.payload,
+            guard case let .success(payload?) = observation,
                   let json = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
                   let service = json["service"] as? [String: Any],
                   let intent = service["runtimeIntent"] as? [String: Any],
@@ -720,7 +766,7 @@ extension GatewayLaunchAgentManager {
                       "definition": intent["definition"] ?? NSNull(),
                   ], options: [.sortedKeys, .withoutEscapingSlashes]),
                   let expectation = String(bytes: expected, encoding: .utf8)
-            else { return CommandResult(success: false, payload: nil, message: self.runtimePinSelectionChanged) }
+            else { return .failure(self.runtimePinSelectionChanged) }
             arguments += ["--expected-runtime-pin", expectation]
         }
         return await self.executeDaemonCommand(
@@ -740,13 +786,13 @@ extension GatewayLaunchAgentManager {
         beforeSpawn: (@Sendable () -> String?)? = nil,
         checkCurrent: (@MainActor @Sendable () async throws -> Void)? = nil) async -> CommandResult
     {
-        let command = invocation.prefix + self.withJsonFlag(args)
+        let command = invocation.prefix + (args.contains("--json") ? args : args + ["--json"])
         #if DEBUG
         if self.testingState.withLock({ $0.resolveCLI != nil }) {
             do { try await checkCurrent?() } catch {
-                return CommandResult(success: false, payload: nil, message: error.localizedDescription)
+                return .failure(error.localizedDescription)
             }
-            if let error = beforeSpawn?() { return CommandResult(success: false, payload: nil, message: error) }
+            if let error = beforeSpawn?() { return .failure(error) }
             // Snapshot each response and remove it from the queue before a hook can suspend
             // or reenter. Commands run off-actor while tests read their call snapshots.
             let (hook, payload) = self.testingState.withLock { state in
@@ -760,46 +806,36 @@ extension GatewayLaunchAgentManager {
             }
             await hook?(args)
             let parsed = JSONObjectExtractionSupport.extract(from: payload)
-            return CommandResult(
-                success: (parsed?.object["ok"] as? Bool) ?? true,
-                payload: Data(payload.utf8),
-                message: parsed?.message)
+            return (parsed?.object["ok"] as? Bool) ?? true
+                ? .success(Data(payload.utf8)) : .failure(parsed?.message)
         }
         if ProcessInfo.processInfo.isRunningTests {
-            return CommandResult(
-                success: false,
-                payload: nil,
-                message: "Gateway daemon commands require explicit interception during tests")
+            return .failure("Gateway daemon commands require explicit interception during tests")
         }
         #endif
         do { try await checkCurrent?() } catch {
-            return CommandResult(success: false, payload: nil, message: error.localizedDescription)
+            return .failure(error.localizedDescription)
         }
         let response = await ShellExecutor.runDetailed(
             command: command, cwd: nil, env: invocation.environment, timeout: timeout, beforeSpawn: beforeSpawn)
-        if let error = response.preflightError { return CommandResult(success: false, payload: nil, message: error) }
+        if let error = response.preflightError { return .failure(error) }
         let parsed = JSONObjectExtractionSupport.extract(from: response.stdout)
             ?? JSONObjectExtractionSupport.extract(from: response.stderr)
         let ok = parsed?.object["ok"] as? Bool
         let message = parsed?.message
         let payload = parsed?.text.data(using: .utf8)
             ?? (response.stdout.isEmpty ? response.stderr : response.stdout).data(using: .utf8)
-        let success = response.success && (ok ?? true)
-        if success {
-            return CommandResult(success: true, payload: payload, message: nil)
-        }
+        if response.success, ok ?? true { return .success(payload) }
 
         let detail = message ?? TextSummarySupport.summarizeLastLine(response.stderr)
             ?? TextSummarySupport.summarizeLastLine(response.stdout)
-        if quiet {
-            return CommandResult(success: false, payload: payload, message: detail)
+        if !quiet {
+            let exit = response.exitCode.map { "exit \($0)" } ?? (response.errorMessage ?? "failed")
+            let fullMessage = detail.map { "Gateway daemon command failed (\(exit)): \($0)" }
+                ?? "Gateway daemon command failed (\(exit))"
+            self.logger.error("\(fullMessage, privacy: .public)")
         }
-
-        let exit = response.exitCode.map { "exit \($0)" } ?? (response.errorMessage ?? "failed")
-        let fullMessage = detail.map { "Gateway daemon command failed (\(exit)): \($0)" }
-            ?? "Gateway daemon command failed (\(exit))"
-        self.logger.error("\(fullMessage, privacy: .public)")
-        return CommandResult(success: false, payload: payload, message: detail)
+        return .failure(detail)
     }
 
     private static func daemonInvocation(
@@ -821,21 +857,19 @@ extension GatewayLaunchAgentManager {
             prefix: prefix,
             environment: self.daemonEnvironment(
                 runtime: runtime,
-                installedCLI: installedCLI,
-                environment: ProcessInfo.processInfo.environment,
-                profile: .current,
-                searchPaths: CommandResolver.preferredPaths()),
+                installedCLI: installedCLI),
             // Only an explicitly selected bundled CLI carries this interop contract.
-            supportsExpectedRuntimePin: runtime != nil &&
-                (installedCLI == nil || installedCLI?.prefix == runtime?.cliCommand))
+            supportsExpectedRuntimePin: runtime.map {
+                installedCLI == nil || installedCLI?.matchesBundledRuntime($0) == true
+            } ?? false)
     }
 
     static func daemonEnvironment(
-        runtime: BundledRuntime?,
+        runtime: BundledRuntime? = nil,
         installedCLI: InstalledServiceCLI? = nil,
-        environment: [String: String],
-        profile: AppProfile,
-        searchPaths: [String]) -> [String: String]
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        profile: AppProfile = .current,
+        searchPaths: [String] = CommandResolver.preferredPaths()) -> [String: String]
     {
         var result = environment.merging(installedCLI?.environment ?? [:]) { _, installed in installed }
         let installedPaths = installedCLI?.environment["PATH"]?.split(separator: ":").map(String.init) ?? []
@@ -859,11 +893,6 @@ extension GatewayLaunchAgentManager {
             result["OPENCLAW_CONFIG_PATH"] = directory.appendingPathComponent("openclaw.json").path
         }
         return GatewayChildSupervisor.environmentWithoutSupervisorMarkers(result)
-    }
-
-    private static func withJsonFlag(_ args: [String]) -> [String] {
-        if args.contains("--json") { return args }
-        return args + ["--json"]
     }
 
     #if DEBUG

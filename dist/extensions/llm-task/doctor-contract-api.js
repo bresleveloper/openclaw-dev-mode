@@ -1,7 +1,7 @@
 import { r as asNullableRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { n as parseModelRef } from "../../model-selection-normalize-AjjSfI-g.mjs";
-import "../../model-ref-parse-BI8o1mtw.mjs";
-import "../../runtime-doctor-migrations-4UZBewWQ.mjs";
+import { n as parseModelRef } from "../../model-selection-normalize-DulZGI4S.mjs";
+import "../../runtime-doctor-migrations-BuGkvNDu.mjs";
+import "../../model-ref-parse-BdNlL-Mg.mjs";
 //#region extensions/llm-task/doctor-contract-api.ts
 const ENTRY_PATH = "plugins.entries.llm-task";
 function preserveLiteralLegacyModelRefs(values) {

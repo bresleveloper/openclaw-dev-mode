@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{r as t,t as n}from"./worker-chunk-Ce6YyH_o.mjs";function getBrowserProfileCapabilities(e){return t(e.engine).capabilities(e)}function init_profile_capabilities(){return(init_profile_capabilities=e((()=>{n()})))()}export{init_profile_capabilities as n,getBrowserProfileCapabilities as t};

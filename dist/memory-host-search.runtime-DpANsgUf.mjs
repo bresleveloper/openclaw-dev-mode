@@ -1,2 +1,0 @@
-import { a as getActiveMemoryProviderCore, i as closeActiveMemorySearchManagersCore, o as getActiveMemorySearchManagerCore, r as closeActiveMemorySearchManagerCore, s as isActiveMemoryProviderNative } from "./memory-runtime-B776pEel.mjs";
-export { closeActiveMemorySearchManagerCore as closeActiveMemorySearchManager, closeActiveMemorySearchManagersCore as closeActiveMemorySearchManagers, getActiveMemoryProviderCore as getActiveMemoryProvider, getActiveMemorySearchManagerCore as getActiveMemorySearchManager, isActiveMemoryProviderNative };

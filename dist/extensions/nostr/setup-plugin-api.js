@@ -1,2 +1,2 @@
-import { t as nostrSetupPlugin } from "./.setup/setup-plugin-api-C_HK3q8q.mjs";
+import { t as nostrSetupPlugin } from "./.setup/channel.setup-B2tWt-Ro.mjs";
 export { nostrSetupPlugin };

@@ -39,6 +39,9 @@
     "workerProviders": [
       "crabbox"
     ],
+    "workerProfileSuggestions": [
+      "crabbox"
+    ],
     "tools": [
       "crabbox"
     ]

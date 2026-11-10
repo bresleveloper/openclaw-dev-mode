@@ -1,5 +1,4 @@
-import { n as runFirecrawlScrape } from "./.setup/firecrawl-client-Bqyr6x90.mjs";
-import { readStringValue } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { n as runFirecrawlScrape } from "./.setup/firecrawl-client--j4MjwgU.mjs";
 //#region extensions/firecrawl/api.ts
 async function fetchFirecrawlContent(params) {
 	const cfg = { plugins: { entries: { firecrawl: {
@@ -24,11 +23,11 @@ async function fetchFirecrawlContent(params) {
 		timeoutSeconds: params.timeoutSeconds
 	});
 	return {
-		text: typeof result.text === "string" ? result.text : "",
-		title: readStringValue(result.title),
-		finalUrl: readStringValue(result.finalUrl),
-		status: typeof result.status === "number" ? result.status : void 0,
-		warning: readStringValue(result.warning)
+		text: result.text,
+		title: result.title,
+		finalUrl: result.finalUrl,
+		status: result.status,
+		warning: result.warning
 	};
 }
 //#endregion

@@ -1,11 +1,9 @@
-import { t as createAcpxRuntimeService } from "./.setup/register.runtime-C0nVOTzT.mjs";
-import { g as AcpxNativeAgentsSchema, h as ACPX_NATIVE_AGENT_IDS, t as resolveAcpxPluginConfig } from "./.setup/config-76krYh6C.mjs";
+import { t as createAcpxRuntimeService } from "./.setup/register.runtime-D685iYx-.mjs";
+import { g as AcpxNativeAgentsSchema, h as ACPX_NATIVE_AGENT_IDS, t as resolveAcpxPluginConfig } from "./.setup/config-D0ATuiVJ.mjs";
 import { a as PI_SESSIONS_CAPABILITY, c as PI_SESSION_READ_COMMAND, l as PI_TERMINAL_RESUME_COMMAND, o as PI_SESSIONS_LIST_COMMAND, r as piSessionStoreAvailable, s as PI_SESSION_ID_PATTERN } from "./.setup/pi-session-paths-CIvyk6KB.mjs";
 import { createAgentRegistry } from "acpx/agent-registry";
 import { tryDispatchAcpReplyHook } from "openclaw/plugin-sdk/acp-runtime-backend";
 import { createLazyRuntimeModule, createLazyRuntimeSurface } from "openclaw/plugin-sdk/lazy-runtime";
-import { inspectAgentModels } from "acpx/runtime";
-import { createNativeSessionCommitFinalizer } from "openclaw/plugin-sdk/agent-harness-session-runtime";
 import { finiteSecondsToTimerSafeMilliseconds } from "openclaw/plugin-sdk/number-runtime";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { resolveNodeHostExecutable } from "openclaw/plugin-sdk/node-host";
@@ -166,6 +164,7 @@ function createAcpAgentHarness(params) {
 				workspaceDir: input.workspaceDir
 			});
 			try {
+				const { inspectAgentModels } = await import("acpx/runtime");
 				const models = await inspectAgentModels({
 					agentCommand: inspection.launch.argv,
 					cwd: input.workspaceDir ?? config.cwd,
@@ -173,7 +172,6 @@ function createAcpAgentHarness(params) {
 					timeoutMs: config.timeoutSeconds === void 0 ? void 0 : finiteSecondsToTimerSafeMilliseconds(config.timeoutSeconds) ?? 1
 				});
 				generation.signal.throwIfAborted();
-				if (!params.isEnabled()) return { entries: [] };
 				return {
 					entries: (models?.availableModels ?? []).map((model) => ({
 						provider: id,
@@ -188,7 +186,6 @@ function createAcpAgentHarness(params) {
 				};
 			} catch (error) {
 				generation.signal.throwIfAborted();
-				if (!params.isEnabled()) return { entries: [] };
 				const authRequired = error instanceof Error && error.name === "RequestError" && "code" in error && error.code === -32e3 && (error.message === "Authentication required" || error.message.startsWith("Authentication required: "));
 				return {
 					entries: [],
@@ -207,7 +204,7 @@ function createAcpAgentHarness(params) {
 			if (inspection?.launch.kind !== "installed") throw new Error(`${params.label} is not installed; refresh the model catalog`);
 			const runtime = await runtimeFor(input.workspaceDir);
 			generation.signal.throwIfAborted();
-			const { runAcpHarnessAttempt } = await import("./.setup/harness-attempt-CDXMeP5Z.mjs");
+			const { runAcpHarnessAttempt } = await import("./.setup/harness-attempt-lu4_bMfd.mjs");
 			return await runAcpHarnessAttempt({
 				input,
 				runtime,
@@ -226,6 +223,7 @@ function createAcpAgentHarness(params) {
 			}, () => generation.signal.throwIfAborted());
 		},
 		async withSessionDeletion(input, run) {
+			const { createNativeSessionCommitFinalizer } = await import("openclaw/plugin-sdk/agent-harness-session-runtime");
 			let committed = false;
 			try {
 				return await run(createNativeSessionCommitFinalizer({
@@ -248,7 +246,7 @@ function createAcpAgentHarness(params) {
 }
 //#endregion
 //#region extensions/acpx/src/pi-session-catalog-plugin.ts
-const loadPiSessionCatalogModule = createLazyRuntimeModule(() => import("./.setup/pi-session-catalog-runtime-7jc50ZJ4.mjs"));
+const loadPiSessionCatalogModule = createLazyRuntimeModule(() => import("./.setup/pi-session-catalog-runtime-BAM1pEMw.mjs"));
 function fullConfigCatalogEnabled(config) {
 	if (!isRecord(config) || !isRecord(config.plugins) || !isRecord(config.plugins.entries)) return true;
 	const entry = config.plugins.entries.acpx;
@@ -325,7 +323,7 @@ const plugin = {
 		const service = createAcpxRuntimeService({
 			pluginConfig: api.pluginConfig,
 			getAllowedAgents: () => api.runtime.config.current().acp?.allowedAgents,
-			openKeyedStore: (options) => api.runtime.state.openKeyedStore(options)
+			openKeyedStore: (options) => api.runtime.state.openKeyedStoreV2(options)
 		});
 		api.registerService(service);
 		const currentConfig = () => api.runtime.config.current().plugins?.entries?.acpx?.config;

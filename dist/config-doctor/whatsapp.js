@@ -1,18 +1,22 @@
-import { a as defineChannelAliasMigration, b as hasLegacyAccountStreamingAliases, f as normalizeOptionalAccountId, k as asNullableRecord, t as collectChannelAccountScopes } from "./runtime-doctor-migrations-BhouWAUC.js";
-import { o as createAccountListHelpers } from "./account-core-bZmYRKLc.js";
-import { a as resolveOAuthDir } from "./boundary-file-read-D-7q9BJU.js";
+import { P as asNullableRecord, a as defineChannelAliasMigration, f as normalizeOptionalAccountId, t as collectChannelAccountScopes, v as resolveGlobalSingleton, w as hasLegacyAccountStreamingAliases } from "./runtime-doctor-migrations-Bq3PkBbD.js";
+import { h as createAccountListHelpers } from "./account-core-D92inL1O.js";
+import { s as resolveOAuthDir } from "./boundary-file-read-BfPZkxNZ.js";
+import "./file-descriptor-BS73RTQI.js";
 import "node:fs/promises";
 import "@openclaw/fs-safe/path";
 import path from "node:path";
 import fs$1 from "node:fs";
 import "@openclaw/fs-safe/root";
 import "@openclaw/fs-safe/advanced";
-import "@openclaw/fs-safe/durability";
 import "@openclaw/fs-safe/errors";
 import { createHash } from "node:crypto";
+import "node:os";
+import { AsyncLocalStorage } from "node:async_hooks";
 import "@openclaw/fs-safe/permissions";
 import "@openclaw/fs-safe/watch";
 import { compileFunction } from "node:vm";
+resolveGlobalSingleton(Symbol.for("openclaw.pluginInstallRootContext"), () => new AsyncLocalStorage());
+//#endregion
 //#region extensions/whatsapp/src/account-ids.ts
 const { listConfiguredAccountIds, listAccountIds, resolveDefaultAccountId: resolveDefaultWhatsAppAccountId } = createAccountListHelpers("whatsapp", { implicitDefaultAccount: { channelKeys: ["authDir"] } });
 //#endregion

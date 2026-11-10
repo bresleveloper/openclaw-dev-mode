@@ -1,4 +1,4 @@
-import { s as KILOCODE_DEFAULT_MODEL_REF, t as KILOCODE_BASE_URL } from "./.setup/provider-models-CplaZ4OM.mjs";
+import { s as KILOCODE_DEFAULT_MODEL_REF, t as KILOCODE_BASE_URL } from "./.setup/provider-models-0P0ezPsI.mjs";
 import { buildKilocodeProvider } from "./provider-catalog.js";
 import { createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/kilocode/onboard.ts

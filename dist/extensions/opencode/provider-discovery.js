@@ -1,4 +1,4 @@
-import { n as buildStaticOpencodeZenProviderConfig } from "./.setup/provider-catalog-pNTuuSYH.mjs";
+import { n as buildStaticOpencodeZenProviderConfig } from "./.setup/provider-catalog-XEhgAiH9.mjs";
 //#region extensions/opencode/provider-discovery.ts
 const opencodeProviderDiscovery = {
 	id: "opencode",

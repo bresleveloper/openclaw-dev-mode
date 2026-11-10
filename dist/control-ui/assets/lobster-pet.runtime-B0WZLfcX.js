@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{l as t,u as n}from"./control-ui-boot-new-BbBfERB2.js";function r(){return(r=e((()=>{n()})))()}r();export{t as LobsterPet};
+//# sourceMappingURL=lobster-pet.runtime-B0WZLfcX.js.map

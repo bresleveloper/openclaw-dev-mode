@@ -1,16 +1,15 @@
-import { r as resolveGlobalMap } from "../../global-singleton-0m-JziJW.mjs";
-import { o as getRuntimeConfigSnapshot } from "../../runtime-snapshot-DYptB0Cf.mjs";
+import { r as resolveGlobalMap } from "../../global-singleton-DrXvEBww.mjs";
+import { o as getRuntimeConfigSnapshot } from "../../runtime-snapshot-BBYDJbw9.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import { f as readStringArrayParam, m as readToolStringParam } from "../../common-Dyxcwsy8.mjs";
-import { c as resolveTimeoutSeconds, i as readCache, l as writeCache, o as resolveCacheTtlMs } from "../../web-shared-D8fUK6Vo.mjs";
-import { c as normalizeToIsoDate } from "../../web-search-provider-common-CA2avHBq.mjs";
-import "../../runtime-config-snapshot-DlrhEsA8.mjs";
-import "../../global-singleton-yHEs_vfD.mjs";
-import "../../provider-web-search-DUaDxxRi.mjs";
-import { r as resolveXaiToolApiKeyWithAuth, t as isXaiToolEnabled } from "../../tool-auth-shared-DfHEiTF0.mjs";
-import { t as resolveEffectiveXSearchConfig } from "../../x-search-config-wCiEf8cg.mjs";
+import { f as readStringArrayParam, m as readToolStringParam } from "../../common-BofcG96e.mjs";
+import { c as resolveTimeoutSeconds, i as readCache, l as writeCache, o as resolveCacheTtlMs } from "../../web-shared-DT676edC.mjs";
+import { c as normalizeToIsoDate } from "../../web-search-provider-common-BhatwETt.mjs";
+import "../../runtime-config-snapshot-kTPhBdOK.mjs";
+import "../../provider-web-search-Buc2BYyP.mjs";
+import { r as resolveXaiToolApiKeyWithAuth, t as isXaiToolEnabled } from "../../tool-auth-shared-CCLi3SRe.mjs";
+import { t as resolveEffectiveXSearchConfig } from "../../x-search-config-CjIUNZXa.mjs";
 import { n as buildMissingXSearchApiKeyPayload, r as createXSearchToolDefinition } from "../../x-search-tool-shared-nlZ40kdg.mjs";
-import { a as resolveXaiXSearchInlineCitations, i as resolveXaiXSearchEndpoint, n as buildXaiXSearchPayload, o as resolveXaiXSearchMaxTurns, r as requestXaiXSearch, s as resolveXaiXSearchModel } from "../../x-search-shared-BTCVpVwL.mjs";
+import { a as resolveXaiXSearchInlineCitations, i as resolveXaiXSearchEndpoint, n as buildXaiXSearchPayload, o as resolveXaiXSearchMaxTurns, r as requestXaiXSearch, s as resolveXaiXSearchModel } from "../../x-search-shared-zMrPNpDH.mjs";
 //#region extensions/xai/x-search.ts
 var PluginToolInputError = class extends Error {
 	constructor(message) {

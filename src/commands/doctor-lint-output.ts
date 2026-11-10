@@ -48,6 +48,7 @@ export function formatDoctorLintFailure(error: unknown) {
   const failure = formatCliJsonFailure(error);
   return {
     ...failure,
+    status: "blocked",
     ...formatJsonResult({
       ok: false,
       checksRun: 0,
@@ -93,10 +94,31 @@ export type DoctorLintExecution = {
 };
 
 export function detectDoctorLintOutputMode(opts: DoctorLintCliOptions): "human" | "json" {
-  if (opts.json === true) {
-    return "json";
-  }
-  return process.stdout.isTTY ? "human" : "json";
+  return opts.json === true || !process.stdout.isTTY ? "json" : "human";
+}
+
+/** Rehearsal lint deferred by the update budget: no checks ran, and the deferral is the report. */
+export function createDeferredInspectionExecution(
+  runtime: RuntimeEnv,
+  opts: DoctorLintCliOptions,
+  warnings: HealthFinding[],
+): DoctorLintExecution {
+  return {
+    checksRun: 0,
+    checksSkipped: 0,
+    exitCode: 0,
+    findings: warnings,
+    writeOutput() {
+      if (detectDoctorLintOutputMode(opts) === "json") {
+        writeJsonResult({ ok: true, checksRun: 0, checksSkipped: 0, findings: [], warnings });
+      } else {
+        for (const finding of warnings) {
+          runtime.log(`[warning] ${finding.checkId} [${finding.errorCode}]: ${finding.message}`);
+          runtime.log(finding.fixHint ?? "Run `openclaw doctor` after activation.");
+        }
+      }
+    },
+  };
 }
 
 export function createStateSnapshotFailureFinding(error: Error): HealthFinding {

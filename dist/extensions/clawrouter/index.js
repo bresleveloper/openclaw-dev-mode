@@ -1,15 +1,19 @@
-import { r as buildProviderReplayFamilyHooks } from "../../provider-model-shared-CgZ78XZA.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-Dw7vrvaY.mjs";
-import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DajrfQK1.mjs";
-import { a as normalizeClawRouterResolvedModel, i as normalizeClawRouterReasoningEfforts, n as buildClawRouterProviderConfig, o as normalizeClawRouterRootUrl, r as normalizeClawRouterApiBaseUrl, t as CLAWROUTER_REASONING_EFFORT_LEVELS } from "../../provider-catalog-DYctU7v4.mjs";
-import { t as wrapClawRouterProviderStream } from "../../stream-Bsl4yqS0.mjs";
-import { n as normalizePerplexityToolSchemas, t as inspectPerplexityToolSchemas } from "../../tool-schemas-DVZtjWkO.mjs";
-import { t as fetchClawRouterUsage } from "../../usage-CiRZoRFX.mjs";
+import { r as buildProviderReplayFamilyHooks } from "../../provider-model-shared-B_4afNJ5.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-CKUq_-Jy.mjs";
+import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DynDHTtQ.mjs";
+import { a as normalizeClawRouterResolvedModel, i as normalizeClawRouterReasoningEfforts, n as buildClawRouterProviderConfig, o as normalizeClawRouterRootUrl, r as normalizeClawRouterApiBaseUrl, t as CLAWROUTER_REASONING_EFFORT_LEVELS } from "../../provider-catalog-vUDZB1bL.mjs";
+import { t as registerClawRouterPoolMethod } from "../../pool-gateway-Dmv0LssD.mjs";
+import { t as wrapClawRouterProviderStream } from "../../stream-1dFlQvSv.mjs";
+import { n as normalizePerplexityToolSchemas, t as inspectPerplexityToolSchemas } from "../../tool-schemas-DJkQT1FR.mjs";
+import { t as fetchClawRouterUsage } from "../../usage-9_3XU78u.mjs";
 //#region extensions/clawrouter/openclaw.plugin.json
 var openclaw_plugin_default = {
 	id: "clawrouter",
 	categories: ["models"],
-	activation: { "onStartup": false },
+	activation: {
+		"onStartup": false,
+		"onConfigPaths": ["models.providers.clawrouter"]
+	},
 	enabledByDefault: true,
 	providers: ["clawrouter"],
 	contracts: { "usageProviders": ["clawrouter"] },
@@ -35,6 +39,11 @@ var openclaw_plugin_default = {
 		"type": "object",
 		"additionalProperties": false,
 		"properties": {}
+	},
+	uiCapabilities: ["page", "navigation"],
+	controlUi: {
+		"entry": "dist/control-ui/58dc1ca82e99f3402ac0361b455184ab67224ad535f0ffa12b5234c9170eac45/index.js",
+		"styles": ["dist/control-ui/58dc1ca82e99f3402ac0361b455184ab67224ad535f0ffa12b5234c9170eac45/index.css"]
 	}
 };
 //#endregion
@@ -103,6 +112,7 @@ var clawrouter_default = defineSingleProviderPluginEntry({
 	name: "ClawRouter",
 	description: "Managed multi-provider model routing and quotas",
 	manifest: openclaw_plugin_default,
+	register: registerClawRouterPoolMethod,
 	provider() {
 		const dynamicModels = /* @__PURE__ */ new Map();
 		return {
@@ -199,7 +209,7 @@ var clawrouter_default = defineSingleProviderPluginEntry({
 			inspectToolSchemas: (ctx) => resolveToolFamily(ctx.modelId ?? "").inspectToolSchemas(ctx),
 			isModernModelRef: () => true,
 			resolveUsageAuth: async (ctx) => {
-				const apiKey = ctx.resolveApiKeyFromConfigAndStore({ envDirect: [ctx.env[ENV_VAR]] });
+				const apiKey = (await ctx.resolveApiKeyCandidatesFromConfigAndStore?.({ envDirect: [ctx.env[ENV_VAR]] }))?.[0];
 				return apiKey ? { token: apiKey } : null;
 			},
 			fetchUsageSnapshot: async (ctx) => await fetchClawRouterUsage({

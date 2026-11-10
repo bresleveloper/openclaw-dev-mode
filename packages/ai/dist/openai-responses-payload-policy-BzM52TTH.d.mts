@@ -1,0 +1,50 @@
+//#region packages/ai/src/transports/openai-responses-payload-policy.d.ts
+type OpenAIResponsesPayloadModel = {
+  api?: unknown;
+  baseUrl?: unknown;
+  id?: unknown;
+  provider?: unknown;
+  contextTokens?: unknown;
+  contextWindow?: unknown;
+  compat?: unknown;
+};
+type OpenAIResponsesPayloadPolicyOptions = {
+  extraParams?: Record<string, unknown>;
+  storeMode?: "provider-policy" | "transport-default" | "disable" | "preserve";
+  enablePromptCacheStripping?: boolean;
+  enableServerCompaction?: boolean;
+};
+type OpenAIResponsesPayloadPolicy = {
+  allowsServiceTier: boolean;
+  compactThreshold: number | undefined;
+  defaultManagedReasoningEffort: "none" | undefined;
+  explicitContinuationOptIn: boolean;
+  explicitStore: boolean | undefined;
+  shouldStripDisabledReasoningPayload: boolean;
+  shouldStripInputStatus: boolean;
+  shouldStripPromptCache: boolean;
+  shouldStripStore: boolean;
+  useServerCompaction: boolean;
+  usesInstructionsField: boolean;
+};
+type OpenAIServiceTier = "auto" | "default" | "flex" | "priority" | "ultrafast";
+declare function normalizeOpenAIServiceTier(value: unknown): OpenAIServiceTier | undefined;
+/** Resolve the same speed-override-before-default-tier precedence used at request egress. */
+declare function resolveOpenAIResponsesRequestContextTokens(model: OpenAIResponsesPayloadModel, extraParams?: Record<string, unknown>, serviceTiers?: readonly string[]): number | undefined;
+/** Resolve the server-compaction gate and effective threshold for a Responses route. */
+declare function resolveOpenAIResponsesServerCompactionPlan(model: OpenAIResponsesPayloadModel, extraParams?: Record<string, unknown>): {
+  enabled: boolean;
+  threshold: number | undefined;
+};
+/** Resolve the Responses compact-endpoint gate for one route. */
+declare function resolveOpenAIResponsesCompactEndpointPlan(model: OpenAIResponsesPayloadModel, extraParams?: Record<string, unknown>,
+/** @deprecated The policy no longer depends on purpose. */
+_purpose?: "manual" | "budget"): {
+  enabled: boolean;
+};
+/** Resolve payload mutation policy for one OpenAI Responses-style model endpoint. */
+declare function resolveOpenAIResponsesPayloadPolicy(model: OpenAIResponsesPayloadModel, options?: OpenAIResponsesPayloadPolicyOptions): OpenAIResponsesPayloadPolicy;
+/** Mutate a Responses request payload according to the resolved endpoint policy. */
+declare function applyOpenAIResponsesPayloadPolicy(payloadObj: Record<string, unknown>, policy: OpenAIResponsesPayloadPolicy): void;
+//#endregion
+export { resolveOpenAIResponsesPayloadPolicy as a, resolveOpenAIResponsesCompactEndpointPlan as i, applyOpenAIResponsesPayloadPolicy as n, resolveOpenAIResponsesRequestContextTokens as o, normalizeOpenAIServiceTier as r, resolveOpenAIResponsesServerCompactionPlan as s, OpenAIServiceTier as t };

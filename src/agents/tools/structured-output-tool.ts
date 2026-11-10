@@ -1,3 +1,4 @@
+import { parseJsonPreservingUnsafeIntegers } from "@openclaw/ai/transports";
 import { Type } from "typebox";
 import { validateJsonSchemaValue } from "../../plugins/schema-validator.js";
 import type { JsonSchemaObject } from "../../shared/json-schema.types.js";
@@ -73,16 +74,32 @@ export function createStructuredOutputTool(params: {
             return jsonResult({
               status: "rejected",
               success: false,
-              schemaError: prior.schemaError,
+              reason: "retry_budget_exhausted",
+              error: `structured_output retry budget exhausted: this call was not evaluated and the run completes without a structured result. Last validation error: ${prior.schemaError}`,
             });
           }
           let validation: ReturnType<typeof validateJsonSchemaValue>;
           try {
-            validation = validateJsonSchemaValue({
+            const input = {
               schema: params.schema as JsonSchemaObject,
               cacheKey: `swarm-structured-output:${params.runId}`,
               value: (args as { result: unknown }).result,
-            });
+            };
+            validation = validateJsonSchemaValue(input);
+            // Preserve valid string results; decode only a rejected nested JSON string.
+            if (!validation.ok && typeof input.value === "string") {
+              try {
+                const decoded = validateJsonSchemaValue({
+                  ...input,
+                  value: parseJsonPreservingUnsafeIntegers(input.value),
+                });
+                if (decoded.ok) {
+                  validation = decoded;
+                }
+              } catch {
+                // Keep the original validation error when the string is not JSON.
+              }
+            }
           } catch (error) {
             throw new ToolInputError(
               `Invalid sessions_spawn outputSchema: ${error instanceof Error ? error.message : String(error)}`,

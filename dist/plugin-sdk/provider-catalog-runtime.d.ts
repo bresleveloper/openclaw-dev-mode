@@ -1,17 +1,15 @@
-import "../types.openclaw-DWWUw8hA.js";
-import { _ as PluginMetadataRegistryView, b as DeclaredProviderOwnerIndex, g as PluginRegistrySnapshot, v as PluginMetadataSnapshot } from "../io-CwO8iq4h.js";
-import { n as PluginManifestRegistry } from "../manifest-registry-Bj1Q7bnt.js";
-import { $o as PluginLoadOptions, Es as ProviderPlugin, Ji as PluginRegistry, Ki as augmentModelCatalogWithProviderPlugins } from "../agent-harness-runtime-DZjstJNb.js";
-import "../config-activation-shared-Dd5FrI8x.js";
-import "../plugin-entry-D4JWmN6h.js";
+import "../types-D7I_F5Ux.js";
+import { Am as PluginRegistry, Km as ProviderPlugin, bo as PluginLoadOptions, yo as augmentModelCatalogWithProviderPlugins } from "../config-contracts-CY87ANNp.js";
+import { n as PluginManifestRegistry } from "../manifest-registry-DcAsDGQ5.js";
+import { a as DeclaredProviderOwnerIndex, n as PluginMetadataRegistryView, r as PluginMetadataSnapshot, t as PluginRegistrySnapshot } from "../plugin-metadata-snapshot-C_ou8VB5.js";
+import "../config-state-DeFJNtp3.js";
 //#region src/plugins/providers.runtime.d.ts
 declare const { isPluginProvidersLoadInFlight, resolvePluginProviderRegistryCore, resolvePluginProvidersCore }: Readonly<{
   isPluginProvidersLoadInFlight: (params: Parameters<(params: Parameters<(params: {
     config?: PluginLoadOptions["config"];
     workspaceDir?: string;
     env?: PluginLoadOptions["env"];
-    bundledProviderVitestCompat?: boolean;
-    onlyPluginIds?: string[];
+    onlyPluginIds?: readonly string[];
     providerRefs?: readonly string[];
     modelRefs?: readonly string[];
     activate?: boolean;
@@ -27,8 +25,7 @@ declare const { isPluginProvidersLoadInFlight, resolvePluginProviderRegistryCore
     config?: PluginLoadOptions["config"];
     workspaceDir?: string;
     env?: PluginLoadOptions["env"];
-    bundledProviderVitestCompat?: boolean;
-    onlyPluginIds?: string[];
+    onlyPluginIds?: readonly string[];
     providerRefs?: readonly string[];
     modelRefs?: readonly string[];
     activate?: boolean;
@@ -43,17 +40,17 @@ declare const { isPluginProvidersLoadInFlight, resolvePluginProviderRegistryCore
   } & {
     env: NodeJS.ProcessEnv;
   }, manifestRegistry?: PluginLoadOptions["manifestRegistry"], declaredProviderOwners?: DeclaredProviderOwnerIndex, retained?: boolean) => {
-    pluginIds: string[] | undefined;
+    pluginIds: readonly string[] | undefined;
     workspaceDir: string | undefined;
     manifestRegistry: PluginManifestRegistry | undefined;
-    onlyPluginIds: string[] | undefined;
+    onlyPluginIds: readonly string[] | undefined;
     providerRefs: readonly string[] | undefined;
     projectedPluginIds: string[] | undefined;
     declaredProviderOwners: DeclaredProviderOwnerIndex;
     providerOwners: {
       provider: string;
-      ownerPluginIds: string[];
-      providerPluginIds: string[];
+      ownerPluginIds: readonly string[];
+      providerPluginIds: readonly string[];
       runtimePluginIds: string[];
     }[];
     providerRegistrationPluginIds: Set<string> | undefined;
@@ -70,8 +67,7 @@ declare const { isPluginProvidersLoadInFlight, resolvePluginProviderRegistryCore
     config?: PluginLoadOptions["config"];
     workspaceDir?: string;
     env?: PluginLoadOptions["env"];
-    bundledProviderVitestCompat?: boolean;
-    onlyPluginIds?: string[];
+    onlyPluginIds?: readonly string[];
     providerRefs?: readonly string[];
     modelRefs?: readonly string[];
     activate?: boolean;
@@ -87,8 +83,7 @@ declare const { isPluginProvidersLoadInFlight, resolvePluginProviderRegistryCore
     config?: PluginLoadOptions["config"];
     workspaceDir?: string;
     env?: PluginLoadOptions["env"];
-    bundledProviderVitestCompat?: boolean;
-    onlyPluginIds?: string[];
+    onlyPluginIds?: readonly string[];
     providerRefs?: readonly string[];
     modelRefs?: readonly string[];
     activate?: boolean;
@@ -103,17 +98,17 @@ declare const { isPluginProvidersLoadInFlight, resolvePluginProviderRegistryCore
   } & {
     env: NodeJS.ProcessEnv;
   }, manifestRegistry?: PluginLoadOptions["manifestRegistry"], declaredProviderOwners?: DeclaredProviderOwnerIndex, retained?: boolean) => {
-    pluginIds: string[] | undefined;
+    pluginIds: readonly string[] | undefined;
     workspaceDir: string | undefined;
     manifestRegistry: PluginManifestRegistry | undefined;
-    onlyPluginIds: string[] | undefined;
+    onlyPluginIds: readonly string[] | undefined;
     providerRefs: readonly string[] | undefined;
     projectedPluginIds: string[] | undefined;
     declaredProviderOwners: DeclaredProviderOwnerIndex;
     providerOwners: {
       provider: string;
-      ownerPluginIds: string[];
-      providerPluginIds: string[];
+      ownerPluginIds: readonly string[];
+      providerPluginIds: readonly string[];
       runtimePluginIds: string[];
     }[];
     providerRegistrationPluginIds: Set<string> | undefined;
@@ -130,8 +125,7 @@ declare const { isPluginProvidersLoadInFlight, resolvePluginProviderRegistryCore
     config?: PluginLoadOptions["config"];
     workspaceDir?: string;
     env?: PluginLoadOptions["env"];
-    bundledProviderVitestCompat?: boolean;
-    onlyPluginIds?: string[];
+    onlyPluginIds?: readonly string[];
     providerRefs?: readonly string[];
     modelRefs?: readonly string[];
     activate?: boolean;
@@ -147,8 +141,7 @@ declare const { isPluginProvidersLoadInFlight, resolvePluginProviderRegistryCore
     config?: PluginLoadOptions["config"];
     workspaceDir?: string;
     env?: PluginLoadOptions["env"];
-    bundledProviderVitestCompat?: boolean;
-    onlyPluginIds?: string[];
+    onlyPluginIds?: readonly string[];
     providerRefs?: readonly string[];
     modelRefs?: readonly string[];
     activate?: boolean;
@@ -163,17 +156,17 @@ declare const { isPluginProvidersLoadInFlight, resolvePluginProviderRegistryCore
   } & {
     env: NodeJS.ProcessEnv;
   }, manifestRegistry?: PluginLoadOptions["manifestRegistry"], declaredProviderOwners?: DeclaredProviderOwnerIndex, retained?: boolean) => {
-    pluginIds: string[] | undefined;
+    pluginIds: readonly string[] | undefined;
     workspaceDir: string | undefined;
     manifestRegistry: PluginManifestRegistry | undefined;
-    onlyPluginIds: string[] | undefined;
+    onlyPluginIds: readonly string[] | undefined;
     providerRefs: readonly string[] | undefined;
     projectedPluginIds: string[] | undefined;
     declaredProviderOwners: DeclaredProviderOwnerIndex;
     providerOwners: {
       provider: string;
-      ownerPluginIds: string[];
-      providerPluginIds: string[];
+      ownerPluginIds: readonly string[];
+      providerPluginIds: readonly string[];
       runtimePluginIds: string[];
     }[];
     providerRegistrationPluginIds: Set<string> | undefined;
@@ -203,9 +196,9 @@ type ProviderOwnershipLookupParams = {
   workspaceDir?: string;
   env?: PluginLoadOptions["env"];
   manifestRegistry?: PluginManifestRegistry;
-  metadataSnapshot?: Pick<PluginMetadataSnapshot, "owners" | "manifestRegistry" | "byPluginId">;
+  metadataSnapshot?: Pick<PluginMetadataSnapshot, "manifestRegistry">;
 };
-export declare function resolveOwningPluginIdsForProvider(params: ProviderOwnershipLookupParams): string[] | undefined;
+export declare function resolveOwningPluginIdsForProvider(params: ProviderOwnershipLookupParams): readonly string[] | undefined;
 export declare function resolveCatalogHookProviderPluginIds(params: {
   config?: PluginLoadOptions["config"];
   workspaceDir?: string;

@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import fs from "node:fs/promises";
 import path from "node:path";
-import fsSync, { closeSync, openSync, readSync, readdirSync } from "node:fs";
+import fs$1, { closeSync, openSync, readSync, readdirSync } from "node:fs";
 import os, { platform } from "node:os";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { execFile, spawn } from "node:child_process";
@@ -19,7 +19,7 @@ var __esmMin = (fn, res, err) => () => {
 var __commonJSMin = (cb, mod) => () => (mod || (cb((mod = { exports: {} }).exports, mod), cb = null), mod.exports);
 var __require = /* #__PURE__ */ (() => createRequire(import.meta.url))();
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/errors.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/errors.js
 function categorizeFsSafeError(code) {
 	return OPERATIONAL_CODES.has(code) ? "operational" : "policy";
 }
@@ -50,7 +50,7 @@ var init_errors = __esmMin((() => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native-binding.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-binding.js
 function captureNativeFdClose(binding) {
 	if (typeof binding.closeOwnedFd !== "function") throw new FsSafeError("helper-unavailable", "native descriptor ownership is unavailable");
 	return binding.closeOwnedFd.bind(binding);
@@ -59,7 +59,7 @@ var init_native_binding = __esmMin((() => {
 	init_errors();
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native-config.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-config.js
 function parseMode(value) {
 	if (!value) return;
 	const normalized = value.trim().toLowerCase();
@@ -70,12 +70,91 @@ function parseMode(value) {
 function getFsSafeNativeConfig() {
 	return { mode: overrideConfig.mode ?? parseMode(process.env.FS_SAFE_NATIVE_MODE) ?? parseMode(process.env.OPENCLAW_FS_SAFE_NATIVE_MODE) ?? "auto" };
 }
+/** Internal provenance; keep the public configuration shape unchanged. */
+function getNativeModeSetting() {
+	if (overrideConfig.mode !== void 0) return {
+		mode: overrideConfig.mode,
+		source: "programmatic configuration"
+	};
+	for (const source of ["FS_SAFE_NATIVE_MODE", "OPENCLAW_FS_SAFE_NATIVE_MODE"]) {
+		const mode = parseMode(process.env[source]);
+		if (mode !== void 0) return {
+			mode,
+			source
+		};
+	}
+	return {
+		mode: "auto",
+		source: "default"
+	};
+}
 var overrideConfig;
 var init_native_config = __esmMin((() => {
 	overrideConfig = {};
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native.js
+function loadFailure(error, packageName) {
+	try {
+		return classifyLoadFailure(error, packageName);
+	} catch {
+		return {
+			reason: "load-failed",
+			code: "UNKNOWN"
+		};
+	}
+}
+function classifyLoadFailure(error, packageName) {
+	const code = typeof error === "object" && error !== null && "code" in error ? error.code : void 0;
+	if (code === "MODULE_NOT_FOUND" && error instanceof Error && error.message.split("\n", 1)[0] === `Cannot find module '${packageName}'`) try {
+		resolvePackage(packageName);
+	} catch (resolutionError) {
+		if (resolutionError instanceof Error && "code" in resolutionError && resolutionError.code === "MODULE_NOT_FOUND" && resolutionError.message.split("\n", 1)[0] === `Cannot find module '${packageName}'`) return { reason: "package-missing" };
+	}
+	return {
+		reason: "load-failed",
+		code: typeof code === "string" && [
+			"ERR_DLOPEN_FAILED",
+			"MODULE_NOT_FOUND",
+			"ERR_MODULE_NOT_FOUND",
+			"ERR_PACKAGE_PATH_NOT_EXPORTED",
+			"ERR_INVALID_PACKAGE_CONFIG",
+			"EACCES",
+			"EPERM",
+			"ENOENT"
+		].includes(code) ? code : "UNKNOWN"
+	};
+}
+/** Internal view of the cached load; never attempts to load an addon. */
+function getNativeFallbackDiagnostic(...capabilities) {
+	const setting = getNativeModeSetting();
+	const target = targetDescription === void 0 ? bundledTarget() : selectedTarget;
+	const packageName = target === void 0 ? void 0 : nativePackageForTarget(target);
+	const manifest = require$1("../package.json");
+	const expected = {
+		target: targetDescription,
+		packageName,
+		packageVersion: packageName === void 0 ? void 0 : manifest.optionalDependencies[packageName]
+	};
+	if (setting.mode === "off") return {
+		...expected,
+		reason: "disabled",
+		source: setting.source
+	};
+	const loaded = binding;
+	if (loaded) {
+		const missing = capabilities.filter((name) => typeof loaded[name] !== "function");
+		if (missing.length) return {
+			...expected,
+			reason: "capability-missing",
+			capabilities: missing
+		};
+	}
+	return {
+		...expected,
+		...loadOutcome
+	};
+}
 function isMuslFilename(file) {
 	return file.includes("libc.musl-") || file.includes("ld-musl-");
 }
@@ -153,41 +232,67 @@ function isMusl() {
 	return false;
 }
 function targetFor(platform, arch, musl) {
-	if (platform === "win32" && arch === "x64") return "win32-x64-msvc";
+	if (platform === "win32" && (arch === "x64" || arch === "arm64")) return `win32-${arch}-msvc`;
 	if (platform === "darwin" && arch === "x64") return "darwin-x64";
 	if (platform === "darwin" && arch === "arm64") return "darwin-arm64";
+	if (platform === "freebsd" && (arch === "x64" || arch === "arm64")) return `freebsd-${arch}`;
 	if (platform === "linux" && (arch === "x64" || arch === "arm64")) return `linux-${arch}-${musl ? "musl" : "gnu"}`;
 }
 function bundledTarget() {
-	return targetFor(process.platform, process.arch, isMusl());
+	const musl = isMusl();
+	selectedTarget = targetFor(process.platform, process.arch, musl);
+	targetDescription = selectedTarget ?? `${process.platform}-${process.arch}${process.platform === "linux" ? `-${musl ? "musl" : "gnu"}` : ""}`;
+	return selectedTarget;
 }
 function nativePackageForTarget(target) {
 	return `@openclaw/fs-safe-${target}`;
 }
 function loadBundledBinding() {
 	const target = bundledTarget();
-	if (!target) throw new Error(`Unsupported OS or architecture: ${process.platform}-${process.arch}`);
+	if (!target) {
+		loadOutcome = { reason: "unsupported-target" };
+		throw new Error(`Unsupported OS or architecture: ${process.platform}-${process.arch}`);
+	}
 	const loaded = runNativeInitialization(() => require$1(nativePackageForTarget(target)));
+	if (typeof loaded.closeOwnedFd !== "function") loadOutcome = {
+		reason: "capability-missing",
+		capabilities: ["closeOwnedFd"]
+	};
 	captureNativeFdClose(loaded);
 	return loaded;
 }
-function getNativeBinding() {
+function selectNativeBinding(native, ...capabilities) {
+	if (!native) return void 0;
+	const missing = capabilities.filter((name) => typeof native[name] !== "function");
+	if (missing.length === 0) return native;
+	if (getFsSafeNativeConfig().mode === "require") throw new FsSafeError("helper-unavailable", `native fs-safe capabilities unavailable: ${missing.join(", ")}`);
+}
+function getNativeBinding(...capabilities) {
 	const { mode } = getFsSafeNativeConfig();
 	if (mode === "off") return void 0;
 	if (!attempted) {
 		attempted = true;
 		try {
 			const loaded = loadBinding();
+			if (typeof loaded.closeOwnedFd !== "function") loadOutcome = {
+				reason: "capability-missing",
+				capabilities: ["closeOwnedFd"]
+			};
 			captureNativeFdClose(loaded);
 			binding = loaded;
+			loadOutcome = { reason: "loaded" };
 		} catch (error) {
 			loadError = error;
+			if (loadOutcome.reason === "not-probed") {
+				selectedTarget ??= bundledTarget();
+				loadOutcome = loadFailure(error, nativePackageForTarget(selectedTarget ?? `${process.platform}-${process.arch}`));
+			}
 		}
 	}
-	if (binding) return binding;
+	if (binding) return selectNativeBinding(binding, ...capabilities);
 	if (mode === "require") throw new FsSafeError("helper-unavailable", "native fs-safe helper is unavailable", { cause: loadError });
 }
-var require$1, runNativeInitialization, binding, loadError, attempted, loadBinding;
+var require$1, runNativeInitialization, binding, loadError, attempted, loadBinding, resolvePackage, loadOutcome, selectedTarget, targetDescription;
 var init_native = __esmMin((() => {
 	init_errors();
 	init_native_binding();
@@ -196,19 +301,52 @@ var init_native = __esmMin((() => {
 	runNativeInitialization = AsyncLocalStorage.snapshot();
 	attempted = false;
 	loadBinding = loadBundledBinding;
+	resolvePackage = (name) => require$1.resolve(name);
+	loadOutcome = { reason: "not-probed" };
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/error-detail.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-appcontainer.js
+/** The native owner caches immutable primary-token membership across Workers. */
+function isWindowsAppContainer(binding) {
+	if (!binding.isWindowsAppContainer) return void 0;
+	try {
+		const membership = binding.isWindowsAppContainer();
+		if (typeof membership !== "boolean") throw new Error("Invalid AppContainer membership");
+		return membership;
+	} catch (cause) {
+		throw new FsSafeError("permission-unverified", "Windows process token membership could not be verified", { cause });
+	}
+}
+function assertWindowsHelperAllowed() {
+	if (process.platform !== "win32") return;
+	const binding = getNativeBinding();
+	if (binding && isWindowsAppContainer(binding)) throw new FsSafeError("helper-unavailable", "External Windows security helpers are unavailable inside an AppContainer");
+}
+var init_windows_appcontainer = __esmMin((() => {
+	init_errors();
+	init_native();
+}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/error-detail.js
 const UNSAFE_ERROR_DETAIL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu;
 function formatErrorDetail(value) {
 	return value.replace(UNSAFE_ERROR_DETAIL_CHARACTERS, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/permission-exec.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-security-helper.js
+function windowsSecurityHelperPath() {
+	return fileURLToPath(new URL("./windows-security-helper.exe", import.meta.url));
+}
+function explainWindowsSecurityHelperFailure(error) {
+	error.message += "; Windows security helper could not complete; rebuild with pnpm build:windows-helper or reinstall @openclaw/fs-safe";
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/permission-exec.js
+init_windows_appcontainer();
 const execFileAsync = promisify(execFile);
 const DEFAULT_PERMISSION_EXEC_TIMEOUT_MS = 3e4;
 function formatPermissionErrorDetail(value) {
-	const formatted = formatErrorDetail(value);
+	const formatted = formatErrorDetail(value.slice(0, 401));
 	return formatted.length > 400 ? `${formatted.slice(0, 399)}…` : formatted;
 }
 const MAX_CAUGHT_FAILURE_PROTOTYPES = 4;
@@ -348,6 +486,7 @@ function getPermissionCommandFailure(error, command, durationMs) {
 	};
 }
 async function executePermissionCommand(command, args, timeoutMs = DEFAULT_PERMISSION_EXEC_TIMEOUT_MS) {
+	assertWindowsHelperAllowed();
 	const startedAt = performance.now();
 	try {
 		return await execFileAsync(command, args, {
@@ -358,11 +497,17 @@ async function executePermissionCommand(command, args, timeoutMs = DEFAULT_PERMI
 			killSignal: "SIGKILL"
 		});
 	} catch (err) {
-		throw new PermissionCommandError(command, performance.now() - startedAt, err, timeoutMs);
+		const error = new PermissionCommandError(command, performance.now() - startedAt, err, timeoutMs);
+		if (command === windowsSecurityHelperPath() && [
+			"ENOENT",
+			"EACCES",
+			"ENOEXEC"
+		].includes(dataProperty(err, "code")?.value)) explainWindowsSecurityHelperFailure(error);
+		throw error;
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/string-coerce.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/string-coerce.js
 function normalizeNullableString(value) {
 	if (typeof value !== "string") return null;
 	const trimmed = value.trim();
@@ -379,29 +524,60 @@ function normalizeLowercaseStringOrEmpty(value) {
 }
 var init_string_coerce = __esmMin((() => {}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-command.js
-function getEnvValueCaseInsensitive(env, name) {
-	const direct = env[name];
-	if (direct !== void 0) return direct;
-	const lower = name.toLowerCase();
-	for (const [key, value] of Object.entries(env)) if (key.toLowerCase() === lower) return value;
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/realpath.js
+function resolve(input, native) {
+	if (native && process.platform === "win32") try {
+		return fs$1.realpathSync.native(input);
+	} catch (error) {
+		if (error.code !== "EPERM" || error.syscall !== "realpath") throw error;
+		let binding;
+		try {
+			binding = getNativeBinding();
+		} catch {
+			binding = void 0;
+		}
+		if (!binding || !isWindowsAppContainer(binding)) throw error;
+		if (!binding?.resolveWindowsCanonicalPath) throw new FsSafeError("helper-unavailable", "Windows canonicalization after a denied DOS-name query requires the native binding", { cause: error });
+		let resolved;
+		try {
+			resolved = binding.resolveWindowsCanonicalPath(input);
+		} catch (cause) {
+			throw new FsSafeError("path-mismatch", "Windows canonical path cannot be verified safely", { cause });
+		}
+		if (resolved === null) throw error;
+		return resolved;
+	}
+	if (bunPosix) {
+		if (input.includes("\0")) throw Object.assign(/* @__PURE__ */ new TypeError("realpath input must not contain null bytes"), { code: "ERR_INVALID_ARG_VALUE" });
+		const binding = getNativeBinding();
+		if (binding?.canonicalizePath) {
+			const result = binding.canonicalizePath(input, !native);
+			if (result.path !== void 0) return result.path;
+			const errno = -result.errno;
+			const code = getSystemErrorName(errno);
+			throw Object.assign(/* @__PURE__ */ new Error(`${code}: realpath '${input}'`), {
+				code,
+				errno,
+				syscall: "realpath",
+				path: input
+			});
+		}
+		if (getFsSafeNativeConfig().mode === "require") throw new FsSafeError("helper-unavailable", "native fs-safe canonicalization is unavailable");
+	}
+	return native ? fs$1.realpathSync.native(input) : fs$1.realpathSync(input);
 }
-function normalizeWindowsInstallRoot(value) {
-	const trimmed = value?.trim();
-	if (!trimmed || !path.win32.isAbsolute(trimmed)) return null;
-	let end = trimmed.length;
-	while (end > 0 && (trimmed[end - 1] === "\\" || trimmed[end - 1] === "/")) end -= 1;
-	return trimmed.slice(0, end);
-}
-function resolveWindowsSystemRoot(env) {
-	const source = env ?? process.env;
-	return normalizeWindowsInstallRoot(getEnvValueCaseInsensitive(source, "SystemRoot")) ?? normalizeWindowsInstallRoot(getEnvValueCaseInsensitive(source, "WINDIR")) ?? "C:\\Windows";
-}
-function resolveWindowsSystemCommand(command, env) {
-	return path.win32.join(resolveWindowsSystemRoot(env), "System32", command);
-}
+var runtimePlatform, bunPosix, realpathSync;
+var init_realpath = __esmMin((() => {
+	init_errors();
+	init_native();
+	init_native_config();
+	init_windows_appcontainer();
+	runtimePlatform = process.versions.bun ? platform() : void 0;
+	bunPosix = runtimePlatform === "darwin" || runtimePlatform === "linux" ? runtimePlatform : void 0;
+	realpathSync = Object.assign((input) => resolve(input, false), { native: (input) => resolve(input, true) });
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-path-syntax.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-path-syntax.js
 function isWindowsSeparator(value, offset) {
 	const code = value.charCodeAt(offset);
 	return code === 47 || code === 92;
@@ -455,7 +631,7 @@ function windowsShareOrDeviceRoot(value) {
 }
 var init_windows_path_syntax = __esmMin((() => {}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-path-alias.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-path-alias.js
 function isExactlyUnderWindowsPath(trusted, value) {
 	const root = trusted.replaceAll("/", "\\").replace(/(?<=.)\\+$/, "");
 	const candidate = value.replaceAll("/", "\\");
@@ -539,42 +715,127 @@ var init_windows_path_alias = __esmMin((() => {
 	init_windows_path_syntax();
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-owner.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-security-facts.js
+init_errors();
+const SID_RE$2 = /^s-\d+-\d+(?:-\d+)+$/;
+const APP_CONTAINER_SID_RE = /^s-1-15-2(?:-\d+){7,}$/;
+const SYSTEM_SID = "s-1-5-18";
+const ADMINISTRATORS_SID = "s-1-5-32-544";
+const WORLD_SIDS$1 = /* @__PURE__ */ new Set([
+	"s-1-1-0",
+	"s-1-5-11",
+	"s-1-5-32-545",
+	"s-1-5-7",
+	"s-1-5-32-546",
+	"s-1-5-4",
+	"s-1-5-2"
+]);
+function unverified(message, cause) {
+	throw new FsSafeError("permission-unverified", message, cause === void 0 ? {} : { cause });
+}
+function record$1(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function uint32(value) {
+	return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 4294967295;
+}
+function validateAce(value, allowUnknownFlags) {
+	if (!record$1(value) || typeof value.sid !== "string" || !SID_RE$2.test(value.sid) || !uint32(value.mask) || value.aceType !== "allow" && value.aceType !== "deny" || !record$1(value.flags)) return false;
+	const { raw } = value.flags;
+	if (!uint32(raw) || (raw & ~(allowUnknownFlags ? 255 : 223)) !== 0) return false;
+	const fields = [
+		["objectInherit", 1],
+		["containerInherit", 2],
+		["noPropagateInherit", 4],
+		["inheritOnly", 8],
+		["inherited", 16],
+		["successfulAccess", 64],
+		["failedAccess", 128]
+	];
+	const flags = value.flags;
+	return fields.every(([field, bit]) => typeof flags[field] === "boolean" && flags[field] === ((raw & bit) !== 0));
+}
+function validateDescriptor(value, allowUnknownFlags) {
+	if (!record$1(value) || typeof value.ownerSid !== "string" || !SID_RE$2.test(value.ownerSid) || typeof value.currentUserSid !== "string" || !SID_RE$2.test(value.currentUserSid) || value.currentAppContainerSid != null && (typeof value.currentAppContainerSid !== "string" || !APP_CONTAINER_SID_RE.test(value.currentAppContainerSid)) || typeof value.daclPresent !== "boolean" || typeof value.isLocal !== "boolean" || typeof value.aceListComplete !== "boolean" || !Array.isArray(value.unsupportedAceTypes) || !value.unsupportedAceTypes.every(uint32) || !Array.isArray(value.aces) || !value.aces.every((ace) => validateAce(ace, allowUnknownFlags))) unverified("Windows descriptor ACL facts were malformed");
+	if (!value.daclPresent && value.aces.length !== 0 || value.aceListComplete && value.unsupportedAceTypes.length !== 0) unverified("Windows descriptor DACL facts were inconsistent");
+	return value;
+}
+function summarize(facts) {
+	const ownerClass = facts.ownerSid === facts.currentUserSid ? "current-user" : facts.ownerSid === SYSTEM_SID ? "system" : facts.ownerSid === ADMINISTRATORS_SID ? "administrators" : "foreign";
+	let worldReadable = !facts.daclPresent;
+	let worldWritable = !facts.daclPresent;
+	let groupReadable = false;
+	let groupWritable = false;
+	const trusted = /* @__PURE__ */ new Set([
+		facts.currentUserSid,
+		SYSTEM_SID,
+		ADMINISTRATORS_SID
+	]);
+	if (facts.currentAppContainerSid) trusted.add(facts.currentAppContainerSid);
+	for (const ace of facts.aces) {
+		if (ace.aceType !== "allow" || ace.flags.inheritOnly || trusted.has(ace.sid)) continue;
+		const canRead = (ace.mask & 2415919241) !== 0;
+		const canWrite = (ace.mask & 1343029590) !== 0;
+		if (WORLD_SIDS$1.has(ace.sid)) {
+			worldReadable ||= canRead;
+			worldWritable ||= canWrite;
+		} else {
+			groupReadable ||= canRead;
+			groupWritable ||= canWrite;
+		}
+	}
+	return {
+		ownerClass,
+		worldReadable,
+		worldWritable,
+		groupReadable,
+		groupWritable
+	};
+}
+/** Raw reporting retains unknown flag bits; secure admission validates them below. */
+function parseWindowsSecurityCommandFacts(value) {
+	const facts = validateDescriptor(value, true);
+	if (!record$1(value) || typeof value.daclProtected !== "boolean") unverified("Windows security command returned malformed descriptor facts");
+	return {
+		...facts,
+		...summarize(facts),
+		fallbackRequired: !facts.isLocal || !facts.aceListComplete
+	};
+}
+/** Native and command observations share the same fail-closed admission policy. */
+function validateSecureWindowsSecurityFacts(value) {
+	const descriptor = validateDescriptor(value, false);
+	const facts = value;
+	const summary = summarize(descriptor);
+	if (![
+		"worldWritable",
+		"groupWritable",
+		"worldReadable",
+		"groupReadable",
+		"fallbackRequired"
+	].every((field) => typeof facts[field] === "boolean") || typeof facts.ownerClass !== "string") unverified("Windows descriptor ACL facts were malformed");
+	if (facts.ownerClass !== summary.ownerClass) unverified("Windows descriptor owner facts were inconsistent");
+	if (facts.fallbackRequired || !facts.isLocal || !facts.aceListComplete || facts.unsupportedAceTypes.length !== 0) unverified("Windows descriptor ACL facts were incomplete or unsupported");
+	if (facts.worldReadable !== summary.worldReadable || facts.worldWritable !== summary.worldWritable || facts.groupReadable !== summary.groupReadable || facts.groupWritable !== summary.groupWritable) unverified("Windows descriptor ACL summary was inconsistent");
+	return facts;
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-owner.js
+init_windows_appcontainer();
+init_errors();
+init_realpath();
 init_windows_path_alias();
-const SID_RE$2 = /^\*?s-\d+-\d+(-\d+)+$/i;
+const SID_RE$1 = /^\*?s-\d+-\d+(-\d+)+$/i;
 const TRUSTED_OWNER_SIDS = /* @__PURE__ */ new Set(["s-1-5-18", "s-1-5-32-544"]);
 function normalizeSid$1(value) {
 	const normalized = value.trim().toLowerCase();
 	return normalized.startsWith("*") ? normalized.slice(1) : normalized;
 }
-function encodePowerShellCommand(source) {
-	return Buffer.from(source, "utf16le").toString("base64");
-}
-function windowsOwnerQueryCommand(targetPath) {
-	return [
-		"$ErrorActionPreference='Stop'",
-		"$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules')",
-		`$p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(targetPath, "utf8").toString("base64")}'))`,
-		"$sections=[System.Security.AccessControl.AccessControlSections]::Access -bor [System.Security.AccessControl.AccessControlSections]::Owner",
-		"$acl=if([IO.Directory]::Exists($p)){[IO.Directory]::GetAccessControl($p,$sections)}else{[IO.File]::GetAccessControl($p,$sections)}",
-		"$ownerSid=$acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value",
-		"$currentSid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
-		"$root=[IO.Path]::GetPathRoot($p)",
-		"$extendedDrive=$p.Length -ge 7 -and $p.StartsWith('\\\\?\\') -and [char]::IsLetter($p[4]) -and $p[5] -eq ':' -and $p[6] -eq '\\'",
-		"$driveRoot=if($extendedDrive){$p.Substring(4,3)}else{$root}",
-		"$namespacePath=$p.StartsWith('\\\\')",
-		"$remote=($namespacePath -and -not $extendedDrive) -or ([IO.DriveInfo]::new($driveRoot).DriveType -eq [IO.DriveType]::Network)",
-		"$raw=[System.Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)",
-		"$dacl=$raw.DiscretionaryAcl;$complete=$true",
-		"$aces=@(foreach($ace in $dacl){if($ace -isnot [System.Security.AccessControl.CommonAce] -or $ace.IsCallback -or [int]$ace.AceType -notin @(0,1)){$complete=$false;continue};@{sid=$ace.SecurityIdentifier.Value;mask=([long]$ace.AccessMask -band 4294967295);deny=([int]$ace.AceType -eq 1);inheritOnly=([int]$ace.AceFlags -band 8) -ne 0}})",
-		"@{ownerSid=$ownerSid;currentUserSid=$currentSid;daclPresent=($null -ne $dacl);aces=$aces;complete=$complete;remote=$remote}|Microsoft.PowerShell.Utility\\ConvertTo-Json -Depth 4 -Compress"
-	].join(";");
-}
 function parseWindowsAclFacts(parsed) {
 	if (parsed.complete !== true || typeof parsed.daclPresent !== "boolean" || !Array.isArray(parsed.aces)) return { aclError: "Windows ACL query returned incomplete descriptor data" };
 	const aces = [];
 	for (const row of parsed.aces) {
-		if (!row || typeof row !== "object" || typeof row.sid !== "string" || !SID_RE$2.test(row.sid) || typeof row.mask !== "number" || !Number.isInteger(row.mask) || row.mask < 0 || row.mask > 4294967295 || typeof row.deny !== "boolean" || typeof row.inheritOnly !== "boolean") return { aclError: "Windows ACL query returned invalid access-rule data" };
+		if (!row || typeof row !== "object" || typeof row.sid !== "string" || !SID_RE$1.test(row.sid) || typeof row.mask !== "number" || !Number.isInteger(row.mask) || row.mask < 0 || row.mask > 4294967295 || typeof row.deny !== "boolean" || typeof row.inheritOnly !== "boolean") return { aclError: "Windows ACL query returned invalid access-rule data" };
 		aces.push({
 			sid: normalizeSid$1(row.sid),
 			mask: row.mask,
@@ -595,29 +856,33 @@ async function inspectWindowsOwner(params) {
 			errorCause: error
 		};
 	}
+	if (process.platform === "win32" && params.exec === executePermissionCommand) {
+		assertWindowsHelperAllowed();
+		try {
+			realpathSync.native(params.targetPath);
+		} catch (error) {
+			if (error instanceof FsSafeError && error.code === "helper-unavailable") throw error;
+		}
+	}
 	let command = "";
 	let startedAt = performance.now();
 	try {
-		command = resolveWindowsSystemCommand(String.raw`WindowsPowerShell\v1.0\powershell.exe`, params.env);
+		command = windowsSecurityHelperPath();
 		startedAt = performance.now();
-		const { stdout } = await params.exec(command, [
-			"-NoLogo",
-			"-NoProfile",
-			"-NonInteractive",
-			"-EncodedCommand",
-			encodePowerShellCommand(windowsOwnerQueryCommand(params.targetPath))
-		]);
+		const { stdout } = await params.exec(command, ["owner", params.targetPath]);
 		const value = JSON.parse(stdout.trim());
 		if (!value || typeof value !== "object" || Array.isArray(value)) return { error: "Windows owner query returned invalid SID data" };
 		const parsed = value;
-		const ownerSid = typeof parsed.ownerSid === "string" && SID_RE$2.test(parsed.ownerSid) ? normalizeSid$1(parsed.ownerSid) : void 0;
-		const currentUserSid = typeof parsed.currentUserSid === "string" && SID_RE$2.test(parsed.currentUserSid) ? normalizeSid$1(parsed.currentUserSid) : void 0;
+		const ownerSid = typeof parsed.ownerSid === "string" && SID_RE$1.test(parsed.ownerSid) ? normalizeSid$1(parsed.ownerSid) : void 0;
+		const currentUserSid = typeof parsed.currentUserSid === "string" && SID_RE$1.test(parsed.currentUserSid) ? normalizeSid$1(parsed.currentUserSid) : void 0;
 		if (!ownerSid || !currentUserSid) return { error: "Windows owner query returned invalid SID data" };
+		if (parsed.currentAppContainerSid != null && (typeof parsed.currentAppContainerSid !== "string" || !APP_CONTAINER_SID_RE.test(parsed.currentAppContainerSid.toLowerCase()))) return { error: "Windows owner query returned invalid AppContainer SID data" };
 		const remote = parsed.remote;
 		if (typeof remote !== "boolean") return { error: "Windows owner query returned invalid locality data" };
 		return {
 			sid: ownerSid,
 			currentUserSid,
+			...typeof parsed.currentAppContainerSid === "string" ? { currentAppContainerSid: normalizeSid$1(parsed.currentAppContainerSid) } : {},
 			...parseWindowsAclFacts(parsed),
 			trusted: !remote && (ownerSid === currentUserSid || TRUSTED_OWNER_SIDS.has(ownerSid))
 		};
@@ -630,7 +895,8 @@ async function inspectWindowsOwner(params) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/permissions-windows.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/permissions-windows.js
+init_errors();
 init_native();
 init_string_coerce();
 init_windows_path_alias();
@@ -661,13 +927,13 @@ const TRUSTED_BASE = /* @__PURE__ */ new Set([
 	"autoridade nt\\system"
 ]);
 const WORLD_SUFFIXES = ["\\users", "\\authenticated users"];
-const SID_RE$1 = /^\*?s-\d+-\d+(-\d+)+$/i;
+const SID_RE = /^\*?s-\d+-\d+(-\d+)+$/i;
 const TRUSTED_SIDS = /* @__PURE__ */ new Set([
 	"s-1-5-18",
 	"s-1-5-32-544",
 	"s-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464"
 ]);
-const WORLD_SIDS$1 = /* @__PURE__ */ new Set([
+const WORLD_SIDS = /* @__PURE__ */ new Set([
 	"s-1-1-0",
 	"s-1-5-11",
 	"s-1-5-32-545",
@@ -685,25 +951,24 @@ const normalize = (value) => normalizeLowercaseStringOrEmpty(value);
 const defaultWindowsUserInfo = () => os.userInfo();
 const defaultPermissionExec = executePermissionCommand;
 function inspectWindowsPermissionsNative(targetPath, unverified) {
-	const native = getNativeBinding();
+	const native = getNativeBinding("readOwnerAndDacl");
 	if (!native) return void 0;
-	try {
-		const facts = native.readOwnerAndDacl(targetPath);
-		if (facts.fallbackRequired) return void 0;
-		return {
-			...unverified,
-			source: "windows-acl",
-			worldWritable: facts.worldWritable,
-			groupWritable: facts.groupWritable,
-			worldReadable: facts.worldReadable,
-			groupReadable: facts.groupReadable,
-			ownerSid: facts.ownerSid,
-			ownerTrusted: facts.ownerClass !== "foreign",
-			aclSummary: `native owner=${facts.ownerClass} world=${facts.worldReadable ? "r" : "-"}${facts.worldWritable ? "w" : "-"} group=${facts.groupReadable ? "r" : "-"}${facts.groupWritable ? "w" : "-"}`
-		};
-	} catch {
+	const facts = native.readOwnerAndDacl(targetPath);
+	if (facts.fallbackRequired) {
+		if (facts.currentAppContainerSid) throw new FsSafeError("helper-unavailable", "AppContainer ACL facts require an unavailable external helper");
 		return;
 	}
+	return {
+		...unverified,
+		source: "windows-acl",
+		worldWritable: facts.worldWritable,
+		groupWritable: facts.groupWritable,
+		worldReadable: facts.worldReadable,
+		groupReadable: facts.groupReadable,
+		ownerSid: facts.ownerSid,
+		ownerTrusted: facts.ownerClass !== "foreign",
+		aclSummary: `native owner=${facts.ownerClass} world=${facts.worldReadable ? "r" : "-"}${facts.worldWritable ? "w" : "-"} group=${facts.groupReadable ? "r" : "-"}${facts.groupWritable ? "w" : "-"}`
+	};
 }
 async function inspectWindowsPermissions(targetPath, unverified, opts) {
 	if (hasWindowsPathAlias(targetPath, "filesystem", "win32")) return {
@@ -764,7 +1029,7 @@ function resolveWindowsUserPrincipal(env, userInfo = defaultWindowsUserInfo) {
 function buildTrustedSidPrincipals(env) {
 	const trusted = /* @__PURE__ */ new Set();
 	const userSid = normalizeSid(env?.USERSID ?? "");
-	if (userSid && SID_RE$1.test(userSid) && !WORLD_SIDS$1.has(userSid)) trusted.add(userSid);
+	if (userSid && SID_RE.test(userSid) && !WORLD_SIDS.has(userSid)) trusted.add(userSid);
 	return trusted;
 }
 function buildTrustedPrincipals(env) {
@@ -779,9 +1044,9 @@ function buildTrustedPrincipals(env) {
 }
 function classifyPrincipal(principal, trustedPrincipals) {
 	const normalized = normalize(principal);
-	if (SID_RE$1.test(normalized)) {
+	if (SID_RE.test(normalized)) {
 		const sid = normalizeSid(normalized);
-		if (WORLD_SIDS$1.has(sid)) return "world";
+		if (WORLD_SIDS.has(sid)) return "world";
 		if (TRUSTED_SIDS.has(sid) || trustedPrincipals.has(sid)) return "trusted";
 		return "group";
 	}
@@ -791,7 +1056,7 @@ function classifyPrincipal(principal, trustedPrincipals) {
 	return stripped !== normalized && TRUSTED_BASE_ASCII.has(stripped) ? "trusted" : "group";
 }
 function summarizeWindowsAcl(entries, env) {
-	const trustedPrincipals = entries.every((entry) => SID_RE$1.test(normalize(entry.sid ?? entry.principal))) ? buildTrustedSidPrincipals(env) : buildTrustedPrincipals(env);
+	const trustedPrincipals = entries.every((entry) => SID_RE.test(normalize(entry.sid ?? entry.principal))) ? buildTrustedSidPrincipals(env) : buildTrustedPrincipals(env);
 	const trusted = [];
 	const untrustedWorld = [];
 	const untrustedGroup = [];
@@ -855,10 +1120,16 @@ function summarizeWindowsOwnerAcl(owner) {
 			canWrite: (ace.mask & 1343029590) !== 0
 		};
 	});
+	const summary = summarizeWindowsAcl(entries, { USERSID: owner.currentUserSid });
+	if (owner.currentAppContainerSid) {
+		const own = summary.untrustedGroup.filter((entry) => entry.sid === owner.currentAppContainerSid);
+		summary.trusted.push(...own);
+		summary.untrustedGroup = summary.untrustedGroup.filter((entry) => entry.sid !== owner.currentAppContainerSid);
+	}
 	return {
 		ok: true,
 		entries,
-		...summarizeWindowsAcl(entries, { USERSID: owner.currentUserSid })
+		...summary
 	};
 }
 function formatWindowsAclSummary(summary) {
@@ -867,7 +1138,7 @@ function formatWindowsAclSummary(summary) {
 	return untrusted.length === 0 ? "trusted-only" : untrusted.map((entry) => `${entry.principal}:${entry.rawRights}`).join(", ");
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/permissions.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/permissions.js
 init_windows_path_alias();
 function failedSafeStat(error) {
 	return {
@@ -882,7 +1153,7 @@ function failedSafeStat(error) {
 }
 async function safeStatAdmitted(targetPath) {
 	try {
-		const lst = fsSync.lstatSync(pathForWindowsFilesystem(targetPath));
+		const lst = fs$1.lstatSync(pathForWindowsFilesystem(targetPath));
 		return {
 			ok: true,
 			isSymlink: lst.isSymbolicLink(),
@@ -913,7 +1184,7 @@ async function inspectPathPermissions(targetPath, opts) {
 	let effectiveMode = st.mode;
 	let effectiveIsDir = st.isDir;
 	if (st.isSymlink) try {
-		const target = fsSync.statSync(targetPath);
+		const target = fs$1.statSync(targetPath);
 		effectiveMode = typeof target.mode === "number" ? target.mode : st.mode;
 		effectiveIsDir = target.isDirectory();
 	} catch {}
@@ -949,122 +1220,48 @@ function isGroupReadable(bits) {
 	return bits != null && (bits & 32) !== 0;
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native-fallback-warning.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-guidance.js
+/** Shared, path-free next steps for status reports and fallback warnings. */
+function nativeGuidance(reason, modeSource) {
+	switch (reason) {
+		case "disabled": return `If native loading is intended, ${modeSource === "programmatic configuration" ? "call configureFsSafeNative({ mode: \"auto\" }) or configureFsSafeNative({ mode: \"require\" })" : `set ${modeSource}=auto or ${modeSource}=require`}; keep intentional off settings.`;
+		case "unsupported-target": return "Portable mode is expected on this target.";
+		case "package-missing": return "Reinstall with optional dependencies included: npm --include=optional, or pnpm without --no-optional / optional=false. Check the lockfile and registry mirror.";
+		case "load-failed": return "Check Node architecture, Linux libc compatibility, package dependencies, and OS code-integrity policy. Reinstalling identical bytes may not help.";
+		case "capability-missing": return "Use matching fs-safe and platform-package versions; some targets intentionally provide only a subset of capabilities.";
+		default: return;
+	}
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-fallback-warning.js
+init_native();
+init_native_config();
 const warnedFeatures = /* @__PURE__ */ new Set();
+function fallbackReason(capabilities) {
+	const diagnostic = getNativeFallbackDiagnostic(...capabilities);
+	const expected = diagnostic.packageName === void 0 ? `No native package is published for ${diagnostic.target}.` : `Expected ${diagnostic.packageName}@${diagnostic.packageVersion}.`;
+	const guidance = nativeGuidance(diagnostic.reason, getNativeModeSetting().source);
+	switch (diagnostic.reason) {
+		case "disabled": return `native support is disabled by ${diagnostic.source} (disabled). ${expected} ${guidance}`;
+		case "unsupported-target": return `the target ${diagnostic.target} is unsupported (unsupported-target). ${expected} ${guidance}`;
+		case "package-missing": return `the selected native package could not be resolved (package-missing). ${expected} ${guidance}`;
+		case "load-failed": return `the native package could not be loaded (load-failed: ${diagnostic.code}). ${expected} ${guidance}`;
+		case "capability-missing": return `the native package lacks requested functions (capability-missing: ${diagnostic.capabilities.join(", ")}). ${expected} ${guidance}`;
+		default: return `the requested native operation is unavailable (${diagnostic.reason}). ${expected}`;
+	}
+}
 /** Warn once per capability, without including caller paths or native error text. */
-function warnNativeFallback(feature, limitation) {
+function warnNativeFallback(feature, limitation, ...capabilities) {
 	if (warnedFeatures.has(feature)) return;
 	warnedFeatures.add(feature);
-	process.emitWarning(`${feature} is using its portable fallback because native support is unavailable or disabled. ${limitation}`, {
+	process.emitWarning(`${feature} is using its portable fallback because ${fallbackReason(capabilities)} ${limitation}`, {
 		code: "FS_SAFE_NATIVE_FALLBACK",
 		type: "FsSafeWarning"
 	});
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-security-facts.js
-init_errors();
-const SID_RE = /^s-\d+-\d+(?:-\d+)+$/;
-const SYSTEM_SID = "s-1-5-18";
-const ADMINISTRATORS_SID = "s-1-5-32-544";
-const WORLD_SIDS = /* @__PURE__ */ new Set([
-	"s-1-1-0",
-	"s-1-5-11",
-	"s-1-5-32-545",
-	"s-1-5-7",
-	"s-1-5-32-546",
-	"s-1-5-4",
-	"s-1-5-2"
-]);
-function unverified(message, cause) {
-	throw new FsSafeError("permission-unverified", message, cause === void 0 ? {} : { cause });
-}
-function record$1(value) {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-function uint32(value) {
-	return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 4294967295;
-}
-function validateAce(value, allowUnknownFlags) {
-	if (!record$1(value) || typeof value.sid !== "string" || !SID_RE.test(value.sid) || !uint32(value.mask) || value.aceType !== "allow" && value.aceType !== "deny" || !record$1(value.flags)) return false;
-	const { raw } = value.flags;
-	if (!uint32(raw) || (raw & ~(allowUnknownFlags ? 255 : 223)) !== 0) return false;
-	const fields = [
-		["objectInherit", 1],
-		["containerInherit", 2],
-		["noPropagateInherit", 4],
-		["inheritOnly", 8],
-		["inherited", 16],
-		["successfulAccess", 64],
-		["failedAccess", 128]
-	];
-	const flags = value.flags;
-	return fields.every(([field, bit]) => typeof flags[field] === "boolean" && flags[field] === ((raw & bit) !== 0));
-}
-function validateDescriptor(value, allowUnknownFlags) {
-	if (!record$1(value) || typeof value.ownerSid !== "string" || !SID_RE.test(value.ownerSid) || typeof value.currentUserSid !== "string" || !SID_RE.test(value.currentUserSid) || typeof value.daclPresent !== "boolean" || typeof value.isLocal !== "boolean" || typeof value.aceListComplete !== "boolean" || !Array.isArray(value.unsupportedAceTypes) || !value.unsupportedAceTypes.every(uint32) || !Array.isArray(value.aces) || !value.aces.every((ace) => validateAce(ace, allowUnknownFlags))) unverified("Windows descriptor ACL facts were malformed");
-	if (!value.daclPresent && value.aces.length !== 0 || value.aceListComplete && value.unsupportedAceTypes.length !== 0) unverified("Windows descriptor DACL facts were inconsistent");
-	return value;
-}
-function summarize(facts) {
-	const ownerClass = facts.ownerSid === facts.currentUserSid ? "current-user" : facts.ownerSid === SYSTEM_SID ? "system" : facts.ownerSid === ADMINISTRATORS_SID ? "administrators" : "foreign";
-	let worldReadable = !facts.daclPresent;
-	let worldWritable = !facts.daclPresent;
-	let groupReadable = false;
-	let groupWritable = false;
-	const trusted = /* @__PURE__ */ new Set([
-		facts.currentUserSid,
-		SYSTEM_SID,
-		ADMINISTRATORS_SID
-	]);
-	for (const ace of facts.aces) {
-		if (ace.aceType !== "allow" || ace.flags.inheritOnly || trusted.has(ace.sid)) continue;
-		const canRead = (ace.mask & 2415919241) !== 0;
-		const canWrite = (ace.mask & 1343029590) !== 0;
-		if (WORLD_SIDS.has(ace.sid)) {
-			worldReadable ||= canRead;
-			worldWritable ||= canWrite;
-		} else {
-			groupReadable ||= canRead;
-			groupWritable ||= canWrite;
-		}
-	}
-	return {
-		ownerClass,
-		worldReadable,
-		worldWritable,
-		groupReadable,
-		groupWritable
-	};
-}
-/** Raw reporting retains unknown flag bits; secure admission validates them below. */
-function parseWindowsSecurityCommandFacts(value) {
-	const facts = validateDescriptor(value, true);
-	if (!record$1(value) || typeof value.daclProtected !== "boolean") unverified("Windows security command returned malformed descriptor facts");
-	return {
-		...facts,
-		...summarize(facts),
-		fallbackRequired: !facts.isLocal || !facts.aceListComplete
-	};
-}
-/** Native and command observations share the same fail-closed admission policy. */
-function validateSecureWindowsSecurityFacts(value) {
-	const descriptor = validateDescriptor(value, false);
-	const facts = value;
-	const summary = summarize(descriptor);
-	if (![
-		"worldWritable",
-		"groupWritable",
-		"worldReadable",
-		"groupReadable",
-		"fallbackRequired"
-	].every((field) => typeof facts[field] === "boolean") || typeof facts.ownerClass !== "string") unverified("Windows descriptor ACL facts were malformed");
-	if (facts.ownerClass !== summary.ownerClass) unverified("Windows descriptor owner facts were inconsistent");
-	if (facts.fallbackRequired || !facts.isLocal || !facts.aceListComplete || facts.unsupportedAceTypes.length !== 0) unverified("Windows descriptor ACL facts were incomplete or unsupported");
-	if (facts.worldReadable !== summary.worldReadable || facts.worldWritable !== summary.worldWritable || facts.groupReadable !== summary.groupReadable || facts.groupWritable !== summary.groupWritable) unverified("Windows descriptor ACL summary was inconsistent");
-	return facts;
-}
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-security-command.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-security-command.js
+init_windows_appcontainer();
 init_errors();
 const MAX_OUTPUT_BYTES = 1048576;
 const TERMINATION_GRACE_MS = 1e3;
@@ -1084,18 +1281,9 @@ function command(operation, params) {
 	if (params.expectedParentIdentity !== void 0) assertIdentity(params.expectedParentIdentity);
 	if (params.expectedFileIdentity !== void 0) assertIdentity(params.expectedFileIdentity);
 	if (params.expectedLinks !== void 0 && (!Number.isInteger(params.expectedLinks) || params.expectedLinks < 1 || params.expectedLinks > 4294967295)) throw new TypeError("Windows security operation requires a positive uint32 link count");
-	const script = fileURLToPath(new URL("./windows-security-bridge.ps1", import.meta.url));
 	return {
-		file: resolveWindowsSystemCommand(String.raw`WindowsPowerShell\v1.0\powershell.exe`),
-		args: [
-			"-NoLogo",
-			"-NoProfile",
-			"-NonInteractive",
-			"-File",
-			script,
-			"-Operation",
-			operation
-		],
+		file: windowsSecurityHelperPath(),
+		args: [operation],
 		env: {
 			...process.env,
 			FS_SAFE_WINDOWS_SECURITY_PATH: targetPath,
@@ -1142,10 +1330,21 @@ function parseReplyValue(stdout, operation) {
 			"EBUSY"
 		]);
 		if (typeof response.code !== "string" || !codes.has(response.code) || typeof response.message !== "string") unverified("Windows security command returned an invalid failure");
-		throw Object.assign(new Error(response.message), { code: response.code });
+		if (response.errno !== void 0 && (typeof response.errno !== "number" || !Number.isInteger(response.errno) || response.errno < 0 || response.errno > 4294967295)) unverified("Windows security command returned an invalid native error number");
+		const failure = Object.assign(new Error(response.message), { code: response.code });
+		if (response.errno !== void 0) Object.defineProperty(failure, "errno", {
+			value: response.errno,
+			enumerable: true,
+			configurable: true,
+			writable: true
+		});
+		throw failure;
 	}
 	if (operation === "create" && (!record(response.result) || response.result.created !== true || !isFullIdentity(response.result.identity))) unverified("Windows security command did not verify private-directory creation");
 	return response.result;
+}
+function explainHelperFailure(error, file) {
+	if (file.endsWith("windows-security-helper.exe")) explainWindowsSecurityHelperFailure(error);
 }
 var WindowsSecurityCommandError = class extends PermissionCommandError {
 	timedOut;
@@ -1154,6 +1353,7 @@ var WindowsSecurityCommandError = class extends PermissionCommandError {
 	constructor(file, durationMs, receipt, timedOut, timeoutMs = DEFAULT_PERMISSION_EXEC_TIMEOUT_MS) {
 		super(file, durationMs, receipt, timeoutMs);
 		this.timedOut = timedOut;
+		if (!timedOut) explainHelperFailure(this, file);
 		this.creationOutcome = receipt.creationOutcome;
 		this.processExitConfirmed = receipt.processExitConfirmed;
 		if (timedOut) this.message = `Windows permission inspection timed out after ${timeoutMs}ms`;
@@ -1164,6 +1364,7 @@ var WindowsSecurityCommandError = class extends PermissionCommandError {
 };
 function ignoreLateError() {}
 async function execute(operation, params, request) {
+	assertWindowsHelperAllowed();
 	const { file, args, env, input, timeoutMs = DEFAULT_PERMISSION_EXEC_TIMEOUT_MS, maxOutputBytes = MAX_OUTPUT_BYTES } = request ?? command(operation, params);
 	const startedAt = performance.now();
 	return await new Promise((resolve, reject) => {
@@ -7986,7 +8187,7 @@ var require_dist = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.visitAsync = visit.visitAsync;
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/byte-budget.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/byte-budget.js
 function normalizeMaxBytes(value, options = {}) {
 	const selected = value === void 0 ? options.defaultValue : value;
 	if (selected === void 0 || selected === Number.POSITIVE_INFINITY) return selected;
@@ -7994,38 +8195,62 @@ function normalizeMaxBytes(value, options = {}) {
 	return selected;
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/realpath.js
-function resolve(input, native) {
-	if (bunPosix) {
-		if (input.includes("\0")) throw Object.assign(/* @__PURE__ */ new TypeError("realpath input must not contain null bytes"), { code: "ERR_INVALID_ARG_VALUE" });
-		const binding = getNativeBinding();
-		if (binding?.canonicalizePath) {
-			const result = binding.canonicalizePath(input, !native);
-			if (result.path !== void 0) return result.path;
-			const errno = -result.errno;
-			const code = getSystemErrorName(errno);
-			throw Object.assign(/* @__PURE__ */ new Error(`${code}: realpath '${input}'`), {
-				code,
-				errno,
-				syscall: "realpath",
-				path: input
-			});
-		}
-		if (getFsSafeNativeConfig().mode === "require") throw new FsSafeError("helper-unavailable", "native fs-safe canonicalization is unavailable");
-	}
-	return native ? fsSync.realpathSync.native(input) : fsSync.realpathSync(input);
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/file-observation.js
+function recordFileObservationFailure(error, kind) {
+	const failures = active.getStore();
+	if (!failures) return;
+	let kinds = failures.get(error);
+	if (!kinds) failures.set(error, kinds = /* @__PURE__ */ new Set());
+	kinds.add(kind);
 }
-var runtimePlatform, bunPosix, realpathSync;
-var init_realpath = __esmMin((() => {
-	init_errors();
-	init_native();
-	init_native_config();
-	runtimePlatform = process.versions.bun ? platform() : void 0;
-	bunPosix = runtimePlatform === "darwin" || runtimePlatform === "linux" ? runtimePlatform : void 0;
-	realpathSync = Object.assign((input) => resolve(input, false), { native: (input) => resolve(input, true) });
+var active;
+var init_file_observation = __esmMin((() => {
+	active = new AsyncLocalStorage();
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/local-file-access.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/strict-file-identity.js
+function fileIdentityMismatchError() {
+	const error = new FsSafeError("path-mismatch", "file identity changed or could not be verified");
+	recordFileObservationFailure(error, "identity");
+	return error;
+}
+function inspectFileIdentitySync(inspect, expected, platform = process.platform, mismatch = fileIdentityMismatchError) {
+	let knownDev;
+	let knownIno;
+	if (expected) {
+		knownDev = expected.dev;
+		if (typeof knownDev !== "bigint") throw mismatch();
+		knownIno = expected.ino;
+		if (typeof knownIno !== "bigint") throw mismatch();
+		if (platform === "win32" && (knownDev === 0n || knownIno === 0n)) throw mismatch();
+	}
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const stat = inspect();
+		let complete = true;
+		const dev = stat.dev;
+		if (typeof dev !== "bigint") throw mismatch();
+		if (platform === "win32" && dev === 0n) complete = false;
+		else {
+			if (knownDev !== void 0 && knownDev !== dev) throw mismatch();
+			knownDev = dev;
+		}
+		const ino = stat.ino;
+		if (typeof ino !== "bigint") throw mismatch();
+		if (platform === "win32" && ino === 0n) complete = false;
+		else {
+			if (knownIno !== void 0 && knownIno !== ino) throw mismatch();
+			knownIno = ino;
+		}
+		if (complete) return stat;
+	}
+	throw mismatch();
+}
+var init_strict_file_identity = __esmMin((() => {
+	init_errors();
+	init_file_observation();
+}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/local-file-access.js
 function isFileUrl(input) {
 	return FILE_URL_PREFIX_RE.test(input);
 }
@@ -8071,7 +8296,7 @@ var init_local_file_access = __esmMin((() => {
 	FILE_URL_PREFIX_RE = /^file:\/\//i;
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/device-path.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/device-path.js
 function trimTrailingWindowsSeparators(value) {
 	let end = value.length;
 	while (end > 0 && value.charCodeAt(end - 1) === WINDOWS_SEPARATOR_CHAR_CODE) end -= 1;
@@ -8194,7 +8419,7 @@ var init_device_path = __esmMin((() => {
 	WINDOWS_IGNORED_DOT_CHAR_CODE = 46;
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/path.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/path.js
 function normalizeWindowsPathForComparison(input) {
 	let normalized = path.win32.normalize(input);
 	if (normalized.startsWith("\\\\?\\")) {
@@ -8242,70 +8467,58 @@ var init_path = __esmMin((() => {
 	POSIX_SEPARATOR_CHAR_CODE = 47;
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/file-observation.js
-function recordFileObservationFailure(error, kind) {
-	const failures = active.getStore();
-	if (!failures) return;
-	let kinds = failures.get(error);
-	if (!kinds) failures.set(error, kinds = /* @__PURE__ */ new Set());
-	kinds.add(kind);
-}
-var active;
-var init_file_observation = __esmMin((() => {
-	active = new AsyncLocalStorage();
-}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/strict-file-identity.js
-function fileIdentityMismatchError() {
-	const error = new FsSafeError("path-mismatch", "file identity changed or could not be verified");
-	recordFileObservationFailure(error, "identity");
-	return error;
-}
-function inspectFileIdentitySync(inspect, expected, platform = process.platform, mismatch = fileIdentityMismatchError) {
-	let knownDev;
-	let knownIno;
-	if (expected) {
-		knownDev = expected.dev;
-		if (typeof knownDev !== "bigint") throw mismatch();
-		knownIno = expected.ino;
-		if (typeof knownIno !== "bigint") throw mismatch();
-		if (platform === "win32" && (knownDev === 0n || knownIno === 0n)) throw mismatch();
-	}
-	for (let attempt = 0; attempt < 2; attempt++) {
-		const stat = inspect();
-		let complete = true;
-		const dev = stat.dev;
-		if (typeof dev !== "bigint") throw mismatch();
-		if (platform === "win32" && dev === 0n) complete = false;
-		else {
-			if (knownDev !== void 0 && knownDev !== dev) throw mismatch();
-			knownDev = dev;
-		}
-		const ino = stat.ino;
-		if (typeof ino !== "bigint") throw mismatch();
-		if (platform === "win32" && ino === 0n) complete = false;
-		else {
-			if (knownIno !== void 0 && knownIno !== ino) throw mismatch();
-			knownIno = ino;
-		}
-		if (complete) return stat;
-	}
-	throw mismatch();
-}
-var init_strict_file_identity = __esmMin((() => {
-	init_errors();
-	init_file_observation();
-}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/read-open-flags.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/read-open-flags.js
 function resolveReadOpenFlags(options) {
-	const constants = options?.constants ?? fsSync.constants;
+	const constants = options?.constants ?? fs$1.constants;
 	const noFollow = process.platform !== "win32" && options?.followSymlinks !== true && typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0;
 	const nonBlocking = process.platform !== "win32" && typeof constants.O_NONBLOCK === "number" ? constants.O_NONBLOCK : 0;
 	return constants.O_RDONLY | noFollow | nonBlocking;
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/bounded-read.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/exact-identity.js
+init_errors();
+/** Copy scalars from one observation; never try to recover rounded identity bits. */
+function exactFileIdentity(stat) {
+	const { dev, ino } = stat;
+	if (typeof dev !== "bigint" && !Number.isSafeInteger(dev) || typeof ino !== "bigint" && !Number.isSafeInteger(ino)) throw new FsSafeError("path-mismatch", "file identity is not exact");
+	return Object.freeze({
+		dev: BigInt(dev),
+		ino: BigInt(ino)
+	});
+}
+/** Node stores unsigned libuv fields in a signed BigInt64Array. */
+function numberStatScalar(value) {
+	return typeof value === "bigint" ? Number(BigInt.asUintN(64, value)) : Number(value);
+}
+/** Legacy metadata view of the very same bigint observation. */
+function numberStats(stat) {
+	const result = Object.create(fs$1.Stats.prototype);
+	for (const field of [
+		"dev",
+		"mode",
+		"nlink",
+		"uid",
+		"gid",
+		"rdev",
+		"blksize",
+		"ino",
+		"size",
+		"blocks"
+	]) result[field] = numberStatScalar(stat[field]);
+	for (const field of [
+		"atime",
+		"mtime",
+		"ctime",
+		"birthtime"
+	]) {
+		const ns = stat[`${field}Ns`];
+		const remainder = (ns % 1000000000n + 1000000000n) % 1000000000n;
+		result[`${field}Ms`] = Number((ns - remainder) / 1000000000n) * 1e3 + Number(remainder) / 1e6;
+	}
+	return result;
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/bounded-read.js
 init_errors();
 const READ_CHUNK_BYTES = 65536;
 const MAX_INITIAL_READ_BYTES = 16777216;
@@ -8365,22 +8578,28 @@ async function readBoundedAsync(maxBytes, readChunk, options = {}) {
 * force an unbounded allocation.
 */
 async function readFileHandleBounded(handle, maxBytes) {
+	return await readFileHandleBoundedWithSize(handle, maxBytes);
+}
+function readFileHandleBoundedWithSize(handle, maxBytes, initialSize) {
 	normalizeMaxBytes(maxBytes);
 	const fd = "fd" in handle && typeof handle.fd === "number" ? handle.fd : void 0;
-	return await readBoundedAsync(maxBytes, async (scratch, length) => {
+	return readBoundedAsync(maxBytes, async (scratch, length) => {
 		return (await handle.read(scratch, 0, length, null)).bytesRead;
-	}, { observeRegularFileSize: fd === void 0 ? void 0 : () => regularFileSize(fd) });
+	}, {
+		initialSize,
+		observeRegularFileSize: fd === void 0 ? void 0 : () => regularFileSize(fd)
+	});
 }
 function regularFileSize(fd) {
 	try {
-		const stat = fsSync.fstatSync(fd);
+		const stat = fs$1.fstatSync(fd);
 		return stat.isFile() && Number.isSafeInteger(stat.size) && stat.size >= 0 ? stat.size : void 0;
 	} catch {
 		return;
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/timing.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/timing.js
 const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 function scheduleTimeout(callback, ms) {
 	let timer;
@@ -8396,7 +8615,7 @@ function scheduleTimeout(callback, ms) {
 	return () => clearTimeout(timer);
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/effective-uid.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/effective-uid.js
 function unavailable(cause) {
 	return new Error("Effective user identity is unavailable.", { ...cause === void 0 ? {} : { cause } });
 }
@@ -8413,10 +8632,11 @@ function resolveEffectiveUid() {
 	return uid;
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/secure-file-windows.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/secure-file-windows.js
 init_strict_file_identity();
 init_native();
 init_native_config();
+init_windows_appcontainer();
 const IDENTITY_RE = /^([0-9a-f]{8}):([0-9a-f]{16})$/;
 const TRUSTED_OWNER_CLASSES = /* @__PURE__ */ new Set([
 	"current-user",
@@ -8467,7 +8687,10 @@ async function inspectSecureWindowsFile(params) {
 	const inspect = native?.inspectWindowsSecureFileHandle;
 	const nativeAvailable = typeof inspect === "function";
 	if (!nativeAvailable && getFsSafeNativeConfig().mode === "require") unverified("Windows descriptor ACL verification requires an up-to-date native helper");
-	if (!nativeAvailable) warnNativeFallback("windows-secure-file", "Windows descriptor ACL inspection uses a slower built-in system command.");
+	if (!nativeAvailable) {
+		assertWindowsHelperAllowed();
+		warnNativeFallback("windows-secure-file", "Windows descriptor ACL inspection launches the packaged .NET helper for each check.", "inspectWindowsSecureFileHandle");
+	}
 	let result;
 	try {
 		if (nativeAvailable) result = inspect.call(native, params.fd);
@@ -8478,7 +8701,7 @@ async function inspectSecureWindowsFile(params) {
 	return inspectDescriptorResult(params, result, nativeAvailable ? "native" : "system-command");
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/secure-file.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/secure-file.js
 init_device_path();
 init_errors();
 init_local_file_access();
@@ -8552,7 +8775,7 @@ async function openSecureHandle(options, maxBytes) {
 	if (!isAbsolutePathname(options.filePath)) throw new FsSafeError("invalid-path", `${label(options)} must be an absolute path.`);
 	let preStat;
 	try {
-		preStat = fsSync.lstatSync(options.filePath);
+		preStat = fs$1.lstatSync(options.filePath);
 	} catch (err) {
 		throw new FsSafeError("not-found", `${label(options)} is not readable: ${options.filePath}`, { cause: err });
 	}
@@ -8567,12 +8790,16 @@ async function openSecureHandle(options, maxBytes) {
 		throw err;
 	}
 	try {
-		const openedStat = fsSync.fstatSync(handle.fd);
+		const openedIdentity = inspectFileIdentitySync(() => {
+			const observed = fs$1.fstatSync(handle.fd, { bigint: true });
+			if (!observed.isFile()) throw new FsSafeError("not-file", `${label(options)} must be a file: ${options.filePath}`);
+			return observed;
+		});
+		const openedStat = numberStats(openedIdentity);
 		if (!openedStat.isFile()) throw new FsSafeError("not-file", `${label(options)} must be a file: ${options.filePath}`);
-		const openedIdentity = inspectFileIdentitySync(() => fsSync.fstatSync(handle.fd, { bigint: true }));
 		assertNotHardlinked(options, openedIdentity);
 		inspectFileIdentitySync(() => {
-			const pathStat = options.trust?.allowSymlink ? fsSync.statSync(options.filePath, { bigint: true }) : fsSync.lstatSync(options.filePath, { bigint: true });
+			const pathStat = options.trust?.allowSymlink ? fs$1.statSync(options.filePath, { bigint: true }) : fs$1.lstatSync(options.filePath, { bigint: true });
 			if (!options.trust?.allowSymlink && pathStat.isSymbolicLink()) throw new FsSafeError("symlink", `${label(options)} must not be a symlink: ${options.filePath}`);
 			assertNotHardlinked(options, pathStat);
 			return pathStat;
@@ -8580,7 +8807,7 @@ async function openSecureHandle(options, maxBytes) {
 		const realPath = realpathSync.native(options.filePath);
 		assertNoWindowsPathAlias(realPath, "filesystem", `${label(options)} resolved path uses a Windows filesystem namespace alias`);
 		inspectFileIdentitySync(() => {
-			const realPathStat = fsSync.statSync(realPath, { bigint: true });
+			const realPathStat = fs$1.statSync(realPath, { bigint: true });
 			assertNotHardlinked(options, realPathStat);
 			return realPathStat;
 		}, openedIdentity);
@@ -8660,7 +8887,7 @@ async function assertSecurePermissions(options, opened, fd) {
 	return permissions;
 }
 async function readHandleWithTimeout(handle, timeoutMs, maxBytes) {
-	const read = () => maxBytes === void 0 ? handle.readFile() : readFileHandleBounded(handle, maxBytes);
+	const read = () => readFileHandleBounded(handle, maxBytes ?? Infinity);
 	if (timeoutMs === void 0 || !Number.isFinite(timeoutMs) || timeoutMs <= 0) return await read();
 	let cancelTimeout;
 	try {
@@ -8684,13 +8911,14 @@ async function readSecureFile(options) {
 		assertTrustedDirs(options, opened.realPath);
 		const permissions = await assertSecurePermissions(options, opened, opened.handle.fd);
 		const buffer = await readHandleWithTimeout(opened.handle, options.io?.timeoutMs, maxBytes);
-		const finalIdentity = inspectFileIdentitySync(() => fsSync.fstatSync(opened.handle.fd, { bigint: true }), opened.identity);
+		const finalIdentity = inspectFileIdentitySync(() => fs$1.fstatSync(opened.handle.fd, { bigint: true }), opened.identity);
 		if (!finalIdentity.isFile()) throw new FsSafeError("not-file", `${label(options)} must remain a file: ${options.filePath}`);
 		assertNotHardlinked(options, finalIdentity);
 		return {
 			buffer,
 			realPath: opened.realPath,
 			stat: opened.pathStat,
+			exactIdentity: exactFileIdentity(opened.identity),
 			permissions
 		};
 	} finally {

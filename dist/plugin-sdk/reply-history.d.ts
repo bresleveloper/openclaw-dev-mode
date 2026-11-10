@@ -1,4 +1,4 @@
-import { n as HistoryMediaEntry, t as HistoryEntry } from "../history.types-gAzBXfec.js";
+import { n as HistoryMediaEntry, t as HistoryEntry } from "../history.types-AP0C5aEq.js";
 //#region src/auto-reply/reply/history-limit.d.ts
 export declare const DEFAULT_GROUP_HISTORY_LIMIT = 50;
 //#endregion
@@ -9,7 +9,6 @@ export declare const HISTORY_CONTEXT_MARKER = "[Chat messages since your last re
  * Uses Map's insertion order for LRU-like behavior.
  */
 export declare function evictOldHistoryKeys<T>(historyMap: Map<string, T[]>, maxKeys?: number): void;
-/** Wraps previous chat history and the current message in the prompt context marker format. */
 export declare function buildHistoryContext(params: {
   historyText: string;
   currentMessage: string;
@@ -73,7 +72,6 @@ declare function buildChannelInboundHistory<T extends HistoryEntry>(params: {
  * `createChannelHistoryWindow(...).buildInboundHistory(...)`.
  */
 export declare const buildInboundHistoryFromMap: typeof buildChannelInboundHistory;
-/** Builds structured inbound history entries from an existing window. */
 export declare function buildInboundHistoryFromEntries(params: {
   entries: readonly HistoryEntry[];
   limit: number;
@@ -103,7 +101,6 @@ declare function clearChannelHistoryIfEnabled(params: {
  * This helper remains for core internals and older plugin compatibility.
  */
 export declare const clearHistoryEntriesIfEnabled: typeof clearChannelHistoryIfEnabled;
-/** Builds prompt text from already-recorded history entries. */
 export declare function buildHistoryContextFromEntries(params: {
   entries: HistoryEntry[];
   currentMessage: string;
@@ -114,7 +111,6 @@ export declare function buildHistoryContextFromEntries(params: {
 }): string;
 //#endregion
 //#region src/channels/turn/history-window.d.ts
-/** Windowed channel history facade used by turn adapters to record and render recent context. */
 type ChannelHistoryWindow<T extends HistoryEntry = HistoryEntry> = {
   record: (params: {
     historyKey: string;
@@ -138,7 +134,6 @@ type ChannelHistoryWindow<T extends HistoryEntry = HistoryEntry> = {
     limit: number;
   }) => void;
 };
-/** Creates a bounded channel history window over a caller-owned history map. */
 export declare function createChannelHistoryWindow<T extends HistoryEntry = HistoryEntry>(params: {
   historyMap: Map<string, T[]>;
 }): ChannelHistoryWindow<T>;

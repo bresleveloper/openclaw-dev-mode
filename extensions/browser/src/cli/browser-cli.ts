@@ -48,7 +48,7 @@ function browserCommandGroups(
         command("create-profile", "Create a new browser profile"),
         command("delete-profile", "Delete a browser profile"),
         command("doctor", "Check browser plugin readiness", [
-          { flags: "--deep", description: "Run a live snapshot probe" },
+          { flags: "--deep", description: "Run a live snapshot check" },
         ]),
       ],
       register: async () => {
@@ -167,10 +167,12 @@ export function registerBrowserCli(
         )}\n`,
     )
     .action(() => {
+      const message = `Missing subcommand. Try: "${formatCliCommand("openclaw browser status")}"`;
+      if (browser.opts<BrowserParentOpts>().json) {
+        throw new Error(message);
+      }
       browser.outputHelp();
-      defaultRuntime.error(
-        danger(`Missing subcommand. Try: "${formatCliCommand("openclaw browser status")}"`),
-      );
+      defaultRuntime.error(danger(message));
       defaultRuntime.exit(1);
     });
 

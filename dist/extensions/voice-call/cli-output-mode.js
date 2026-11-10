@@ -9,6 +9,7 @@ const MACHINE_OUTPUT_COMMANDS = /* @__PURE__ */ new Set([
 	"latency",
 	"speak",
 	"start",
+	"steer",
 	"status",
 	"tail"
 ]);

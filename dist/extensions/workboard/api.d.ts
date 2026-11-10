@@ -1,2 +1,2 @@
-import { F as definePluginEntry, n as OpenClawPluginApi, r as OpenClawPluginService } from "../../cli-backend.types-BeWYryLP.js";
-export { type OpenClawPluginApi, type OpenClawPluginService, definePluginEntry };
+import { Ga as workboardDatabasePortApi, It as OpenClawPluginApi, Tg as OpenClawPluginService, oC as definePluginEntry } from "../../config-contracts-CY87ANNp.js";
+export { type OpenClawPluginApi, type OpenClawPluginService, definePluginEntry, workboardDatabasePortApi };

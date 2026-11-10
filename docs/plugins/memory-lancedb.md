@@ -221,6 +221,13 @@ Auto-recall embeds the current turn's prompt after removing media attachment
 notes and normalizing whitespace. The same limit bounds each recalled item
 after prompt escaping before that text reaches the model.
 
+Automatic recall and `memory_recall` each have a 15-second budget shared by
+embedding-provider initialization, the embedding request, and database search.
+On the provider-adapter path, cold initialization does not give the embedding
+request a fresh budget: if initialization finishes after the deadline, that
+expired query is not sent. Shared provider initialization may still finish for
+later operations.
+
 `captureMaxChars` gates whether a user message from the turn's `agent_end`
 event is short enough to be considered for auto-capture. `memory_store` rejects
 longer text before embedding or storage; the setting does not affect recall
@@ -301,7 +308,17 @@ Agents get three tools from the active memory plugin:
 
 ## Storage
 
-LanceDB data defaults to `~/.openclaw/memory/lancedb`. Override with `dbPath`:
+LanceDB data defaults to `memory/lancedb` under the active OpenClaw state
+directory: `~/.openclaw/memory/lancedb` for the default profile.
+`OPENCLAW_STATE_DIR` or `--profile <name>` (`~/.openclaw-<name>`) move it with
+the state directory. See [Paths and instances](/help/environment#paths-and-instances).
+
+Earlier releases ignored the state directory, so named profiles and custom
+state directories shared `~/.openclaw/memory/lancedb`. Those setups now start
+with their own store. Set `dbPath: "~/.openclaw/memory/lancedb"` to keep using
+the old shared store.
+
+Override the path with `dbPath`:
 
 ```json5
 {
@@ -310,7 +327,7 @@ LanceDB data defaults to `~/.openclaw/memory/lancedb`. Override with `dbPath`:
       "memory-lancedb": {
         enabled: true,
         config: {
-          dbPath: "~/.openclaw/memory/lancedb",
+          dbPath: "/srv/openclaw/memory/lancedb",
           embedding: {
             apiKey: "${OPENAI_API_KEY}",
             model: "text-embedding-3-small",
@@ -332,7 +349,7 @@ agent.
 
 Databases created before per-agent ownership have no reliable row provenance.
 On upgrade, `openclaw doctor --fix` assigns those legacy rows once to the
-configured default agent. Runtime access fails closed until that migration has
+configured default agent. Runtime access is blocked until that migration has
 completed; other agents never inherit the old shared rows.
 
 `storageOptions` accepts string key/value pairs for LanceDB storage backends
@@ -376,6 +393,12 @@ time; use the default memory backend, run the Gateway on a supported
 platform/architecture, or disable `memory-lancedb`.
 
 ## Troubleshooting
+
+### Embedding provider cleanup failed
+
+The plugin waits for admitted embedding requests before closing each retired
+provider. If native cleanup fails, it reports the error instead of retrying it
+across plugin instances. Restart the Gateway to reclaim remaining native resources.
 
 ### Input length exceeds the context length
 

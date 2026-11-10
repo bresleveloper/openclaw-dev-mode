@@ -24,8 +24,8 @@ memory adapter contracts that sit on top of them. Part of the
 To participate in durable admitted turns, context engines must declare
 `currentTurnFence: "before-current-turn-entry-v1"` and
 `turnAdvancementIdempotency: "atomic-idempotent-v1"` under
-`info.transcriptSemantics`, then implement `commitTurn(...)` as an atomic,
-idempotent write keyed by `advancementKey`. OpenClaw supplies only the inclusive
+`info.transcriptSemantics`, then implement `commitTurn(...)` as an atomic
+write keyed by `advancementKey` that has no additional effect when repeated. OpenClaw supplies only the inclusive
 accepted turn, from its admitted user entry through its terminal entry; use the
 `readSessionTranscriptVisibleMessageDelta(...)` cursor API to bootstrap or
 rebuild earlier history. Without the full contract, OpenClaw uses the legacy
@@ -52,12 +52,18 @@ engine unchanged, and tries that engine again on the next logical turn.
   return that agent's own session hits and no other agent's. When a session
   caller carries a host-granted conversation recall pass, the host forwards it
   as `conversationRecall`; admit only the hits that pass allows. If the hook
-  is absent, OpenClaw fails closed by withholding session-source hits while
+  is absent, OpenClaw withholds session-source hits while
   retaining ordinary memory hits. Keep transcript identity and visibility
   policy in the owning memory plugin; callers must not infer authorization from
   paths or duplicate plugin-specific rules.
 - Embedding providers use `api.registerEmbeddingProvider(...)` and
   `contracts.embeddingProviders`; there is no separate memory-only registry.
+
+Memory Core implements `runtime.searchForCli(...)` for Gateway-routed CLI
+searches. The host passes the acquired manager, requested agent, query, and
+current mutation guard to that same runtime instance. This keeps recall
+recording in the instance's configured state store so later dreaming sweeps
+can promote it. Other memory plugins continue to expose their own search tools.
 
 ## Pre-compaction memory flush
 
@@ -122,7 +128,7 @@ maintenance copy still has `senderIsOwner: false`; providers authorize memory
 access through the supplied audience and its current-authority check.
 
 Only tools-arm flush contexts include `memoryFlush: { flushId: string }` on
-`OpenClawPluginToolContext`. The host derives `flushId` deterministically from
+`OpenClawPluginToolContext`. The host computes `flushId` from
 the source session incarnation (its `sessionId` and lifecycle revision) and its
 pre-compaction `compactionCount` (zero when absent). The count advances after a
 completed compaction, so model fallback attempts and later retries within the
@@ -260,8 +266,21 @@ type MemoryAudience =
   `conversation` audience for the durable root session.
 - A spawned child inherits its root audience only after the host validates each
   recorded parent key, session ID, and lifecycle revision.
-- Missing, malformed, cross-agent, cyclic, or stale lineage produces no
-  audience. Unknown or missing durable chat type also produces no audience.
+- A child spawned into another agent receives `owner-private` audience for its
+  own agent only when the spawn that crossed agents was owner-attributed and the
+  root is the owner's direct chat. Conversation audience never crosses agents;
+  that lineage produces no audience.
+- Operator-created root sessions record a `direct` chat type at creation, so
+  sessions started later by `sessions_send`, cron, or the `agent` method resolve
+  an audience. The turn's owner status still selects `owner-private` or
+  `conversation`. `openclaw doctor --fix` records the same `direct` type on
+  dashboard chats created before that stamp existed: operator-created rows with
+  a generated `dashboard:` key, grouped under their agent's main session, and
+  with no spawn, fork, plugin owner, incognito boundary, or external delivery
+  route. Group and channel sessions never match.
+- Missing, malformed, cyclic, or stale lineage produces no audience. Unknown or
+  missing durable chat type also produces no audience. The Gateway logs every
+  denial as `memory_audience_denied` with the session key and reason.
 
 Audience is separate from sandbox policy. A provider can deny sandboxed callers
 even when they have a valid audience. Operator authority is also separate and
@@ -280,9 +299,12 @@ changes incarnation or lifecycle, or when the run that owns it ends. The host
 checks audience currency before and after opening a provider and around every
 provider call. The `context.assertCurrent()` passed to `open()` includes audience
 currency, so a provider that calls it immediately before I/O, including after its
-own awaited work, is refused instead of acting under stale authority. Audience
-revocation does not abort `context.signal`; call `assertCurrent()` before each
-effect.
+own awaited work, is refused instead of acting under stale authority. Session
+writes that keep the session ID and lifecycle revision, such as a turn's own
+activity and usage bookkeeping, do not interrupt these checks while they publish;
+a pending reset, replacement, or deletion still reports currency as unavailable
+until it settles, then revokes the audience. Audience revocation does not abort
+`context.signal`; call `assertCurrent()` before each effect.
 
 ### Compatibility and host integration
 

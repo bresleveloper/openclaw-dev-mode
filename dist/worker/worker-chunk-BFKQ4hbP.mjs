@@ -1,0 +1,3 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{r as t,t as n}from"./worker-chunk-Cuq_sAeV.mjs";function sanitizeDoctorNote(e){return e.split(`
+`).map(t).join(`
+`)}function emitDoctorNotes(e){for(let[t,n]of[[`Doctor changes`,e.changeNotes],[`Doctor info`,e.infoNotes],[`Doctor warnings`,e.warningNotes]])for(let r of n??[])e.note(sanitizeDoctorNote(r),t)}var r=e((()=>{n()}));export{r as n,sanitizeDoctorNote as r,emitDoctorNotes as t};

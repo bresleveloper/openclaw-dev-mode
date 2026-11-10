@@ -1,1 +1,0 @@
-import{i as e,r as t}from"./worker-chunk-Cw8pvAth.mjs";t();export{e as withPluginHttpRouteRegistry};

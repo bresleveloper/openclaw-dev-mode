@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function buildStatusScanResult(e){let{gatewaySnapshot:t,advertisedControlUiLinks:n,...r}=e,{gatewayCallOverrides:i,...a}=t;return{...r,...n?{advertisedControlUiLinks:n}:{},...a,gatewayProbeAuthWarning:t.gatewayProbeAuthWarning,localGatewayHealthy:t.localGatewayHealthy}}var t=e((()=>{}));export{t as n,buildStatusScanResult as t};

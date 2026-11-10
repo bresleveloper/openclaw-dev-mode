@@ -20,10 +20,7 @@ export type ChatSendRetryComparison = {
 };
 
 /** Submitted bytes compare input; the caller's current owner still decides replay. */
-export function readChatSendRetryComparison(
-  session: ComparisonSession,
-  assertCurrent?: () => void,
-) {
+export function readChatSendRetryComparison(session: ComparisonSession) {
   if (!session.entry?.sessionId) {
     return undefined;
   }
@@ -33,13 +30,15 @@ export function readChatSendRetryComparison(
     { agentId, storePath, sessionKey, sessionId },
     `${clientRunId}:user`,
   ).then((submitted): ChatSendRetryComparison => {
-    assertCurrent?.();
     return { agentId, storePath, sessionKey, sessionId, lifecycleRevision, clientRunId, submitted };
   });
 }
 
 export function compareChatSendSubmittedInput(
-  request: Pick<NormalizedChatSendRequest, "rawMessage" | "mentions" | "workContext">,
+  request: Pick<
+    NormalizedChatSendRequest,
+    "requestIdentity" | "rawMessage" | "mentions" | "workContext"
+  >,
   session: ComparisonSession,
   comparison?: ChatSendRetryComparison,
 ) {
@@ -62,6 +61,11 @@ export function compareChatSendSubmittedInput(
   if (!submitted) {
     return request.mentions?.length || request.workContext ? "unverifiable" : false;
   }
+  const storedIdentity = submitted["__openclaw"]?.chatRequestIdentity;
+  if (typeof storedIdentity === "string") {
+    return storedIdentity !== request.requestIdentity;
+  }
+  // Pre-fingerprint transcripts retain their existing annotation comparison contract.
   const storedMentions = submitted["__openclaw"]?.humanMentions;
   const storedContext = submitted["__openclaw"]?.workContext;
   if (

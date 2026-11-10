@@ -1,28 +1,5 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import "../types-C-BtfS0H.js";
-import { t as PluginOrigin } from "../plugin-origin.types-DOQEvsWL.js";
-import { i as NormalizedPluginsConfig$1, r as PluginActivationStateLike, t as PluginActivationConfigSourceLike } from "../config-activation-shared-Dd5FrI8x.js";
-//#region src/plugins/config-state.d.ts
-type PluginActivationState = PluginActivationStateLike;
-type PluginActivationConfigSource = PluginActivationConfigSourceLike;
-type NormalizedPluginsConfig = NormalizedPluginsConfig$1;
-/** Builds caller-owned policy without exposing the host's prepared objects. */
-declare const createNormalizedPluginsConfig: (config?: OpenClawConfig["plugins"]) => NormalizedPluginsConfig;
-declare function resolveEffectivePluginActivationState(params: {
-  id: string;
-  origin: PluginOrigin;
-  config: NormalizedPluginsConfig;
-  rootConfig?: OpenClawConfig;
-  enabledByDefault?: boolean;
-  activationSource?: PluginActivationConfigSource;
-  autoEnabledReason?: string;
-  channelIds?: readonly string[];
-}): PluginActivationState;
-export declare const resolveEffectiveEnableState: (params: Omit<Parameters<typeof resolveEffectivePluginActivationState>[0], "autoEnabledReason">) => {
-  enabled: boolean;
-  reason?: string;
-};
-//#endregion
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { n as resolveEffectiveEnableState, t as createNormalizedPluginsConfig } from "../config-state-DeFJNtp3.js";
 //#region src/infra/deep-merge.d.ts
 type DeepMergeOptions = {
   arrays?: "replace" | "concat";
@@ -39,4 +16,4 @@ export declare function resolvePluginConfigObject(config: OpenClawConfig | undef
 /** Resolves live plugin config through a loader, falling back to startup config when unavailable. */
 export declare function resolveLivePluginConfigObject(runtimeConfigLoader: (() => OpenClawConfig | undefined) | undefined, pluginId: string, startupPluginConfig?: Record<string, unknown>): Record<string, unknown> | undefined;
 //#endregion
-export { createNormalizedPluginsConfig as normalizePluginsConfig };
+export { createNormalizedPluginsConfig as normalizePluginsConfig, resolveEffectiveEnableState };

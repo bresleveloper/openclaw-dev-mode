@@ -1,4 +1,5 @@
-import { a as openclaw_plugin_default } from "./.setup/provider-catalog-BNTlqvTm.mjs";
+import { runMuseLogin } from "./muse-login.js";
+import { a as openclaw_plugin_default } from "./.setup/provider-catalog-Drud68bm.mjs";
 import { applyMetaConnectionConfig } from "./onboard.js";
 import { wrapMetaProviderStream } from "./stream.js";
 import { resolveMetaThinkingProfile } from "./thinking.js";
@@ -17,6 +18,13 @@ var meta_default = defineSingleProviderPluginEntry({
 			noteMessage: "Meta provides Responses API inference.",
 			noteTitle: "Meta"
 		},
+		extraAuth: [{
+			id: "muse-code",
+			label: "Muse Code",
+			kind: "device_code",
+			starterModel: "meta/muse-spark-1.3",
+			run: runMuseLogin
+		}],
 		catalog: {
 			discoveryMode: "strict",
 			liveModelDiscovery: true

@@ -1,0 +1,13 @@
+import { f as readPersistedMediaFacts, n as applyRunHydrationSuppression, s as isImageMediaFact } from "./media-facts-BIPREXi-.mjs";
+import { n as readPersistedMediaImageLayout } from "./prompt-image-metadata-CXanuHpz.mjs";
+//#region src/media/prompt-image-input.ts
+/** Stored images require vision; facts already replaced by text descriptions do not. */
+function hasPromptImageInput(input) {
+	const message = input?.userTurnTranscriptRecorder?.message;
+	const suppressed = message ? readPersistedMediaImageLayout(message)?.suppressedFactIndexes : void 0;
+	const recorded = message ? readPersistedMediaFacts(message) : void 0;
+	const needsImageBytes = (fact) => isImageMediaFact(fact) && fact.hydrationSuppressed !== true;
+	return Boolean(input?.images?.length || input?.imageOrder?.length || input?.media?.some(needsImageBytes) || recorded && applyRunHydrationSuppression(recorded, input?.media).some((fact, index) => needsImageBytes(fact) && !suppressed?.includes(index)));
+}
+//#endregion
+export { hasPromptImageInput as t };

@@ -4,15 +4,17 @@ import path from "node:path";
 import { collectNestedErrorCandidates } from "@openclaw/normalization-core/error-coercion";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import {
-  UPDATE_DEFER_CONFIGURED_PLUGIN_INSTALL_REPAIR_ENV,
-  UPDATE_PARENT_SUPPORTS_DOCTOR_CONFIG_WRITE_ENV,
+  isUpdateDoctorInspectionReportMode,
   UPDATE_POST_CORE_CONVERGENCE_ENV,
 } from "../../commands/doctor/shared/update-phase.js";
 import { readConfigFileSnapshot } from "../../config/config.js";
 import { resolveConfigPath, resolveStateDir } from "../../config/paths.js";
 import type { ConfigFileSnapshot } from "../../config/types.openclaw.js";
 import { resolveGatewayInstallEntrypoint } from "../../daemon/gateway-entrypoint.js";
-import { readDeferredPluginMigrationsAsync } from "../../infra/deferred-plugin-migrations.js";
+import {
+  formatDeferredPluginMigration,
+  readDeferredPluginMigrationsAsync,
+} from "../../infra/deferred-plugin-migrations.js";
 import { runtimeProcessEntrypoints } from "../../infra/runtime-process-entrypoints.js";
 import { resolveAggregateSqliteInspectionTimeoutMs } from "../../infra/sqlite-readonly-worker.js";
 import { collectStateDatabasePaths } from "../../infra/update-candidate-state.js";
@@ -20,16 +22,20 @@ import { readUpdateStateDatabaseSizes } from "../../infra/update-candidate-state
 import { UPDATE_RUN_ID_ENV } from "../../infra/update-control-plane-sentinel.js";
 import type { UpdateDatabaseBackup } from "../../infra/update-database-backup.js";
 import { hasDeferredUpdateModelRetirement } from "../../infra/update-deferred-model-retirement.js";
+import { createDoctorServiceInspectionBudget } from "../../infra/update-doctor-deadline.js";
 import {
   collectUpdateDoctorFailureFacts,
   consumeUpdatePostInstallDoctorResult,
   createUpdatePostInstallDoctorResultPath,
   DoctorMaintenanceRefusalError,
+  PACKAGE_POST_INSTALL_DOCTOR_ADVISORY,
   UPDATE_POST_INSTALL_DOCTOR_ADVISORY_EXIT_CODE,
   UPDATE_POST_INSTALL_DOCTOR_RESULT_PATH_ENV,
   UpdateDoctorError,
+  UpdateDoctorDeferredInspectionCheckIdsSchema,
   type UpdatePostInstallDoctorResult,
 } from "../../infra/update-doctor-result.js";
+import { createUpdateDoctorSectionTiming } from "../../infra/update-doctor-section-timing.js";
 import {
   createUpdateFailureFact,
   normalizeUpdateFailureFacts,
@@ -79,22 +85,14 @@ import {
 } from "./update-command-service-env.js";
 import { captureUpdateFinalizationDoctorOutput } from "./update-finalization-output.js";
 
-type UpdateDoctorPhase = "pre-plugin" | "post-plugin";
+export { withPrePluginUpdateDoctorEnv } from "./update-command-fresh-doctor-env.js";
 
-export async function withPrePluginUpdateDoctorEnv<T>(run: () => Promise<T>): Promise<T> {
-  return await withUpdateEnv(
-    {
-      OPENCLAW_UPDATE_IN_PROGRESS: "1",
-      [UPDATE_DEFER_CONFIGURED_PLUGIN_INSTALL_REPAIR_ENV]: "1",
-      [UPDATE_PARENT_SUPPORTS_DOCTOR_CONFIG_WRITE_ENV]: "1",
-      [UPDATE_POST_CORE_CONVERGENCE_ENV]: undefined,
-    },
-    run,
-  );
-}
+// Isolated workers serve an older updater whose executor fence is not admitted here.
+const servesOlderUpdater = () =>
+  Reflect.get(globalThis, Symbol.for("openclaw.updateCompat.olderUpdater")) === true;
 
 export async function runUpdateFinalizationDoctorInFreshProcess(params: {
-  phase: UpdateDoctorPhase;
+  phase: "pre-plugin" | "post-plugin";
   root: string;
   runId?: string;
   opts?: UpdateCommandOptions;
@@ -106,6 +104,7 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
   json: boolean;
   workspaceSuggestions?: boolean;
   timeoutMs?: number;
+  serviceInspectionDeadlineAtMs?: number;
   nodeRunner?: string;
   entryPath?: string;
   onWarnings?: (warnings: string[]) => void;
@@ -113,6 +112,11 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
   /** Propagate a refused child authority to the finalization owner without retrying it. */
   onAuthorityRefused?: () => void;
 }): Promise<PluginUpdateWarning | void> {
+  const requestedTimeoutMs = parseUpdateTimeoutMs(params.opts?.timeout) ?? params.timeoutMs;
+  const serviceInspectionDeadlineAtMs =
+    params.serviceInspectionDeadlineAtMs ??
+    (requestedTimeoutMs === undefined ? undefined : Date.now() + requestedTimeoutMs);
+  const remaining = createDoctorServiceInspectionBudget(serviceInspectionDeadlineAtMs);
   const {
     run,
     executorFence,
@@ -145,13 +149,14 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
   let result: { stdout?: unknown; stderr?: unknown } | undefined;
   let warning: PluginUpdateWarning | undefined;
   let failure: { error: unknown } | undefined;
+  const sectionTiming = createUpdateDoctorSectionTiming();
+  let doctorStep: UpdateStepResult | undefined;
+  let doctorStartedAt: number | undefined;
   assertCurrent();
   try {
     const commandOptions: CommandOptions = {
       cwd: params.root,
-      // Normal updates also carry a default step allowance. Only operator opts
-      // may impose a Doctor deadline; standalone finalization supplies its own.
-      timeoutMs: params.opts ? parseUpdateTimeoutMs(params.opts.timeout) : params.timeoutMs,
+      timeoutMs: remaining(),
       maxOutputBytes: 4 * 1024 * 1024,
       terminateOnOutputLimit: true,
       onOutputChunk: captureUpdateFinalizationDoctorOutput(params.phase),
@@ -185,17 +190,35 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
           workerCommand,
           {
             cwd: params.root,
-            timeoutMs: params.timeoutMs,
+            timeoutMs: remaining(),
             baseEnv,
             env: commandOptions.env,
           },
           assertCurrent,
         )));
     assertCurrent();
-    if (doctorConfigWrites && executorFence && runId) {
+    // The capability check above stays untraced; only the Doctor reports its sections.
+    const doctorOptions: CommandOptions = {
+      ...commandOptions,
+      env: { ...commandOptions.env, ...sectionTiming.env },
+    };
+    const doctorArgv =
+      doctorConfigWrites && executorFence && runId && !servesOlderUpdater()
+        ? [...workerCommand, "--doctor"]
+        : [params.nodeRunner ?? resolveNodeRunner(), ...args];
+    doctorStartedAt = Date.now();
+    doctorStep = {
+      name: `${params.phase} doctor`,
+      command: doctorArgv.join(" "),
+      cwd: params.root,
+      durationMs: 0,
+      exitCode: null,
+    };
+    let child: Awaited<ReturnType<typeof runUpdateDoctorProcess>>;
+    if (doctorConfigWrites && executorFence && runId && !servesOlderUpdater()) {
       const snapshot = await readUpdateConfigSnapshot(resolveConfigPath());
       assertCurrent();
-      const child = await withUpdateDoctorChild(
+      child = await withUpdateDoctorChild(
         {
           root: params.root,
           context: {
@@ -213,6 +236,10 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
             repair: true,
             databaseGenerations:
               params.databaseBackup?.migration?.to ?? params.databaseBackup?.sourceGenerations,
+            get serviceInspectionDeadlineAtMs() {
+              const budget = remaining();
+              return budget === undefined ? undefined : Date.now() + budget;
+            },
             yes: params.yes,
             workspaceSuggestions: params.workspaceSuggestions === true,
             ...(params.phase === "post-plugin" && process.env[POST_CORE_UPDATE_ENV] === "1"
@@ -220,31 +247,39 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
               : {}),
           },
         },
-        (runCommand) => runCommand([...workerCommand, "--doctor"], commandOptions),
+        (runCommand) =>
+          sectionTiming.wrap(runCommand)(doctorArgv, { ...doctorOptions, timeoutMs: remaining() }),
       );
-      result = child;
-      assertUpdateDoctorChildSucceeded(child);
-      assertCurrent();
     } else {
       // A valid legacy target contract retains its shipped CLI Doctor. This is
       // capability selection, never recovery from missing or refused authority.
-      const child = await runUpdateDoctorProcess(
-        {
-          root: params.root,
-          runId: runId ?? params.runId ?? "",
-          onProcessSettlement: (step) => {
-            processSettlement = step;
+      child = await sectionTiming.wrap((argv, options) =>
+        runUpdateDoctorProcess(
+          {
+            root: params.root,
+            runId: runId ?? params.runId ?? "",
+            onProcessSettlement: (step) => {
+              processSettlement = step;
+            },
           },
-        },
-        [params.nodeRunner ?? resolveNodeRunner(), ...args],
-        commandOptions,
-      );
-      result = child;
-      assertUpdateDoctorChildSucceeded(child);
-      assertCurrent();
+          argv,
+          options,
+        ),
+      )(doctorArgv, { ...doctorOptions, timeoutMs: remaining() });
     }
+    result = child;
+    doctorStep.exitCode = child.code;
+    assertUpdateDoctorChildSucceeded(child);
+    assertCurrent();
   } catch (error) {
     failure = { error };
+    if (doctorStep && isRecord(error) && typeof error.exitCode === "number") {
+      doctorStep.exitCode = error.exitCode;
+    }
+  } finally {
+    if (doctorStep && doctorStartedAt !== undefined) {
+      doctorStep.durationMs = Date.now() - doctorStartedAt;
+    }
   }
   const commandFailure = failure;
   if (failure) {
@@ -276,7 +311,12 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
         refuseAuthority(error);
       }
       if (isRecord(error)) {
-        result = error;
+        result = {
+          ...error,
+          ...(typeof error.stderr === "string"
+            ? { stderr: sectionTiming.stripTrace(error.stderr) }
+            : {}),
+        };
       }
       // The existing result channel identifies a settled deferred repair. Plugin
       // convergence still owns that repair; other exits retain their failure.
@@ -289,6 +329,9 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
           cause: error.cause,
         }) &&
         doctorResult?.status === "advisory";
+      if (deferred && doctorStep) {
+        doctorStep.advisory = PACKAGE_POST_INSTALL_DOCTOR_ADVISORY;
+      }
       if (!deferred) {
         const exitCode =
           isRecord(error) && typeof error.exitCode === "number" ? error.exitCode : null;
@@ -359,6 +402,9 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
             message: `Post-update plugin Doctor did not complete${exitCode == null ? "" : ` (exit ${exitCode})`}: ${message}`,
             guidance: ["Run `openclaw update repair` to retry post-update plugin repair."],
           };
+          if (doctorStep) {
+            doctorStep.advisory = { kind: "recoverable-maintenance", message: warning.message };
+          }
         } else {
           throw new UpdateDoctorError(message, failureFacts, { cause: error, exitCode });
         }
@@ -389,16 +435,19 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
     if (processSettlement) {
       params.onDoctorStep?.(processSettlement);
     }
+    // Missing reports must replace earlier selector facts, including from older Doctors.
+    if (doctorStep) {
+      sectionTiming.annotate(doctorStep);
+      doctorStep.deferredInspectionCheckIds = doctorResult?.deferredInspectionCheckIds ?? null;
+      params.onDoctorStep?.(doctorStep);
+    }
     if (params.databaseBackup) {
-      const step: UpdateStepResult = {
-        name: "database migration writes",
-        command: "record Doctor database write fingerprints",
-        cwd: params.root,
-        durationMs: 0,
-        exitCode: 0,
-      };
-      recordUpdateDatabaseWrites(params.databaseBackup, doctorResult?.databaseWrites, step);
-      params.onDoctorStep?.(step);
+      const receipt = recordUpdateDatabaseWrites(
+        params.databaseBackup,
+        doctorResult?.databaseWrites,
+        { name: `${params.phase} doctor` },
+      );
+      params.onDoctorStep?.(receipt);
     }
     if (doctorResult?.warnings?.length) {
       params.onWarnings?.(doctorResult.warnings);
@@ -423,9 +472,7 @@ export async function runUpdateFinalizationDoctorInFreshProcess(params: {
   if (failure) {
     throw failure.error;
   }
-  if (warning) {
-    return warning;
-  }
+  return warning;
 }
 
 async function validatePostPluginConfigInFreshProcess(params: {
@@ -509,7 +556,6 @@ export async function completePostCorePluginUpdate(
     "phase" | "workspaceSuggestions" | "entryPath" | "onAuthorityRefused"
   > & {
     pluginUpdate: PostCorePluginUpdateResult;
-    freshDoctorRequired: boolean;
     beforeDoctor?: () => Promise<void>;
   },
 ): Promise<{
@@ -530,6 +576,7 @@ export async function completePostCorePluginUpdate(
   let pluginUpdate = params.pluginUpdate;
   let entryPath: string | undefined;
   let freshConfigValidation: PostPluginConfigValidation | undefined;
+  let includeOptionalInspections = false;
   if (pluginUpdate.status !== "error") {
     try {
       entryPath = await resolveGatewayInstallEntrypoint(params.root);
@@ -538,14 +585,24 @@ export async function completePostCorePluginUpdate(
         throw new Error("Updated OpenClaw entrypoint not found for post-plugin doctor");
       }
       const freshDoctorRequired =
-        params.freshDoctorRequired ||
-        hasDeferredUpdateModelRetirement() ||
+        pluginUpdate.changed ||
+        hasDeferredUpdateModelRetirement(
+          params.opts?.run?.env,
+          params.opts?.run?.runId ?? params.runId,
+        ) ||
         (await readDeferredPluginMigrationsAsync()).length > 0;
       assertCurrent();
       if (freshDoctorRequired) {
         await params.beforeDoctor?.();
+        let inspectionCheckIds: string[] | null | undefined;
         const warning = await runUpdateFinalizationDoctorInFreshProcess({
           ...params,
+          onDoctorStep: (step) => {
+            if (step.deferredInspectionCheckIds !== undefined) {
+              inspectionCheckIds = step.deferredInspectionCheckIds;
+            }
+            params.onDoctorStep?.(step);
+          },
           assertCurrent,
           onAuthorityRefused: () => {
             authorityFailed = true;
@@ -553,12 +610,36 @@ export async function completePostCorePluginUpdate(
           entryPath,
           phase: "post-plugin",
         });
+        // A child without usable selectors cannot leave diagnostics for after ready.
+        includeOptionalInspections =
+          isUpdateDoctorInspectionReportMode(process.env) &&
+          !UpdateDoctorDeferredInspectionCheckIdsSchema.safeParse(inspectionCheckIds).success;
         if (warning) {
           pluginUpdate = {
             ...pluginUpdate,
             status: "warning",
             reason: POST_PLUGIN_DOCTOR_EXECUTION_FAILED_REASON,
             warnings: [...(pluginUpdate.warnings ?? []), warning],
+          };
+        }
+        const pending = await readDeferredPluginMigrationsAsync();
+        assertCurrent();
+        if (pending.length > 0) {
+          pluginUpdate = {
+            ...pluginUpdate,
+            status: "warning",
+            warnings: [
+              ...(pluginUpdate.warnings ?? []),
+              ...pending.map((migration) => ({
+                pluginId: migration.pluginId,
+                reason: "doctor-advisory",
+                // This is the final outcome, so do not tell operators to wait for this update.
+                message: formatDeferredPluginMigration(migration, {}),
+                guidance: [
+                  `Run "${migration.command}" to finish the plugin data/settings upgrade.`,
+                ],
+              })),
+            ],
           };
         }
       }
@@ -637,6 +718,7 @@ export async function completePostCorePluginUpdate(
         entryPath,
         pluginUpdate,
         timeoutMs: checkTimeoutMs,
+        includeOptionalInspections,
         ...(params.nodeRunner ? { nodeRunner: params.nodeRunner } : {}),
       });
     }

@@ -39,7 +39,7 @@ async function listSources(params) {
 	}
 	const sources = /* @__PURE__ */ new Map();
 	for (const entry of await fs$1.readdir(params.oauthDir, { withFileTypes: true })) {
-		const name = runtime_doctor_migrations_exports.resolveLegacyMigrationSourcePath?.(entry.name) ?? entry.name;
+		const name = runtime_doctor_migrations_exports.resolveLegacyMigrationSourcePath(entry.name);
 		if (!entry.isFile() || !isWhatsAppBaileysAuthFileName(name)) continue;
 		const source = sources.get(name) ?? {
 			name,
@@ -69,16 +69,18 @@ const whatsappLegacyStateMigration = {
 		const sources = await listSources(params);
 		const changes = [];
 		const warnings = [];
+		const warn = (message, recoverable = false) => ({
+			changes,
+			warnings: [message],
+			...recoverable ? { warningDisposition: "recoverable" } : {}
+		});
 		if (sources.length === 0) return {
 			changes,
 			warnings
 		};
 		const assertCurrent = params.context.channelIngressQueues?.find((entry) => entry.channelId === "whatsapp")?.assertCurrent;
 		const { backupLegacyStateSource } = runtime_doctor_migrations_exports;
-		if (!assertCurrent || !backupLegacyStateSource) return {
-			changes,
-			warnings: ["WhatsApp credential import requires offline Doctor repair. Update OpenClaw core and run openclaw doctor --fix; original files remain unchanged."]
-		};
+		if (!assertCurrent) return warn("WhatsApp credential import requires offline Doctor repair. Update OpenClaw core and run openclaw doctor --fix; original files remain unchanged.");
 		const backups = [];
 		for (const source of sources) backups.push({
 			source,
@@ -102,16 +104,8 @@ const whatsappLegacyStateMigration = {
 		const targetCreds = path.join(targetDir, "creds.json");
 		const canonical = await credentials.exists(targetCreds) ? await credentials.read(targetCreds) : void 0;
 		const legacy = backups.find(({ source }) => source.name === "creds.json");
-		if (!legacy) return {
-			changes,
-			warnings: ["WhatsApp shared-root key files have no creds.json identity. Kept all original files and private .migrated backups; restore the original creds.json before retrying Doctor."],
-			...canonical ? { warningDisposition: "recoverable" } : {}
-		};
-		if (canonical && !canonical.buffer.equals(legacy.backup.bytes)) return {
-			changes,
-			warnings: ["WhatsApp canonical credentials differ from the legacy shared root. Kept both complete sets and private .migrated backups; choose the intended authDir before removing either set."],
-			warningDisposition: "recoverable"
-		};
+		if (!legacy) return warn("WhatsApp shared-root key files have no creds.json identity. Kept all original files and private .migrated backups; restore the original creds.json before retrying Doctor.", Boolean(canonical));
+		if (canonical && !canonical.buffer.equals(legacy.backup.bytes)) return warn("WhatsApp current credentials differ from the legacy shared root. Kept both complete sets and private .migrated backups; choose the intended authDir before removing either set.", true);
 		const targetNames = await fs$1.readdir(path.join(params.oauthDir, targetDir)).catch((error) => {
 			if (extractErrorCode(error) === "ENOENT") return [];
 			throw error;
@@ -126,32 +120,18 @@ const whatsappLegacyStateMigration = {
 			maxEntries: 4096,
 			overflowPolicy: "reject-new"
 		});
-		if (!receiptStore.withCurrent) return {
-			changes,
-			warnings: ["WhatsApp credential import requires current offline storage authority. Update OpenClaw core and rerun Doctor; original credentials remain unchanged."]
-		};
+		if (!receiptStore.withCurrent) return warn("WhatsApp credential import requires current offline storage authority. Update OpenClaw core and rerun Doctor; original credentials remain unchanged.");
 		const receipts = receiptStore.withCurrent({ assertCurrent });
 		const sourceIdentity = legacy.backup.snapshot.sha256;
 		const previous = await receipts.lookup(sourceIdentity);
-		if (previous && (!canonical || previous.targetDigest !== credentialSetDigest(targetFiles))) return {
-			changes,
-			warnings: ["WhatsApp credential migration previously started, but its complete canonical credential set is absent or changed. Kept source files and backups; restore the complete intended account or select its authDir explicitly. Doctor will not recreate credentials after logout."],
-			...canonical ? { warningDisposition: "recoverable" } : {}
-		};
+		if (previous && (!canonical || previous.targetDigest !== credentialSetDigest(targetFiles))) return warn("WhatsApp credential migration previously started, but its complete current credential set is absent or changed. Kept source files and backups; restore the complete intended account or select its authDir explicitly. Doctor will not recreate credentials after logout.", Boolean(canonical));
 		if (!canonical) {
 			const sourceNames = new Set(sources.map((source) => source.name));
-			if (targetNames.some((name) => isWhatsAppBaileysAuthFileName(name) && !sourceNames.has(name))) return {
-				changes,
-				warnings: ["WhatsApp default account contains unmatched auth files without creds.json. Kept the incomplete account and legacy credentials separate; choose the intended credential set before retrying Doctor."]
-			};
+			if (targetNames.some((name) => isWhatsAppBaileysAuthFileName(name) && !sourceNames.has(name))) return warn("WhatsApp default account contains unmatched auth files without creds.json. Kept the incomplete account and legacy credentials separate; choose the intended credential set before retrying Doctor.");
 		}
 		for (const { source, backup } of backups) {
 			const relativePath = path.join(targetDir, source.name);
-			if (await credentials.exists(relativePath) && !(await credentials.read(relativePath)).buffer.equals(backup.bytes)) return {
-				changes,
-				warnings: [`WhatsApp auth ${source.name} differs between the default account and legacy shared root. Kept both copies and a private .migrated backup; choose the intended credential set before retrying Doctor.`],
-				...canonical ? { warningDisposition: "recoverable" } : {}
-			};
+			if (await credentials.exists(relativePath) && !(await credentials.read(relativePath)).buffer.equals(backup.bytes)) return warn(`WhatsApp auth ${source.name} differs between the default account and legacy shared root. Kept both copies and a private .migrated backup; choose the intended credential set before retrying Doctor.`, Boolean(canonical));
 		}
 		if (!previous) {
 			const expected = new Map(targetFiles);
@@ -173,7 +153,7 @@ const whatsappLegacyStateMigration = {
 				private: true
 			});
 			const target = await credentials.read(relativePath);
-			if (!target.buffer.equals(backup.bytes)) throw new Error("WhatsApp canonical credentials changed during import; original files retained.");
+			if (!target.buffer.equals(backup.bytes)) throw new Error("WhatsApp current credentials changed during import; original files retained.");
 			targets.push({
 				source,
 				backup,
@@ -190,7 +170,7 @@ const whatsappLegacyStateMigration = {
 					requireDirectories: true
 				});
 				const current = readRegularFileSync({ filePath: targetPath });
-				if (current.stat.dev !== target.stat.dev || current.stat.ino !== target.stat.ino || !current.buffer.equals(target.buffer)) throw new Error("WhatsApp canonical credentials changed during import; original backup retained.");
+				if (current.exactIdentity.dev !== target.exactIdentity.dev || current.exactIdentity.ino !== target.exactIdentity.ino || !current.buffer.equals(target.buffer)) throw new Error("WhatsApp current credentials changed during import; original backup retained.");
 			});
 			changes.push(`Moved WhatsApp auth ${source.name} into the default account; backup: ${backup.backupPath}`);
 		}

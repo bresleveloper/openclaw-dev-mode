@@ -1,4 +1,4 @@
-import { o as normalizeIMessageHandle } from "../.setup/targets-BicBiYsM.mjs";
+import { o as normalizeIMessageHandle } from "../.setup/targets-B4oU7n-v.mjs";
 import { executeSqliteQuerySync, executeSqliteQueryTakeFirstSync, getNodeSqliteKysely, openNodeSqliteDatabase } from "openclaw/plugin-sdk/sqlite-worker-runtime";
 //#region extensions/imessage/src/chat-db.worker.ts
 function appleMessageDateLowerBoundMs(sentAfterMs) {

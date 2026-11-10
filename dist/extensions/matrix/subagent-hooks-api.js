@@ -1,6 +1,6 @@
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 //#region extensions/matrix/subagent-hooks-api.ts
-const loadMatrixSubagentHooksModule = createLazyRuntimeModule(() => import("./.setup/subagent-hooks-D5kd_kzN.mjs"));
+const loadMatrixSubagentHooksModule = createLazyRuntimeModule(() => import("./.setup/subagent-hooks-CSY4iwa_.mjs"));
 function registerMatrixSubagentHooks(api) {
 	api.on("subagent_ended", async (event) => {
 		const { handleMatrixSubagentEnded } = await loadMatrixSubagentHooksModule();

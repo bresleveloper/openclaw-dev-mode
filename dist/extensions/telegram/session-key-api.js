@@ -1,2 +1,2 @@
-import { t as resolveTelegramSessionConversation } from "../../session-conversation-NDWYoBYl.mjs";
+import { t as resolveTelegramSessionConversation } from "../../session-conversation-DcKmMUre.mjs";
 export { resolveTelegramSessionConversation as resolveSessionConversation };

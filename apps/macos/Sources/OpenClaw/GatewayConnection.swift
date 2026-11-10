@@ -1463,20 +1463,9 @@ extension GatewayConnection {
             continuation.yield(delivery)
         }
         if case .event = push, let socketGeneration = self.socketGenerationState.activeGeneration {
-            var terminatedSubscriberIDs: [UUID] = []
             for (id, continuation) in self.realtimeTalkSubscribers[socketGeneration] ?? [:] {
-                switch continuation.yield(delivery) {
-                case .enqueued:
-                    break
-                case .dropped, .terminated:
-                    continuation.finish()
-                    terminatedSubscriberIDs.append(id)
-                @unknown default:
-                    continuation.finish()
-                    terminatedSubscriberIDs.append(id)
-                }
-            }
-            for id in terminatedSubscriberIDs {
+                if case .enqueued = continuation.yield(delivery) { continue }
+                continuation.finish()
                 self.removeRealtimeTalkSubscriber(id, socketGeneration: socketGeneration)
             }
         }
@@ -1659,6 +1648,7 @@ extension GatewayConnection {
         limit: Int? = nil,
         maxChars: Int? = nil,
         timeoutMs: Int? = nil,
+        inputRunIDs: [String]? = nil,
         ifCurrentRoute route: Route? = nil) async throws -> OpenClawChatHistoryPayload
     {
         let request = OpenClawChatGatewayRequests.history(
@@ -1666,12 +1656,9 @@ extension GatewayConnection {
             agentID: agentID,
             limit: limit,
             maxChars: maxChars,
+            inputRunIDs: inputRunIDs,
             timeoutMs: timeoutMs)
-        let data = if let route {
-            try await self.request(request, ifCurrentRoute: route)
-        } else {
-            try await self.request(request)
-        }
+        let data = try await self.requestHistory(request, ifCurrentRoute: route)
         return try self.decoder.decode(OpenClawChatHistoryPayload.self, from: data)
     }
 
@@ -1722,14 +1709,10 @@ extension GatewayConnection {
             runTimeoutMs: runTimeoutMs,
             requestTimeoutMs: requestTimeoutMs)
 
-        let data = if let route {
-            try await self.request(
-                request,
-                ifCurrentRoute: route,
-                distinguishPreDispatchRouteChange: distinguishPreDispatchRouteChange)
-        } else {
-            try await self.request(request)
-        }
+        let data = try await self.request(
+            request,
+            ifCurrentRoute: route,
+            distinguishPreDispatchRouteChange: distinguishPreDispatchRouteChange)
         return try self.decoder.decode(OpenClawChatSendResponse.self, from: data)
     }
 }

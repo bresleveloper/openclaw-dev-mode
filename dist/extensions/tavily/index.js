@@ -1,5 +1,5 @@
-import { n as runTavilySearch, t as runTavilyExtract } from "./.setup/tavily-client-S2RhlGv8.mjs";
-import { t as createTavilyWebSearchProvider } from "./.setup/tavily-search-provider-DskCyo7n.mjs";
+import { n as runTavilySearch, t as runTavilyExtract } from "./.setup/tavily-client-DJD21sBp.mjs";
+import { t as createTavilyWebSearchProvider } from "./.setup/tavily-search-provider-BN5SUXRC.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { optionalStringEnum } from "openclaw/plugin-sdk/channel-actions";
 import { jsonResult, readPositiveIntegerParam, readStringArrayParam, readStringParam } from "openclaw/plugin-sdk/provider-web-search";

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{a as t}from"./worker-chunk-C-rZELc8.mjs";function formatFullOutputFooter(e){return`Full output: ${e}`}var n=e((()=>{t()}));export{n,formatFullOutputFooter as t};

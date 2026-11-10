@@ -1,2 +1,2 @@
-import { i as buildOpenAIQuicksilverInstructions, n as buildOpenAIQuicksilverBackgroundContext, r as buildOpenAIQuicksilverDelegationPrompt, t as OPENAI_QUICKSILVER_HOST_CONTROL_INSTRUCTIONS } from "../../realtime-quicksilver-instructions-DcZHzxQd.mjs";
+import { i as buildOpenAIQuicksilverInstructions, n as buildOpenAIQuicksilverBackgroundContext, r as buildOpenAIQuicksilverDelegationPrompt, t as OPENAI_QUICKSILVER_HOST_CONTROL_INSTRUCTIONS } from "../../realtime-quicksilver-instructions-xfl59uu7.mjs";
 export { OPENAI_QUICKSILVER_HOST_CONTROL_INSTRUCTIONS, buildOpenAIQuicksilverBackgroundContext, buildOpenAIQuicksilverDelegationPrompt, buildOpenAIQuicksilverInstructions };

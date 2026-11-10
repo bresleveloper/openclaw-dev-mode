@@ -1,2 +1,2 @@
-import { d as setMatrixThreadBindingMaxAgeBySessionKey, l as setMatrixThreadBindingIdleTimeoutBySessionKey } from "./.setup/thread-bindings-shared-hxKkYC1W.mjs";
-export { setMatrixThreadBindingIdleTimeoutBySessionKey, setMatrixThreadBindingMaxAgeBySessionKey };
+import { f as setMatrixThreadBindingMaxAgeBySessionKey, l as setMatrixThreadBindingIdleTimeoutBySessionKey, p as setMatrixThreadBindingMaxAgeBySessionKeyAsync, u as setMatrixThreadBindingIdleTimeoutBySessionKeyAsync } from "./.setup/thread-bindings-shared-CPjUA0Ib.mjs";
+export { setMatrixThreadBindingIdleTimeoutBySessionKey, setMatrixThreadBindingIdleTimeoutBySessionKeyAsync, setMatrixThreadBindingMaxAgeBySessionKey, setMatrixThreadBindingMaxAgeBySessionKeyAsync };

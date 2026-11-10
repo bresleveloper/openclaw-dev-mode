@@ -2,6 +2,9 @@
   "extends": "../tsconfig.package-boundary.base.json",
   "compilerOptions": {
     "paths": {
+      "openclaw/plugin-sdk/memory-core-host-transcript-stats": [
+        "../../packages/plugin-sdk/dist/src/plugin-sdk/memory-core-host-transcript-stats.d.ts"
+      ],
       "openclaw/plugin-sdk/*": [
         "../../packages/plugin-sdk/dist/src/plugin-sdk/*.d.ts"
       ],
@@ -614,6 +617,12 @@
       "@openclaw/llm-core/*": [
         "../../packages/plugin-sdk/dist/packages/llm-core/src/*.d.ts"
       ],
+      "@openclaw/gateway-protocol": [
+        "../../packages/plugin-sdk/dist/packages/gateway-protocol/src/index.d.ts"
+      ],
+      "@openclaw/gateway-protocol/*": [
+        "../../packages/plugin-sdk/dist/packages/gateway-protocol/src/*.d.ts"
+      ],
       "@openclaw/model-catalog-core": [
         "../../packages/plugin-sdk/dist/packages/model-catalog-core/src/index.d.ts"
       ],
@@ -953,6 +962,9 @@
       ],
       "openclaw/plugin-sdk/memory-host-search": [
         "../../packages/plugin-sdk/dist/src/plugin-sdk/memory-host-search.d.ts"
+      ],
+      "openclaw/plugin-sdk/codex-client-version-runtime": [
+        "../../packages/plugin-sdk/dist/src/plugin-sdk/codex-client-version-runtime.d.ts"
       ]
     }
   }

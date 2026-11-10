@@ -1,4 +1,4 @@
-import { a as inspectFaceTimeNativePackage, c as uninstallFaceTimeDriver, i as inspectFaceTimeArtifacts, l as resolveFaceTimeConfig, o as inspectFaceTimeDriver, t as runFaceTimeSetup, u as validateFaceTimeConfig } from "./.setup/setup-zO6FazjC.mjs";
+import { a as inspectFaceTimeNativePackage, c as uninstallFaceTimeDriver, i as inspectFaceTimeArtifacts, l as resolveFaceTimeConfig, o as inspectFaceTimeDriver, t as runFaceTimeSetup, u as validateFaceTimeConfig } from "./.setup/setup-DMPG615Z.mjs";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { ErrorCodes, errorShape } from "openclaw/plugin-sdk/gateway-runtime";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
@@ -22,7 +22,7 @@ async function stopRetainedRuntime(current, clearIfCurrent) {
 //#endregion
 //#region extensions/facetime/src/static-status.ts
 async function inspectFaceTimeStaticStatus(params) {
-	const [artifacts, driver] = await Promise.all([inspectFaceTimeArtifacts({}), inspectFaceTimeDriver(params).then((status) => ({ status }), (error) => ({ error: formatErrorMessage(error) }))]);
+	const [artifacts, driver] = await Promise.all([inspectFaceTimeArtifacts(), inspectFaceTimeDriver(params).then((status) => ({ status }), (error) => ({ error: formatErrorMessage(error) }))]);
 	return {
 		enabled: params.config.enabled,
 		activation: "inactive",

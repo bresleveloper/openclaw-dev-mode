@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function parseNodeWorkerResponse(e,t){if(!e)throw Error(t+` omitted its result`);try{return JSON.parse(e)}catch{throw Error(t+` returned malformed JSON`)}}var t=e((()=>{}));export{parseNodeWorkerResponse as n,t};

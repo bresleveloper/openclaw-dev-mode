@@ -27,7 +27,7 @@ function normalizeMinimaxTtsBaseUrl(baseUrl) {
 	return trimmed.replace(/\/+$/, "").replace(/\/(?:anthropic|v1)$/i, "");
 }
 async function minimaxTTS(params) {
-	const { text, apiKey, baseUrl, model, voiceId, speed = 1, vol = 1, pitch = 0, format = "mp3", sampleRate = 32e3, timeoutMs } = params;
+	const { text, apiKey, baseUrl, model, voiceId, speed = 1, vol = 1, pitch = 0, timeoutMs } = params;
 	const safeTimeoutMs = resolveTimerTimeoutMs(timeoutMs, 1);
 	const { assertOkOrThrowProviderError, readProviderJsonObjectResponse } = await import("openclaw/plugin-sdk/provider-http");
 	const { fetchWithSsrFGuard, ssrfPolicyFromHttpBaseUrlAllowedHostname } = await import("openclaw/plugin-sdk/ssrf-runtime");
@@ -55,8 +55,8 @@ async function minimaxTTS(params) {
 						pitch: Math.trunc(pitch)
 					},
 					audio_setting: {
-						format,
-						sample_rate: sampleRate
+						format: "mp3",
+						sample_rate: 32e3
 					}
 				}),
 				signal: controller.signal
@@ -215,7 +215,7 @@ function parseDirectiveToken(ctx) {
 		default: return { handled: false };
 	}
 }
-function buildMinimaxSpeechProvider({ isProviderAuthProfileConfigured }) {
+function buildMinimaxSpeechProvider({ isProviderAuthProfileConfigured, isProviderAuthProfileConfiguredAsync }) {
 	return {
 		id: "minimax",
 		label: "MiniMax",
@@ -248,6 +248,10 @@ function buildMinimaxSpeechProvider({ isProviderAuthProfileConfigured }) {
 			name: voice
 		})),
 		isConfigured: ({ cfg, providerConfig }) => Boolean(resolveMinimaxDirectTtsApiKey(readMinimaxProviderConfig(providerConfig, cfg).apiKey) || isProviderAuthProfileConfigured({
+			cfg,
+			provider: MINIMAX_PORTAL_PROVIDER_ID
+		})),
+		isConfiguredAsync: async ({ cfg, providerConfig }) => Boolean(resolveMinimaxDirectTtsApiKey(readMinimaxProviderConfig(providerConfig, cfg).apiKey) || await isProviderAuthProfileConfiguredAsync({
 			cfg,
 			provider: MINIMAX_PORTAL_PROVIDER_ID
 		})),

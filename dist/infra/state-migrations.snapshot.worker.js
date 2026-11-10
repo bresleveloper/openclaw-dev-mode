@@ -1,9 +1,10 @@
-import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
+import { t as formatErrorMessage } from "../errors-DPfGDWk1.mjs";
+import { i as sqliteWalChecksum, r as readUint32 } from "../sqlite-wal-checksum-DGsWgS1f.mjs";
 import { lstatSync, readdirSync } from "node:fs";
-import path from "node:path";
+import { createHash } from "node:crypto";
 import fs$1 from "node:fs/promises";
 import { endianness } from "node:os";
-import { createHash } from "node:crypto";
+import path from "node:path";
 import { FsSafeError } from "@openclaw/fs-safe/errors";
 import { openLocalFileSafely } from "@openclaw/fs-safe/root";
 import { text } from "node:stream/consumers";
@@ -14,22 +15,8 @@ const SQLITE_WAL_INDEX_HEADER_COPY_BYTES = 48;
 const SQLITE_WAL_INDEX_HEADER_BYTES = 96;
 const SQLITE_WAL_INDEX_VERSION = 3007e3;
 const SQLITE_WAL_HEADER_BYTES = 32;
-const SQLITE_WAL_MAGIC_LE = 931071618;
-const SQLITE_WAL_MAGIC_BE = 931071619;
 const SQLITE_SHM_VOLATILE_RANGES = [[96, 120], [128, 132]];
 const SNAPSHOT_HASH_BUFFER_BYTES = 1048576;
-function readUint32(buffer, offset, byteOrder) {
-	return byteOrder === "LE" ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset);
-}
-function sqliteWalChecksum(buffer, byteOrder) {
-	let first = 0;
-	let second = 0;
-	for (let offset = 0; offset < buffer.length; offset += 8) {
-		first = first + readUint32(buffer, offset, byteOrder) + second >>> 0;
-		second = second + readUint32(buffer, offset + 4, byteOrder) + first >>> 0;
-	}
-	return [first, second];
-}
 async function digestFile(filePath, observedEntries, hashPrefix = "") {
 	const before = await fs$1.lstat(filePath);
 	if (!before.isFile()) throw new Error(`Snapshot path is not a regular file: ${filePath}`);
@@ -96,8 +83,8 @@ async function openSqliteSharedMemoryEntry(directory, entry) {
 		const walHeader = Buffer.alloc(SQLITE_WAL_HEADER_BYTES);
 		if ((await walHandle.read(walHeader, 0, walHeader.length, 0)).bytesRead !== walHeader.length) return;
 		const walMagic = walHeader.readUInt32BE(0);
-		const walByteOrder = walMagic === SQLITE_WAL_MAGIC_LE ? "LE" : "BE";
-		if (walMagic !== SQLITE_WAL_MAGIC_LE && walMagic !== SQLITE_WAL_MAGIC_BE || walHeader.readUInt32BE(4) !== SQLITE_WAL_INDEX_VERSION) return;
+		const walByteOrder = walMagic === 931071618 ? "LE" : "BE";
+		if (walMagic !== 931071618 && walMagic !== 931071619 || walHeader.readUInt32BE(4) !== SQLITE_WAL_INDEX_VERSION) return;
 		const [walChecksumFirst, walChecksumSecond] = sqliteWalChecksum(walHeader.subarray(0, 24), walByteOrder);
 		if (walHeader.readUInt32BE(24) === walChecksumFirst && walHeader.readUInt32BE(28) === walChecksumSecond && first.subarray(32, 40).equals(walHeader.subarray(16, 24))) {
 			const verifiedHandle = sharedMemoryHandle;
@@ -117,9 +104,16 @@ async function digestSnapshotFileHandle(filePath, handle, expectedStat, volatile
 	const hash = createHash("sha256").update(hashPrefix);
 	const buffer = Buffer.alloc(SNAPSHOT_HASH_BUFFER_BYTES);
 	let position = 0;
+	const assertUnchanged = (current, phase) => {
+		if ([
+			"dev",
+			"ino",
+			"size",
+			"mtimeMs"
+		].some((field) => expectedStat[field] !== current[field])) throw new Error(`Snapshot file changed ${phase} hashing: ${filePath}`);
+	};
 	try {
-		const opened = await handle.stat();
-		if (expectedStat.dev !== opened.dev || expectedStat.ino !== opened.ino || expectedStat.size !== opened.size || expectedStat.mtimeMs !== opened.mtimeMs) throw new Error(`Snapshot file changed before hashing: ${filePath}`);
+		assertUnchanged(await handle.stat(), "before");
 		for (;;) {
 			const { bytesRead } = await handle.read(buffer, 0, buffer.length, position);
 			if (bytesRead === 0) break;
@@ -132,8 +126,7 @@ async function digestSnapshotFileHandle(filePath, handle, expectedStat, volatile
 			hash.update(chunk);
 			position += bytesRead;
 		}
-		const after = await handle.stat();
-		if (expectedStat.dev !== after.dev || expectedStat.ino !== after.ino || expectedStat.size !== after.size || expectedStat.mtimeMs !== after.mtimeMs) throw new Error(`Snapshot file changed while hashing: ${filePath}`);
+		assertUnchanged(await handle.stat(), "while");
 	} finally {
 		await handle.close();
 	}

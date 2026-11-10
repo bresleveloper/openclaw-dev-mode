@@ -1,1 +1,0 @@
-import{t as e}from"./ui-CnRtCcYL.js";e();

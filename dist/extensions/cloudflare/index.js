@@ -1,5 +1,5 @@
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { t as r2StorageProvider } from "../../api-DsnkBBNr.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import { t as r2StorageProvider } from "../../api-B7K4STgz.mjs";
 //#region extensions/cloudflare/index.ts
 var cloudflare_default = definePluginEntry({
 	id: "cloudflare",

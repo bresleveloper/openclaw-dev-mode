@@ -33,7 +33,6 @@ import {
 } from "../infra/exec-safe-bin-runtime-policy.js";
 import { listRiskyConfiguredSafeBins } from "../infra/exec-safe-bin-semantics.js";
 import { resolvePluginControlPlaneWorkspace } from "../plugins/control-plane-workspace.js";
-import { createLazyRuntimeModule } from "../shared/lazy-runtime.js";
 import { collectAgentRosterFindings } from "./audit-agent-roster.js";
 import { collectDeepCodeSafetyFindings } from "./audit-deep-code-safety.js";
 import { collectDeepProbeFindings } from "./audit-deep-probe-findings.js";
@@ -48,6 +47,7 @@ import {
   type McporterRegistryReadOutcome,
   type McporterRegistryRejectReason,
 } from "./audit-mcporter-registry.js";
+import { collectElevatedFindings, collectNodeRuntimeSecurityFindings } from "./audit-runtime.js";
 import type {
   SecurityAuditFinding,
   SecurityAuditReport,
@@ -133,34 +133,6 @@ type AuditExecutionContext = Omit<SecurityAuditOptions, "config"> & {
   configSnapshot: ConfigFileSnapshot | null;
   codeSafetySummaryCache: import("./audit.deep.runtime.js").CodeSafetySummaryCache;
 };
-
-const loadReadOnlyChannelPlugins = createLazyRuntimeModule(
-  () => import("../channels/plugins/read-only.js"),
-);
-
-const loadAuditNonDeepModule = createLazyRuntimeModule(() => import("./audit.nondeep.runtime.js"));
-
-const loadAuditChannelModule = createLazyRuntimeModule(
-  () => import("./audit-channel.collect.runtime.js"),
-);
-
-const loadPluginMetadataRegistryLoaderModule = createLazyRuntimeModule(
-  () => import("../plugins/runtime/metadata-registry-loader.js"),
-);
-
-const loadPluginAutoEnableModule = createLazyRuntimeModule(
-  () => import("../config/plugin-auto-enable.js"),
-);
-
-const loadChannelPluginIdsModule = createLazyRuntimeModule(
-  () => import("../plugins/channel-plugin-ids.js"),
-);
-
-const loadPluginRuntimeModule = createLazyRuntimeModule(() => import("../plugins/runtime.js"));
-
-const loadAuditGatewayProbeModule = createLazyRuntimeModule(
-  () => import("./audit-gateway-probe.js"),
-);
 
 function countBySeverity(findings: SecurityAuditFinding[]): SecurityAuditSummary {
   let critical = 0;
@@ -311,13 +283,6 @@ function applySecurityAuditSuppressions(
   return { findings: active, suppressedFindings };
 }
 
-function normalizeAllowFromList(list: Array<string | number> | undefined | null): string[] {
-  if (!Array.isArray(list)) {
-    return [];
-  }
-  return normalizeStringEntries(list);
-}
-
 async function collectFilesystemFindings(params: {
   stateDir: string;
   configPath: string;
@@ -439,10 +404,10 @@ async function collectPluginSecurityAuditFindings(
   if (!context.loadPluginSecurityCollectors) {
     return [];
   }
-  const { getActivePluginRegistry } = await loadPluginRuntimeModule();
+  const { getActivePluginRegistry } = await import("../plugins/runtime.js");
   let collectors = getActivePluginRegistry()?.securityAuditCollectors ?? [];
   if (collectors.length === 0) {
-    const { applyPluginAutoEnable } = await loadPluginAutoEnableModule();
+    const { applyPluginAutoEnable } = await import("../config/plugin-auto-enable.js");
     const autoEnabled = applyPluginAutoEnable({
       config: context.sourceConfig,
       env: context.env,
@@ -457,9 +422,10 @@ async function collectPluginSecurityAuditFindings(
       ]),
     );
     if (context.includeChannelSecurity && context.plugins !== undefined) {
-      const { resolveConfiguredChannelPluginIds } = await loadChannelPluginIdsModule();
+      const { resolveConfiguredChannelPluginIdsAsync } =
+        await import("../plugins/channel-plugin-ids.js");
       const auditedChannelPluginIds = new Set(context.plugins.map((plugin) => plugin.id));
-      for (const pluginId of resolveConfiguredChannelPluginIds({
+      for (const pluginId of await resolveConfiguredChannelPluginIdsAsync({
         config: autoEnabled.config,
         activationSourceConfig: context.sourceConfig,
         workspaceDir: context.workspaceDir,
@@ -474,7 +440,7 @@ async function collectPluginSecurityAuditFindings(
       return [];
     }
     const snapshot = (
-      await loadPluginMetadataRegistryLoaderModule()
+      await import("../plugins/runtime/metadata-registry-loader.js")
     ).loadPluginMetadataRegistrySnapshot({
       config: autoEnabled.config,
       activationSourceConfig: context.sourceConfig,
@@ -507,36 +473,6 @@ async function collectPluginSecurityAuditFindings(
     }),
   );
   return collectorResults.flat();
-}
-
-function collectElevatedFindings(cfg: OpenClawConfig): SecurityAuditFinding[] {
-  const findings: SecurityAuditFinding[] = [];
-  const enabled = cfg.tools?.elevated?.enabled;
-  const allowFrom = cfg.tools?.elevated?.allowFrom ?? {};
-
-  if (enabled === false) {
-    return findings;
-  }
-  for (const [provider, list] of Object.entries(allowFrom)) {
-    const normalized = normalizeAllowFromList(list);
-    if (normalized.includes("*")) {
-      findings.push({
-        checkId: `tools.elevated.allowFrom.${provider}.wildcard`,
-        severity: "critical",
-        title: "Elevated exec allowlist contains wildcard",
-        detail: `tools.elevated.allowFrom.${provider} includes "*" which effectively approves everyone on that channel for elevated mode.`,
-      });
-    } else if (normalized.length > 25) {
-      findings.push({
-        checkId: `tools.elevated.allowFrom.${provider}.large`,
-        severity: "warn",
-        title: "Elevated exec allowlist is large",
-        detail: `tools.elevated.allowFrom.${provider} has ${normalized.length} entries; consider tightening elevated access.`,
-      });
-    }
-  }
-
-  return findings;
 }
 
 function collectExecRuntimeFindings(cfg: OpenClawConfig): SecurityAuditFinding[] {
@@ -1020,9 +956,7 @@ function collectOpenExecSurfacePaths(cfg: OpenClawConfig): string[] {
       hits.add(`${scope}.dmPolicy`);
     }
     for (const [key, nested] of Object.entries(record)) {
-      if (asNullableRecord(nested)) {
-        visit(nested, `${scope}.${key}`);
-      }
+      visit(nested, `${scope}.${key}`);
     }
   };
   for (const [channelId, channelValue] of Object.entries(channels)) {
@@ -1081,7 +1015,7 @@ async function createAuditExecutionContext(
     workspaceDir: opts.workspaceDir,
     env,
   }).workspaceDir;
-  const { readConfigSnapshotForAudit } = await loadAuditNonDeepModule();
+  const { readConfigSnapshotForAudit } = await import("./audit.nondeep.runtime.js");
   const configSnapshot = includeFilesystem
     ? opts.configSnapshot !== undefined
       ? opts.configSnapshot
@@ -1118,9 +1052,11 @@ export async function runSecurityAuditCore(
   const context = await createAuditExecutionContext(opts);
   const { cfg, env, platform, stateDir, configPath } = context;
   copyConfigResolutionFacts(context.sourceConfig, cfg);
-  const auditNonDeep = await loadAuditNonDeepModule();
+  const auditNonDeep = await import("./audit.nondeep.runtime.js");
 
-  findings.push(...auditNonDeep.collectAttackSurfaceSummaryFindings(cfg));
+  findings.push(...collectNodeRuntimeSecurityFindings());
+
+  findings.push(...(await auditNonDeep.collectAttackSurfaceSummaryFindings(cfg)));
   findings.push(...collectAgentRosterFindings(context.sourceConfig));
   findings.push(...auditNonDeep.collectSyncedFolderFindings({ stateDir, configPath }));
 
@@ -1199,35 +1135,39 @@ export async function runSecurityAuditCore(
     if (context.plugins !== undefined) {
       shouldAuditChannelSecurity = true;
     } else {
-      const { hasConfiguredChannelsForReadOnlyScope, resolveConfiguredChannelPluginIds } =
-        await loadChannelPluginIdsModule();
+      const { hasConfiguredChannelsForReadOnlyScopeAsync, resolveConfiguredChannelPluginIdsAsync } =
+        await import("../plugins/channel-plugin-ids.js");
       shouldAuditChannelSecurity =
-        hasConfiguredChannelsForReadOnlyScope({
+        (await hasConfiguredChannelsForReadOnlyScopeAsync({
           config: cfg,
           activationSourceConfig: context.sourceConfig,
           workspaceDir: context.workspaceDir,
           env,
-        }) ||
-        resolveConfiguredChannelPluginIds({
-          config: cfg,
-          activationSourceConfig: context.sourceConfig,
-          workspaceDir: context.workspaceDir,
-          env,
-        }).length > 0;
+        })) ||
+        (
+          await resolveConfiguredChannelPluginIdsAsync({
+            config: cfg,
+            activationSourceConfig: context.sourceConfig,
+            workspaceDir: context.workspaceDir,
+            env,
+          })
+        ).length > 0;
     }
   }
   if (shouldAuditChannelSecurity) {
     const channelPlugins =
       context.plugins ??
-      (await loadReadOnlyChannelPlugins()).listReadOnlyChannelPluginsForConfig(cfg, {
+      (await (
+        await import("../channels/plugins/read-only.js")
+      ).listReadOnlyChannelPluginsForConfigAsync(cfg, {
         activationSourceConfig: context.sourceConfig,
         workspaceDir: context.workspaceDir,
         env,
         stateDir,
         includePersistedAuthState: true,
         includeSetupFallbackPlugins: true,
-      });
-    const { collectChannelSecurityFindings } = await loadAuditChannelModule();
+      }));
+    const { collectChannelSecurityFindings } = await import("./audit-channel.collect.runtime.js");
     findings.push(
       ...(await collectChannelSecurityFindings({
         cfg,
@@ -1239,7 +1179,7 @@ export async function runSecurityAuditCore(
 
   const deepProbeResult = context.deep
     ? await (
-        await loadAuditGatewayProbeModule()
+        await import("./audit-gateway-probe.js")
       ).probeSecurityAuditGateway({
         cfg,
         env,

@@ -546,11 +546,11 @@ function buildFilesystemConfig(params) {
 		readonlyPathSpecs.push(requiredFilesystemPath(workspace.workspaceDir));
 		if (workspace.workspaceAccess === "ro" && normalizeMxcPathForComparison(workspace.agentWorkspaceDir) !== normalizeMxcPathForComparison(workspace.workspaceDir)) readonlyPathSpecs.push(requiredFilesystemPath(workspace.agentWorkspaceDir));
 	}
-	readonlyPathSpecs.push(...resolveBaselineReadonlyPaths(params.context.hostEnv).map((candidatePath) => optionalFilesystemPath(path.resolve(candidatePath))), ...params.baseline.configuredPaths.readonlyPaths.map(createConfiguredFilesystemPath), ...resolveMxcProtectedSkillPolicyPaths(workspace).map(optionalFilesystemPath));
+	readonlyPathSpecs.push(...resolveBaselineReadonlyPaths(params.context.hostEnv).map(optionalFilesystemPath), ...params.baseline.configuredPaths.readonlyPaths.map(createConfiguredFilesystemPath), ...resolveMxcProtectedSkillPolicyPaths(workspace).map(optionalFilesystemPath));
 	const projectDirPath = params.context.projectDir;
 	if (params.workspace.workspaceAccess === "rw") readwritePathSpecs.push(requiredFilesystemPath(projectDirPath));
 	else readonlyPathSpecs.push(requiredFilesystemPath(projectDirPath));
-	readwritePathSpecs.push(requiredFilesystemPath(path.resolve(params.sandboxTempDir)));
+	readwritePathSpecs.push(requiredFilesystemPath(params.sandboxTempDir));
 	readwritePathSpecs.push(...params.baseline.configuredPaths.readwritePaths.map(createConfiguredFilesystemPath));
 	const protectedSkillPolicyPaths = resolveMxcProtectedSkillPolicyPaths(params.workspace);
 	assertNoMxcReadwriteReadonlyOverlap({
@@ -647,12 +647,9 @@ function hostPathExists(candidatePath) {
 		statSync(candidatePath);
 		return true;
 	} catch (err) {
-		if (isNodeError$1(err)) return false;
+		if (err instanceof Error && "code" in err) return false;
 		throw err;
 	}
-}
-function isNodeError$1(err) {
-	return err instanceof Error && "code" in err;
 }
 //#endregion
 //#region extensions/mxc/src/plugin-root.ts
@@ -864,7 +861,7 @@ function createMxcLauncherPayload(config, payload, usePty, sandboxTempDir) {
 	const payloadJson = JSON.stringify({
 		config: payload,
 		options: {
-			debug: config.debug ?? false,
+			debug: config.debug,
 			executablePath: resolveMxcBinaryPath(config.mxcBinaryPath),
 			...!usePty ? { usePty: false } : {}
 		}
@@ -889,9 +886,6 @@ function createMxcLauncherPayload(config, payload, usePty, sandboxTempDir) {
 		sandboxTempDir
 	};
 }
-/**
-* Creates a SandboxBackendHandle for a specific session.
-*/
 function createMxcSandboxBackendHandle(params) {
 	const baseline = loadSandboxBaselinePolicy({ policyPaths: params.config.mxcPolicyPaths });
 	return {
@@ -911,11 +905,7 @@ function createMxcSandboxBackendHandle(params) {
 		capabilities: {},
 		async buildExecSpec({ command, workdir, env, usePty }) {
 			const effectiveWorkdir = resolveWorkdirInsideWorkspace(params.workdir, workdir ?? params.workdir);
-			const workspaceAccess = params.workspaceAccess ?? "rw";
-			const workspace = resolveMxcWorkspaceContext({
-				...params,
-				workspaceAccess
-			});
+			const workspace = resolveMxcWorkspaceContext(params);
 			const runtimeWorkdir = resolveMxcRuntimeWorkdir(workspace, effectiveWorkdir);
 			const baselineContext = resolveCurrentBaselineContext(workspace.activeWorkspaceDir);
 			const sandboxTempDir = createSandboxTempDir(baselineContext.hostEnv);
@@ -963,11 +953,7 @@ function createMxcSandboxBackendHandle(params) {
 				timeoutSecondsConfigured: true
 			};
 			const effectiveWorkdir = path.resolve(params.workdir);
-			const workspaceAccess = params.workspaceAccess ?? "rw";
-			const workspace = resolveMxcWorkspaceContext({
-				...params,
-				workspaceAccess
-			});
+			const workspace = resolveMxcWorkspaceContext(params);
 			const runtimeWorkdir = resolveMxcRuntimeWorkdir(workspace, effectiveWorkdir);
 			const baselineContext = resolveCurrentBaselineContext(workspace.activeWorkspaceDir);
 			const sandboxTempDir = createSandboxTempDir(baselineContext.hostEnv);
@@ -1056,7 +1042,6 @@ function sanitizeRuntimeId(value) {
 	const hash = createHash("sha256").update(value).digest("hex").slice(0, 8);
 	return `openclaw-mxc-${slug || "sandbox"}-${hash}`;
 }
-/** Factory function called by OpenClaw when sandbox.backend=mxc. */
 function createMxcSandboxBackendFactory(config) {
 	return async function createMxcSandboxBackend(params) {
 		if ((params.cfg.docker.binds?.length ?? 0) > 0) throw new Error("MXC sandbox backend does not support sandbox.docker.binds.");
@@ -1096,18 +1081,18 @@ function probeMxcIsolationTier(executablePath) {
 			windowsHide: true
 		});
 	} catch (error) {
-		throw notReady(`the MXC host probe failed${error instanceof Error && error.message ? `: ${error.message.trim()}` : ""}`, error);
+		throw notReady(`the MXC host check failed${error instanceof Error && error.message ? `: ${error.message.trim()}` : ""}`, error);
 	}
 	let probe;
 	try {
 		probe = JSON.parse(output);
 	} catch (error) {
-		throw notReady("the MXC host probe did not return JSON", error);
+		throw notReady("the MXC host check did not return JSON", error);
 	}
 	const parsed = MxcProbeOutputSchema.safeParse(probe);
-	if (!parsed.success) throw notReady("the MXC host probe returned an unexpected result", parsed.error);
+	if (!parsed.success) throw notReady("the MXC host check returned an unexpected result", parsed.error);
 	const { tier, warnings, error } = parsed.data;
-	if (!tier) throw notReady(`MXC cannot select an isolation tier on this host (${error || "the probe reported no isolation tier"})`);
+	if (!tier) throw notReady(`MXC cannot select an isolation tier on this host (${error || "the check reported no isolation tier"})`);
 	return {
 		tier,
 		warnings

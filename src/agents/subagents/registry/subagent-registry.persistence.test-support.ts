@@ -5,7 +5,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { expect, it, onTestFinished, vi } from "vitest";
+import { expect, it, vi } from "vitest";
 import { createDeferred } from "../../../../test/helpers/promise.js";
 import type { SessionEntry } from "../../../config/sessions.js";
 import {
@@ -18,7 +18,6 @@ import {
   getActiveGatewayRootWorkCount,
   getActiveGatewayRootWorkHolders,
 } from "../../../process/gateway-work-admission.js";
-import * as stateWorker from "../../../state/openclaw-state-worker-store.js";
 import { withEnvAsync } from "../../../test-utils/env.js";
 import { cleanupSessionStateForTest } from "../../../test-utils/session-state-cleanup.js";
 import {
@@ -232,6 +231,7 @@ export function createDeliveredWake(
   return createSubagentRunRecord({
     runId,
     childSessionKey: `agent:main:subagent:${runId}`,
+    childSessionIdentity: { sessionId: `sess-${runId}` },
     endedAt,
     outcome: { status: "ok" },
     expectsCompletionMessage: true,
@@ -270,6 +270,7 @@ export function createOrphanedRequiredDelivery(
     runId,
     childSessionKey,
     task: "deliver after restart",
+    childSessionIdentity: { sessionId: `sess-${runId}` },
     cleanup: "delete",
     createdAt: now - 100,
     expectsCompletionMessage: true,
@@ -314,7 +315,7 @@ export function registerSubagentRegistrationPersistenceTests({
   getRegistry: () => SubagentRegistryHarness;
   mocks: Pick<
     ReturnType<typeof createSubagentRegistryMockState>,
-    "callGateway" | "persistRegistryRows"
+    "callGateway" | "persistRegistryRows" | "entries"
   >;
   mockPendingAgentWait: () => void;
   findRequesterRun: (runId: string) => SubagentRunRecord | undefined;
@@ -363,6 +364,7 @@ export function registerSubagentRegistrationPersistenceTests({
     await mod.registerSubagentRun({
       runId: "run-replacement-persist-old",
       childSessionKey: "agent:main:subagent:replacement-persist",
+      sessionEntry: { sessionId: "sess-replacement-persist" },
       task: "keep live successor tracked",
     });
     mocks.persistRegistryRows.mockClear();
@@ -412,6 +414,7 @@ export function registerSubagentRegistrationPersistenceTests({
     await mod.addSubagentRunForTests({
       runId: "run-registration-rollback-old",
       childSessionKey,
+      childSessionIdentity: { sessionId: "sess-registration-rollback" },
       task: "preserve old ownership",
       createdAt: Date.now() - 1_000,
       endedAt: Date.now() - 500,
@@ -427,6 +430,7 @@ export function registerSubagentRegistrationPersistenceTests({
       mod.registerSubagentRun({
         runId: "run-registration-rollback-new",
         childSessionKey,
+        sessionEntry: { sessionId: "sess-registration-rollback" },
         task: "new generation",
       }),
     ).rejects.toThrowError("disk full");
@@ -444,9 +448,16 @@ export function registerSubagentRegistrationPersistenceTests({
     const mod = getRegistry();
     mockPendingAgentWait();
     const runId = "run-kill-persist-failure";
+    const sessionEntry = {
+      sessionId: "sess-kill-persist-failure",
+      lifecycleRevision: "revision-kill-persist-failure",
+      updatedAt: 1,
+    };
+    mocks.entries["agent:main:subagent:kill-persist-failure"] = sessionEntry;
     await mod.registerSubagentRun({
       runId,
       childSessionKey: "agent:main:subagent:kill-persist-failure",
+      sessionEntry,
       task: "keep kill state atomic",
     });
     mocks.persistRegistryRows.mockImplementationOnce(() => {
@@ -476,6 +487,7 @@ export function createRestoredRequesterWakeRuns(params: {
       requesterYielded ? undefined : { status: "pending", attemptCount: 0 },
       {
         childSessionKey: `agent:main:subagent:restored-wake-${index}`,
+        childSessionIdentity: { sessionId: `sess-restored-wake-${index}` },
         requesterSessionKey: `agent:main:requester-${index}`,
         requesterDisplayKey: `requester-${index}`,
         task: "resume a durable requester wake",
@@ -493,29 +505,4 @@ export function createRestoredRequesterWakeRuns(params: {
       },
     );
   });
-}
-
-/** Fail the next registry persistence write once, then pass through. */
-export function rejectNextRegistryWrite(message: string): void {
-  const execute = stateWorker.runOpenClawStateWorkerOperation;
-  let reject = true;
-  const spy = vi
-    .spyOn(stateWorker, "runOpenClawStateWorkerOperation")
-    .mockImplementation((context, operation, options) =>
-      execute(
-        context,
-        (scope) =>
-          operation({
-            execute: async (...args) => {
-              if (reject && args[0].type === "subagents.persistChanges") {
-                reject = false;
-                throw new Error(message);
-              }
-              return scope.execute(...args);
-            },
-          }),
-        options,
-      ),
-    );
-  onTestFinished(() => spy.mockRestore());
 }

@@ -2,7 +2,6 @@ import { bedrockCredentialDefaultProvider } from "./aws-credential-refresh.js";
 import { asOptionalRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { debugEmbeddingsLog, normalizeEmbeddingModelWithPrefixes, sanitizeAndNormalizeEmbedding } from "openclaw/plugin-sdk/memory-core-host-engine-embeddings";
 //#region extensions/amazon-bedrock/embedding-provider.ts
-/** Default Bedrock embedding model used when no explicit model is configured. */
 const DEFAULT_BEDROCK_EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0";
 const MODELS = {
 	"amazon.titan-embed-text-v2:0": {
@@ -75,7 +74,6 @@ const MODELS = {
 		family: "twelvelabs"
 	}
 };
-/** Strip AWS inference profile prefix (us., eu., ap., apac., au., jp., global.) from model ID. */
 function stripInferenceProfilePrefix(modelId) {
 	return modelId.replace(/^(?:us|eu|ap|apac|au|jp|global)\./, "");
 }
@@ -89,7 +87,6 @@ function resolveSpec(modelId) {
 		if (spec) return spec;
 	}
 }
-/** Infer family from model ID prefix when not in catalog. */
 function inferFamily(modelId) {
 	const id = normalizeLowercaseStringOrEmpty(stripInferenceProfilePrefix(modelId));
 	if (id.startsWith("amazon.titan-embed-text-v2")) return "titan-v2";
@@ -100,16 +97,7 @@ function inferFamily(modelId) {
 	if (id.startsWith("twelvelabs.")) return "twelvelabs";
 	return "titan-v1";
 }
-let sdkPromise = null;
 let credentialProviderPromise = null;
-async function loadSdk() {
-	try {
-		return await (sdkPromise ??= import("@aws-sdk/client-bedrock-runtime"));
-	} catch {
-		sdkPromise = null;
-		throw new Error("No API key found for provider bedrock: @aws-sdk/client-bedrock-runtime is not installed. Install it with: npm install @aws-sdk/client-bedrock-runtime");
-	}
-}
 function loadDefaultCredentialProvider() {
 	return credentialProviderPromise ??= import("@aws-sdk/credential-provider-node").then(({ defaultProvider }) => defaultProvider).catch(() => null);
 }
@@ -202,7 +190,9 @@ function parseCohereBatch(family, raw) {
 	return asNumberArrayBatch(embeddings);
 }
 async function createBedrockEmbeddingProvider(options) {
-	const { BedrockRuntimeClient, InvokeModelCommand } = await loadSdk();
+	const { BedrockRuntimeClient, InvokeModelCommand } = await import("@aws-sdk/client-bedrock-runtime").catch(() => {
+		throw new Error("No API key found for provider bedrock: @aws-sdk/client-bedrock-runtime is not installed. Install it with: npm install @aws-sdk/client-bedrock-runtime");
+	});
 	const client = resolveBedrockEmbeddingClient(options, BedrockRuntimeClient);
 	const spec = resolveSpec(client.model);
 	const family = spec?.family ?? inferFamily(client.model);

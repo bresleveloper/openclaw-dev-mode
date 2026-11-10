@@ -52,7 +52,6 @@ import {
   resolveStagedPackageSwapTarget,
 } from "./package-update-swap-target.js";
 import { runPackagePostInstallVerification } from "./package-update-verification-step.js";
-import { FreeBsdPkgOwnershipError } from "./update-freebsd-pkg-ownership.js";
 import { verifyPackageUpdateRecovery } from "./update-global.js";
 import {
   finalizeNativePackageStage,
@@ -60,6 +59,7 @@ import {
 } from "./update-native-package-stage.js";
 import { isFailedUpdateStep } from "./update-run-step.js";
 import type { UpdateStepResult } from "./update-step-result.js";
+import { SystemPackageOwnershipError } from "./update-system-package-ownership.js";
 
 export { removePackageUpdatePath } from "./package-update-filesystem.js";
 
@@ -75,7 +75,8 @@ export async function swapStagedPackageInstall(
   const results = createPackageSwapResults(params, targetLayout, targetPackageRoot, startedAt);
   const { warnings, step } = results;
   if (!targetLayout || !targetPackageRoot || !targetSwapRoot) {
-    return results.invalidLayout(activePackageRoot);
+    const error = "cannot resolve npm global prefix layout";
+    return results.failed(activePackageRoot, error, [error], false);
   }
 
   if (!native) {
@@ -130,7 +131,9 @@ export async function swapStagedPackageInstall(
     const messages: string[] = [];
     try {
       if (activation) {
-        packageBackedUp = await activation.disarmRollback();
+        const previous = await activation.disarmRollback();
+        packageBackedUp = previous !== false;
+        previousRoot = previous ? { kind: "directory", tree: previous } : previousRoot;
       }
       if (!native && (packageBackedUp || (!hadPackage && rollback.length > 0))) {
         // Refuse known-bad recovery material before touching the candidate or
@@ -271,14 +274,15 @@ export async function swapStagedPackageInstall(
     return messages;
   };
   const readBaseline = async () => {
-    hadPackage = await (native ? pathEntryExists(targetSwapRoot) : baseline.exists(targetSwapRoot));
-    previousVersion =
-      hadPackage && native
+    if (native) {
+      hadPackage = await pathEntryExists(targetSwapRoot);
+      previousVersion = hadPackage
         ? await readPackageVersionIfPresent(params.installTarget.packageRoot)
         : null;
-    if (hadPackage && !native) {
+    } else {
       try {
-        previousRoot = await baseline.rootEntry(targetSwapRoot);
+        hadPackage = await baseline.exists(targetSwapRoot);
+        previousRoot = hadPackage ? await baseline.rootEntry(targetSwapRoot) : undefined;
       } catch (error) {
         // Preserve the scan cause if the identity fallback also fails.
         baselineError = new Error("Baseline package scan failed", { cause: error });
@@ -286,13 +290,12 @@ export async function swapStagedPackageInstall(
           throw error;
         }
         // Capture the identity before mutation even when the full walk exhausted its budget.
-        previousIdentity =
-          (await createPackageIntegrityReader(params.timeoutMs).directoryIdentity(
-            targetSwapRoot,
-          )) ?? undefined;
+        const fallback = createPackageIntegrityReader(params.timeoutMs);
+        previousIdentity = (await fallback.directoryIdentity(targetSwapRoot)) ?? undefined;
         if (!previousIdentity) {
           throw error;
         }
+        hadPackage = true;
         warnings.push(
           `baseline package fingerprint incomplete (${error.message}); rollback requires the retained directory identity, package version and launchers; full package contents are unverified`,
         );
@@ -361,6 +364,7 @@ export async function swapStagedPackageInstall(
               warnings.push(message);
               params.activation?.onUnavailable?.(message);
             },
+            onWarning: results.activationWarning,
           },
           liveRoot: targetSwapRoot,
           stageRoot: stagedSwapRoot,
@@ -444,9 +448,9 @@ export async function swapStagedPackageInstall(
             }
           }
         : rootLink?.verifyRuntime;
-      await params.onTransaction({
+      const transaction: PackageUpdateTransaction = {
         backupRoot,
-        ...(activation ? { databaseBackupRoot } : {}),
+        databaseBackupRoot,
         ...(assertRollbackSafe ? { assertRollbackSafe } : {}),
         rollback: (assertion) => {
           const assertCurrent = retainAuthority(assertion);
@@ -524,7 +528,7 @@ export async function swapStagedPackageInstall(
             previousRoot,
             backupRoot,
             // Rollback snapshots remain recovery evidence even after successful restoration.
-            databaseBackupRoot: rollbackResult ? undefined : databaseBackupRoot,
+            databaseBackupRoot: rollbackResult ? undefined : transaction.databaseBackupRoot,
             retireLegacyBackups: rollbackResult ? undefined : retireLegacyBackups,
             launchers,
             packageBackedUp,
@@ -534,7 +538,8 @@ export async function swapStagedPackageInstall(
           });
           return await retirement;
         },
-      });
+      };
+      await params.onTransaction(transaction);
     }
     const restorePackage = async (assertCurrent: () => void) => {
       if (!native && hadPackage) {
@@ -601,7 +606,11 @@ export async function swapStagedPackageInstall(
       params.onLiveMutation?.();
       liveMutationStarted = true;
       packageRollbackVerified = false;
-      await activation.publish(false, async () => {
+      await activation.publish(false, async (previous, copied) => {
+        if (copied) {
+          warnings.push("EXDEV during package backup rename; using a verified rollback copy.");
+        }
+        previousRoot = { kind: "directory", tree: previous };
         packageBackedUp = true;
         activePackageRoot = null;
         activation!.assertCurrent();
@@ -613,7 +622,6 @@ export async function swapStagedPackageInstall(
       });
       activePackageRoot = targetPackageRoot;
       projectActivated = true;
-      activationCompleted = true;
     } else {
       await rootLink?.assertLiveUnchanged();
       if (process.platform === "freebsd") {
@@ -662,8 +670,8 @@ export async function swapStagedPackageInstall(
         rollback.push(restoreShim(shim));
         await copyPathEntry(shim.source, shim.destination);
       }
-      activationCompleted = true;
     }
+    activationCompleted = true;
     await results.verifyLaunchers(shims);
     const postVerifyStep = params.postVerifyStep
       ? await runPackagePostInstallVerification(targetPackageRoot, params.postVerifyStep)
@@ -700,7 +708,7 @@ export async function swapStagedPackageInstall(
     }
     if (
       error instanceof PackageUpdateActivationError ||
-      error instanceof FreeBsdPkgOwnershipError
+      error instanceof SystemPackageOwnershipError
     ) {
       if (activation && !retained && !liveMutationStarted) {
         const refusal = error instanceof PackageUpdateActivationError ? error.cause : error;

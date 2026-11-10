@@ -1,30 +1,29 @@
-// Google Interactions provider adapts Gemini Interactions API streams and tools to the agent runtime.
+import { asRecord } from "@openclaw/normalization-core/record-coerce";
+import {
+  PROVIDER_CONTEXT_HANDOFF,
+  PROVIDER_MODEL_INPUT,
+  type ProviderStreamOptions,
+} from "../provider-types.js";
 import { createAssistantOutput } from "../transports/assistant-output.js";
-import type { Context, Model, SimpleStreamOptions, StreamFunction } from "../types.js";
+import type { SimpleStreamOptions, StreamFunction } from "../types.js";
 import { AssistantMessageEventStream } from "../utils/event-stream.js";
+import {
+  normalizeGoogleInteractionsToolChoice,
+  type GoogleInteractionsOptions,
+} from "./google-interactions-request.js";
 import {
   resolveGoogleInteractionsApiKey,
   runGoogleInteractionsLifecycle,
 } from "./google-interactions-shared.js";
-import {
-  buildGoogleInteractionsSimpleThinking,
-  type GoogleProviderOptions,
-} from "./google-shared.js";
+import { buildGoogleInteractionsSimpleThinking } from "./google-shared.js";
 import { buildBaseOptions } from "./simple-options.js";
 
-export type GoogleInteractionsOptions = GoogleProviderOptions;
-
-// Counter for generating unique tool call IDs
 let toolCallCounter = 0;
 
 export const streamGoogleInteractions: StreamFunction<
   "google-interactions",
   GoogleInteractionsOptions
-> = (
-  model: Model<"google-interactions">,
-  context: Context,
-  options?: GoogleInteractionsOptions,
-) => {
+> = (model, context, options) => {
   const stream = new AssistantMessageEventStream();
   const output = createAssistantOutput(model, "google-interactions");
 
@@ -35,7 +34,6 @@ export const streamGoogleInteractions: StreamFunction<
     options,
     context,
     nextToolCallId: (name) => `${name}_${Date.now()}_${++toolCallCounter}`,
-    apiKey: resolveGoogleInteractionsApiKey(model, options),
   });
 
   return stream;
@@ -44,15 +42,24 @@ export const streamGoogleInteractions: StreamFunction<
 export const streamSimpleGoogleInteractions: StreamFunction<
   "google-interactions",
   SimpleStreamOptions
-> = (model: Model<"google-interactions">, context: Context, options?: SimpleStreamOptions) => {
+> = (model, context, options) => {
   const apiKey = resolveGoogleInteractionsApiKey(model, options);
   if (!apiKey) {
     throw new Error(`No API key for provider: ${model.provider}`);
   }
 
   const base = buildBaseOptions(model, options, apiKey);
+  const providerOptions: ProviderStreamOptions | undefined = options;
+  const record = asRecord(options);
+  const toolChoice = normalizeGoogleInteractionsToolChoice(record.toolChoice);
+  const videoMetadata = record.videoMetadata ?? record.video_metadata;
   return streamGoogleInteractions(model, context, {
     ...base,
+    ...(typeof record.topP === "number" ? { topP: record.topP } : {}),
+    [PROVIDER_MODEL_INPUT]: providerOptions?.[PROVIDER_MODEL_INPUT],
+    [PROVIDER_CONTEXT_HANDOFF]: providerOptions?.[PROVIDER_CONTEXT_HANDOFF],
     thinking: buildGoogleInteractionsSimpleThinking(model, options),
-  } satisfies GoogleInteractionsOptions);
+    ...(toolChoice ? { toolChoice } : {}),
+    ...(videoMetadata !== undefined ? { videoMetadata } : {}),
+  });
 };

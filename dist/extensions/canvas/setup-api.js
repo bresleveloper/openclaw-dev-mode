@@ -7,7 +7,6 @@ import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 import { asBoolean, asOptionalRecord, readStringValue } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { resolveUserPath } from "openclaw/plugin-sdk/text-utility-runtime";
 //#region extensions/canvas/src/config-migration.ts
-/** Canvas config migration to the single surviving route-enable switch. */
 const RETIRED_HOST_KEYS = [
 	"root",
 	"port",
@@ -87,15 +86,12 @@ function migrateCanvasHostConfig(config) {
 }
 //#endregion
 //#region extensions/canvas/setup-api.ts
-/**
-* Canvas setup entrypoint that exposes config migrations.
-*/
 var setup_api_default = definePluginEntry({
 	id: "canvas",
 	name: "Canvas Setup",
 	description: "Lightweight Canvas setup hooks",
 	register(api) {
-		api.registerConfigMigration((config) => migrateCanvasHostConfig(config));
+		api.registerConfigMigration(migrateCanvasHostConfig);
 	}
 });
 //#endregion

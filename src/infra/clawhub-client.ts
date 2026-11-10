@@ -15,6 +15,8 @@ import {
   readResponseTextSnippet,
   readResponseWithLimit,
 } from "./http-body.js";
+import { fetchWithSsrFGuard, withTrustedEnvProxyGuardedFetchMode } from "./net/fetch-guard.js";
+import { ssrfPolicyFromHttpBaseUrlAllowedOrigin } from "./net/ssrf.js";
 
 const DEFAULT_CLAWHUB_URL = "https://clawhub.ai";
 const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
@@ -199,15 +201,9 @@ function buildUrl(params: Pick<ClawHubRequestParams, "baseUrl" | "path" | "searc
   return url;
 }
 
-type ClawHubResponse = {
-  response: Response;
-  url: URL;
-  hasToken: boolean;
-  /** Successful archives keep only their chunk-idle timeout while streaming. */
-  releaseDeadline: () => void;
-};
+type ClawHubResponse = Awaited<ReturnType<typeof requestClawHub>>;
 
-async function requestClawHub(params: ClawHubRequestParams): Promise<ClawHubResponse> {
+async function requestClawHub(params: ClawHubRequestParams) {
   const url = buildUrl(params);
   const token = params.skipAuth
     ? undefined
@@ -230,10 +226,16 @@ async function requestClawHub(params: ClawHubRequestParams): Promise<ClawHubResp
   }
   const request = async () => {
     const controller = new AbortController();
+    // Fetch rejects with the abort reason; preserve timeout classification for read retries.
+    const timeoutError = Object.assign(
+      new Error(`ClawHub request timed out after ${timeoutMs}ms`),
+      { code: "ETIMEDOUT" },
+    );
     let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(
-      () => controller.abort(new Error(`ClawHub request timed out after ${timeoutMs}ms`)),
+      () => controller.abort(timeoutError),
       timeoutMs,
     );
+    // Successful archives keep only their chunk-idle timeout while streaming.
     const releaseDeadline = () => {
       if (timeout !== undefined) {
         clearTimeout(timeout);
@@ -241,11 +243,17 @@ async function requestClawHub(params: ClawHubRequestParams): Promise<ClawHubResp
       }
     };
     try {
-      const response = await (params.fetchImpl ?? fetch)(url, {
-        ...init,
-        signal: controller.signal,
-      });
-      return { response, url, hasToken: Boolean(token), releaseDeadline };
+      const { response, release } = await fetchWithSsrFGuard(
+        withTrustedEnvProxyGuardedFetchMode({
+          url: url.toString(),
+          fetchImpl: params.fetchImpl,
+          init,
+          signal: controller.signal,
+          policy: ssrfPolicyFromHttpBaseUrlAllowedOrigin(resolveClawHubBaseUrl(params.baseUrl)),
+          auditContext: "clawhub",
+        }),
+      );
+      return { response, url, hasToken: Boolean(token), releaseDeadline, release };
     } catch (error) {
       releaseDeadline();
       throw error;
@@ -258,9 +266,10 @@ async function requestClawHub(params: ClawHubRequestParams): Promise<ClawHubResp
     return await request();
   }
   return await retryClawHubRead(request, {
-    disposeRetry: async ({ response, releaseDeadline }) => {
+    disposeRetry: async ({ response, releaseDeadline, release }) => {
       releaseDeadline();
       await cancelUnreadResponseBody(response);
+      await release();
     },
   });
 }
@@ -276,6 +285,7 @@ export async function withClawHubResponse<T>(
   } finally {
     result.releaseDeadline();
     await cancelUnreadResponseBody(result.response);
+    await result.release();
   }
 }
 

@@ -1,4 +1,4 @@
-import { s as defineRetiredPluginStateMigration } from "../../runtime-doctor-migrations-4UZBewWQ.mjs";
+import { s as defineRetiredPluginStateMigration } from "../../runtime-doctor-migrations-BuGkvNDu.mjs";
 import path from "node:path";
 //#region extensions/device-pair/doctor-contract-api.ts
 const stateMigrations = [defineRetiredPluginStateMigration({

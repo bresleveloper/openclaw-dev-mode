@@ -23,6 +23,7 @@ import {
   executeSqliteQueryTakeFirstSync,
   getNodeSqliteKysely,
 } from "./kysely-sync.js";
+import type { EngineConnection } from "./sql-connection.js";
 import { assertAllowedJsonFields } from "./state-migrations.json-fields.js";
 import {
   legacyMigrationSourceSnapshotsMatch as sourceSnapshotsMatch,
@@ -30,6 +31,7 @@ import {
   type LegacyMigrationSourceSnapshot as LegacySourceSnapshot,
 } from "./state-migrations.source-snapshot.js";
 import type { LegacyStateDetection, MigrationMessages } from "./state-migrations.types.js";
+import { Utf8InputError } from "./utf8-input.js";
 
 const LEGACY_RECORD_MAX_BYTES = 1024 * 1024;
 const DEFAULT_TRANSIENT_TTL_MS = 15 * 60 * 1000;
@@ -303,12 +305,18 @@ function removeClaimedSources(params: {
   }
 }
 
-function isExpiredTransient(record: ManagedImageRecord, nowMs: number, transientTtlMs: number) {
+function isExpiredTransient(record: ManagedImageRecord, nowMs: number) {
   const createdAtMs = Date.parse(record.createdAt);
-  return (
-    record.messageId === null &&
-    Number.isFinite(createdAtMs) &&
-    nowMs - createdAtMs >= transientTtlMs
+  return record.messageId === null && nowMs - createdAtMs >= DEFAULT_TRANSIENT_TTL_MS;
+}
+
+function readManagedImageRow(db: EngineConnection, attachmentId: string) {
+  return executeSqliteQueryTakeFirstSync(
+    db,
+    getNodeSqliteKysely<ManagedImageRecordDatabase>(db)
+      .selectFrom("managed_outgoing_image_records")
+      .selectAll()
+      .where("attachment_id", "=", attachmentId),
   );
 }
 
@@ -321,13 +329,7 @@ function rollbackImportedRecords(params: {
       ({ db }) => {
         const stateDb = getNodeSqliteKysely<ManagedImageRecordDatabase>(db);
         for (const parsed of params.records) {
-          const row = executeSqliteQueryTakeFirstSync(
-            db,
-            stateDb
-              .selectFrom("managed_outgoing_image_records")
-              .selectAll()
-              .where("attachment_id", "=", parsed.record.attachmentId),
-          );
+          const row = readManagedImageRow(db, parsed.record.attachmentId);
           if (
             !row ||
             row.cleanup_pending === 1 ||
@@ -356,7 +358,6 @@ export function migrateLegacyManagedOutgoingImages(params: {
   detected: LegacyStateDetection["managedOutgoingImages"];
   stateDir: string;
   nowMs?: number;
-  transientTtlMs?: number;
   beforeClaim?: () => void;
   beforeVerify?: () => void;
   removeSource?: (sourcePath: string) => void;
@@ -386,11 +387,14 @@ export function migrateLegacyManagedOutgoingImages(params: {
       );
   } catch (error) {
     warnings.push(`Failed reading legacy managed outgoing image state: ${String(error)}`);
-    return { changes, warnings };
+    return {
+      changes,
+      warnings,
+      ...(error instanceof Utf8InputError ? { warningDisposition: "recoverable" as const } : {}),
+    };
   }
 
   const nowMs = params.nowMs ?? Date.now();
-  const transientTtlMs = params.transientTtlMs ?? DEFAULT_TRANSIENT_TTL_MS;
   const discardedIds = new Set<string>();
   const insertedRecords: ParsedLegacyRecord[] = [];
   let claimed: ClaimedLegacySource[];
@@ -406,13 +410,7 @@ export function migrateLegacyManagedOutgoingImages(params: {
       ({ db }) => {
         const stateDb = getNodeSqliteKysely<ManagedImageRecordDatabase>(db);
         for (const parsed of parsedRecords) {
-          const existing = executeSqliteQueryTakeFirstSync(
-            db,
-            stateDb
-              .selectFrom("managed_outgoing_image_records")
-              .selectAll()
-              .where("attachment_id", "=", parsed.record.attachmentId),
-          );
+          const existing = readManagedImageRow(db, parsed.record.attachmentId);
           if (existing) {
             if (!managedImageRecordsEqual(managedImageRecordFromRow(existing), parsed.record)) {
               throw new Error(
@@ -421,7 +419,7 @@ export function migrateLegacyManagedOutgoingImages(params: {
             }
             continue;
           }
-          if (isExpiredTransient(parsed.record, nowMs, transientTtlMs)) {
+          if (isExpiredTransient(parsed.record, nowMs)) {
             discardedIds.add(parsed.record.attachmentId);
             continue;
           }
@@ -448,15 +446,8 @@ export function migrateLegacyManagedOutgoingImages(params: {
     const database = openOpenClawStateDatabase({
       env: { ...process.env, OPENCLAW_STATE_DIR: params.stateDir },
     });
-    const stateDb = getNodeSqliteKysely<ManagedImageRecordDatabase>(database.db);
     for (const parsed of parsedRecords) {
-      const row = executeSqliteQueryTakeFirstSync(
-        database.db,
-        stateDb
-          .selectFrom("managed_outgoing_image_records")
-          .selectAll()
-          .where("attachment_id", "=", parsed.record.attachmentId),
-      );
+      const row = readManagedImageRow(database.db, parsed.record.attachmentId);
       if (discardedIds.has(parsed.record.attachmentId)) {
         if (row) {
           throw new Error(
@@ -481,14 +472,12 @@ export function migrateLegacyManagedOutgoingImages(params: {
     return { changes, warnings };
   }
 
-  let deletedExpiredFiles = 0;
   try {
     for (const parsed of parsedRecords) {
       if (!discardedIds.has(parsed.record.attachmentId)) {
         continue;
       }
       fs.rmSync(parsed.originalPath, { force: true });
-      deletedExpiredFiles += 1;
     }
   } catch (error) {
     warnings.push(
@@ -522,8 +511,7 @@ export function migrateLegacyManagedOutgoingImages(params: {
   }
   if (discardedIds.size > 0) {
     changes.push(
-      `Discarded ${discardedIds.size} expired managed outgoing image record(s)` +
-        (deletedExpiredFiles > 0 ? ` and ${deletedExpiredFiles} attachment file(s)` : ""),
+      `Discarded ${discardedIds.size} expired managed outgoing image record(s) and ${discardedIds.size} attachment file(s)`,
     );
   }
   changes.push("Removed legacy managed outgoing image JSON after SQLite verification");

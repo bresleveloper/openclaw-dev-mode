@@ -1,9 +1,6 @@
-import { t as registerClickClackDiscussions } from "./.setup/runtime-api-Dm_MQHNq.mjs";
+import { t as registerClickClackDiscussions } from "./.setup/runtime-api-DIu-sNJs.mjs";
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
 //#region extensions/clickclack/index.ts
-/**
-* Bundled channel entry metadata for the ClickClack plugin.
-*/
 var clickclack_default = defineBundledChannelEntry({
 	id: "clickclack",
 	name: "ClickClack",

@@ -74,6 +74,9 @@ Every action accepts: `--channel <name>`, `--account <id>`, `--json`,
 `--dry-run`, `--verbose`. Actions that take a destination also accept
 `-t, --target <dest>`.
 
+Human-readable summaries and tables neutralize terminal control sequences from
+channel-provided text before styling. `--json` retains the original channel data.
+
 An explicitly empty or whitespace-only `--account` value is rejected. Omit the
 option to use the existing default or bound account, including when a shell
 variable is empty. Nonblank account values keep their existing selection rules.
@@ -175,6 +178,10 @@ the command explains the outcome and exits nonzero. Partial delivery keeps any
 confirmed message ID. JSON failures include `ok: false`, `deliveryStatus`, and
 `error`; successful JSON responses retain their existing shape.
 
+Session transcript mirrors show attachment filenames while retaining their media
+references. Different attachments with the same filename and caption remain
+distinct; repeating the same text and media at the transcript tail is deduplicated.
+
 ```bash
 openclaw message send --channel discord \
   --target channel:123 --message "Choose:" \
@@ -195,7 +202,7 @@ openclaw message send --channel slack --target channel:C123 \
 ```
 
 Slack also renders explicit table blocks natively. Other channels receive the
-caption and every row as deterministic text:
+caption and every row in a fixed text format:
 
 ```bash
 openclaw message send --channel slack --target channel:C123 \

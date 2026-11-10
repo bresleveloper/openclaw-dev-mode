@@ -1,2 +1,2 @@
-import { n as classifyAttachmentBytes, t as attachmentClassFromMime } from "../attachment-classify-CnNuBUq0.mjs";
+import { n as classifyAttachmentBytes, t as attachmentClassFromMime } from "../attachment-classify-C6ki8r7-.mjs";
 export { attachmentClassFromMime, classifyAttachmentBytes };

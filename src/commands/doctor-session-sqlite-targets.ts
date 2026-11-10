@@ -1,13 +1,13 @@
 /** Offline Doctor target discovery and legacy-source admission. */
 import fs from "node:fs";
 import path from "node:path";
-import { getRuntimeConfig } from "../config/config.js";
+import { loadConfig } from "../config/config.js";
 import { resolveStateDir } from "../config/paths.js";
+import { selectSessionStoreMaintenanceTargets } from "../config/sessions/targets-maintenance.js";
 import {
   resolveAgentSessionStoreTargetsSync,
   resolveAllAgentSessionStoreCandidateTargetsSync,
   resolveAllAgentSessionStoreTargetsSync,
-  resolveConfiguredAgentDatabaseTargets,
   resolveSessionStoreTargets,
   type SessionStoreTarget as ResolvedSessionStoreTarget,
 } from "../config/sessions/targets.js";
@@ -21,12 +21,8 @@ import {
   projectExistingAgentDatabaseTargets,
   resolveTargetSqlitePath,
 } from "../infra/session-sqlite-migration-readers.js";
-import {
-  hasOrphanedSqliteSidecars,
-  resolveSqliteDatabaseFilePaths,
-} from "../infra/sqlite-files.js";
+import { resolveSqliteDatabaseFilePaths } from "../infra/sqlite-files.js";
 import { LEGACY_IMPLICIT_AGENT_ID, normalizeAgentId } from "../routing/session-key.js";
-import { createRetainedAgentDatabaseMatcher } from "../state/agent-deletion-discovery.js";
 import type { HistoricalArchiveSources } from "./doctor-session-sqlite-discovery.js";
 import type {
   DoctorSessionSqliteMode,
@@ -49,11 +45,7 @@ export async function prepareDoctorSessionSqliteTargets(
 ) {
   const resolved = resolveDoctorSessionSqliteTargets(params);
   if (isDestructiveDoctorSessionSqliteMode(params.mode)) {
-    assertDoctorSqliteMaintenancePathsNotAliased(
-      `session SQLite ${params.mode}`,
-      resolveDoctorSessionSqliteMaintenancePaths(resolved.targets),
-      resolveDoctorSessionSqliteMaintenanceRoots(resolved.targets, params.env),
-    );
+    assertDoctorSessionSqliteTargetsNotAliased({ ...params, ...resolved });
   }
   const repairEntryStates = async (targets: readonly SessionStoreTarget[]) => {
     params.authority?.assertCurrent();
@@ -74,6 +66,29 @@ export async function prepareDoctorSessionSqliteTargets(
   return { ...resolved, repairEntryStates };
 }
 
+export function assertDoctorSessionSqliteTargetsNotAliased(
+  params: Pick<DoctorSessionSqliteOptions, "agent" | "allAgents" | "mode" | "store"> & {
+    env: NodeJS.ProcessEnv;
+    targets: readonly SessionStoreTarget[];
+    knownTargets?: readonly SessionStoreTarget[];
+  },
+): void {
+  assertDoctorSqliteMaintenancePathsNotAliased(
+    `session SQLite ${params.mode}`,
+    resolveDoctorSessionSqliteMaintenancePaths(params.targets),
+    resolveDoctorSessionSqliteMaintenanceRoots(params.targets, params.env),
+    params.allAgents && !params.agent && !params.store && params.knownTargets
+      ? {
+          paths: resolveDoctorSessionSqliteMaintenancePaths(params.knownTargets),
+          ownershipRoots: resolveDoctorSessionSqliteMaintenanceRoots(
+            params.knownTargets,
+            params.env,
+          ),
+        }
+      : undefined,
+  );
+}
+
 export function createMigrationTargetInput(
   target: SessionStoreTarget,
 ): SessionSqliteMigrationTargetInput {
@@ -92,7 +107,7 @@ export function resolveDoctorSessionSqliteConfig(
     return options.cfg;
   }
   const requestedAgentId = normalizeAgentId(options.agent ?? LEGACY_IMPLICIT_AGENT_ID);
-  return options.store ? { agents: { entries: { [requestedAgentId]: {} } } } : getRuntimeConfig();
+  return options.store ? { agents: { entries: { [requestedAgentId]: {} } } } : loadConfig();
 }
 
 export function resolveDoctorSessionSqliteMaintenancePaths(
@@ -190,26 +205,9 @@ export function resolveDoctorSessionSqliteTargets(params: {
       target,
       sqlitePath: resolveTargetSqlitePath(target, params.env),
     }));
-    const isRetained = createRetainedAgentDatabaseMatcher(
-      params.env,
-      () => resolveConfiguredAgentDatabaseTargets(params.cfg, { env: params.env }),
-      {
-        kind: "legacy-database",
-        readDatabasePaths: () => targets.map(({ sqlitePath }) => sqlitePath),
-      },
-    );
     return {
-      targets: targets
-        .filter(({ target, sqlitePath }) => {
-          const orphanedSidecars = hasOrphanedSqliteSidecars(sqlitePath);
-          return [target.storePath, sqlitePath].every((pathname) => {
-            const disposition = isRetained(pathname, target.agentId);
-            // Unknown history is not a deletion; an incomplete SQLite family still needs recovery.
-            return !disposition || (disposition === "unavailable" && !orphanedSidecars);
-          });
-        })
-        .map(({ target }) => target),
-      knownTargets: targets.map(({ target }) => target),
+      targets: selectSessionStoreMaintenanceTargets(targets, params).map(({ target }) => target),
+      knownTargets: candidates,
     };
   }
   return { targets: resolveSessionStoreTargets(params.cfg, {}, { env: params.env }) };

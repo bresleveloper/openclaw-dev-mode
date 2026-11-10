@@ -1,10 +1,10 @@
-import { resolveBedrockCachePoint, resolveBedrockPromptCachePolicy } from "./bedrock-options.js";
+import { resolveBedrockCachePoint, resolveBedrockCacheRetention, resolveBedrockPromptCachePolicy } from "./bedrock-options.js";
 import { resolveBedrockRuntimeAuth } from "./aws-credential-refresh.js";
 import { isClaude5BedrockModel, resolveBedrockClaudeThinkingProfile, supportsBedrockNativeMaxEffort } from "./thinking-policy.js";
 import { AssistantMessageEventStream, adjustMaxTokensForThinking, buildBaseOptions, calculateCost, clampReasoning, createHttpProxyAgentsForTarget, createToolArgumentPreviewSchedule, hasRuntimeContextMarker, parseStreamingJson, sanitizeSurrogates, transformMessages } from "openclaw/plugin-sdk/llm";
 import { bindsClaudeThinkingPrefix, requiresClaudeMandatoryAdaptiveThinking, resolveClaudeFable5ModelIdentity, resolveClaudeModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity, supportsClaudeAdaptiveThinking, supportsClaudeNativeXhighEffort } from "openclaw/plugin-sdk/provider-model-shared";
 import { applyAnthropicRefusal, createDeferredEventBuffer, notifyLlmRequestActivity } from "openclaw/plugin-sdk/provider-stream-shared";
-import { buildAssistantMessage, coerceTransportToolCallArguments, createEmptyTransportUsage, describeToolResultMediaPlaceholder, failTransportStream, finalizeTerminalToolCallArguments, notifyProviderHttpMetadata, splitSystemPromptCacheBoundary, stripSystemPromptCacheBoundary } from "openclaw/plugin-sdk/provider-transport-runtime";
+import { buildAssistantMessage, coerceTransportToolCallArguments, createEmptyTransportUsage, describeToolResultMediaPlaceholder, failTransportStream, finalizeTerminalToolCallArguments, notifyProviderHttpMetadata, sortPromptCacheToolsByName, splitSystemPromptCacheBoundary, stripSystemPromptCacheBoundary } from "openclaw/plugin-sdk/provider-transport-runtime";
 import { asOptionalRecord, isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { BedrockRuntimeClient, BedrockRuntimeServiceException, CacheTTL, ConversationRole, ConverseStreamCommand, ImageFormat, StopReason, ToolResultStatus } from "@aws-sdk/client-bedrock-runtime";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
@@ -42,12 +42,17 @@ const streamBedrock = (model, context, options = {}) => {
 			stopReason: "stop"
 		});
 		const blocks = output.content;
-		const pendingToolCallEnds = [];
-		const toolArgumentPreviewSchedules = /* @__PURE__ */ new WeakMap();
-		const redactedReasoningChunks = /* @__PURE__ */ new Map();
 		const fable5 = resolveClaudeFable5ModelIdentity(model) !== void 0;
 		const refusalBuffer = isClaude5BedrockModel(model) ? createDeferredEventBuffer(stream) : void 0;
 		const eventSink = refusalBuffer ?? stream;
+		const blockState = {
+			blocks,
+			output,
+			stream: eventSink,
+			toolArgumentPreviewSchedules: /* @__PURE__ */ new WeakMap(),
+			redactedReasoningChunks: /* @__PURE__ */ new Map(),
+			pendingToolCallEnds: []
+		};
 		const config = {
 			profile: options.profile,
 			...resolveBedrockRuntimeAuth(options.bearerToken)
@@ -70,8 +75,9 @@ const streamBedrock = (model, context, options = {}) => {
 		try {
 			options.signal?.throwIfAborted();
 			client = new BedrockRuntimeClient(config);
-			const cacheRetention = resolveCacheRetention(model, options.cacheRetention);
-			const cachePoint = resolveBedrockCachePoint(model, cacheRetention);
+			const cachePolicy = resolveBedrockPromptCachePolicy(model);
+			const cacheRetention = resolveBedrockCacheRetention(cachePolicy, options.cacheRetention);
+			const cachePoint = resolveBedrockCachePoint(cachePolicy, cacheRetention);
 			const additionalModelRequestFields = buildAdditionalModelRequestFields(model, options);
 			const thinking = additionalModelRequestFields?.thinking;
 			const sendsAdaptiveThinking = thinking !== null && typeof thinking === "object" && thinking.type === "adaptive";
@@ -118,9 +124,9 @@ const streamBedrock = (model, context, options = {}) => {
 						type: "start",
 						partial: output
 					});
-				} else if (item.contentBlockStart) handleContentBlockStart(item.contentBlockStart, blocks, output, eventSink, toolArgumentPreviewSchedules);
-				else if (item.contentBlockDelta) handleContentBlockDelta(item.contentBlockDelta, blocks, output, eventSink, redactedReasoningChunks, toolArgumentPreviewSchedules);
-				else if (item.contentBlockStop) handleContentBlockStop(item.contentBlockStop, blocks, output, eventSink, redactedReasoningChunks, pendingToolCallEnds);
+				} else if (item.contentBlockStart) handleContentBlockStart(item.contentBlockStart, blockState);
+				else if (item.contentBlockDelta) handleContentBlockDelta(item.contentBlockDelta, blockState);
+				else if (item.contentBlockStop) handleContentBlockStop(item.contentBlockStop, blockState);
 				else if (item.messageStop) {
 					sawMessageStop = true;
 					if (item.messageStop.stopReason === "refusal") applyAnthropicRefusal(output, readBedrockStopDetails(item.messageStop.additionalModelResponseFields), model.provider);
@@ -139,8 +145,8 @@ const streamBedrock = (model, context, options = {}) => {
 			if (!sawMessageStop) throw new Error("Bedrock stream ended before messageStop");
 			if (options.signal?.aborted) throw new Error("Request was aborted");
 			if (output.stopReason === "error" || output.stopReason === "aborted") throw new Error(output.errorMessage ?? "An unknown error occurred");
-			for (const block of blocks) if (block.index !== void 0 && block.type !== "toolCall") handleContentBlockStop({ contentBlockIndex: block.index }, blocks, output, eventSink, redactedReasoningChunks, pendingToolCallEnds);
-			flushPendingBedrockToolCalls(pendingToolCallEnds, blocks, output, eventSink);
+			for (const block of blocks) if (block.index !== void 0 && block.type !== "toolCall") handleContentBlockStop({ contentBlockIndex: block.index }, blockState);
+			flushPendingBedrockToolCalls(blockState);
 			refusalBuffer?.flush();
 			stream.push({
 				type: "done",
@@ -156,10 +162,7 @@ const streamBedrock = (model, context, options = {}) => {
 				error,
 				cleanup: () => {
 					output.content = output.content.filter((block) => block.type !== "toolCall");
-					for (const block of output.content) {
-						delete block.index;
-						delete block.partialJson;
-					}
+					for (const block of output.content) delete block.index;
 					if (refusalBuffer) {
 						refusalBuffer.discard();
 						output.content = [];
@@ -225,7 +228,7 @@ function resolveSimpleBedrockOptions(model, options) {
 	}
 	return base;
 }
-function handleContentBlockStart(event, blocks, output, stream, toolArgumentPreviewSchedules) {
+function handleContentBlockStart(event, { blocks, output, stream, toolArgumentPreviewSchedules }) {
 	const index = event.contentBlockIndex;
 	const start = event.start;
 	if (start?.toolUse) {
@@ -247,7 +250,7 @@ function handleContentBlockStart(event, blocks, output, stream, toolArgumentPrev
 		});
 	}
 }
-function handleContentBlockDelta(event, blocks, output, stream, redactedReasoningChunks, toolArgumentPreviewSchedules) {
+function handleContentBlockDelta(event, { blocks, output, stream, redactedReasoningChunks, toolArgumentPreviewSchedules }) {
 	const contentBlockIndex = event.contentBlockIndex;
 	const delta = event.delta;
 	let index = blocks.findIndex((b) => b.index === contentBlockIndex);
@@ -341,7 +344,7 @@ function handleMetadata(event, model, output) {
 		calculateCost(model, output.usage);
 	}
 }
-function handleContentBlockStop(event, blocks, output, stream, redactedReasoningChunks, pendingToolCallEnds) {
+function handleContentBlockStop(event, { blocks, output, stream, redactedReasoningChunks, pendingToolCallEnds }) {
 	const index = blocks.findIndex((b) => b.index === event.contentBlockIndex);
 	const block = blocks[index];
 	if (!block) return;
@@ -381,7 +384,7 @@ function handleContentBlockStop(event, blocks, output, stream, redactedReasoning
 			});
 	}
 }
-function flushPendingBedrockToolCalls(pending, blocks, output, stream) {
+function flushPendingBedrockToolCalls({ pendingToolCallEnds: pending, blocks, output, stream }) {
 	if (blocks.some((block) => block.type === "toolCall" && block.index !== void 0)) throw new Error("Provider completed stream with an incomplete tool call");
 	finalizeTerminalToolCallArguments(pending.map(({ block }) => block), (block) => block.partialJson && block.partialJson.length > 0 ? block.partialJson : block.arguments);
 	for (const toolCall of pending) {
@@ -447,16 +450,6 @@ function mapThinkingLevelToEffort(model, level) {
 	}
 }
 /**
-* Resolve cache retention preference.
-* Nova requires explicit opt-in; other models retain the existing env/default policy.
-*/
-function resolveCacheRetention(model, cacheRetention) {
-	if (cacheRetention) return cacheRetention;
-	if (resolveBedrockPromptCachePolicy(model) === "nova") return "none";
-	if (typeof process !== "undefined" && process.env.OPENCLAW_CACHE_RETENTION === "long") return "long";
-	return "short";
-}
-/**
 * Check if the model is an Anthropic Claude model on Bedrock.
 * Checks both model ID and model name to support application inference profiles
 * whose ARNs don't contain the model name.
@@ -480,15 +473,19 @@ function buildSystemPrompt(systemPrompt, cacheRetention, cachePoint) {
 function normalizeToolCallId(id) {
 	return id.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
 }
-function createBedrockToolResult(message) {
+function convertTextImageContent(blocks, skipEmptyImages) {
 	const content = [];
-	for (const block of message.content) {
+	for (const block of blocks) {
 		if (block.type === "text") {
 			content.push({ text: sanitizeSurrogates(block.text) });
 			continue;
 		}
-		if (block.type === "image" && describeToolResultMediaPlaceholder([block])) content.push({ image: createImageBlock(block.mimeType, block.data) });
+		if (block.type === "image" && (!skipEmptyImages || describeToolResultMediaPlaceholder([block]))) content.push({ image: createImageBlock(block.mimeType, block.data) });
 	}
+	return content;
+}
+function createBedrockToolResult(message) {
+	const content = convertTextImageContent(message.content, true);
 	return { toolResult: {
 		toolUseId: message.toolCallId,
 		content: content.length > 0 ? content : [{ text: describeToolResultMediaPlaceholder(message.content) ?? "(no output)" }],
@@ -503,17 +500,7 @@ function convertMessages(context, model, cachePoint) {
 		const m = expectDefined(transformedMessages[i], "message conversion index is in bounds");
 		switch (m.role) {
 			case "user": {
-				const content = [];
-				if (typeof m.content === "string") content.push({ text: sanitizeSurrogates(m.content) });
-				else for (const c of m.content) switch (c.type) {
-					case "text":
-						content.push({ text: sanitizeSurrogates(c.text) });
-						break;
-					case "image":
-						content.push({ image: createImageBlock(c.mimeType, c.data) });
-						break;
-					default: continue;
-				}
+				const content = typeof m.content === "string" ? [{ text: sanitizeSurrogates(m.content) }] : convertTextImageContent(m.content, false);
 				if (content.length === 0) continue;
 				if (hasRuntimeContextMarker(m) && !bindsClaudeThinkingPrefix(model) && firstVolatileMessageIndex === void 0) firstVolatileMessageIndex = result.length;
 				result.push({
@@ -605,14 +592,20 @@ function convertMessages(context, model, cachePoint) {
 		}
 	}
 	if (cachePoint && result.at(-1)?.role === ConversationRole.USER) {
-		const cacheAnchor = result.findLast((message, index) => message.role === ConversationRole.USER && (firstVolatileMessageIndex === void 0 || index < firstVolatileMessageIndex));
-		if (cacheAnchor?.content) cacheAnchor.content.push({ cachePoint });
+		let remaining = 2;
+		for (let index = (firstVolatileMessageIndex ?? result.length) - 1; index >= 0; index--) {
+			const message = result[index];
+			if (message?.role === ConversationRole.USER && message.content) {
+				message.content.push({ cachePoint });
+				if (--remaining === 0) break;
+			}
+		}
 	}
 	return result;
 }
 function convertToolConfig(tools, toolChoice) {
 	if (!tools?.length || toolChoice === "none") return;
-	const bedrockTools = tools.map((tool) => ({ toolSpec: {
+	const bedrockTools = sortPromptCacheToolsByName(tools).map((tool) => ({ toolSpec: {
 		name: tool.name,
 		description: tool.description,
 		inputSchema: { json: { ...tool.parameters } }

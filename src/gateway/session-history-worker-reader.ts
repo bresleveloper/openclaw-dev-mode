@@ -10,13 +10,14 @@ import type {
 import { readCronJobNamesInDatabase } from "../cron/store/job-name.kernel.js";
 import { resolveCronJobsStorePath } from "../cron/store/paths.js";
 import { withExistingOpenClawStateDatabaseReadOnly } from "../state/openclaw-state-db-readonly.js";
-import { getUserProfileDisplays } from "../state/user-profile-list.js";
+import { getUserProfileDisplaysNative } from "../state/user-profile-list.native.js";
 import { createCurrentUserProfileMessageProjector } from "./chat-display-projection.core.js";
 import {
   projectForwardedMessages,
   readForwardedCronJobIds,
 } from "./chat-display-projection.history.js";
 import { resolveCurrentUserProfileDisplay } from "./current-user-profile-display.js";
+import { projectChatHistoryWithReplies } from "./server-methods/chat-history-reply-messages.js";
 import type { PreparedSessionHistoryReadTarget } from "./session-history-read.types.js";
 import { createReadonlySessionHistoryReader } from "./session-history-readonly-reader.js";
 import { resolveGatewaySessionStoreReadSources } from "./session-utils-store-sources.js";
@@ -38,6 +39,18 @@ export async function readSessionHistoryRequest(
     deferProfileDisplay: true,
     resolveCronJobName: () => undefined,
   };
+  if (request.kind === "recent-usage") {
+    return {
+      kind: "recent-usage",
+      result: options.readers.readRecentUsage(request.params.maxBytes),
+    };
+  }
+  if (request.kind === "history-event-page") {
+    return {
+      kind: "history-event-page",
+      result: options.readers.readHistoryEventPage(request.params.options),
+    };
+  }
   if (request.kind === "active-accounting") {
     return {
       kind: "active-accounting",
@@ -48,6 +61,12 @@ export async function readSessionHistoryRequest(
     return {
       kind: "bounded-tail",
       result: options.readers.readBoundedMessageTail(request.params.options),
+    };
+  }
+  if (request.kind === "recent-text") {
+    return {
+      kind: "recent-text",
+      result: options.readers.readRecentConversationText(request.params.options),
     };
   }
   if (request.kind === "summary") {
@@ -186,6 +205,13 @@ export async function readSessionHistoryRequest(
       ),
     };
   }
+  if (request.kind === "rpc-message") {
+    const { readChatHistoryMessageFromReaders } = await import("./cli-session-history.js");
+    return {
+      kind: "rpc-message",
+      result: await readChatHistoryMessageFromReaders(request.params, options.readers),
+    };
+  }
   if (request.kind === "rpc") {
     const { readChatHistoryPageKernel } =
       await import("./server-methods/chat-history-page-kernel.js");
@@ -205,34 +231,36 @@ export async function readSessionHistoryRequest(
       const messages = page.messages.filter(
         (message): message is Record<string, unknown> => asOptionalRecord(message) !== undefined,
       );
-      const profileIds = messages.flatMap((message) => {
-        const identity = readTranscriptSenderIdentity(
-          asOptionalRecord(message["__openclaw"])?.senderIdentity,
+      page.messages = await projectChatHistoryWithReplies(messages, (displayMessages) => {
+        const profileIds = displayMessages.flatMap((message) => {
+          const identity = readTranscriptSenderIdentity(
+            asOptionalRecord(message["__openclaw"])?.senderIdentity,
+          );
+          return message.role === "user" && identity?.type === "profile" ? [identity.id] : [];
+        });
+        const { path, environment: env } = expectDefined(
+          readTarget.stateDatabase,
+          "RPC history requires its captured shared-state owner",
         );
-        return message.role === "user" && identity?.type === "profile" ? [identity.id] : [];
+        const state = { path, env };
+        const jobIds = [...new Set(readForwardedCronJobIds(displayMessages).map(toUSVString))];
+        const names = jobIds.length
+          ? withExistingOpenClawStateDatabaseReadOnly(
+              ({ db }) =>
+                readCronJobNamesInDatabase(db, jobIds, resolveCronJobsStorePath(undefined, env)),
+              state,
+            )
+          : undefined;
+        let profiles: ReturnType<typeof getUserProfileDisplaysNative> | undefined;
+        const project = createCurrentUserProfileMessageProjector((id) =>
+          resolveCurrentUserProfileDisplay(id, (senderId) =>
+            (profiles ??= getUserProfileDisplaysNative(profileIds, state)).get(senderId),
+          ),
+        );
+        return projectForwardedMessages(displayMessages, (jobId) =>
+          names?.get(toUSVString(jobId)),
+        ).map(project);
       });
-      const { path, environment: env } = expectDefined(
-        readTarget.stateDatabase,
-        "RPC history requires its captured shared-state owner",
-      );
-      const state = { path, env };
-      const jobIds = [...new Set(readForwardedCronJobIds(messages).map(toUSVString))];
-      const names = jobIds.length
-        ? withExistingOpenClawStateDatabaseReadOnly(
-            ({ db }) =>
-              readCronJobNamesInDatabase(db, jobIds, resolveCronJobsStorePath(undefined, env)),
-            state,
-          )
-        : undefined;
-      let profiles: ReturnType<typeof getUserProfileDisplays> | undefined;
-      const project = createCurrentUserProfileMessageProjector((id) =>
-        resolveCurrentUserProfileDisplay(id, (senderId) =>
-          (profiles ??= getUserProfileDisplays(profileIds, state)).get(senderId),
-        ),
-      );
-      page.messages = projectForwardedMessages(messages, (jobId) =>
-        names?.get(toUSVString(jobId)),
-      ).map(project);
       return {
         kind: "rpc",
         page: encodeChatHistoryResponsePage(page, request.params),

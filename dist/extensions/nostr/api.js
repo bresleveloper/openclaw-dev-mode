@@ -1,7 +1,7 @@
-import { s as resolveNostrAccount } from "./.setup/setup-surface-b-YWJSGV.mjs";
+import { s as resolveNostrAccount } from "./.setup/setup-surface-CadI9603.mjs";
 import { getPluginRuntimeGatewayRequestScope } from "./runtime-api.js";
-import { n as NostrProfileSchema } from "./.setup/config-schema-HuEK1L2K.mjs";
-import { a as getNostrRuntime, i as contentToProfile, n as nostrPlugin, o as setNostrRuntime, r as publishNostrProfile, t as getNostrProfileState } from "./.setup/channel-BaBU_Q15.mjs";
+import { n as NostrProfileSchema } from "./.setup/channel.setup-B2tWt-Ro.mjs";
+import { a as getNostrRuntime, i as contentToProfile, n as nostrPlugin, o as setNostrRuntime, r as publishNostrProfile, t as getNostrProfileState } from "./.setup/channel-DgBGsryg.mjs";
 import { getPluginRuntimeGatewayRequestScope as getPluginRuntimeGatewayRequestScope$1 } from "openclaw/plugin-sdk/plugin-runtime";
 import { isRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalLowercaseString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { z } from "zod";
@@ -218,19 +218,16 @@ function sendJson(res, status, body) {
 	res.setHeader("Content-Type", "application/json; charset=utf-8");
 	res.end(JSON.stringify(body));
 }
-async function readJsonBody(req, maxBytes = 65536, timeoutMs = 3e4) {
+async function readJsonBody(req) {
 	const result = await readJsonBodyWithLimit(req, {
-		maxBytes,
-		timeoutMs,
+		maxBytes: 65536,
+		timeoutMs: 3e4,
 		emptyObjectOnEmpty: true
 	});
 	if (result.ok) return result.value;
 	if (result.code === "PAYLOAD_TOO_LARGE") throw new Error("Request body too large");
 	if (result.code === "REQUEST_BODY_TIMEOUT" || result.code === "CONNECTION_CLOSED") throw new Error(requestBodyErrorToText(result.code));
 	throw new Error(result.code === "INVALID_JSON" ? "Invalid JSON" : result.error);
-}
-function parseAccountIdFromPath(pathname) {
-	return pathname.match(/^\/api\/channels\/nostr\/([^/]+)\/profile/)?.[1] ?? null;
 }
 function isLoopbackRemoteAddress(remoteAddress) {
 	if (!remoteAddress) return false;
@@ -298,12 +295,21 @@ function createNostrProfileHttpHandler(ctx) {
 	return async (req, res) => {
 		const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 		if (!url.pathname.startsWith("/api/channels/nostr/")) return false;
-		const accountId = parseAccountIdFromPath(url.pathname);
+		const accountId = url.pathname.match(/^\/api\/channels\/nostr\/([^/]+)\/profile/)?.[1];
 		if (!accountId) return false;
 		const isImport = url.pathname.endsWith("/profile/import");
 		if (!(url.pathname.endsWith("/profile") || isImport)) return false;
 		try {
-			if (req.method === "GET" && !isImport) return await handleGetProfile(accountId, ctx, res);
+			if (req.method === "GET" && !isImport) {
+				const configProfile = ctx.getConfigProfile(accountId);
+				const publishState = await getNostrProfileState(accountId);
+				sendJson(res, 200, {
+					ok: true,
+					profile: configProfile ?? null,
+					publishState: publishState ?? null
+				});
+				return true;
+			}
 			if (req.method === "PUT" && !isImport || req.method === "POST" && isImport) {
 				if (!enforceGatewayMutationScope(ctx, accountId, res)) return true;
 				const rejection = resolveLoopbackMutationRejection(req);
@@ -332,16 +338,6 @@ function createNostrProfileHttpHandler(ctx) {
 			return true;
 		}
 	};
-}
-async function handleGetProfile(accountId, ctx, res) {
-	const configProfile = ctx.getConfigProfile(accountId);
-	const publishState = await getNostrProfileState(accountId);
-	sendJson(res, 200, {
-		ok: true,
-		profile: configProfile ?? null,
-		publishState: publishState ?? null
-	});
-	return true;
 }
 async function handleUpdateProfile(accountId, ctx, req, res) {
 	if (profileRateLimiter.isRateLimited(accountId)) {

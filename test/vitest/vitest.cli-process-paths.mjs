@@ -2,6 +2,8 @@
 // shared module graphs. Keep the owned list explicit so full and focused runs agree.
 export const cliProcessTestFiles = [
   "src/agents/agent-command-local.test.ts",
+  "src/worker/native-worker.integration.test.ts",
+  "src/worker/native-worker.bundle.integration.test.ts",
   "src/cli/directory-cli.test.ts",
   "src/cli/update-cli/update-command-candidate-exit.test.ts",
   "src/cli/update-cli/update-command-candidate-authority.process.test.ts",
@@ -35,6 +37,7 @@ export const cliProcessTestFiles = [
   "src/cli/gateway-cli/run-loop.direct-stop-active-work.process.test.ts",
   "src/cli/gateway-cli/run-loop.restart-liveness.process.test.ts",
   "src/cli/update-dry-run-state.process.test.ts",
+  "src/cli/update-cli.invalid-channel.process.test.ts",
   "src/cli/doctor-output.process.test.ts",
   "src/cli/skills-cli.sag.process.test.ts",
   "src/cli/update-cli/update-command-executor-native.test.ts",

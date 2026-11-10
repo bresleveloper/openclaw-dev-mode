@@ -1,23 +1,10 @@
-import { Ct as PluginRuntime, Sn as OpenClawPluginGatewayEvents, Tt as NodeSession, Ut as PluginStateKeyedStore, n as OpenClawPluginApi, wn as AnyAgentTool, wt as GatewayRequestHandlers } from "../../agent-harness-runtime-Du4B564s.js";
-import { X as OpenClawConfig } from "../../runtime-types-LI_BBveH.js";
-import "../../ssrf-runtime-DBBZ0Uv6.js";
-import { z } from "zod";
+import { M as OpenClawConfig } from "../../types-D7I_F5Ux.js";
+import { Dm as NodeSession, It as OpenClawPluginApi, O as GatewayRequestHandlers } from "../../config-contracts-CY87ANNp.js";
+import { i as resolveExistingPathsWithinRoot } from "../../security-runtime-Ds6-JRX_.js";
+import { n as AnyAgentTool } from "../../common-CCG3ut4I.js";
+import "../../gateway-runtime-DcVrqV-f.js";
 import { Type } from "typebox";
-import { DatabaseSync } from "node:sqlite";
-import { resolveExistingPathsWithinRoot } from "@openclaw/fs-safe/advanced";
-import { Selectable } from "kysely";
-import "@openclaw/fs-safe/path";
-import "@openclaw/fs-safe/root";
-import "@openclaw/fs-safe/store";
-import { Command } from "commander";
-import "@openclaw/fs-safe/atomic";
-import "@openclaw/fs-safe/permissions";
-import "@openclaw/fs-safe/durability";
-import "@openclaw/fs-safe/watch";
-import "playwright-core";
-import "@modelcontextprotocol/sdk/client/index.js";
-import "@modelcontextprotocol/sdk/client/stdio.js";
-import "@openclaw/fs-safe/json";
+import "@openclaw/fs-safe/advanced";
 //#region extensions/browser/src/browser-tool.schema.d.ts
 declare const BROWSER_ACT_KINDS: readonly ["batch", "click", "clickCoords", "type", "press", "hover", "scrollIntoView", "drag", "select", "fill", "resize", "wait", "evaluate", "close"];
 declare const BROWSER_TOOL_ACTIONS: readonly ["doctor", "status", "start", "stop", "profiles", "importprofile", "tabs", "open", "focus", "close", "snapshot", "screenshot", "navigate", "console", "requests", "errors", "text", "emulate", "pdf", "download", "waitfordownload", "upload", "dialog", "act"];
@@ -155,6 +142,7 @@ export declare function createBrowserToolDefinition(opts: {
       url: import("typebox").TOptional<import("typebox").TString>;
       format: import("typebox").TOptional<import("typebox").TEnum<("ai" | "aria")[]> | import("typebox").TUnsafe<"ai" | "aria">>;
       snapshot: import("typebox").TOptional<import("typebox").TString>;
+      text: import("typebox").TOptional<import("typebox").TString>;
       refs: import("typebox").TOptional<import("typebox").TUnion<[import("typebox").TNumber, import("typebox").TRecord<"^.*$", import("typebox").TUnknown>]>>;
       stats: import("typebox").TOptional<import("typebox").TObject<{
         lines: import("typebox").TNumber;
@@ -199,76 +187,6 @@ export declare function createBrowserToolDefinition(opts: {
       cdpUrl: import("typebox").TOptional<import("typebox").TUnion<[import("typebox").TString, import("typebox").TNull]>>;
     }>;
   };
-};
-//#endregion
-//#region extensions/browser/src/browser/pw-session-page.types.d.ts
-/** A created page and the exact cleanup operation transferred to its adopting owner. */
-type PlaywrightOwnedPage = {
-  targetId: string;
-  title: string;
-  url: string;
-  type: string;
-  close: () => Promise<void>;
-  isCurrent: () => boolean;
-};
-//#endregion
-//#region extensions/browser/src/browser-dashboard.types.d.ts
-type BrowserDashboardIdentity = {
-  sessionKey: string;
-  agentId: string;
-  name: string;
-  instanceId: string;
-  url: string;
-  profile: string;
-};
-type BrowserDashboardDefinition = BrowserDashboardIdentity & {
-  revision: number;
-  title?: string;
-};
-type SessionBrowserAuthority = NonNullable<Parameters<GatewayRequestHandlers[string]>[0]["sessionAccessAuthority"]>;
-/** One isolated context belongs to one exact session incarnation and board instance. */
-type SessionBrowserDashboard = {
-  definition: BrowserDashboardDefinition;
-  session: SessionBrowserAuthority["target"];
-  paused: boolean;
-  page?: PlaywrightOwnedPage;
-  signal: AbortSignal;
-  assertCurrent: () => void;
-  assertDefinitionCurrent: () => Promise<void>;
-  definitionChanged: () => void;
-  close: () => Promise<void>;
-};
-//#endregion
-//#region extensions/browser/src/browser-runtime-state.d.ts
-type BrowserDashboardOperation = {
-  promise: Promise<unknown>;
-  readonly materializationFailure?: {
-    error: unknown;
-    definition: BrowserDashboardDefinition;
-    callerCancelled: boolean;
-  };
-};
-type BrowserDashboardRegistration = {
-  kind: "dashboard-registration";
-  targetId: string;
-  profile: string | undefined;
-  closeDispatched?: true;
-};
-type BrowserSessionTabOperationKey = string | symbol | BrowserDashboardRegistration;
-type BrowserStateRuntime = {
-  sessionTabs: PluginStateKeyedStore<unknown>;
-  sessionTabInitialization?: Promise<void>;
-  sessionTabOperations: Map<BrowserSessionTabOperationKey, Promise<void>>;
-  gateway?: PluginRuntime["gateway"];
-  dashboardOperations: Map<string, BrowserDashboardOperation>;
-  dashboardEvents?: OpenClawPluginGatewayEvents;
-  sessionDashboards?: Map<string, SessionBrowserDashboard>;
-};
-declare const { setRuntime: setBrowserStateRuntime, getRuntime: getBrowserStateRuntime, tryGetRuntime: getOptionalBrowserStateRuntime }: {
-  setRuntime: (next: BrowserStateRuntime) => void;
-  clearRuntime: () => void;
-  tryGetRuntime: () => BrowserStateRuntime | null;
-  getRuntime: () => BrowserStateRuntime;
 };
 //#endregion
 //#region extensions/browser/src/attached-browser-tool-runtime.d.ts

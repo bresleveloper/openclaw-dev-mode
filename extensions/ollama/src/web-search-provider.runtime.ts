@@ -16,6 +16,8 @@ import {
   resolveProviderWebSearchPluginConfig,
   resolveSearchCount,
   resolveSiteName,
+  resolveTimeoutSeconds,
+  type SearchConfigRecord,
   resolveWebSearchProviderCredential,
   truncateText,
   wrapWebContent,
@@ -39,7 +41,7 @@ import {
 const OLLAMA_HOSTED_WEB_SEARCH_PATH = "/api/web_search";
 const OLLAMA_LOCAL_WEB_SEARCH_PROXY_PATH = "/api/experimental/web_search";
 const DEFAULT_OLLAMA_WEB_SEARCH_COUNT = 5;
-const DEFAULT_OLLAMA_WEB_SEARCH_TIMEOUT_MS = 15_000;
+const DEFAULT_OLLAMA_WEB_SEARCH_TIMEOUT_SECONDS = 15;
 const OLLAMA_WEB_SEARCH_SNIPPET_MAX_CHARS = 300;
 const OLLAMA_CLOUD_WEB_SEARCH_AUTH_ERROR =
   "Hosted Ollama Web Search requires an API key. Set OLLAMA_API_KEY or configure models.providers.ollama.apiKey.";
@@ -170,6 +172,7 @@ function buildOllamaWebSearchAttempts(params: {
 
 async function runOllamaWebSearch(params: {
   config?: OpenClawConfig;
+  searchConfig?: SearchConfigRecord;
   query: string;
   count?: number;
   signal?: AbortSignal;
@@ -185,7 +188,15 @@ async function runOllamaWebSearch(params: {
   // setup still reaches the Ollama Cloud fallback with OLLAMA_API_KEY after the selected-host
   // attempts fail. Gating this on configuredApiKey would drop that final authenticated attempt.
   const envApiKey = resolveEnvOllamaWebSearchApiKey();
-  const count = resolveSearchCount(params.count, DEFAULT_OLLAMA_WEB_SEARCH_COUNT);
+  const count = resolveSearchCount(
+    params.count ?? params.searchConfig?.maxResults,
+    DEFAULT_OLLAMA_WEB_SEARCH_COUNT,
+  );
+  const timeoutMs =
+    resolveTimeoutSeconds(
+      params.searchConfig?.timeoutSeconds,
+      DEFAULT_OLLAMA_WEB_SEARCH_TIMEOUT_SECONDS,
+    ) * 1_000;
   const startedAt = Date.now();
   const body = JSON.stringify({ query, max_results: count });
   const attempts = buildOllamaWebSearchAttempts({ baseUrl, configuredApiKey, envApiKey });
@@ -206,7 +217,7 @@ async function runOllamaWebSearch(params: {
         body,
       },
       // Guard-owned timeoutMs also bounds DNS/proxy preflight; init.signal does not.
-      timeoutMs: DEFAULT_OLLAMA_WEB_SEARCH_TIMEOUT_MS,
+      timeoutMs,
       ...(params.signal ? { signal: params.signal } : {}),
       policy: buildOllamaBaseUrlSsrFPolicy(attempt.baseUrl),
       auditContext: "ollama-web-search.search",
@@ -223,7 +234,7 @@ async function runOllamaWebSearch(params: {
       }
       if (response.status === 403) {
         throw new ProviderHttpError(
-          "Ollama web search is unavailable. Ensure cloud-backed web search is enabled on the Ollama host.",
+          "Ollama web search is unavailable. Check that cloud-backed web search is enabled on the Ollama host.",
           { status: response.status },
         );
       }
@@ -247,8 +258,7 @@ async function runOllamaWebSearch(params: {
       params.signal?.throwIfAborted();
       break;
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      throw lastError;
+      throw error instanceof Error ? error : new Error(String(error));
     } finally {
       // The 401/403 branches throw before the stream is touched, leaving release
       // to force-close the active dispatcher. Start cancellation first; awaiting
@@ -337,7 +347,7 @@ export function createOllamaWebSearchProvider(): Pick<
   "runSetup" | "createTool"
 > {
   return {
-    runSetup: async (ctx) => await warnOllamaWebSearchPrereqs(ctx),
+    runSetup: warnOllamaWebSearchPrereqs,
     createTool: (ctx) => ({
       description: OLLAMA_WEB_SEARCH_TOOL_DESCRIPTION,
       parameters: OLLAMA_WEB_SEARCH_TOOL_PARAMETERS,
@@ -345,6 +355,8 @@ export function createOllamaWebSearchProvider(): Pick<
         context?.signal?.throwIfAborted();
         return await runOllamaWebSearch({
           config: ctx.config,
+          // SAFETY: tools.web.search is schema-validated upstream.
+          searchConfig: ctx.searchConfig as SearchConfigRecord | undefined,
           query: readStringParam(args, "query", { required: true }),
           count: readPositiveIntegerParam(args, "count", {
             max: 10,

@@ -1,0 +1,48 @@
+import { s as resolveGlobalSingleton } from "./openclaw-state-read-listeners-C6ALBiqg.mjs";
+import { Nt as withArtifactPreservingStateReads } from "./openclaw-state-read-sqlite-snapshot-staging-owner-DeVv_bRV.mjs";
+import { Et as withExistingOpenClawStateSchema } from "./openclaw-state-read-openclaw-state-db-cache-CpHXuPkl.mjs";
+import { AsyncLocalStorage } from "node:async_hooks";
+//#region src/infra/sqlite-worker-state-context.ts
+function captureSqliteWorkerStateContext(context) {
+	return {
+		environment: { ...context.environment },
+		...context.initializationEnvironment ? { initializationEnvironment: { ...context.initializationEnvironment } } : {},
+		...context.initializationAgentPaths ? { initializationAgentPaths: [...context.initializationAgentPaths] } : {},
+		existingSchemaPath: context.existingSchemaPath,
+		stateIntegrity: context.stateIntegrity,
+		artifactPreservingReads: context.artifactPreservingReads,
+		scheduledMaintenanceSuspension: context.scheduledMaintenanceSuspension
+	};
+}
+/** Charge captured initialization facts together with the request bytes retained by admission. */
+function sqliteWorkerRequestBytes(input, context, preparation) {
+	const agentPathBytes = context?.initializationAgentPaths?.reduce((bytes, agentPath) => bytes + Buffer.byteLength(agentPath, "utf8"), 0) ?? 0;
+	return [context?.environment, context?.initializationEnvironment].reduce((bytes, environment) => Object.entries(environment ?? {}).reduce((total, [key, value]) => total + Buffer.byteLength(key, "utf8") + Buffer.byteLength(value ?? "", "utf8"), bytes), input.byteLength + (preparation?.byteLength ?? 0) + agentPathBytes + (context?.scheduledMaintenanceSuspension?.byteLength ?? 0));
+}
+const stateContexts = resolveGlobalSingleton(Symbol.for("openclaw.sqliteWorkerStateContext"), () => new AsyncLocalStorage());
+/** Keep the actor's live maintenance holds after the opening command returns. */
+function captureSqliteWorkerWalMaintenanceSuspension() {
+	const buffer = stateContexts.getStore()?.scheduledMaintenanceSuspension;
+	if (!buffer) return;
+	const holds = new Int32Array(buffer);
+	return () => Atomics.load(holds, 0) > 0;
+}
+/** Only cold writable opens need this factory's prior-existence constraint. */
+function getSqliteWorkerExistingDatabaseIdentity(databasePath) {
+	const existing = stateContexts.getStore()?.existingDatabase;
+	return existing?.databasePath === databasePath ? existing.identity : void 0;
+}
+function getSqliteWorkerStateIntegrityAdmission() {
+	return stateContexts.getStore()?.stateIntegrity;
+}
+function runWithSqliteWorkerStateContext(context, operation) {
+	const run = () => stateContexts.run(context, () => context.existingSchemaPath === void 0 ? operation() : withExistingOpenClawStateSchema({ path: context.existingSchemaPath }, operation));
+	return context.artifactPreservingReads ? withArtifactPreservingStateReads(run, { agentDatabases: true }) : run();
+}
+function getSqliteWorkerStateContext() {
+	const context = stateContexts.getStore();
+	if (!context) throw new Error("Shared-state SQLite requires captured host context");
+	return context;
+}
+//#endregion
+export { getSqliteWorkerStateIntegrityAdmission as a, getSqliteWorkerStateContext as i, captureSqliteWorkerWalMaintenanceSuspension as n, runWithSqliteWorkerStateContext as o, getSqliteWorkerExistingDatabaseIdentity as r, sqliteWorkerRequestBytes as s, captureSqliteWorkerStateContext as t };

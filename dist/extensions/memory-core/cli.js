@@ -1,14 +1,14 @@
-import { C as parseStrictNonNegativeInteger, w as parseStrictPositiveInteger } from "../../number-coercion-CuVhdCBs.mjs";
-import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
+import { C as parseStrictNonNegativeInteger, w as parseStrictPositiveInteger } from "../../number-coercion-CkhMiRw8.mjs";
 import { r as theme } from "../../theme-DzaUZY4q.mjs";
 import { t as formatDocsLink } from "../../links-4Bgsoz0M.mjs";
-import "../../number-runtime-CgyXj1A5.mjs";
+import "../../number-runtime-D3v2w3D4.mjs";
+import { t as runWithLocalStateOwner } from "../../local-state-owner-B_m2_iCc.mjs";
 import { n as formatHelpExamples } from "../../help-format-xds_bDSp.mjs";
-import "../../memory-core-host-runtime-cli-CiCsBH2L.mjs";
-import { f as configureMemoryCoreDreamingState } from "../../dreaming-state-BHlTqX1G.mjs";
-import { n as DEFAULT_PROMOTION_MIN_SCORE, r as DEFAULT_PROMOTION_MIN_UNIQUE_QUERIES, t as DEFAULT_PROMOTION_MIN_RECALL_COUNT } from "../../short-term-promotion-types-DYEsoz46.mjs";
+import "../../cli-state-owner-CBu2WDHQ.mjs";
+import "../../memory-core-host-runtime-cli-BAHpg7tN.mjs";
+import { f as configureMemoryCoreDreamingState } from "../../dreaming-state-D1mfF5St.mjs";
+import { n as DEFAULT_PROMOTION_MIN_SCORE, r as DEFAULT_PROMOTION_MIN_UNIQUE_QUERIES, t as DEFAULT_PROMOTION_MIN_RECALL_COUNT } from "../../short-term-promotion-types-DzT_IEmC.mjs";
 //#region extensions/memory-core/src/cli.ts
-const loadMemoryCliRuntime = createLazyRuntimeModule(() => import("../../cli.runtime-BDpoNCZm.mjs"));
 const DECIMAL_NUMBER_RE = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/;
 const DEFAULT_SESSION_BACKFILL_LIMIT_DAYS = 92;
 function memoryCliNumberOption(flag, kind) {
@@ -25,12 +25,26 @@ function memoryCliNumberOption(flag, kind) {
 function collectMemoryCliValues(value, previous) {
 	return [...previous, value];
 }
+function runMemoryCliCommand(run) {
+	return runWithLocalStateOwner({
+		method: "memory.cli",
+		params: {},
+		target: "memory stores",
+		onForeignOwner: "refuse",
+		runLocal: run
+	});
+}
 function registerMemoryCli(program, hostOptions) {
 	if (hostOptions?.openKeyedStore) configureMemoryCoreDreamingState(hostOptions.openKeyedStore);
+	const lazyAction = (name) => async (opts) => {
+		await runMemoryCliCommand(async () => {
+			await (await import("../../cli.runtime-A5ziVd39.mjs"))[name](opts, hostOptions);
+		});
+	};
 	const memory = program.command("memory").description("Search, inspect, and reindex memory files").addHelpText("after", () => `\n${theme.heading("Examples:")}\n${formatHelpExamples([
 		["openclaw memory status", "Show index and provider status."],
 		["openclaw memory status --fix", "Repair stale recall locks and normalize promotion metadata."],
-		["openclaw memory status --deep", "Probe embedding provider readiness."],
+		["openclaw memory status --deep", "Check embedding provider readiness."],
 		["openclaw memory index --force", "Force a full reindex."],
 		["openclaw memory search \"meeting notes\"", "Quick search using positional query."],
 		["openclaw memory search --query \"deployment\" --max-results 20", "Limit results for focused troubleshooting."],
@@ -44,40 +58,35 @@ function registerMemoryCli(program, hostOptions) {
 		["openclaw memory session-backfill --agent main --from 2026-01-01", "Preview trusted candidates from retained session history."],
 		["openclaw memory status --json", "Output machine-readable JSON (good for scripts)."]
 	])}\n\n${theme.muted("Docs:")} ${formatDocsLink("/cli/memory", "docs.openclaw.ai/cli/memory")}\n`);
-	memory.command("status").description("Show memory search index status").option("--agent <id>", "Agent id (default: all configured agents)").option("--json", "Print JSON").option("--deep", "Probe embedding provider availability").option("--index", "Reindex if dirty (implies --deep)").option("--fix", "Repair stale recall locks and normalize promotion metadata").option("--verbose", "Verbose logging", false).action(async (opts) => {
-		await (await loadMemoryCliRuntime()).runMemoryStatus(opts, hostOptions);
-	});
-	memory.command("index").description("Reindex memory files").option("--agent <id>", "Agent id (default: all configured agents)").option("--force", "Force full reindex", false).option("--verbose", "Verbose logging", false).action(async (opts) => {
-		await (await loadMemoryCliRuntime()).runMemoryIndex(opts, hostOptions);
-	});
-	memory.command("reset").description("Clear the derived memory index and embedding cache without deleting sessions").option("--agent <id>", "Agent id (default: all configured agents)").option("--yes", "Skip confirmation", false).action(async (opts) => {
-		await (await loadMemoryCliRuntime()).runMemoryReset(opts);
-	});
+	const agentCommand = (name, description, allAgents = false) => memory.command(name).description(description).option("--agent <id>", allAgents ? "Agent id (default: all configured agents)" : "Agent id (default: default agent)");
+	agentCommand("status", "Show memory search index status", true).option("--json", "Print JSON").option("--deep", "Check embedding provider availability").option("--index", "Reindex if dirty (implies --deep)").option("--fix", "Repair stale recall locks and normalize promotion metadata").option("--verbose", "Verbose logging", false).action(lazyAction("runMemoryStatus"));
+	agentCommand("index", "Reindex memory files", true).option("--force", "Force full reindex", false).option("--verbose", "Verbose logging", false).action(lazyAction("runMemoryIndex"));
+	agentCommand("reset", "Clear the derived memory index and embedding cache without deleting sessions", true).option("--yes", "Skip confirmation", false).action(lazyAction("runMemoryReset"));
 	memory.command("search").description("Search memory files").argument("[query]", "Search query").option("--query <text>", "Search query (alternative to positional argument)").option("--agent <id>", "Agent id (default: default agent)").option("--max-results <n>", "Max results", memoryCliNumberOption("--max-results", "positive integer")).option("--min-score <n>", "Minimum score", memoryCliNumberOption("--min-score", "finite number")).option("--json", "Print JSON").action(async (queryArg, opts) => {
 		const query = opts.query ?? queryArg;
 		if (!query) throw new Error("Missing search query. Provide a positional query or use --query <text>.");
-		await (await loadMemoryCliRuntime()).runMemorySearch(query, opts, hostOptions);
+		const { runMemorySearchWithOwner } = await import("../../cli-search-owner.runtime-tnZGdXrG.mjs");
+		await runMemorySearchWithOwner(query, opts, hostOptions);
 	});
-	memory.command("forget").description("Delete memories and derived artifacts from selected sessions").option("--agent <id>", "Agent id (default: default agent)").option("--session <id-or-key>", "Source session ID or key (repeatable)", collectMemoryCliValues, []).option("--hook-source <source>", "External-content hook source (repeatable)", collectMemoryCliValues, []).option("--participant <actor-id>", "Session participant actor ID (repeatable)", collectMemoryCliValues, []).option("--since <date>", "Only include sessions observed on or after this date").option("--dry-run", "Report everything that would be deleted without writing", false).option("--json", "Print the complete machine-readable deletion report").action(async (opts) => {
+	agentCommand("forget", "Delete memories and derived artifacts from selected sessions").option("--session <id-or-key>", "Source session ID or key (repeatable)", collectMemoryCliValues, []).option("--hook-source <source>", "External-content hook source (repeatable)", collectMemoryCliValues, []).option("--participant <actor-id>", "Session participant actor ID (repeatable)", collectMemoryCliValues, []).option("--since <date>", "Only include sessions observed on or after this date").option("--dry-run", "Report everything that would be deleted without writing", false).option("--json", "Print the complete machine-readable deletion report").action(async (opts) => {
 		if (!opts.session?.length && !opts.hookSource?.length && !opts.participant?.length) throw new Error("Memory forget requires --session <id-or-key>, --hook-source <source>, or --participant <actor-id>.");
-		await (await loadMemoryCliRuntime()).runMemoryForget(opts);
+		await runMemoryCliCommand(async () => {
+			await (await import("../../cli.runtime-A5ziVd39.mjs")).runMemoryForget(opts);
+		});
 	});
-	memory.command("promote").description("Rank short-term recalls and optionally append top entries to MEMORY.md").option("--agent <id>", "Agent id (default: default agent)").option("--limit <n>", "Max candidates", memoryCliNumberOption("--limit", "positive integer")).option("--min-score <n>", `Minimum weighted score (default: ${DEFAULT_PROMOTION_MIN_SCORE})`, memoryCliNumberOption("--min-score", "finite number")).option("--min-recall-count <n>", `Minimum recall count (default: ${DEFAULT_PROMOTION_MIN_RECALL_COUNT})`, memoryCliNumberOption("--min-recall-count", "non-negative integer")).option("--min-unique-queries <n>", `Minimum distinct query count (default: ${DEFAULT_PROMOTION_MIN_UNIQUE_QUERIES})`, memoryCliNumberOption("--min-unique-queries", "non-negative integer")).option("--apply", "Append selected candidates to MEMORY.md", false).option("--include-promoted", "Include already promoted candidates", false).option("--json", "Print JSON").action(async (opts) => {
-		await (await loadMemoryCliRuntime()).runMemoryPromote(opts, hostOptions);
-	});
+	agentCommand("promote", "Rank short-term recalls and optionally append top entries to MEMORY.md").option("--limit <n>", "Max candidates", memoryCliNumberOption("--limit", "positive integer")).option("--min-score <n>", `Minimum weighted score (default: ${DEFAULT_PROMOTION_MIN_SCORE})`, memoryCliNumberOption("--min-score", "finite number")).option("--min-recall-count <n>", `Minimum recall count (default: ${DEFAULT_PROMOTION_MIN_RECALL_COUNT})`, memoryCliNumberOption("--min-recall-count", "non-negative integer")).option("--min-unique-queries <n>", `Minimum distinct query count (default: ${DEFAULT_PROMOTION_MIN_UNIQUE_QUERIES})`, memoryCliNumberOption("--min-unique-queries", "non-negative integer")).option("--apply", "Append selected candidates to MEMORY.md", false).option("--include-promoted", "Include already promoted candidates", false).option("--json", "Print JSON").action(lazyAction("runMemoryPromote"));
 	memory.command("promote-explain").description("Explain a specific promotion candidate and its score breakdown").argument("<selector>", "Candidate key, path fragment, or snippet fragment").option("--agent <id>", "Agent id (default: default agent)").option("--include-promoted", "Include already promoted candidates", false).option("--json", "Print JSON").action(async (selectorArg, opts) => {
 		const selector = selectorArg?.trim();
 		if (!selector) throw new Error("Memory promote-explain requires a non-empty selector.");
-		await (await loadMemoryCliRuntime()).runMemoryPromoteExplain(selector, opts, hostOptions);
+		await runMemoryCliCommand(async () => {
+			await (await import("../../cli.runtime-A5ziVd39.mjs")).runMemoryPromoteExplain(selector, opts, hostOptions);
+		});
 	});
-	memory.command("rem-harness").description("Preview REM reflections, candidate truths, and deep promotions without writing").option("--agent <id>", "Agent id (default: default agent)").option("--path <file-or-dir>", "Seed the harness from historical daily memory file(s)").option("--grounded", "Also render a grounded day-level REM preview").option("--include-promoted", "Include already promoted deep candidates", false).option("--json", "Print JSON").action(async (opts) => {
-		await (await loadMemoryCliRuntime()).runMemoryRemHarness(opts, hostOptions);
-	});
-	memory.command("rem-backfill").description("Write grounded historical REM summaries into DREAMS.md for UI review").option("--agent <id>", "Agent id (default: default agent)").option("--path <file-or-dir>", "Historical daily memory file(s) or directory").option("--rollback", "Remove previously written grounded REM backfill entries", false).option("--stage-short-term", "Also seed grounded durable candidates into the short-term promotion store", false).option("--rollback-short-term", "Remove previously seeded grounded short-term candidates", false).option("--json", "Print JSON").action(async (opts) => {
-		await (await loadMemoryCliRuntime()).runMemoryRemBackfill(opts, hostOptions);
-	});
-	memory.command("session-backfill").description("Distill retained session history into staged memory candidates").option("--agent <id>", "Agent id (default: default agent)").option("--from <YYYY-MM-DD>", "Oldest transcript day to include").option("--to <YYYY-MM-DD>", "Newest transcript day to include").option("--limit-days <n>", `Maximum unprocessed days (default: ${DEFAULT_SESSION_BACKFILL_LIMIT_DAYS})`, memoryCliNumberOption("--limit-days", "positive integer"), DEFAULT_SESSION_BACKFILL_LIMIT_DAYS).option("--rem", "Write grounded per-day REM previews to DREAMS.md", false).option("--apply", "Stage candidates and write DREAMS.md diary entries", false).option("--rollback", "Remove all grounded backfill candidates and shared backfill diary entries", false).option("--archive-files <path...>", "Also inspect foreign transcript archive files conservatively").option("--json", "Print JSON").action(async (opts) => {
-		await (await loadMemoryCliRuntime()).runMemorySessionBackfill(opts, hostOptions);
+	agentCommand("rem-harness", "Preview REM reflections, candidate truths, and deep promotions without writing").option("--path <file-or-dir>", "Seed the harness from historical daily memory file(s)").option("--grounded", "Also render a grounded day-level REM preview").option("--include-promoted", "Include already promoted deep candidates", false).option("--json", "Print JSON").action(lazyAction("runMemoryRemHarness"));
+	agentCommand("rem-backfill", "Write grounded historical REM summaries into DREAMS.md for UI review").option("--path <file-or-dir>", "Historical daily memory file(s) or directory").option("--rollback", "Remove previously written grounded REM backfill entries", false).option("--stage-short-term", "Also seed grounded durable candidates into the short-term promotion store", false).option("--rollback-short-term", "Remove previously seeded grounded short-term candidates", false).option("--json", "Print JSON").action(lazyAction("runMemoryRemBackfill"));
+	agentCommand("session-backfill", "Distill retained session history into staged memory candidates").option("--from <YYYY-MM-DD>", "Oldest transcript day to include").option("--to <YYYY-MM-DD>", "Newest transcript day to include").option("--limit-days <n>", `Maximum unprocessed days (default: ${DEFAULT_SESSION_BACKFILL_LIMIT_DAYS})`, memoryCliNumberOption("--limit-days", "positive integer"), DEFAULT_SESSION_BACKFILL_LIMIT_DAYS).option("--rem", "Write grounded per-day REM previews to DREAMS.md", false).option("--apply", "Stage candidates and write DREAMS.md diary entries", false).option("--rollback", "Remove all grounded backfill candidates and shared backfill diary entries", false).option("--archive-files <path...>", "Also inspect foreign transcript archive files conservatively").option("--json", "Print JSON").action(async (opts) => {
+		const { runMemorySessionBackfillCli } = await import("../../cli-session-backfill-DYGU0Tem.mjs");
+		await runMemorySessionBackfillCli(opts, hostOptions);
 	});
 	memory.action(() => {
 		memory.outputHelp();

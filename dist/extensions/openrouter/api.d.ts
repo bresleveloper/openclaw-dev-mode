@@ -1,10 +1,12 @@
-import { S as ModelProviderDeclarationConfig } from "../../group-policy-Dw25VUD2.js";
-import { d as ImageGenerationProvider, l as SpeechProviderPlugin, u as MusicGenerationProvider } from "../../plugin-entry-QAozMft-.js";
-import "../../config-contracts-BCJ3MTRY.js";
-import "../../provider-model-shared-DyxwAg5_.js";
-import "../../ssrf-runtime-DmEx94Wz.js";
-import { t as ProviderOnboardPresetAppliers } from "../../provider-onboard-BRaUQflr.js";
-import "@openclaw/ai/internal/shared";
+import { U as ModelProviderDeclarationConfig } from "../../types-D7I_F5Ux.js";
+import { Dw as SpeechProviderPlugin } from "../../config-contracts-CY87ANNp.js";
+import { _ as ImageGenerationProvider, m as MusicGenerationProvider } from "../../runtime-types-BaNsKfbh.js";
+import "../../provider-model-shared-uYxY__EE.js";
+import { t as ProviderOnboardPresetAppliers } from "../../provider-onboard-BNuhTHon.js";
+import "../../provider-http-DfcF9DFr.js";
+import "../../ssrf-runtime-Rr41XJH2.js";
+import "../../provider-catalog-live-runtime-B4afebj8.js";
+import "../../image-generation-aivnygx5.js";
 //#region extensions/openrouter/image-generation-provider.d.ts
 export declare function buildOpenRouterImageGenerationProvider(): ImageGenerationProvider;
 //#endregion

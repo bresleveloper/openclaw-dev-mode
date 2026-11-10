@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveFunctionModuleExport(e){let t=e.exportName?.trim(),n=t?[t]:e.fallbackExportNames??[`default`];for(let t of n){let n=e.mod[t];if(typeof n==`function`)return n}}var t=e((()=>{}));export{resolveFunctionModuleExport as n,t};

@@ -1,15 +1,15 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { S as ExecApprovalResolved, c as SystemAgentApprovalResolved, n as ApprovalResolved$1, p as PluginApprovalResolved, r as ChannelApprovalKind, t as ApprovalRequestInput } from "../approval-types-DOLowId2.js";
-import { r as ChannelApprovalCapability } from "../types.adapters-Bo2TMZGx.js";
-import { C as ChannelNativeApprovalDeliveryCallbacks, S as ResolvedApprovalView, T as ChannelApprovalNativeAdapter, _ as ExpiredApprovalView, a as ChannelApprovalNativeInteractionAdapter, b as PluginApprovalPendingView, c as ChannelApprovalNativeRuntimeAdapter, d as ApprovalActionView, f as ApprovalMetadataView, g as ExecApprovalResolvedView, h as ExecApprovalPendingView, i as ChannelApprovalNativeFinalAction, l as ChannelApprovalNativeRuntimeSpec, m as ExecApprovalExpiredView, n as ChannelApprovalCapabilityHandlerContext, o as ChannelApprovalNativeObserveAdapter, p as ApprovalViewModel, r as ChannelApprovalNativeAvailabilityAdapter, s as ChannelApprovalNativePresentationAdapter, t as ApprovalRequest$1, u as ChannelApprovalNativeTransportAdapter, v as PendingApprovalView, w as ChannelNativeApprovalTransportSpec, x as PluginApprovalResolvedView, y as PluginApprovalExpiredView } from "../approval-handler-runtime-types-DDiXSqb1.js";
-import "../exec-approvals-DNGb8MUN.js";
-import { t as resolveApprovalOverGateway } from "../approval-gateway-runtime-BeglNVLf.js";
-import { n as createLazyChannelApprovalNativeRuntimeAdapter, t as CHANNEL_APPROVAL_NATIVE_RUNTIME_CONTEXT_CAPABILITY } from "../approval-handler-adapter-runtime-CiDDDfqz.js";
-import { t as ExecApprovalChannelRuntime } from "../exec-approval-channel-runtime-DMdF-Bg2.js";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { GE as ChannelApprovalCapability, bs as ExecApprovalChannelRuntime } from "../config-contracts-CY87ANNp.js";
+import { S as ExecApprovalResolved, c as SystemAgentApprovalResolved, n as ApprovalResolved$1, p as PluginApprovalResolved, r as ChannelApprovalKind, t as ApprovalRequestInput } from "../approval-types-faKMZQ8q.js";
+import { C as PluginApprovalPendingView, D as ChannelNativeApprovalDeliveryCallbacks, O as ChannelNativeApprovalTransportSpec, S as PluginApprovalExpiredView, T as ResolvedApprovalView, _ as ExecApprovalExpiredView, a as ChannelApprovalNativeFinalAction, b as ExpiredApprovalView, c as ChannelApprovalNativePresentationAdapter, d as ChannelApprovalNativeRuntimeSpec, f as ChannelApprovalNativeRuntimeSpecAsync, g as ApprovalViewModel, h as ApprovalMetadataView, k as ChannelApprovalNativeAdapter, l as ChannelApprovalNativeRuntimeAdapter, m as ApprovalActionView, n as ChannelApprovalCapabilityHandlerContext, o as ChannelApprovalNativeInteractionAdapter, p as ChannelApprovalNativeTransportAdapter, r as ChannelApprovalNativeAvailabilityAdapter, s as ChannelApprovalNativeObserveAdapter, t as ApprovalRequest$1, u as ChannelApprovalNativeRuntimeAdapterAsync, v as ExecApprovalPendingView, w as PluginApprovalResolvedView, x as PendingApprovalView, y as ExecApprovalResolvedView } from "../approval-handler-runtime-types-CAPTRUL9.js";
+import { t as resolveApprovalOverGateway } from "../approval-gateway-runtime-DFSJq46M.js";
+import { n as createLazyChannelApprovalNativeRuntimeAdapter, t as CHANNEL_APPROVAL_NATIVE_RUNTIME_CONTEXT_CAPABILITY } from "../approval-handler-adapter-runtime-BNoLjZ7h.js";
 //#region src/infra/approval-handler-runtime.d.ts
 type ChannelApprovalHandler<TRequest extends ApprovalRequest$1 = ApprovalRequest$1, TResolved extends ApprovalResolved$1 = ApprovalResolved$1> = ExecApprovalChannelRuntime<TRequest, TResolved>;
-/** Adapts a strongly typed channel native approval spec into the erased runtime contract. */
+/** @deprecated Use createChannelApprovalNativeRuntimeAdapterAsync with awaited availability callbacks. Final compatibility day: 2026-12-31. */
 export declare function createChannelApprovalNativeRuntimeAdapter<TPendingPayload, TPreparedTarget, TPendingEntry, TBinding = unknown, TFinalPayload = unknown, TPendingView extends PendingApprovalView = PendingApprovalView, TResolvedView extends ResolvedApprovalView = ResolvedApprovalView, TExpiredView extends ExpiredApprovalView = ExpiredApprovalView>(spec: ChannelApprovalNativeRuntimeSpec<TPendingPayload, TPreparedTarget, TPendingEntry, TBinding, TFinalPayload, TPendingView, TResolvedView, TExpiredView>): ChannelApprovalNativeRuntimeAdapter<TPendingPayload, TPreparedTarget, TPendingEntry, TBinding, TFinalPayload>;
+/** Adapts a strongly typed channel native approval spec into the erased runtime contract. */
+export declare function createChannelApprovalNativeRuntimeAdapterAsync<TPendingPayload, TPreparedTarget, TPendingEntry, TBinding = unknown, TFinalPayload = unknown, TPendingView extends PendingApprovalView = PendingApprovalView, TResolvedView extends ResolvedApprovalView = ResolvedApprovalView, TExpiredView extends ExpiredApprovalView = ExpiredApprovalView>(spec: ChannelApprovalNativeRuntimeSpecAsync<TPendingPayload, TPreparedTarget, TPendingEntry, TBinding, TFinalPayload, TPendingView, TResolvedView, TExpiredView>): ChannelApprovalNativeRuntimeAdapterAsync<TPendingPayload, TPreparedTarget, TPendingEntry, TBinding, TFinalPayload>;
 type ChannelApprovalHandlerRuntimeSpec<TRequest extends ApprovalRequest$1> = {
   label: string;
   clientDisplayName: string;
@@ -45,18 +45,20 @@ type ChannelApprovalHandlerLifecycleSpec<TPendingEntry, TPreparedTarget, TPendin
   }) => Promise<void>;
   onStopped?: () => Promise<void> | void;
 };
-/** Adapter contract used by core to run a channel's native approval delivery lifecycle. */
+/**
+ * Adapter contract used by core to run a channel's native approval delivery lifecycle.
+ */
 type ChannelApprovalHandlerAdapter<TPendingEntry, TPreparedTarget, TPendingContent, TRequest extends ApprovalRequest$1 = ApprovalRequest$1, TResolved extends ApprovalResolved$1 = ApprovalResolved$1> = {
   runtime: ChannelApprovalHandlerRuntimeSpec<TRequest>;
   content: ChannelApprovalHandlerContentSpec<TPendingContent, TRequest>;
   transport: ChannelNativeApprovalTransportSpec<TPendingEntry, TPreparedTarget, TPendingContent, TRequest>;
   lifecycle: ChannelApprovalHandlerLifecycleSpec<TPendingEntry, TPreparedTarget, TPendingContent, TRequest, TResolved>;
 };
-/** Creates the shared approval handler runtime from channel-specific content and transport hooks. */
+/** Creates a channel approval handler with synchronous availability callbacks. */
 export declare function createChannelApprovalHandler<TPendingEntry, TPreparedTarget, TPendingContent, TRequest extends ApprovalRequest$1 = ApprovalRequest$1, TResolved extends ApprovalResolved$1 = ApprovalResolved$1>(adapter: ChannelApprovalHandlerAdapter<TPendingEntry, TPreparedTarget, TPendingContent, TRequest, TResolved>): ChannelApprovalHandler<TRequest, TResolved>;
 /** Builds a shared approval handler from a plugin approval capability, or null when unsupported. */
 export declare function createChannelApprovalHandlerFromCapability(params: {
-  capability?: Pick<ChannelApprovalCapability, "native" | "nativeRuntime" | "supportsScopedPluginApprovalApprovers"> | null;
+  capability?: Pick<ChannelApprovalCapability, "native" | "nativeAsync" | "nativeRuntime" | "nativeRuntimeAsync" | "supportsScopedPluginApprovalApprovers"> | null;
   label: string;
   clientDisplayName: string;
   channel: string;

@@ -16,7 +16,7 @@ import {
 import { hashCliReseedPrompt, parseCliReseedPrompt } from "../agents/cli-runner/reseed-envelope.js";
 import { stripCliSessionDriftNote } from "../agents/cli-session.js";
 import type { AgentMessage } from "../agents/runtime/index.js";
-import { redactTranscriptMessage } from "../agents/transcript-redact.js";
+import { sanitizeTranscriptMessage } from "../agents/transcript-sanitize.js";
 import { HEARTBEAT_PROMPT, HEARTBEAT_RESPONSE_TOOL_PROMPT } from "../auto-reply/heartbeat.js";
 import { isToolCallBlock, isToolResultBlock, resolveToolUseId } from "../chat/tool-content.js";
 import type { CliSessionReseedReceipt, SessionEntry } from "../config/sessions.js";
@@ -81,7 +81,7 @@ export function decodeClaudeCliProjectEntry(line: string): ClaudeCliProjectEntry
 export function redactClaudeCliHistoryMessage(
   message: TranscriptLikeMessage,
 ): TranscriptLikeMessage {
-  return redactTranscriptMessage(
+  return sanitizeTranscriptMessage(
     message as unknown as AgentMessage,
   ) as unknown as TranscriptLikeMessage;
 }
@@ -201,14 +201,6 @@ function normalizeClaudeCliContent(
   });
 }
 
-function coalesceClaudeCliToolMessages(messages: TranscriptLikeMessage[]): TranscriptLikeMessage[] {
-  const coalesced: TranscriptLikeMessage[] = [];
-  for (const message of messages) {
-    appendCoalescedClaudeCliToolMessage(coalesced, message);
-  }
-  return coalesced;
-}
-
 export function appendCoalescedClaudeCliToolMessage(
   messages: TranscriptLikeMessage[],
   message: TranscriptLikeMessage,
@@ -267,9 +259,8 @@ function isClaudeCliTaskNotification(
   );
 }
 
-// The native row keeps the routed prompt OpenClaw sent, envelope first. Its
-// provenance is the same fact the local transcript row stores structurally.
-// Preserve raw text so literal matches win before compare-only decoration removal.
+// Read provenance through generated context, but preserve the raw content for
+// display and literal matching against local transcript rows.
 function readClaudeCliInterSessionProvenance(
   content: string | unknown[],
 ): InputProvenance | undefined {
@@ -283,7 +274,7 @@ function readClaudeCliInterSessionProvenance(
   if (typeof text !== "string") {
     return undefined;
   }
-  return readInterSessionPromptEnvelope(text)?.provenance;
+  return readInterSessionPromptEnvelope(stripCliPromptDecorations(text))?.provenance;
 }
 
 export function resolveClaudeCliPromptTextCandidates(
@@ -327,11 +318,6 @@ const INTERNAL_PROMPT_PREFIX = new RegExp(
   "u",
 );
 
-/** Removes the resume note and queued system events OpenClaw put in front of a user turn. */
-function stripClaudeCliGeneratedUserPrefixes(text: string): string {
-  return stripCliPromptDecorations(text);
-}
-
 /**
  * Display copy of an imported user row that survived the history merge. The merge
  * matches on the original text first, so this must not run before it.
@@ -349,7 +335,7 @@ export function cleanClaudeCliImportedUserDisplay(message: unknown): unknown {
   }
   const { content } = message;
   if (typeof content === "string") {
-    return { ...message, content: stripClaudeCliGeneratedUserPrefixes(content) };
+    return { ...message, content: stripCliPromptDecorations(content) };
   }
   if (!Array.isArray(content) || content.some((block) => isToolResultBlock(block))) {
     return message;
@@ -363,7 +349,7 @@ export function cleanClaudeCliImportedUserDisplay(message: unknown): unknown {
     ...message,
     content: content.map((block, index) =>
       index === firstTextIndex && isRecord(block) && typeof block.text === "string"
-        ? Object.assign({}, block, { text: stripClaudeCliGeneratedUserPrefixes(block.text) })
+        ? Object.assign({}, block, { text: stripCliPromptDecorations(block.text) })
         : block,
     ),
   };
@@ -391,16 +377,17 @@ function resolveClaudeCliInternalSourceTool(text: string): string | undefined {
   if (body.startsWith(HEARTBEAT_PROMPT) || body.startsWith(HEARTBEAT_RESPONSE_TOOL_PROMPT)) {
     return "heartbeat";
   }
-  // Restart recovery only, by its full opening sentence behind the CLI timestamp envelope;
+  // Restart recovery only, by a canonical opening behind the CLI timestamp envelope;
   // the bare system-turn tag is too easy for a person to type.
+  const undatedBody = body.replace(
+    /^\[[A-Z][a-z]{2} \d{4}-\d{2}-\d{2} \d{2}:\d{2}[^\]\n]*\] /u,
+    "",
+  );
   if (
-    body
-      .replace(/^\[[A-Z][a-z]{2} \d{4}-\d{2}-\d{2} \d{2}:\d{2}[^\]\n]*\] /u, "")
-      .startsWith(
-        formatSystemTurnPrompt(
-          "Your previous turn was interrupted by a gateway restart while OpenClaw was waiting on tool/model work. ",
-        ),
-      )
+    [
+      "Your previous turn was interrupted while OpenClaw was waiting on tool/model work. ",
+      "Your previous turn was interrupted by a gateway restart while OpenClaw was waiting on tool/model work. ",
+    ].some((opening) => undatedBody.startsWith(formatSystemTurnPrompt(opening)))
   ) {
     return "restart_recovery";
   }
@@ -558,35 +545,6 @@ export function parseClaudeCliHistoryEntry(
   ) as TranscriptLikeMessage;
 }
 
-function resolveClaudeCliSessionFilePath(params: {
-  cliSessionId: string;
-  homeDir?: string;
-}): string | undefined {
-  const sessionId = normalizeClaudeCliSessionId(params.cliSessionId);
-  if (!sessionId) {
-    return undefined;
-  }
-  const projectsDir = resolveClaudeProjectsDir(params.homeDir);
-  let projectEntries: fs.Dirent[];
-  try {
-    projectEntries = fs.readdirSync(projectsDir, { withFileTypes: true });
-  } catch {
-    return undefined;
-  }
-
-  for (const entry of projectEntries) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-    const projectDir = path.join(projectsDir, entry.name);
-    const candidate = resolveClaudeSessionCandidate(projectDir, sessionId);
-    if (candidate && fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return undefined;
-}
-
 export async function resolveClaudeCliSessionFilePathAsync(params: {
   cliSessionId: string;
   homeDir?: string;
@@ -639,18 +597,18 @@ export type ClaudeCliFallbackSeed = {
   recentTurns: TranscriptLikeMessage[];
 };
 
-export function readClaudeCliFallbackSeed(params: {
+export async function readClaudeCliFallbackSeed(params: {
   cliSessionId: string;
   homeDir?: string;
-}): ClaudeCliFallbackSeed | undefined {
-  const filePath = resolveClaudeCliSessionFilePath(params);
+}): Promise<ClaudeCliFallbackSeed | undefined> {
+  const filePath = await resolveClaudeCliSessionFilePathAsync(params);
   if (!filePath) {
     return undefined;
   }
 
   let content: string;
   try {
-    content = fs.readFileSync(filePath, "utf-8");
+    content = await fs.promises.readFile(filePath, "utf-8");
   } catch {
     return undefined;
   }
@@ -702,17 +660,16 @@ export function readClaudeCliFallbackSeed(params: {
       },
     );
     if (message) {
-      windowedTurns.push(message);
+      appendCoalescedClaudeCliToolMessage(windowedTurns, message);
     }
   }
 
-  const recentTurns = coalesceClaudeCliToolMessages(windowedTurns);
   const resolvedSummaryText = lastSummary ?? pendingSummary ?? lastBoundaryFallback;
-  if (!resolvedSummaryText && recentTurns.length === 0) {
+  if (!resolvedSummaryText && windowedTurns.length === 0) {
     return undefined;
   }
   return {
     ...(resolvedSummaryText ? { summaryText: resolvedSummaryText } : {}),
-    recentTurns,
+    recentTurns: windowedTurns,
   };
 }

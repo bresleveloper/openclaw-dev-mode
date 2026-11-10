@@ -1,24 +1,24 @@
-import { c as resolveGpt5SystemPromptContribution, s as resolveGpt5PromptOverlayMode } from "../../gpt5-prompt-overlay-CiUtRDCv.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
-import "../../provider-model-metadata-fSBArSt7.mjs";
-import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DajrfQK1.mjs";
-import { t as buildOpenAIImageGenerationProvider } from "../../image-generation-provider-Dnv6lkDG.mjs";
-import { t as openaiMediaUnderstandingProvider } from "../../media-understanding-provider-D4MYxcY-.mjs";
-import { t as openAiMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-DMyygdTU.mjs";
-import { t as buildOpenAIProvider } from "../../openai-provider-QvGWB6uo.mjs";
-import { t as OPENAI_QUICKSILVER_OFFER_PATH } from "../../realtime-quicksilver-session-Dz0UfMuL.mjs";
-import { n as releaseOpenAIQuicksilverBrowserSessionBroker, t as acquireOpenAIQuicksilverBrowserSessionBroker } from "../../realtime-quicksilver-session-owner-DvKn7z-I.mjs";
-import { t as buildOpenAIRealtimeTranscriptionProvider } from "../../realtime-transcription-provider-factory-CYXi1Svw.mjs";
-import { t as buildOpenAIRealtimeVoiceProvider } from "../../realtime-voice-provider-factory-PUuN4Moy.mjs";
-import { t as buildOpenAISpeechProvider } from "../../speech-provider-D1lwXywV.mjs";
+import { c as resolveGpt5SystemPromptContribution, s as resolveGpt5PromptOverlayMode } from "../../gpt5-prompt-overlay-BpqITzVL.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-Dm1sl1ov.mjs";
+import "../../provider-model-metadata-DkObn07R.mjs";
+import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DynDHTtQ.mjs";
+import { t as buildOpenAIDecisionProvider } from "../../decision-provider-C9gEENXm.mjs";
+import { t as buildOpenAIImageGenerationProvider } from "../../image-generation-provider-BeMHvlfP.mjs";
+import { t as openaiMediaUnderstandingProvider } from "../../media-understanding-provider-p_XcU5hQ.mjs";
+import { t as openAiMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-DGe55-H0.mjs";
+import { t as buildOpenAIProvider } from "../../openai-provider-BFCABeuE.mjs";
+import { t as OPENAI_QUICKSILVER_OFFER_PATH } from "../../realtime-quicksilver-session-B6USqVXk.mjs";
+import { n as releaseOpenAIQuicksilverBrowserSessionBroker, t as acquireOpenAIQuicksilverBrowserSessionBroker } from "../../realtime-quicksilver-session-owner-BdkpR8pS.mjs";
+import { t as buildOpenAIRealtimeTranscriptionProvider } from "../../realtime-transcription-provider-factory-BG_POtbM.mjs";
+import { t as buildOpenAIRealtimeVoiceProvider } from "../../realtime-voice-provider-factory-TeZ9pFmg.mjs";
+import { t as buildOpenAISpeechProvider } from "../../speech-provider-C13fucS3.mjs";
 //#region extensions/openai/index.ts
 var openai_default = definePluginEntry({
 	id: "openai",
 	name: "OpenAI Provider",
 	description: "Bundled OpenAI provider plugins",
 	register(api) {
-		const { ensureAuthProfileStore, listProfilesForProvider, isProviderApiKeyConfigured } = api.runtime.modelAuth;
 		const openAIToolCompatHooks = buildProviderToolCompatFamilyHooks("openai");
 		const provider = buildOpenAIProvider();
 		api.registerProvider({
@@ -35,11 +35,8 @@ var openai_default = definePluginEntry({
 			}
 		});
 		api.registerEmbeddingProvider(openAiMemoryEmbeddingProviderAdapter);
-		api.registerImageGenerationProvider(buildOpenAIImageGenerationProvider({
-			ensureAuthProfileStore,
-			listProfilesForProvider,
-			isProviderApiKeyConfigured
-		}));
+		api.registerDecisionProvider(buildOpenAIDecisionProvider(() => api.runtime.config.current({ clone: true })));
+		api.registerImageGenerationProvider(buildOpenAIImageGenerationProvider(api.runtime.modelAuth));
 		api.registerRealtimeTranscriptionProvider(buildOpenAIRealtimeTranscriptionProvider);
 		api.registerRealtimeVoiceProvider((context) => {
 			const quicksilverSession = api.registrationMode === "full" ? acquireOpenAIQuicksilverBrowserSessionBroker({

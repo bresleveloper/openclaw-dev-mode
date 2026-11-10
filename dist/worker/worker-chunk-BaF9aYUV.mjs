@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-B6kxCglV.mjs";var r;e((()=>{n(),r={async readDirectoryAcl(e,n){let r=await t.readAcl(e,n);return r.kind===`unknown`?void 0:r.kind===`none`?`none`:r.inheritsToFiles||r.inheritsToDirectories?`inheritable`:`non-inheritable`}}}))();export{r as apfsFilesystem};

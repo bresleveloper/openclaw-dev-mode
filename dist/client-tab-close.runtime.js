@@ -1,1 +1,1 @@
-export * from "./client-tab-close.runtime-CDh8bkuW.mjs";
+export * from "./client-tab-close.runtime-Bg_mJ50J.mjs";

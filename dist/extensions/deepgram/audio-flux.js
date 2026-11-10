@@ -1,15 +1,15 @@
 import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-DR7bHNl9.mjs";
-import { t as runCommandBuffered } from "../../exec-DJvyCA0D.mjs";
-import { t as _usingCtx } from "../../usingCtx-DwOBYOJf.mjs";
-import { n as resolveFfmpegBin } from "../../ffmpeg-exec-C4A6Kzb2.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { a as createProviderOperationTimeoutResolver, p as requireTranscriptionText, r as createProviderOperationDeadline } from "../../shared-DcnGQdHV.mjs";
-import "../../process-runtime-CYiH_oPH.mjs";
+import { t as _usingCtx } from "../../usingCtx-BhiZp_rS.mjs";
+import { t as runCommandBuffered } from "../../exec-Bf6uhUA7.mjs";
+import { n as resolveFfmpegBin } from "../../ffmpeg-exec-BXxkKwWn.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { a as createProviderOperationTimeoutResolver, r as createProviderOperationDeadline } from "../../shared-BMUa_P4s.mjs";
+import "../../process-runtime-CG9_3L3N.mjs";
 import { t as tempWorkspace } from "../../fs-safe-compat-Cbx7s6au.mjs";
-import "../../media-ffmpeg-oqc-CGJb.mjs";
-import "../../temp-path-C5ZA6ftW.mjs";
-import { n as openProviderWebSocket } from "../../provider-http-CuRGJD0L.mjs";
+import "../../media-ffmpeg-pOUzjY-I.mjs";
+import "../../temp-path-D_RJiwsA.mjs";
+import { n as openProviderWebSocket } from "../../provider-http-BuV15s4V.mjs";
 import { open } from "node:fs/promises";
 //#region extensions/deepgram/audio-flux.ts
 const DEEPGRAM_FLUX_SAMPLE_RATE = 16e3;
@@ -32,12 +32,8 @@ function isDeepgramFluxModel(model) {
 	return model?.trim().toLowerCase().startsWith("flux-") ?? false;
 }
 function buildDeepgramFluxUrl(params) {
-	let url;
-	try {
-		url = new URL(params.baseUrl);
-	} catch {
-		throw new Error("Invalid Deepgram baseUrl: value is not a valid URL");
-	}
+	const url = URL.parse(params.baseUrl);
+	if (!url) throw new Error("Invalid Deepgram baseUrl: value is not a valid URL");
 	if (url.protocol === "http:") url.protocol = "ws:";
 	else if (url.protocol === "https:") url.protocol = "wss:";
 	else if (url.protocol !== "ws:" && url.protocol !== "wss:") throw new Error(`Invalid Deepgram baseUrl: unsupported scheme "${url.protocol}" (expected http, https, ws, or wss)`);
@@ -150,76 +146,76 @@ async function transcribeDeepgramFluxAudio(params) {
 			trustConfiguredBaseUrlOrigin: params.requestConfig.trustConfiguredBaseUrlOrigin,
 			url
 		});
-		const transcript = await new Promise((resolve, reject) => {
-			const finalizedTurns = [];
-			let finalizedTranscriptBytes = 0;
-			let lastPartial = "";
-			let settled = false;
-			let closeStreamSent = false;
-			let timer;
-			const settle = (outcome) => {
-				if (settled) return;
-				settled = true;
-				clearTimeout(timer);
-				timer = void 0;
-				if (outcome.error) reject(outcome.error);
-				else resolve(outcome.text ?? "");
-			};
-			socket.on("open", () => {
-				(async () => {
-					try {
-						const frame = Buffer.alloc(DEEPGRAM_FLUX_AUDIO_CHUNK_BYTES);
-						for (;;) {
+		return {
+			text: await new Promise((resolve, reject) => {
+				const finalizedTurns = [];
+				let finalizedTranscriptBytes = 0;
+				let lastPartial = "";
+				let settled = false;
+				let closeStreamSent = false;
+				let timer;
+				const settle = (outcome) => {
+					if (settled) return;
+					settled = true;
+					clearTimeout(timer);
+					timer = void 0;
+					if (outcome.error) reject(outcome.error);
+					else resolve(outcome.text ?? "");
+				};
+				socket.on("open", () => {
+					(async () => {
+						try {
+							const frame = Buffer.alloc(DEEPGRAM_FLUX_AUDIO_CHUNK_BYTES);
+							for (;;) {
+								if (settled) return;
+								const { bytesRead } = await pcm.read(frame);
+								if (bytesRead === 0 || settled) break;
+								await sendSocketFrame(socket, frame.subarray(0, bytesRead));
+							}
 							if (settled) return;
-							const { bytesRead } = await pcm.read(frame);
-							if (bytesRead === 0 || settled) break;
-							await sendSocketFrame(socket, frame.subarray(0, bytesRead));
+							await sendSocketFrame(socket, JSON.stringify({ type: "CloseStream" }));
+							closeStreamSent = true;
+						} catch (error) {
+							settle({ error: /* @__PURE__ */ new Error(`Audio transcription failed: ${error instanceof Error ? error.message : String(error)}`) });
 						}
-						if (settled) return;
-						await sendSocketFrame(socket, JSON.stringify({ type: "CloseStream" }));
-						closeStreamSent = true;
+					})();
+				});
+				socket.on("message", (data) => {
+					try {
+						const event = readFluxEvent(data);
+						if (event.type === "Error" || event.type === "error") {
+							settle({ error: /* @__PURE__ */ new Error(`Audio transcription failed: ${readFluxErrorDetail(event)}`) });
+							return;
+						}
+						if (event.type !== "TurnInfo") return;
+						if (typeof event.transcript !== "string") throw new Error("Audio transcription response missing transcript");
+						if (event.event === "EndOfTurn") {
+							finalizedTranscriptBytes += Buffer.byteLength(event.transcript, "utf8");
+							finalizedTurns.push(event.transcript);
+							lastPartial = "";
+						} else lastPartial = event.transcript;
+						if (finalizedTranscriptBytes + Buffer.byteLength(lastPartial, "utf8") > DEEPGRAM_FLUX_MAX_TRANSCRIPT_BYTES) settle({ error: /* @__PURE__ */ new Error("Audio transcription failed: transcript exceeds size limit") });
 					} catch (error) {
-						settle({ error: /* @__PURE__ */ new Error(`Audio transcription failed: ${error instanceof Error ? error.message : String(error)}`) });
+						settle({ error: error instanceof Error ? error : new Error(String(error)) });
 					}
-				})();
-			});
-			socket.on("message", (data) => {
-				try {
-					const event = readFluxEvent(data);
-					if (event.type === "Error" || event.type === "error") {
-						settle({ error: /* @__PURE__ */ new Error(`Audio transcription failed: ${readFluxErrorDetail(event)}`) });
+				});
+				socket.on("error", (error) => {
+					settle({ error: /* @__PURE__ */ new Error(`Audio transcription failed: ${error.message}`) });
+				});
+				socket.on("close", (code, reason) => {
+					if (!closeStreamSent) {
+						settle({ error: /* @__PURE__ */ new Error("Audio transcription failed: Flux closed before flush") });
 						return;
 					}
-					if (event.type !== "TurnInfo" || typeof event.transcript !== "string") return;
-					if (event.event === "EndOfTurn") {
-						finalizedTranscriptBytes += Buffer.byteLength(event.transcript, "utf8");
-						finalizedTurns.push(event.transcript);
-						lastPartial = "";
-					} else lastPartial = event.transcript;
-					if (finalizedTranscriptBytes + Buffer.byteLength(lastPartial, "utf8") > DEEPGRAM_FLUX_MAX_TRANSCRIPT_BYTES) settle({ error: /* @__PURE__ */ new Error("Audio transcription failed: transcript exceeds size limit") });
-				} catch (error) {
-					settle({ error: error instanceof Error ? error : new Error(String(error)) });
-				}
-			});
-			socket.on("error", (error) => {
-				settle({ error: /* @__PURE__ */ new Error(`Audio transcription failed: ${error.message}`) });
-			});
-			socket.on("close", (code, reason) => {
-				if (!closeStreamSent) {
-					settle({ error: /* @__PURE__ */ new Error("Audio transcription failed: Flux closed before flush") });
-					return;
-				}
-				if (code !== 1e3 && code !== 1005) {
-					const detail = reason.toString().trim();
-					settle({ error: /* @__PURE__ */ new Error(`Audio transcription failed: Flux closed abnormally (code ${code}${detail ? `: ${detail}` : ""})`) });
-					return;
-				}
-				settle({ text: [...finalizedTurns, lastPartial].map((part) => part.trim()).filter(Boolean).join(" ") });
-			});
-			timer = setTimeout(() => settle({ error: /* @__PURE__ */ new Error("Deepgram Flux transcription timed out") }), resolveTimeoutMs());
-		}).finally(() => socket.terminate());
-		return {
-			text: requireTranscriptionText(transcript || void 0, "Audio transcription response missing transcript"),
+					if (code !== 1e3 && code !== 1005) {
+						const detail = reason.toString().trim();
+						settle({ error: /* @__PURE__ */ new Error(`Audio transcription failed: Flux closed abnormally (code ${code}${detail ? `: ${detail}` : ""})`) });
+						return;
+					}
+					settle({ text: [...finalizedTurns, lastPartial].map((part) => part.trim()).filter(Boolean).join(" ") });
+				});
+				timer = setTimeout(() => settle({ error: /* @__PURE__ */ new Error("Deepgram Flux transcription timed out") }), resolveTimeoutMs());
+			}).finally(() => socket.terminate()),
 			model: params.model
 		};
 	} catch (_) {

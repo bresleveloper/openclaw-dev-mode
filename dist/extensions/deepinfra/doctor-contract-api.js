@@ -1,4 +1,4 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-D7BLeoIa.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-5ywdmEQ1.mjs";
 //#region \0rolldown/runtime.js
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -213,11 +213,7 @@ const legacyConfigRules = [{
 	match: (value) => typeof value === "string" && value.includes(NATIVE_INFERENCE_PATH)
 }];
 function isDeepInfraApiHost(value) {
-	try {
-		return new URL(value).host === "api.deepinfra.com";
-	} catch {
-		return false;
-	}
+	return URL.parse(value)?.host === "api.deepinfra.com";
 }
 function normalizeBaseUrlValue(value) {
 	if (typeof value !== "string") return;

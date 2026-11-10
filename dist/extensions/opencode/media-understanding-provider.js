@@ -9,7 +9,7 @@ const stripDisabledResponsesReasoning = (payload) => {
 const opencodeMediaUnderstandingProvider = {
 	id: "opencode",
 	capabilities: ["image"],
-	defaultModels: { image: "gpt-5-nano" },
+	defaultModels: { image: "minimax-m3" },
 	describeImage: (request) => describeImageWithModelPayloadTransform(request, stripDisabledResponsesReasoning),
 	describeImages: (request) => describeImagesWithModelPayloadTransform(request, stripDisabledResponsesReasoning)
 };

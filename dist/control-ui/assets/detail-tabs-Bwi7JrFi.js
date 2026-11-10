@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";function t(e){return e===`#configuration`?`configuration`:`readme`}function n(e,t){let n=new URLSearchParams(e?.search);return t?n.set(`view`,`settings`):n.delete(`view`),{pathname:e?.pathname,search:n.size?`?${n}`:``,hash:``}}function r(){return(r=e((()=>{})))()}export{t as n,n as r,r as t};
+//# sourceMappingURL=detail-tabs-Bwi7JrFi.js.map

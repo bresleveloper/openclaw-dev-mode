@@ -1,6 +1,6 @@
 import { c as isRecord } from "../record-coerce-Ckpz2G3R.js";
-import { c as pushAssignment, i as collectSecretInputAssignment, l as pushInactiveSurfaceWarning, n as SecretDefaults, o as hasOwnProperty, s as isEnabledFlag, t as ResolverContext, u as pushWarning } from "../runtime-shared-BbVsAF3Z.js";
-import { n as SecretTargetRegistryEntry, r as SecretTargetShape, t as SecretTargetExpected } from "../target-registry-types-rt3qR_99.js";
+import { c as pushAssignment, i as collectSecretInputAssignment, l as pushInactiveSurfaceWarning, n as SecretDefaults, o as hasOwnProperty, s as isEnabledFlag, t as ResolverContext, u as pushWarning } from "../runtime-shared-D9SQnawJ.js";
+import { n as SecretTargetRegistryEntry, r as SecretTargetShape, t as SecretTargetExpected } from "../target-registry-types-0AZ3Y_A_.js";
 //#region src/secrets/channel-secret-basic-runtime.d.ts
 type ChannelSecretTargetPathSpec = {
   path: string;
@@ -25,6 +25,9 @@ type ChannelSecretCollectorParams = {
 };
 /** Keeps registry discovery and account-surface resolution shared while channels own activation. */
 export declare function createChannelSecretContract(params: Parameters<typeof createChannelSecretTargetRegistryEntries>[0] & {
+  hasImplicitDefaultAccount?: (params: ChannelSecretCollectorParams & {
+    channel: Record<string, unknown>;
+  }) => boolean;
   collect: (params: ChannelSecretCollectorParams & {
     channelKey: string;
     channel: Record<string, unknown>;

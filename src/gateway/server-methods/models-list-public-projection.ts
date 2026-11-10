@@ -46,9 +46,7 @@ export function buildPublicModelProjection(
   options: { includeDetails?: boolean } = {},
 ): ModelChoice {
   const contextWindow = resolvePositiveSafeInteger(entry.contextWindow);
-  const contextTokens = options.includeDetails
-    ? resolvePositiveSafeInteger(entry.contextTokens)
-    : undefined;
+  const contextTokens = resolvePositiveSafeInteger(entry.contextTokens);
   return {
     id: entry.id,
     name: entry.name,
@@ -70,9 +68,12 @@ export function buildPublicModelProjection(
 export function projectProviderCatalogOutcomes(
   outcomes: readonly ProviderCatalogOutcome[] | undefined,
 ): ModelCatalogProviderOutcome[] | undefined {
-  return outcomes?.map(({ provider, profileId, status }) => ({
+  return outcomes?.map(({ provider, profileId, status, unlistedConfiguredModelIds }) => ({
     provider,
     ...(profileId ? { profileId } : {}),
     status,
+    ...(status === "ready" && unlistedConfiguredModelIds?.length
+      ? { unlistedConfiguredModelIds: [...unlistedConfiguredModelIds] }
+      : {}),
   }));
 }

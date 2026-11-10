@@ -1,9 +1,9 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { p as readAskUserQuestionId, pn as ReplyPayload } from "../reply-payload-DazZPys5.js";
-import { f as MessagePresentation } from "../payload-DbVrIDaU.js";
-import "../index-B4F-ENEv.js";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { _k as ReplyPayload, w as readAskUserQuestionId } from "../config-contracts-CY87ANNp.js";
+import "../index-8f56f6LD.js";
+import { U as MessagePresentation } from "../approval-handler-runtime-types-CAPTRUL9.js";
 //#region src/infra/question-channel-runtime.d.ts
-declare const registerQuestionChannelDelivery: (params: {
+declare const registerQuestionChannelDelivery: ({ questionId, deliveryId, finalize }: {
   questionId: string;
   deliveryId: string;
   finalize: (statusLine: string) => void | Promise<void>;
@@ -107,7 +107,7 @@ export declare const questionGatewayRuntime: {
   readReactionBinding: typeof readQuestionReactionBinding;
   resolveReactionIndex: typeof resolveQuestionReactionIndex;
   resolveReaction: typeof resolveQuestionReactionOverGateway;
-  registerChannelDelivery: (params: {
+  registerChannelDelivery: ({ questionId, deliveryId, finalize }: {
     questionId: string;
     deliveryId: string;
     finalize: (statusLine: string) => void | Promise<void>;

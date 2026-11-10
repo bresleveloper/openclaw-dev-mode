@@ -1,10 +1,12 @@
-import { n as resolveApiKeyForProfile } from "../oauth-BjYQE8Yy.mjs";
-import { c as loadAuthProfileStoreForSecretsRuntime } from "../store-runtime-Qx0DZ2Si.mjs";
+import { f as loadAuthProfileStoreForRuntimeAsync } from "../store-runtime-CwqGD12G.mjs";
+import { n as resolveApiKeyForProfile } from "../oauth-RJ_g0pTu.mjs";
 //#region src/agents/mcp-auth-profile.runtime.ts
 async function resolveMcpAuthProfileBearerToken(params) {
-	const store = loadAuthProfileStoreForSecretsRuntime(params.agentDir, {
+	const store = await loadAuthProfileStoreForRuntimeAsync(params.agentDir, {
 		config: params.cfg,
-		externalCliProfileIds: [params.profileId]
+		externalCliProfileIds: [params.profileId],
+		readOnly: true,
+		allowKeychainPrompt: false
 	});
 	const credential = store.profiles[params.profileId];
 	if (!credential) throw new Error(`MCP server "${params.serverName}" references auth profile "${params.profileId}", but that profile was not found.`);

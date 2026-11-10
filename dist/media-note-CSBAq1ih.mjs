@@ -1,0 +1,100 @@
+import { o as normalizeLowercaseStringOrEmpty } from "./string-coerce-1VuiLaaR.mjs";
+import { r as truncateUtf16Safe } from "./utf16-slice-D_ngcYKd.mjs";
+import { t as basenameFromAnyPath } from "./file-name-CKnWacTs.mjs";
+import { o as isAudioFileName } from "./mime-C3j3dfQb.mjs";
+import { u as normalizeMediaFacts } from "./media-facts-BIPREXi-.mjs";
+import { s as getMediaDir } from "./store-BOkrav0N.mjs";
+import path from "node:path";
+//#region src/auto-reply/media-note.ts
+/** Builds compact prompt notes for inbound media attachments. */
+function stripDarwinPrivatePrefix(value) {
+	return value.startsWith("/private/var/") ? value.slice(8) : value;
+}
+function normalizeManagedInboundMediaRef(value) {
+	if (!path.isAbsolute(value)) return value;
+	const mediaDir = stripDarwinPrivatePrefix(path.resolve(getMediaDir()));
+	const candidate = stripDarwinPrivatePrefix(path.resolve(value));
+	const inboundDir = path.join(mediaDir, "inbound");
+	const relativeToInbound = path.relative(inboundDir, candidate);
+	if (!relativeToInbound || relativeToInbound.startsWith("..") || path.isAbsolute(relativeToInbound)) return value;
+	return `media://inbound/${path.basename(candidate)}`;
+}
+function sanitizeInlineMediaNoteValue(value) {
+	const trimmed = value?.trim();
+	if (!trimmed) return "";
+	return normalizeManagedInboundMediaRef(trimmed).replace(/[\p{Cc}\]]+/gu, " ").replace(/\s+/g, " ").trim();
+}
+function formatMediaAttachedLine(fact, index, total) {
+	const prefix = total > 1 ? `[media attached ${index}/${total}: ` : "[media attached: ";
+	const pathValue = sanitizeInlineMediaNoteValue(fact.path);
+	const typeRaw = sanitizeInlineMediaNoteValue(fact.contentType ?? fact.kind);
+	const typePart = typeRaw ? ` (${typeRaw})` : "";
+	const urlRaw = sanitizeInlineMediaNoteValue(fact.url);
+	const urlPart = urlRaw && urlRaw !== pathValue ? ` | ${urlRaw}` : "";
+	const fileName = truncateUtf16Safe(sanitizeInlineMediaNoteValue(basenameFromAnyPath(fact.fileName ?? "")), 256);
+	return `${prefix}${pathValue}${typePart}${urlPart}${fileName ? ` ${JSON.stringify(fileName)}` : ""}]`;
+}
+const AUDIO_EXTENSIONS_WITHOUT_CANONICAL_MIME = [
+	".webm",
+	".wma",
+	".alac"
+];
+function isAudioPath(pathLocal) {
+	if (!pathLocal) return false;
+	if (isAudioFileName(pathLocal)) return true;
+	const lower = normalizeLowercaseStringOrEmpty(pathLocal);
+	return AUDIO_EXTENSIONS_WITHOUT_CANONICAL_MIME.some((extension) => lower.endsWith(extension));
+}
+function isValidAttachmentIndex(index, attachmentCount) {
+	return Number.isSafeInteger(index) && index >= 0 && index < attachmentCount;
+}
+function collectTranscribedAudioAttachmentIndices(ctx, attachmentCount) {
+	const transcribedAudioIndices = /* @__PURE__ */ new Set();
+	if (Array.isArray(ctx.MediaUnderstanding)) {
+		for (const output of ctx.MediaUnderstanding) if (output.kind === "audio.transcription" && isValidAttachmentIndex(output.attachmentIndex, attachmentCount)) transcribedAudioIndices.add(output.attachmentIndex);
+	}
+	if (Array.isArray(ctx.MediaUnderstandingDecisions)) for (const decision of ctx.MediaUnderstandingDecisions) {
+		if (decision.capability !== "audio" || decision.outcome !== "success") continue;
+		for (const attachment of decision.attachments) if (attachment.chosen?.outcome === "success" && isValidAttachmentIndex(attachment.attachmentIndex, attachmentCount)) transcribedAudioIndices.add(attachment.attachmentIndex);
+	}
+	return transcribedAudioIndices;
+}
+/** Formats prompt-visible attachment text and retains facts that still need native hydration. */
+function buildInboundMediaNoteProjection(ctx) {
+	const facts = normalizeMediaFacts(ctx.media);
+	const entries = facts.flatMap((fact, index) => fact.path || fact.url ? [{
+		fact,
+		index
+	}] : []);
+	if (entries.length === 0) return {
+		media: [],
+		mediaIndexes: []
+	};
+	const transcribedAudioIndices = collectTranscribedAudioAttachmentIndices(ctx, facts.length);
+	const canStripSingleAttachmentByTranscript = Boolean(ctx.Transcript?.trim()) && facts.length === 1;
+	const visibleEntries = entries.filter((entry) => {
+		const normalizedType = normalizeLowercaseStringOrEmpty(entry.fact.contentType ?? entry.fact.kind);
+		const isAudioByMime = normalizedType === "audio" || normalizedType.startsWith("audio/");
+		return !(entry.fact.kind === "audio" || isAudioPath(entry.fact.path) || isAudioByMime) || !(entry.fact.transcribed === true || transcribedAudioIndices.has(entry.index) || canStripSingleAttachmentByTranscript && entry.index === 0);
+	});
+	if (visibleEntries.length === 0) return {
+		media: [],
+		mediaIndexes: []
+	};
+	const describedImageIndices = new Set(ctx.MediaUnderstanding?.flatMap((output) => output.kind === "image.description" ? [output.attachmentIndex] : []) ?? []);
+	const media = visibleEntries.map((entry) => ({
+		...entry.fact,
+		...describedImageIndices.has(entry.index) ? { hydrationSuppressed: true } : {}
+	}));
+	const mediaIndexes = visibleEntries.map((entry) => entry.index);
+	const count = visibleEntries.length;
+	const lines = visibleEntries.map((entry, index) => formatMediaAttachedLine(entry.fact, index + 1, count));
+	if (count > 1) lines.unshift(`[media attached: ${count} files]`);
+	return {
+		text: lines.join("\n"),
+		media,
+		mediaIndexes
+	};
+}
+//#endregion
+export { buildInboundMediaNoteProjection as t };

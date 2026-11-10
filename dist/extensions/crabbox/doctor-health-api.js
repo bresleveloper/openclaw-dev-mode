@@ -1,25 +1,38 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
 import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { t as findCrabboxBinary } from "../../crabbox-binary-BMI8aWfR.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { m as resolveOpenClawRoot, r as CRABBOX_WORKER_PROVIDER_ID } from "../../crabbox-worker-profile-BU49dPt3.mjs";
-import { a as resolveManagedCrabboxBinaryPath, i as probeCrabboxVersion, n as ensureManagedCrabboxBinary, r as findManagedCrabboxBinary, t as CRABBOX_MIN_VERSION } from "../../crabbox-managed-binary-BJo8zB7t.mjs";
-import "../../crabbox-worker-warm-image-records-D4Yqzjt9.mjs";
-import { p as projectCrabboxWarmImage, s as crabboxWarmImageRecoveryHint, t as CRABBOX_WARM_IMAGE_WAIT_HINT } from "../../crabbox-worker-warm-image-store-CTZ77FWn.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { i as findManagedCrabboxBinary, o as probeCrabboxVersion, r as ensureManagedCrabboxBinary, s as resolveManagedCrabboxBinaryPath, t as CRABBOX_MIN_VERSION } from "../../crabbox-managed-binary-wNWrXyWL.mjs";
+import { p as parseCrabboxSetupSecrets, r as CRABBOX_WORKER_PROVIDER_ID, y as resolveOpenClawRoot } from "../../crabbox-worker-profile-BWx5cVTt.mjs";
+import { p as projectCrabboxWarmImage, s as crabboxWarmImageRecoveryHint, t as CRABBOX_WARM_IMAGE_WAIT_HINT } from "../../crabbox-worker-warm-image-store-CqhLl1_y.mjs";
+import "../../crabbox-worker-warm-image-records-DsyYgBdc.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 //#region extensions/crabbox/src/doctor.ts
 const CRABBOX_CLOUD_WORKER_PROFILE_CHECK_ID = "crabbox/cloud-worker-profiles";
+const CRABBOX_SETUP_SECRETS_CHECK_ID = "crabbox/setup-secrets";
 const CRABBOX_WARM_IMAGES_CHECK_ID = "crabbox/warm-images";
 function createCrabboxCloudWorkerProfileCheck(openclawRoot) {
 	return {
 		id: CRABBOX_CLOUD_WORKER_PROFILE_CHECK_ID,
 		kind: "plugin",
-		description: "Verify configured Crabbox cloud worker profiles before dispatch.",
+		description: "Verify configured Crabbox cloud worker and sandbox binaries before use.",
 		source: "crabbox",
 		async detect(ctx) {
-			const profiles = Object.entries(ctx.cfg.cloudWorkers?.profiles ?? {}).filter(([, profile]) => profile.provider.trim().toLowerCase() === CRABBOX_WORKER_PROVIDER_ID);
-			if (profiles.length === 0) return [];
+			const targets = Object.entries(ctx.cfg.cloudWorkers?.profiles ?? {}).filter(([, profile]) => profile.provider.trim().toLowerCase() === CRABBOX_WORKER_PROVIDER_ID).map(([profileId, profile]) => ({
+				id: profileId,
+				label: `Cloud worker profile "${profileId}"`,
+				settings: asOptionalRecord(profile.settings),
+				ocPath: `cloudWorkers.profiles.${profileId}.settings.binary`
+			}));
+			const sandbox = asOptionalRecord(asOptionalRecord(ctx.cfg.plugins?.entries?.crabbox?.config)?.sandbox);
+			if (sandbox) targets.push({
+				id: "sandbox",
+				label: "Crabbox sandbox",
+				settings: sandbox,
+				ocPath: "plugins.entries.crabbox.config.sandbox.binary"
+			});
+			if (targets.length === 0) return [];
 			const probes = /* @__PURE__ */ new Map();
 			const probe = (binary) => {
 				let pending = probes.get(binary);
@@ -31,8 +44,8 @@ function createCrabboxCloudWorkerProfileCheck(openclawRoot) {
 			};
 			let managed;
 			const findings = [];
-			for (const [profileId, profile] of profiles) {
-				const explicitBinary = normalizeOptionalString(asOptionalRecord(profile.settings)?.binary);
+			for (const target of targets) {
+				const explicitBinary = normalizeOptionalString(target.settings?.binary);
 				const binary = findCrabboxBinary({
 					...explicitBinary ? { explicit: explicitBinary } : {},
 					openclawRoot,
@@ -48,7 +61,7 @@ function createCrabboxCloudWorkerProfileCheck(openclawRoot) {
 						checkId: CRABBOX_CLOUD_WORKER_PROFILE_CHECK_ID,
 						severity: "warning",
 						source: "crabbox",
-						target: profileId,
+						target: target.id,
 						message: error instanceof Error ? error.message : "Crabbox host is unsupported"
 					});
 					continue;
@@ -58,12 +71,12 @@ function createCrabboxCloudWorkerProfileCheck(openclawRoot) {
 					checkId: CRABBOX_CLOUD_WORKER_PROFILE_CHECK_ID,
 					severity: "warning",
 					source: "crabbox",
-					message: `Cloud worker profile "${profileId}" ${reason}. OpenClaw will install its managed Crabbox before use.`,
+					message: `${target.label} ${reason}. OpenClaw will install its managed Crabbox before use.`,
 					...binary ?? explicitBinary ? { path: binary ?? explicitBinary } : {},
-					ocPath: `cloudWorkers.profiles.${profileId}.settings.binary`,
-					target: profileId,
+					ocPath: target.ocPath,
+					target: target.id,
 					requirement: `Crabbox ${CRABBOX_MIN_VERSION} or newer`,
-					fixHint: `Run \`openclaw doctor --fix\` to install the managed Crabbox now, or provision Crabbox ${CRABBOX_MIN_VERSION} or newer using \`cloudWorkers.profiles.${profileId}.settings.binary\`. The existing executable and profile configuration are preserved.`
+					fixHint: `Run \`openclaw doctor --fix\` to install the managed Crabbox now, or provision Crabbox ${CRABBOX_MIN_VERSION} or newer using \`${target.ocPath}\`. The existing executable and configuration are preserved.`
 				});
 			}
 			return findings;
@@ -97,7 +110,92 @@ function createCrabboxCloudWorkerProfileCheck(openclawRoot) {
 		}
 	};
 }
+function createCrabboxSetupSecretsCheck(host) {
+	const repairHint = "Create or repair protected entries with explicit allowed hosts using openclaw secrets, then run openclaw doctor --fix. Store values and destination bindings are never inferred or overwritten.";
+	const inspect = async (ctx) => {
+		const changes = [];
+		const findings = [];
+		if (!Object.values(ctx.cfg.cloudWorkers?.profiles ?? {}).some((profile) => profile.provider.trim().toLowerCase() === "crabbox" && asOptionalRecord(profile.settings)?.setupEnv !== void 0)) return {
+			config: ctx.cfg,
+			changes,
+			findings
+		};
+		const config = structuredClone(ctx.cfg);
+		for (const [profileId, profile] of Object.entries(config.cloudWorkers?.profiles ?? {})) {
+			const settings = asOptionalRecord(profile.settings);
+			if (profile.provider.trim().toLowerCase() !== "crabbox" || !settings || settings.setupEnv === void 0) continue;
+			const path = `cloudWorkers.profiles.${profileId}.settings.setupEnv`;
+			let reason;
+			const legacy = settings.setupEnv;
+			if (!Array.isArray(legacy) || legacy.length > 16 || !legacy.every((name) => typeof name === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) || new Set(legacy).size !== legacy.length) reason = "legacy setupEnv is not a bounded list of distinct environment names";
+			else {
+				const facts = legacy.length ? await host.inspectSetupSecrets(legacy, ctx.env) : [];
+				const problems = facts.filter(({ status }) => status !== "ready");
+				if (facts.length !== legacy.length || problems.length) reason = problems.length ? problems.map(({ name, status }) => `${name}: ${status}`).join(", ") : "secret-store inspection is incomplete";
+				else try {
+					const current = parseCrabboxSetupSecrets(settings.setupSecrets) ?? {};
+					const provider = ctx.cfg.secrets?.defaults?.store ?? "default";
+					const next = { ...current };
+					for (const name of legacy) {
+						const existing = current[name];
+						if (existing && (existing.provider !== provider || existing.id !== name)) throw new Error(`setupSecrets mapping ${name} conflicts with its same-name store entry`);
+						next[name] = {
+							source: "store",
+							provider,
+							id: name
+						};
+					}
+					settings.setupSecrets = parseCrabboxSetupSecrets(next);
+					delete settings.setupEnv;
+					changes.push(`Migrated ${path} to setupSecrets using existing protected, destination-bound store entries.`);
+				} catch (error) {
+					reason = error instanceof Error ? error.message : "setupSecrets mapping requires repair";
+				}
+			}
+			findings.push({
+				checkId: CRABBOX_SETUP_SECRETS_CHECK_ID,
+				severity: "warning",
+				source: "crabbox",
+				target: profileId,
+				ocPath: path,
+				message: `Crabbox profile ${profileId} uses retired plaintext setupEnv${reason ? ` and needs repair (${reason})` : "; protected store entries are ready to migrate"}.`,
+				fixHint: repairHint
+			});
+		}
+		return {
+			config,
+			changes,
+			findings
+		};
+	};
+	return {
+		id: CRABBOX_SETUP_SECRETS_CHECK_ID,
+		kind: "plugin",
+		description: "Migrate retired setup environment forwarding to protected setup secrets.",
+		source: "crabbox",
+		async detect(ctx) {
+			return (await inspect(ctx)).findings;
+		},
+		async repair(ctx) {
+			const result = await inspect(ctx);
+			if (ctx.dryRun) return {
+				status: "skipped",
+				changes: [],
+				reason: "Run openclaw doctor --fix to persist setup secret migration."
+			};
+			return {
+				status: result.changes.length ? "repaired" : "skipped",
+				config: result.changes.length ? result.config : ctx.cfg,
+				changes: result.changes,
+				warnings: result.findings.filter(({ target }) => {
+					return asOptionalRecord(result.config.cloudWorkers?.profiles?.[target ?? ""]?.settings)?.setupEnv !== void 0;
+				}).map(({ message }) => `${message} ${repairHint}`)
+			};
+		}
+	};
+}
 function registerCrabboxWorkerProviderDoctorChecks(host) {
+	if (!host.getHealthCheck(CRABBOX_SETUP_SECRETS_CHECK_ID)) host.registerHealthCheck(createCrabboxSetupSecretsCheck(host));
 	if (!host.getHealthCheck("crabbox/cloud-worker-profiles")) host.registerHealthCheck(createCrabboxCloudWorkerProfileCheck(host.openclawRoot));
 	if (!host.getHealthCheck(CRABBOX_WARM_IMAGES_CHECK_ID)) host.registerHealthCheck({
 		id: CRABBOX_WARM_IMAGES_CHECK_ID,
@@ -132,7 +230,7 @@ function registerCrabboxWorkerProviderDoctorChecks(host) {
 					...details,
 					severity: "info",
 					message: `Warm-image native capture${display} is unsupported: ${image.captureUnsupported.message}`,
-					fixHint: "Workers use an existing compatible snapshot when one is available and otherwise provision cold; each eligible worker retries capture, so Crabbox configuration changes apply to the next dispatch. Set `settings.warmImage: false` on the profile to stop capture attempts, or use a Crabbox configuration that supports native checkpoints."
+					fixHint: "Workers use an existing compatible snapshot when one is available and otherwise provision cold; capture attempts are skipped until `warmImages.refreshAfter` has elapsed since the refusal. Set `settings.warmImage: false` on the profile to stop capture attempts, or use a Crabbox configuration that supports native checkpoints."
 				});
 				if (image.capture) {
 					const uncertain = image.capture.phase === "uncertain";

@@ -1,4 +1,4 @@
-import { DEFAULT_COMFY_MODEL, isComfyCapabilityConfigured, runComfyWorkflow } from "./workflow-runtime.js";
+import { DEFAULT_COMFY_MODEL, isComfyCapabilityConfigured, isComfyCapabilityConfiguredAsync, runComfyWorkflow } from "./workflow-runtime.js";
 //#region extensions/comfy/video-generation-provider.ts
 function toComfyInputImage(inputImage) {
 	if (!inputImage) return;
@@ -16,6 +16,11 @@ function buildComfyVideoGenerationProvider() {
 		defaultModel: DEFAULT_COMFY_MODEL,
 		models: [DEFAULT_COMFY_MODEL],
 		isConfigured: ({ cfg, agentDir }) => isComfyCapabilityConfigured({
+			cfg,
+			agentDir,
+			capability: "video"
+		}),
+		isConfiguredAsync: ({ cfg, agentDir }) => isComfyCapabilityConfiguredAsync({
 			cfg,
 			agentDir,
 			capability: "video"

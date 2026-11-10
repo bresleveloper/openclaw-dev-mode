@@ -1,8 +1,8 @@
-import { t as createOpenAIProvider } from "./.setup/provider-contract-api-S5SZuAgg.mjs";
+import { t as createOpenAIProvider } from "./.setup/provider-contract-api-cl3eyYYC.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 //#region extensions/openai/setup-api.ts
 async function runOpenAIProviderAuthMethod(methodId, ctx) {
-	const { buildOpenAIProvider } = await import("./.setup/openai-provider-C6UtIze5.mjs");
+	const { buildOpenAIProvider } = await import("./.setup/openai-provider-BnL0N6BU.mjs");
 	const method = buildOpenAIProvider().auth.find((entry) => entry.id === methodId);
 	if (!method) return { profiles: [] };
 	return method.run(ctx);

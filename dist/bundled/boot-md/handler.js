@@ -1,26 +1,26 @@
-import { r as defaultRuntime } from "../../runtime-DlO3PTAd.mjs";
-import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
-import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
-import { d as resolveAgentWorkspaceDir } from "../../agent-scope-config-CDYpzA0r.mjs";
-import { l as resolveAgentIdFromSessionKey } from "../../session-key-C09ow4h0.mjs";
-import { i as listAgentIds } from "../../agent-roster-BXD1uMJD.mjs";
-import { l as resolveSessionStorePathCore } from "../../paths-dpReqUI8.mjs";
-import "../../agent-scope-CG17uXFn.mjs";
+import { r as defaultRuntime } from "../../runtime-BazLsT0s.mjs";
+import { t as formatErrorMessage } from "../../errors-DPfGDWk1.mjs";
+import { t as createSubsystemLogger } from "../../subsystem-mStysHHC.mjs";
+import { l as resolveAgentIdFromSessionKey } from "../../session-key-CSDERtm3.mjs";
+import { f as resolveAgentWorkspaceDir } from "../../agent-scope-config-fjA2T9Gz.mjs";
+import { i as listAgentIds } from "../../agent-roster-gkYP38su.mjs";
 import { t as dedupeByKey } from "../../dedupe-by-key-DnqEVrst.mjs";
-import { s as escapeInternalRuntimeContextDelimiters } from "../../internal-runtime-context-CAWYwg4i.mjs";
-import { r as SILENT_REPLY_TOKEN } from "../../tokens-D4ghQG_g.mjs";
-import { a as resolveMainSessionKey, r as resolveAgentMainSessionKey } from "../../main-session-00MgEWj5.mjs";
-import "../../session-accessor-CQ-g9yb2.mjs";
-import { g as applySessionEntryLifecycleMutation } from "../../session-accessor.reset-Bn2-AwEV.mjs";
-import { o as isGatewayStartupEvent } from "../../internal-hooks-HjIVcJaQ.mjs";
-import { a as clearBootEchoContextForSession, o as setBootEchoContextForSession } from "../../openclaw-tools-D_lVJ00z.mjs";
-import { t as createDefaultDeps } from "../../deps-CZ9MeDGs.mjs";
-import { i as agentCommandFromSystem } from "../../agent-command-CgCo7NDi.mjs";
-import "../../agent-BbK9nXoN.mjs";
-import { t as runStartupTasks } from "../../startup-tasks-CIgrOHNf.mjs";
-import path from "node:path";
-import fs from "node:fs/promises";
+import { c as resolveSessionStorePathCore } from "../../paths-YgcBNLgG.mjs";
+import "../../agent-scope-DXrnO3F4.mjs";
+import { a as resolveMainSessionKey, r as resolveAgentMainSessionKey } from "../../main-session-CHYPkxYr.mjs";
+import { s as escapeInternalRuntimeContextDelimiters } from "../../internal-runtime-context-DLJtDQoI.mjs";
+import { n as SILENT_REPLY_TOKEN } from "../../tokens-DHFPcfdZ.mjs";
+import "../../session-accessor-Czw4l8kI.mjs";
+import { _ as applySessionEntryLifecycleMutation } from "../../session-accessor.entry-mutation-DgCGNicZ.mjs";
+import { t as createDefaultDeps } from "../../deps-CHvP-bJh.mjs";
+import { o as isGatewayStartupEvent } from "../../internal-hooks-DNLQqCT3.mjs";
+import { a as clearBootEchoContextForSession, o as setBootEchoContextForSession } from "../../openclaw-tools-lor9xxfh.mjs";
+import { i as agentCommandFromSystem } from "../../agent-command-TuJMy8YP.mjs";
+import "../../agent-BnqYTRnx.mjs";
+import { t as runStartupTasks } from "../../startup-tasks-CYKEp7XB.mjs";
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { readRegularFile } from "@openclaw/fs-safe/advanced";
 //#region src/gateway/boot.ts
 function generateBootSessionId() {
@@ -150,7 +150,6 @@ async function runBootOnce(params) {
 //#endregion
 //#region src/hooks/bundled/boot-md/handler.ts
 const log = createSubsystemLogger("hooks/boot-md");
-/** Gateway-startup hook that runs BOOT.md checks once per unique agent workspace. */
 const runBootChecklist = async (event) => {
 	if (!isGatewayStartupEvent(event)) return;
 	if (!event.context.cfg) return;

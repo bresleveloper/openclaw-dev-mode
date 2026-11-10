@@ -35,6 +35,8 @@ export type MediaFact = {
   // reprojection boundary; described images otherwise rehydrate or count failed.
   // Structured persistence may retain it; legacy Media* projections never emit it.
   hydrationSuppressed?: boolean;
+  /** Run-only: this turn could not read the attachment. Never persisted, so later turns retry it. */
+  unresolvedThisTurn?: boolean;
 };
 
 export type MediaFactInput = {
@@ -63,6 +65,31 @@ export function attachRuntimePromptMediaFacts<T extends object>(
 export function readRuntimePromptMediaFacts(message: object): MediaFact[] | undefined {
   const media = (message as Record<PropertyKey, unknown>)[RUNTIME_PROMPT_MEDIA_FACTS];
   return Array.isArray(media) ? (media as MediaFact[]) : undefined;
+}
+
+/**
+ * Pair run-only skips by source and occurrence; recorded facts remain retryable.
+ * Staged copies retain media:// URLs. URL-less remote restaging can miss a match
+ * and retry this turn; a failed read stays visible through the existing notice.
+ */
+export function applyRunHydrationSuppression(
+  recorded: readonly MediaFact[],
+  run: readonly MediaFact[] | undefined,
+): MediaFact[] {
+  const runFlagsByKey = new Map<string, boolean[]>();
+  for (const fact of run ?? []) {
+    const key = fact.url ?? fact.path;
+    if (key) {
+      const flags = runFlagsByKey.get(key) ?? [];
+      flags.push(fact.unresolvedThisTurn === true);
+      runFlagsByKey.set(key, flags);
+    }
+  }
+  return recorded.map((fact) => {
+    const key = fact.url ?? fact.path;
+    const suppressed = key ? runFlagsByKey.get(key)?.shift() : undefined;
+    return suppressed ? { ...fact, hydrationSuppressed: true } : fact;
+  });
 }
 
 /** Reads the canonical persisted media envelope without consulting legacy top-level fields. */
@@ -144,37 +171,6 @@ const LEGACY_MEDIA_KINDS = new Set<MediaKind>([
   "unknown",
 ]);
 
-function hasAmbiguousSparseLegacyMediaAlignment(source: MediaFactSource): boolean {
-  const paths = Array.isArray(source.MediaPaths) ? source.MediaPaths : [];
-  const urls = Array.isArray(source.MediaUrls) ? source.MediaUrls : [];
-  const types = Array.isArray(source.MediaTypes) ? source.MediaTypes : [];
-  const canonical = normalizeMediaFacts(source.media);
-  const slotCount = Math.max(paths.length, urls.length);
-  if (types.length === 0 || types.length >= slotCount) {
-    return false;
-  }
-  return Array.from({ length: slotCount }, (_, index) =>
-    Boolean(normalizeOptionalString(paths[index]) ?? normalizeOptionalString(urls[index])),
-  ).some((meaningful, index) => {
-    if (!meaningful) {
-      return false;
-    }
-    const fact = canonical[index];
-    const canonicalIdentity =
-      normalizeOptionalString(fact?.path) ?? normalizeOptionalString(fact?.url);
-    const canonicalClassification = normalizeOptionalString(fact?.contentType) ?? fact?.kind;
-    return !canonicalIdentity || !canonicalClassification;
-  });
-}
-
-function hasUnderCardinalLegacyTypes(source: MediaFactSource): boolean {
-  const paths = Array.isArray(source.MediaPaths) ? source.MediaPaths : [];
-  const urls = Array.isArray(source.MediaUrls) ? source.MediaUrls : [];
-  const types = Array.isArray(source.MediaTypes) ? source.MediaTypes : [];
-  const slotCount = Math.max(paths.length, urls.length);
-  return types.length > 0 && types.length < slotCount;
-}
-
 type CanonicalizedPersistedMediaMessage<T extends object> = {
   changed: boolean;
   hadLegacy: boolean;
@@ -196,27 +192,41 @@ export function canonicalizePersistedUserMessageMedia<T extends object>(
   const topLevelMedia = Array.isArray(record.media)
     ? (record.media as readonly MediaFactInput[])
     : undefined;
-  const source: MediaFactSource = {
+  let source: MediaFactSource = {
     ...record,
     media: (canonical ?? topLevelMedia) as readonly MediaFactInput[] | undefined,
   };
-  const hasAmbiguousLegacyAlignment = hasAmbiguousSparseLegacyMediaAlignment(source);
-  if (hadLegacy && hasAmbiguousLegacyAlignment) {
-    throw new Error("legacy media arrays have ambiguous sparse positional alignment");
+  const paths = Array.isArray(source.MediaPaths) ? source.MediaPaths : [];
+  const urls = Array.isArray(source.MediaUrls) ? source.MediaUrls : [];
+  const types = Array.isArray(source.MediaTypes) ? source.MediaTypes : [];
+  const slotCount = Math.max(paths.length, urls.length);
+  if (types.length > 0 && types.length < slotCount) {
+    const facts = normalizeMediaFacts(source.media);
+    let ambiguous = false;
+    for (let index = 0; index < slotCount; index += 1) {
+      const meaningful =
+        normalizeOptionalString(paths[index]) ?? normalizeOptionalString(urls[index]);
+      const fact = facts[index];
+      if (meaningful && (!(fact?.path ?? fact?.url) || !(fact?.contentType ?? fact?.kind))) {
+        ambiguous = true;
+        break;
+      }
+    }
+    if (hadLegacy && ambiguous) {
+      throw new Error("legacy media arrays have ambiguous sparse positional alignment");
+    }
+    if (!ambiguous) {
+      source = { ...source, MediaType: undefined, MediaTypes: [] };
+    }
   }
-  const resolvedSource =
-    hasUnderCardinalLegacyTypes(source) && !hasAmbiguousLegacyAlignment
-      ? { ...source, MediaType: undefined, MediaTypes: [] }
-      : source;
-  const resolvedMedia = resolveMediaFacts(resolvedSource);
-  const stagedMedia =
-    resolvedSource.MediaStaged === true ? resolveStagedMediaFacts(resolvedSource) : undefined;
-  const legacyTypes = Array.isArray(resolvedSource.MediaTypes) ? resolvedSource.MediaTypes : [];
-  const canonicalInputs = Array.isArray(resolvedSource.media) ? resolvedSource.media : [];
+  const resolvedMedia = resolveMediaFacts(source);
+  const stagedMedia = source.MediaStaged === true ? resolveStagedMediaFacts(source) : undefined;
+  const legacyTypes = Array.isArray(source.MediaTypes) ? source.MediaTypes : [];
+  const canonicalInputs = Array.isArray(source.media) ? source.media : [];
   const media: MediaFact[] = [];
   for (const [index, fact] of resolvedMedia.entries()) {
     const legacyType = normalizeOptionalString(
-      legacyTypes[index] ?? (index === 0 ? resolvedSource.MediaType : undefined),
+      legacyTypes[index] ?? (index === 0 ? source.MediaType : undefined),
     );
     const existing = canonicalInputs[index];
     const bareLegacyKind =

@@ -1,13 +1,45 @@
-import { d as normalizeMimeType } from "../mime-CGDYrRzL.mjs";
-import { t as buildOutboundMediaLoadOptions } from "../load-options-gEuoEu4c.mjs";
-import { n as loadWebMedia } from "../web-media-DkANOAh-.mjs";
-import "../web-media-CrOXx0IK.mjs";
+import { d as normalizeMimeType } from "../mime-C3j3dfQb.mjs";
+import { n as resolveOutboundMediaAccess, t as buildOutboundMediaLoadOptions } from "../load-options-gEuoEu4c.mjs";
+import { n as loadWebMedia } from "../web-media-Dv3ATZ34.mjs";
+import "../web-media-CgTCNYnE.mjs";
 import { randomBytes } from "node:crypto";
 import { createAsyncLock, sanitizeUntrustedFileName } from "@openclaw/fs-safe/advanced";
 //#region src/plugin-sdk/outbound-media.ts
 /** Load outbound media from a remote URL or approved local path using the shared web-media policy. */
 async function loadOutboundMediaFromUrl(mediaUrl, options = {}) {
 	return await loadWebMedia(mediaUrl, buildOutboundMediaLoadOptions(options));
+}
+/** Return false for unrelated requests, true after rejection, or the capability to authenticate. */
+function resolveHostedOutboundMediaRequest(req, res, tokenParamPrefix) {
+	let url;
+	try {
+		url = new URL(req.url ?? "/", "http://localhost");
+	} catch {
+		return false;
+	}
+	const prefix = `${tokenParamPrefix}_`;
+	const [candidate, ...extra] = [...url.searchParams.entries()].filter(([key]) => key.startsWith(prefix)).map(([key, token]) => ({
+		id: key.slice(prefix.length),
+		token
+	})).filter(({ id }) => /^[a-f0-9]{24}$/.test(id));
+	if (!candidate) return false;
+	if (extra.length > 0) {
+		res.statusCode = 400;
+		res.end("Bad Request");
+		return true;
+	}
+	const method = req.method ?? "GET";
+	if (method !== "GET" && method !== "HEAD") {
+		res.statusCode = 405;
+		res.setHeader("Allow", "GET, HEAD");
+		res.end("Method Not Allowed");
+		return true;
+	}
+	return {
+		url,
+		...candidate,
+		method
+	};
 }
 const DEFAULT_HOSTED_OUTBOUND_MEDIA_RAW_CHUNK_BYTES = 36864;
 const DEFAULT_HOSTED_OUTBOUND_MEDIA_MAX_ENTRIES = 64;
@@ -125,7 +157,8 @@ function createHostedOutboundMediaStore(options) {
 			close
 		};
 	}
-	async function pruneForCapacity(incomingChunkCount, incomingByteLength, nowMs = Date.now()) {
+	async function pruneForCapacity(incomingChunkCount, incomingByteLength) {
+		const nowMs = Date.now();
 		if (options.maxTotalBytes !== void 0 && incomingByteLength > options.maxTotalBytes) throw new Error(`hosted outbound media payload exceeds aggregate byte capacity (${incomingByteLength}/${options.maxTotalBytes} bytes)`);
 		const rows = await options.metadataStore.entries();
 		const validRows = rows.filter((row) => {
@@ -272,4 +305,4 @@ function buildHostedOutboundMediaResponseHeaders(metadata, options = {}) {
 	};
 }
 //#endregion
-export { buildHostedOutboundMediaResponseHeaders, createHostedOutboundMediaStore, loadOutboundMediaFromUrl };
+export { buildHostedOutboundMediaResponseHeaders, createHostedOutboundMediaStore, loadOutboundMediaFromUrl, resolveHostedOutboundMediaRequest, resolveOutboundMediaAccess };

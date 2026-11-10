@@ -1,8 +1,9 @@
-import { D as normalizeOptionalString, T as normalizeLowercaseStringOrEmpty, a as defineChannelAliasMigration, d as normalizeAccountId, j as isRecord, s as resolveAccountKey, u as DEFAULT_ACCOUNT_ID } from "./runtime-doctor-migrations-BhouWAUC.js";
-import "./account-resolution-1w7yhOTy.js";
-import "./string-coerce-runtime-CM4JCyJk.js";
+import { A as normalizeLowercaseStringOrEmpty, L as isRecord, M as normalizeOptionalString, a as defineChannelAliasMigration, d as normalizeAccountId, s as resolveAccountKey, u as DEFAULT_ACCOUNT_ID } from "./runtime-doctor-migrations-Bq3PkBbD.js";
+import "./account-resolution-BI6LnSdz.js";
+import "./string-coerce-runtime-D5jaFnkP.js";
 import path from "node:path";
 import { isIP } from "node:net";
+import "node:url";
 //#region extensions/signal/src/account-selection.ts
 function resolveSignalAccountKey(accounts, accountId) {
 	return resolveAccountKey(accounts, normalizeAccountId(accountId), void 0, void 0, { channelId: "signal" });
@@ -322,8 +323,8 @@ function nestedDefaultOwnsEffectiveTransport(entries) {
 	return isRecord(nestedDefault) && (isSignalTransportConfig(nestedDefault.transport) || hasLegacySignalTransportFields(nestedDefault));
 }
 function isDiscardedTransportEntry(entries, index) {
-	if (index === 0) return !hasRootSignalAccount(entries) || nestedDefaultOwnsEffectiveTransport(entries);
-	return index === resolveNestedDefaultEntryIndex(entries) && isSignalTransportConfig(entries[0]?.transport);
+	if (isSignalTransportConfig(entries[0]?.transport)) return index === resolveNestedDefaultEntryIndex(entries);
+	return index === 0 && (!hasRootSignalAccount(entries) || nestedDefaultOwnsEffectiveTransport(entries));
 }
 function shouldMaterializeTransport(entries, index) {
 	if (isDiscardedTransportEntry(entries, index)) return false;

@@ -1,2 +1,2 @@
-import { i as applyNvidiaProviderConfig, n as applyNvidiaConfig, r as applyNvidiaConnectionConfig, t as NVIDIA_DEFAULT_MODEL_REF } from "../../onboard-bQOTMbkW.mjs";
+import { i as applyNvidiaProviderConfig, n as applyNvidiaConfig, r as applyNvidiaConnectionConfig, t as NVIDIA_DEFAULT_MODEL_REF } from "../../onboard-DbTk5eEA.mjs";
 export { NVIDIA_DEFAULT_MODEL_REF, applyNvidiaConfig, applyNvidiaConnectionConfig, applyNvidiaProviderConfig };

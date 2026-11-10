@@ -1,24 +1,24 @@
 import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-1VuiLaaR.mjs";
-import { w as parseStrictPositiveInteger } from "../../number-coercion-CuVhdCBs.mjs";
+import { w as parseStrictPositiveInteger } from "../../number-coercion-CkhMiRw8.mjs";
 import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { m as readProviderJsonResponse, n as assertOkOrThrowHttpError } from "../../provider-http-errors-DmewLLH7.mjs";
-import { n as normalizeGooglePreviewModelId } from "../../provider-model-id-normalize-Bx8UgVVS.mjs";
-import { p as sanitizeConfiguredModelProviderRequest } from "../../provider-request-config-By9R9pyt.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { r as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-CtwRSse3.mjs";
-import { d as postJsonRequest } from "../../shared-DcnGQdHV.mjs";
-import "../../number-runtime-CgyXj1A5.mjs";
-import { t as isProviderApiKeyConfigured } from "../../provider-auth-availability-Xx9etrds.mjs";
-import "../../media-generation-runtime-DVf13dFr.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-B-PBEJIo.mjs";
-import "../../provider-http-CuRGJD0L.mjs";
-import { c as resolveInlineImageJsonResponseMaxBytes, t as generatedImageAssetFromBase64 } from "../../image-assets-DT0442If.mjs";
-import "../../image-generation-DlQTzDSO.mjs";
-import "../../provider-auth-BGYKg9mW.mjs";
-import "../../model-id-CPDOOOMu.mjs";
-import { d as createGoogleImageGenerationProviderMetadata } from "../../generation-provider-metadata-CkICOOMz.mjs";
-import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../http-request-Bp4RpyLy.mjs";
-import { n as toStandardGoogleProviderBase64 } from "../../base64-CKISTF1b.mjs";
+import { n as normalizeGooglePreviewModelId } from "../../provider-model-id-normalize-DjenOxD2.mjs";
+import { m as readProviderJsonResponse, n as assertOkOrThrowHttpError } from "../../provider-http-errors-CjVOxCE5.mjs";
+import { p as sanitizeConfiguredModelProviderRequest } from "../../provider-request-config-WdycwKIG.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { r as resolveGeneratedImageDownloadMaxBytes } from "../../configured-max-bytes-BaCve0jk.mjs";
+import { d as postJsonRequest } from "../../shared-BMUa_P4s.mjs";
+import "../../number-runtime-D3v2w3D4.mjs";
+import { n as isProviderApiKeyConfiguredAsync } from "../../provider-auth-availability-CfYdMNuk.mjs";
+import "../../media-generation-runtime-BgMYgoiy.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CMRSW7VK.mjs";
+import "../../provider-http-BuV15s4V.mjs";
+import { c as resolveInlineImageJsonResponseMaxBytes, t as generatedImageAssetFromBase64 } from "../../image-assets-PTBoX6Eo.mjs";
+import "../../image-generation-DwjRbF_L.mjs";
+import "../../provider-auth-JCvgbsWg.mjs";
+import "../../model-id-B1FKGbAg.mjs";
+import { d as createGoogleImageGenerationProviderMetadata } from "../../generation-provider-metadata-B7YiGEWb.mjs";
+import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../http-request-CMyW77KD.mjs";
+import { n as toStandardGoogleProviderBase64 } from "../../base64-DXpT5ejD.mjs";
 //#region extensions/google/image-generation-provider.ts
 const DEFAULT_IMAGE_TIMEOUT_MS = 18e4;
 const DEFAULT_OUTPUT_MIME = "image/png";
@@ -72,7 +72,7 @@ function googleInlineDataFromPart(part) {
 function buildGoogleImageGenerationProvider() {
 	return {
 		...createGoogleImageGenerationProviderMetadata(),
-		isConfigured: (ctx) => isProviderApiKeyConfigured({
+		isConfiguredAsync: (ctx) => isProviderApiKeyConfiguredAsync({
 			provider: "google",
 			...ctx
 		}),
@@ -124,7 +124,7 @@ function buildGoogleImageGenerationProvider() {
 			});
 			try {
 				await assertOkOrThrowHttpError(res, "Google image generation failed");
-				const payload = await readProviderJsonResponse(res, "google.image-generation", { maxBytes: resolveInlineImageJsonResponseMaxBytes(4, resolveGeneratedMediaMaxBytes(req.cfg, "image")) });
+				const payload = await readProviderJsonResponse(res, "google.image-generation", { maxBytes: resolveInlineImageJsonResponseMaxBytes(4, resolveGeneratedImageDownloadMaxBytes(req.cfg)) });
 				const images = [];
 				for (const part of googleResponseParts(payload)) {
 					const inline = googleInlineDataFromPart(part);

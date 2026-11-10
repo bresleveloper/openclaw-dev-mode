@@ -1,2 +1,2 @@
-import { t as loginOpenAICodexOAuth } from "../../openai-chatgpt-oauth.runtime-CMI_4jTS.mjs";
+import { t as loginOpenAICodexOAuth } from "../../openai-chatgpt-oauth.runtime-a7sgBJbr.mjs";
 export { loginOpenAICodexOAuth };

@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{c as t,l as n}from"./control-ui-boot-shared-D2yezbtG.js";var r;function i(){return(i=e((()=>{n(),r=class extends t{constructor(e,t){super(()=>e.requestUpdate(),t),this.hostAttached=!1,e.addController(this)}hostConnected(){this.hostAttached=!0,this.connect()}hostUpdate(){this.hostAttached&&this.refresh()}hostDisconnected(){this.hostAttached=!1,this.dispose()}}})))()}export{i as n,r as t};
+//# sourceMappingURL=gateway-page-controller-CIyQyfmF.js.map

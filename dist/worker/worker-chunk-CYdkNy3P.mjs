@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isSecretRefShape(e){return typeof e.source==`string`&&typeof e.id==`string`}var t=e((()=>{}));export{isSecretRefShape as n,t};

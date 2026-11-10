@@ -1,5 +1,5 @@
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../core-5IrwDSpb.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../core-BxoR6yel.mjs";
 //#region extensions/memory-core/cli-metadata.ts
 var cli_metadata_default = definePluginEntry({
 	id: "memory-core",

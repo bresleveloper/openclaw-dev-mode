@@ -57,12 +57,42 @@ Standalone embedded runtimes publish the same snapshot shape at their activation
 
 Runtime selections resolve in the requesting agent's scope before becoming owner keys. Lease admission carries that prepared choice forward and reads the exact owner's snapshot. Retries must observe a changed owner or publication gate; unchanged publication state fails with a retryable error instead of blocking the Gateway event loop.
 
+If publication supersedes unfinished run preparation, admission prepares again on the current generation once before reporting a retryable error. A reply whose captured dispatch generation was replaced can also discard that initial selection before execution and enter current admission. These retries do not replay model requests or tools. Once execution begins, nested work stays pinned to its admitted generation; changing plugin owners at that point could mix callbacks and resources from different generations.
+
+Auth-triggered publication allows up to two fresh-generation retries for supersession. Exhaustion remains a typed, retryable error, and a later request can recover the configured owner through normal catalog recovery. Other lifecycle failures retain their existing single fresh-generation retry.
+
 ## Compute workers
 
 Code-mode execution, compaction planning, and file-tool planning use the reusable `WorkerTaskPool`.
-Their pools share a CPU admission limit of `max(1, availableParallelism() - 1)`
+Its scheduler and task protocol live in the private `@openclaw/worker-runtime`
+package. The OpenClaw host adapter owns native worker creation, resource custody,
+and process accounting. Plugins use the public
+[worker SDK entrypoints](/plugins/sdk-overview/infrastructure#worker-task-admission).
+
+The package keeps task results, execution settlement, and resource release as
+separate facts. A retained task can return a result while its owner still holds
+the worker and input charge. Native operations, database resources, and cleanup
+receipts make that distinction necessary; a general-purpose task queue alone
+does not replace those owners. The
+[package contributor guide](https://github.com/openclaw/openclaw/blob/main/packages/worker-runtime/README.md)
+explains the host boundary, async context lifetime, and reproducible benchmarks.
+
+These compute pools share a CPU admission limit of `max(1, availableParallelism() - 1)`
 within the calling isolate, reserving a CPU where possible for the Gateway. Ordered
 database and model-generation workers keep their existing independent limits.
+
+Reader pools cap at two workers even on hosts with many CPUs; extra read isolates
+replicate loaded code and caches without helping workloads whose queues are already
+short. Compute pools retain a four-worker cap, while writers and singletons remain
+serial. Pools create workers on demand and use their existing idle retirement.
+Physical session disk accounting uses the reader limit so independent stores can
+scan concurrently without creating a worker for each store.
+Shared-state readers retain at least two slots so a held settlement read cannot
+block a fresh catalog read. Foreground transcript history and search also use the
+two-worker reader cap. The SQLite broker multiplexes independent database owners
+over two writer isolates, preserving per-database ordering without multiplying
+loaded backends on high-core hosts. These pools keep their existing admission and
+native-resource cleanup owners.
 
 File-tool workers perform pure edit matching, Unicode normalization, and diff
 computation. One prepared patch supplies both display and unified-patch receipts,

@@ -1,17 +1,17 @@
-import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
+import { t as formatErrorMessage } from "../errors-DPfGDWk1.mjs";
 import { r as theme } from "../theme-DzaUZY4q.mjs";
 import { t as formatDocsLink } from "../links-4Bgsoz0M.mjs";
-import { t as addGatewayServiceCommands } from "../register-service-commands-BQdXDPqH.mjs";
-import { c as recordUpdateRunDiagnostic, f as recordUpdateRunStep, n as adoptUpdateRun, p as recordUpdateRunVerification } from "../update-run-ledger-jBhhLo0P.mjs";
-import { i as finishUpdateRun } from "../update-run-write-DdGOnqyV.mjs";
-import { i as getUpdateRun } from "../update-run-reader-B7x8dkVs.mjs";
-import { o as refreshUpdateRunReportArtifact } from "../update-failure-report-artifact-DSFBsmLj.mjs";
-import { i as prepareManagedUpdateRequesterIdentity, n as createManagedUpdateRequesterAuthority } from "../update-requester-authority-sTeqCewg.mjs";
+import { t as addGatewayServiceCommands } from "../register-service-commands-BoSvCY52.mjs";
+import { o as finishUpdateRun } from "../update-run-write-Dd5ORe9V.mjs";
+import { c as recordUpdateRunDiagnostic, f as recordUpdateRunStep, n as adoptUpdateRun, p as recordUpdateRunVerification } from "../update-run-ledger-C3oL-g8r.mjs";
+import { i as getUpdateRun, l as listUpdateRuns } from "../update-run-reader-BOC3s3Sk.mjs";
+import { o as refreshUpdateRunReportArtifact } from "../update-failure-report-artifact-ZpnzvCW7.mjs";
+import { a as prepareManagedUpdateRequesterIdentity, r as createManagedUpdateRequesterAuthority } from "../update-requester-authority-BP771TSP.mjs";
 //#region src/cli/daemon-cli/register.ts
 /** Register the legacy daemon command group. */
 function registerDaemonCli(program) {
 	const daemon = program.command("daemon").description("Manage the Gateway service (launchd/systemd/schtasks)").option("--json", "Output JSON", false).addHelpText("after", () => `\n${theme.muted("Docs:")} ${formatDocsLink("/cli/gateway", "docs.openclaw.ai/cli/gateway")}\n`);
-	addGatewayServiceCommands(daemon, { statusDescription: "Show service install status + probe connectivity/capability" });
+	addGatewayServiceCommands(daemon, { statusDescription: "Show service install status + check connectivity/capability" });
 }
 //#endregion
 //#region src/cli/daemon-cli/update-run.ts
@@ -27,11 +27,11 @@ async function finishDaemonUpdateRun(runId, result, options = {}) {
 }
 //#endregion
 //#region src/cli/daemon-cli.ts
-const loadInstallRuntime = () => import("../install-CZDBAd4y.mjs");
-const loadLifecycleRuntime = () => import("../lifecycle-DZncPtsd.mjs");
-const loadStatusRuntime = () => import("../status-CYTig8ZW.mjs");
-const loadLifecycleContextRuntime = () => import("../lifecycle-context-BtWupNWi.mjs");
-const loadServiceHandoffRuntime = () => import("../update-managed-service-handoff-vCZDNjFF.mjs");
+const loadInstallRuntime = () => import("../install-CXX2qd-f.mjs");
+const loadLifecycleRuntime = () => import("../lifecycle-BErCSKbH.mjs");
+const loadStatusRuntime = () => import("../status-CL-pgx7L.mjs");
+const loadLifecycleContextRuntime = () => import("../lifecycle-context-BN6_tkGC.mjs");
+const loadServiceHandoffRuntime = () => import("../update-managed-service-handoff-BSESNMoK.mjs");
 async function runDaemonInstall(opts) {
 	return (await loadInstallRuntime()).runDaemonInstall(opts);
 }
@@ -60,4 +60,4 @@ async function assertForegroundUpdateOrigin(...args) {
 	return (await loadServiceHandoffRuntime()).assertForegroundUpdateOrigin(...args);
 }
 //#endregion
-export { addGatewayServiceCommands, adoptUpdateRun, assertForegroundUpdateOrigin, createManagedUpdateRequesterAuthority, finishDaemonUpdateRun as finishUpdateRun, getUpdateRun, isManagedUpdateRequesterOwner, prepareManagedUpdateRequesterIdentity, recordUpdateRunDiagnostic, recordUpdateRunStep, recordUpdateRunVerification, registerDaemonCli, runDaemonInstall, runDaemonRestart, runDaemonStart, runDaemonStatus, runDaemonStop, runDaemonUninstall, waitForGatewayUpdateRecovery };
+export { addGatewayServiceCommands, adoptUpdateRun, assertForegroundUpdateOrigin, createManagedUpdateRequesterAuthority, finishDaemonUpdateRun as finishUpdateRun, getUpdateRun, isManagedUpdateRequesterOwner, listUpdateRuns, prepareManagedUpdateRequesterIdentity, recordUpdateRunDiagnostic, recordUpdateRunStep, recordUpdateRunVerification, registerDaemonCli, runDaemonInstall, runDaemonRestart, runDaemonStart, runDaemonStatus, runDaemonStop, runDaemonUninstall, waitForGatewayUpdateRecovery };

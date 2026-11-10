@@ -1,13 +1,13 @@
 import { o as __toESM } from "./.setup/rolldown-runtime-BMI-E3GI.mjs";
-import { resolveEnvVars } from "./config.js";
+import { resolveDefaultDbPath, resolveEnvVars } from "./config.js";
 import { MEMORY_AGENT_ID_COLUMN, MEMORY_TABLE_NAME, hasAgentScopeColumn, memoryAgentPredicate, quoteLanceSqlString } from "./lancedb-schema.js";
 import { resolveDefaultAgentId } from "openclaw/plugin-sdk/agent-scope-runtime";
 import { normalizeAgentId } from "openclaw/plugin-sdk/routing";
 import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { escapeRegExp } from "openclaw/plugin-sdk/text-utility-runtime";
 import path from "node:path";
-import os from "node:os";
 import fs from "node:fs";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 //#region extensions/memory-lancedb/doctor-contract-api.ts
 const LEGACY_ENVELOPE_DELETE_BATCH_SIZE = 500;
@@ -55,10 +55,10 @@ const DEFAULT_PLUGIN_ROOT = resolveMemoryLanceDbPluginRoot(import.meta.url);
 function resolveHome(env) {
 	return env.HOME?.trim() || os.homedir();
 }
-function resolveConfiguredDbPath(config, env, pluginRoot) {
+function resolveConfiguredDbPath(config, env, pluginRoot, stateDir) {
 	const pluginConfig = asOptionalRecord(config.plugins?.entries?.["memory-lancedb"]?.config);
 	const configured = typeof pluginConfig?.dbPath === "string" ? pluginConfig.dbPath.trim() : "";
-	if (!configured) return path.join(resolveHome(env), ".openclaw", "memory", "lancedb");
+	if (!configured) return resolveDefaultDbPath(stateDir);
 	if (configured.includes("://")) return configured;
 	if (configured.startsWith("~")) return path.resolve(configured.replace(/^~(?=$|[\\/])/, () => resolveHome(env)));
 	return path.resolve(pluginRoot, configured);
@@ -73,13 +73,13 @@ function resolveStorageOptions(config, env) {
 	}));
 }
 async function openMemoryTable(params) {
-	const dbPath = resolveConfiguredDbPath(params.config, params.env, params.pluginRoot);
+	const dbPath = resolveConfiguredDbPath(params.config, params.env, params.pluginRoot, params.stateDir);
 	if (!dbPath.includes("://") && !fs.existsSync(dbPath)) return {
 		connection: null,
 		table: null,
 		dbPath
 	};
-	const lancedb = await import("./.setup/dist-DIga2e6Y.mjs").then((m) => /* @__PURE__ */ __toESM(m.default, 1));
+	const lancedb = await import("./.setup/dist-C_AfbPLz.mjs").then((m) => /* @__PURE__ */ __toESM(m.default, 1));
 	const storageOptions = resolveStorageOptions(params.config, params.env);
 	const connection = await lancedb.connect(dbPath, storageOptions ? { storageOptions } : {});
 	try {

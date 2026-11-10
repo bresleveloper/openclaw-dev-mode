@@ -1,6 +1,7 @@
 import { readConfiguredProviderCatalogEntries } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
+import { applyOpenAICompletionsToolReasoning, createPayloadPatchStreamWrapper } from "openclaw/plugin-sdk/provider-stream-shared";
 import { buildProviderToolCompatFamilyHooks } from "openclaw/plugin-sdk/provider-tools";
 //#region extensions/gmi/openclaw.plugin.json
 var openclaw_plugin_default = {
@@ -193,6 +194,12 @@ var openclaw_plugin_default = {
 //#endregion
 //#region extensions/gmi/index.ts
 const PROVIDER_ID = "gmi";
+function wrapGmiOpenAIToolReasoning(ctx) {
+	const wrapped = createPayloadPatchStreamWrapper(ctx.streamFn, ({ model, payload }) => {
+		if ((ctx.sourceApi ?? model.api) === "openai-completions" && model.id.startsWith("openai/")) applyOpenAICompletionsToolReasoning(payload, { id: model.id.slice(7) });
+	});
+	return Object.assign(wrapped, { preservesGenericCompatibility: true });
+}
 var gmi_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
 	name: "GMI Cloud Provider",
@@ -219,7 +226,9 @@ var gmi_default = defineSingleProviderPluginEntry({
 			family: "openai-compatible",
 			dropReasoningFromHistory: false
 		}),
-		...buildProviderToolCompatFamilyHooks("openai")
+		...buildProviderToolCompatFamilyHooks("openai"),
+		wrapStreamFn: wrapGmiOpenAIToolReasoning,
+		wrapSimpleCompletionStreamFn: wrapGmiOpenAIToolReasoning
 	}
 });
 //#endregion

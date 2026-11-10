@@ -12,6 +12,7 @@ import {
   getLoadedRuntimePluginRegistry,
   registryContainsRuntimePluginIds,
 } from "./active-runtime-registry.js";
+import { normalizePluginsConfigWithResolverCore } from "./config-normalization-shared.js";
 import { normalizePluginsConfig, type NormalizedPluginsConfig } from "./config-state.js";
 import { getCurrentPluginMetadataSnapshot } from "./current-plugin-metadata-snapshot.js";
 import { extractPluginInstallRecordsFromInstalledPluginIndex } from "./installed-plugin-index-install-records.js";
@@ -26,7 +27,6 @@ import { resolveProviderConfigApiOwnerHint } from "./provider-config-owner.js";
 import {
   buildDeclaredProviderOwnerIndex,
   matchesDeclaredProviderOwner,
-  type DeclaredProviderOwnerIndex,
 } from "./provider-owner-index.js";
 import {
   matchesProviderPluginRef,
@@ -63,53 +63,6 @@ export function createProviderRegistryResolver(dependencies: {
     env: NodeJS.ProcessEnv;
   };
 
-  function resolveProviderOwnerSelection(
-    params: {
-      provider: string;
-      config?: PluginLoadOptions["config"];
-      workspaceDir?: string;
-      env?: PluginLoadOptions["env"];
-    },
-    manifestRegistry: NonNullable<PluginLoadOptions["manifestRegistry"]>,
-    declaredOwners: DeclaredProviderOwnerIndex,
-    getNormalizedConfig: () => NormalizedPluginsConfig,
-    retained: boolean,
-  ) {
-    const apiOwnerHint = resolveProviderConfigApiOwnerHint(params);
-    const ownerRef = declaredOwners.has(normalizeProviderId(params.provider))
-      ? params.provider
-      : (apiOwnerHint ?? params.provider);
-    const declaredIds = declaredOwners.get(normalizeProviderId(ownerRef));
-    const ownerIds = declaredIds
-      ? [...declaredIds]
-      : (resolveOwningPluginIdsForProviderRef({
-          ...params,
-          provider: ownerRef,
-          manifestRegistry,
-        }) ?? []);
-    // Retained generations project resolved owners without loading or checking
-    // activation helpers. Unowned refs still need those ids for their projection.
-    const runtimePluginIds =
-      retained && ownerIds.length > 0
-        ? []
-        : sortUniqueStrings(
-            [params.provider, ...(apiOwnerHint ? [apiOwnerHint] : [])].flatMap((provider) =>
-              resolveManifestActivationPluginIds({
-                ...params,
-                trigger: { kind: "provider", provider },
-                manifestRecords: manifestRegistry.plugins,
-                normalizedConfig: getNormalizedConfig(),
-              }),
-            ),
-          );
-    return {
-      provider: params.provider,
-      ownerPluginIds: ownerIds,
-      providerPluginIds: ownerIds.length > 0 ? ownerIds : runtimePluginIds,
-      runtimePluginIds,
-    };
-  }
-
   function prepareProviderSelection(
     params: ProviderResolutionInputs,
     manifestRegistry?: PluginLoadOptions["manifestRegistry"],
@@ -117,23 +70,49 @@ export function createProviderRegistryResolver(dependencies: {
     retained = false,
   ) {
     let normalizedConfig: NormalizedPluginsConfig | undefined;
-    const getNormalizedConfig = () =>
-      (normalizedConfig ??= normalizePluginsConfig(params.config?.plugins));
     const providerOwners = manifestRegistry
-      ? (params.providerRefs ?? []).map((provider) =>
-          resolveProviderOwnerSelection(
-            {
-              provider,
-              config: params.config,
-              workspaceDir: params.workspaceDir,
-              env: params.env,
-            },
-            manifestRegistry,
-            declaredProviderOwners,
-            getNormalizedConfig,
-            retained,
-          ),
-        )
+      ? (params.providerRefs ?? []).map((provider) => {
+          const lookup = {
+            provider,
+            config: params.config,
+            workspaceDir: params.workspaceDir,
+            env: params.env,
+          };
+          const apiOwnerHint = resolveProviderConfigApiOwnerHint(lookup);
+          const ownerRef = declaredProviderOwners.has(normalizeProviderId(provider))
+            ? provider
+            : (apiOwnerHint ?? provider);
+          const declaredIds = declaredProviderOwners.get(normalizeProviderId(ownerRef));
+          const ownerIds = declaredIds
+            ? [...declaredIds]
+            : (resolveOwningPluginIdsForProviderRef({
+                ...lookup,
+                provider: ownerRef,
+                manifestRegistry,
+              }) ?? []);
+          // Retained owners need no activation lookup; unowned refs still need its projection.
+          const runtimePluginIds =
+            retained && ownerIds.length > 0
+              ? []
+              : sortUniqueStrings(
+                  [provider, ...(apiOwnerHint ? [apiOwnerHint] : [])].flatMap((providerRef) =>
+                    resolveManifestActivationPluginIds({
+                      ...lookup,
+                      trigger: { kind: "provider", provider: providerRef },
+                      manifestRecords: manifestRegistry.plugins,
+                      normalizedConfig: (normalizedConfig ??= normalizePluginsConfig(
+                        params.config?.plugins,
+                      )),
+                    }),
+                  ),
+                );
+          return {
+            provider,
+            ownerPluginIds: ownerIds,
+            providerPluginIds: ownerIds.length > 0 ? ownerIds : runtimePluginIds,
+            runtimePluginIds,
+          };
+        })
       : [];
     const modelOwnedPluginIds =
       manifestRegistry && params.modelRefs?.length
@@ -240,6 +219,7 @@ export function createProviderRegistryResolver(dependencies: {
       includeUntrustedWorkspacePlugins: params.includeUntrustedWorkspacePlugins,
       registry: snapshot.index,
       manifestRegistry: snapshot.manifestRegistry,
+      normalizePluginId: snapshot.normalizePluginId,
     };
     const setup = params.mode === "setup";
     const explicitOwnerPluginIds = (
@@ -318,6 +298,7 @@ export function createProviderRegistryResolver(dependencies: {
         installRecords: extractPluginInstallRecordsFromInstalledPluginIndex(snapshot.index),
       },
       {
+        normalizePluginId: snapshot.normalizePluginId,
         registrationConfigOrigin:
           !setup && params.registryScope !== "exact" ? params.config : undefined,
         onlyPluginIds: selection.pluginIds,
@@ -418,9 +399,7 @@ export function createProviderRegistryResolver(dependencies: {
     workspaceDir?: string;
     /** Use an explicit env when plugin roots should resolve independently from process.env. */
     env?: PluginLoadOptions["env"];
-    /** @deprecated Ignored; tests must provide explicit plugin config. Remove in the next major release. */
-    bundledProviderVitestCompat?: boolean;
-    onlyPluginIds?: string[];
+    onlyPluginIds?: readonly string[];
     providerRefs?: readonly string[];
     modelRefs?: readonly string[];
     activate?: boolean;
@@ -443,18 +422,26 @@ export function createProviderRegistryResolver(dependencies: {
     const { inputs, snapshot } = prepared;
     let { loadOptions } = prepared;
     const { env, workspaceDir } = inputs;
-    let registrationConfigKey: string | undefined;
-    if (!generationRegistry && params.config !== undefined) {
+    const registrationKey = (normalizePluginId: PluginLoadOptions["normalizePluginId"]) => {
+      if (generationRegistry || params.config === undefined) {
+        return undefined;
+      }
       const registrationConfig = loadOptions ?? {
         config: params.config,
         activationSourceConfig: resolvePluginActivationSourceConfig(params),
       };
-      registrationConfigKey = resolvePluginRegistrationConfigKey({
-        runtimeEntries: normalizePluginsConfig(registrationConfig.config?.plugins).entries,
-        sourceEntries: normalizePluginsConfig(registrationConfig.activationSourceConfig?.plugins)
-          .entries,
+      const normalize = normalizePluginId
+        ? (config: PluginLoadOptions["config"]) =>
+            normalizePluginsConfigWithResolverCore(config?.plugins, normalizePluginId)
+        : (config: PluginLoadOptions["config"]) => normalizePluginsConfig(config?.plugins);
+      return resolvePluginRegistrationConfigKey({
+        runtimeEntries: normalize(registrationConfig.config).entries,
+        sourceEntries: normalize(registrationConfig.activationSourceConfig).entries,
       });
-    }
+    };
+    const registrationConfigKey = snapshot
+      ? registrationKey(snapshot.normalizePluginId)
+      : undefined;
     if (params.skipIfLoadInFlight && loadOptions && isPluginRegistryLoadInFlight(loadOptions)) {
       return undefined;
     }
@@ -488,6 +475,7 @@ export function createProviderRegistryResolver(dependencies: {
                 pluginIds: aliasOwners,
                 registry: snapshot.index,
                 manifestRegistry: snapshot.manifestRegistry,
+                normalizePluginId: snapshot.normalizePluginId,
               })
             : aliasOwners,
       };
@@ -549,12 +537,17 @@ export function createProviderRegistryResolver(dependencies: {
             return undefined;
           }
         }
+        // Loaded-only calls without metadata use this candidate's captured alias identity,
+        // never a fresh discovery or a resolver borrowed from another registry.
+        const requestedRegistrationKey = snapshot
+          ? registrationConfigKey
+          : registrationKey(context?.normalizePluginId);
         // Exact preparation may learn aliases here, but its owner load must still run.
         if (
           (!generationRegistry && params.registryScope === "exact") ||
           (context &&
-            registrationConfigKey !== undefined &&
-            registrationConfigKey !== context.registrationConfigKey)
+            requestedRegistrationKey !== undefined &&
+            requestedRegistrationKey !== context.registrationConfigKey)
         ) {
           continue;
         }

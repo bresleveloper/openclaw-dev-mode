@@ -1,19 +1,19 @@
 import { c as normalizeOptionalLowercaseString, l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-1VuiLaaR.mjs";
-import { w as parseStrictPositiveInteger } from "../../number-coercion-CuVhdCBs.mjs";
+import { w as parseStrictPositiveInteger } from "../../number-coercion-CkhMiRw8.mjs";
+import { t as formatErrorMessage } from "../../errors-DPfGDWk1.mjs";
 import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
-import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
-import { a as resolveActiveTalkProviderConfig } from "../../talk-tTHQncKV.mjs";
-import "../../error-runtime-BmospGvZ.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../number-runtime-CgyXj1A5.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../talk-config-runtime-8tcrXQyE.mjs";
-import "../../api-BqbNDvaK.mjs";
+import { a as resolveActiveTalkProviderConfig } from "../../talk-Brycd9Kq.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../number-runtime-D3v2w3D4.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../talk-config-runtime-D7ECT_GL.mjs";
+import "../../api-CWOwfgr0.mjs";
 //#region extensions/talk-voice/index.ts
-function mask(s, keep = 6) {
+function mask(s) {
 	const trimmed = s.trim();
-	if (trimmed.length <= keep) return "***";
-	return `${trimmed.slice(0, keep)}…`;
+	if (trimmed.length <= 6) return "***";
+	return `${trimmed.slice(0, 6)}…`;
 }
 function isLikelyVoiceId(value) {
 	const v = value.trim();

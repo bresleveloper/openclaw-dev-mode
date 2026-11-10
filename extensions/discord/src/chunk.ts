@@ -32,10 +32,6 @@ function hasReasoningItalics(text: string): boolean {
   return /^(?:Reasoning:|Thinking\.{0,3})\n+_/u.test(text) && text.trimEnd().endsWith("_");
 }
 
-function resolveDiscordChunkLimit(value: unknown, fallback: number) {
-  return resolveIntegerOption(value, fallback, { min: 1 });
-}
-
 function countLines(text: string) {
   if (!text) {
     return 0;
@@ -67,8 +63,8 @@ function closesFence(open: OpenFence, close: OpenFence): boolean {
 
 type DiscordFrame = { start: number; end: number };
 function chunkDiscordText(text: string, opts: ChunkDiscordTextOpts = {}): string[] {
-  const hardMaxChars = resolveDiscordChunkLimit(opts.maxChars, DEFAULT_MAX_CHARS);
-  const maxLines = resolveDiscordChunkLimit(opts.maxLines, DEFAULT_MAX_LINES);
+  const hardMaxChars = resolveIntegerOption(opts.maxChars, DEFAULT_MAX_CHARS, { min: 1 });
+  const maxLines = resolveIntegerOption(opts.maxLines, DEFAULT_MAX_LINES, { min: 1 });
   if (!text) {
     return [];
   }
@@ -85,9 +81,8 @@ function chunkDiscordText(text: string, opts: ChunkDiscordTextOpts = {}): string
   let consumed = 0;
   let lineStart = 0;
   // Keep existing soft breaks based on source bytes; render measures the full payload.
-  const raw = (frame: DiscordFrame) => {
+  const raw = (frame: DiscordFrame, body = text.slice(frame.start, frame.end)) => {
     const prefix = ranges.fenceAt(frame.start)?.reopenLine ?? "";
-    const body = text.slice(frame.start, frame.end);
     return prefix + (prefix ? "\n" : "") + body;
   };
   const render = (frame: DiscordFrame) => {
@@ -95,8 +90,7 @@ function chunkDiscordText(text: string, opts: ChunkDiscordTextOpts = {}): string
     if (body === undefined) {
       return undefined;
     }
-    const prefix = ranges.fenceAt(frame.start)?.reopenLine ?? "";
-    const result = prefix + (prefix ? "\n" : "") + body;
+    const result = raw(frame, body);
     const close = ranges.fenceAt(frame.end);
     return close?.reopenLine
       ? result + (result.endsWith("\n") ? "" : "\n") + close.closeLine
@@ -129,13 +123,20 @@ function chunkDiscordText(text: string, opts: ChunkDiscordTextOpts = {}): string
       const cut = ranges.cutBoundary(frame.start, end - 1);
       end = cut > frame.start ? cut : minimum;
     }
+    // The line loop splits on LF and drops the terminator at a chunk boundary. Drop a
+    // trailing CRLF as one separator too; otherwise the chunk ends in a bare CR and the LF
+    // is lost when the next line starts after it. A cut inside code keeps the pair.
+    const dropsCrLf =
+      end === frame.end - 1 &&
+      text[end] === "\r" &&
+      text[end + 1] === "\n" &&
+      !ranges.cutsSpan(end);
     const payload = expectDefined(render({ ...frame, end }), "renderable Discord source range");
     if (payload.trim()) {
       chunks.push(payload);
     }
     consumed = end;
-    // Keep an opener or CRLF pair with the unconsumed source, never synthetic offsets.
-    return end < frame.end ? { start: end, end: frame.end } : undefined;
+    return dropsCrLf || end >= frame.end ? undefined : { start: end, end: frame.end };
   };
   for (const line of text.split("\n")) {
     const openFence = ranges.fenceAt(lineStart - 1);
@@ -201,7 +202,7 @@ export function chunkDiscordTextWithMode(
   }
   const lineChunks = chunkByParagraph(
     text,
-    resolveDiscordChunkLimit(opts.maxChars, DEFAULT_MAX_CHARS),
+    resolveIntegerOption(opts.maxChars, DEFAULT_MAX_CHARS, { min: 1 }),
     { splitLongParagraphs: false },
   );
   return lineChunks.flatMap((line) => {
@@ -421,14 +422,12 @@ function createDiscordRanges(source: string, maxChars: number, maxLines: number)
     const span = spans[firstSpanEndingAfter(end)];
     return Boolean(span && span.start < end && start < span.end);
   };
+  const cutsSpan = (position: number) => {
+    const span = spans[firstSpanEndingAfter(position)];
+    return Boolean(span && span.start < position && position < span.end);
+  };
   const boundary = (start: number, end: number) => {
     let safe = findGraphemeChunkEnd(source, start, end);
-    // CRLF is one grapheme cluster, but this line loop already owns CRLF pairs: segments end
-    // in `\r` and flush keeps the pair with the unconsumed source. Keep the historical cut
-    // between them here; the code-span branch below still rejoins the pair inside code.
-    if (safe === end - 1 && source[end - 1] === "\r" && source[end] === "\n") {
-      safe = end;
-    }
     const prefixSpan = firstPrefixEndingAfter(safe);
     if (prefixSpan && prefixSpan.base + prefixSpan.code.prefix.start < safe) {
       return prefixSpan.base + prefixSpan.code.prefix.start;
@@ -512,5 +511,5 @@ function createDiscordRanges(source: string, maxChars: number, maxLines: number)
     }
     return safe;
   };
-  return { render, overlaps, joins, boundary, fenceAt, cutBoundary };
+  return { render, overlaps, joins, cutsSpan, boundary, fenceAt, cutBoundary };
 }

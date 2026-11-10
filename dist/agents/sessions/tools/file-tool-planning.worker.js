@@ -1,18 +1,15 @@
 import { c as isRecord } from "../../../record-coerce-TIsquoVR.mjs";
 import { r as truncateUtf16Safe } from "../../../utf16-slice-D_ngcYKd.mjs";
-import { n as serveWorkerTasks } from "../../../worker-task-server-BC_7U18u.mjs";
-import { t as levenshteinDistance } from "../../../levenshtein-distance-GS14DlgJ.mjs";
+import { n as serveWorkerTasks } from "../../../worker-task-server-sMsYUF1K.mjs";
+import { t as levenshteinDistance } from "../../../levenshtein-distance-CanhxvCN.mjs";
 import { n as prepareFileDiff, r as prepareFileWriteDiff } from "../../../file-diff-Cm5KmaWf.mjs";
 //#region src/agents/line-endings.ts
 /**
 * Line-ending detection and restoration shared by the file-mutating agent tools.
 */
 function detectLineEnding(content) {
-	const crlfIdx = content.indexOf("\r\n");
 	const lfIdx = content.indexOf("\n");
-	if (lfIdx === -1) return "\n";
-	if (crlfIdx === -1) return "\n";
-	return crlfIdx < lfIdx ? "\r\n" : "\n";
+	return lfIdx > 0 && content[lfIdx - 1] === "\r" ? "\r\n" : "\n";
 }
 function normalizeToLF(text) {
 	return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -30,28 +27,21 @@ function getLineSpans(content) {
 		return span;
 	});
 }
-function getReplacementLineRange(lines, replacement) {
-	const replacementStart = replacement.matchIndex;
-	const replacementEnd = replacement.matchIndex + replacement.matchLength;
+function findReplacementLine(lines, offset, includeEnd) {
 	let lower = 0;
 	let upper = lines.length;
 	while (lower < upper) {
 		const middle = Math.floor((lower + upper) / 2);
 		const line = lines[middle];
-		if (!line) throw new Error("Replacement range is outside the base content.");
-		if (line.end <= replacementStart) lower = middle + 1;
+		if (line.end < offset || !includeEnd && line.end === offset) lower = middle + 1;
 		else upper = middle;
 	}
-	const firstLine = lines[lower];
-	const startLine = firstLine && replacementStart >= firstLine.start ? lower : -1;
-	if (startLine === -1) throw new Error("Replacement range is outside the base content.");
-	let endLine = startLine;
-	while (endLine < lines.length) {
-		const line = lines.at(endLine);
-		if (!line || line.end >= replacementEnd) break;
-		endLine++;
-	}
-	if (endLine >= lines.length) throw new Error("Replacement range is outside the base content.");
+	return lower;
+}
+function getReplacementLineRange(lines, replacement) {
+	const startLine = findReplacementLine(lines, replacement.matchIndex, false);
+	const endLine = findReplacementLine(lines, replacement.matchIndex + replacement.matchLength, true);
+	if (!lines[startLine] || replacement.matchIndex < lines[startLine].start || endLine >= lines.length) throw new Error("Replacement range is outside the base content.");
 	return {
 		startLine,
 		endLine: endLine + 1
@@ -92,7 +82,7 @@ function applyReplacementsPreservingLineEndings(originalContent, baseContent, re
 	const fileFallback = detectLineEnding(originalContent);
 	const originalOffsets = [0];
 	for (const line of originalLines) originalOffsets.push(originalOffsets.at(-1) + line.length);
-	return applyReplacements(originalContent, replacements.toSorted((a, b) => a.matchIndex - b.matchIndex).map((replacement) => {
+	return applyReplacements(originalContent, replacements.map((replacement) => {
 		const { startLine, endLine } = getReplacementLineRange(baseLines, replacement);
 		const matchEnd = replacement.matchIndex + replacement.matchLength;
 		const restoredStart = originalOffsets[startLine] + replacement.matchIndex - baseLines[startLine].start;
@@ -117,14 +107,6 @@ const fuzzyGraphemeSegmenter = new Intl.Segmenter("en", { granularity: "grapheme
 function foldFuzzyCharacters(text) {
 	return text.replace(/[\u2018\u2019\u201A\u201B]/g, "'").replace(/[\u201C\u201D\u201E\u201F]/g, "\"").replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, "-").replace(/[\u00A0\u2002-\u200A\u202F\u205F\u3000]/g, " ");
 }
-/**
-* Normalize text for fuzzy matching. Applies progressive transformations:
-* - Strip trailing whitespace from each line
-* - Normalize smart quotes to ASCII equivalents
-* - Normalize Unicode dashes/hyphens to ASCII hyphen
-* - Normalize special Unicode spaces to regular space
-*
-*/
 function normalizeForFuzzyMatch(text) {
 	return foldFuzzyCharacters(text.normalize("NFKC").split("\n").map((line) => line.trimEnd()).join("\n"));
 }
@@ -255,19 +237,6 @@ function getCandidateHint(content, oldText) {
 		].join("\n");
 	}).join("\n");
 }
-function getNotFoundError(path, editIndex, totalEdits, content, oldText) {
-	const prefix = totalEdits === 1 ? "Could not find the exact text" : `Could not find edits[${editIndex}]`;
-	const hint = getCandidateHint(content, oldText);
-	return /* @__PURE__ */ new Error(`${prefix} in ${path}. The old text must match exactly including all whitespace and newlines.${hint}`);
-}
-function getDuplicateError(path, editIndex, totalEdits, occurrences) {
-	if (totalEdits === 1) return /* @__PURE__ */ new Error(`Found ${occurrences} occurrences of the text in ${path}. The text must be unique. Please provide more context to make it unique.`);
-	return /* @__PURE__ */ new Error(`Found ${occurrences} occurrences of edits[${editIndex}] in ${path}. Each oldText must be unique. Please provide more context to make it unique.`);
-}
-function getEmptyOldTextError(path, editIndex, totalEdits) {
-	if (totalEdits === 1) return /* @__PURE__ */ new Error(`oldText must not be empty in ${path}.`);
-	return /* @__PURE__ */ new Error(`edits[${editIndex}].oldText must not be empty in ${path}.`);
-}
 function getUnsafeFuzzyBoundaryError(path, editIndex, totalEdits) {
 	const target = totalEdits === 1 ? "The fuzzy match" : `The fuzzy match for edits[${editIndex}]`;
 	return /* @__PURE__ */ new Error(`${target} in ${path} crosses an ambiguous Unicode-normalization or trimmed-whitespace boundary. Copy the exact source text or use a span whose normalized boundaries map cleanly.`);
@@ -284,7 +253,7 @@ function applyEdits(normalizedContent, edits, path) {
 		oldText: normalizeToLF(edit.oldText),
 		newText: normalizeToLF(edit.newText)
 	}));
-	for (const [i, edit] of normalizedEdits.entries()) if (edit.oldText.length === 0) throw getEmptyOldTextError(path, i, normalizedEdits.length);
+	for (const [i, edit] of normalizedEdits.entries()) if (edit.oldText.length === 0) throw new Error(normalizedEdits.length === 1 ? `oldText must not be empty in ${path}.` : `edits[${i}].oldText must not be empty in ${path}.`);
 	let fuzzyFile;
 	const matchedEdits = [];
 	for (const [i, edit] of normalizedEdits.entries()) {
@@ -302,10 +271,15 @@ function applyEdits(normalizedContent, edits, path) {
 			searchText = normalizeForFuzzyMatch(edit.oldText);
 			matchIndex = searchContent.indexOf(searchText);
 		}
-		const occurrences = searchText ? searchContent.split(searchText).length - 1 : 0;
-		if (occurrences > 1) throw getDuplicateError(path, i, normalizedEdits.length, occurrences);
 		if (!searchText) throw getUnsafeFuzzyBoundaryError(path, i, normalizedEdits.length);
-		if (matchIndex === -1) throw getNotFoundError(path, i, normalizedEdits.length, normalizedContent, edit.oldText);
+		let occurrences = 0;
+		for (let at = matchIndex; at !== -1; at = searchContent.indexOf(searchText, at + 1)) occurrences++;
+		if (occurrences > 1) throw new Error(normalizedEdits.length === 1 ? `Found ${occurrences} occurrences of the text in ${path}. The text must be unique. Please provide more context to make it unique.` : `Found ${occurrences} occurrences of edits[${i}] in ${path}. Each oldText must be unique. Please provide more context to make it unique.`);
+		if (matchIndex === -1) {
+			const prefix = normalizedEdits.length === 1 ? "Could not find the exact text" : `Could not find edits[${i}]`;
+			const hint = getCandidateHint(normalizedContent, edit.oldText);
+			throw new Error(`${prefix} in ${path}. The old text must match exactly including all whitespace and newlines.${hint}`);
+		}
 		if (fuzzy && fuzzyFile) {
 			fuzzyFile.boundaries ??= buildFuzzyBoundaries(normalizedContent, fuzzyFile.text);
 			const start = fuzzyFile.boundaries?.[matchIndex]?.start;
@@ -332,17 +306,6 @@ function applyEdits(normalizedContent, edits, path) {
 		replacements: matchedEdits
 	};
 }
-function validateNoOpEditTargets(normalizedContent, noOpEdits, realEdits, path) {
-	if (noOpEdits.length > 0) applyEdits(normalizedContent, noOpEdits.map((edit) => ({
-		oldText: edit.oldText,
-		newText: ""
-	})), path);
-	const exactNoOpEdits = noOpEdits.filter((edit) => normalizedContent.includes(normalizeToLF(edit.oldText)));
-	if (exactNoOpEdits.length > 0 && realEdits.length > 0) applyEdits(normalizedContent, [...exactNoOpEdits, ...realEdits].map((edit) => ({
-		oldText: edit.oldText,
-		newText: ""
-	})), path);
-}
 function prepareFileEdit(content, edits, path) {
 	const bom = content.startsWith("﻿") ? "﻿" : "";
 	const text = content.slice(bom.length);
@@ -350,13 +313,12 @@ function prepareFileEdit(content, edits, path) {
 	const noOpEdits = [];
 	const realEdits = [];
 	for (const edit of edits) if (edit.oldText === edit.newText) {
-		applyEdits(normalized, [{
-			oldText: edit.oldText,
-			newText: ""
-		}], path);
+		applyEdits(normalized, [edit], path);
 		noOpEdits.push(edit);
 	} else realEdits.push(edit);
-	validateNoOpEditTargets(normalized, noOpEdits, realEdits, path);
+	if (noOpEdits.length > 0) applyEdits(normalized, noOpEdits, path);
+	const exactNoOpEdits = noOpEdits.filter((edit) => normalized.includes(normalizeToLF(edit.oldText)));
+	if (exactNoOpEdits.length > 0 && realEdits.length > 0) applyEdits(normalized, [...exactNoOpEdits, ...realEdits], path);
 	if (realEdits.length === 0) return {
 		changed: false,
 		message: `No changes made to ${path}. The replacement text is identical to the original.`

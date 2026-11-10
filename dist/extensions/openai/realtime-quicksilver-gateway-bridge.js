@@ -1,2 +1,2 @@
-import { t as OpenAIQuicksilverGatewayBridge } from "../../realtime-quicksilver-gateway-bridge-CL1HiNSx.mjs";
+import { t as OpenAIQuicksilverGatewayBridge } from "../../realtime-quicksilver-gateway-bridge-C4Dd70pk.mjs";
 export { OpenAIQuicksilverGatewayBridge };

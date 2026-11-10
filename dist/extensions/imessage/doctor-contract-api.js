@@ -47,7 +47,7 @@ function normalizeChannelAccounts(params) {
 	};
 }
 /** Applies the same channel-specific doctor migration at root and account scope. */
-function normalizeChannelConfigEntries(params) {
+function normalizeChannelConfigEntries$1(params) {
 	const changes = params.changes ?? [];
 	const channels = params.cfg.channels;
 	const entry = asNullableRecord$1(channels?.[params.channelId]);
@@ -119,7 +119,7 @@ function createLegacyWebhookListenerDoctorContract(params) {
 			const root = asNullableRecord$1(asNullableRecord$1(cfg.channels)?.[params.channelKey]);
 			const inherited = root && source(root);
 			const canonicalRoot = asNullableRecord$1(root?.legacyWebhook);
-			return normalizeChannelConfigEntries({
+			return normalizeChannelConfigEntries$1({
 				cfg,
 				channelId: params.channelKey,
 				normalizeEntry: ({ entry, accountId, pathPrefix, changes }) => {
@@ -188,51 +188,27 @@ const legacyConfigRules = [{
 	match: (value) => imessageEntryHasRetiredCatchup(value)
 }, ...streamingAliasMigration.legacyConfigRules];
 function normalizeCompatibilityConfig({ cfg }) {
-	const channels = cfg.channels;
-	const imessage = channels?.imessage;
-	if (!isRecord(imessage)) return {
-		config: cfg,
-		changes: []
-	};
-	const changes = [];
-	let nextImessage = imessage;
-	if (imessageEntryHasRetiredCatchup(nextImessage)) {
-		nextImessage = { ...nextImessage };
-		if (Object.hasOwn(nextImessage, "catchup") && !isEnabledCatchup(nextImessage.catchup)) {
-			delete nextImessage.catchup;
-			changes.push("Removed disabled retired channels.imessage.catchup.");
+	const catchup = (0, runtime_doctor_migrations_exports.normalizeChannelConfigEntries)({
+		cfg,
+		channelId: "imessage",
+		normalizeEntry: ({ entry, pathPrefix, changes }) => {
+			if (!Object.hasOwn(entry, "catchup") || isEnabledCatchup(entry.catchup)) return {
+				entry,
+				changed: false
+			};
+			const next = { ...entry };
+			delete next.catchup;
+			changes.push(`Removed disabled retired ${pathPrefix}.catchup.`);
+			return {
+				entry: next,
+				changed: true
+			};
 		}
-		if (isRecord(nextImessage.accounts)) {
-			let accountsChanged = false;
-			const nextAccounts = { ...nextImessage.accounts };
-			for (const [id, account] of Object.entries(nextImessage.accounts)) if (isRecord(account) && Object.hasOwn(account, "catchup") && !isEnabledCatchup(account.catchup)) {
-				const nextAccount = { ...account };
-				delete nextAccount.catchup;
-				nextAccounts[id] = nextAccount;
-				accountsChanged = true;
-				changes.push(`Removed disabled retired channels.imessage.accounts.${id}.catchup.`);
-			}
-			if (accountsChanged) nextImessage.accounts = nextAccounts;
-		}
-	}
-	const aliases = streamingAliasMigration.normalizeChannelConfig({
-		cfg: nextImessage === imessage ? cfg : {
-			...cfg,
-			channels: {
-				...channels,
-				imessage: nextImessage
-			}
-		},
-		changes
 	});
-	if (changes.length === 0) return {
-		config: cfg,
-		changes: []
-	};
-	return {
-		config: aliases.config,
-		changes
-	};
+	return streamingAliasMigration.normalizeChannelConfig({
+		cfg: catchup.config,
+		changes: catchup.changes
+	});
 }
 //#endregion
 //#region extensions/imessage/doctor-contract-api.ts

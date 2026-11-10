@@ -1,6 +1,6 @@
 import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { r as projectCrabboxLegacyWarmLeases, t as crabboxLegacyWarmImageCaptureSelector } from "../../crabbox-worker-warm-image-records-D4Yqzjt9.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { r as projectCrabboxLegacyWarmLeases, t as crabboxLegacyWarmImageCaptureSelector } from "../../crabbox-worker-warm-image-records-DsyYgBdc.mjs";
 //#region extensions/crabbox/doctor-contract-api.ts
 const imageFields = /* @__PURE__ */ new Set([
 	"checkpointId",
@@ -79,6 +79,7 @@ const stateMigrations = [{
 	id: "crabbox-warm-profile-v3",
 	label: "Crabbox warm profiles",
 	doctorOnly: true,
+	collectBackupResources: () => [],
 	async detectLegacyState({ context }) {
 		const pending = (await context.openPluginStateKeyedStore({
 			namespace: "warm-images",
@@ -132,7 +133,24 @@ const stateMigrations = [{
 				continue;
 			}
 			try {
-				if (await store.update?.(key, (current) => JSON.stringify(current) === JSON.stringify(value) ? migrated : void 0)) changes.push(`Migrated Crabbox warm profile ${key}, preserving resource obligations without inventing preparation, cache identity, purpose or demand.`);
+				let changed = false;
+				if (store.observe && store.compareAndApply) {
+					const serialized = JSON.stringify(value);
+					let observation = await store.observe(key);
+					while (JSON.stringify(observation.value) === serialized) {
+						const result = await store.compareAndApply(key, observation.comparison, {
+							operation: "update",
+							action: "set",
+							value: migrated
+						});
+						if (result.status !== "conflict") {
+							changed = result.status === "applied";
+							break;
+						}
+						observation = result.current;
+					}
+				}
+				if (changed) changes.push(`Migrated Crabbox warm profile ${key}, preserving resource obligations without inventing preparation, cache identity, purpose or demand.`);
 				else warnings.push(`Crabbox warm profile ${key} changed or atomic update is unavailable; left it unchanged.`);
 			} catch (error) {
 				warnings.push(`Failed migrating Crabbox warm profile ${key}; left it unchanged: ${String(error)}`);

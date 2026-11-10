@@ -1,42 +1,46 @@
 import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-1VuiLaaR.mjs";
-import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
-import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { y as uniqueStrings } from "../../string-normalization-CECOqf64.mjs";
-import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
+import { c as isRecord, t as asNonArrayRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { y as uniqueStrings } from "../../string-normalization-D6DKCpwE.mjs";
+import { t as formatErrorMessage } from "../../errors-DPfGDWk1.mjs";
 import { n as normalizeAgentId } from "../../agent-id-D1-Q6vR4.mjs";
-import { i as listAgentIds } from "../../agent-roster-BXD1uMJD.mjs";
-import { _ as resolveSessionAgentIdStrict } from "../../agent-scope-CG17uXFn.mjs";
-import { f as parseNonNegativeByteSize } from "../../zod-schema-B-D6bTAy.mjs";
-import { C as resolveMemoryDreamingPluginConfig, E as resolveMemoryDreamingWorkspaces, O as resolveMemoryRemDreamingConfig, _ as MANAGED_MEMORY_DREAMING_CRON_TAG, d as LEGACY_MEMORY_LIGHT_DREAMING_CRON_TAG, f as LEGACY_MEMORY_LIGHT_DREAMING_EVENT_TEXT, g as MANAGED_MEMORY_DREAMING_CRON_NAME, h as LEGACY_MEMORY_REM_DREAMING_EVENT_TEXT, m as LEGACY_MEMORY_REM_DREAMING_CRON_TAG, p as LEGACY_MEMORY_REM_DREAMING_CRON_NAME, u as LEGACY_MEMORY_LIGHT_DREAMING_CRON_NAME, v as MEMORY_DREAMING_SYSTEM_EVENT_TEXT, x as resolveMemoryDeepDreamingConfig } from "../../dreaming-D1wokp9N.mjs";
-import { r as SILENT_REPLY_TOKEN } from "../../tokens-D4ghQG_g.mjs";
-import { l as peekSystemEventEntriesFromSdk } from "../../system-events-CaNeMrRE.mjs";
-import { t as ErrorCodes } from "../../gateway-error-details-DIefe7Zy.mjs";
-import { f as errorShape } from "../../error-codes-Dh56LniQ.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { t as resolveMemoryBackendConfig } from "../../backend-config-D3tXhXDP.mjs";
+import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
+import { n as createNormalizedPluginsConfig } from "../../config-state-DkDfCu7E.mjs";
+import { M as parseAgentSessionKey } from "../../session-key-CSDERtm3.mjs";
+import { _ as resolveDefaultAgentId } from "../../agent-scope-config-fjA2T9Gz.mjs";
+import { i as listAgentIds } from "../../agent-roster-gkYP38su.mjs";
+import { Ng as errorShape } from "../../src-pLJQA6J5.mjs";
+import { g as resolveSessionAgentIdStrict } from "../../agent-scope-DXrnO3F4.mjs";
+import { n as parseNonNegativeByteSize } from "../../byte-size-H0Vvh27E.mjs";
+import { t as ErrorCodes } from "../../gateway-error-details-Cl-eEOTQ.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import { m as readToolStringParam, u as readPositiveIntegerParam } from "../../common-Dyxcwsy8.mjs";
-import "../../routing-CEr1aXk1.mjs";
-import "../../agent-scope-runtime-DMJYuX7c.mjs";
+import { c as readNonNegativeIntegerParam, m as readToolStringParam, u as readPositiveIntegerParam } from "../../common-BofcG96e.mjs";
+import { n as SILENT_REPLY_TOKEN } from "../../tokens-DHFPcfdZ.mjs";
+import { l as peekSystemEventEntriesFromSdk } from "../../system-events-EwTKG-tz.mjs";
+import { E as resolveMemoryRemDreamingConfig, c as LEGACY_MEMORY_LIGHT_DREAMING_CRON_NAME, d as LEGACY_MEMORY_REM_DREAMING_CRON_NAME, f as LEGACY_MEMORY_REM_DREAMING_CRON_TAG, g as MEMORY_DREAMING_SYSTEM_EVENT_TEXT, h as MANAGED_MEMORY_DREAMING_CRON_TAG, l as LEGACY_MEMORY_LIGHT_DREAMING_CRON_TAG, m as MANAGED_MEMORY_DREAMING_CRON_NAME, p as LEGACY_MEMORY_REM_DREAMING_EVENT_TEXT, u as LEGACY_MEMORY_LIGHT_DREAMING_EVENT_TEXT, w as resolveMemoryDreamingWorkspaces, x as resolveMemoryDreamingPluginConfig, y as resolveMemoryDeepDreamingConfig } from "../../dreaming-D2xE6WEV.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../routing-Dl7FngGa.mjs";
+import "../../agent-scope-runtime-Dld1eD8B.mjs";
 import { t as resolveEffectiveCompactionReserveTokens } from "../../agent-compaction-constants-DmXQuPyL.mjs";
-import { t as DEFAULT_AGENT_COMPACTION_RESERVE_TOKENS_FLOOR } from "../../agent-settings-Cfa6SYMN.mjs";
-import { n as resolveCronStyleNow } from "../../current-time-CZi1S4GF.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
-import "../../system-event-runtime-BcGFhK3c.mjs";
-import "../../gateway-runtime-DMDKFL1_.mjs";
-import "../../channel-actions-DF1kQl0D.mjs";
-import "../../memory-core-host-status-Dr95_6D1.mjs";
-import "../../memory-core-host-runtime-core-BZil17-O.mjs";
-import "../../memory-core-host-runtime-files-CzbMqtDQ.mjs";
-import { f as configureMemoryCoreDreamingState } from "../../dreaming-state-BHlTqX1G.mjs";
-import { n as MANAGED_DREAMING_DECLARATION_KEY, t as classifyDreamingCronJob } from "../../dreaming-cron-classifier-BE1wMvoX.mjs";
-import { n as includesSystemEventToken, t as formatRecallRepairDetails } from "../../dreaming-shared-D0MqysOK.mjs";
+import { t as DEFAULT_AGENT_COMPACTION_RESERVE_TOKENS_FLOOR } from "../../agent-settings-p_B_SpGc.mjs";
+import { n as resolveCronStyleNow } from "../../current-time-DzUuABk8.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-Dm1sl1ov.mjs";
+import "../../system-event-runtime-BChjDF8M.mjs";
+import { r as runWithLocalStateMutationOwner } from "../../local-state-owner-Ces8bTrZ.mjs";
+import "../../gateway-runtime-DVShvn9X.mjs";
+import "../../channel-actions-CaJbCkxs.mjs";
+import "../../memory-core-host-status-EFn_AMM-.mjs";
+import "../../memory-core-host-runtime-core-CNLFAky0.mjs";
+import { t as resolveMemoryBackendConfig } from "../../memory-core-host-runtime-files-C1pefsWV.mjs";
+import "../../param-readers-gVcVc5Er.mjs";
+import { f as configureMemoryCoreDreamingState } from "../../dreaming-state-D1mfF5St.mjs";
+import { n as MANAGED_DREAMING_DECLARATION_KEY, t as classifyDreamingCronJob } from "../../dreaming-cron-classifier-DF0hZAQ0.mjs";
+import { n as includesSystemEventToken, t as formatRecallRepairDetails } from "../../dreaming-shared-BPGHiecZ.mjs";
 import { t as resolveMemoryCoreNowMs } from "../../time-BhFVUM0b.mjs";
-import { t as appendFailedDreamingEvent } from "../../dreaming-events-DNKgJOb8.mjs";
-import { r as resolveMemoryPromotionFileMaxChars } from "../../memory-budget-BnAbv-2J.mjs";
-import { i as resolveMemoryToolContext, n as MEMORY_SEARCH_TOOL_CONTRACT, r as buildMemoryPromptSection, t as MEMORY_GET_TOOL_CONTRACT } from "../../memory-tool-contract-cMZzAeAw.mjs";
-import { r as prepareMemoryManagerReload } from "../../lifecycle-ieTqs85R.mjs";
+import { t as appendFailedDreamingEvent } from "../../dreaming-events-CoJljHlb.mjs";
+import { r as resolveMemoryPromotionFileMaxChars } from "../../memory-budget-P6XQZEmz.mjs";
+import { i as resolveMemoryToolContext, n as MEMORY_SEARCH_TOOL_CONTRACT, r as buildMemoryPromptSection, t as MEMORY_GET_TOOL_CONTRACT } from "../../memory-tool-contract-5re4KrF1.mjs";
+import { a as prepareMemoryManagerReload, r as hasMemoryIndexingBeenLive } from "../../lifecycle-DzyiQIdz.mjs";
 import { t as normalizeSessionBackfillSelection } from "../../session-backfill-selection-CjIn4YJO.mjs";
 //#region extensions/memory-core/src/dreaming-cron.ts
 /** Stateless convergence of the memory-core-owned dreaming cron job family. */
@@ -80,7 +84,6 @@ function buildManagedDreamingPatch(job, desired) {
 	const patch = {};
 	if (normalizeOptionalString(job.name) !== desired.name) patch.name = desired.name;
 	if (normalizeOptionalString(job.description) !== desired.description) patch.description = desired.description;
-	if (job.enabled !== true) patch.enabled = true;
 	const scheduleKind = normalizeLowercaseStringOrEmpty(job.schedule?.kind);
 	const scheduleExpr = normalizeOptionalString(job.schedule?.expr);
 	const scheduleTz = normalizeOptionalString(job.schedule?.tz);
@@ -176,7 +179,6 @@ async function reconcileShortTermDreamingCronJob(params) {
 //#endregion
 //#region extensions/memory-core/src/dreaming.ts
 const RUNTIME_CRON_RECONCILE_INTERVAL_MS = 6e4;
-const HEARTBEAT_ISOLATED_SESSION_SUFFIX = ":heartbeat";
 function formatRepairSummary(repair) {
 	const actions = [];
 	if (repair.rewroteStore) {
@@ -186,47 +188,33 @@ function formatRepairSummary(repair) {
 	if (repair.removedStaleLock) actions.push("removed stale promotion lock");
 	return actions.join(", ");
 }
-function resolveDreamingTriggerSessionKeys(sessionKey) {
-	const normalized = normalizeOptionalString(sessionKey);
-	if (!normalized) return [];
-	const keys = [normalized];
-	if (normalized.endsWith(HEARTBEAT_ISOLATED_SESSION_SUFFIX)) {
-		const baseSessionKey = normalized.slice(0, -10).trim();
-		if (baseSessionKey) keys.push(baseSessionKey);
-	}
-	return uniqueStrings(keys);
-}
 function hasPendingManagedDreamingCronEvent(sessionKey, agentId) {
-	return resolveDreamingTriggerSessionKeys(sessionKey).some((candidateSessionKey) => peekSystemEventEntriesFromSdk(candidateSessionKey, agentId).some((event) => event.contextKey?.startsWith("cron:") === true && normalizeOptionalString(event.text) === "__openclaw_memory_core_short_term_promotion_dream__"));
+	if (!sessionKey || !parseAgentSessionKey(sessionKey) && sessionKey !== "global" && sessionKey !== "global:heartbeat") return false;
+	return peekSystemEventEntriesFromSdk(sessionKey, agentId).some((event) => event.contextKey?.startsWith("cron:") === true && normalizeOptionalString(event.text) === "__openclaw_memory_core_short_term_promotion_dream__");
 }
 async function runShortTermDreamingPromotion(params) {
-	if (!params.config.enabled) return {
-		handled: true,
-		reason: "memory-core: short-term dreaming disabled"
-	};
 	const recencyHalfLifeDays = params.config.recencyHalfLifeDays;
 	const fallbackWorkspaceDir = normalizeOptionalString(params.workspaceDir);
 	const triggerAgentId = normalizeLowercaseStringOrEmpty(params.agentId);
-	const seenWorkspaces = /* @__PURE__ */ new Set();
-	const workspaces = [];
-	const addWorkspace = (workspaceDir, agentId, agentIds = [agentId]) => {
-		if (!workspaceDir || seenWorkspaces.has(workspaceDir)) return;
-		seenWorkspaces.add(workspaceDir);
-		workspaces.push({
-			...agentId ? { agentId } : {},
-			agentIds,
-			workspaceDir
-		});
-	};
-	const resolveWorkspaceOwnerAgentId = (agentIds) => {
-		if (triggerAgentId && agentIds.includes(triggerAgentId)) return triggerAgentId;
-		return agentIds.toSorted()[0] ?? triggerAgentId;
-	};
-	if (params.cfg) for (const entry of resolveMemoryDreamingWorkspaces(params.cfg, {
+	const workspaces = params.cfg ? resolveMemoryDreamingWorkspaces(params.cfg, {
 		primaryWorkspaceDir: fallbackWorkspaceDir,
 		...triggerAgentId ? { primaryAgentId: triggerAgentId } : {}
-	})) addWorkspace(entry.workspaceDir, resolveWorkspaceOwnerAgentId(entry.agentIds), entry.agentIds);
-	if (workspaces.length === 0 && fallbackWorkspaceDir) addWorkspace(fallbackWorkspaceDir, triggerAgentId);
+	}).map(({ workspaceDir, agentIds }) => {
+		const agentId = triggerAgentId && agentIds.includes(triggerAgentId) ? triggerAgentId : agentIds.toSorted()[0] ?? triggerAgentId;
+		return agentId ? {
+			agentId,
+			agentIds,
+			workspaceDir
+		} : {
+			agentIds,
+			workspaceDir
+		};
+	}) : [];
+	if (workspaces.length === 0 && fallbackWorkspaceDir) workspaces.push({
+		...triggerAgentId ? { agentId: triggerAgentId } : {},
+		agentIds: [triggerAgentId],
+		workspaceDir: fallbackWorkspaceDir
+	});
 	if (workspaces.length === 0) {
 		params.logger.warn("memory-core: dreaming promotion skipped because no memory workspace is available.");
 		return {
@@ -249,32 +237,31 @@ async function runShortTermDreamingPromotion(params) {
 	let pendingNarratives = 0;
 	const pluginConfig = params.cfg ? resolveMemoryDreamingPluginConfig(params.cfg) : void 0;
 	const [{ writeDeepDreamingReport }, { appendFallbackNarrativeEntry, runDreamNarrative }, { runDreamingSweepPhases }, { applyShortTermPromotions, repairShortTermPromotionArtifacts, rankShortTermPromotionCandidates }] = await Promise.all([
-		import("../../dreaming-markdown-CIXoBuop.mjs"),
-		import("../../dreaming-narrative-Cu2W2hSo.mjs"),
-		import("../../dreaming-phases-B18KoJn5.mjs"),
-		import("../../short-term-promotion-BTYWBY6Q.mjs")
+		import("../../dreaming-markdown-z-a_AX4k.mjs"),
+		import("../../dreaming-narrative-B-EYXANv.mjs"),
+		import("../../dreaming-phases-Dq4Ua8VU.mjs"),
+		import("../../short-term-promotion-CBmw6b-f.mjs")
 	]);
 	for (const { agentId, agentIds, workspaceDir } of workspaces) {
 		const sweepNowMs = Date.now();
+		let phaseResult;
 		try {
-			const phaseResult = await runDreamingSweepPhases({
+			phaseResult = await runDreamingSweepPhases({
 				agentId,
 				workspaceDir,
 				pluginConfig,
 				cfg: params.cfg,
 				logger: params.logger,
-				subagent: params.subagent,
-				runInBackground: params.runInBackground,
 				nowMs: sweepNowMs
 			});
-			degradedNarratives += phaseResult.degradedPhases;
-			pendingNarratives += phaseResult.pendingNarratives;
 		} catch (err) {
 			failedWorkspaces += 1;
 			params.logger.error(`memory-core: dreaming sweep failed for workspace ${workspaceDir}: ${formatErrorMessage(err)}`);
 			continue;
 		}
-		try {
+		const { narratives, failed } = phaseResult;
+		if (failed) failedWorkspaces += 1;
+		else try {
 			const reportLines = [];
 			const repair = await repairShortTermPromotionArtifacts({ workspaceDir });
 			if (repair.changed) {
@@ -333,6 +320,20 @@ async function runShortTermDreamingPromotion(params) {
 				const appliedSummary = applied.appliedCandidates.length > 0 ? applied.appliedCandidates.map((candidate) => `${candidate.path}:${candidate.startLine}-${candidate.endLine} score=${candidate.score.toFixed(3)} signals=${candidate.signalCount} recalls=${candidate.recallCount}`).join(" | ") : "none";
 				params.logger.info(`memory-core: dreaming applied details [workspace=${workspaceDir}] ${appliedSummary}`);
 			}
+			if (applied.applied > 0) {
+				const promotions = applied.appliedCandidates.map((candidate) => candidate.snippet).filter(Boolean);
+				const data = {
+					phase: "deep",
+					snippets: promotions,
+					promotions,
+					sourceEntryKeys: [...new Set(applied.appliedCandidates.map((c) => c.key))]
+				};
+				narratives.push({
+					data,
+					timezone: params.config.timezone,
+					model: params.config.execution?.model
+				});
+			}
 			const hasReportableRejections = applied.rejectedCandidates.some(({ category }) => category !== "memory budget");
 			await writeDeepDreamingReport({
 				workspaceDir,
@@ -345,38 +346,6 @@ async function runShortTermDreamingPromotion(params) {
 					separateReports: false
 				}
 			});
-			if (applied.applied > 0) {
-				const promotions = applied.appliedCandidates.map((candidate) => candidate.snippet).filter(Boolean);
-				const data = {
-					phase: "deep",
-					snippets: promotions,
-					promotions,
-					sourceEntryKeys: [...new Set(applied.appliedCandidates.map((c) => c.key))]
-				};
-				if (!params.subagent) await appendFallbackNarrativeEntry({
-					workspaceDir,
-					data,
-					nowMs: sweepNowMs,
-					timezone: params.config.timezone,
-					logger: params.logger,
-					reason: "subagent runtime is unavailable"
-				});
-				else {
-					const narrativeOutcome = await runDreamNarrative({
-						agentId,
-						subagent: params.subagent,
-						workspaceDir,
-						data,
-						nowMs: sweepNowMs,
-						timezone: params.config.timezone,
-						model: params.config.execution?.model,
-						logger: params.logger,
-						runInBackground: params.runInBackground
-					});
-					if (narrativeOutcome.status === "degraded") degradedNarratives += 1;
-					else if (narrativeOutcome.status === "pending") pendingNarratives += 1;
-				}
-			}
 		} catch (err) {
 			failedWorkspaces += 1;
 			const error = formatErrorMessage(err);
@@ -389,6 +358,41 @@ async function runShortTermDreamingPromotion(params) {
 				nowMs: sweepNowMs,
 				logger: params.logger
 			});
+		}
+		const firstNarrative = narratives[0];
+		const lastNarrative = narratives.at(-1);
+		if (!firstNarrative || !lastNarrative) continue;
+		const data = {
+			...firstNarrative.data,
+			phase: lastNarrative.data.phase,
+			snippets: uniqueStrings(narratives.flatMap(({ data: phaseData }) => phaseData.snippets)),
+			themes: uniqueStrings(narratives.flatMap(({ data: phaseData }) => phaseData.themes ?? [])),
+			promotions: uniqueStrings(narratives.flatMap(({ data: phaseData }) => phaseData.promotions ?? [])),
+			sourceEntryKeys: uniqueStrings(narratives.flatMap(({ data: phaseData }) => phaseData.sourceEntryKeys ?? []))
+		};
+		if (!params.subagent) await appendFallbackNarrativeEntry({
+			workspaceDir,
+			data,
+			nowMs: sweepNowMs,
+			timezone: lastNarrative.timezone,
+			logger: params.logger,
+			reason: "subagent runtime is unavailable"
+		});
+		else {
+			const narrativeOutcome = await runDreamNarrative({
+				agentId,
+				timeoutMs: params.narrativeTimeoutMs,
+				subagent: params.subagent,
+				workspaceDir,
+				data,
+				nowMs: sweepNowMs,
+				timezone: lastNarrative.timezone,
+				model: lastNarrative.model,
+				logger: params.logger,
+				runInBackground: params.runInBackground
+			});
+			if (narrativeOutcome.status === "degraded") degradedNarratives += 1;
+			else if (narrativeOutcome.status === "pending") pendingNarratives += 1;
 		}
 	}
 	const summary = `memory-core: dreaming promotion complete (workspaces=${workspaces.length}, candidates=${totalCandidates}, applied=${totalApplied}, failed=${failedWorkspaces}, degraded=${degradedNarratives}, narrativesPending=${pendingNarratives}).`;
@@ -405,13 +409,11 @@ function registerShortTermPromotionDreaming(api) {
 	let startupDreamingCleanupTimer = null;
 	const dreamingTasks = /* @__PURE__ */ new Set();
 	let runtimeCronReconcileTimer = null;
-	let gatewayLifecycleGeneration = 0;
 	let disposed = true;
 	let serviceStartedAtMs;
 	const resolveCurrentConfig = () => api.runtime.config?.current?.() ?? api.config;
 	const disposeDreaming = () => {
 		disposed = true;
-		gatewayLifecycleGeneration += 1;
 		if (startupDreamingCleanupTimer) {
 			clearTimeout(startupDreamingCleanupTimer);
 			startupDreamingCleanupTimer = null;
@@ -463,13 +465,13 @@ function registerShortTermPromotionDreaming(api) {
 			dreamingTasks.delete(task);
 		}
 	};
-	const startDreamingSessionCleanup = async (config, generation, startupStartedAtMs) => {
-		const { DREAMING_ORPHAN_MIN_AGE_MS, scrubDreamingNarrativeArtifacts } = await import("../../dreaming-session-cleanup-BXo_5ZJ3.mjs");
-		if (disposed || generation !== gatewayLifecycleGeneration) return;
+	const startDreamingSessionCleanup = async (config, startupStartedAtMs) => {
+		const { DREAMING_ORPHAN_MIN_AGE_MS, scrubDreamingNarrativeArtifacts } = await import("../../dreaming-session-cleanup-DQ2LtgWR.mjs");
+		if (disposed) return;
 		const scrubConfiguredAgents = async (currentConfig, nowMs) => {
 			const agentIds = uniqueStrings(resolveMemoryDreamingWorkspaces(currentConfig).flatMap(({ agentIds: workspaceAgentIds }) => workspaceAgentIds));
 			for (const agentId of agentIds) {
-				if (disposed || generation !== gatewayLifecycleGeneration) return;
+				if (disposed) return;
 				try {
 					await scrubDreamingNarrativeArtifacts({
 						agentId,
@@ -483,15 +485,14 @@ function registerShortTermPromotionDreaming(api) {
 			}
 		};
 		await scrubConfiguredAgents(config, startupStartedAtMs);
-		if (disposed || generation !== gatewayLifecycleGeneration) return;
-		const cleanupTimer = setTimeout(() => {
-			if (disposed || generation !== gatewayLifecycleGeneration || startupDreamingCleanupTimer !== cleanupTimer) return;
+		if (disposed) return;
+		startupDreamingCleanupTimer = setTimeout(() => {
+			if (disposed) return;
 			startupDreamingCleanupTimer = null;
 			trackDreamingTask(() => scrubConfiguredAgents(resolveCurrentConfig(), startupStartedAtMs + DREAMING_ORPHAN_MIN_AGE_MS - 1)).catch((error) => {
 				api.logger.warn(`memory-core: deferred dreaming startup cleanup failed: ${formatErrorMessage(error)}`);
 			});
 		}, DREAMING_ORPHAN_MIN_AGE_MS);
-		startupDreamingCleanupTimer = cleanupTimer;
 		startupDreamingCleanupTimer.unref?.();
 	};
 	api.registerService({
@@ -519,29 +520,31 @@ function registerShortTermPromotionDreaming(api) {
 			await Promise.allSettled(dreamingTasks);
 		}
 	});
-	api.on("gateway_start", async (_event, ctx) => {
+	api.on("gateway_start", (_event, ctx) => {
 		const startupStartedAtMs = serviceStartedAtMs;
 		if (disposed || startupStartedAtMs === void 0) return;
 		if (startupDreamingCleanupTimer) {
 			clearTimeout(startupDreamingCleanupTimer);
 			startupDreamingCleanupTimer = null;
 		}
-		const generation = ++gatewayLifecycleGeneration;
-		await trackDreamingTask(() => startDreamingSessionCleanup(ctx.config ?? api.config, generation, startupStartedAtMs)).catch((error) => {
+		trackDreamingTask(() => startDreamingSessionCleanup(ctx.config ?? api.config, startupStartedAtMs)).catch((error) => {
 			api.logger.warn(`memory-core: dreaming startup cleanup failed: ${formatErrorMessage(error)}`);
 		});
 	});
 	api.on("before_agent_reply", async (event, ctx) => {
 		try {
 			if (ctx.trigger !== "heartbeat" && ctx.trigger !== "cron") return;
+			if (!includesSystemEventToken(event.cleanedBody, "__openclaw_memory_core_short_term_promotion_dream__")) return;
 			const currentConfig = resolveCurrentConfig();
-			const hasManagedDreamingToken = includesSystemEventToken(event.cleanedBody, MEMORY_DREAMING_SYSTEM_EVENT_TEXT);
-			const isManagedTrigger = ctx.trigger === "cron" || hasPendingManagedDreamingCronEvent(ctx.sessionKey, ctx.agentId);
-			if (!hasManagedDreamingToken || !isManagedTrigger) return;
 			const config = resolveMemoryDeepDreamingConfig({
 				pluginConfig: resolveMemoryDreamingPluginConfig(currentConfig),
 				cfg: currentConfig
 			});
+			if (!config.enabled) return ctx.trigger === "cron" ? {
+				handled: true,
+				reason: "memory-core: short-term dreaming disabled"
+			} : void 0;
+			if (ctx.trigger === "heartbeat" && !hasPendingManagedDreamingCronEvent(ctx.heartbeatEventQueueSessionKey ?? ctx.sessionKey, ctx.agentId)) return;
 			return await runShortTermDreamingPromotion({
 				runInBackground: ctx.trigger === "cron" ? trackDreamingTask : void 0,
 				agentId: ctx.agentId,
@@ -549,7 +552,8 @@ function registerShortTermPromotionDreaming(api) {
 				cfg: currentConfig,
 				config,
 				logger: api.logger,
-				subagent: config.enabled ? api.runtime?.subagent : void 0
+				subagent: api.runtime.subagent,
+				narrativeTimeoutMs: api.runtime.agent.resolveAgentTimeoutMs({ cfg: currentConfig })
 			});
 		} catch (err) {
 			api.logger.error(`memory-core: dreaming trigger failed: ${formatErrorMessage(err)}`);
@@ -569,7 +573,7 @@ const DEFAULT_MEMORY_FLUSH_PROMPT = [
 	MEMORY_FLUSH_TARGET_HINT,
 	MEMORY_FLUSH_READ_ONLY_HINT,
 	MEMORY_FLUSH_APPEND_ONLY_HINT,
-	"Do NOT create timestamped variant files (e.g., YYYY-MM-DD-HHMM.md); always use the canonical YYYY-MM-DD.md filename.",
+	"Do NOT create timestamped variant files (e.g., YYYY-MM-DD-HHMM.md); always use the standard YYYY-MM-DD.md filename.",
 	`If nothing to store, reply with ${SILENT_REPLY_TOKEN}.`
 ].join(" ");
 const DEFAULT_MEMORY_FLUSH_SYSTEM_PROMPT = [
@@ -630,7 +634,7 @@ function buildMemoryFlushPlan(params = {}) {
 //#endregion
 //#region extensions/memory-core/src/session-backfill-gateway.ts
 var InvalidSessionBackfillRequestError = class extends Error {};
-const loadSessionBackfillGatewayRuntime = createLazyRuntimeModule(() => import("../../session-backfill-gateway.runtime-BlIuhWSW.mjs"));
+const loadSessionBackfillGatewayRuntime = createLazyRuntimeModule(() => import("../../session-backfill-gateway.runtime-BGC2qbhN.mjs"));
 function paramsRecord(value) {
 	if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("params must be an object.");
 	return value;
@@ -644,16 +648,29 @@ function readOptionalSessionBoundary(params, key) {
 	if (raw !== void 0 && typeof raw !== "string") throw new Error(`${key} must be a string.`);
 	return readToolStringParam(params, key);
 }
-function readGatewayParams(value, rollback) {
+function readGatewayParams(value, rollback, defaultAgentId) {
 	const params = paramsRecord(value);
-	assertOnlyKeys(params, new Set(rollback ? ["agentId"] : [
-		"agentId",
-		"from",
-		"to",
-		"limitDays"
+	const cliResult = params.cliResult === true;
+	const ownerId = params.expectedOwnerId === void 0 ? void 0 : readToolStringParam(params, "expectedOwnerId", { required: true });
+	if (cliResult && !ownerId) throw new Error("CLI backfill results require a selected Gateway owner");
+	if (params.operationOwnerId !== void 0 && params.operationOwnerId !== ownerId) throw new Error("Gateway owner changed during session backfill; inspect its result before retrying");
+	assertOnlyKeys(params, /* @__PURE__ */ new Set([
+		"expectedOwnerId",
+		"operationOwnerId",
+		"cliResult",
+		...rollback ? ["agentId"] : [
+			"agentId",
+			"from",
+			"to",
+			"limitDays"
+		]
 	]));
-	const agentId = normalizeAgentId(readToolStringParam(params, "agentId", { required: true }));
-	if (rollback) return { agentId };
+	const agentId = normalizeAgentId(readToolStringParam(params, "agentId", { required: !cliResult || params.agentId !== void 0 }) ?? defaultAgentId());
+	if (rollback) return {
+		agentId,
+		ownerId,
+		cliResult
+	};
 	return {
 		agentId,
 		...normalizeSessionBackfillSelection({
@@ -664,7 +681,9 @@ function readGatewayParams(value, rollback) {
 			from: "from",
 			to: "to",
 			limitDays: "limitDays"
-		})
+		}),
+		ownerId,
+		cliResult
 	};
 }
 function resolveExecutionContext(api, agentId) {
@@ -712,30 +731,47 @@ function registerSessionBackfillGatewayMethods(api) {
 	]) {
 		const apply = operation === "apply";
 		const rollback = operation === "rollback";
-		api.registerGatewayMethod(`memory.sessionBackfill.${operation}`, async ({ params, respond }) => {
+		for (const ownerBound of [false, true]) api.registerGatewayMethod(`memory.sessionBackfill.${operation}${ownerBound ? ".owner" : ""}`, async (invocation) => {
+			const { params, respond } = invocation;
 			let request;
 			try {
-				request = readGatewayParams(params, rollback);
+				if (ownerBound && (typeof params.expectedOwnerId !== "string" || !params.expectedOwnerId.trim())) throw new Error("expectedOwnerId must be a non-empty string");
+				request = readGatewayParams(params, rollback, () => resolveDefaultAgentId(invocation.context.getRuntimeConfig()));
 			} catch (error) {
 				respondInvalid(respond, error);
 				return;
 			}
 			try {
-				const context = resolveExecutionContext(api, request.agentId);
-				const { executeSessionBackfillBatch } = await loadSessionBackfillGatewayRuntime();
-				const { result, continuation } = await executeSessionBackfillBatch({
-					...request,
-					...context,
-					...apply ? { apply: true } : {},
-					...rollback ? { rollback: true } : {}
-				});
-				respond(true, rollback ? {
-					removedDiaryEntries: result.rollback?.removedDiaryEntries ?? 0,
-					removedStagedEntries: result.rollback?.removedStagedEntries ?? 0
-				} : gatewayResult(result, {
-					includeCursor: apply,
-					continuation
-				}));
+				const { ownerId, cliResult, ...selection } = request;
+				let assertOwnerCurrent;
+				const run = async (assertCurrent) => {
+					assertOwnerCurrent = assertCurrent;
+					const context = resolveExecutionContext(api, request.agentId);
+					const { executeSessionBackfillBatch } = await loadSessionBackfillGatewayRuntime();
+					assertCurrent?.();
+					const execution = await executeSessionBackfillBatch({
+						...selection,
+						...context,
+						...assertCurrent ? { assertCurrent } : {},
+						...apply ? { apply: true } : {},
+						...rollback ? { rollback: true } : {}
+					});
+					const { result, continuation } = execution;
+					assertCurrent?.();
+					return cliResult ? {
+						execution,
+						ownerId
+					} : rollback ? {
+						removedDiaryEntries: result.rollback?.removedDiaryEntries ?? 0,
+						removedStagedEntries: result.rollback?.removedStagedEntries ?? 0
+					} : gatewayResult(result, {
+						includeCursor: apply,
+						continuation
+					});
+				};
+				const payload = ownerId ? await runWithLocalStateMutationOwner(ownerId, invocation, run) : await run();
+				assertOwnerCurrent?.();
+				respond(true, payload);
 			} catch (error) {
 				if (error instanceof InvalidSessionBackfillRequestError) respondInvalid(respond, error);
 				else {
@@ -743,15 +779,15 @@ function registerSessionBackfillGatewayMethods(api) {
 					respond(false, void 0, errorShape(ErrorCodes.UNAVAILABLE, message));
 				}
 			}
-		}, { scope: operation === "preview" ? "operator.read" : "operator.admin" });
+		}, { scope: !ownerBound && operation === "preview" ? "operator.read" : "operator.admin" });
 	}
 }
 //#endregion
 //#region extensions/memory-core/index.ts
-const loadMemoryToolsModule = createLazyRuntimeModule(() => import("../../tools-C0jQGBlX.mjs"));
-const loadStandingIntentsModule = createLazyRuntimeModule(() => import("../../standing-intents-zVzi9hCg.mjs"));
-const loadStandingIntentToolModule = createLazyRuntimeModule(() => import("../../standing-intents-tool-CoKN6kf1.mjs"));
-const loadRuntimeProviderModule = createLazyRuntimeModule(() => import("../../runtime-provider-CyFwEvXR.mjs"));
+const loadMemoryToolsModule = createLazyRuntimeModule(() => import("../../tools-29uKYf7a.mjs"));
+const loadStandingIntentsModule = createLazyRuntimeModule(() => import("../../standing-intents-CPf4nkYT.mjs"));
+const loadStandingIntentToolModule = createLazyRuntimeModule(() => import("../../standing-intents-tool-rEjM5CTP.mjs"));
+const loadRuntimeProviderModule = createLazyRuntimeModule(() => import("../../runtime-provider-lmr5nBu2.mjs"));
 function createLazyMemoryTool(params) {
 	const initialContext = resolveMemoryToolContext(params.options);
 	if (!initialContext) return null;
@@ -775,7 +811,6 @@ function createLazyMemoryTool(params) {
 	};
 }
 function createLazyStandingIntentTool(ctx, reportUnavailable) {
-	if (ctx.senderIsOwner !== true) return null;
 	const cfg = ctx.getRuntimeConfig?.() ?? ctx.runtimeConfig ?? ctx.config;
 	const provider = ctx.messageChannel?.trim();
 	const senderId = ctx.requesterSenderId?.trim();
@@ -848,6 +883,14 @@ function createLazyStandingIntentTool(ctx, reportUnavailable) {
 			required: ["action"],
 			additionalProperties: false
 		},
+		prepareArguments: (args) => {
+			const params = asNonArrayRecord(args);
+			return {
+				...params,
+				maxFires: readPositiveIntegerParam(params, "maxFires"),
+				cooldownSeconds: readNonNegativeIntegerParam(params, "cooldownSeconds")
+			};
+		},
 		execute: async (toolCallId, params, signal, onUpdate) => {
 			executorPromise ??= loadStandingIntentToolModule().then((module) => module.createStandingIntentExecutor({
 				agentId,
@@ -879,6 +922,10 @@ function resolveMemoryToolOptions(ctx, host) {
 }
 function createLazyMemoryRuntime(host) {
 	return {
+		async searchForCli(params) {
+			const { createMemoryRuntime } = await loadRuntimeProviderModule();
+			return await createMemoryRuntime(host).searchForCli(params);
+		},
 		supportsWorkspaceMemoryReadSources: true,
 		prepareReload: prepareMemoryManagerReload,
 		async getMemorySearchManager(params) {
@@ -890,7 +937,7 @@ function createLazyMemoryRuntime(host) {
 			return await createMemoryRuntime(host).authorizeSearchHits(params);
 		},
 		async classifyWorkspaceMemoryPaths(params) {
-			const { classifyWorkspaceMemoryPaths } = await import("../../workspace-path-classifier-DayvPXFv.mjs");
+			const { classifyWorkspaceMemoryPaths } = await import("../../workspace-path-classifier-C4Xx6rvZ.mjs");
 			return await classifyWorkspaceMemoryPaths(params);
 		},
 		resolveMemoryBackendConfig,
@@ -919,7 +966,68 @@ var memory_core_default = definePluginEntry({
 		};
 		configureMemoryCoreDreamingState(openKeyedStore);
 		const memoryRuntime = createLazyMemoryRuntime(host);
+		let indexStartup;
+		const stopIndex = async (close) => {
+			const errors = [];
+			for (const settle of [() => indexStartup, close]) try {
+				await settle();
+			} catch (error) {
+				errors.push(error);
+			}
+			if (errors.length === 1) throw errors[0];
+			if (errors.length > 1) throw new AggregateError(errors, "Memory index shutdown failed");
+		};
+		api.lifecycle.onDispose?.(async () => {
+			const retirement = prepareMemoryManagerReload({
+				retireRuntime: true,
+				retiringEmbeddingProviders: []
+			});
+			await stopIndex(async () => {
+				const result = await retirement.drain();
+				if (result?.errors.length) throw new AggregateError(result.errors, "Memory manager disposal failed");
+			});
+		});
+		if (createNormalizedPluginsConfig(api.config.plugins).slots.memory === api.id) api.registerService({
+			id: "memory-core-index",
+			reload: { configPrefixes: [
+				"memory.search",
+				"agents",
+				"models.providers"
+			] },
+			start({ config, logger }) {
+				if (!hasMemoryIndexingBeenLive()) return;
+				const activate = async () => {
+					await Promise.all(listAgentIds(config).map(async (agentId) => {
+						const { error } = await memoryRuntime.getMemorySearchManager({
+							cfg: config,
+							agentId
+						}).catch((cause) => ({ error: String(cause) }));
+						if (error) logger.warn(`memory-core: index startup failed for ${agentId}: ${error}`);
+					}));
+				};
+				indexStartup = api.lifecycle.runInBackgroundContext ? api.lifecycle.runInBackgroundContext(activate) : activate();
+				indexStartup.catch(() => {});
+			},
+			stop: () => stopIndex(() => memoryRuntime.closeAllMemorySearchManagers?.())
+		});
 		registerShortTermPromotionDreaming(api);
+		let stopIntentMaintenance;
+		api.registerService({
+			apiVersion: 2,
+			id: "memory-core-standing-intents",
+			reload: { configPrefixes: ["agents"] },
+			async start({ config, scheduler, logger }) {
+				stopIntentMaintenance = (await loadStandingIntentsModule()).startStandingIntentMaintenance({
+					agentIds: listAgentIds(config),
+					scheduler,
+					warn: (message) => logger.warn(message)
+				});
+			},
+			stop() {
+				stopIntentMaintenance?.();
+				stopIntentMaintenance = void 0;
+			}
+		});
 		registerSessionBackfillGatewayMethods(api);
 		api.registerMemoryCapability({
 			recallToolNames: ["memory_search", "memory_get"],
@@ -945,13 +1053,19 @@ var memory_core_default = definePluginEntry({
 			options: resolveMemoryToolOptions(ctx, host),
 			contract,
 			load: (module, options) => contract.name === "memory_search" ? module.createMemorySearchTool(options) : module.createMemoryGetTool(options)
-		}), { names: [contract.name] });
+		}), {
+			names: [contract.name],
+			workspaceAccess: "execute"
+		});
 		api.registerTool({
 			contextVersion: 2,
 			create: (ctx) => createLazyStandingIntentTool(ctx, (reason) => {
 				api.logger.warn(`memory-core: intent tool unavailable: ${reason}`);
 			})
-		}, { names: ["intent"] });
+		}, {
+			names: ["intent"],
+			workspaceAccess: "execute"
+		});
 		api.on("before_prompt_build", async (event, ctx) => {
 			if (ctx.trigger !== "user") return;
 			try {
@@ -982,28 +1096,13 @@ var memory_core_default = definePluginEntry({
 				return;
 			}
 		});
-		api.on("before_agent_reply", async (_event, ctx) => {
-			if (ctx.trigger !== "heartbeat" && ctx.trigger !== "cron") return;
-			try {
-				const module = await loadStandingIntentsModule();
-				const config = api.runtime.config?.current?.() ?? api.config;
-				const agentId = resolveSessionAgentIdStrict({
-					sessionKey: ctx.sessionKey,
-					config,
-					agentId: ctx.agentId
-				});
-				await module.sweepStandingIntents({ agentId });
-			} catch (error) {
-				api.logger.warn?.(`memory-core: standing intent maintenance failed: ${error instanceof Error ? error.message : String(error)}`);
-			}
-		}, { eligibleTriggers: ["heartbeat", "cron"] });
 		api.registerCommand({
 			name: "dreaming",
 			description: "Enable or disable memory dreaming.",
 			acceptsArgs: true,
 			exposeSenderIsOwner: true,
 			handler: async (ctx) => {
-				const { handleDreamingCommand } = await import("../../dreaming-command-D89UYSrs.mjs");
+				const { handleDreamingCommand } = await import("../../dreaming-command-CwLlgfC4.mjs");
 				return await handleDreamingCommand(api, ctx);
 			}
 		});

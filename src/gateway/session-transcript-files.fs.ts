@@ -13,6 +13,7 @@ import {
 } from "../config/sessions/artifacts.js";
 import { extractGeneratedTranscriptSessionId } from "../config/sessions/generated-transcript-session-id.js";
 import {
+  resolveSessionArtifactDirectory,
   resolveSessionFilePathCore,
   resolveSessionTranscriptPath,
   resolveSessionTranscriptPathInDir,
@@ -59,7 +60,7 @@ export function resolveSessionTranscriptCandidates(
   };
 
   if (storePath) {
-    const sessionsDir = path.dirname(storePath);
+    const sessionsDir = resolveSessionArtifactDirectory(storePath);
     if (sessionFile && !staleSessionFile) {
       pushCandidate(() =>
         resolveSessionFilePathCore(sessionId, { sessionFile }, { sessionsDir, agentId }),
@@ -103,7 +104,7 @@ async function resetArchiveHeaderMatchesSessionId(
   // would silently drop every compressed archive from fallback history.
   try {
     await using opened = await openLocalFileSafely({
-      filePath: materializeSessionArchiveForRead(archivePath),
+      filePath: await materializeSessionArchiveForRead(archivePath),
     });
     const buffer = Buffer.alloc(64 * 1024);
     const bytesRead = await readFileWindowFully(opened.handle, buffer, 0);
@@ -117,7 +118,10 @@ async function resetArchiveHeaderMatchesSessionId(
       return isRecord(record) && record.type === "session" && record.id === sessionId;
     }
     return false;
-  } catch {
+  } catch (error) {
+    if (hasErrnoCode(error, "ERR_BUFFER_TOO_LARGE")) {
+      throw error;
+    }
     return false;
   }
 }

@@ -8,6 +8,12 @@ import { resolveOpenClawStateSqlitePath } from "../state/openclaw-state-db.paths
 import { resolveRuntimeWorkerUrl } from "./runtime-worker-url.js";
 import { triageTestRuntimeEntrypoints } from "./triage-runtime.test-support.js";
 import type { ManagedServiceBoundaryOptions } from "./update-managed-service-handoff-boundary-contract.test-support.js";
+import { prepareManagedServiceRecoveryClockPreload } from "./update-managed-service-handoff-command.test-support.js";
+import { prepareInterruptedManagedServiceFixture } from "./update-managed-service-handoff-interrupted.test-support.js";
+import {
+  prepareManagedServiceTriageClockPreload,
+  type ManagedServiceManagerBoundaryResult,
+} from "./update-managed-service-handoff-lifecycle.test-support.js";
 import { managedServiceStateUpdateScript } from "./update-managed-service-handoff-state.test-support.js";
 import type { UpdateRequester } from "./update-requester-authority.js";
 
@@ -19,10 +25,14 @@ export async function prepareManagedServiceRuntimeFixture(params: {
   activationGatePath: string;
   activationReleasePath: string;
   ledger: boolean;
+  root: string;
+  runId?: string;
   options?: {
     replaceLedgerWriter?: boolean;
     requester?: UpdateRequester;
     cancelAtActivation?: "requester" | "inspection";
+    interruptedUpdate?: ManagedServiceBoundaryOptions["interruptedUpdate"];
+    updaterStopped?: ManagedServiceBoundaryOptions["updaterStopped"];
   };
 }) {
   const {
@@ -33,6 +43,8 @@ export async function prepareManagedServiceRuntimeFixture(params: {
     activationGatePath,
     activationReleasePath,
     ledger,
+    root,
+    runId,
     options,
   } = params;
   // Source children run from the helper's durable cwd, outside this checkout.
@@ -48,11 +60,23 @@ export async function prepareManagedServiceRuntimeFixture(params: {
       recoveryModulePath,
       `
       ${ledgerRuntimeImport}
-      export const { adoptUpdateRun, getUpdateRun, recordUpdateRunStep, recordUpdateRunVerification } = ledger;
+      export const { adoptUpdateRun, getUpdateRun, listUpdateRuns, recordUpdateRunStep, recordUpdateRunVerification } = ledger;
       ${options?.replaceLedgerWriter ? 'export function finishUpdateRun() { throw new Error("the previous runtime must not finalize the candidate"); }' : "export const { finishUpdateRun } = ledger;"}
     `,
     );
   }
+  const interrupted =
+    options?.interruptedUpdate && runId
+      ? await prepareInterruptedManagedServiceFixture({
+          root,
+          statePath,
+          recoveryModulePath,
+          ledgerRuntimeImport,
+          runId,
+          cut: options.interruptedUpdate,
+          updaterStopped: options.updaterStopped,
+        })
+      : undefined;
   if (options?.requester) {
     await fs.writeFile(statePath, "{}");
     if (options.requester.authorizationSource?.startsWith("profile:")) {
@@ -63,7 +87,7 @@ export async function prepareManagedServiceRuntimeFixture(params: {
         export const { prepareManagedUpdateRequesterIdentity } = requesterRuntime;
       `,
       );
-      return { sourceRuntimeImport, ledgerRuntimeImport };
+      return { sourceRuntimeImport, ledgerRuntimeImport, interrupted };
     }
     await fs.writeFile(
       configPath,
@@ -93,14 +117,25 @@ export async function prepareManagedServiceRuntimeFixture(params: {
     `,
     );
   }
-  return { sourceRuntimeImport, ledgerRuntimeImport };
+  return { sourceRuntimeImport, ledgerRuntimeImport, interrupted };
 }
 
 export async function prepareManagedServiceSpawn(
   root: string,
   scriptPath: string,
   childEnv: NodeJS.ProcessEnv,
-  options?: Pick<ManagedServiceBoundaryOptions, "beforeParkNotice" | "finalizationWorkMs">,
+  options:
+    | Pick<
+        ManagedServiceBoundaryOptions,
+        "beforeParkNotice" | "finalizationWorkMs" | "recoveryHang" | "triageHang"
+      >
+    | undefined,
+  commandClocks: {
+    recoveryCommandArgv: string[];
+    recoveryTimeoutMs: number;
+    triageCommandArgv: string[];
+    triageInputPath: string;
+  },
 ) {
   let env = childEnv;
   if (options?.finalizationWorkMs !== undefined) {
@@ -119,9 +154,9 @@ export async function prepareManagedServiceSpawn(
       children.spawn = (command, args, options) => {
         const child = spawn(command, args, options);
         try {
-          let payload = JSON.parse(args.at(-1));
-          if (Array.isArray(payload) && payload[0] !== ${JSON.stringify(modulePath)})
-            payload = JSON.parse(payload.at(-1));
+          let input = args.at(-1);
+          if (input.startsWith("[")) input = JSON.parse(input).at(-1);
+          const payload = JSON.parse(fs.readFileSync(input, "utf8"));
           if (Array.isArray(payload) && payload[0] === ${JSON.stringify(modulePath)}) {
             finalizer = child;
             child.once("close", () => { if (finalizer === child) finalizer = undefined; });
@@ -177,8 +212,48 @@ export async function prepareManagedServiceSpawn(
     await fs.writeFile(preloadPath, source);
     env = { ...env, NODE_OPTIONS: `${env.NODE_OPTIONS ?? ""} --require ${preloadPath}`.trim() };
   }
+  if (options?.recoveryHang) {
+    env = await prepareManagedServiceRecoveryClockPreload(
+      {
+        root,
+        scriptPath,
+        statePath: path.join(root, "manager-state.json"),
+        timeoutMs: commandClocks.recoveryTimeoutMs,
+      },
+      commandClocks.recoveryCommandArgv,
+      env,
+    );
+  }
+  if (options?.triageHang) {
+    env = await prepareManagedServiceTriageClockPreload(
+      { root, scriptPath, statePath: path.join(root, "manager-state.json") },
+      commandClocks.triageCommandArgv,
+      commandClocks.triageInputPath,
+      env,
+    );
+  }
   return {
     env,
+    async readCommandDeadlines(): Promise<
+      Pick<ManagedServiceManagerBoundaryResult, "recoveryDeadline" | "triageDeadline">
+    > {
+      return {
+        ...(options?.recoveryHang
+          ? {
+              recoveryDeadline: JSON.parse(
+                await fs.readFile(path.join(root, "recovery-deadline.json"), "utf8"),
+              ),
+            }
+          : {}),
+        ...(options?.triageHang
+          ? {
+              triageDeadline: JSON.parse(
+                await fs.readFile(path.join(root, "triage-deadline.json"), "utf8"),
+              ),
+            }
+          : {}),
+      };
+    },
     releaseNoticeDeadline: async (parentSignal: NodeJS.Signals | null) => {
       expect(parentSignal).toBeNull();
       await expect(
@@ -211,7 +286,7 @@ export async function prepareManagedServiceBoundaryFiles({
     import fs from "node:fs";
     import { createRequire } from "node:module";
     const require = createRequire(import.meta.url);
-    export async function waitForGatewayUpdateRecovery(expectedVersion, expectedBuildId) {
+    export async function waitForGatewayUpdateRecovery(expectedVersion, expectedBuildId, timeoutMs) {
       ${managedServiceStateUpdateScript(
         statePath,
         `
@@ -219,6 +294,7 @@ export async function prepareManagedServiceBoundaryFiles({
       state.healthProbeCount = (state.healthProbeCount || 0) + 1;
       state.expectedVersion = expectedVersion;
       state.expectedBuildId = expectedBuildId;
+      state.recoveryProbeTimeoutMs = timeoutMs;
       `,
       )};
       ${options?.updaterNotification === "consumed" ? consumeNotification : ""}

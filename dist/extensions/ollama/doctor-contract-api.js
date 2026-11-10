@@ -1,12 +1,24 @@
 import { r as asNullableRecord } from "../../record-coerce-TIsquoVR.mjs";
-import "../../runtime-doctor-migrations-4UZBewWQ.mjs";
-import { a as OLLAMA_DEFAULT_API_KEY } from "../../defaults-Dkg1KktH.mjs";
+import "../../runtime-doctor-migrations-BuGkvNDu.mjs";
+import { a as OLLAMA_DEFAULT_API_KEY } from "../../defaults-CDpC0pZy.mjs";
 //#region extensions/ollama/src/config-compat.ts
 const OLLAMA_PROVIDER_ID = "ollama";
 const LEGACY_OLLAMA_API_KEY_MARKER = "OLLAMA_API_KEY";
 const LEGACY_OLLAMA_PROFILE_ID = "ollama:default";
+const providerRenames = [{
+	from: OLLAMA_PROVIDER_ID,
+	to: "ollama-cloud",
+	baseUrl: "https://ollama.com"
+}];
 function isLegacyOllamaLocalConfig(provider, root) {
 	const providerRecord = asNullableRecord(provider);
+	const baseUrl = providerRecord?.baseUrl;
+	if (typeof baseUrl === "string") {
+		if (baseUrl.includes("${")) return false;
+		try {
+			if (new URL(baseUrl).origin === "https://ollama.com") return false;
+		} catch {}
+	}
 	const auth = asNullableRecord(root?.auth);
 	const profiles = asNullableRecord(auth?.profiles);
 	const profile = asNullableRecord(profiles?.[LEGACY_OLLAMA_PROFILE_ID]);
@@ -51,4 +63,4 @@ function normalizeCompatibilityConfig({ cfg }) {
 	};
 }
 //#endregion
-export { legacyConfigRules, normalizeCompatibilityConfig };
+export { legacyConfigRules, normalizeCompatibilityConfig, providerRenames };

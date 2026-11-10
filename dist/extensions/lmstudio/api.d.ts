@@ -1,8 +1,11 @@
-import { S as ModelProviderDeclarationConfig, g as OpenClawConfig } from "../../group-policy-Dw25VUD2.js";
-import { a as ProviderAppGuidedSetupContext, c as SecretInputMode, i as ProviderCatalogResult, n as ProviderRuntimeModel, o as ProviderAuthMethodNonInteractiveContext, p as WizardPrompter, r as ProviderCatalogContext, s as ProviderAuthResult, t as ProviderPrepareDynamicModelContext } from "../../plugin-entry-QAozMft-.js";
-import { A as LMSTUDIO_PROVIDER_LABEL, C as LMSTUDIO_DEFAULT_LOAD_CONTEXT_LENGTH, D as LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER, E as LMSTUDIO_DOCKER_HOST_INFERENCE_BASE_URL, O as LMSTUDIO_MODEL_PLACEHOLDER, S as LMSTUDIO_DEFAULT_INFERENCE_BASE_URL, T as LMSTUDIO_DOCKER_HOST_BASE_URL, _ as resolveLmstudioServerBase, a as resolveLmstudioRuntimeApiKey, b as LMSTUDIO_DEFAULT_BASE_URL, c as buildLmstudioModelName, d as normalizeLmstudioConfiguredCatalogEntries, f as normalizeLmstudioConfiguredCatalogEntry, g as resolveLmstudioReasoningCompat, h as resolveLmstudioReasoningCapability, i as resolveLmstudioRequestContext, k as LMSTUDIO_PROVIDER_ID, l as mapLmstudioWireEntry, m as resolveLmstudioInferenceBase, n as resolveLmstudioConfiguredApiKey, o as LmstudioModelBase, p as normalizeLmstudioProviderConfig, r as resolveLmstudioProviderHeaders, s as LmstudioModelWire, t as buildLmstudioAuthHeaders, u as mapLmstudioWireModelsToConfig, v as resolveLoadedContextWindow, w as LMSTUDIO_DEFAULT_MODEL_ID, x as LMSTUDIO_DEFAULT_EMBEDDING_MODEL, y as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR } from "../../runtime-9Dyo557w.js";
-import "../../provider-model-shared-DyxwAg5_.js";
-import "@openclaw/fs-safe/advanced";
+import { M as OpenClawConfig, U as ModelProviderDeclarationConfig } from "../../types-D7I_F5Ux.js";
+import { Bh as ProviderAppGuidedSetupContext, Nh as ProviderCatalogContext, Ph as ProviderCatalogResult, Uh as ProviderAuthMethodNonInteractiveContext, WT as SecretInputMode, Wh as ProviderAuthResult, ch as ProviderPrepareDynamicModelContext, ik as WizardPrompter } from "../../config-contracts-CY87ANNp.js";
+import "../../provider-auth-ehEGHUKK.js";
+import { g as ProviderRuntimeModel } from "../../model-selection-DoE_lu2k.js";
+import "../../provider-model-shared-uYxY__EE.js";
+import { A as LMSTUDIO_PROVIDER_LABEL, C as LMSTUDIO_DEFAULT_LOAD_CONTEXT_LENGTH, D as LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER, E as LMSTUDIO_DOCKER_HOST_INFERENCE_BASE_URL, O as LMSTUDIO_MODEL_PLACEHOLDER, S as LMSTUDIO_DEFAULT_INFERENCE_BASE_URL, T as LMSTUDIO_DOCKER_HOST_BASE_URL, _ as resolveLmstudioServerBase, a as resolveLmstudioRuntimeApiKey, b as LMSTUDIO_DEFAULT_BASE_URL, c as buildLmstudioModelName, d as normalizeLmstudioConfiguredCatalogEntries, f as normalizeLmstudioConfiguredCatalogEntry, g as resolveLmstudioReasoningCompat, h as resolveLmstudioReasoningCapability, i as resolveLmstudioRequestContext, k as LMSTUDIO_PROVIDER_ID, l as mapLmstudioWireEntry, m as resolveLmstudioInferenceBase, n as resolveLmstudioConfiguredApiKey, o as LmstudioModelBase, p as normalizeLmstudioProviderConfig, r as resolveLmstudioProviderHeaders, s as LmstudioModelWire, t as buildLmstudioAuthHeaders, u as mapLmstudioWireModelsToConfig, v as resolveLoadedContextWindow, w as LMSTUDIO_DEFAULT_MODEL_ID, x as LMSTUDIO_DEFAULT_EMBEDDING_MODEL, y as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR } from "../../runtime-BXt7CKMi.js";
+import "../../setup-BgdlpmI-.js";
+import "../../provider-catalog-shared-uyXHwNom.js";
 //#region extensions/lmstudio/src/setup-prompts.d.ts
 type ProviderPromptText = (params: {
   message: string;
@@ -11,6 +14,15 @@ type ProviderPromptText = (params: {
   validate?: (value: string | undefined) => string | undefined;
 }) => Promise<string | undefined>;
 type ProviderPromptNote = (message: string, title?: string) => Promise<void> | void;
+//#endregion
+//#region extensions/lmstudio/src/catalog.d.ts
+/** Acquires live inventory for the registered catalog; public helper calls stay advisory. */
+export declare function discoverLmstudioProvider(ctx: ProviderCatalogContext): Promise<{
+  provider: ModelProviderDeclarationConfig;
+} | null>;
+export declare function discoverLmstudioProvider(ctx: ProviderCatalogContext, options: {
+  discoveryMode: "strict";
+}): Promise<ProviderCatalogResult>;
 //#endregion
 //#region extensions/lmstudio/src/setup.d.ts
 /** Read-only local discovery plus a success-gated config proposal for guided setup. */
@@ -36,13 +48,6 @@ export declare function promptAndConfigureLmstudioInteractive(params: {
 }): Promise<ProviderAuthResult>;
 /** Non-interactive setup path backed by the shared self-hosted helper. */
 export declare function configureLmstudioNonInteractive(ctx: ProviderAuthMethodNonInteractiveContext): Promise<OpenClawConfig | null>;
-/** Discovers provider settings, merging explicit config with live model discovery. */
-export declare function discoverLmstudioProvider(ctx: ProviderCatalogContext): Promise<{
-  provider: ModelProviderDeclarationConfig;
-} | null>;
-export declare function discoverLmstudioProvider(ctx: ProviderCatalogContext, options: {
-  discoveryMode: "strict";
-}): Promise<ProviderCatalogResult>;
 export declare function prepareLmstudioDynamicModel(ctx: ProviderPrepareDynamicModelContext): Promise<ProviderRuntimeModel | undefined>;
 //#endregion
 export { LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, LMSTUDIO_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_EMBEDDING_MODEL, LMSTUDIO_DEFAULT_INFERENCE_BASE_URL, LMSTUDIO_DEFAULT_LOAD_CONTEXT_LENGTH, LMSTUDIO_DEFAULT_MODEL_ID, LMSTUDIO_DOCKER_HOST_BASE_URL, LMSTUDIO_DOCKER_HOST_INFERENCE_BASE_URL, LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER, LMSTUDIO_MODEL_PLACEHOLDER, LMSTUDIO_PROVIDER_ID, LMSTUDIO_PROVIDER_LABEL, type LmstudioModelBase, type LmstudioModelWire, buildLmstudioAuthHeaders, buildLmstudioModelName, mapLmstudioWireEntry, mapLmstudioWireModelsToConfig, normalizeLmstudioConfiguredCatalogEntries, normalizeLmstudioConfiguredCatalogEntry, normalizeLmstudioProviderConfig, resolveLmstudioConfiguredApiKey, resolveLmstudioInferenceBase, resolveLmstudioProviderHeaders, resolveLmstudioReasoningCapability, resolveLmstudioReasoningCompat, resolveLmstudioRequestContext, resolveLmstudioRuntimeApiKey, resolveLmstudioServerBase, resolveLoadedContextWindow };

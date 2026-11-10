@@ -9,6 +9,34 @@ sidebarTitle: "Config"
 
 Non-interactive helpers for `openclaw.json`: get/set/patch/unset a value by path, print the schema, validate, or print the active file path. Run `openclaw config` with no subcommand to open the same guided wizard as `openclaw configure`.
 
+When a local Gateway owns the state directory, `config set`, `config patch`, and
+`config unset` route the write through that Gateway instead of writing the file
+themselves. The CLI prepares the same change and validation as an offline write,
+then sends it as one `config.patch` guarded by the `hash` from `config.get`, so the
+Gateway stays the only writer and applies the change under its reload policy.
+Output and exit codes match the offline command. With `gateway.reload.mode: "off"`,
+a routed write is saved without a Gateway restart and prints
+`Restart the gateway to apply.`, as an offline write does. Older Gateways, such as
+2026.10.7, still restart to apply such a write. If the config changed in between,
+the Gateway rejects the write; rerun the command. A failure after the request was
+sent is reported as an uncertain outcome and is never retried locally; check the
+path with `openclaw config get` before retrying.
+
+Some changes still need the Gateway stopped: `database.*` settings, which
+select the state database the Gateway holds open, changes a merge patch
+cannot express (for example an authored `null`), and changes the Gateway would
+save differently because it cannot see which paths the command set. The last
+group includes activating an escaped `$${VAR}` literal as a `${VAR}` reference,
+and setting `agents.defaults.authInheritance` or
+`agents.defaults.sessionStore.agentId` in the same command that changes the
+agent roster or `session.store`. Run the owner change as a separate command
+after the roster or store change. Otherwise, stop the Gateway through its
+service owner, wait for it to exit, then rerun the command. When a routed
+`session.store` change clears a copied session-store owner, the CLI reports it
+as the offline command does. `--dry-run` never
+contacts the Gateway. See [Config RPC](/gateway/configuration/config-rpc) for the
+underlying methods.
+
 <Note>
 When `OPENCLAW_CONFIG_READONLY=1` or `OPENCLAW_NIX_MODE=1`, OpenClaw treats `openclaw.json` as immutable. Read-only commands (`config get`, `config file`, `config schema`, `config validate`) still work; config writers refuse.
 </Note>
@@ -97,9 +125,13 @@ openclaw config get agents.entries
 openclaw config set 'agents.entries.work.tools.exec.node' "node-id-or-name"
 ```
 
+For missing containers, dotted numeric segments use the config schema to distinguish
+arrays from maps. Use `[0]` for an explicit array index or `["0"]` for a numeric map
+key. All writes validate the resulting config before saving.
+
 Prefer `agents.entries.<id>` paths for agent edits. The legacy `agents.list[0]`
 syntax and whole-list inputs still work with `set`, `patch`, and `unset`; writes
-persist the canonical keyed roster. Indexed edits use the current roster order.
+persist the current keyed roster. Indexed edits use the current roster order.
 Within a batch, a submitted list keeps its order across subsequent keyed edits,
 including when agent IDs are numeric strings. Existing roster-deletion and
 `$include` ownership protections still apply.
@@ -131,9 +163,14 @@ Reads a value from the redacted config snapshot (secrets never print). `--json` 
 Pass exactly one config path. Extra arguments, including an empty quoted argument (`""`),
 are rejected; they do not suppress validation of later options.
 
-A schema-valid but unset path explains that the runtime default applies; an unknown path suggests
-`openclaw config schema`. With `--json`, both use the standard [CLI JSON failure envelope](/cli#json-failures)
-on stdout and exit with status 1. Without `--json`, diagnostics remain on stderr.
+A schema-valid but unset authorable path explains that the runtime default applies and suggests
+`openclaw config set`. For automatically managed metadata, such as `meta.lastTouchedVersion`,
+`meta.migrations.modelPolicyAllowlist`, and `meta.migrations.utilityModelSeparation`, the message
+instead explains that OpenClaw manages the values on config writes. Reading their unset parent
+paths (`meta` or `meta.migrations`) gives the same explanation, not a refused set command.
+An unknown path suggests `openclaw config schema`. With `--json`, unset and unknown paths use
+the standard [CLI JSON failure envelope](/cli#json-failures) on stdout and exit with status 1.
+Without `--json`, diagnostics remain on stderr.
 
 Nested paths inside open-ended parameter bags, such as `agents.defaults.params.custom.nested`,
 are schema-valid even before they are set. This does not confirm that a provider supports the parameter.
@@ -233,7 +270,7 @@ For structured values that are awkward to quote in your shell, put a config-shap
 
 When a model uses string shorthand, setting its `fallbacks` or a supported tool-model `timeoutMs` preserves that string as `primary`. This also applies to chat `/config set`. Setting `primary` explicitly replaces the primary, and setting the whole model still replaces the whole value.
 
-When a write changes `agents.defaults.model` or a per-agent `agents.entries.*.model`, OpenClaw resolves each changed primary or fallback through the configured catalogs and the selected provider's model resolver before writing. Provider-supported exact `provider/model` pins are accepted even when absent from the curated picker; validation does not replace the selected model. Unknown model references are rejected without changing the active config. Run `openclaw models list` to browse the picker, or check the provider's documentation for an exact model ID. Successful validation does not prove that your account can call the model. [`openclaw models set`](/cli/models#common-commands) is deliberately more permissive for the same setting: it saves a model the local catalog cannot confirm and prints a warning instead of rejecting the write.
+When a write changes `agents.defaults.model` or a per-agent `agents.entries.*.model`, OpenClaw resolves each changed primary or fallback through the configured catalogs and the selected provider's model resolver before writing. Provider-supported exact `provider/model` pins are accepted even when absent from the curated picker; validation does not replace the selected model. Unknown model references are rejected without changing the active config. Refusals for newly authored per-agent references include the entered value and resolver reason; inherited values and environment-expanded details remain redacted. Run `openclaw models list` to browse the picker, or check the provider's documentation for an exact model ID. Successful validation does not prove that your account can call the model. [`openclaw models set`](/cli/models#common-commands) is deliberately more permissive for the same setting: it saves a model the local catalog cannot confirm and prints a warning instead of rejecting the write.
 
 <Note>
 Object assignment replaces the target path by default. Protected paths that commonly hold user-added entries refuse replacements that would remove existing entries unless you pass `--replace`: `agents.defaults.models`, `agents.entries`, `models.providers`, `models.providers.<id>`, `models.providers.<id>.models`, `plugins.entries`, and `auth.profiles`.
@@ -596,6 +633,7 @@ After every successful `config set` / `config patch` / `config unset`, the CLI p
 | `Restart the gateway to apply.`                     | The changed path needs a full restart, or passive reload is disabled. |
 | `Change will apply without restarting the gateway.` | Hot reload picks it up automatically.                                 |
 | `No gateway restart needed.`                        | Nothing runtime-relevant changed.                                     |
+| `The Gateway is restarting to apply it.`            | An older running Gateway accepted the write and scheduled a restart.  |
 
 Plugin entry changes use the same reload planner as other settings. In the default
 `hybrid` mode, ordinary `plugins.entries.<id>` edits replace the affected plugin
@@ -605,6 +643,9 @@ describes expected application; it is not a receipt from a running Gateway.
 See [Config hot reload](/gateway/configuration/hot-reload).
 
 Successful `config set` or `config unset` operations that produce no effective config diff print `No change` and leave the JSON5 file byte-for-byte untouched. A `config unset` target that is absent from the authored config exits with status 1 and also leaves the file untouched. Setting an absent key to a value equal to its runtime default is still an authored change and persists the explicit value.
+
+Model references are normalized before a mutation is saved. Core agent model references do not require plugin discovery; provider catalog model IDs reuse compatible prepared plugin metadata or load their manifest normalization policies on demand.
+Unrelated edits leave provider catalogs unchanged. Catalog writes and changes to plugin discovery or activation policy normalize provider model IDs before saving.
 
 ## Write safety
 

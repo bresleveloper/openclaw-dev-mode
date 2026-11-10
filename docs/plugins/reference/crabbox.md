@@ -20,10 +20,15 @@ Cloud worker provider and lease-backed sandbox backend for the Crabbox CLI.
 ## Surface
 
 - CLI commands: `openclaw crabbox`
-- Contracts: `tools`, `workerProviders`
+- Contracts: `tools`, `workerProfileSuggestions`, `workerProviders`
 - Skills
 
 <!-- openclaw-plugin-reference:manual-start -->
+
+## Model-run timeout
+
+`openclaw crabbox run --timeout <seconds>` requires decimal whole seconds from
+`1` through `86400`. Hexadecimal, binary, octal, and exponent spellings are rejected.
 
 ## Configure
 

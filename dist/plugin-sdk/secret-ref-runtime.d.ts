@@ -1,13 +1,11 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { d as SecretInput, f as SecretRef, i as SecretProviderConfig, o as coerceSecretRef, t as PluginIntegrationSecretProviderConfig } from "../types.secrets-CqlN900w.js";
-import { n as PluginManifestRegistry } from "../manifest-registry-Bj1Q7bnt.js";
-import { a as createResolverContext, d as SecretRefResolveCache, r as applyResolvedAssignments } from "../runtime-shared-BbVsAF3Z.js";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { a as coerceSecretRef, d as SecretRef, i as SecretProviderConfig, t as PluginIntegrationSecretProviderConfig, u as SecretInput } from "../types.secrets-BcsEzH0R.js";
+import { n as PluginManifestRegistry } from "../manifest-registry-DcAsDGQ5.js";
+import { a as createResolverContext, d as SecretRefResolveCache, r as applyResolvedAssignments } from "../runtime-shared-D9SQnawJ.js";
 //#region src/secrets/plan.d.ts
-/** Registry target id accepted by a secrets apply plan. */
-type SecretsPlanTargetType = string;
 /** One planned SecretRef mutation against config or auth-profile storage. */
 type SecretsPlanTarget = {
-  type: SecretsPlanTargetType;
+  type: string;
   /**
    * Dot path in the target config surface for operator readability.
    * Examples:

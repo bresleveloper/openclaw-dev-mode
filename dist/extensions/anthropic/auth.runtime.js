@@ -1,20 +1,43 @@
-import { D as resolveExpiresAtMsFromDurationMs } from "../../number-coercion-CuVhdCBs.mjs";
-import { t as formatCliCommand } from "../../command-format-DwEdrDKL.mjs";
-import { t as parseDurationMs } from "../../parse-duration-C4JaJvt9.mjs";
-import { f as listProfilesForProvider } from "../../order-B7W96aON.mjs";
-import { n as suggestOAuthProfileIdForLegacyDefault } from "../../repair-CkThvU-e.mjs";
-import "../../number-runtime-CgyXj1A5.mjs";
-import { t as applyAuthProfileConfig } from "../../provider-auth-helpers-CDvD9QW2.mjs";
-import "../../cli-runtime-DRAjv9MR.mjs";
-import "../../provider-auth-BGYKg9mW.mjs";
-import { i as upsertAuthProfileWithLockOrThrowCompat } from "../../provider-auth-write-compat-Bwk0aAVb.mjs";
-import { n as validateAnthropicSetupToken, t as buildTokenProfileId } from "../../provider-auth-token-Bn7OhxfC.mjs";
-import "../../provider-auth-api-key-BUmPr6lI.mjs";
-import { t as probeClaudeCliAuthStatus } from "../../cli-auth-seam-D_p5Ffc_.mjs";
-import { t as buildAnthropicCliMigrationResult } from "../../cli-migration-C7v_HE-u.mjs";
+import { D as resolveExpiresAtMsFromDurationMs } from "../../number-coercion-CkhMiRw8.mjs";
+import { t as formatCliCommand } from "../../command-format-CYoE8cOC.mjs";
+import { t as parseDurationMs } from "../../parse-duration-B7MSnEK8.mjs";
+import { f as listProfilesForProvider } from "../../order-CElLtwMu.mjs";
+import { n as suggestOAuthProfileIdForLegacyDefault } from "../../repair-WSbxspnm.mjs";
+import "../../number-runtime-D3v2w3D4.mjs";
+import { t as applyAuthProfileConfig } from "../../provider-auth-helpers-olPFvVdo.mjs";
+import "../../cli-runtime-DAonhbWy.mjs";
+import "../../provider-auth-JCvgbsWg.mjs";
+import { i as upsertAuthProfileWithLockOrThrowCompat } from "../../provider-auth-write-compat-OjysXMOc.mjs";
+import { n as validateAnthropicSetupToken, t as buildTokenProfileId } from "../../provider-auth-token-Bw-5VAtG.mjs";
+import "../../provider-auth-api-key-CX1PLM3g.mjs";
+import { t as probeClaudeCliAuthStatus } from "../../cli-auth-seam-D_qDTt5a.mjs";
+import { t as buildAnthropicCliMigrationResult } from "../../cli-migration-DpNIiqPT.mjs";
 //#region extensions/anthropic/auth.runtime.ts
 /** Auth execution stays deferred until a setup or doctor hook is invoked. */
 const PROVIDER_ID = "anthropic";
+/** Collect provider account scope separately from the agent's filesystem workspace. */
+async function runAnthropicApiKeyAuth(ctx, runApiKeyAuth) {
+	const result = await runApiKeyAuth(ctx);
+	const provider = ctx.config.models?.providers?.[PROVIDER_ID];
+	if ([provider?.headers, provider?.request?.headers].some((headers) => Object.entries(headers ?? {}).some(([name, value]) => name.toLowerCase() === "anthropic-workspace-id" && (typeof value !== "string" || value.trim().length > 0)))) return result;
+	await ctx.prompter.note("API keys that are not scoped to a workspace require an Anthropic workspace ID from the Claude Console. This provider setting applies to all Anthropic API requests, not an agent's local workspace. Leave it blank for a workspace-scoped key.", "Anthropic API workspace");
+	const workspaceId = (await ctx.prompter.text({
+		message: "Anthropic workspace ID (optional for workspace-scoped keys)",
+		placeholder: "wrkspc_..."
+	})).trim();
+	return workspaceId ? {
+		...result,
+		configPatch: { models: { providers: { anthropic: {
+			baseUrl: "https://api.anthropic.com",
+			models: [],
+			...provider,
+			headers: {
+				...provider?.headers,
+				"anthropic-workspace-id": workspaceId
+			}
+		} } } }
+	} : result;
+}
 const ANTHROPIC_SETUP_TOKEN_NOTE_LINES = [
 	"Anthropic setup-token auth is supported in OpenClaw.",
 	"OpenClaw prefers the native Claude CLI runtime when it is available on the host.",
@@ -24,7 +47,7 @@ const ANTHROPIC_SETUP_TOKEN_NOTE_LINES = [
 function normalizeAnthropicSetupTokenInput(value) {
 	return value.replaceAll(/\s+/g, "");
 }
-function resolveAnthropicSetupTokenProfileId(rawProfileId) {
+function resolveAnthropicSetupTokenProfileId(config = {}, rawProfileId) {
 	if (typeof rawProfileId === "string") {
 		const trimmed = rawProfileId.trim();
 		if (trimmed.length > 0) {
@@ -35,7 +58,15 @@ function resolveAnthropicSetupTokenProfileId(rawProfileId) {
 			});
 		}
 	}
-	return `${PROVIDER_ID}:default`;
+	let profileId = `${PROVIDER_ID}:default`;
+	for (let suffix = 1;; suffix += 1) {
+		const configured = config.auth?.profiles?.[profileId];
+		if (!configured || configured.provider === PROVIDER_ID && (configured.mode === "token" || configured.mode === "oauth")) return profileId;
+		profileId = buildTokenProfileId({
+			provider: PROVIDER_ID,
+			name: suffix === 1 ? "setup-token" : `setup-token-${suffix}`
+		});
+	}
 }
 function resolveAnthropicSetupTokenExpiry(rawExpiresIn) {
 	if (typeof rawExpiresIn !== "string" || rawExpiresIn.trim().length === 0) return;
@@ -48,7 +79,7 @@ async function runAnthropicSetupTokenAuth(ctx, defaultModel) {
 	}));
 	const tokenError = validateAnthropicSetupToken(token);
 	if (tokenError) throw new Error(tokenError);
-	const profileId = resolveAnthropicSetupTokenProfileId(ctx.opts?.tokenProfileId);
+	const profileId = resolveAnthropicSetupTokenProfileId(ctx.config, ctx.opts?.tokenProfileId);
 	const expires = resolveAnthropicSetupTokenExpiry(ctx.opts?.tokenExpiresIn);
 	return {
 		profiles: [{
@@ -65,31 +96,20 @@ async function runAnthropicSetupTokenAuth(ctx, defaultModel) {
 	};
 }
 function validateAnthropicSetupTokenNonInteractive(ctx) {
-	if (ctx.opts.secretInputMode === "ref") {
-		ctx.runtime.error("Anthropic setup-token input cannot be stored with --secret-input-mode ref. Use --secret-input-mode plaintext.");
-		ctx.runtime.exit(1);
-		return null;
-	}
+	if (ctx.opts.secretInputMode === "ref") throw new Error("Anthropic setup-token input cannot be stored with --secret-input-mode ref. Use --secret-input-mode plaintext.");
 	const rawToken = typeof ctx.opts.token === "string" ? normalizeAnthropicSetupTokenInput(ctx.opts.token) : "";
 	const tokenError = validateAnthropicSetupToken(rawToken);
-	if (tokenError) {
-		ctx.runtime.error(["Anthropic setup-token auth requires --token with a valid setup-token.", tokenError].join("\n"));
-		ctx.runtime.exit(1);
-		return null;
-	}
+	if (tokenError) throw new Error(["Anthropic setup-token auth requires --token with a valid setup-token.", tokenError].join("\n"));
 	try {
 		resolveAnthropicSetupTokenExpiry(ctx.opts.tokenExpiresIn);
 	} catch (error) {
-		ctx.runtime.error(`Invalid --token-expires-in: ${error instanceof Error ? error.message : String(error)}`);
-		ctx.runtime.exit(1);
-		return null;
+		throw new Error(`Invalid --token-expires-in: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
 	}
 	return rawToken;
 }
 async function runAnthropicSetupTokenNonInteractive(ctx, defaultModel) {
 	const rawToken = validateAnthropicSetupTokenNonInteractive(ctx);
-	if (!rawToken) return null;
-	const profileId = resolveAnthropicSetupTokenProfileId(ctx.opts.tokenProfileId);
+	const profileId = resolveAnthropicSetupTokenProfileId(ctx.config, ctx.opts.tokenProfileId);
 	const expires = resolveAnthropicSetupTokenExpiry(ctx.opts.tokenExpiresIn);
 	await upsertAuthProfileWithLockOrThrowCompat({
 		profileId,
@@ -106,7 +126,7 @@ async function runAnthropicSetupTokenNonInteractive(ctx, defaultModel) {
 	const withProfile = applyAuthProfileConfig(ctx.config, {
 		profileId,
 		provider: PROVIDER_ID,
-		mode: "token"
+		mode: ctx.config.auth?.profiles?.[profileId]?.mode === "oauth" ? "oauth" : "token"
 	});
 	const existingModelConfig = withProfile.agents?.defaults?.model && typeof withProfile.agents.defaults.model === "object" ? withProfile.agents.defaults.model : {};
 	return {
@@ -145,18 +165,15 @@ function buildAnthropicAuthDoctorHint(params) {
 	].join("\n");
 }
 async function runAnthropicCliMigration(ctx) {
-	if ((await probeClaudeCliAuthStatus({ env: ctx.env ?? process.env })).status !== "available") throw new Error(["Claude CLI is not authenticated on this host.", `Run ${formatCliCommand("claude auth login")} first, then re-run this setup.`].join("\n"));
+	const authStatus = await probeClaudeCliAuthStatus({ env: ctx.env ?? process.env });
+	if (authStatus.status !== "available") {
+		const error = authStatus.status === "missing" ? ["Claude CLI is not authenticated on this host.", `Run ${formatCliCommand("claude auth login")} first, then re-run this setup.`] : authStatus.status === "not-installed" ? ["Claude CLI (`claude`) was not found on PATH.", `Install Claude Code or add it to PATH, run ${formatCliCommand("claude auth login")}, then re-run this setup.`] : [authStatus.status === "timeout" ? `Could not verify the installed Claude CLI login within ${authStatus.timeoutMs / 1e3} s.` : "Could not verify the installed Claude CLI login.", `Run ${formatCliCommand("claude auth status --json")}, then retry this setup.`];
+		throw new Error(error.join("\n"));
+	}
 	return buildAnthropicCliMigrationResult(ctx.config);
 }
 async function runAnthropicCliMigrationNonInteractive(ctx) {
-	const authStatus = await probeClaudeCliAuthStatus();
-	if (authStatus.status !== "available") {
-		const error = authStatus.status === "unreadable" ? ["Auth choice \"anthropic-cli\" could not verify the installed Claude CLI login.", `Run ${formatCliCommand("claude auth status")}, then retry.`] : ["Auth choice \"anthropic-cli\" requires Claude CLI auth on this host.", `Run ${formatCliCommand("claude auth login")} first.`];
-		ctx.runtime.error(error.join("\n"));
-		ctx.runtime.exit(1);
-		return null;
-	}
-	const result = buildAnthropicCliMigrationResult(ctx.config);
+	const result = await runAnthropicCliMigration(ctx);
 	const currentDefaults = ctx.config.agents?.defaults;
 	const currentModel = currentDefaults?.model;
 	const currentFallbacks = currentModel && typeof currentModel === "object" && "fallbacks" in currentModel ? currentModel.fallbacks : void 0;
@@ -181,4 +198,4 @@ async function runAnthropicCliMigrationNonInteractive(ctx) {
 	};
 }
 //#endregion
-export { buildAnthropicAuthDoctorHint, runAnthropicCliMigration, runAnthropicCliMigrationNonInteractive, runAnthropicSetupTokenAuth, runAnthropicSetupTokenNonInteractive, validateAnthropicSetupTokenNonInteractive };
+export { buildAnthropicAuthDoctorHint, runAnthropicApiKeyAuth, runAnthropicCliMigration, runAnthropicCliMigrationNonInteractive, runAnthropicSetupTokenAuth, runAnthropicSetupTokenNonInteractive, validateAnthropicSetupTokenNonInteractive };

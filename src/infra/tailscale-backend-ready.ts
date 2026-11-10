@@ -1,6 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { asNullableObjectRecord as readRecord } from "@openclaw/normalization-core/record-coerce";
 import { runExec } from "../process/exec.js";
+import { TailscaleBackendStoppedError } from "./tailscale-backend-stopped-error.js";
 
 const TAILSCALE_BACKEND_READY_WAIT_MS = 90_000;
 const TAILSCALE_BACKEND_READY_POLL_MS = 2_000;
@@ -40,7 +41,8 @@ export function isTransientTailscaleStatusError(error: unknown): boolean {
 
 /**
  * Wait, bounded, while the local daemon is still booting (`NoState`/`Starting`, or not yet
- * accepting connections). Any other state, an unreadable status, or the deadline returns
+ * accepting connections). A stopped daemon throws a typed prerequisite failure. Other
+ * states, an unreadable status, or the deadline return
  * immediately so the route claim itself reports the authoritative error.
  */
 export async function waitForTailscaleBackendReady(params: {
@@ -62,18 +64,24 @@ export async function waitForTailscaleBackendReady(params: {
     try {
       const { stdout } = await exec(params.bin, [...(params.prefix ?? []), "status", "--json"], {
         timeoutMs: 5000,
-        maxBuffer: 400_000,
+        maxBuffer: 16 * 1024 * 1024,
         logOutput: false,
         signal: params.signal,
       });
       const parsed = stdout ? parsePossiblyNoisyJsonObject(stdout) : {};
       const state = typeof parsed.BackendState === "string" ? parsed.BackendState : undefined;
+      if (state === "Stopped") {
+        throw new TailscaleBackendStoppedError();
+      }
       if (state === undefined || !TAILSCALE_BOOTING_BACKEND_STATES.has(state)) {
         return;
       }
       pending = state;
     } catch (error) {
       params.signal?.throwIfAborted();
+      if (error instanceof TailscaleBackendStoppedError) {
+        throw error;
+      }
       if (!isTransientTailscaleStatusError(error)) {
         return;
       }

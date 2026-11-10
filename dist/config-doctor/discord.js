@@ -1,16 +1,15 @@
-import { a as defineChannelAliasMigration, b as hasLegacyAccountStreamingAliases, k as asNullableRecord, o as stripRetiredChannelKeys, x as normalizeChannelAccounts } from "./runtime-doctor-migrations-BhouWAUC.js";
-import "./src-BRYbjtIr.js";
-function realtimeVoiceActivationNameWordCount(value) {
-	return Array.from(value.matchAll(/[a-z0-9]+/gi)).length;
-}
+import { P as asNullableRecord, T as normalizeChannelAccounts, a as defineChannelAliasMigration, o as stripRetiredChannelKeys, w as hasLegacyAccountStreamingAliases } from "./runtime-doctor-migrations-Bq3PkBbD.js";
+import "./src-RA80L32l.js";
+//#region src/talk/activation-name.ts
+const REALTIME_VOICE_ACTIVATION_NAME_MAX_WORDS = 2;
 /** Extract the supported leading activation-name prefix from a longer phrase. */
-function normalizeRealtimeVoiceActivationNamePrefix(value, maxWords = 2) {
+function normalizeRealtimeVoiceActivationNamePrefix(value, maxWords = REALTIME_VOICE_ACTIVATION_NAME_MAX_WORDS) {
 	const words = Array.from(value.matchAll(/[a-z0-9]+/gi), (match) => match[0]);
 	if (words.length === 0) return;
 	return words.slice(0, maxWords).join(" ");
 }
-function isSupportedRealtimeVoiceActivationName(value, maxWords = 2) {
-	const wordCount = realtimeVoiceActivationNameWordCount(value);
+function isSupportedRealtimeVoiceActivationName(value, maxWords = REALTIME_VOICE_ACTIVATION_NAME_MAX_WORDS) {
+	const wordCount = Array.from(value.matchAll(/[a-z0-9]+/gi)).length;
 	return wordCount >= 1 && wordCount <= maxWords;
 }
 //#endregion
@@ -25,7 +24,7 @@ const RETIRED_TUNING_KEYS = /* @__PURE__ */ new Set([
 const streamingAliasMigration = defineChannelAliasMigration({
 	channelId: "discord",
 	streaming: {
-		defaultMode: "off",
+		defaultMode: "progress",
 		includePreviewChunk: true
 	},
 	accountStreamingReplacesRoot: true,
@@ -34,13 +33,10 @@ const streamingAliasMigration = defineChannelAliasMigration({
 		accounts: true
 	}
 });
-function hasUnsupportedRealtimeWakeNamesInVoice(value) {
-	const voice = asNullableRecord(value);
+function hasUnsupportedDiscordRealtimeWakeNames(value) {
+	const voice = asNullableRecord(asNullableRecord(value)?.voice);
 	const wakeNames = asNullableRecord(voice?.realtime)?.wakeNames;
 	return Array.isArray(wakeNames) ? wakeNames.length === 0 || wakeNames.some((wakeName) => typeof wakeName === "string" && !isSupportedRealtimeVoiceActivationName(wakeName)) : false;
-}
-function hasUnsupportedDiscordRealtimeWakeNames(value) {
-	return hasUnsupportedRealtimeWakeNamesInVoice(asNullableRecord(value)?.voice);
 }
 function normalizeUnsupportedRealtimeWakeNames(entry, pathPrefix, changes) {
 	const voice = asNullableRecord(entry.voice);
@@ -118,21 +114,15 @@ function normalizeCompatibilityConfig({ cfg }) {
 		config: cfg,
 		changes: []
 	};
-	let updated = rawEntry;
-	let changed = tuningKnobs.config !== cfg;
 	if (tuningKnobs.changed) changes.push("Removed retired Discord tuning knobs.");
 	const accounts = normalizeChannelAccounts({
-		entry: updated,
+		entry: rawEntry,
 		pathPrefix: "channels.discord",
 		changes,
 		normalizeAccount: ({ account, pathPrefix, changes: accountChanges }) => normalizeUnsupportedRealtimeWakeNames(account, pathPrefix, accountChanges)
 	});
-	updated = accounts.entry;
-	changed = changed || accounts.changed;
-	const normalizedWakeNames = normalizeUnsupportedRealtimeWakeNames(updated, "channels.discord", changes);
-	updated = normalizedWakeNames.entry;
-	changed = changed || normalizedWakeNames.changed;
-	if (!changed) return {
+	const normalizedWakeNames = normalizeUnsupportedRealtimeWakeNames(accounts.entry, "channels.discord", changes);
+	if (tuningKnobs.config === cfg && !accounts.changed && !normalizedWakeNames.changed) return {
 		config: cfg,
 		changes: []
 	};
@@ -141,7 +131,7 @@ function normalizeCompatibilityConfig({ cfg }) {
 			...tuningKnobs.config,
 			channels: {
 				...tuningKnobs.config.channels,
-				discord: updated
+				discord: normalizedWakeNames.entry
 			}
 		},
 		changes

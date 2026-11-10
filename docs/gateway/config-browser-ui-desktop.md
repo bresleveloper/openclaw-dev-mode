@@ -158,7 +158,7 @@ Agent display names, emoji, and avatars belong to each agent's `identity` block 
   the theme default applies. `prefs.accent` also accepts `"theme"` to explicitly
   select the Control UI theme palette without inheriting `seamColor`; `talk.config`
   omits its hex-only accent in that case.
-- `prefs`: cross-device operator preferences. This is the canonical home so agents can
+- `prefs`: cross-device operator preferences. This is the shared home so agents can
   change them through the approval gate and every Control UI client stays in
   sync; browsers mirror the values into local storage for instant boot. An
   explicitly read-only connection keeps edits in that browser without attempting
@@ -190,7 +190,10 @@ Desktop without restarting the Gateway; the desktop becomes available on the
 same connection. Gateway administrator access is required. Detection does not
 expose the desktop or change system permissions. Existing managed Linux desktops
 can be enabled from the same view. **Settings → Labs → Host Desktop** remains
-available to turn access off or manage it separately.
+available to turn access off or manage it separately. When a chat session's
+Desktop panel targets the Gateway host and Host Desktop is off, the panel shows
+the same check, setup steps, and enable action, then re-checks and connects once
+Host Desktop is available.
 
 Enabling macOS Screen Sharing, a paired node's Desktop sharing, or screenshot
 capture alone does not enable the Gateway's desktop. On macOS, Remote Management

@@ -1,2 +1,2 @@
-import { p as requestSessionEventWake } from "../heartbeat-wake-ba6LAy2M.mjs";
+import { p as requestSessionEventWake } from "../heartbeat-wake-do575_JN.mjs";
 export { requestSessionEventWake as requestHeartbeat };

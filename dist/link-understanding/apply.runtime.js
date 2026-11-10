@@ -1,20 +1,19 @@
-import { d as normalizeStringEntries } from "../string-normalization-CECOqf64.mjs";
-import { i as createAbortError } from "../src-D1BHGNTj.mjs";
-import { t as isAbortError } from "../abort-signal-QqAmLWTl.mjs";
-import { i as runCommandWithTimeout } from "../exec-DJvyCA0D.mjs";
-import { i as readResponseWithLimit, t as cancelUnreadResponseBody } from "../http-response-body-umfRGZ-E.mjs";
-import "../http-body-CgfQBa7S.mjs";
-import { o as isBlockedHostnameOrIp } from "../ssrf-v45DW-yR.mjs";
-import { i as fetchWithSsrFGuard, t as GUARDED_FETCH_MODE } from "../fetch-guard-DI6biu8d.mjs";
-import { i as logVerbose, o as shouldLogVerbose } from "../globals-BXbZ1A_g.mjs";
+import { d as normalizeStringEntries } from "../string-normalization-D6DKCpwE.mjs";
+import { i as createAbortError } from "../src-Bzfi3cQM.mjs";
+import { t as isAbortError } from "../abort-signal-C9DFO3n5.mjs";
+import { t as fromMarkdown } from "../lib-BdF0Xu6y.mjs";
+import { i as runCommandWithTimeout } from "../exec-Bf6uhUA7.mjs";
+import "../http-body-DZQjJc2J.mjs";
+import { i as readResponseWithLimit, t as cancelUnreadResponseBody } from "../http-response-body-B70cE6fn.mjs";
+import { i as logVerbose, o as shouldLogVerbose } from "../globals-XVSoVbNQ.mjs";
+import { o as isBlockedHostnameOrIp } from "../ssrf-K50Tjeok.mjs";
+import { i as fetchWithSsrFGuard, t as GUARDED_FETCH_MODE } from "../fetch-guard-DRapCKeS.mjs";
 import { t as CLI_OUTPUT_MAX_BUFFER } from "../defaults.constants-Cof2g8lZ.mjs";
-import { c as resolveTimeoutMs, s as resolveScopeDecision } from "../resolve-EGBbRe3L.mjs";
-import { t as fromMarkdown } from "../lib-WLZTziNZ.mjs";
-import { t as finalizeInboundContext } from "../inbound-context-jAt0CAb-.mjs";
-import { t as applyTemplate } from "../templating-CdR59CXd.mjs";
-import "../defaults-B4lxmCMh.mjs";
+import { c as resolveTimeoutMs, s as resolveScopeDecision } from "../resolve-t14Gdp_w.mjs";
+import { t as finalizeInboundContext } from "../inbound-context-DnPzLOsP.mjs";
+import { t as applyTemplate } from "../templating-BukYhKrX.mjs";
+import "../defaults-TPdh4DnW.mjs";
 //#region src/link-understanding/format.ts
-/** Appends normalized link-understanding outputs to the agent-visible body. */
 function formatLinkUnderstandingBody(params) {
 	const outputs = normalizeStringEntries(params.outputs);
 	if (outputs.length === 0) return params.body ?? "";
@@ -59,14 +58,8 @@ function resolveMaxLinks(value) {
 	return 3;
 }
 function isAllowedUrl(raw) {
-	try {
-		const parsed = new URL(raw);
-		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
-		if (isBlockedHostnameOrIp(parsed.hostname)) return false;
-		return true;
-	} catch {
-		return false;
-	}
+	const parsed = URL.parse(raw);
+	return Boolean(parsed && (parsed.protocol === "http:" || parsed.protocol === "https:") && !isBlockedHostnameOrIp(parsed.hostname));
 }
 /**
 * Extracts unique, SSRF-filtered bare HTTP(S) links from inbound text.
@@ -92,17 +85,6 @@ function extractLinksFromMessage(message, opts) {
 }
 //#endregion
 //#region src/link-understanding/runner.ts
-function resolveTimeoutMsFromConfig(params) {
-	const configured = params.entry.timeoutSeconds ?? params.config?.timeoutSeconds;
-	return resolveTimeoutMs(configured, 30);
-}
-function resolveFetchTimeoutMsFromConfig(params) {
-	if (params.config?.timeoutSeconds != null) return resolveTimeoutMs(params.config.timeoutSeconds, 30);
-	return Math.max(...params.entries.map((entry) => resolveTimeoutMsFromConfig({
-		config: params.config,
-		entry
-	})));
-}
 function isLinkUrlTemplate(value) {
 	return value.includes("LinkUrl") || value.includes("LinkFinalUrl");
 }
@@ -134,53 +116,6 @@ async function fetchLinkContent(params) {
 		await release();
 	}
 }
-async function runCliEntry(params) {
-	if ((params.entry.type ?? "cli") !== "cli") return null;
-	const command = params.entry.command.trim();
-	if (!command) return null;
-	const args = params.entry.args ?? [];
-	const timeoutMs = resolveTimeoutMsFromConfig({
-		config: params.config,
-		entry: params.entry
-	});
-	const name = (command.split(/[\\/]/).pop() ?? command).toLowerCase();
-	if ((name === "curl" || name === "wget") && args.some(isLinkUrlTemplate)) return params.content;
-	const templCtx = { ...params.ctx };
-	const argv = [command, ...args.filter((arg) => !isLinkUrlTemplate(arg)).map((arg) => applyTemplate(arg, templCtx))];
-	if (shouldLogVerbose()) logVerbose(`Link understanding via CLI: ${argv.join(" ")}`);
-	const result = await runCommandWithTimeout(argv, {
-		timeoutMs,
-		input: params.content,
-		signal: params.signal,
-		killProcessTree: true,
-		env: {
-			OPENCLAW_LINK_FINAL_URL: params.finalUrl,
-			OPENCLAW_LINK_URL: params.url
-		}
-	});
-	if (params.signal?.aborted) throw createAbortError("Link understanding command aborted", { cause: params.signal.reason });
-	if (result.code !== 0) throw new Error(`Link understanding command exited with code ${result.code ?? "unknown"}`);
-	return result.stdout.trim() || null;
-}
-async function runLinkEntries(params) {
-	let lastError;
-	for (const entry of params.entries) {
-		if (params.signal?.aborted) break;
-		try {
-			const output = await runCliEntry({
-				...params,
-				entry
-			});
-			if (output) return output;
-		} catch (err) {
-			if (isAbortError(err)) throw err;
-			lastError = err;
-			if (shouldLogVerbose()) logVerbose(`Link understanding failed for ${params.url}: ${String(err)}`);
-		}
-	}
-	if (lastError && shouldLogVerbose()) logVerbose(`Link understanding exhausted for ${params.url}`);
-	return null;
-}
 /**
 * Fetches detected links through the SSRF guard and runs configured CLI processors.
 */
@@ -199,10 +134,7 @@ async function runLinkUnderstanding(params) {
 	const entries = config?.models ?? [];
 	if (entries.length === 0) return [];
 	const outputs = [];
-	const timeoutMs = resolveFetchTimeoutMsFromConfig({
-		config,
-		entries
-	});
+	const timeoutMs = config.timeoutSeconds != null ? resolveTimeoutMs(config.timeoutSeconds, 30) : Math.max(...entries.map((entry) => resolveTimeoutMs(entry.timeoutSeconds, 30)));
 	for (const url of links) {
 		if (params.signal?.aborted) break;
 		let fetched;
@@ -219,23 +151,51 @@ async function runLinkUnderstanding(params) {
 			continue;
 		}
 		if (!fetched) continue;
-		const output = await runLinkEntries({
-			content: fetched.content,
-			entries,
-			finalUrl: fetched.finalUrl,
-			ctx: params.ctx,
-			url,
-			config,
-			signal: params.signal
-		}) ?? fetched.content;
+		let output;
+		let lastError;
+		for (const entry of entries) {
+			if (params.signal?.aborted) break;
+			try {
+				if ((entry.type ?? "cli") !== "cli") continue;
+				const command = entry.command.trim();
+				if (!command) continue;
+				const args = entry.args ?? [];
+				const name = (command.split(/[\\/]/).pop() ?? command).toLowerCase();
+				if ((name === "curl" || name === "wget") && args.some(isLinkUrlTemplate)) {
+					output = fetched.content;
+					break;
+				}
+				const templCtx = { ...params.ctx };
+				const argv = [command, ...args.filter((arg) => !isLinkUrlTemplate(arg)).map((arg) => applyTemplate(arg, templCtx))];
+				if (shouldLogVerbose()) logVerbose(`Link understanding via CLI: ${argv.join(" ")}`);
+				const result = await runCommandWithTimeout(argv, {
+					timeoutMs: resolveTimeoutMs(entry.timeoutSeconds ?? config.timeoutSeconds, 30),
+					input: fetched.content,
+					signal: params.signal,
+					killProcessTree: true,
+					env: {
+						OPENCLAW_LINK_FINAL_URL: fetched.finalUrl,
+						OPENCLAW_LINK_URL: url
+					}
+				});
+				if (params.signal?.aborted) throw createAbortError("Link understanding command aborted", { cause: params.signal.reason });
+				if (result.code !== 0) throw new Error(`Link understanding command exited with code ${result.code ?? "unknown"}`);
+				output = result.stdout.trim();
+				if (output) break;
+			} catch (err) {
+				if (isAbortError(err)) throw err;
+				lastError = err;
+				if (shouldLogVerbose()) logVerbose(`Link understanding failed for ${url}: ${String(err)}`);
+			}
+		}
+		if (!output && lastError && shouldLogVerbose()) logVerbose(`Link understanding exhausted for ${url}`);
 		if (params.signal?.aborted) break;
-		if (output) outputs.push(output);
+		outputs.push(output || fetched.content);
 	}
 	return outputs;
 }
 //#endregion
 //#region src/link-understanding/apply.ts
-/** Runs link understanding and folds successful outputs into the inbound context. */
 async function applyLinkUnderstanding(params) {
 	const outputs = await runLinkUnderstanding({
 		cfg: params.cfg,

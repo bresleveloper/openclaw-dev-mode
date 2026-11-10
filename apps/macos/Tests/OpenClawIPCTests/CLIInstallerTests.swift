@@ -6,6 +6,54 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct CLIInstallerTests {
+    @Test(arguments: [
+        (#"{"status":"ok","warnings":["Plugin repair remains pending"]}"#, 0, true),
+        (
+            #"{"status":"advisory","advisory":{"kind":"package-post-install-doctor","reason":"deferred-configured-plugin-repair","message":"Deferred","details":["Plugin repair remains pending"]}}"#,
+            86,
+            true),
+        (
+            #"{"status":"error","failureFacts":[{"check":"openclaw doctor","code":"required-migration","message":"Required migration failed"}]}"#,
+            1,
+            false),
+        (#"{"status":"ok","maintenanceRefusal":{"kind":"deferred","reason":"agent-database-in-use"}}"#, 0, false),
+        (
+            #"{"status":"ok","configWriteRefusal":{"reason":"authority-changed","message":"Required write refused","keys":["plugins"]}}"#,
+            0,
+            false),
+        (
+            #"{"status":"ok","failureFacts":[{"check":"doctor","code":"required-migration","message":"Required migration failed"}]}"#,
+            0,
+            false),
+        (#"{"status":"ok"}"#, 1, false),
+        (#"{"status":"advisory"}"#, 86, false),
+        ("invalid JSON", 0, false),
+    ])
+    func `bundled repair consumes classified Doctor outcomes after child settlement`(
+        payload: String, exitCode: Int, succeeds: Bool) throws
+    {
+        let response = ShellExecutor.ShellResult(
+            stdout: "Human inspection output\nOPENCLAW_UPDATE_POST_INSTALL_DOCTOR_RESULT_PATH=\(payload)\nDoctor complete.\n",
+            stderr: "", exitCode: exitCode, timedOut: false, success: exitCode == 0,
+            errorMessage: exitCode == 0 ? nil : "exit \(exitCode)", preflightError: nil)
+        if succeeds {
+            #expect(try CLIInstaller.bundledDoctorDiagnostics(response).contains("Plugin repair remains pending"))
+        } else {
+            #expect(throws: (any Error).self) { try CLIInstaller.bundledDoctorDiagnostics(response) }
+        }
+        var unsettled = response
+        unsettled.exitCode = nil
+        unsettled.timedOut = true
+        #expect(throws: CLIInstaller.DoctorProcessesUnsettled.self) {
+            try CLIInstaller.bundledDoctorDiagnostics(unsettled)
+        }
+        var missing = response
+        missing.stdout = payload
+        #expect(throws: CLIInstaller.DoctorProcessesUnsettled.self) {
+            try CLIInstaller.bundledDoctorDiagnostics(missing)
+        }
+    }
+
     @Test func `managed install locations follow the app profile`() {
         let home = URL(fileURLWithPath: "/Users/Test User", isDirectory: true)
         let cases = [
@@ -248,7 +296,7 @@ struct CLIInstallerTests {
         try FileManager().setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
         let config = root.appendingPathComponent("openclaw.json")
         try "{}".write(to: config, atomically: false, encoding: .utf8)
-        await TestIsolation.withIsolatedState(
+        try await TestIsolation.withIsolatedState(
             env: ["OPENCLAW_STATE_DIR": root.path, "OPENCLAW_CONFIG_PATH": config.path],
             defaults: [cliInstallPolicyKey: "exact"])
         {
@@ -462,7 +510,7 @@ struct CLIInstallerTests {
             to: executable,
             atomically: true,
             encoding: .utf8)
-        try "#!/bin/sh\necho 'v24.16.0'\n".write(
+        try "#!/bin/sh\necho 'v24.22.1'\n".write(
             to: node,
             atomically: true,
             encoding: .utf8)

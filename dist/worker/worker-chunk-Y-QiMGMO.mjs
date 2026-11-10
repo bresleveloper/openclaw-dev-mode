@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{d as t,o as n}from"./worker-chunk-BJhMPhbR.mjs";import{a as r,i,r as a}from"./worker-chunk-DYMDctuR.mjs";function resolveGitHubHost(){return r(n())}function resolveGitHubApiBaseUrl(){return i(n())}var o=e((()=>{t(),a()}));export{resolveGitHubApiBaseUrl as n,resolveGitHubHost as r,o as t};

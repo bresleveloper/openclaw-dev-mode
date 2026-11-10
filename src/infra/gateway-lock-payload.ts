@@ -107,6 +107,11 @@ export function classifyGatewayOwnerProcessNamespace(
   const owner = GatewayProcessNamespaceSchema.safeParse(value).data;
   const ownerHost = owner?.host ?? options.ownerHost;
   const foreignHost = ownerHost !== undefined && ownerHost !== os.hostname();
+  // Windows boot observations can disagree within one boot. Local Windows owners
+  // use PID and absolute process-start identity; heartbeat age cannot revoke them.
+  if (!foreignHost && process.platform === "win32" && owner?.platform === "win32") {
+    return "same";
+  }
   if (value === undefined && !foreignHost) {
     return "same";
   }
@@ -148,6 +153,7 @@ const LockPayloadSchema = z.object({
   /** Present when Gateway cron writes use the dynamic-default ownership projection. */
   cronOwnerProjection: z.literal("dynamic-default-v1").optional(),
   createdAt: z.string(),
+  startupPhase: z.literal("starting").optional(),
   configPath: z.string(),
   port: z.number().int().min(1).max(65_535).optional(),
   role: z

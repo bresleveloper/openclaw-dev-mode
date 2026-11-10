@@ -1,7 +1,7 @@
-import { c as ModelProviderDeclarationConfig, i as ModelDefinitionConfig, n as OpenClawConfig } from "../../types.openclaw-C-OasKBU.js";
-import "../../provider-onboard-D9ID6ldl.js";
-import "../../ssrf-runtime-0hwhAsr2.js";
-import "../../provider-catalog-live-runtime-DHZnwJmJ.js";
+import { M as OpenClawConfig, U as ModelProviderDeclarationConfig, z as ModelDefinitionConfig } from "../../types-D7I_F5Ux.js";
+import "../../provider-model-shared-uYxY__EE.js";
+import "../../provider-onboard-BNuhTHon.js";
+import "../../provider-catalog-live-runtime-B4afebj8.js";
 //#region extensions/minimax/provider-catalog.d.ts
 export declare function buildMinimaxProvider(env?: NodeJS.ProcessEnv): ModelProviderDeclarationConfig;
 export declare function buildMinimaxPortalProvider(env?: NodeJS.ProcessEnv): ModelProviderDeclarationConfig;

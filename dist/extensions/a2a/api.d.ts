@@ -1,9 +1,9 @@
-import { ro as OpenClawConfig } from "../../agent-scope-Dajnzfj6.js";
-import { d as setA2aChannelRuntime, p as ChannelPlugin, u as getA2aChannelRuntime } from "../../channel-core-Dw23qZdV.js";
+import { t as DEFAULT_ACCOUNT_ID } from "../../account-id-Dh6XMgGH.js";
+import { M as OpenClawConfig } from "../../types-D7I_F5Ux.js";
+import "../../zod-schema.implicit-mentions-D1hpe8-m.js";
+import { NE as ChannelPlugin } from "../../config-contracts-CY87ANNp.js";
+import { n as setA2aChannelRuntime, t as getA2aChannelRuntime } from "../../runtime-DFfLSytl.js";
 import { z } from "zod";
-//#region src/routing/account-id.d.ts
-export declare const DEFAULT_ACCOUNT_ID = "default";
-//#endregion
 //#region extensions/a2a/src/config-schema.d.ts
 declare const a2aPeerConfigSchema: z.ZodObject<{
   token: z.ZodString;
@@ -54,4 +54,4 @@ export declare function resolveA2aChannelAccount(params: {
 //#region extensions/a2a/src/channel.d.ts
 export declare const a2aChannelPlugin: ChannelPlugin<ResolvedA2aChannelAccount>;
 //#endregion
-export { type A2aChannelConfig, type A2aCoreConfig, type A2aPeerConfig, type ResolvedA2aChannelAccount, getA2aChannelRuntime, setA2aChannelRuntime };
+export { type A2aChannelConfig, type A2aCoreConfig, type A2aPeerConfig, DEFAULT_ACCOUNT_ID, type ResolvedA2aChannelAccount, getA2aChannelRuntime, setA2aChannelRuntime };

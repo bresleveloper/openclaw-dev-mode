@@ -1,8 +1,8 @@
 import { t as createDeferredCore } from "../../deferred-D0La5CRk.mjs";
-import { n as requestExitAfterOneShotOutput, r as runCliWithExitFinalization } from "../../one-shot-exit-Bd4757D_.mjs";
-import { r as getRuntimeConfig } from "../../io.runtime-BSum32pK.mjs";
-import "../../config-9720xhC5.mjs";
-import { a as listRegisteredNodeHostCapsAndCommands, o as notifyRegisteredNodeHostCommandDisconnect, r as invokeRegisteredNodeHostCommand, s as watchRegisteredNodeHostCommandAvailability, t as ensureNodeHostPluginRegistry } from "../../plugin-node-host-K67tp7ny.mjs";
+import { t as captureRuntimeConfigAsyncReader } from "../../io.runtime-Ds5uC0Bf.mjs";
+import "../../config-B3oiWDlr.mjs";
+import { i as runCliWithExitFinalization, n as requestExitAfterOneShotOutput } from "../../one-shot-exit-DmuNrGrj.mjs";
+import { a as listRegisteredNodeHostCapsAndCommands, o as notifyRegisteredNodeHostCommandDisconnect, r as invokeRegisteredNodeHostCommand, s as watchRegisteredNodeHostCommandAvailability, t as ensureNodeHostPluginRegistry } from "../../plugin-node-host-BgmdQWhF.mjs";
 import { n as parseComputerHostInput } from "../../computer-protocol-BHvtEXcO.mjs";
 import { createInterface } from "node:readline";
 //#region src/gateway/desktop/computer.worker.ts
@@ -20,11 +20,9 @@ async function runComputerHost() {
 	let startup;
 	let stopWatching;
 	let stopping;
-	let stopped = false;
 	const stop = (execution) => {
 		if (stopping) return stopping;
 		stopping = completion.promise;
-		stopped = true;
 		if (!execution) for (const request of requests.values()) request.abort(/* @__PURE__ */ new Error("Computer host is stopping"));
 		(async () => {
 			await startup?.catch(() => {});
@@ -54,7 +52,7 @@ async function runComputerHost() {
 		stop();
 	};
 	input.on("line", (line) => {
-		if (stopped) return;
+		if (stopping) return;
 		let message;
 		try {
 			message = parseComputerHostInput(JSON.parse(line));
@@ -78,7 +76,7 @@ async function runComputerHost() {
 			const pluginIds = message.pluginIds;
 			startup = (async () => {
 				const context = {
-					config: getRuntimeConfig(),
+					config: await captureRuntimeConfigAsyncReader()(),
 					env: process.env
 				};
 				await ensureNodeHostPluginRegistry({
@@ -92,7 +90,7 @@ async function runComputerHost() {
 						debug: log
 					}
 				});
-				if (stopped) return;
+				if (stopping) return;
 				const declaration = listRegisteredNodeHostCapsAndCommands(context);
 				if (!declaration.computerUse || !declaration.commands.includes("screen.snapshot")) throw new Error("COMPUTER_DRIVER_UNAVAILABLE: the Gateway desktop provider is unavailable");
 				stopWatching = watchRegisteredNodeHostCommandAvailability(context, () => {
@@ -118,7 +116,7 @@ async function runComputerHost() {
 			try {
 				await startup;
 				controller.signal.throwIfAborted();
-				if (stopped) throw new Error("Computer host is stopping");
+				if (stopping) throw new Error("Computer host is stopping");
 				const payload = await invokeRegisteredNodeHostCommand(request.command, request.paramsJSON, void 0, {
 					signal: controller.signal,
 					sessionKey: request.sessionKey,

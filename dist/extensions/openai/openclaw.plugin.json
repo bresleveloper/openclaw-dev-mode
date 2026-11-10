@@ -23,6 +23,21 @@
   "providers": [
     "openai"
   ],
+  "decisionModels": [
+    {
+      "provider": "openai",
+      "id": "gpt-6-luna",
+      "name": "GPT-6 Luna",
+      "capabilities": {
+        "questionTypes": [
+          "boolean",
+          "choice",
+          "score"
+        ],
+        "confidence": "provider-specific"
+      }
+    }
+  ],
   "providerUsageAuthEnvVars": {
     "openai": [
       "OPENAI_ADMIN_KEY"
@@ -752,6 +767,9 @@
     }
   ],
   "contracts": {
+    "decisionProviders": [
+      "openai"
+    ],
     "speechProviders": [
       "openai"
     ],
@@ -821,7 +839,7 @@
           "off"
         ],
         "default": "friendly",
-        "description": "Controls the canonical OpenAI-family GPT-5 friendly interaction style. Defaults to `friendly`; `on` aliases `friendly`; `off` removes only the style layer while shared stable behavior remains."
+        "description": "Controls the shared OpenAI-family GPT-5 friendly interaction style. Defaults to `friendly`; `on` aliases `friendly`; `off` removes only the style layer while shared stable behavior remains."
       }
     }
   }

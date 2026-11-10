@@ -2,6 +2,7 @@ import type {
   WorkboardBoardMetadata,
   WorkboardBoardSummary,
   WorkboardCard,
+  WorkboardChange,
   WorkboardListResult,
   WorkboardSessionPlacement,
   WorkboardSessionsBoard,
@@ -22,8 +23,12 @@ import type {
 import { normalizeBoardMetadata } from "./store-board-normalizers.js";
 import type { WorkboardBoardInput, WorkboardListOptions } from "./store-inputs.js";
 import { normalizeBoardId, normalizeBoardIdRequired } from "./store-normalizers.js";
-import { freezeCardList, readCards } from "./store-read.js";
+import { readCards } from "./store-read.js";
 import { WorkboardStoreRuntime } from "./store-runtime.js";
+
+function emptyBoardSummary(id: string): WorkboardBoardSummary {
+  return { id, total: 0, active: 0, archived: 0, byStatus: {} };
+}
 
 export class WorkboardBoardStore extends WorkboardStoreRuntime {
   protected readonly store: WorkboardCardStore;
@@ -39,15 +44,15 @@ export class WorkboardBoardStore extends WorkboardStoreRuntime {
       sessionsBoard: WorkboardSessionsBoardStore;
       subscriptions: WorkboardSubscriptionStore;
       attachments: WorkboardKeyedStore<PersistedWorkboardAttachment>;
-      ready?: Promise<number>;
-      dataVersion?: () => number | Promise<number>;
+      ready?: Promise<void>;
       close?: () => void | Promise<void>;
       runWithWriteAuthority?: WorkboardWriteAuthority;
+      readWriteToken?: () => string | undefined;
     },
   ) {
-    super(stores.dataVersion, stores.close, stores.ready, stores.runWithWriteAuthority);
+    super(stores.close, stores.ready, stores.runWithWriteAuthority, stores.readWriteToken);
     this.store = this.trackCardStore(store);
-    this.boardStore = this.track(stores.boards);
+    this.boardStore = this.track(stores.boards, { sessions: true });
     this.sessionsBoardStore = stores.sessionsBoard;
     this.subscriptionStore = {
       ...this.track(stores.subscriptions, { notifyChanges: false }),
@@ -65,39 +70,53 @@ export class WorkboardBoardStore extends WorkboardStoreRuntime {
     return readCards(this.store, boardId === undefined ? undefined : { kind: "board", boardId });
   }
 
-  listCards(board: unknown): Promise<WorkboardListResult & { boards: WorkboardBoardSummary[] }> {
+  listCards(
+    board: unknown,
+    sessionKey?: string,
+  ): Promise<
+    WorkboardListResult & {
+      boards: WorkboardBoardSummary[];
+      revision: WorkboardChange & { boardId?: string; sessionKey?: string };
+    }
+  > {
     return this.runOperation(() => {
       const boardId = normalizeBoardId(board);
-      const cached = this.cardLists.get(boardId);
+      const writeToken = this.refreshWriteReceipt();
+      const revision = this.cardsRevision;
+      const cached = sessionKey === undefined ? this.cardLists.get(boardId) : undefined;
       if (cached) {
         return cached;
       }
-      const pending = Promise.all([this.list({ boardId }), this.listBoards()])
+      const pending: ReturnType<WorkboardBoardStore["listCards"]> = Promise.all([
+        sessionKey === undefined
+          ? this.list({ boardId })
+          : readCards(this.store, { kind: "session-links", sessionKey, boardId }),
+        this.listBoards(),
+      ])
         .then(([cards, { boards }]) => {
-          // A write or external-change publication during the read retires this
-          // snapshot; readers join the replacement instead of publishing stale data.
-          if (this.cardLists.get(boardId) !== pending) {
-            return this.listCards(boardId);
-          }
           const result = {
             cards: cards.map(redactClaimToken),
             boards,
             statuses: WORKBOARD_STATUSES,
+            revision: {
+              ...revision,
+              ...(boardId === undefined ? {} : { boardId }),
+              ...(sessionKey === undefined ? {} : { sessionKey }),
+            },
           };
-          freezeCardList(result);
-          // Arbitrary missing-board queries must not grow the retained cache.
-          if (boardId !== undefined && !boards.some((entry) => entry.id === boardId)) {
-            this.cardLists.delete(boardId);
-          }
+          // A concurrent update may finish this read with older facts; the writer
+          // receipt invalidates them on the next request.
           return result;
         })
         .catch((error: unknown) => {
-          if (this.cardLists.get(boardId) === pending) {
+          if (sessionKey === undefined) {
             this.cardLists.delete(boardId);
           }
           throw error;
         });
-      this.cardLists.set(boardId, pending);
+      if (writeToken !== undefined && sessionKey === undefined) {
+        this.cardLists.set(boardId, pending);
+      }
       return pending;
     });
   }
@@ -105,50 +124,23 @@ export class WorkboardBoardStore extends WorkboardStoreRuntime {
   async listBoards(): Promise<{ boards: WorkboardBoardSummary[] }> {
     const boards = new Map<string, WorkboardBoardSummary>();
     for (const entry of await this.boardStore.entries()) {
-      if (entry.value?.version !== 1 || !entry.value.board?.id) {
-        continue;
-      }
-      const board = entry.value.board;
+      const { createdAt: _createdAt, archivedAt, ...board } = entry.value.board;
       boards.set(board.id, {
-        id: board.id,
-        ...(board.kind ? { kind: board.kind } : {}),
-        ...(board.kind === "sessions" ? { sessions: board.sessions } : {}),
-        ...(board.name ? { name: board.name } : {}),
-        ...(board.description ? { description: board.description } : {}),
-        ...(board.icon ? { icon: board.icon } : {}),
-        ...(board.color ? { color: board.color } : {}),
-        ...(board.automationJobId ? { automationJobId: board.automationJobId } : {}),
-        ...(board.defaultWorkspace ? { defaultWorkspace: board.defaultWorkspace } : {}),
-        ...(board.orchestration ? { orchestration: board.orchestration } : {}),
+        ...board,
         total: 0,
         active: 0,
         archived: 0,
         byStatus: {},
-        updatedAt: board.updatedAt,
-        ...(board.archivedAt ? { archivedAt: board.archivedAt } : {}),
+        ...(archivedAt ? { archivedAt } : {}),
       });
     }
     if (!boards.has("default")) {
-      boards.set("default", {
-        id: "default",
-        total: 0,
-        active: 0,
-        archived: 0,
-        byStatus: {},
-      });
+      boards.set("default", emptyBoardSummary("default"));
     }
     const cardAggregates = await this.store.listBoardAggregates();
     for (const aggregate of cardAggregates) {
       const boardId = aggregate.boardId;
-      const summary =
-        boards.get(boardId) ??
-        ({
-          id: boardId,
-          total: 0,
-          active: 0,
-          archived: 0,
-          byStatus: {},
-        } satisfies WorkboardBoardSummary);
+      const summary = boards.get(boardId) ?? emptyBoardSummary(boardId);
       summary.total += aggregate.total;
       summary.archived += aggregate.archived;
       summary.active += aggregate.total - aggregate.archived;
@@ -188,6 +180,7 @@ export class WorkboardBoardStore extends WorkboardStoreRuntime {
         this.trackMutation(
           () => this.sessionsBoardStore.update(normalizeBoardIdRequired(boardId), patch),
           () => true,
+          true,
         ),
       assertCurrent,
     );
@@ -204,6 +197,7 @@ export class WorkboardBoardStore extends WorkboardStoreRuntime {
       this.trackMutation(
         () => this.sessionsBoardStore.repairPlacements(),
         (result) => result.placements > 0 || result.boards > 0,
+        true,
       ),
     );
   }
@@ -215,12 +209,15 @@ export class WorkboardBoardStore extends WorkboardStoreRuntime {
   ): Promise<boolean> {
     return this.enqueueMutation(
       () =>
-        this.trackMutation(() =>
-          this.sessionsBoardStore.writePlacement(
-            normalizeBoardIdRequired(boardId),
-            placement,
-            options.expectedSpec,
-          ),
+        this.trackMutation(
+          () =>
+            this.sessionsBoardStore.writePlacement(
+              normalizeBoardIdRequired(boardId),
+              placement,
+              options.expectedSpec,
+            ),
+          Boolean,
+          true,
         ),
       options.assertCurrent,
     );
@@ -248,9 +245,7 @@ export class WorkboardBoardStore extends WorkboardStoreRuntime {
         throw new Error("board still has cards; archive it or move/delete the cards first.");
       }
       for (const entry of await this.subscriptionStore.entries({ boardId })) {
-        if (entry.value?.version === 1 && entry.value.subscription?.boardId === boardId) {
-          await this.subscriptionStore.delete(entry.key);
-        }
+        await this.subscriptionStore.delete(entry.key);
       }
       return { deleted: await this.boardStore.delete(boardId) };
     });

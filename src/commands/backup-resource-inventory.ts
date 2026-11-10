@@ -1,5 +1,5 @@
 /** Frozen backup ownership and resource policy shared by archive traversal and SQLite discovery. */
-import { realpathSync, statSync, type Dirent, type Stats } from "node:fs";
+import { realpathSync, statSync, type BigIntStats, type Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { sameFileIdentity } from "@openclaw/fs-safe/advanced";
@@ -34,13 +34,13 @@ type BackupRegenerableRoot = Readonly<{
 export type BackupCoreDatabase = Readonly<
   {
     sourcePath: string;
-    identity?: Stats;
+    identity?: BigIntStats;
   } & ({ role: "global" | "quarantine" } | { role: "agent"; agentId: string })
 >;
 
 /** Ephemeral coverage of a captured canonical image; never part of the archive manifest. */
 export type BackupSqliteSnapshotFact = Readonly<
-  { sourcePath: string; dev: number; ino: number } & (
+  { sourcePath: string; dev: bigint; ino: bigint } & (
     | { role: "global" }
     | { role: "agent"; agentId: string }
   )
@@ -50,6 +50,8 @@ type BackupResourcePolicy = Readonly<{
   stateDir: string;
   agentRoots: readonly BackupAgentRoot[];
   regenerableRoots: readonly BackupRegenerableRoot[];
+  /** Owner selection for absolute paths; traversal separately enforces filesystem privacy. */
+  isIncludedByOwner: (sourcePath: string) => boolean;
   isIncluded: (sourcePath: string) => boolean;
   isTraversable: (sourcePath: string) => boolean;
   isPackageContent: (sourcePath: string) => boolean;
@@ -69,7 +71,7 @@ export type BackupResourceInventory = BackupResourcePolicy &
     coreDatabaseSourcePaths: readonly string[];
     resolveSqliteSource: (
       sourcePath: string,
-      identity?: Stats,
+      identity?: BigIntStats,
     ) => BackupCoreDatabase | { role: "plugin" } | { role: "unresolvable-link" } | undefined;
   }>;
 
@@ -153,11 +155,8 @@ export async function createBackupResourcePlan(params: {
   };
 
   if (!params.onlyConfig) {
-    for (const oauthDir of params.oauthDirs) {
-      protectedPathSet.add(path.resolve(oauthDir));
-    }
-    for (const workspaceDir of params.workspaceDirs) {
-      protectedPathSet.add(path.resolve(workspaceDir));
+    for (const directory of [...params.oauthDirs, ...params.workspaceDirs]) {
+      protectedPathSet.add(path.resolve(directory));
     }
     for (const root of agentRoots) {
       protectedPathSet.add(root.sourcePath);
@@ -233,11 +232,10 @@ function createBackupPathPolicy({
   BackupResourcePlan,
   "stateDir" | "agentRoots" | "regenerableRoots" | "protectedPaths" | "excludedPaths"
 >): BackupResourcePolicy {
-  const isIncluded = (sourcePath: string): boolean => {
+  // Keep the cheap owner predicate independent from live privacy-path probes.
+  // Discovery admits traversal directories first, then batches only owned files.
+  const isIncludedByOwner = (sourcePath: string): boolean => {
     const candidate = path.resolve(sourcePath);
-    if (isUpdateCapturePath(candidate, stateDir)) {
-      return false;
-    }
     const exclusion = excludedPaths.find((excludedPath) => isPathInside(excludedPath, candidate));
     if (!exclusion) {
       return true;
@@ -249,6 +247,8 @@ function createBackupPathPolicy({
         isPathInside(protectedPath, candidate) && isPathInside(exclusion, protectedPath),
     );
   };
+  const isIncluded = (sourcePath: string): boolean =>
+    isIncludedByOwner(sourcePath) && !isUpdateCapturePath(path.resolve(sourcePath), stateDir);
   const isTraversable = (sourcePath: string): boolean => {
     const candidate = path.resolve(sourcePath);
     if (isUpdateCapturePath(candidate, stateDir)) {
@@ -310,6 +310,7 @@ function createBackupPathPolicy({
     stateDir,
     agentRoots,
     regenerableRoots,
+    isIncludedByOwner,
     isIncluded,
     isTraversable,
     isPackageContent,
@@ -372,7 +373,7 @@ export function sealBackupResourceInventory(
     let unresolvableLink = false;
     if (!exact && !current) {
       try {
-        current = statSync(candidate, { throwIfNoEntry: false });
+        current = statSync(candidate, { bigint: true, throwIfNoEntry: false });
       } catch (error) {
         if (!hasErrnoCode(error, "ELOOP")) {
           throw error;

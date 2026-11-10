@@ -1,11 +1,11 @@
 import { o as normalizeLowercaseStringOrEmpty } from "../string-coerce-1VuiLaaR.mjs";
-import { C as resolveRuntimeConfigCacheKey } from "../runtime-snapshot-DYptB0Cf.mjs";
-import { d as getActivePluginRegistryVersion } from "../runtime-DfYPSUKC.mjs";
-import { i as logVerbose } from "../globals-BXbZ1A_g.mjs";
-import { S as getActiveRuntimeWebToolsMetadataFromState } from "../runtime-state-D5wZ6Dom.mjs";
+import { C as resolveRuntimeConfigCacheKey } from "../runtime-snapshot-BBYDJbw9.mjs";
+import { d as getActivePluginRegistryVersion } from "../runtime-DkPagH0y.mjs";
+import { S as getActiveRuntimeWebToolsMetadataFromState } from "../runtime-state-DDDhACod.mjs";
+import { i as logVerbose } from "../globals-XVSoVbNQ.mjs";
 import { n as sortPluginEntriesForAutoDetect } from "../plugin-entry-order-DxrT0ucv.mjs";
-import { n as resolveRuntimeWebFetchProviders, t as resolvePluginWebFetchProviders } from "../web-fetch-providers.runtime-Ceqb8W24.mjs";
-import { i as resolveWebProviderConfig, n as providerRequiresCredential, r as readWebProviderEnvValue, t as hasWebProviderEntryCredential } from "../provider-runtime-shared-rD0cvENJ.mjs";
+import { n as resolveRuntimeWebFetchProviders, t as resolvePluginWebFetchProviders } from "../web-fetch-providers.runtime-CW-DeVLK.mjs";
+import { i as resolveWebProviderConfig, n as providerRequiresCredential, r as readWebProviderEnvValue, t as hasWebProviderEntryCredential } from "../provider-runtime-shared-De_5Rq_i.mjs";
 //#region src/web-fetch/runtime.ts
 const webFetchProviderCache = /* @__PURE__ */ new WeakMap();
 function hasEntryCredential(provider, config) {
@@ -15,11 +15,9 @@ function hasEntryCredential(provider, config) {
 		resolveEnvValue: () => readWebProviderEnvValue(provider.envVars)
 	});
 }
-/** Reports whether a web_fetch provider has usable credentials. */
 function isWebFetchProviderConfigured(params) {
 	return hasEntryCredential(params.provider, params.config);
 }
-/** Lists web_fetch providers available to runtime selection. */
 function listWebFetchProviders(params) {
 	return resolvePluginWebFetchProviders({ config: params?.config });
 }
@@ -58,7 +56,6 @@ function resolveWebFetchProvidersForOptions(options) {
 	});
 	return providers;
 }
-/** Resolves the executable web_fetch provider tool definition. */
 function resolveWebFetchDefinition(options) {
 	const fetch = resolveWebProviderConfig(options?.config, "fetch");
 	if (fetch?.enabled === false) return null;

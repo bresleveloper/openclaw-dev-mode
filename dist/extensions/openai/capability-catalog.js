@@ -1,14 +1,14 @@
-import { c as isOpenAIGptLiveApiModel, d as resolveOpenAIQuicksilverVoice, f as resolveOpenAIQuicksilverVoiceCapabilities, l as isOpenAIGptLiveModel, o as OPENAI_GPT_LIVE_MODELS, s as OPENAI_QUICKSILVER_CAPABILITIES, t as projectRealtimeVoicePublicProjection, u as isOpenAIGptLiveSubscriptionModel } from "./.setup/provider-policy-api-yoLTiHQu.mjs";
+import { d as isOpenAIGptLiveApiModel, f as isOpenAIGptLiveModel, h as resolveOpenAIQuicksilverVoiceCapabilities, l as OPENAI_GPT_LIVE_MODELS, m as resolveOpenAIQuicksilverVoice, p as isOpenAIGptLiveSubscriptionModel, t as projectRealtimeVoicePublicProjection, u as OPENAI_QUICKSILVER_CAPABILITIES } from "./.setup/provider-policy-api-BhWaBu5H.mjs";
 import { n as OpenAIQuicksilverPendingAudio, r as assertOpenAIQuicksilverPcmOutput, t as OpenAIQuicksilverAudioAdapter } from "./.setup/realtime-quicksilver-audio-buffer-I-Wg77js.mjs";
 import { normalizeResolvedSecretInputString, normalizeSecretInputString } from "openclaw/plugin-sdk/secret-input";
 import { asFiniteNumber, asFiniteNumberInRange, asOptionalObjectRecord, asOptionalRecord, asSafeIntegerInRange, isRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalLowercaseString, normalizeOptionalString, readStringField } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { resolveExpiresAtMsFromEpochSeconds } from "openclaw/plugin-sdk/number-runtime";
-import { REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, RealtimeVoiceSessionLifecycle, buildRealtimeVoiceAgentControlSpeechMessage, canonicalizeBase64, coerceErrorMessage, extractErrorCode, normalizeRealtimeVoiceResponseOutcome, rawDataToString, readErrorName, realtimeVoiceAudioDurationMs, sleepWithAbort, toErrorObject, toOpenAICompatibleRealtimeAudioFormat, toStringifiedError, truncateUtf16Safe } from "openclaw/plugin-sdk/realtime-voice-provider";
+import { REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, RealtimeVoiceSessionLifecycle, RealtimeVoiceWebSocketTransport, buildRealtimeVoiceAgentControlSpeechMessage, canonicalizeBase64, extractErrorCode, normalizeRealtimeVoiceResponseOutcome, rawDataToString, readErrorName, realtimeVoiceAudioDurationMs, sleepWithAbort, toErrorObject, toOpenAICompatibleRealtimeAudioFormat, truncateUtf16Safe } from "openclaw/plugin-sdk/realtime-voice-provider";
 import { resolveOpenAICodexAuthIdentity } from "openclaw/plugin-sdk/provider-oauth-runtime";
 import { createDeferred } from "openclaw/plugin-sdk/concurrency-runtime";
 import { randomBytes, randomUUID } from "node:crypto";
 import { readResponseTextPrefix } from "openclaw/plugin-sdk/response-limit-runtime";
-import WebSocket from "ws";
+import { WebSocket } from "openclaw/plugin-sdk/websocket-runtime";
 import { execFileSync } from "node:child_process";
 import { parseSpeechDirectiveNumberOverride } from "openclaw/plugin-sdk/speech-provider";
 //#region extensions/openai/realtime-provider-shared.ts
@@ -29,25 +29,26 @@ function resolveOpenAIProviderConfigRecord(config) {
 	const providers = asOptionalRecord(config.providers);
 	return asOptionalRecord(providers?.openai) ?? asOptionalRecord(config.openai) ?? asOptionalRecord(config);
 }
-async function createOpenAIRealtimeClientSecret(params, { createProviderHttpError, readProviderJsonResponse, resolveProviderRequestHeaders, fetchWithSsrFGuard }, label = "OpenAI Realtime") {
+function resolveOpenAIRealtimeRequestHeaders({ resolveProviderRequestHeaders }, baseUrl, defaultHeaders = {}, transport = "http") {
+	return resolveProviderRequestHeaders({
+		provider: "openai",
+		baseUrl,
+		capability: "audio",
+		transport,
+		defaultHeaders
+	}) ?? defaultHeaders;
+}
+async function createOpenAIRealtimeClientSecret(params, runtime, label = "OpenAI Realtime") {
+	const { createProviderHttpError, readProviderJsonResponse, fetchWithSsrFGuard } = runtime;
 	const url = `${OPENAI_REALTIME_API_BASE_URL}/realtime/client_secrets`;
 	const { response, release } = await fetchWithSsrFGuard({
 		url,
 		init: {
 			method: "POST",
-			headers: resolveProviderRequestHeaders({
-				provider: "openai",
-				baseUrl: url,
-				capability: "audio",
-				transport: "http",
-				defaultHeaders: {
-					Authorization: `Bearer ${params.authToken}`,
-					"Content-Type": "application/json"
-				}
-			}) ?? {
+			headers: resolveOpenAIRealtimeRequestHeaders(runtime, url, {
 				Authorization: `Bearer ${params.authToken}`,
 				"Content-Type": "application/json"
-			},
+			}),
 			body: JSON.stringify({ session: params.session })
 		},
 		policy: OPENAI_REALTIME_SSRF_POLICY,
@@ -78,9 +79,6 @@ async function createOpenAIRealtimeClientSecret(params, { createProviderHttpErro
 //#endregion
 //#region extensions/openai/realtime-transcription-provider-factory.ts
 const OPENAI_REALTIME_TRANSCRIPTION_URL = "wss://api.openai.com/v1/realtime?intent=transcription";
-const OPENAI_REALTIME_TRANSCRIPTION_CONNECT_TIMEOUT_MS = 1e4;
-const OPENAI_REALTIME_TRANSCRIPTION_MAX_RECONNECT_ATTEMPTS = 5;
-const OPENAI_REALTIME_TRANSCRIPTION_RECONNECT_DELAY_MS = 1e3;
 const OPENAI_REALTIME_TRANSCRIPTION_AUDIO_BYTES_PER_MS = 8;
 const OPENAI_REALTIME_TRANSCRIPTION_DEFAULT_MODEL = "gpt-4o-transcribe";
 const OPENAI_REALTIME_TRANSCRIPTION_MAX_UNRESOLVED_ITEMS = 64;
@@ -121,278 +119,6 @@ function normalizeProviderConfig$1(config) {
 		})
 	};
 }
-function buildOpenAIRealtimeTranscriptionSessionPayload(config) {
-	return {
-		type: "transcription",
-		audio: { input: {
-			format: { type: "audio/pcmu" },
-			transcription: {
-				model: config.model,
-				...config.language ? { language: config.language } : {},
-				...config.prompt ? { prompt: config.prompt } : {}
-			},
-			turn_detection: {
-				type: "server_vad",
-				threshold: config.vadThreshold,
-				prefix_padding_ms: 300,
-				silence_duration_ms: config.silenceDurationMs
-			}
-		} }
-	};
-}
-async function resolveOpenAIRealtimeTranscriptionAuthorization(config, runtime) {
-	if (config.apiKey) return config.apiKey;
-	const authToken = await runtime.resolveProviderAuthProfileApiKey({
-		provider: "openai",
-		cfg: config.cfg,
-		profileTypes: ["api_key"]
-	});
-	if (authToken) return (await createOpenAIRealtimeClientSecret({
-		authToken,
-		auditContext: "openai-realtime-transcription-session",
-		session: buildOpenAIRealtimeTranscriptionSessionPayload(config),
-		authRejectedMessage: OPENAI_REALTIME_TRANSCRIPTION_API_KEY_REJECTED
-	}, runtime, "OpenAI Realtime transcription")).value;
-	const envApiKey = process.env.OPENAI_API_KEY?.trim();
-	if (envApiKey) return envApiKey;
-	throw new Error(OPENAI_REALTIME_TRANSCRIPTION_API_KEY_REQUIRED);
-}
-function createOpenAIRealtimeTranscriptionSession(config, runtime) {
-	const pendingTranscripts = /* @__PURE__ */ new Map();
-	const committedItemIds = [];
-	const committedItems = /* @__PURE__ */ new Map();
-	const completedTranscripts = /* @__PURE__ */ new Map();
-	const trackedItemIds = /* @__PURE__ */ new Set();
-	const settledItemIds = /* @__PURE__ */ new Set();
-	const unkeyedTranscript = "__openclaw_unkeyed_transcript__";
-	let retainedTranscriptBytes = 0;
-	let settledItemIdBytes = 0;
-	let appendedAudioBytes = 0;
-	let committedAudioBytes = 0;
-	let lastVadBoundary;
-	const resetTranscriptionState = () => {
-		pendingTranscripts.clear();
-		committedItemIds.length = 0;
-		committedItems.clear();
-		completedTranscripts.clear();
-		trackedItemIds.clear();
-		settledItemIds.clear();
-		retainedTranscriptBytes = 0;
-		settledItemIdBytes = 0;
-		appendedAudioBytes = 0;
-		committedAudioBytes = 0;
-		lastVadBoundary = void 0;
-	};
-	const failTerminal = (error, transport) => {
-		resetTranscriptionState();
-		transport.closeNow();
-		try {
-			config.onError?.(error);
-		} catch {}
-	};
-	const trackItem = (itemId, transport) => {
-		if (settledItemIds.has(itemId) || completedTranscripts.has(itemId)) return false;
-		if (trackedItemIds.has(itemId)) return true;
-		if (trackedItemIds.size >= OPENAI_REALTIME_TRANSCRIPTION_MAX_UNRESOLVED_ITEMS) {
-			failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_ITEM_OVERFLOW_MESSAGE), transport);
-			return false;
-		}
-		if (Buffer.byteLength(itemId, "utf8") > OPENAI_REALTIME_TRANSCRIPTION_MAX_ITEM_ID_BYTES) {
-			failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_IDENTITY_OVERFLOW_MESSAGE), transport);
-			return false;
-		}
-		trackedItemIds.add(itemId);
-		return true;
-	};
-	const settleItem = (itemId, transport) => {
-		const itemIdBytes = Buffer.byteLength(itemId, "utf8");
-		if (settledItemIds.size >= OPENAI_REALTIME_TRANSCRIPTION_MAX_SETTLED_ITEMS || itemIdBytes > OPENAI_REALTIME_TRANSCRIPTION_MAX_SETTLED_ID_BYTES - settledItemIdBytes) {
-			failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_SETTLED_OVERFLOW_MESSAGE), transport);
-			return false;
-		}
-		trackedItemIds.delete(itemId);
-		for (const [candidateId, previousItemId] of committedItems) if (previousItemId === itemId) committedItems.set(candidateId, null);
-		settledItemIds.add(itemId);
-		settledItemIdBytes += itemIdBytes;
-		return true;
-	};
-	const commitItem = (itemId, previousItemId, transport) => {
-		if (settledItemIds.has(itemId) || committedItems.has(itemId) || !trackItem(itemId, transport)) return;
-		if (previousItemId && Buffer.byteLength(previousItemId, "utf8") > OPENAI_REALTIME_TRANSCRIPTION_MAX_ITEM_ID_BYTES) {
-			failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_IDENTITY_OVERFLOW_MESSAGE), transport);
-			return;
-		}
-		committedItems.set(itemId, previousItemId && settledItemIds.has(previousItemId) ? null : previousItemId);
-		committedItemIds.push(itemId);
-		const arrivalOrder = committedItemIds.splice(0);
-		const successors = /* @__PURE__ */ new Map();
-		for (const candidateId of arrivalOrder) {
-			const previousId = committedItems.get(candidateId);
-			if (previousId) successors.set(previousId, candidateId);
-		}
-		const seen = /* @__PURE__ */ new Set();
-		const appendChain = (startId) => {
-			let candidateId = startId;
-			while (candidateId && !seen.has(candidateId)) {
-				seen.add(candidateId);
-				committedItemIds.push(candidateId);
-				candidateId = successors.get(candidateId);
-			}
-		};
-		for (const candidateId of arrivalOrder) {
-			const previousId = committedItems.get(candidateId);
-			if (previousId == null || settledItemIds.has(previousId)) appendChain(candidateId);
-		}
-		for (const candidateId of arrivalOrder) appendChain(candidateId);
-	};
-	const flushCompletedTranscripts = (transport) => {
-		while (committedItemIds.length > 0) {
-			const itemId = committedItemIds[0];
-			if (!itemId || !completedTranscripts.has(itemId)) return true;
-			const previousItemId = committedItems.get(itemId);
-			if (previousItemId && !settledItemIds.has(previousItemId) && !committedItems.has(previousItemId)) return true;
-			committedItemIds.shift();
-			committedItems.delete(itemId);
-			if (!settleItem(itemId, transport)) return false;
-			const transcript = completedTranscripts.get(itemId);
-			completedTranscripts.delete(itemId);
-			if (transcript) {
-				retainedTranscriptBytes -= Buffer.byteLength(transcript, "utf8");
-				config.onTranscript?.(transcript);
-			}
-		}
-		return true;
-	};
-	const completeItem = (itemId, transcript, transport) => {
-		const key = itemId ?? unkeyedTranscript;
-		if (itemId && !trackItem(itemId, transport)) return false;
-		const partialBytes = pendingTranscripts.get(key)?.bytes ?? 0;
-		pendingTranscripts.delete(key);
-		retainedTranscriptBytes -= partialBytes;
-		const transcriptBytes = transcript ? Buffer.byteLength(transcript, "utf8") : 0;
-		if (transcriptBytes > OPENAI_REALTIME_TRANSCRIPTION_MAX_RETAINED_TRANSCRIPT_BYTES - retainedTranscriptBytes) {
-			failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_TEXT_OVERFLOW_MESSAGE), transport);
-			return false;
-		}
-		if (!itemId || !committedItems.has(itemId)) {
-			if (itemId) {
-				if (!settleItem(itemId, transport)) return false;
-			} else trackedItemIds.delete(key);
-			if (transcript) config.onTranscript?.(transcript);
-			return true;
-		}
-		completedTranscripts.set(itemId, transcript);
-		retainedTranscriptBytes += transcriptBytes;
-		return flushCompletedTranscripts(transport);
-	};
-	const handleEvent = (event, transport) => {
-		switch (event.type) {
-			case "session.updated":
-			case "transcription_session.updated":
-				transport.markReady();
-				return;
-			case "input_audio_buffer.committed":
-				if (event.item_id && (committedItems.has(event.item_id) || settledItemIds.has(event.item_id)) && lastVadBoundary?.itemId !== event.item_id) return;
-				committedAudioBytes = event.item_id && lastVadBoundary?.itemId === event.item_id ? Math.max(committedAudioBytes, Math.min(appendedAudioBytes, lastVadBoundary.audioEndBytes)) : appendedAudioBytes;
-				if (event.item_id === lastVadBoundary?.itemId) lastVadBoundary = void 0;
-				if (event.item_id) commitItem(event.item_id, event.previous_item_id, transport);
-				return;
-			case "input_audio_buffer.speech_stopped":
-				if (event.item_id && typeof event.audio_end_ms === "number" && Number.isFinite(event.audio_end_ms) && event.audio_end_ms >= 0) lastVadBoundary = {
-					itemId: event.item_id,
-					audioEndBytes: event.audio_end_ms * OPENAI_REALTIME_TRANSCRIPTION_AUDIO_BYTES_PER_MS
-				};
-				return;
-			case "conversation.item.input_audio_transcription.delta":
-				if (event.delta) {
-					const key = event.item_id ?? unkeyedTranscript;
-					if (!trackItem(key, transport)) return;
-					const pendingTranscript = pendingTranscripts.get(key);
-					const previousPartial = pendingTranscript?.text ?? "";
-					const deltaBytes = appendedUtf8ByteLength(previousPartial, event.delta);
-					if (deltaBytes > OPENAI_REALTIME_TRANSCRIPTION_MAX_RETAINED_TRANSCRIPT_BYTES - retainedTranscriptBytes) {
-						failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_TEXT_OVERFLOW_MESSAGE), transport);
-						return;
-					}
-					const partial = `${previousPartial}${event.delta}`;
-					pendingTranscripts.set(key, {
-						bytes: (pendingTranscript?.bytes ?? 0) + deltaBytes,
-						text: partial
-					});
-					retainedTranscriptBytes += deltaBytes;
-					config.onPartial?.(partial);
-				}
-				return;
-			case "conversation.item.input_audio_transcription.completed":
-				completeItem(event.item_id, event.transcript, transport);
-				return;
-			case "conversation.item.input_audio_transcription.failed":
-				if (event.item_id && (settledItemIds.has(event.item_id) || completedTranscripts.has(event.item_id))) return;
-				if (completeItem(event.item_id, void 0, transport)) config.onError?.(new Error(readRealtimeErrorDetail(event.error)));
-				return;
-			case "input_audio_buffer.speech_started": {
-				const key = event.item_id ?? unkeyedTranscript;
-				const partialBytes = pendingTranscripts.get(key)?.bytes ?? 0;
-				pendingTranscripts.delete(key);
-				retainedTranscriptBytes -= partialBytes;
-				if (!committedItems.has(key)) trackedItemIds.delete(key);
-				config.onSpeechStart?.();
-				return;
-			}
-			case "error": {
-				const detail = readRealtimeErrorDetail(event.error);
-				const error = new Error(detail);
-				if (!transport.isReady()) transport.failConnect(error);
-				else config.onError?.(error);
-			}
-		}
-	};
-	return runtime.createRealtimeTranscriptionWebSocketSession({
-		providerId: "openai",
-		callbacks: config,
-		url: OPENAI_REALTIME_TRANSCRIPTION_URL,
-		headers: async () => {
-			const bearer = await resolveOpenAIRealtimeTranscriptionAuthorization(config, runtime);
-			return runtime.resolveProviderRequestHeaders({
-				provider: "openai",
-				baseUrl: OPENAI_REALTIME_TRANSCRIPTION_URL,
-				capability: "audio",
-				transport: "websocket",
-				defaultHeaders: { Authorization: `Bearer ${bearer}` }
-			}) ?? { Authorization: `Bearer ${bearer}` };
-		},
-		connectTimeoutMs: OPENAI_REALTIME_TRANSCRIPTION_CONNECT_TIMEOUT_MS,
-		maxReconnectAttempts: OPENAI_REALTIME_TRANSCRIPTION_MAX_RECONNECT_ATTEMPTS,
-		reconnectDelayMs: OPENAI_REALTIME_TRANSCRIPTION_RECONNECT_DELAY_MS,
-		connectTimeoutMessage: "OpenAI realtime transcription connection timeout",
-		connectClosedBeforeReadyMessage: "OpenAI realtime transcription connection closed before ready",
-		reconnectLimitMessage: "OpenAI realtime transcription reconnect limit reached",
-		sendAudio: (audio, transport) => {
-			if (transport.sendJson({
-				type: "input_audio_buffer.append",
-				audio: audio.toString("base64")
-			})) appendedAudioBytes += audio.byteLength;
-		},
-		onClose: (transport) => {
-			const ownedAudioBytes = Math.max(committedAudioBytes, lastVadBoundary?.audioEndBytes ?? 0);
-			if (appendedAudioBytes - ownedAudioBytes >= 800) {
-				if (!transport.sendJson({ type: "input_audio_buffer.commit" })) {
-					failTerminal(/* @__PURE__ */ new Error("OpenAI realtime transcription could not send its final audio commit; check the provider connection"), transport);
-					return;
-				}
-				committedAudioBytes = appendedAudioBytes;
-			}
-		},
-		onOpen: (transport) => {
-			resetTranscriptionState();
-			transport.sendJson({
-				type: "session.update",
-				session: buildOpenAIRealtimeTranscriptionSessionPayload(config)
-			});
-		},
-		onMessage: handleEvent
-	});
-}
 function buildOpenAIRealtimeTranscriptionProvider(runtime) {
 	return {
 		id: "openai",
@@ -406,46 +132,315 @@ function buildOpenAIRealtimeTranscriptionProvider(runtime) {
 			cfg,
 			profileTypes: ["api_key"]
 		})),
+		isConfiguredAsync: async ({ cfg, providerConfig }) => Boolean(normalizeProviderConfig$1(providerConfig).apiKey || process.env.OPENAI_API_KEY?.trim() || await runtime.isProviderAuthProfileConfiguredAsync({
+			provider: "openai",
+			cfg,
+			profileTypes: ["api_key"]
+		})),
 		createSession: (req) => {
-			const config = normalizeProviderConfig$1(req.providerConfig);
-			return createOpenAIRealtimeTranscriptionSession({
+			const normalized = normalizeProviderConfig$1(req.providerConfig);
+			const config = {
 				...req,
-				apiKey: config.apiKey,
-				language: config.language,
-				model: config.model ?? OPENAI_REALTIME_TRANSCRIPTION_DEFAULT_MODEL,
-				prompt: config.prompt,
-				silenceDurationMs: config.silenceDurationMs ?? 800,
-				vadThreshold: config.vadThreshold ?? .5
-			}, runtime);
+				...normalized,
+				model: normalized.model ?? OPENAI_REALTIME_TRANSCRIPTION_DEFAULT_MODEL,
+				silenceDurationMs: normalized.silenceDurationMs ?? 800,
+				vadThreshold: normalized.vadThreshold ?? .5
+			};
+			const buildSessionPayload = () => {
+				return {
+					type: "transcription",
+					audio: { input: {
+						format: { type: "audio/pcmu" },
+						transcription: {
+							model: config.model,
+							...config.language ? { language: config.language } : {},
+							...config.prompt ? { prompt: config.prompt } : {}
+						},
+						turn_detection: {
+							type: "server_vad",
+							threshold: config.vadThreshold,
+							prefix_padding_ms: 300,
+							silence_duration_ms: config.silenceDurationMs
+						}
+					} }
+				};
+			};
+			const pendingTranscripts = /* @__PURE__ */ new Map();
+			const committedItems = /* @__PURE__ */ new Map();
+			const completedTranscripts = /* @__PURE__ */ new Map();
+			const trackedItemIds = /* @__PURE__ */ new Set();
+			const settledItemIds = /* @__PURE__ */ new Set();
+			const unkeyedTranscript = "__openclaw_unkeyed_transcript__";
+			let retainedTranscriptBytes = 0;
+			let settledItemIdBytes = 0;
+			let appendedAudioBytes = 0;
+			let committedAudioBytes = 0;
+			let lastVadBoundary;
+			const resetTranscriptionState = () => {
+				pendingTranscripts.clear();
+				committedItems.clear();
+				completedTranscripts.clear();
+				trackedItemIds.clear();
+				settledItemIds.clear();
+				retainedTranscriptBytes = 0;
+				settledItemIdBytes = 0;
+				appendedAudioBytes = 0;
+				committedAudioBytes = 0;
+				lastVadBoundary = void 0;
+			};
+			const failTerminal = (error, transport) => {
+				resetTranscriptionState();
+				transport.closeNow();
+				try {
+					config.onError?.(error);
+				} catch {}
+			};
+			const trackItem = (itemId, transport) => {
+				if (settledItemIds.has(itemId) || completedTranscripts.has(itemId)) return false;
+				if (trackedItemIds.has(itemId)) return true;
+				if (trackedItemIds.size >= OPENAI_REALTIME_TRANSCRIPTION_MAX_UNRESOLVED_ITEMS) {
+					failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_ITEM_OVERFLOW_MESSAGE), transport);
+					return false;
+				}
+				if (Buffer.byteLength(itemId, "utf8") > OPENAI_REALTIME_TRANSCRIPTION_MAX_ITEM_ID_BYTES) {
+					failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_IDENTITY_OVERFLOW_MESSAGE), transport);
+					return false;
+				}
+				trackedItemIds.add(itemId);
+				return true;
+			};
+			const settleItem = (itemId, transport) => {
+				const itemIdBytes = Buffer.byteLength(itemId, "utf8");
+				if (settledItemIds.size >= OPENAI_REALTIME_TRANSCRIPTION_MAX_SETTLED_ITEMS || itemIdBytes > OPENAI_REALTIME_TRANSCRIPTION_MAX_SETTLED_ID_BYTES - settledItemIdBytes) {
+					failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_SETTLED_OVERFLOW_MESSAGE), transport);
+					return false;
+				}
+				trackedItemIds.delete(itemId);
+				for (const [candidateId, previousItemId] of committedItems) if (previousItemId === itemId) committedItems.set(candidateId, null);
+				settledItemIds.add(itemId);
+				settledItemIdBytes += itemIdBytes;
+				return true;
+			};
+			const commitItem = (itemId, previousItemId, transport) => {
+				if (committedItems.has(itemId) || !trackItem(itemId, transport)) return;
+				if (previousItemId && Buffer.byteLength(previousItemId, "utf8") > OPENAI_REALTIME_TRANSCRIPTION_MAX_ITEM_ID_BYTES) {
+					failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_IDENTITY_OVERFLOW_MESSAGE), transport);
+					return;
+				}
+				committedItems.set(itemId, previousItemId && settledItemIds.has(previousItemId) ? null : previousItemId);
+				const arrivalOrder = new Map(committedItems);
+				committedItems.clear();
+				const successors = /* @__PURE__ */ new Map();
+				for (const [candidateId, previousId] of arrivalOrder) if (previousId) successors.set(previousId, candidateId);
+				const appendChain = (startId) => {
+					let candidateId = startId;
+					while (candidateId && !committedItems.has(candidateId)) {
+						committedItems.set(candidateId, arrivalOrder.get(candidateId));
+						candidateId = successors.get(candidateId);
+					}
+				};
+				for (const [candidateId, previousId] of arrivalOrder) if (previousId == null || settledItemIds.has(previousId)) appendChain(candidateId);
+				for (const candidateId of arrivalOrder.keys()) appendChain(candidateId);
+			};
+			const flushCompletedTranscripts = (transport) => {
+				while (committedItems.size > 0) {
+					const itemId = committedItems.keys().next().value;
+					if (!itemId || !completedTranscripts.has(itemId)) return true;
+					const previousItemId = committedItems.get(itemId);
+					if (previousItemId && !settledItemIds.has(previousItemId) && !committedItems.has(previousItemId)) return true;
+					committedItems.delete(itemId);
+					if (!settleItem(itemId, transport)) return false;
+					const transcript = completedTranscripts.get(itemId);
+					completedTranscripts.delete(itemId);
+					if (transcript) {
+						retainedTranscriptBytes -= Buffer.byteLength(transcript, "utf8");
+						config.onTranscript?.(transcript);
+					}
+				}
+				return true;
+			};
+			const completeItem = (itemId, transcript, transport) => {
+				const key = itemId ?? unkeyedTranscript;
+				if (itemId && !trackItem(itemId, transport)) return false;
+				const partialBytes = pendingTranscripts.get(key)?.bytes ?? 0;
+				pendingTranscripts.delete(key);
+				retainedTranscriptBytes -= partialBytes;
+				const transcriptBytes = transcript ? Buffer.byteLength(transcript, "utf8") : 0;
+				if (transcriptBytes > OPENAI_REALTIME_TRANSCRIPTION_MAX_RETAINED_TRANSCRIPT_BYTES - retainedTranscriptBytes) {
+					failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_TEXT_OVERFLOW_MESSAGE), transport);
+					return false;
+				}
+				if (!itemId || !committedItems.has(itemId)) {
+					if (itemId) {
+						if (!settleItem(itemId, transport)) return false;
+					} else trackedItemIds.delete(key);
+					if (transcript) config.onTranscript?.(transcript);
+					return true;
+				}
+				completedTranscripts.set(itemId, transcript);
+				retainedTranscriptBytes += transcriptBytes;
+				return flushCompletedTranscripts(transport);
+			};
+			return runtime.createRealtimeTranscriptionWebSocketSession({
+				providerId: "openai",
+				callbacks: config,
+				url: OPENAI_REALTIME_TRANSCRIPTION_URL,
+				headers: async () => {
+					let bearer = config.apiKey;
+					if (!bearer) {
+						const authToken = await runtime.resolveProviderAuthProfileApiKey({
+							provider: "openai",
+							cfg: config.cfg,
+							profileTypes: ["api_key"]
+						});
+						if (authToken) bearer = (await createOpenAIRealtimeClientSecret({
+							authToken,
+							auditContext: "openai-realtime-transcription-session",
+							session: buildSessionPayload(),
+							authRejectedMessage: OPENAI_REALTIME_TRANSCRIPTION_API_KEY_REJECTED
+						}, runtime, "OpenAI Realtime transcription")).value;
+						else {
+							bearer = process.env.OPENAI_API_KEY?.trim();
+							if (!bearer) throw new Error(OPENAI_REALTIME_TRANSCRIPTION_API_KEY_REQUIRED);
+						}
+					}
+					return resolveOpenAIRealtimeRequestHeaders(runtime, OPENAI_REALTIME_TRANSCRIPTION_URL, { Authorization: `Bearer ${bearer}` }, "websocket");
+				},
+				connectTimeoutMs: 1e4,
+				maxReconnectAttempts: 5,
+				reconnectDelayMs: 1e3,
+				connectTimeoutMessage: "OpenAI realtime transcription connection timeout",
+				connectClosedBeforeReadyMessage: "OpenAI realtime transcription connection closed before ready",
+				reconnectLimitMessage: "OpenAI realtime transcription reconnect limit reached",
+				sendAudio: (audio, transport) => {
+					if (transport.sendJson({
+						type: "input_audio_buffer.append",
+						audio: audio.toString("base64")
+					})) appendedAudioBytes += audio.byteLength;
+				},
+				onClose: (transport) => {
+					const ownedAudioBytes = Math.max(committedAudioBytes, lastVadBoundary?.audioEndBytes ?? 0);
+					if (appendedAudioBytes - ownedAudioBytes >= 800) {
+						if (!transport.sendJson({ type: "input_audio_buffer.commit" })) {
+							failTerminal(/* @__PURE__ */ new Error("OpenAI realtime transcription could not send its final audio commit; check the provider connection"), transport);
+							return;
+						}
+						committedAudioBytes = appendedAudioBytes;
+					}
+				},
+				onOpen: (transport) => {
+					resetTranscriptionState();
+					transport.sendJson({
+						type: "session.update",
+						session: buildSessionPayload()
+					});
+				},
+				onMessage: (event, transport) => {
+					switch (event.type) {
+						case "session.updated":
+						case "transcription_session.updated":
+							transport.markReady();
+							return;
+						case "input_audio_buffer.committed":
+							if (event.item_id && (committedItems.has(event.item_id) || settledItemIds.has(event.item_id)) && lastVadBoundary?.itemId !== event.item_id) return;
+							committedAudioBytes = event.item_id && lastVadBoundary?.itemId === event.item_id ? Math.max(committedAudioBytes, Math.min(appendedAudioBytes, lastVadBoundary.audioEndBytes)) : appendedAudioBytes;
+							if (event.item_id === lastVadBoundary?.itemId) lastVadBoundary = void 0;
+							if (event.item_id) commitItem(event.item_id, event.previous_item_id, transport);
+							return;
+						case "input_audio_buffer.speech_stopped":
+							if (event.item_id && typeof event.audio_end_ms === "number" && Number.isFinite(event.audio_end_ms) && event.audio_end_ms >= 0) lastVadBoundary = {
+								itemId: event.item_id,
+								audioEndBytes: event.audio_end_ms * OPENAI_REALTIME_TRANSCRIPTION_AUDIO_BYTES_PER_MS
+							};
+							return;
+						case "conversation.item.input_audio_transcription.delta":
+							if (event.delta) {
+								const key = event.item_id ?? unkeyedTranscript;
+								if (!trackItem(key, transport)) return;
+								const pendingTranscript = pendingTranscripts.get(key);
+								const previousPartial = pendingTranscript?.text ?? "";
+								const deltaBytes = appendedUtf8ByteLength(previousPartial, event.delta);
+								if (deltaBytes > OPENAI_REALTIME_TRANSCRIPTION_MAX_RETAINED_TRANSCRIPT_BYTES - retainedTranscriptBytes) {
+									failTerminal(/* @__PURE__ */ new Error(OPENAI_REALTIME_TRANSCRIPTION_TEXT_OVERFLOW_MESSAGE), transport);
+									return;
+								}
+								const partial = `${previousPartial}${event.delta}`;
+								pendingTranscripts.set(key, {
+									bytes: (pendingTranscript?.bytes ?? 0) + deltaBytes,
+									text: partial
+								});
+								retainedTranscriptBytes += deltaBytes;
+								config.onPartial?.(partial);
+							}
+							return;
+						case "conversation.item.input_audio_transcription.completed":
+							completeItem(event.item_id, event.transcript, transport);
+							return;
+						case "conversation.item.input_audio_transcription.failed":
+							if (completeItem(event.item_id, void 0, transport)) config.onError?.(new Error(readRealtimeErrorDetail(event.error)));
+							return;
+						case "input_audio_buffer.speech_started": {
+							const key = event.item_id ?? unkeyedTranscript;
+							const partialBytes = pendingTranscripts.get(key)?.bytes ?? 0;
+							pendingTranscripts.delete(key);
+							retainedTranscriptBytes -= partialBytes;
+							if (!committedItems.has(key)) trackedItemIds.delete(key);
+							config.onSpeechStart?.();
+							return;
+						}
+						case "error": {
+							const detail = readRealtimeErrorDetail(event.error);
+							const error = new Error(detail);
+							if (!transport.isReady()) transport.failConnect(error);
+							else config.onError?.(error);
+						}
+					}
+				}
+			});
 		}
 	};
 }
 //#endregion
 //#region extensions/openai/realtime-auth.ts
+const OPENAI_CHATGPT_SUBSCRIPTION_PROFILE_TYPES = ["oauth", "token"];
 async function resolveOpenAIChatGptSubscriptionAuth(params, { resolveProviderAuthProfileApiKey }) {
-	const token = await resolveProviderAuthProfileApiKey({
+	const lookup = {
 		provider: "openai",
 		capability: "realtime-voice",
 		cfg: params.cfg,
 		agentDir: params.agentDir,
-		profileTypes: ["oauth"],
 		includeExternalCliAuth: false
-	});
-	if (!token) return;
-	const accountId = resolveOpenAICodexAuthIdentity({ access: token }).accountId;
-	if (!accountId) throw new Error("The selected ChatGPT OAuth profile is missing its account id");
-	return {
-		type: "oauth",
-		token,
-		accountId
 	};
+	const oauthToken = await resolveProviderAuthProfileApiKey({
+		...lookup,
+		profileTypes: ["oauth"]
+	});
+	if (oauthToken) {
+		const accountId = resolveOpenAICodexAuthIdentity({ access: oauthToken }).accountId;
+		if (!accountId) throw new Error("The selected ChatGPT OAuth profile is missing its account id");
+		return {
+			type: "oauth",
+			token: oauthToken,
+			accountId
+		};
+	}
+	const pastedToken = await resolveProviderAuthProfileApiKey({
+		...lookup,
+		profileTypes: ["token"]
+	});
+	const accountId = pastedToken ? resolveOpenAICodexAuthIdentity({ access: pastedToken }).accountId : void 0;
+	return pastedToken && accountId ? {
+		type: "oauth",
+		token: pastedToken,
+		accountId
+	} : void 0;
 }
 //#endregion
 //#region extensions/openai/realtime-live-delegation-queue.ts
 const INPUT_WAIT_MS = 15e3;
 const MAX_PENDING_DELEGATIONS = 32;
 const MAX_SESSION_DELEGATIONS = 4096;
-/** Claims public delegation notices until their transcript is available or the call retires. */
+/** Owns delegation identity for one connection, including public notices awaiting transcript. */
 var OpenAILiveDelegationQueue = class {
 	constructor(options) {
 		this.options = options;
@@ -453,14 +448,18 @@ var OpenAILiveDelegationQueue = class {
 		this.pending = /* @__PURE__ */ new Map();
 		this.stopped = false;
 	}
-	enqueue(id) {
-		if (this.stopped || !this.options.isActive() || this.claimed.has(id)) return;
+	claim(id) {
+		if (this.stopped || !this.options.isActive() || this.claimed.has(id)) return false;
 		if (id.length > 512 || this.claimed.size >= MAX_SESSION_DELEGATIONS || this.pending.size >= MAX_PENDING_DELEGATIONS) {
 			this.stop();
 			this.options.onError(/* @__PURE__ */ new Error("GPT-Live delegation notice limit exceeded"));
-			return;
+			return false;
 		}
 		this.claimed.add(id);
+		return true;
+	}
+	enqueue(id) {
+		if (!this.claim(id)) return;
 		const timeout = setTimeout(() => {
 			this.pending.delete(id);
 			if (this.stopped || !this.options.isActive()) return;
@@ -5777,17 +5776,16 @@ const liveTranscriptSchema = object({
 	start_ms: number(),
 	end_ms: number()
 });
+function transcriptDelta(role, text) {
+	return {
+		kind: "transcript-delta",
+		role,
+		text
+	};
+}
 const framelessSchemas = /* @__PURE__ */ new Map([
-	["input_transcript.added", transcriptAddedSchema.transform(({ item }) => ({
-		kind: "transcript-delta",
-		role: "user",
-		text: item.text
-	}))],
-	["output_transcript.added", transcriptAddedSchema.transform(({ item }) => ({
-		kind: "transcript-delta",
-		role: "assistant",
-		text: item.text
-	}))],
+	["input_transcript.added", transcriptAddedSchema.transform(({ item }) => transcriptDelta("user", item.text))],
+	["output_transcript.added", transcriptAddedSchema.transform(({ item }) => transcriptDelta("assistant", item.text))],
 	["turn.done", object({ turn: object({
 		role: _enum(["user", "assistant"]),
 		transcript: string()
@@ -5816,16 +5814,8 @@ const framelessSchemas = /* @__PURE__ */ new Map([
 	}))]
 ]);
 const liveSchemas = /* @__PURE__ */ new Map([
-	["session.input_transcript.delta", liveTranscriptSchema.transform(({ delta }) => ({
-		kind: "transcript-delta",
-		role: "user",
-		text: delta
-	}))],
-	["session.output_transcript.delta", liveTranscriptSchema.transform(({ delta }) => ({
-		kind: "transcript-delta",
-		role: "assistant",
-		text: delta
-	}))],
+	["session.input_transcript.delta", liveTranscriptSchema.transform(({ delta }) => transcriptDelta("user", delta))],
+	["session.output_transcript.delta", liveTranscriptSchema.transform(({ delta }) => transcriptDelta("assistant", delta))],
 	["session.output_audio.delta", object({ delta: string() }).transform(({ delta }) => ({
 		kind: "audio",
 		data: delta
@@ -5978,7 +5968,7 @@ async function closeOpenAILiveSocket(socket) {
 }
 /** Transport diagnostics retain activity only, never routes, IDs, or frame content. */
 function captureOpenAIQuicksilverTransportEvent(runtime, direction, kind) {
-	runtime.captureWsEventAsync?.({
+	runtime.captureWsEventAsync({
 		url: "wss://realtime.invalid/private",
 		direction,
 		kind,
@@ -6021,13 +6011,7 @@ async function createOpenAILiveCall(params, runtime) {
 	const response = await (params.fetchImpl ?? fetch)(OPENAI_LIVE_SESSIONS_URL, {
 		method: "POST",
 		headers: {
-			...runtime.resolveProviderRequestHeaders({
-				provider: "openai",
-				baseUrl: OPENAI_LIVE_SESSIONS_URL,
-				capability: "audio",
-				transport: "http",
-				defaultHeaders: {}
-			}),
+			...resolveOpenAIRealtimeRequestHeaders(runtime, OPENAI_LIVE_SESSIONS_URL),
 			Authorization: `Bearer ${params.apiKey}`,
 			"Content-Type": "application/json"
 		},
@@ -6179,15 +6163,9 @@ function openAIQuicksilverAuthHeaders(auth, requestIds, runtime, url = OPENAI_QU
 		includeQuicksilverAlpha: !baseUrl.startsWith(OPENAI_LIVE_SESSIONS_URL)
 	}, runtime);
 }
-function openAIRealtimeAuthHeaders(params, { resolveProviderRequestHeaders }) {
+function openAIRealtimeAuthHeaders(params, runtime) {
 	return {
-		...resolveProviderRequestHeaders({
-			provider: "openai",
-			baseUrl: params.baseUrl,
-			capability: "audio",
-			transport: "http",
-			defaultHeaders: {}
-		}) ?? {},
+		...resolveOpenAIRealtimeRequestHeaders(runtime, params.baseUrl),
 		Authorization: `Bearer ${params.auth.token}`,
 		...params.includeQuicksilverAlpha ? { "OpenAI-Alpha": "quicksilver=v2" } : {},
 		"session-id": params.requestIds.sessionId,
@@ -6244,23 +6222,16 @@ function isOpenAIQuicksilverCallId(value) {
 }
 function decodeOpenAIQuicksilverCallId(params) {
 	const sessionId = params.openAiSessionId?.trim() ?? "";
-	if (!params.location) {
-		if (isOpenAIQuicksilverCallId(sessionId)) return sessionId;
-		throw new OpenAIQuicksilverCallError(sessionId ? "GPT-Live call response returned an invalid openai-session-id" : "GPT-Live call response missing Location and openai-session-id headers");
-	}
-	let pathname;
-	try {
-		pathname = new URL(params.location, params.callUrl).pathname;
+	let errorMessage = sessionId ? "GPT-Live call response returned an invalid openai-session-id" : "GPT-Live call response missing Location and openai-session-id headers";
+	if (params.location) try {
+		const callId = new URL(params.location, params.callUrl).pathname.split("/").find(isOpenAIQuicksilverCallId);
+		if (callId) return callId;
+		errorMessage = "GPT-Live call response Location has no valid call id";
 	} catch {
-		if (isOpenAIQuicksilverCallId(sessionId)) return sessionId;
-		throw new OpenAIQuicksilverCallError("GPT-Live call response returned an invalid Location");
+		errorMessage = "GPT-Live call response returned an invalid Location";
 	}
-	const callId = pathname.split("/").filter(Boolean).find(isOpenAIQuicksilverCallId);
-	if (!callId) {
-		if (isOpenAIQuicksilverCallId(sessionId)) return sessionId;
-		throw new OpenAIQuicksilverCallError("GPT-Live call response Location has no valid call id");
-	}
-	return callId;
+	if (isOpenAIQuicksilverCallId(sessionId)) return sessionId;
+	throw new OpenAIQuicksilverCallError(errorMessage);
 }
 function describeOpenAIQuicksilverCallError(status, detail, auth) {
 	const normalized = detail.toLowerCase();
@@ -6690,7 +6661,7 @@ var OpenAIQuicksilverVoiceBridge = class {
 			this.closeSocket("stale connection", connected.socket);
 			return;
 		}
-		if (isOpenAIGptLiveApiModel(this.config.model)) this.publicDelegations = new OpenAILiveDelegationQueue({
+		this.delegations = new OpenAILiveDelegationQueue({
 			isActive: () => this.lifecycle.acceptsEvents(connection),
 			readInput: () => this.transcript.latestUserInput(),
 			dispatch: (id, input) => this.startDelegation(id, input, connection),
@@ -6700,14 +6671,13 @@ var OpenAIQuicksilverVoiceBridge = class {
 		captureOpenAIQuicksilverTransportEvent(this.runtime, "local", "ws-open");
 		let reachedReady = false;
 		let readySettled = false;
-		let removeAbortListener = () => {};
 		const ready = createDeferred();
 		const settleReady = (providerReady = true, error) => {
 			if (readySettled) return;
 			readySettled = true;
 			if (!error) reachedReady = providerReady;
-			if (readyTimeout) clearTimeout(readyTimeout);
-			removeAbortListener();
+			clearTimeout(readyTimeout);
+			connection.signal.removeEventListener("abort", onAbort);
 			if (error) ready.reject(error);
 			else ready.resolve();
 		};
@@ -6729,7 +6699,6 @@ var OpenAIQuicksilverVoiceBridge = class {
 			if (this.lifecycle.terminalOutcome(connection) === "completed") settleReady(false);
 		};
 		connection.signal.addEventListener("abort", onAbort, { once: true });
-		removeAbortListener = () => connection.signal.removeEventListener("abort", onAbort);
 		if (connection.signal.aborted) onAbort();
 		connected.socket.on("message", (data, isBinary) => {
 			const draining = this.closing?.connection === connection && this.lifecycle.terminalOutcome(connection) === "completed";
@@ -6908,12 +6877,12 @@ var OpenAIQuicksilverVoiceBridge = class {
 				direction: "server",
 				type: event.kind === "transcript-done" ? event.role === "assistant" ? "response.done" : "turn.done" : publicApi ? `session.${event.role === "user" ? "input" : "output"}_transcript.delta` : `${event.role === "user" ? "input" : "output"}_transcript.added`
 			});
-			this.publicDelegations?.resume();
+			this.delegations?.resume();
 			return;
 		}
 		if (event.kind === "delegation") {
-			if (this.publicDelegations) this.publicDelegations.enqueue(event.id);
-			else this.startDelegation(event.id, event.prompt ?? this.transcript.latestUserInput(), connection, event.prompt);
+			if (isOpenAIGptLiveApiModel(this.config.model)) this.delegations?.enqueue(event.id);
+			else if (this.delegations?.claim(event.id)) this.startDelegation(event.id, event.prompt ?? this.transcript.latestUserInput(), connection, event.prompt);
 			return;
 		}
 		const message = projectOpenAIQuicksilverErrorMessage("provider");
@@ -7004,8 +6973,8 @@ var OpenAIQuicksilverVoiceBridge = class {
 	resetTerminalState() {
 		this.closeAudioOutput();
 		this.socket?.stopAudio();
-		this.publicDelegations?.stop();
-		this.publicDelegations = void 0;
+		this.delegations?.stop();
+		this.delegations = void 0;
 		this.activeDelegations.clear();
 		this.transcript.clear();
 	}
@@ -7061,7 +7030,7 @@ var OpenAIQuicksilverDelegationController = class {
 		};
 		this.stopped = false;
 		this.transcript = new OpenAIQuicksilverTranscript();
-		if (isOpenAIGptLiveApiModel(options.model)) this.publicDelegations = new OpenAILiveDelegationQueue({
+		this.delegations = new OpenAILiveDelegationQueue({
 			isActive: () => !this.stopped && !this.drainDisposition && !options.signal.aborted,
 			readInput: () => this.transcript.latestUserInput(),
 			dispatch: (id, input) => this.startDelegation(id, input),
@@ -7118,7 +7087,7 @@ var OpenAIQuicksilverDelegationController = class {
 					onTranscript: this.options.onTranscript,
 					canAppend: () => !this.stopped
 				});
-				this.publicDelegations?.resume();
+				this.delegations.resume();
 			} else {
 				this.transcript.append(event);
 				this.options.onTranscript?.(event.role, event.text, event.kind === "transcript-done");
@@ -7132,8 +7101,9 @@ var OpenAIQuicksilverDelegationController = class {
 			else this.options.onError?.(error);
 			return;
 		}
-		if (this.publicDelegations) this.publicDelegations.enqueue(event.id);
+		if (isOpenAIGptLiveApiModel(this.options.model)) this.delegations.enqueue(event.id);
 		else {
+			if (!this.delegations.claim(event.id)) return;
 			const input = event.prompt ?? this.transcript.latestUserInput();
 			if (event.prompt === void 0 && !input.trim()) {
 				this.sendAppend("Ask the user to repeat their request; no user transcript was received.", "speakable", event.id);
@@ -7149,25 +7119,20 @@ var OpenAIQuicksilverDelegationController = class {
 	beginTranscriptDrain(disposition) {
 		if (this.stopped || this.drainDisposition) return;
 		this.drainDisposition = disposition;
-		this.publicDelegations?.stop();
+		this.delegations.stop();
 		this.revokeRequesterFinal();
 		this.pendingDelegation = void 0;
 		if (disposition === "abort") this.consultController?.abort(/* @__PURE__ */ new Error("GPT-Live session closing"));
 	}
 	stop(reason) {
-		if (this.stopped) return;
-		this.publicDelegations?.stop();
-		this.flushTranscript();
-		this.markStopped();
-		this.consultController?.abort(reason);
-		this.consultController = void 0;
+		if (this.retire()) {
+			this.consultController?.abort(reason);
+			this.consultController = void 0;
+		}
 	}
 	/** Releases sideband ownership without canceling work already accepted by the host. */
 	detach() {
-		if (this.stopped) return;
-		this.publicDelegations?.stop();
-		this.flushTranscript();
-		this.markStopped();
+		this.retire();
 	}
 	flushTranscript() {
 		if (isOpenAIGptLiveApiModel(this.options.model)) this.consumeTranscript();
@@ -7280,12 +7245,16 @@ var OpenAIQuicksilverDelegationController = class {
 		});
 		this.steeringPromise = completion;
 	}
-	markStopped() {
+	retire() {
+		if (this.stopped) return false;
+		this.delegations.stop();
+		this.flushTranscript();
 		this.stopped = true;
 		this.revokeRequesterFinal();
 		this.options.signal.removeEventListener("abort", this.onSessionAbort);
 		this.pendingDelegation = void 0;
 		this.transcript.clear();
+		return true;
 	}
 	async runDelegation(delegation, generation, signal) {
 		let text;
@@ -7412,7 +7381,6 @@ var OpenAIQuicksilverGatewayBridge = class {
 		this.abortController = new AbortController();
 		this.connected = false;
 		this.closed = false;
-		this.closeNotified = false;
 		this.closeReason = "completed";
 		this.providerSessionClosed = false;
 		this.pendingAudio = new OpenAIQuicksilverPendingAudio();
@@ -7688,10 +7656,6 @@ var OpenAIQuicksilverGatewayBridge = class {
 				clearTimeout(this.timer);
 				this.timer = void 0;
 			}
-			if (this.providerSessionClosed) {
-				this.finishClose(disposition, beforeClose);
-				return;
-			}
 			this.closingPromise = closeOpenAILiveSocket(socket).then((receiptReason) => {
 				if (receiptReason === "content" || receiptReason === "connection_lost") this.closeReason = "error";
 			}).catch((error) => {
@@ -7713,10 +7677,7 @@ var OpenAIQuicksilverGatewayBridge = class {
 			try {
 				beforeClose?.();
 			} finally {
-				if (!this.closeNotified) {
-					this.closeNotified = true;
-					this.config.onClose?.(this.closeReason);
-				}
+				this.config.onClose?.(this.closeReason);
 			}
 		}
 	}
@@ -7774,6 +7735,7 @@ const OPENAI_REALTIME_CAPABILITIES = {
 };
 const OPENAI_REALTIME_MAX_SESSION_DURATION_FRAGMENT = "maximum duration";
 const OPENAI_VOICE_WS_MAX_PAYLOAD_BYTES = 16777216;
+const OPENAI_REALTIME_SIDEBAND_STARTUP_MAX_BYTES = 1048576;
 const OPENAI_REALTIME_TOOL_NAME_RE = /^[A-Za-z0-9_-]+$/;
 const OPENAI_REALTIME_VOICES = [
 	"alloy",
@@ -7791,9 +7753,27 @@ function normalizeOpenAIRealtimeVoice(value) {
 	const normalized = normalizeOptionalLowercaseString(value);
 	return OPENAI_REALTIME_VOICES.find((voice) => voice === normalized);
 }
+function normalizeRealtimeBaseUrl(value) {
+	if (value === void 0 || typeof value === "string" && !value.trim()) return;
+	const url = typeof value === "string" ? URL.parse(value.trim()) : null;
+	if (!url || ![
+		"http:",
+		"https:",
+		"ws:",
+		"wss:"
+	].includes(url.protocol)) throw new Error("Invalid OpenAI realtime baseUrl: expected an HTTP(S) or WS(S) endpoint URL");
+	if (url.username || url.password || url.hash) throw new Error("Invalid OpenAI realtime baseUrl: credentials and fragments are not supported");
+	url.protocol = url.protocol.replace("http", "ws");
+	return url.toString();
+}
 function normalizeProviderConfig(config) {
 	const raw = resolveOpenAIProviderConfigRecord(config);
+	const baseUrl = normalizeRealtimeBaseUrl(raw?.baseUrl);
+	const azureEndpoint = normalizeOptionalString(raw?.azureEndpoint);
+	const azureDeployment = normalizeOptionalString(raw?.azureDeployment);
+	if (baseUrl && (azureEndpoint || azureDeployment)) throw new Error("OpenAI realtime baseUrl cannot be combined with Azure endpoint or deployment");
 	return {
+		baseUrl,
 		apiKey: normalizeResolvedSecretInputString({
 			value: raw?.apiKey,
 			path: "plugins.entries.voice-call.config.realtime.providers.openai.apiKey"
@@ -7810,8 +7790,8 @@ function normalizeProviderConfig(config) {
 		interruptResponseOnInputAudio: typeof raw?.interruptResponseOnInputAudio === "boolean" ? raw.interruptResponseOnInputAudio : void 0,
 		minBargeInAudioEndMs: asSafeIntegerInRange(raw?.minBargeInAudioEndMs, { min: 0 }),
 		reasoningEffort: normalizeOptionalString(raw?.reasoningEffort),
-		azureEndpoint: normalizeOptionalString(raw?.azureEndpoint),
-		azureDeployment: normalizeOptionalString(raw?.azureDeployment),
+		azureEndpoint,
+		azureDeployment,
 		azureApiVersion: normalizeOptionalString(raw?.azureApiVersion)
 	};
 }
@@ -7986,7 +7966,7 @@ async function resolveOpenAIQuicksilverBridgeAuth(params, runtime) {
 		type: "api-key",
 		token: platformAuth
 	};
-	if (hasOpenAIRealtimePlatformAuthInput(params, runtime)) throw new Error(isOpenAIGptLiveSubscriptionModel(params.model) ? OPENAI_GPT_LIVE_PUBLIC_AUTHORED_PLATFORM_AUTH_UNAVAILABLE : OPENAI_GPT_LIVE_AUTHORED_PLATFORM_AUTH_UNAVAILABLE);
+	if (await hasOpenAIRealtimePlatformAuthInputAsync(params, runtime)) throw new Error(isOpenAIGptLiveSubscriptionModel(params.model) ? OPENAI_GPT_LIVE_PUBLIC_AUTHORED_PLATFORM_AUTH_UNAVAILABLE : OPENAI_GPT_LIVE_AUTHORED_PLATFORM_AUTH_UNAVAILABLE);
 	throw new Error(isOpenAIGptLiveSubscriptionModel(params.model) ? OPENAI_GPT_LIVE_PUBLIC_AUTH_REQUIRED : OPENAI_GPT_LIVE_AUTH_REQUIRED);
 }
 function hasOpenAIRealtimePlatformAuthInput(params, { isProviderAuthProfileConfigured, resolveAgentDir }) {
@@ -8006,7 +7986,28 @@ function hasOpenAIChatGptSubscriptionAuthInput(params, { isProviderAuthProfileCo
 		capability: "realtime-voice",
 		cfg: params.cfg,
 		agentDir: params.cfg && params.agentId ? resolveAgentDir(params.cfg, params.agentId) : void 0,
-		profileTypes: ["oauth"],
+		profileTypes: OPENAI_CHATGPT_SUBSCRIPTION_PROFILE_TYPES,
+		includeExternalCliAuth: false
+	});
+}
+async function hasOpenAIRealtimePlatformAuthInputAsync(params, { isProviderAuthProfileConfiguredAsync, resolveAgentDir }) {
+	if (hasOpenAIRealtimeConfiguredApiKeyInput(params.configuredApiKey)) return true;
+	if (await isProviderAuthProfileConfiguredAsync({
+		provider: "openai",
+		cfg: params.cfg,
+		...params.cfg && params.agentId ? { agentDir: resolveAgentDir(params.cfg, params.agentId) } : {},
+		profileTypes: ["api_key"],
+		includeExternalCliAuth: false
+	})) return true;
+	return hasOpenAIRealtimeApiKeyInput(void 0);
+}
+async function hasOpenAIChatGptSubscriptionAuthInputAsync(params, { isProviderAuthProfileConfiguredAsync, resolveAgentDir }) {
+	return isProviderAuthProfileConfiguredAsync({
+		provider: "openai",
+		capability: "realtime-voice",
+		cfg: params.cfg,
+		agentDir: params.cfg && params.agentId ? resolveAgentDir(params.cfg, params.agentId) : void 0,
+		profileTypes: OPENAI_CHATGPT_SUBSCRIPTION_PROFILE_TYPES,
 		includeExternalCliAuth: false
 	});
 }
@@ -8034,9 +8035,8 @@ var OpenAIRealtimeProtocol = class {
 		this.runtime = runtime;
 		this.supportsToolResultContinuation = true;
 		this.supportsToolResultSuppression = true;
-		this.nextMarkSequence = 1;
+		this.latestMarkSequence = 0;
 		this.oldestOutstandingMarkSequence = null;
-		this.latestOutstandingMarkSequence = null;
 		this.responseActive = false;
 		this.responseCreateState = "idle";
 		this.manualResponseCreateEventId = null;
@@ -8052,7 +8052,6 @@ var OpenAIRealtimeProtocol = class {
 		this.assistantAudioItem = null;
 		this.completedToolCallIds = /* @__PURE__ */ new Set();
 		this.standaloneSpeechQueue = [];
-		this.standaloneSpeechActive = false;
 		this.standaloneSpeechEventId = null;
 		this.audioFormat = config.audioFormat ?? REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ;
 	}
@@ -8061,13 +8060,12 @@ var OpenAIRealtimeProtocol = class {
 	}
 	acknowledgeMark(markName) {
 		const oldest = this.oldestOutstandingMarkSequence;
-		const latest = this.latestOutstandingMarkSequence;
-		if (oldest === null || latest === null) return;
+		const latest = this.latestMarkSequence;
+		if (oldest === null) return;
 		const acknowledgedSequence = markName === void 0 ? oldest : parsePlaybackMarkSequence(markName);
 		if (acknowledgedSequence === void 0 || acknowledgedSequence < oldest || acknowledgedSequence > latest) return;
 		if (acknowledgedSequence === latest) {
 			this.oldestOutstandingMarkSequence = null;
-			this.latestOutstandingMarkSequence = null;
 			return;
 		}
 		this.oldestOutstandingMarkSequence = acknowledgedSequence + 1;
@@ -8153,10 +8151,7 @@ var OpenAIRealtimeProtocol = class {
 		this.manualResponseCreateEventId = null;
 		this.responseCancelInFlight = false;
 		this.manualResponseCancelEventId = null;
-		if (this.standaloneSpeechActive) {
-			this.standaloneSpeechActive = false;
-			this.standaloneSpeechEventId = null;
-		}
+		this.standaloneSpeechEventId = null;
 		if (options.drain !== false) this.drainResponseQueue();
 	}
 	get responseBusy() {
@@ -8243,11 +8238,10 @@ var OpenAIRealtimeProtocol = class {
 		});
 	}
 	flushStandaloneSpeech() {
-		if (this.responseBusy || this.standaloneSpeechActive) return;
+		if (this.responseBusy || this.standaloneSpeechEventId !== null) return;
 		const text = this.standaloneSpeechQueue.shift();
 		if (!text) return;
 		const eventId = `openclaw-standalone-speech-${randomUUID()}`;
-		this.standaloneSpeechActive = true;
 		this.standaloneSpeechEventId = eventId;
 		this.responseCreateState = "in-flight";
 		this.sendEvent({
@@ -8286,30 +8280,22 @@ var OpenAIRealtimeProtocol = class {
 		this.outputAudioGeneration += 1;
 		this.clearOutstandingMarks();
 		this.assistantAudioItem = null;
-		this.responseActive = false;
-		this.responseCreateState = "idle";
-		this.manualResponseCreateEventId = null;
-		this.responseCancelInFlight = false;
-		this.manualResponseCancelEventId = null;
+		this.releaseResponseState({ drain: false });
 		this.responseCreatePending = false;
 		this.autoRespondSuppressedForManualResponse = false;
 		this.continuingToolCallIds.clear();
 		this.pendingToolCallIds.clear();
 		this.completedToolCallIds.clear();
 		this.standaloneSpeechQueue = [];
-		this.standaloneSpeechActive = false;
-		this.standaloneSpeechEventId = null;
 	}
 	createPlaybackMark() {
-		const sequence = this.nextMarkSequence;
-		this.nextMarkSequence += 1;
+		this.latestMarkSequence += 1;
+		const sequence = this.latestMarkSequence;
 		if (this.oldestOutstandingMarkSequence === null) this.oldestOutstandingMarkSequence = sequence;
-		this.latestOutstandingMarkSequence = sequence;
 		return `audio-${sequence}`;
 	}
 	clearOutstandingMarks() {
 		this.oldestOutstandingMarkSequence = null;
-		this.latestOutstandingMarkSequence = null;
 	}
 };
 //#endregion
@@ -8464,44 +8450,33 @@ var OpenAIRealtimeEvents = class extends OpenAIRealtimeProtocol {
 			}
 			this.completedToolCallIds.add(callId);
 			this.pendingToolCallIds.add(callId);
-			if (typeof output.arguments !== "string") {
-				this.rejectToolCallArguments({
-					itemId,
-					callId,
-					reason: "invalid-json-type",
-					message: "Invalid tool arguments: expected a JSON object."
+			const rejectArguments = (reason, message = "Invalid tool arguments: expected a JSON object.") => {
+				this.config.onEvent?.({
+					direction: "server",
+					type: "tool_call.arguments.rejected",
+					detail: `reason=${reason}`,
+					itemId
 				});
+				this.submitToolResult(callId, { error: message });
+			};
+			if (typeof output.arguments !== "string") {
+				rejectArguments("invalid-json-type");
 				continue;
 			}
 			const rawArgs = output.arguments;
 			if (Buffer.byteLength(rawArgs, "utf8") > OpenAIRealtimeProtocol.MAX_TOOL_ARGUMENT_BYTES) {
-				this.rejectToolCallArguments({
-					itemId,
-					callId,
-					reason: "too-large",
-					message: `Realtime tool arguments exceed the ${OpenAIRealtimeProtocol.MAX_TOOL_ARGUMENT_BYTES}-byte UTF-8 limit`
-				});
+				rejectArguments("too-large", `Realtime tool arguments exceed the ${OpenAIRealtimeProtocol.MAX_TOOL_ARGUMENT_BYTES}-byte UTF-8 limit`);
 				continue;
 			}
 			let args;
 			try {
 				args = JSON.parse(rawArgs || "{}");
 			} catch {
-				this.rejectToolCallArguments({
-					itemId,
-					callId,
-					reason: "malformed-json",
-					message: "Invalid tool arguments: expected a JSON object."
-				});
+				rejectArguments("malformed-json");
 				continue;
 			}
 			if (!isRecord(args)) {
-				this.rejectToolCallArguments({
-					itemId,
-					callId,
-					reason: "non-object-json",
-					message: "Invalid tool arguments: expected a JSON object."
-				});
+				rejectArguments("non-object-json");
 				continue;
 			}
 			this.config.onToolCall({
@@ -8540,15 +8515,6 @@ var OpenAIRealtimeEvents = class extends OpenAIRealtimeProtocol {
 		}
 		if (callbackError) throw callbackError instanceof Error ? callbackError : new Error("OpenAI realtime response callback failed", { cause: callbackError });
 	}
-	rejectToolCallArguments(params) {
-		this.config.onEvent?.({
-			direction: "server",
-			type: "tool_call.arguments.rejected",
-			detail: `reason=${params.reason}`,
-			itemId: params.itemId
-		});
-		this.submitToolResult(params.callId, { error: params.message });
-	}
 	describeServerEvent(event) {
 		if (event.type === "error" || event.type === "conversation.item.input_audio_transcription.failed") return readRealtimeErrorDetail(event.error);
 		if (event.type === "session.created" || event.type === "session.updated") {
@@ -8570,40 +8536,72 @@ var OpenAIRealtimeEvents = class extends OpenAIRealtimeProtocol {
 //#region extensions/openai/realtime-voice-bridge.ts
 const OPENAI_REALTIME_MAX_BUFFERED_AUDIO_BYTES = 1048576;
 const OPENAI_REALTIME_AUDIO_DROP_WARN_INTERVAL_MS = 5e3;
-var OpenAIRealtimeBridge = class OpenAIRealtimeBridge extends OpenAIRealtimeEvents {
-	static {
-		this.MAX_RECONNECT_ATTEMPTS = 5;
-	}
-	static {
-		this.BASE_RECONNECT_DELAY_MS = 1e3;
-	}
-	static {
-		this.CONNECT_TIMEOUT_MS = 1e4;
-	}
+var OpenAIRealtimeBridge = class extends OpenAIRealtimeEvents {
 	constructor(config, runtime) {
 		super(config, runtime);
-		this.ws = null;
-		this.connectionUrl = "";
-		this.flowId = randomUUID();
 		this.sessionReadyFired = false;
 		this.droppedInputAudioFrames = 0;
 		this.lastInputAudioDropWarningAt = Number.NEGATIVE_INFINITY;
-		this.lifecycle = new RealtimeVoiceSessionLifecycle("OpenAI", {
-			pendingAudioOverflowPolicy: "drop-oldest",
-			onPendingAudioOverflow: () => this.config.logger.warn("OpenAI realtime input audio queue overflow; keeping newest audio")
+		this.transport = new RealtimeVoiceWebSocketTransport({
+			providerId: "openai",
+			label: "OpenAI realtime",
+			callbacks: config,
+			lifecycle: new RealtimeVoiceSessionLifecycle("OpenAI", {
+				pendingAudioOverflowPolicy: "drop-oldest",
+				onPendingAudioOverflow: () => config.logger.warn("OpenAI realtime input audio queue overflow; keeping newest audio")
+			}),
+			resolveConnection: () => this.resolveConnectionParams(),
+			createSocket: ({ url, headers }) => {
+				const proxyAgent = runtime.createDebugProxyWebSocketAgent(runtime.resolveDebugProxySettings());
+				return new WebSocket(url, {
+					headers,
+					maxPayload: OPENAI_VOICE_WS_MAX_PAYLOAD_BYTES,
+					...proxyAgent ? { agent: proxyAgent } : {}
+				});
+			},
+			capture: runtime.captureWsEventAsync,
+			onOpen: () => {
+				this.resetRealtimeSessionState();
+				this.sendSessionUpdate();
+			},
+			onEvent: (event, connection) => this.handleEvent(event, connection),
+			onReset: () => this.resetTerminalState(),
+			startupError: (error, url) => isDirectOpenAIRealtimeWebSocketUrl(url) && isOpenAIRealtimeStartupAuthFailure(error) ? /* @__PURE__ */ new Error(OPENAI_REALTIME_CONFIGURED_API_KEY_REJECTED) : error instanceof Error ? error : new Error(readRealtimeErrorDetail(error)),
+			fatalEventError: (error, event) => event?.type === "session.updated" ? {
+				code: 1011,
+				reason: "Readiness callback failed"
+			} : error instanceof OpenAIRealtimeMalformedAudioError ? {
+				code: 1002,
+				reason: "Malformed audio payload"
+			} : void 0,
+			startupLimit: {
+				bytes: OPENAI_REALTIME_SIDEBAND_STARTUP_MAX_BYTES,
+				message: "OpenAI realtime sideband startup buffer exceeded",
+				reason: "Sideband startup buffer exceeded"
+			},
+			closeOnFailedAbort: true,
+			onFirstReconnect: () => {
+				this.resetRealtimeSessionState();
+				config.onEvent?.({
+					direction: "client",
+					type: "session.continuity.reset"
+				});
+			},
+			maxReconnectAttempts: 5,
+			reconnectDelayMs: 1e3,
+			connectTimeoutMs: 1e4
 		});
 	}
-	async connect() {
-		if (this.terminalError) throw this.terminalError;
-		await this.lifecycle.connect((connection) => this.doConnect(connection));
+	connect() {
+		return this.transport.connect();
 	}
 	sendAudio(audio) {
-		if (this.lifecycle.phase() === "terminal") return;
-		if (!this.lifecycle.isReady() || this.ws?.readyState !== WebSocket.OPEN) {
-			this.lifecycle.enqueuePendingAudio(audio);
+		if (this.transport.lifecycle.phase() === "terminal") return;
+		if (!this.transport.lifecycle.isReady() || this.transport.socket?.readyState !== WebSocket.OPEN) {
+			this.transport.lifecycle.enqueuePendingAudio(audio);
 			return;
 		}
-		if (this.ws.bufferedAmount > OPENAI_REALTIME_MAX_BUFFERED_AUDIO_BYTES) {
+		if (this.transport.socket.bufferedAmount > OPENAI_REALTIME_MAX_BUFFERED_AUDIO_BYTES) {
 			this.droppedInputAudioFrames += 1;
 			const now = Date.now();
 			if (now - this.lastInputAudioDropWarningAt >= OPENAI_REALTIME_AUDIO_DROP_WARN_INTERVAL_MS) {
@@ -8639,11 +8637,11 @@ var OpenAIRealtimeBridge = class OpenAIRealtimeBridge extends OpenAIRealtimeEven
 		this.requestResponseCreate(options);
 	}
 	triggerGreeting(instructions) {
-		if (!this.isConnected() || !this.ws) return;
+		if (!this.isConnected() || !this.transport.socket) return;
 		this.sendUserMessage(instructions ?? this.config.instructions ?? "Greet the meeting.");
 	}
 	submitToolResult(callId, result, options) {
-		if (this.lifecycle.phase() === "terminal" || !this.pendingToolCallIds.has(callId)) return;
+		if (this.transport.lifecycle.phase() === "terminal" || !this.pendingToolCallIds.has(callId)) return;
 		const output = JSON.stringify(result);
 		if (typeof output !== "string") throw new Error("OpenAI realtime voice tool result is not JSON-serializable");
 		this.sendEvent({
@@ -8667,185 +8665,10 @@ var OpenAIRealtimeBridge = class OpenAIRealtimeBridge extends OpenAIRealtimeEven
 		this.requestResponseCreate();
 	}
 	close() {
-		const connection = this.lifecycle.currentConnection();
-		if (!this.lifecycle.cancel()) return;
-		this.resetTerminalState();
-		if (!connection) return;
-		const ws = this.ws;
-		this.ws = null;
-		ws?.close(1e3, "Bridge closed");
-		this.notifyClose(connection, "completed");
+		this.transport.close();
 	}
 	isConnected() {
-		return this.lifecycle.isReady() && this.ws?.readyState === WebSocket.OPEN;
-	}
-	async doConnect(lifecycleConnection) {
-		let activeWs;
-		let startupFrameBytes = 0;
-		const attempt = this.lifecycle.createConnectAttempt({
-			connection: lifecycleConnection,
-			timeoutMs: OpenAIRealtimeBridge.CONNECT_TIMEOUT_MS,
-			timeoutError: () => /* @__PURE__ */ new Error("OpenAI realtime connection timeout"),
-			onTimeout: () => activeWs?.terminate(),
-			onAbort: () => {
-				if (activeWs && activeWs.readyState !== WebSocket.CLOSED) activeWs.close(1e3, "connection canceled");
-			}
-		});
-		const openWebSocket = (resolvedConnection) => {
-			if (attempt.settled) return;
-			if (!this.lifecycle.isCurrent(lifecycleConnection) || lifecycleConnection.signal.aborted) {
-				attempt.resolve();
-				return;
-			}
-			attempt.startTimeout();
-			const url = resolvedConnection.url;
-			this.connectionUrl = resolvedConnection.url;
-			const debugProxy = this.runtime.resolveDebugProxySettings();
-			const proxyAgent = this.runtime.createDebugProxyWebSocketAgent(debugProxy);
-			const ws = new WebSocket(resolvedConnection.url, {
-				headers: resolvedConnection.headers,
-				maxPayload: OPENAI_VOICE_WS_MAX_PAYLOAD_BYTES,
-				...proxyAgent ? { agent: proxyAgent } : {}
-			});
-			activeWs = ws;
-			this.ws = ws;
-			const rejectStartup = (error) => {
-				if (!attempt.rejectStartup(error)) return;
-				if (ws.readyState !== WebSocket.CLOSED) ws.close(1e3, "startup failed");
-			};
-			ws.on("open", () => {
-				if (!this.lifecycle.acceptsEvents(lifecycleConnection)) {
-					ws.close(1e3, "stale connection");
-					return;
-				}
-				this.resetRealtimeSessionState();
-				this.captureTransportEvent({
-					url,
-					direction: "local",
-					kind: "ws-open"
-				});
-				this.sendSessionUpdate();
-			});
-			ws.on("message", (data) => {
-				if (!this.lifecycle.acceptsEvents(lifecycleConnection) || this.ws !== ws) return;
-				if (attempt.settled && !attempt.ready) return;
-				if (!attempt.ready) {
-					startupFrameBytes += data.byteLength;
-					if (startupFrameBytes > 1048576) {
-						const error = /* @__PURE__ */ new Error("OpenAI realtime sideband startup buffer exceeded");
-						attempt.reject(error);
-						this.failConnection(error, ws, lifecycleConnection, {
-							code: 1009,
-							reason: "Sideband startup buffer exceeded"
-						});
-						return;
-					}
-				}
-				this.captureTransportEvent({
-					url,
-					direction: "inbound",
-					kind: "ws-frame",
-					payload: data
-				});
-				try {
-					const event = JSON.parse(data.toString());
-					if (event.type === "error" && !attempt.ready) {
-						rejectStartup(isDirectOpenAIRealtimeWebSocketUrl(url) && isOpenAIRealtimeStartupAuthFailure(event.error) ? /* @__PURE__ */ new Error(OPENAI_REALTIME_CONFIGURED_API_KEY_REJECTED) : new Error(readRealtimeErrorDetail(event.error)));
-						return;
-					}
-					if (event.type === "session.updated") {
-						try {
-							this.handleEvent(event, lifecycleConnection);
-						} catch (error) {
-							const readyError = toStringifiedError(error);
-							attempt.reject(readyError);
-							this.failConnection(readyError, ws, lifecycleConnection, {
-								code: 1011,
-								reason: "Readiness callback failed"
-							});
-							return;
-						}
-						attempt.resolve(this.lifecycle.isReady());
-						return;
-					}
-					this.handleEvent(event, lifecycleConnection);
-				} catch (error) {
-					if (error instanceof OpenAIRealtimeMalformedAudioError) {
-						attempt.reject(error);
-						this.failConnection(error, ws, lifecycleConnection, {
-							code: 1002,
-							reason: "Malformed audio payload"
-						});
-						return;
-					}
-					console.error("[openai] realtime event parse failed:", error);
-				}
-			});
-			ws.on("error", (error) => {
-				if (!this.lifecycle.acceptsEvents(lifecycleConnection) || this.ws !== ws) return;
-				this.captureTransportEvent({
-					url,
-					direction: "local",
-					kind: "error",
-					errorText: coerceErrorMessage(error)
-				});
-				if (!attempt.ready) {
-					const startupError = toStringifiedError(error);
-					rejectStartup(isDirectOpenAIRealtimeWebSocketUrl(url) && isOpenAIRealtimeStartupAuthFailure(startupError) ? /* @__PURE__ */ new Error(OPENAI_REALTIME_CONFIGURED_API_KEY_REJECTED) : startupError);
-					return;
-				}
-				this.config.onError?.(toStringifiedError(error));
-			});
-			ws.on("close", (code, reasonBuffer) => {
-				this.captureTransportEvent({
-					url,
-					direction: "local",
-					kind: "ws-close",
-					closeCode: typeof code === "number" ? code : void 0,
-					meta: { reason: Buffer.isBuffer(reasonBuffer) && reasonBuffer.length > 0 ? reasonBuffer.toString("utf8") : void 0 }
-				});
-				if (!this.lifecycle.isCurrent(lifecycleConnection)) return;
-				if (this.ws === ws) this.ws = null;
-				if (attempt.startupFailed) return;
-				if (this.terminalError) {
-					this.notifyClose(lifecycleConnection, "error");
-					return;
-				}
-				if (this.lifecycle.terminalOutcome(lifecycleConnection) === "completed") {
-					attempt.resolve();
-					this.notifyClose(lifecycleConnection, "completed");
-					return;
-				}
-				if (!attempt.ready && !attempt.settled) {
-					const error = /* @__PURE__ */ new Error("OpenAI realtime connection closed before ready");
-					attempt.reject(error);
-					return;
-				}
-				const reason = this.reconnectReason ?? "websocket-close";
-				this.reconnectReason = void 0;
-				this.attemptReconnect(reason, lifecycleConnection);
-			});
-		};
-		let connectionOrPromise;
-		try {
-			connectionOrPromise = this.resolveConnectionParams();
-		} catch (error) {
-			attempt.reject(toStringifiedError(error));
-			return attempt.promise;
-		}
-		if (connectionOrPromise instanceof Promise) connectionOrPromise.then(openWebSocket).catch((error) => {
-			if (!this.lifecycle.isCurrent(lifecycleConnection) || this.lifecycle.terminalOutcome(lifecycleConnection) === "completed") {
-				attempt.resolve();
-				return;
-			}
-			attempt.reject(toStringifiedError(error));
-		});
-		else try {
-			openWebSocket(connectionOrPromise);
-		} catch (error) {
-			attempt.reject(toStringifiedError(error));
-		}
-		await attempt.promise;
+		return this.transport.isConnected();
 	}
 	resolveConnectionParams() {
 		const cfg = this.config;
@@ -8855,13 +8678,7 @@ var OpenAIRealtimeBridge = class OpenAIRealtimeBridge extends OpenAIRealtimeEven
 			const url = `${cfg.azureEndpoint.replace(/\/$/, "").replace(/^http(s?):/, (_, secure) => `ws${secure}:`)}/openai/realtime?api-version=${cfg.azureApiVersion ?? "2024-10-01-preview"}&deployment=${encodeURIComponent(cfg.azureDeployment)}`;
 			return {
 				url,
-				headers: this.runtime.resolveProviderRequestHeaders({
-					provider: "openai",
-					baseUrl: url,
-					capability: "audio",
-					transport: "websocket",
-					defaultHeaders: { "api-key": apiKey }
-				}) ?? { "api-key": apiKey }
+				headers: resolveOpenAIRealtimeRequestHeaders(this.runtime, url, { "api-key": apiKey }, "websocket")
 			};
 		}
 		if (hasOpenAIRealtimeConfiguredApiKeyInput(cfg.apiKey)) {
@@ -8887,71 +8704,19 @@ var OpenAIRealtimeBridge = class OpenAIRealtimeBridge extends OpenAIRealtimeEven
 	resolveApiKeyConnectionParams(apiKey, model) {
 		const cfg = this.config;
 		let url;
-		if (cfg.azureEndpoint) url = `${cfg.azureEndpoint.replace(/\/$/, "").replace(/^http(s?):/, (_, secure) => `ws${secure}:`)}/v1/realtime?model=${encodeURIComponent(model)}`;
+		if (cfg.baseUrl) {
+			const endpoint = new URL(cfg.baseUrl);
+			endpoint.search = [...endpoint.search ? endpoint.search.slice(1).split("&").filter((part) => !new URLSearchParams(part).has("model")) : [], `model=${encodeURIComponent(model)}`].join("&");
+			url = endpoint.toString();
+		} else if (cfg.azureEndpoint) url = `${cfg.azureEndpoint.replace(/\/$/, "").replace(/^http(s?):/, (_, secure) => `ws${secure}:`)}/v1/realtime?model=${encodeURIComponent(model)}`;
 		else url = cfg.callId ? buildOpenAIRealtimeSidebandUrl(cfg.callId) : `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`;
-		const defaultHeaders = { Authorization: `Bearer ${apiKey}` };
 		return {
 			url,
-			headers: this.runtime.resolveProviderRequestHeaders({
-				provider: "openai",
-				baseUrl: url,
-				capability: "audio",
-				transport: "websocket",
-				defaultHeaders
-			}) ?? defaultHeaders
+			headers: resolveOpenAIRealtimeRequestHeaders(this.runtime, url, { Authorization: `Bearer ${apiKey}` }, "websocket")
 		};
 	}
-	async attemptReconnect(reason, connection) {
-		const retry = this.lifecycle.retry(connection, OpenAIRealtimeBridge.MAX_RECONNECT_ATTEMPTS);
-		if (!retry) return;
-		if (retry === "exhausted") {
-			this.config.onEvent?.({
-				direction: "client",
-				type: "session.reconnect.exhausted",
-				detail: `reason=${reason} attempts=${OpenAIRealtimeBridge.MAX_RECONNECT_ATTEMPTS}`
-			});
-			if (this.lifecycle.failure(connection)) this.resetTerminalState();
-			this.notifyClose(connection, "error");
-			return;
-		}
-		const attempt = retry.attempt;
-		const delay = OpenAIRealtimeBridge.BASE_RECONNECT_DELAY_MS * 2 ** (attempt - 1);
-		if (attempt === 1) {
-			this.resetRealtimeSessionState();
-			this.config.onEvent?.({
-				direction: "client",
-				type: "session.continuity.reset"
-			});
-		}
-		this.config.onEvent?.({
-			direction: "client",
-			type: "session.reconnect.scheduled",
-			detail: `reason=${reason} attempt=${attempt} delayMs=${delay}`
-		});
-		try {
-			await sleepWithAbort(delay, retry.signal);
-		} catch (error) {
-			if (!retry.signal.aborted) throw error;
-			return;
-		}
-		const nextConnection = this.lifecycle.reconnect(connection);
-		if (!nextConnection) return;
-		try {
-			await this.doConnect(nextConnection);
-			if (!this.lifecycle.isCurrent(nextConnection) || !this.lifecycle.isReady()) return;
-			this.config.onEvent?.({
-				direction: "client",
-				type: "session.reconnect.ready",
-				detail: `reason=${reason} attempt=${attempt}`
-			});
-		} catch (error) {
-			if (!this.lifecycle.acceptsEvents(nextConnection)) return;
-			this.config.onError?.(toStringifiedError(error));
-			await this.attemptReconnect(reason, nextConnection);
-		}
-	}
 	onSessionUpdated(connection) {
-		if (!this.lifecycle.ready(connection)) return;
+		if (!this.transport.lifecycle.ready(connection)) return;
 		if (this.activeConnectionReason) {
 			this.config.onEvent?.({
 				direction: "server",
@@ -8964,81 +8729,33 @@ var OpenAIRealtimeBridge = class OpenAIRealtimeBridge extends OpenAIRealtimeEven
 			this.sessionReadyFired = true;
 			this.config.onReady?.();
 		}
-		for (const chunk of this.lifecycle.drainPendingAudio()) this.sendAudio(chunk);
+		for (const chunk of this.transport.lifecycle.drainPendingAudio()) this.sendAudio(chunk);
 	}
 	resetTerminalState() {
 		this.sessionReadyFired = false;
-		this.reconnectReason = void 0;
 		this.activeConnectionReason = void 0;
 		this.resetRealtimeSessionState();
 	}
-	failConnection(error, ws, connection, close) {
-		if (this.terminalError) return;
-		this.terminalError = error;
-		this.lifecycle.failure(connection);
-		this.resetTerminalState();
-		try {
-			this.config.onError?.(error);
-		} finally {
-			if (ws.readyState !== WebSocket.CLOSED) ws.close(close.code, close.reason);
-			else this.notifyClose(connection, "error");
-		}
-	}
-	notifyClose(connection, outcome) {
-		const terminalOutcome = this.lifecycle.close(connection, outcome);
-		if (!terminalOutcome) return;
-		this.resetTerminalState();
-		this.config.onClose?.(terminalOutcome);
-	}
 	sendEvent(event, detail) {
-		const ws = this.ws;
-		if (ws?.readyState === WebSocket.OPEN) {
-			const { type } = event;
-			const payload = JSON.stringify(event);
-			this.captureTransportEvent({
-				url: this.connectionUrl,
-				direction: "outbound",
-				kind: "ws-frame",
-				payload
-			});
-			ws.send(payload);
-			this.config.onEvent?.({
-				direction: "client",
-				type,
-				...detail ? { detail } : {}
-			});
-		}
+		this.transport.send(event, detail);
 	}
 	acceptsEvent(connection) {
-		return this.lifecycle.acceptsEvents(connection);
-	}
-	captureTransportEvent(event) {
-		this.runtime.captureWsEventAsync?.({
-			...event,
-			flowId: this.flowId,
-			meta: {
-				provider: "openai",
-				capability: "realtime-voice",
-				...event.meta
-			}
-		}).catch(() => {});
+		return this.transport.lifecycle.acceptsEvents(connection);
 	}
 	isTransportOpen() {
-		return this.ws?.readyState === WebSocket.OPEN;
+		return this.transport.socket?.readyState === WebSocket.OPEN;
 	}
 	rotateExpiredSession() {
-		this.reconnectReason = "max-duration";
 		this.activeConnectionReason = "max-duration";
 		this.config.onEvent?.({
 			direction: "server",
 			type: "session.rotation",
 			detail: "reason=max-duration"
 		});
-		this.ws?.close(1e3, "max-duration rotation");
+		this.transport.rotate("max-duration");
 	}
 	failToolCallSessionLimit(error, connection) {
-		const ws = this.ws;
-		if (ws) this.failConnection(error, ws, connection, {
+		if (this.transport.socket) this.transport.fail(error, connection, {
 			code: 1008,
 			reason: "Tool-call session limit exceeded"
 		});
@@ -9047,10 +8764,15 @@ var OpenAIRealtimeBridge = class OpenAIRealtimeBridge extends OpenAIRealtimeEven
 //#endregion
 //#region extensions/openai/realtime-voice-provider-factory.ts
 const INTERNAL_REALTIME_VOICE_PROVIDER = Symbol.for("openclaw.internal.realtime-voice-provider.v1");
+const CUSTOM_ENDPOINT_CAPABILITIES = {
+	...OPENAI_REALTIME_CAPABILITIES,
+	transports: ["gateway-relay"],
+	supportsBrowserSession: false
+};
 function resolveOpenAIRealtimeVoiceConfig({ cfg, rawConfig, agentId, surface, autoRespondToAudio, requiredCapabilities }, context) {
 	const config = normalizeProviderConfig(rawConfig);
 	if (config.model || surface !== "browser-session" && surface !== "gateway-relay") return config;
-	if (config.azureEndpoint || config.azureDeployment || autoRespondToAudio === false || requiredCapabilities?.supportsVideoFrames === true) return {
+	if (config.baseUrl || config.azureEndpoint || config.azureDeployment || autoRespondToAudio === false || requiredCapabilities?.supportsVideoFrames === true) return {
 		...config,
 		model: OPENAI_REALTIME_DEFAULT_MODEL
 	};
@@ -9059,6 +8781,26 @@ function resolveOpenAIRealtimeVoiceConfig({ cfg, rawConfig, agentId, surface, au
 		cfg,
 		agentId
 	}, context) && hasOpenAIChatGptSubscriptionAuthInput({
+		cfg,
+		agentId
+	}, context) ? "gpt-live-1-codex" : "gpt-live-1";
+	return {
+		...config,
+		model
+	};
+}
+async function resolveOpenAIRealtimeVoiceConfigAsync({ cfg, rawConfig, agentId, surface, autoRespondToAudio, requiredCapabilities }, context) {
+	const config = normalizeProviderConfig(rawConfig);
+	if (config.model || surface !== "browser-session" && surface !== "gateway-relay") return config;
+	if (config.baseUrl || config.azureEndpoint || config.azureDeployment || autoRespondToAudio === false || requiredCapabilities?.supportsVideoFrames === true) return {
+		...config,
+		model: OPENAI_REALTIME_DEFAULT_MODEL
+	};
+	const model = !await hasOpenAIRealtimePlatformAuthInputAsync({
+		configuredApiKey: config.apiKey,
+		cfg,
+		agentId
+	}, context) && await hasOpenAIChatGptSubscriptionAuthInputAsync({
 		cfg,
 		agentId
 	}, context) ? "gpt-live-1-codex" : "gpt-live-1";
@@ -9109,6 +8851,7 @@ async function createOpenAIRealtimeBrowserSession(req, quicksilverBroker, logger
 		cfg: req.cfg,
 		agentId: req.agentId
 	};
+	if (config.baseUrl) throw new Error("OpenAI realtime baseUrl requires gateway-relay; browser WebRTC is not supported");
 	if (config.azureEndpoint || config.azureDeployment) throw new Error("OpenAI Realtime browser sessions do not support Azure endpoints yet");
 	const model = req.model ?? config.model ?? "gpt-realtime-2.1";
 	if (isOpenAIGptLiveModel(model)) {
@@ -9200,7 +8943,7 @@ async function createOpenAIRealtimeBrowserSession(req, quicksilverBroker, logger
 	const { session, voice } = buildOpenAIRealtimeBrowserSessionConfig(req, config, model, context.warn);
 	const auth = await resolveOpenAIRealtimePlatformAuth(authParams, context);
 	if (!auth) {
-		if (hasOpenAIRealtimePlatformAuthInput(authParams, context)) throw new Error(OPENAI_REALTIME_PLATFORM_AUTH_REQUIRED);
+		if (await hasOpenAIRealtimePlatformAuthInputAsync(authParams, context)) throw new Error(OPENAI_REALTIME_PLATFORM_AUTH_REQUIRED);
 		const subscriptionAuth = await resolveOpenAIChatGptSubscriptionAuth({
 			cfg: req.cfg,
 			agentDir: req.cfg ? resolveAgentDir(req.cfg, req.agentId) : void 0
@@ -9220,19 +8963,13 @@ async function createOpenAIRealtimeBrowserSession(req, quicksilverBroker, logger
 		session,
 		authRejectedMessage: OPENAI_REALTIME_CONFIGURED_API_KEY_REJECTED
 	}, context);
-	const headers = context.resolveProviderRequestHeaders({
-		provider: "openai",
-		baseUrl: "https://api.openai.com/v1/realtime/calls",
-		capability: "audio",
-		transport: "http",
-		defaultHeaders: {}
-	});
+	const headers = resolveOpenAIRealtimeRequestHeaders(context, "https://api.openai.com/v1/realtime/calls");
 	const SERVER_ONLY_HEADERS = /* @__PURE__ */ new Set([
 		"user-agent",
 		"originator",
 		"version"
 	]);
-	const browserHeaders = Object.fromEntries(Object.entries(headers ?? {}).filter(([key]) => !SERVER_ONLY_HEADERS.has(key.toLowerCase())));
+	const browserHeaders = Object.fromEntries(Object.entries(headers).filter(([key]) => !SERVER_ONLY_HEADERS.has(key.toLowerCase())));
 	const offerHeaders = Object.keys(browserHeaders).length > 0 ? browserHeaders : void 0;
 	return {
 		provider: "openai",
@@ -9256,6 +8993,7 @@ function buildOpenAIRealtimeVoiceProvider(context, options) {
 		autoSelectOrder: 10,
 		capabilities: OPENAI_REALTIME_CAPABILITIES,
 		resolveConfig: (params) => resolveOpenAIRealtimeVoiceConfig(params, context),
+		resolveConfigAsync: (params) => resolveOpenAIRealtimeVoiceConfigAsync(params, context),
 		isConfigured: ({ cfg, providerConfig, agentId }) => {
 			const config = normalizeProviderConfig(providerConfig);
 			if (config.azureEndpoint || config.azureDeployment) return hasOpenAIRealtimeApiKeyInput(config.apiKey);
@@ -9265,10 +9003,20 @@ function buildOpenAIRealtimeVoiceProvider(context, options) {
 				agentId
 			}, context);
 		},
+		isConfiguredAsync: async ({ cfg, providerConfig, agentId }) => {
+			const config = normalizeProviderConfig(providerConfig);
+			if (config.azureEndpoint || config.azureDeployment) return hasOpenAIRealtimeApiKeyInput(config.apiKey);
+			return hasOpenAIRealtimePlatformAuthInputAsync({
+				configuredApiKey: config.apiKey,
+				cfg,
+				agentId
+			}, context);
+		},
 		createBridge: (req) => {
 			const config = normalizeProviderConfig(req.providerConfig);
 			const model = config.model;
 			if (model && isOpenAIGptLiveModel(model)) {
+				if (config.baseUrl) throw new Error("OpenAI realtime baseUrl does not support GPT-Live; select a Realtime-compatible model");
 				if (config.azureEndpoint || config.azureDeployment) throw new Error("GPT-Live backend WebSocket sessions do not support Azure endpoints or deployments");
 				const bridgeConfig = {
 					...req,
@@ -9311,30 +9059,43 @@ function buildOpenAIRealtimeVoiceProvider(context, options) {
 		},
 		createBrowserSession: (req) => createOpenAIRealtimeBrowserSession(req, options?.quicksilverBrowserSessionBroker, options?.logger ?? { warn: () => void 0 }, context)
 	};
+	const isBrowserSessionConfiguredAsync = async ({ cfg, providerConfig, agentId }) => {
+		const config = normalizeProviderConfig(providerConfig);
+		if (config.baseUrl || config.azureEndpoint || config.azureDeployment) return false;
+		const model = config.model ?? "gpt-realtime-2.1";
+		const isGptLive = isOpenAIGptLiveModel(model);
+		const hasBroker = options?.quicksilverBrowserSessionBroker !== void 0;
+		if (isGptLive && !hasBroker) return false;
+		return await hasOpenAIRealtimePlatformAuthInputAsync({
+			configuredApiKey: config.apiKey,
+			cfg,
+			agentId
+		}, context) || hasBroker && (!isGptLive || isOpenAIGptLiveSubscriptionModel(model)) && await hasOpenAIChatGptSubscriptionAuthInputAsync({
+			cfg,
+			agentId
+		}, context);
+	};
 	const internalApi = {
 		isBrowserSessionConfigured: ({ cfg, providerConfig, agentId }) => {
 			const config = normalizeProviderConfig(providerConfig);
-			if (config.azureEndpoint || config.azureDeployment) return false;
+			if (config.baseUrl || config.azureEndpoint || config.azureDeployment) return false;
 			const model = config.model ?? "gpt-realtime-2.1";
-			if (isOpenAIGptLiveModel(model)) return options?.quicksilverBrowserSessionBroker !== void 0 && (hasOpenAIRealtimePlatformAuthInput({
-				configuredApiKey: config.apiKey,
-				cfg,
-				agentId
-			}, context) || isOpenAIGptLiveSubscriptionModel(model) && hasOpenAIChatGptSubscriptionAuthInput({
-				cfg,
-				agentId
-			}, context));
+			const isGptLive = isOpenAIGptLiveModel(model);
+			const hasBroker = options?.quicksilverBrowserSessionBroker !== void 0;
+			if (isGptLive && !hasBroker) return false;
 			return hasOpenAIRealtimePlatformAuthInput({
 				configuredApiKey: config.apiKey,
 				cfg,
 				agentId
-			}, context) || options?.quicksilverBrowserSessionBroker !== void 0 && hasOpenAIChatGptSubscriptionAuthInput({
+			}, context) || hasBroker && (!isGptLive || isOpenAIGptLiveSubscriptionModel(model)) && hasOpenAIChatGptSubscriptionAuthInput({
 				cfg,
 				agentId
 			}, context);
 		},
+		isBrowserSessionConfiguredAsync,
 		resolveBrowserSessionCapabilities: ({ cfg, providerConfig, agentId, model, clientControl }) => {
 			const config = normalizeProviderConfig(providerConfig);
+			if (config.baseUrl) return CUSTOM_ENDPOINT_CAPABILITIES;
 			const effectiveModel = model ?? config.model ?? "";
 			if (isOpenAIGptLiveModel(effectiveModel)) {
 				const supportsGatewayControl = clientControl?.owner === "gateway" && internalApi.isBrowserSessionConfigured({
@@ -9361,10 +9122,39 @@ function buildOpenAIRealtimeVoiceProvider(context, options) {
 				}, context) ? { supportsGatewayControl: true } : {}
 			};
 		},
+		resolveBrowserSessionCapabilitiesAsync: async ({ cfg, providerConfig, agentId, model, clientControl }) => {
+			const config = normalizeProviderConfig(providerConfig);
+			if (config.baseUrl) return CUSTOM_ENDPOINT_CAPABILITIES;
+			const effectiveModel = model ?? config.model ?? "";
+			if (isOpenAIGptLiveModel(effectiveModel)) {
+				const supportsGatewayControl = clientControl?.owner === "gateway" && await isBrowserSessionConfiguredAsync({
+					cfg,
+					providerConfig: {
+						...providerConfig,
+						model: effectiveModel
+					},
+					agentId
+				});
+				return {
+					...OPENAI_REALTIME_CAPABILITIES,
+					...OPENAI_QUICKSILVER_CAPABILITIES,
+					...resolveOpenAIQuicksilverVoiceCapabilities(effectiveModel),
+					...supportsGatewayControl ? { supportsGatewayControl: true } : {}
+				};
+			}
+			return {
+				...OPENAI_REALTIME_CAPABILITIES,
+				...options?.quicksilverBrowserSessionBroker !== void 0 && await hasOpenAIRealtimePlatformAuthInputAsync({
+					configuredApiKey: config.apiKey,
+					cfg,
+					agentId
+				}, context) ? { supportsGatewayControl: true } : {}
+			};
+		},
 		isGatewayRelayConfigured: ({ cfg, providerConfig, agentId }) => {
 			const config = normalizeProviderConfig(providerConfig);
 			if (!isOpenAIGptLiveModel(config.model)) return;
-			if (config.azureEndpoint || config.azureDeployment) return false;
+			if (config.baseUrl || config.azureEndpoint || config.azureDeployment) return false;
 			return hasOpenAIRealtimePlatformAuthInput({
 				configuredApiKey: config.apiKey,
 				cfg,
@@ -9374,8 +9164,22 @@ function buildOpenAIRealtimeVoiceProvider(context, options) {
 				agentId
 			}, context);
 		},
+		isGatewayRelayConfiguredAsync: async ({ cfg, providerConfig, agentId }) => {
+			const config = normalizeProviderConfig(providerConfig);
+			if (!isOpenAIGptLiveModel(config.model)) return;
+			if (config.baseUrl || config.azureEndpoint || config.azureDeployment) return false;
+			return await hasOpenAIRealtimePlatformAuthInputAsync({
+				configuredApiKey: config.apiKey,
+				cfg,
+				agentId
+			}, context) || isOpenAIGptLiveSubscriptionModel(config.model) && await hasOpenAIChatGptSubscriptionAuthInputAsync({
+				cfg,
+				agentId
+			}, context);
+		},
 		resolveGatewayRelayCapabilities: ({ providerConfig, model }) => {
 			const config = normalizeProviderConfig(providerConfig);
+			if (config.baseUrl) return CUSTOM_ENDPOINT_CAPABILITIES;
 			if (isOpenAIGptLiveModel(model ?? config.model)) return {
 				...OPENAI_REALTIME_CAPABILITIES,
 				...OPENAI_QUICKSILVER_CAPABILITIES,
@@ -9386,6 +9190,7 @@ function buildOpenAIRealtimeVoiceProvider(context, options) {
 		projectPublicProjection: projectRealtimeVoicePublicProjection,
 		validateGatewayRelayLaunch: ({ providerConfig, model, autoRespondToAudio }) => {
 			const config = normalizeProviderConfig(providerConfig);
+			if (config.baseUrl && isOpenAIGptLiveModel(model ?? config.model)) return "OpenAI realtime baseUrl does not support GPT-Live; select a Realtime-compatible model";
 			if (autoRespondToAudio === false && isOpenAIGptLiveModel(model ?? config.model)) return "GPT-Live gateway-relay sessions cannot use forced agent consult routing; GPT-Live delegates to the agent natively";
 		},
 		cancelBrowserSession: (_request, session) => options?.quicksilverBrowserSessionBroker?.cancelBrowserSession(session)
@@ -9458,7 +9263,6 @@ async function openaiTTS({ text, apiKey, baseUrl, model, voice, speed, instructi
 	if (!isValidOpenAIVoice(voice, baseUrl)) throw new Error(`Invalid voice: ${voice}`);
 	const { assertOkOrThrowProviderError, readProviderBinaryResponse, resolveProviderRequestHeaders } = await import("openclaw/plugin-sdk/provider-http");
 	const proxyCaptureSdk = await import("openclaw/plugin-sdk/proxy-capture");
-	const captureHost = proxyCaptureSdk;
 	const { fetchWithSsrFGuard, ssrfPolicyFromHttpBaseUrlAllowedHostname } = await import("openclaw/plugin-sdk/ssrf-runtime");
 	const requestHeaders = resolveProviderRequestHeaders({
 		provider: "openai",
@@ -9498,7 +9302,7 @@ async function openaiTTS({ text, apiKey, baseUrl, model, voice, speed, instructi
 		auditContext: "openai-tts"
 	});
 	try {
-		if (!debugProxyFetchPatchInstalled) captureHost.captureHttpExchangeAsync?.({
+		if (!debugProxyFetchPatchInstalled) proxyCaptureSdk.captureHttpExchangeAsync({
 			url: requestUrl,
 			method: "POST",
 			requestHeaders,
@@ -9556,35 +9360,23 @@ function normalizeOpenAISpeechSpeed(value, baseUrl) {
 	if (baseUrl !== void 0 && normalizeOpenAITtsBaseUrl(baseUrl) !== "https://api.openai.com/v1") return speed;
 	return speed >= .25 && speed <= 4 ? speed : void 0;
 }
-function normalizeOpenAIProviderConfig(rawConfig) {
-	const raw = resolveOpenAIProviderConfigRecord(rawConfig);
-	const extraBody = readExtraBody(raw?.extraBody) ?? readExtraBody(raw?.extra_body);
-	const baseUrl = normalizeOpenAITtsBaseUrl(normalizeOptionalString(raw?.baseUrl) ?? normalizeOptionalString(process.env.OPENAI_TTS_BASE_URL) ?? "https://api.openai.com/v1");
+function normalizeOpenAIProviderConfig(config, source = "raw") {
+	const raw = source === "raw" ? resolveOpenAIProviderConfigRecord(config) : config;
+	const configuredBaseUrl = normalizeOptionalString(raw?.baseUrl);
+	const defaultBaseUrl = normalizeOptionalString(process.env.OPENAI_TTS_BASE_URL) ?? "https://api.openai.com/v1";
+	const baseUrl = source === "raw" ? normalizeOpenAITtsBaseUrl(configuredBaseUrl ?? defaultBaseUrl) : configuredBaseUrl ?? normalizeOpenAITtsBaseUrl(defaultBaseUrl);
 	return {
-		apiKey: normalizeResolvedSecretInputString({
+		apiKey: source === "raw" ? normalizeResolvedSecretInputString({
 			value: raw?.apiKey,
 			path: "tts.providers.openai.apiKey"
-		}),
+		}) : normalizeOptionalString(raw?.apiKey),
 		baseUrl,
 		model: normalizeOptionalString(raw?.model) ?? "gpt-4o-mini-tts",
 		voice: normalizeOptionalString(raw?.voice) ?? "coral",
 		speed: normalizeOpenAISpeechSpeed(raw?.speed, baseUrl),
 		instructions: normalizeOptionalString(raw?.instructions),
 		responseFormat: normalizeOpenAISpeechResponseFormat(raw?.responseFormat),
-		extraBody
-	};
-}
-function readOpenAIProviderConfig(config) {
-	const normalized = normalizeOpenAIProviderConfig({});
-	return {
-		apiKey: normalizeOptionalString(config.apiKey) ?? normalized.apiKey,
-		baseUrl: normalizeOptionalString(config.baseUrl) ?? normalized.baseUrl,
-		model: normalizeOptionalString(config.model) ?? normalized.model,
-		voice: normalizeOptionalString(config.voice) ?? normalized.voice,
-		speed: normalizeOpenAISpeechSpeed(config.speed, normalizeOptionalString(config.baseUrl) ?? normalized.baseUrl) ?? normalized.speed,
-		instructions: normalizeOptionalString(config.instructions) ?? normalized.instructions,
-		responseFormat: normalizeOpenAISpeechResponseFormat(config.responseFormat) ?? normalized.responseFormat,
-		extraBody: readExtraBody(config.extraBody) ?? readExtraBody(config.extra_body)
+		extraBody: readExtraBody(raw?.extraBody) ?? readExtraBody(raw?.extra_body)
 	};
 }
 function parseDirectiveToken(ctx) {
@@ -9629,7 +9421,7 @@ function parseDirectiveToken(ctx) {
 	}
 }
 async function resolveOpenAITtsRequest(req, responseFormatOverride) {
-	const config = readOpenAIProviderConfig(req.providerConfig);
+	const config = normalizeOpenAIProviderConfig(req.providerConfig, "resolved");
 	const model = normalizeOptionalString(req.providerOverrides?.model) ?? config.model;
 	const voice = normalizeOptionalString(req.providerOverrides?.voice) ?? config.voice;
 	const speed = normalizeOpenAISpeechSpeed(req.providerOverrides?.speed, config.baseUrl) ?? config.speed;
@@ -9652,6 +9444,7 @@ async function resolveOpenAITtsRequest(req, responseFormatOverride) {
 	};
 }
 function buildOpenAISpeechProvider() {
+	const isConfigured = ({ providerConfig }) => Boolean(resolveOpenAISpeechApiKey(normalizeOpenAIProviderConfig(providerConfig, "resolved")));
 	return {
 		id: "openai",
 		label: "OpenAI",
@@ -9689,7 +9482,8 @@ function buildOpenAISpeechProvider() {
 			id: voice,
 			name: voice
 		})),
-		isConfigured: ({ providerConfig }) => Boolean(resolveOpenAISpeechApiKey(readOpenAIProviderConfig(providerConfig))),
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		synthesize: async (req) => {
 			const params = await resolveOpenAITtsRequest(req);
 			const audioBuffer = await openaiTTS(params);

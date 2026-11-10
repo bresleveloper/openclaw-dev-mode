@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isTextContentBlock(e){if(!e||typeof e!=`object`)return!1;let t=e;return t.type===`text`&&typeof t.text==`string`}function collectTextContentBlocks(e){return Array.isArray(e)?e.filter(isTextContentBlock).map(e=>e.text):[]}var t=e((()=>{}));export{t as n,isTextContentBlock as r,collectTextContentBlocks as t};

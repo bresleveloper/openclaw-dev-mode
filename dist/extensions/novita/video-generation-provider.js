@@ -1,6 +1,6 @@
 import { toImageDataUrl } from "openclaw/plugin-sdk/image-generation";
 import { downloadGeneratedVideoAsset, resolveGeneratedMediaMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
-import { isProviderApiKeyConfigured } from "openclaw/plugin-sdk/provider-auth";
+import { isProviderApiKeyConfiguredAsync } from "openclaw/plugin-sdk/provider-auth";
 import { resolveApiKeyForProvider } from "openclaw/plugin-sdk/provider-auth-runtime";
 import { assertOkOrThrowHttpError, createProviderOperationDeadline, createProviderOperationTimeoutResolver, pollProviderOperationJson, postJsonRequest, readProviderJsonObjectResponse, resolveProviderHttpRequestConfig, sanitizeConfiguredModelProviderRequest } from "openclaw/plugin-sdk/provider-http";
 import { isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
@@ -233,7 +233,7 @@ function buildNovitaVideoGenerationProvider() {
 			videoToVideo: { enabled: false }
 		},
 		resolveModelCapabilities: ({ model }) => MODEL_CATALOG[model]?.capabilities,
-		isConfigured: (ctx) => isProviderApiKeyConfigured({
+		isConfiguredAsync: (ctx) => isProviderApiKeyConfiguredAsync({
 			provider: "novita",
 			...ctx
 		}),

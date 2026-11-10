@@ -4,6 +4,13 @@ import { asFiniteNumber, asOptionalRecord, filterStringRecord, normalizeOptional
 const DEFAULT_AZURE_SPEECH_TELEPHONY_FORMAT = "raw-8khz-8bit-mono-mulaw";
 const DEFAULT_AZURE_SPEECH_MAX_BYTES = 16777216;
 const DEFAULT_AZURE_SPEECH_VOICE_LIST_TIMEOUT_MS = 3e4;
+const AZURE_SPEECH_FILE_EXTENSIONS = [
+	["ogg-", ".ogg"],
+	["webm-", ".webm"],
+	["riff-", ".wav"],
+	["raw-", ".pcm"],
+	["amr-", ".amr"]
+];
 function normalizeAzureSpeechBaseUrl(params) {
 	const configured = normalizeOptionalString(params.baseUrl) ?? normalizeOptionalString(params.endpoint);
 	if (configured) return configured.replace(/\/+$/, "").replace(/\/cognitiveservices\/v1$/i, "");
@@ -27,12 +34,7 @@ function buildAzureSpeechSsml(params) {
 function inferAzureSpeechFileExtension(outputFormat) {
 	const normalized = outputFormat.toLowerCase();
 	if (normalized.includes("mp3")) return ".mp3";
-	if (normalized.startsWith("ogg-")) return ".ogg";
-	if (normalized.startsWith("webm-")) return ".webm";
-	if (normalized.startsWith("riff-")) return ".wav";
-	if (normalized.startsWith("raw-")) return ".pcm";
-	if (normalized.startsWith("amr-")) return ".amr";
-	return ".audio";
+	return AZURE_SPEECH_FILE_EXTENSIONS.find(([prefix]) => normalized.startsWith(prefix))?.[1] ?? ".audio";
 }
 function isAzureSpeechVoiceCompatible(outputFormat) {
 	const normalized = outputFormat.toLowerCase();
@@ -40,10 +42,6 @@ function isAzureSpeechVoiceCompatible(outputFormat) {
 }
 function readAzureVoiceTagStrings(value) {
 	return Array.isArray(value) ? value.filter((entry) => normalizeOptionalString(entry) !== void 0) : void 0;
-}
-function formatVoiceDescription(tailoredScenarios, personalities) {
-	const parts = [...tailoredScenarios ?? [], ...personalities ?? []];
-	return parts.length > 0 ? parts.join(", ") : void 0;
 }
 function isDeprecatedVoice(entry) {
 	if (entry.IsDeprecated === true) return true;
@@ -78,10 +76,11 @@ async function listAzureSpeechVoices(params) {
 			const voiceTag = asOptionalRecord(voice.VoiceTag);
 			const tailoredScenarios = readAzureVoiceTagStrings(voiceTag?.TailoredScenarios);
 			const personalities = readAzureVoiceTagStrings(voiceTag?.VoicePersonalities);
+			const description = [...tailoredScenarios ?? [], ...personalities ?? []];
 			return [{
 				id,
 				name: normalizeOptionalString(voice.DisplayName) ?? normalizeOptionalString(voice.LocalName),
-				description: formatVoiceDescription(tailoredScenarios, personalities),
+				description: description.length > 0 ? description.join(", ") : void 0,
 				locale: normalizeOptionalString(voice.Locale),
 				gender: normalizeOptionalString(voice.Gender),
 				personalities
@@ -132,18 +131,12 @@ async function azureSpeechTTS(params) {
 }
 //#endregion
 //#region extensions/azure-speech/speech-provider.ts
-function readAzureSpeechEnvApiKey() {
-	return normalizeOptionalString(process.env.AZURE_SPEECH_KEY) ?? normalizeOptionalString(process.env.AZURE_SPEECH_API_KEY) ?? normalizeOptionalString(process.env.SPEECH_KEY);
-}
 function readAzureSpeechEnvRegion() {
 	return normalizeOptionalString(process.env.AZURE_SPEECH_REGION) ?? normalizeOptionalString(process.env.SPEECH_REGION);
 }
-function resolveAzureSpeechConfigRecord(rawConfig) {
-	const providers = asOptionalRecord(rawConfig.providers);
-	return asOptionalRecord(providers?.["azure-speech"]) ?? asOptionalRecord(providers?.azure) ?? asOptionalRecord(rawConfig["azure-speech"]) ?? asOptionalRecord(rawConfig.azure);
-}
 function normalizeAzureSpeechProviderConfig(rawConfig) {
-	const raw = resolveAzureSpeechConfigRecord(rawConfig);
+	const providers = asOptionalRecord(rawConfig.providers);
+	const raw = asOptionalRecord(providers?.["azure-speech"]) ?? asOptionalRecord(providers?.azure) ?? asOptionalRecord(rawConfig["azure-speech"]) ?? asOptionalRecord(rawConfig.azure);
 	const region = normalizeOptionalString(raw?.region) ?? readAzureSpeechEnvRegion();
 	const endpoint = normalizeOptionalString(raw?.endpoint) ?? normalizeOptionalString(process.env.AZURE_SPEECH_ENDPOINT);
 	const baseUrl = normalizeAzureSpeechBaseUrl({
@@ -218,7 +211,7 @@ function parseDirectiveToken(ctx) {
 	} : { handled: true };
 }
 function resolveApiKey(...candidates) {
-	return resolveSpeechProviderApiKey(...candidates, readAzureSpeechEnvApiKey());
+	return resolveSpeechProviderApiKey(...candidates, normalizeOptionalString(process.env.AZURE_SPEECH_KEY) ?? normalizeOptionalString(process.env.AZURE_SPEECH_API_KEY) ?? normalizeOptionalString(process.env.SPEECH_KEY));
 }
 async function resolveAzureSpeechTtsRequest(req, outputFormatOverride) {
 	const config = readAzureSpeechProviderConfig(req.providerConfig);
@@ -243,6 +236,10 @@ async function resolveAzureSpeechTtsRequest(req, outputFormatOverride) {
 	};
 }
 function buildAzureSpeechProvider() {
+	const isConfigured = ({ providerConfig }) => {
+		const config = readAzureSpeechProviderConfig(providerConfig);
+		return Boolean(resolveApiKey(config.apiKey) && (config.baseUrl || config.region || config.endpoint));
+	};
 	return {
 		id: "azure-speech",
 		label: "Azure Speech",
@@ -259,7 +256,7 @@ function buildAzureSpeechProvider() {
 			const region = normalizeOptionalString(talkProviderConfig.region);
 			const endpoint = normalizeOptionalString(talkProviderConfig.endpoint ?? talkProviderConfig.baseUrl);
 			const baseUrl = normalizeAzureSpeechBaseUrl({
-				baseUrl: normalizeOptionalString(talkProviderConfig.baseUrl),
+				baseUrl: normalizeOptionalString(talkProviderConfig.baseUrl) ?? (!region && !endpoint ? base.baseUrl : void 0),
 				endpoint,
 				region: region ?? base.region
 			});
@@ -293,10 +290,8 @@ function buildAzureSpeechProvider() {
 				timeoutMs: config?.timeoutMs ?? req.timeoutMs
 			});
 		},
-		isConfigured: ({ providerConfig }) => {
-			const config = readAzureSpeechProviderConfig(providerConfig);
-			return Boolean(resolveApiKey(config.apiKey) && (config.baseUrl || config.region || config.endpoint));
-		},
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		synthesize: async (req) => {
 			const params = await resolveAzureSpeechTtsRequest(req);
 			const audioBuffer = await azureSpeechTTS(params);

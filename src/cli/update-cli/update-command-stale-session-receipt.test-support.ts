@@ -1,7 +1,7 @@
 import { expect, it, type Mock } from "vitest";
+import { readAcpSessionEntry } from "../../acp/runtime/session-meta.js";
 import { seedStaleDeferredPluginSessionImport } from "../../commands/doctor-session-sqlite.deferred-plugin.test-support.js";
 import { noteSessionTranscriptHealth } from "../../commands/doctor-session-transcripts.js";
-import { loadExactSessionEntry } from "../../config/sessions/session-accessor.sqlite-entry.js";
 import { loadTranscriptEventsSync } from "../../config/sessions/session-accessor.sqlite-read.js";
 import { migrateLegacyAcpSessionMetadata } from "../../infra/state-migrations.session-store.js";
 import { EMPTY_LEGACY_SESSION_SURFACES } from "../../plugins/legacy-session-surfaces.types.js";
@@ -66,7 +66,7 @@ export function registerStaleSessionReceiptUpdateTest(mocks: {
       }
       expect(loadTranscriptEventsSync({ ...scope, sessionId: "legacy-kept" })).toHaveLength(2);
       expect(
-        loadExactSessionEntry({ ...scope, sessionKey: "agent:main:kept" })?.entry.acp
+        readAcpSessionEntry({ cfg, env, agentId: "main", sessionKey: "agent:main:kept" })?.acp
           ?.runtimeSessionName,
       ).toBe("legacy-runtime");
       expect(mocks.restartService).toHaveBeenCalledExactlyOnceWith(

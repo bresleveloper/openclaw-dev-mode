@@ -1,8 +1,5 @@
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
 //#region extensions/canvas/cli-metadata.ts
-/**
-* Canvas CLI metadata entrypoint used for lightweight command discovery.
-*/
 var cli_metadata_default = definePluginEntry({
 	id: "canvas",
 	name: "Canvas",

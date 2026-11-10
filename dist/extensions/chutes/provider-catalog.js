@@ -1,4 +1,4 @@
-import { n as CHUTES_MODEL_CATALOG, r as discoverChutesModels, t as CHUTES_BASE_URL } from "./.setup/models-DUGqZYGQ.mjs";
+import { n as CHUTES_MODEL_CATALOG, r as discoverChutesModels, t as CHUTES_BASE_URL } from "./.setup/models-mN33VNCv.mjs";
 //#region extensions/chutes/provider-catalog.ts
 function buildStaticChutesProvider() {
 	return {

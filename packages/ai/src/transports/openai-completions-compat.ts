@@ -6,18 +6,21 @@
  */
 import type { Model, OpenAICompletionsCompat } from "@openclaw/llm-core";
 import type { AiProviderRequestCapabilities, AiProviderRequestPolicyInput } from "../host.js";
+import {
+  resolveOpenAIReasoningEffortMapping,
+  supportsOpenAIReasoningEffort,
+} from "../providers/openai-reasoning-effort.js";
 import { isKnownOpenAIJsonSchemaModelId } from "../providers/openai-response-format.js";
 import { resolveProviderRequestCapabilities as resolveModelProviderRequestCapabilities } from "./host-policy.js";
 
-type ProviderEndpointClass = string;
-type ProviderRequestCapabilities = AiProviderRequestCapabilities;
 type OpenAICompletionsSessionAffinity = "none" | "openai" | "openrouter";
 
 type OpenAICompletionsCompatDefaultsInput = {
   provider?: string;
   modelId?: string;
+  reasoning?: boolean;
   baseUrl?: string;
-  endpointClass: ProviderEndpointClass;
+  endpointClass: string;
   knownProviderFamily: string;
   supportsNativeStreamingUsageCompat?: boolean;
   supportsOpenAICompletionsStreamingUsageCompat?: boolean;
@@ -31,19 +34,16 @@ type OpenAICompletionsCompatDefaults = {
   supportsUsageInStreaming: boolean;
   maxTokensField: "max_completion_tokens" | "max_tokens";
   thinkingFormat: "openai" | "openrouter" | "deepseek" | "together" | "zai";
+  emitsDsmlToolCalls: boolean;
   visibleReasoningDetailTypes: string[];
   supportsStrictMode: boolean;
+  requiresTypedUnionBranches: boolean;
   supportsJsonSchemaResponseFormat: boolean;
   requiresReasoningContentOnAssistantMessages: boolean;
   requiresNonEmptyUserOrAssistantMessage: boolean;
   cacheControlFormat?: OpenAICompletionsCompat["cacheControlFormat"];
   sessionAffinityFormat: Exclude<OpenAICompletionsSessionAffinity, "none">;
   supportsLongCacheRetention: boolean;
-};
-
-type DetectedOpenAICompletionsCompat = {
-  capabilities: ProviderRequestCapabilities;
-  defaults: OpenAICompletionsCompatDefaults;
 };
 
 export type ResolvedOpenAICompletionsCompat = Omit<
@@ -59,8 +59,12 @@ export type ResolvedOpenAICompletionsCompat = Omit<
     openRouterRouting?: OpenAICompletionsCompat["openRouterRouting"];
     sessionAffinity: OpenAICompletionsSessionAffinity;
     visibleReasoningDetailTypes: string[];
+    emitsDsmlToolCalls: boolean;
     requiresNonEmptyUserOrAssistantMessage: boolean;
+    requiresTypedUnionBranches: boolean;
     configuredSupportsLongCacheRetention?: boolean;
+    reasoningEffortForOff: "none" | null;
+    thinkingOffControlUndeclared: boolean;
   };
 
 function isDefaultRouteProvider(provider: string | undefined, ...ids: string[]) {
@@ -188,25 +192,24 @@ function resolveOpenAICompletionsCompatDefaults(
       isDefaultRouteProvider(input.provider, "cerebras", "chutes", "deepseek", "opencode", "xai"));
   const isOpenRouterLike = input.provider === "openrouter" || endpointClass === "openrouter";
   const isLocalEndpoint = endpointClass === "local";
+  const isMistral = knownProviderFamily === "mistral" || endpointClass === "mistral-public";
   const usesMaxTokens =
     endpointClass === "chutes-native" ||
-    endpointClass === "mistral-public" ||
-    knownProviderFamily === "mistral" ||
+    isMistral ||
     isMoonshot ||
     isCloudflareAiGateway ||
     isZai ||
     isTogether ||
     (isDefaultRoute && isDefaultRouteProvider(provider, "chutes"));
   return {
-    supportsStore:
-      !isNonStandard && knownProviderFamily !== "mistral" && !usesExplicitProxyLikeEndpoint,
+    supportsStore: !isNonStandard && !isMistral && !usesExplicitProxyLikeEndpoint,
     supportsDeveloperRole: !isNonStandard && !isMoonshotLike && !usesConfiguredNonOpenAIEndpoint,
     supportsReasoningEffort:
       !isZai &&
       !isTogether &&
-      knownProviderFamily !== "mistral" &&
+      !isMistral &&
       endpointClass !== "xai-native" &&
-      !usesExplicitProxyLikeEndpoint,
+      (!usesExplicitProxyLikeEndpoint || input.reasoning === true),
     supportsUsageInStreaming:
       supportsOpenAICompletionsStreamingUsageCompat ||
       (!isNonStandard &&
@@ -214,6 +217,7 @@ function resolveOpenAICompletionsCompatDefaults(
           !usesConfiguredNonOpenAIEndpoint ||
           supportsNativeStreamingUsageCompat)),
     maxTokensField: usesMaxTokens ? "max_tokens" : "max_completion_tokens",
+    emitsDsmlToolCalls: isDeepSeek || isXiaomi || /(?:^|\/)deepseek(?:[-/]|$)/i.test(modelId ?? ""),
     thinkingFormat:
       isDeepSeek || isXiaomi
         ? "deepseek"
@@ -226,6 +230,7 @@ function resolveOpenAICompletionsCompatDefaults(
               : "openai",
     visibleReasoningDetailTypes: isOpenRouterLike ? ["response.output_text", "response.text"] : [],
     supportsStrictMode: !isZai && !usesConfiguredNonOpenAIEndpoint,
+    requiresTypedUnionBranches: isMoonshot,
     supportsJsonSchemaResponseFormat:
       (endpointClass === "openai-public" ||
         (isDefaultRoute && isDefaultRouteProvider(provider, "openai"))) &&
@@ -255,11 +260,11 @@ function resolveOpenAICompletionsCompatDefaults(
 
 /** Detects endpoint capabilities and defaults for an OpenAI-completions model. */
 export function detectOpenAICompletionsCompat(
-  model: Pick<Model<"openai-completions">, "provider" | "baseUrl" | "id"> & {
+  model: Pick<Model<"openai-completions">, "provider" | "baseUrl" | "id" | "reasoning"> & {
     compat?: { supportsStore?: boolean } | null;
   },
-  resolveCapabilities?: (input: AiProviderRequestPolicyInput) => ProviderRequestCapabilities,
-): DetectedOpenAICompletionsCompat {
+  resolveCapabilities?: (input: AiProviderRequestPolicyInput) => AiProviderRequestCapabilities,
+) {
   const capabilities = (
     resolveCapabilities ?? ((input) => resolveModelProviderRequestCapabilities(input, model))
   )({
@@ -279,6 +284,7 @@ export function detectOpenAICompletionsCompat(
     defaults: resolveOpenAICompletionsCompatDefaults({
       provider: model.provider,
       modelId: model.id,
+      reasoning: model.reasoning,
       baseUrl: model.baseUrl,
       ...capabilities,
     }),
@@ -304,11 +310,19 @@ function resolveSessionAffinity(
 
 /** Applies explicit model overrides once on top of the canonical transport defaults. */
 export function resolveOpenAICompletionsCompat(
-  model: Pick<Model<"openai-completions">, "id" | "provider" | "baseUrl" | "compat">,
-  resolveCapabilities?: (input: AiProviderRequestPolicyInput) => ProviderRequestCapabilities,
+  model: Pick<Model<"openai-completions">, "id" | "provider" | "baseUrl" | "compat" | "reasoning">,
+  resolveCapabilities?: (input: AiProviderRequestPolicyInput) => AiProviderRequestCapabilities,
 ): ResolvedOpenAICompletionsCompat {
-  const { defaults } = detectOpenAICompletionsCompat(model, resolveCapabilities);
+  const { defaults, capabilities } = detectOpenAICompletionsCompat(model, resolveCapabilities);
   const configured = model.compat;
+  const thinkingFormat = configured?.thinkingFormat ?? defaults.thinkingFormat;
+  const thinkingOffControlUndeclared =
+    capabilities.usesExplicitProxyLikeEndpoint &&
+    thinkingFormat === "zai" &&
+    configured?.thinkingFormat === undefined &&
+    !supportsOpenAIReasoningEffort({ compat: configured }, "none") &&
+    !supportsOpenAIReasoningEffort({ compat: configured }, "off") &&
+    resolveOpenAIReasoningEffortMapping("off", configured?.reasoningEffortMap) === undefined;
   return {
     supportsStore: configured?.supportsStore ?? defaults.supportsStore,
     supportsDeveloperRole: configured?.supportsDeveloperRole ?? defaults.supportsDeveloperRole,
@@ -316,6 +330,15 @@ export function resolveOpenAICompletionsCompat(
       configured?.supportsReasoningEffort ?? defaults.supportsReasoningEffort,
     supportedReasoningEfforts: configured?.supportedReasoningEfforts,
     reasoningEffortMap: configured?.reasoningEffortMap,
+    // Custom OpenAI routes need a declared off effort; inferred Z.AI may be always-thinking.
+    // Explicit Z.AI formats and effort mappings still own their off contract.
+    reasoningEffortForOff:
+      capabilities.usesExplicitProxyLikeEndpoint &&
+      (thinkingFormat === "openai" || thinkingOffControlUndeclared) &&
+      !configured?.supportedReasoningEfforts?.includes("none")
+        ? null
+        : "none",
+    thinkingOffControlUndeclared,
     supportsUsageInStreaming:
       configured?.supportsUsageInStreaming ?? defaults.supportsUsageInStreaming,
     maxTokensField: configured?.maxTokensField ?? defaults.maxTokensField,
@@ -325,11 +348,14 @@ export function resolveOpenAICompletionsCompat(
     requiresReasoningContentOnAssistantMessages:
       configured?.requiresReasoningContentOnAssistantMessages ??
       defaults.requiresReasoningContentOnAssistantMessages,
-    thinkingFormat: configured?.thinkingFormat ?? defaults.thinkingFormat,
+    thinkingFormat,
+    // Explicit DeepSeek-format aliases retain their existing response contract.
+    emitsDsmlToolCalls: configured?.thinkingFormat === "deepseek" || defaults.emitsDsmlToolCalls,
     openRouterRouting: configured?.openRouterRouting,
     vercelGatewayRouting: configured?.vercelGatewayRouting ?? {},
     zaiToolStream: configured?.zaiToolStream ?? false,
     supportsStrictMode: configured?.supportsStrictMode ?? defaults.supportsStrictMode,
+    requiresTypedUnionBranches: defaults.requiresTypedUnionBranches,
     supportsJsonSchemaResponseFormat:
       configured?.supportsJsonSchemaResponseFormat ?? defaults.supportsJsonSchemaResponseFormat,
     cacheControlFormat: configured?.cacheControlFormat ?? defaults.cacheControlFormat,

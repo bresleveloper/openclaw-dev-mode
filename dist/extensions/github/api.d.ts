@@ -1,8 +1,6 @@
-import { t as ControlUiLinkReaderDocument } from "../../control-ui-link-reader-CcJBydfw.js";
-//#region packages/normalization-core/src/record-coerce.d.ts
-/** Type guard for non-array object records at browser-safe boundaries. */
-export declare function isRecord(value: unknown): value is Record<string, unknown>;
-//#endregion
+import { c as isRecord } from "../../record-coerce-Ckpz2G3R.js";
+import { r as ControlUiLinkReaderDocument } from "../../control-ui-link-reader-xJxo2y-a.js";
+import "../../control-ui-link-reader-ChTCD2ne.js";
 //#region extensions/github/src/github-api.d.ts
 export declare const GITHUB_API_ORIGIN = "https://api.github.com";
 export declare const GITHUB_API_BASE_URL = "https://api.github.com";
@@ -14,7 +12,7 @@ export declare function resolveGitHubApiUrls(apiBaseUrl: string | undefined): {
 export declare const GITHUB_REQUEST_TIMEOUT_MS = 8000;
 export declare class ControlUiGitHubError extends Error {
   readonly statusCode: number;
-  private readonly retryAtMs?;
+  readonly retryAtMs: number | undefined;
   readonly upstreamStatus: number;
   readonly retryable: boolean;
   constructor(statusCode: number, message: string, options?: {
@@ -79,6 +77,7 @@ type ControlUiGitHubPreviewCoAuthor = {
   avatarDataUrl?: string;
 };
 type ControlUiGitHubPreview = GitHubItemTarget & {
+  stale?: boolean;
   additions?: number;
   avatarDataUrl?: string;
   /** Bounded to the faces the card renders; `coAuthorCount` carries the true total. */
@@ -106,6 +105,7 @@ type ControlUiGitHubPreviewIdentity = {
   cacheScope: string;
   /** Host service/env credentials may retry a stale HTTP 401 anonymously. */
   optionalAuth?: true;
+  stale?: true;
   revalidate: () => Promise<void>;
   assertSelected: () => void;
 };
@@ -121,4 +121,4 @@ type GitHubDocument = ControlUiLinkReaderDocument & {
 };
 export declare function loadGitHubDetail(target: GitHubTarget, identity?: ControlUiGitHubPreviewIdentity, fetchImpl?: typeof fetch, refresh?: boolean): Promise<GitHubDocument>;
 //#endregion
-export type { ControlUiGitHubPreview, ControlUiGitHubPreviewIdentity, ControlUiGitHubPreviewTarget };
+export { type ControlUiGitHubPreview, type ControlUiGitHubPreviewIdentity, type ControlUiGitHubPreviewTarget, isRecord };

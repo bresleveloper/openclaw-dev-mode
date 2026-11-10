@@ -1,6 +1,6 @@
-import { S as ModelProviderDeclarationConfig, v as ModelDefinitionConfig } from "../../group-policy-Dw25VUD2.js";
-import "../../provider-model-shared-DyxwAg5_.js";
-import { t as ProviderOnboardPresetAppliers } from "../../provider-onboard-BRaUQflr.js";
+import { U as ModelProviderDeclarationConfig, z as ModelDefinitionConfig } from "../../types-D7I_F5Ux.js";
+import "../../provider-model-shared-uYxY__EE.js";
+import { t as ProviderOnboardPresetAppliers } from "../../provider-onboard-BNuhTHon.js";
 //#region extensions/together/models.d.ts
 export declare const TOGETHER_BASE_URL: string;
 export declare const TOGETHER_MODEL_CATALOG: ModelDefinitionConfig[];

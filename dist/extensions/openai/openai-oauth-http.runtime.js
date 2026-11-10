@@ -1,2 +1,2 @@
-import { n as withOpenAIOAuthResponse, t as createOpenAIAuthorizationCodeForm } from "../../openai-oauth-http.runtime-BqUOWv-L.mjs";
+import { n as withOpenAIOAuthResponse, t as createOpenAIAuthorizationCodeForm } from "../../openai-oauth-http.runtime-DQsSAofo.mjs";
 export { createOpenAIAuthorizationCodeForm, withOpenAIOAuthResponse };

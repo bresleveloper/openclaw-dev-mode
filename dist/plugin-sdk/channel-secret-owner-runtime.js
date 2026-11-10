@@ -1,2 +1,2 @@
-import { r as assertSecretOwnerAvailable, u as isSecretOwnerAvailable } from "../runtime-degraded-state-oevwKU3u.mjs";
+import { d as isSecretOwnerAvailable, r as assertSecretOwnerAvailable } from "../runtime-degraded-state-SptB0g_t.mjs";
 export { assertSecretOwnerAvailable, isSecretOwnerAvailable };

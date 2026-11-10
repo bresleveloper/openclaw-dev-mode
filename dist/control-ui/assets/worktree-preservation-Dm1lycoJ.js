@@ -1,0 +1,3 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Hl as t,ql as n}from"./control-ui-core-BKhTeqAN.js";function r(e){let t=e.map(e=>`${e.branch} — ${n(`sessionsView.deletePreservedReasons.${e.reason}`)}`).join(`
+`);return`${n(`worktrees.title`)}:\n${t}`}function i(e){let t=n(`sessionsView.deletePreservedReasons.${e.reason}`);return`${n(`sessionsView.attentionRequired`)}: ${e.branch} — ${t}. ${n(`common.remove`)}?`}function a(){return(a=e((()=>{t()})))()}export{r as n,a as r,i as t};
+//# sourceMappingURL=worktree-preservation-Dm1lycoJ.js.map

@@ -1,4 +1,4 @@
-import { bl as SessionDiscussionProvider, xl as SessionDiscussionState, yl as SessionDiscussionInfo } from "../agent-harness-runtime-DZjstJNb.js";
+import { Hm as SessionDiscussionProvider, Um as SessionDiscussionState, Vm as SessionDiscussionInfo } from "../config-contracts-CY87ANNp.js";
 //#region packages/session-url-contract/src/index.d.ts
 type ControlUiSessionNamespace = "chat" | "dashboard";
 type BuildControlUiSessionPathParams = {

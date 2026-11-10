@@ -86,29 +86,58 @@ final class ComputerWindowActionExecutor {
     private let windows: WindowManagementService
     private let menu: MenuService
     private let observationService: DesktopObservationService
-    private let snapshotManager: InMemorySnapshotManager
+    private let artifactDirectory: URL
     private var lifecycleGeneration: UInt64?
     private var appRefs: [String: ServiceApplicationInfo] = [:]
     private var windowRefs: [String: WindowTarget] = [:]
     private var observation: ObservationState?
     private var executionAuthority: ComputerActionExecutionAuthority?
 
-    init() {
-        let snapshotManager = InMemorySnapshotManager()
+    /// Owned window snapshots carry a capture file; the manager deletes it with
+    /// the snapshot instead of leaving it in the temporary directory.
+    static var snapshotManagerOptions: InMemorySnapshotManager.Options {
+        InMemorySnapshotManager.Options(deleteArtifactsOnCleanup: true)
+    }
+
+    convenience init() {
+        let snapshotManager = InMemorySnapshotManager(options: Self.snapshotManagerOptions)
         let automation = UIAutomationService(snapshotManager: snapshotManager)
         let applications = ApplicationService()
         let menu = MenuService(applicationService: applications)
+        self.init(
+            automation: automation,
+            applications: applications,
+            menu: menu,
+            observationService: DesktopObservationService(
+                screenCapture: ScreenCaptureService(loggingService: LoggingService()),
+                automation: automation,
+                applications: applications,
+                menu: menu,
+                snapshotManager: snapshotManager))
+    }
+
+    /// `automation` and `observationService` must share one snapshot manager so
+    /// element actions resolve the snapshots that observations publish.
+    /// Captures go into `artifactDirectory`, by default a directory of this
+    /// executor below the per-process directory.
+    init(
+        automation: UIAutomationService,
+        applications: ApplicationService,
+        menu: MenuService,
+        observationService: DesktopObservationService,
+        artifactDirectory: URL? = nil)
+    {
         self.automation = automation
         self.applications = applications
         self.windows = WindowManagementService(applicationService: applications)
         self.menu = menu
-        self.snapshotManager = snapshotManager
-        self.observationService = DesktopObservationService(
-            screenCapture: ScreenCaptureService(loggingService: LoggingService()),
-            automation: automation,
-            applications: applications,
-            menu: menu,
-            snapshotManager: snapshotManager)
+        if let artifactDirectory {
+            self.artifactDirectory = artifactDirectory
+        } else {
+            self.artifactDirectory = WindowObservationArtifacts.processDirectory
+                .appendingPathComponent(self.executionID, isDirectory: true)
+        }
+        self.observationService = observationService
     }
 
     func perform(
@@ -287,21 +316,31 @@ final class ComputerWindowActionExecutor {
         guard let windowID = CGWindowID(exactly: target.window.windowID) else {
             throw ComputerActionService.ComputerActionError.staleObservation
         }
+        // A detection-only observation returns a transient UUID that the snapshot
+        // manager rejects as a snapshot reference. Saving the snapshot lets
+        // Peekaboo reserve, store, and publish an owned `ps1_` reference instead;
+        // its capture file goes into the executor-owned directory.
         let request = DesktopObservationRequest(
             target: .windowID(windowID),
             capture: DesktopCaptureOptions(focus: .background),
             detection: DesktopDetectionOptions(
                 mode: .accessibility,
-                traversalBudget: limits))
-        let result = try await self.withExecutionAuthority {
-            try await self.observationService.observe(request)
-        }
-        if let elements = result.elements {
-            try await self.withExecutionAuthority {
-                try await self.snapshotManager.storeDetectionResult(
-                    snapshotId: elements.snapshotId,
-                    result: elements)
+                traversalBudget: limits),
+            output: DesktopObservationOutputOptions(
+                path: self.artifactDirectory.path + "/",
+                saveSnapshot: true))
+        try WindowObservationArtifacts.prepare(self.artifactDirectory)
+        let observationStartedAt = Date()
+        let result: DesktopObservationResult
+        do {
+            result = try await self.withExecutionAuthority {
+                try await self.observationService.observe(request)
             }
+        } catch {
+            WindowObservationArtifacts.discardArtifacts(
+                writtenSince: observationStartedAt,
+                in: self.artifactDirectory)
+            throw error
         }
         let observedWindow = result.capture.metadata.windowInfo ?? target.window
         guard observedWindow.windowID == target.window.windowID else {
@@ -921,7 +960,7 @@ extension ComputerWindowActionExecutor {
             .leftMouseDown
         let upType: CGEventType = button == .center ? .otherMouseUp : button == .right ? .rightMouseUp : .leftMouseUp
         let count = action == .tripleClick ? 3 : action == .doubleClick ? 2 : 1
-        let flags = try self.modifierFlags(modifiers)
+        let flags = try ComputerModifiers.parse(modifiers, syntax: .window)
         for index in 1...count {
             guard let down = CGEvent(
                 mouseEventSource: nil,
@@ -944,25 +983,5 @@ extension ComputerWindowActionExecutor {
             down.post(tap: .cghidEventTap)
             up.post(tap: .cghidEventTap)
         }
-    }
-
-    private static func modifierFlags(_ raw: String?) throws -> CGEventFlags {
-        var flags: CGEventFlags = []
-        for token in (raw ?? "")
-            .lowercased()
-            .split(whereSeparator: { $0 == "," || $0 == "+" || $0.isWhitespace })
-        {
-            switch token {
-            case "cmd", "command", "meta": flags.insert(.maskCommand)
-            case "shift": flags.insert(.maskShift)
-            case "ctrl", "control": flags.insert(.maskControl)
-            case "alt", "option": flags.insert(.maskAlternate)
-            case "fn", "function": flags.insert(.maskSecondaryFn)
-            default:
-                throw ComputerActionService.ComputerActionError.invalidRequest(
-                    "unsupported modifier '\(token)'")
-            }
-        }
-        return flags
     }
 }

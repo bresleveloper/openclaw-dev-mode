@@ -1,0 +1,105 @@
+import { n as textResult, t as jsonResult } from "./tool-results-BCM3fdVS.mjs";
+import "./common-BofcG96e.mjs";
+import { t as buildJsonPluginConfigSchema } from "./config-schema-dqR2I9Q2.mjs";
+import { t as definePluginEntry } from "./plugin-entry-D4OPnFRH.mjs";
+import { Type } from "typebox";
+//#region src/plugin-sdk/tool-plugin.ts
+const EMPTY_TOOL_PLUGIN_CONFIG_SCHEMA = Type.Object({}, { additionalProperties: false });
+/** Non-enumerable metadata symbol attached to entries created by `defineToolPlugin`. */
+const toolPluginMetadataSymbol = Symbol.for("openclaw.plugin-sdk.tool-plugin.metadata");
+function wrapToolPluginResult(result) {
+	if (typeof result === "string") return textResult(result, result);
+	return jsonResult(result);
+}
+function createToolPluginToolFactory() {
+	return ((definition) => ({
+		name: definition.name,
+		label: definition.label ?? definition.name,
+		description: definition.description,
+		parameters: definition.parameters,
+		outputSchema: definition.outputSchema,
+		optional: definition.optional === true,
+		workspaceAccess: definition.workspaceAccess,
+		execute: definition.execute,
+		factory: definition.factory
+	}));
+}
+/** Define a tool-focused plugin entry and register its tools at plugin startup. */
+function defineToolPlugin(definition) {
+	const configSchema = definition.configSchema ?? EMPTY_TOOL_PLUGIN_CONFIG_SCHEMA;
+	const pluginConfigSchema = buildJsonPluginConfigSchema(configSchema);
+	const normalizedConfigSchema = pluginConfigSchema.jsonSchema ?? configSchema;
+	const tools = [...definition.tools(createToolPluginToolFactory())];
+	const activation = definition.activation ?? { onStartup: true };
+	const metadata = {
+		id: definition.id,
+		name: definition.name,
+		description: definition.description,
+		activation,
+		configSchema: normalizedConfigSchema,
+		tools: tools.map((tool) => ({
+			name: tool.name,
+			label: tool.label,
+			description: tool.description,
+			parameters: tool.parameters,
+			...tool.outputSchema ? { outputSchema: tool.outputSchema } : {},
+			...tool.optional ? { optional: true } : {},
+			...tool.workspaceAccess !== void 0 ? { workspaceAccess: tool.workspaceAccess } : {}
+		}))
+	};
+	const entry = definePluginEntry({
+		id: definition.id,
+		name: definition.name,
+		description: definition.description,
+		configSchema: pluginConfigSchema,
+		register(api) {
+			const config = api.pluginConfig ?? {};
+			for (const tool of tools) {
+				const opts = {
+					...tool.optional ? { optional: true } : {},
+					...tool.workspaceAccess !== void 0 ? { workspaceAccess: tool.workspaceAccess } : {}
+				};
+				if (tool.factory) {
+					api.registerTool((toolContext) => tool.factory?.({
+						api,
+						config,
+						toolContext
+					}), {
+						name: tool.name,
+						...opts
+					});
+					continue;
+				}
+				const execute = tool.execute;
+				if (!execute) throw new Error(`tool plugin tool ${tool.name} must define execute or factory`);
+				api.registerTool({
+					name: tool.name,
+					label: tool.label,
+					description: tool.description,
+					parameters: tool.parameters,
+					...tool.outputSchema ? { outputSchema: tool.outputSchema } : {},
+					execute: async (toolCallId, params, signal, onUpdate) => wrapToolPluginResult(await execute(params, config, {
+						api,
+						signal,
+						toolCallId,
+						onUpdate
+					}))
+				}, tool.optional || tool.workspaceAccess !== void 0 ? opts : void 0);
+			}
+		}
+	});
+	Object.defineProperty(entry, toolPluginMetadataSymbol, {
+		value: metadata,
+		enumerable: false
+	});
+	return entry;
+}
+/** Read tool-plugin metadata from an entry without exposing the symbol to callers. */
+function getToolPluginMetadata(entry) {
+	if (!entry || typeof entry !== "object") return;
+	const metadata = entry[toolPluginMetadataSymbol];
+	if (!metadata || typeof metadata !== "object") return;
+	return metadata;
+}
+//#endregion
+export { getToolPluginMetadata as n, toolPluginMetadataSymbol as r, defineToolPlugin as t };

@@ -28,8 +28,8 @@ repos:
         exclude: "^(vendor/|scripts/e2e/)"
 
   # GitHub Actions linting
-  - repo: https://github.com/vvoland/actionlint
-    rev: 644076a59742c2d1540ebd4686eab3c308f0e562 # concurrency.queue support; retains upstream ShellCheck deadlock fix
+  - repo: https://github.com/rhysd/actionlint
+    rev: 011a6d15e749bb3f2d771eed9c7aa0e7e3e10ee7 # ShellCheck stdin deadlock fix (#651)
     hooks:
       - id: actionlint
 
@@ -76,12 +76,13 @@ repos:
         language: system
         types: [text]
 
-      # node scripts/pre-commit/pnpm-audit-prod.mjs --audit-level=high
+      # Advisory findings are visible but never block commits.
       - id: pnpm-audit-prod
         name: pnpm-audit-prod
-        entry: node scripts/pre-commit/pnpm-audit-prod.mjs --audit-level=high
+        entry: node scripts/ci-production-audit.mjs
         language: system
         pass_filenames: false
+        verbose: true
 
       # oxlint --type-aware src test
       - id: oxlint

@@ -1,13 +1,13 @@
 import { a as createLazyRuntimeSurface } from "../../lazy-runtime-CJrzFzqU.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
 import { t as buildGoogleGeminiCliBackend } from "../../cli-backend-_dS2dNnJ.mjs";
-import { t as buildGoogleGeminiCliProvider } from "../../gemini-cli-provider-BDgM5D_8.mjs";
-import { d as createGoogleImageGenerationProviderMetadata, f as createGoogleMediaUnderstandingProviderMetadata, m as createGoogleVideoGenerationProviderMetadata, p as createGoogleMusicGenerationProviderMetadata } from "../../generation-provider-metadata-CkICOOMz.mjs";
-import { t as geminiMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-DP40-F7W.mjs";
-import { t as buildGoogleProvider } from "../../provider-registration-HbiUULo3.mjs";
-import { t as createLazyGoogleRealtimeVoiceProvider } from "../../realtime-voice-lazy-CPl7N18b.mjs";
-import { t as buildGoogleSpeechProvider } from "../../speech-provider-BJCkhEMD.mjs";
-import { t as createGeminiWebSearchProvider } from "../../gemini-web-search-provider-CEBDeWhC.mjs";
+import { t as buildGoogleGeminiCliProvider } from "../../gemini-cli-provider-D8pFGIDV.mjs";
+import { d as createGoogleImageGenerationProviderMetadata, f as createGoogleMediaUnderstandingProviderMetadata, m as createGoogleVideoGenerationProviderMetadata, p as createGoogleMusicGenerationProviderMetadata } from "../../generation-provider-metadata-B7YiGEWb.mjs";
+import { t as geminiMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-BDYb5DRp.mjs";
+import { t as buildGoogleProvider } from "../../provider-registration-DKZt_Wwj.mjs";
+import { t as createLazyGoogleRealtimeVoiceProvider } from "../../realtime-voice-lazy-CI9o9cRq.mjs";
+import { t as buildGoogleSpeechProvider } from "../../speech-provider-BTpgq_qB.mjs";
+import { t as createGeminiWebSearchProvider } from "../../gemini-web-search-provider-BRtpkjjJ.mjs";
 //#region extensions/google/index.ts
 const loadGoogleImageGenerationProvider = createLazyRuntimeSurface(() => import("./image-generation-provider.js"), (mod) => mod.buildGoogleImageGenerationProvider());
 const loadGoogleMediaUnderstandingProvider = createLazyRuntimeSurface(() => import("./media-understanding-provider.js"), (mod) => mod.googleMediaUnderstandingProvider);

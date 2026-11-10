@@ -1,7 +1,5 @@
-import { Qt as NativeCommandsSetting, r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import "../types-C-BtfS0H.js";
-import { t as ChannelId } from "../channel-id.types-CM2F8b5e.js";
-import "../types.public-DpLTXZT0.js";
+import { $r as NativeCommandsSetting, M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { wA as ChannelId } from "../config-contracts-CY87ANNp.js";
 //#region src/config/commands.d.ts
 type NativeCommandSettingParams = {
   providerId: ChannelId;

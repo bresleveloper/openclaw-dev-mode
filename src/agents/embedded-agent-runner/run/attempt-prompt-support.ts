@@ -12,6 +12,7 @@ import {
 } from "../../../trajectory/runtime.js";
 import type { createCacheTrace } from "../../cache-trace.js";
 import { createAgentHarnessPromptToolPolicy } from "../../harness/prompt-tool-policy.js";
+import type { ResolvedToolPromptFinalizer } from "../../resolved-tool-prompt.types.js";
 import type { AgentMessage } from "../../runtime/index.js";
 import type { AgentSession } from "../../sessions/index.js";
 import { normalizeToolPolicyName } from "../../tool-policy.js";
@@ -24,7 +25,6 @@ import {
   type DecisionModelTool,
 } from "./attempt-decision-diagnostics.js";
 import { resolvePromptSubmissionSkipReason } from "./attempt-prompt-submit.js";
-import type { ResolvedToolPromptFinalizer } from "./params.js";
 import type { EmbeddedRunAttemptParams } from "./types.js";
 
 type NamedTool = { name: string };
@@ -219,7 +219,7 @@ type AttemptPromptObservabilityParams = Pick<
 type CacheTrace = Pick<NonNullable<ReturnType<typeof createCacheTrace>>, "recordStage"> | null;
 type PromptHookRunner = Pick<HookRunner, "hasHooks" | "runLlmInput"> | null;
 type TrajectoryRecorder = Pick<
-  NonNullable<ReturnType<typeof createTrajectoryRuntimeRecorder>>,
+  NonNullable<Awaited<ReturnType<typeof createTrajectoryRuntimeRecorder>>>,
   "recordEvent"
 > | null;
 type TrajectoryTool = Parameters<typeof toTrajectoryToolDefinitions>[0][number];

@@ -128,7 +128,6 @@ function hasRetiredTurnIdleTimeout(value) {
 	const appServer = asNullableRecord(value);
 	return appServer !== null && RETIRED_TURN_IDLE_TIMEOUT_KEYS.some((key) => Object.hasOwn(appServer, key));
 }
-/** Legacy Codex config keys that doctor should report or repair. */
 const legacyConfigRules = [
 	{
 		path: [
@@ -249,15 +248,24 @@ const stateMigrations = [
 	{
 		id: "codex-app-server-sidecars-to-plugin-state",
 		label: "Codex app-server thread bindings",
-		detectLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-BrdV95Fg.mjs")).detectLegacySessionBindingSidecars(params),
-		migrateLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-BrdV95Fg.mjs")).migrateLegacySessionBindingSidecars(params)
+		detectLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-D0c8mmZ9.mjs")).detectLegacySessionBindingSidecars(params),
+		migrateLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-D0c8mmZ9.mjs")).migrateLegacySessionBindingSidecars(params)
 	},
 	{
 		id: "codex-native-task-assignments",
 		label: "Codex native pending assignments",
-		collectBackupResources: async (params) => (await import("./.setup/native-task-assignments-C6KVqiN1.mjs")).codexNativeTaskAssignmentMigration.collectBackupResources(params),
-		detectLegacyState: async (params) => (await import("./.setup/native-task-assignments-C6KVqiN1.mjs")).codexNativeTaskAssignmentMigration.detectLegacyState(params),
-		migrateLegacyState: async (params) => (await import("./.setup/native-task-assignments-C6KVqiN1.mjs")).codexNativeTaskAssignmentMigration.migrateLegacyState(params)
+		collectBackupResources: async (params) => (await import("./.setup/native-task-assignments-lgVSDkci.mjs")).codexNativeTaskAssignmentMigration.collectBackupResources(params),
+		detectLegacyState: async (params) => (await import("./.setup/native-task-assignments-lgVSDkci.mjs")).codexNativeTaskAssignmentMigration.detectLegacyState(params),
+		migrateLegacyState: async (params) => (await import("./.setup/native-task-assignments-lgVSDkci.mjs")).codexNativeTaskAssignmentMigration.migrateLegacyState(params)
+	},
+	{
+		id: "codex-native-assignment-repair",
+		label: "Codex native pending assignment repair",
+		doctorOnly: true,
+		phase: "after-session-repair",
+		collectBackupResources: () => [],
+		detectLegacyState: async (params) => (await import("./.setup/native-assignment-repair-4eLz6x5k.mjs")).codexNativeAssignmentRepair.detectLegacyState(params),
+		migrateLegacyState: async (params) => (await import("./.setup/native-assignment-repair-4eLz6x5k.mjs")).codexNativeAssignmentRepair.migrateLegacyState(params)
 	},
 	codexOrphanedSessionBindingMigration
 ];

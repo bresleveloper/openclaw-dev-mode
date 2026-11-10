@@ -1,0 +1,5 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{c as t,d as n,i as r}from"./worker-chunk-D-pM6VZQ.mjs";import{n as i}from"./worker-chunk-ureyOWb3.mjs";import"node:path";function readEdits(e){return(Array.isArray(e.edits)?e.edits:[e]).flatMap(e=>{let t=r(e);return t?[t]:[]})}function countNewlines(e){if(typeof e!=`string`)return 0;let t=0;for(let n=e.indexOf(`
+`);n>=0;n=e.indexOf(`
+`,n+1))t+=1;return t}function countStreamingFileMutationLines(e,t){if(e===`write`)return{added:countNewlines(n(t,`content`)),removed:0};if(e===`edit`)return readEdits(t).reduce((e,t)=>({added:e.added+countNewlines(t.newText??t.new_string),removed:e.removed+countNewlines(t.oldText??t.old_string)}),{added:0,removed:0});let r=t.input??t.patch;if(typeof r!=`string`)return{added:0,removed:0};let i=0,a=0,o=0;for(let e=r.indexOf(`
+`);e>=0;e=r.indexOf(`
+`,o))i+=Number(r[o]===`+`),a+=Number(r[o]===`-`),o=e+1;return{added:i,removed:a}}var a=e((()=>{t(),i()}));export{a as n,countStreamingFileMutationLines as t};

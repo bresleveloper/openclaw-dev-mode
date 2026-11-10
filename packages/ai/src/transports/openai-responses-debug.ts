@@ -6,14 +6,14 @@ import { RESPONSE_FAILED_NO_DETAILS_MESSAGE } from "./openai-responses-contracts
 import { log } from "./openai-transport-shared.js";
 import { redactIdentifier, redactSensitiveText, sha256Hex } from "./transport-utils.js";
 
-function stringifyUnknown(value: unknown, fallback = ""): string {
+function stringifyUnknown(value: unknown): string {
   if (typeof value === "string") {
     return value;
   }
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
-  return fallback;
+  return "";
 }
 
 export function safeDebugValue(value: unknown): string {
@@ -104,31 +104,23 @@ function summarizeResponsesCompactionItems(input: unknown): string[] {
   ];
 }
 
-function readToolPayloadField(record: Record<string, unknown>, field: string): unknown {
-  try {
-    return record[field];
-  } catch {
-    return undefined;
-  }
-}
-
 function readResponsesToolDisplayName(tool: unknown): string {
   if (!tool || typeof tool !== "object") {
     return "";
   }
   const record = tool as Record<string, unknown>;
-  const name = readToolPayloadField(record, "name");
+  const name = record.name;
   if (typeof name === "string") {
     return name;
   }
-  const fn = readToolPayloadField(record, "function");
+  const fn = record.function;
   if (fn && typeof fn === "object") {
-    const fnName = readToolPayloadField(fn as Record<string, unknown>, "name");
+    const fnName = (fn as Record<string, unknown>).name;
     if (typeof fnName === "string") {
       return fnName;
     }
   }
-  const type = readToolPayloadField(record, "type");
+  const type = record.type;
   return typeof type === "string" && type !== "function" ? type : "";
 }
 
@@ -159,7 +151,7 @@ function stringifyRedactedPayload(value: unknown): string {
   }
 }
 
-export function stringifyRedactedEvent(value: unknown): string {
+function stringifyRedactedEvent(value: unknown): string {
   const redacted = stringifyRedactedPayload(value);
   return redacted.length > 2000 ? `${truncateUtf16Safe(redacted, 2000)}…<truncated>` : redacted;
 }
@@ -435,7 +427,7 @@ export function summarizeResponsesPayload(params: unknown): string {
   return parts.join(" ");
 }
 
-export function summarizeOpenAITransportError(error: unknown): string {
+export function summarizeOpenAITransportError(error: unknown, signal?: AbortSignal): string {
   if (!error || typeof error !== "object") {
     return `type=${typeof error} message=${safeDebugValue(error)}`;
   }
@@ -444,7 +436,7 @@ export function summarizeOpenAITransportError(error: unknown): string {
     record.cause && typeof record.cause === "object"
       ? (record.cause as Record<string, unknown>)
       : undefined;
-  return [
+  const parts = [
     `name=${safeDebugValue(record.name)}`,
     `status=${safeDebugValue(record.status)}`,
     `code=${safeDebugValue(record.code)}`,
@@ -452,5 +444,36 @@ export function summarizeOpenAITransportError(error: unknown): string {
     `causeName=${safeDebugValue(cause?.name)}`,
     `causeCode=${safeDebugValue(cause?.code)}`,
     `message=${error instanceof Error ? error.message : safeDebugValue(error)}`,
-  ].join(" ");
+  ];
+  if (signal?.aborted) {
+    const reason = isRecord(signal.reason) ? signal.reason : undefined;
+    let abortReason = reason?.name === "TimeoutError" ? "request_deadline" : "caller_abort";
+    // Only classify the request signal; provider errors can echo message/tool content.
+    switch (reason?.code ?? reason?.name) {
+      case "LlmIdleTimeoutError":
+        abortReason = "idle_timeout";
+        break;
+      case "LlmNoProgressError":
+        abortReason = "no_progress";
+        break;
+      case "FirstStreamEventTimeoutError":
+        abortReason = "first_event_timeout";
+        break;
+      case "OPENCLAW_SESSION_WATCHDOG":
+        abortReason = "session_watchdog";
+        break;
+      case "degenerate_output":
+        abortReason = "degenerate_output";
+        break;
+      case "OPENCLAW_RESTART_ABORT":
+      case "ERR_STALE_GATEWAY_LIFECYCLE":
+        abortReason = "restart";
+        break;
+      case "AGENT_RUN_SUPERSEDED_ABORT":
+        abortReason = "superseded";
+        break;
+    }
+    parts.push(`abortReason=${abortReason}`);
+  }
+  return parts.join(" ");
 }

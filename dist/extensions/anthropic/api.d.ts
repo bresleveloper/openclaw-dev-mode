@@ -1,8 +1,6 @@
-import "../../types.openclaw-DA3BMvaX.js";
-import { i as ProviderPlugin, t as CliBackendPlugin } from "../../cli-backend.types-BeWYryLP.js";
-import "../../health-CmgFZOuS.js";
-import { a as resolveAnthropicFastMode, i as resolveAnthropicBetas, n as createAnthropicFastModeWrapper, o as resolveAnthropicServiceTier, r as createAnthropicServiceTierWrapper, s as wrapAnthropicProviderStream, t as createAnthropicBetaHeadersWrapper } from "../../stream-wrappers-CJUI2Mz4.js";
-import "@openclaw/ai/internal/tool-schema";
+import { Km as ProviderPlugin, Lt as CliBackendPlugin } from "../../config-contracts-CY87ANNp.js";
+import "../../provider-model-shared-uYxY__EE.js";
+import { a as resolveAnthropicFastMode, i as resolveAnthropicBetas, n as createAnthropicFastModeWrapper, o as resolveAnthropicServiceTier, r as createAnthropicServiceTierWrapper, s as wrapAnthropicProviderStream, t as createAnthropicBetaHeadersWrapper } from "../../stream-wrappers-DSlCeRHe.js";
 //#region extensions/anthropic/cli-constants.d.ts
 export declare const CLAUDE_CLI_BACKEND_ID = "claude-cli";
 //#endregion

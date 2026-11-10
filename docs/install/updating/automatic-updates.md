@@ -132,7 +132,7 @@ unattended updates.
 
 | Channel           | Behavior                                                                                                                                                            |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stable`          | After a built-in delay with deterministic jitter for a spread rollout, announces an update campaign.                                                                |
+| `stable`          | After a built-in delay with a repeatable offset to spread the rollout, announces an update campaign.                                                                |
 | `extended-stable` | Checks for a read-only update hint on startup and every 24 hours when `checkOnStart` is enabled. Never applies automatically.                                       |
 | `beta`            | Checks on a built-in interval and announces an update campaign as soon as a newer release is available.                                                             |
 | `dev`             | With `auto.enabled`, git installs check hourly. When upstream commits are available, the Gateway announces an update campaign pinned to the exact announced commit. |
@@ -160,6 +160,10 @@ in the restart sentinel and surface after the Gateway returns.
 `update.checkOnStart: false` disables all automatic update checks, feature
 statistics, and update notices, even when `update.auto.enabled` is `true`.
 `OPENCLAW_NO_AUTO_UPDATE=1` also disables automatic checks and applies.
+With either opt-out, Gateway startup does not probe Git or package managers for
+installation details. When checks are enabled, discovery starts with the first
+scheduled check. Explicit update and status requests still discover installation
+details on demand.
 External-supervisor mode disables automatic applies; startup update hints can
 still run unless `update.checkOnStart` is also disabled. See
 [Usage telemetry and update checks](/gateway/telemetry) for the information

@@ -2,6 +2,26 @@ import { expectDefined } from "@openclaw/normalization-core";
 import { escapeRegExp } from "../regexp.js";
 import { findCodeRegions } from "./code-regions.js";
 
+/** Recombine non-streamed text without destroying Markdown's meaningful indentation. */
+export function combineNonStreamingReplyParts(parts: readonly string[]): string {
+  let combined = "";
+  for (const part of parts) {
+    if (!part.trim()) {
+      continue;
+    }
+    // Outbound media normalization trims a chunk's trailing newline, so an
+    // indented following chunk still needs its original single-line boundary.
+    const separator =
+      !combined || /[\r\n]$/.test(combined) || /^[\r\n]/.test(part)
+        ? ""
+        : /^[\t ]+\S/.test(part)
+          ? "\n"
+          : "\n\n";
+    combined += separator + part;
+  }
+  return trimTextPreservingCode(combined);
+}
+
 export type TextProjection = { text: string; delta: string | null };
 type TextProjector = (input: TextProjection) => TextProjection;
 // Token absence must prove identity; activated syntax stays with the canonical transform.
@@ -254,8 +274,8 @@ function collapseDuplicateParagraphs(text: string): string {
 }
 
 function createDuplicateParagraphProjector(protectCode = true): TextProjector {
-  let active = false;
-  let trailingNewline = false;
+  let activationTail = "";
+  let separator: string | undefined;
   let text = "";
   let completed = "";
   let lastNormalized: string | null = null;
@@ -270,13 +290,15 @@ function createDuplicateParagraphProjector(protectCode = true): TextProjector {
   let wasDuplicate = false;
   return (input) => {
     let appended = input.delta ?? input.text;
-    if (!active) {
-      active = (trailingNewline && appended.startsWith("\n")) || appended.includes("\n\n");
-      trailingNewline = appended ? appended.endsWith("\n") : trailingNewline;
-      if (!active) {
+    if (!separator) {
+      const probe = activationTail + appended;
+      const boundary = /\r?\n\r?\n/.exec(probe);
+      activationTail = probe.slice(-3);
+      if (!boundary) {
         text = input.text;
         return input;
       }
+      separator = boundary[0];
       appended = input.text;
     }
     let completedParagraph = false;
@@ -293,7 +315,7 @@ function createDuplicateParagraphProjector(protectCode = true): TextProjector {
           } else if (equal && normalizedLength === lastNormalized?.length) {
             hasDuplicate = true;
           } else {
-            completed += (completed ? "\n\n" : "") + paragraph;
+            completed += (completed ? separator : "") + paragraph;
             lastNormalized = paragraph.replace(/\s+/g, " ");
           }
           paragraph = "";
@@ -306,7 +328,9 @@ function createDuplicateParagraphProjector(protectCode = true): TextProjector {
         newlines += part[0].length;
         continue;
       }
-      newlines = 0;
+      if (part[0] !== "\r") {
+        newlines = 0;
+      }
       const raw = paragraph ? part[0] : part[0].trimStart();
       const content = raw.trimEnd();
       if (!content) {
@@ -316,14 +340,14 @@ function createDuplicateParagraphProjector(protectCode = true): TextProjector {
       const piece = pending + content;
       pending = raw.slice(content.length);
       if (!paragraph) {
-        const empty = "\n\n".repeat(pendingEmpty);
+        const empty = separator.repeat(pendingEmpty);
         if (pendingEmpty) {
           completed += empty;
           pendingEmpty = 0;
           lastNormalized = "";
           equal = false;
         }
-        added += completed ? empty + "\n\n" : "";
+        added += completed ? empty + separator : "";
       }
       paragraph += piece;
       added += piece;
@@ -350,7 +374,7 @@ function createDuplicateParagraphProjector(protectCode = true): TextProjector {
         delta === null
           ? protectCode
             ? collapseDuplicateParagraphs(input.text)
-            : completed + (paragraph && !duplicate ? (completed ? "\n\n" : "") + paragraph : "")
+            : completed + (paragraph && !duplicate ? (completed ? separator : "") + paragraph : "")
           : text + delta;
     } else {
       text = input.text;

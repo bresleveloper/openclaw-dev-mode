@@ -14,7 +14,7 @@ import { assertAgentRunLifecycleGenerationCurrent } from "../../infra/agent-even
 import { resolveAgentExplicitRecipientSession } from "../../infra/outbound/agent-delivery.js";
 import { buildOutboundSessionContext } from "../../infra/outbound/session-context.js";
 import { labelRuntimeContextText } from "../../llm/types.js";
-import { resolvePluginMetadataSnapshot } from "../../plugins/plugin-metadata-snapshot.js";
+import { resolvePluginMetadataSnapshotAsync } from "../../plugins/plugin-metadata-snapshot.js";
 import {
   classifySessionKeyShape,
   isUnscopedSessionKeySentinel,
@@ -54,7 +54,7 @@ import { normalizeSpawnedRunMetadata } from "../spawned-context.js";
 import { resolveEffectiveAgentRuntime } from "../thinking-runtime.js";
 import { resolveAgentTimeoutMs } from "../timeout.js";
 import { ensureAgentWorkspace } from "../workspace.js";
-import { acquireWorktreeRunLease, resolveWorktreeIdForPath } from "../worktrees/run-lease.js";
+import { acquireWorktreeRunLease, resolveWorktreeForPath } from "../worktrees/run-lease.js";
 import { resolveExplicitAgentCommandSessionKey } from "./explicit-session-key.js";
 import { loadAcpManagerRuntime } from "./runtime-loaders.js";
 import { resolveSession } from "./session.js";
@@ -208,13 +208,26 @@ export async function prepareAgentCommandExecution(
         threadId: explicitRecipientSession.threadId,
       }
     : selectedCommandOpts;
-  const sessionResolution = resolveSession({
+  const assertPreparationCurrent = () => {
+    if (abortSignal?.aborted) {
+      throw createAbortError("Operation aborted", { cause: abortSignal.reason });
+    }
+    assertSourceCurrent?.();
+    operatorAuthority?.assertCurrent();
+    if (preparationLifecycleGeneration !== undefined) {
+      assertAgentRunLifecycleGenerationCurrent(preparationLifecycleGeneration);
+    }
+  };
+  const sessionResolution = await resolveSession({
     cfg,
     to: commandOpts.to,
     sessionId: commandOpts.sessionId,
     sessionKey: explicitSessionKey ?? explicitRecipientSession?.sessionKey,
     agentId: agentIdOverride,
+    signal: abortSignal,
+    assertCurrent: assertPreparationCurrent,
   });
+  assertPreparationCurrent();
   const {
     sessionId,
     sessionKey,
@@ -223,6 +236,7 @@ export async function prepareAgentCommandExecution(
     storePath,
     isNewSession,
     previousSessionId,
+    automaticReset,
     persistedThinking,
     persistedVerbose,
   } = sessionResolution;
@@ -249,14 +263,7 @@ export async function prepareAgentCommandExecution(
   const { getAcpSessionManager } = await loadAcpManagerRuntime();
   const acpManager = getAcpSessionManager();
   const assertAcpPreparationCurrent = () => {
-    if (abortSignal?.aborted) {
-      throw createAbortError("Operation aborted", { cause: abortSignal.reason });
-    }
-    assertSourceCurrent?.();
-    operatorAuthority?.assertCurrent();
-    if (preparationLifecycleGeneration !== undefined) {
-      assertAgentRunLifecycleGenerationCurrent(preparationLifecycleGeneration);
-    }
+    assertPreparationCurrent();
     assertAgentDatabaseAdmitted(sessionAgentId);
   };
   const acpResolution = sessionKey
@@ -281,7 +288,7 @@ export async function prepareAgentCommandExecution(
   const preparedMetadataSnapshot = runtimeContext?.pluginGeneration.pluginMetadataSnapshot;
   const manifestMetadataSnapshot = pluginsEnabled
     ? (preparedMetadataSnapshot ??
-      resolvePluginMetadataSnapshot({ config: cfg, env: process.env, workspaceDir }))
+      (await resolvePluginMetadataSnapshotAsync({ config: cfg, env: process.env, workspaceDir })))
     : undefined;
   const modelManifestContext = {
     manifestPlugins: manifestMetadataSnapshot ?? [],
@@ -307,8 +314,9 @@ export async function prepareAgentCommandExecution(
     sessionKey,
     sessionEntry: sessionEntryRaw,
   });
-  const sessionStableReplyMode = resolveSessionStableReplyMode({
+  const sessionStableReplyMode = await resolveSessionStableReplyMode({
     cfg,
+    metadataSnapshot: manifestMetadataSnapshot,
     ctx: { CommandAuthorized: false },
     sessionEntry: sessionEntryRaw,
     sessionAgentId,
@@ -347,11 +355,13 @@ export async function prepareAgentCommandExecution(
     throw new Error(`Invalid one-shot thinking level. Use one of: ${thinkingLevelsHint}.`);
   }
   const resolvedCwd = cwd ? resolveUserPath(cwd) : undefined;
-  const worktreeId = await resolveWorktreeIdForPath({
+  const worktreeSource = await resolveWorktreeForPath({
     sessionEntry: sessionEntryRaw,
     candidatePaths: [resolvedCwd ?? workspaceDir, workspaceDir],
   });
-  const runLease = worktreeId ? await acquireWorktreeRunLease(worktreeId) : undefined;
+  const runLease = worktreeSource
+    ? await acquireWorktreeRunLease(worktreeSource.record.id, { source: worktreeSource })
+    : undefined;
   try {
     const { resolveAcpAgentWorkspaceProvisioningForTurn } =
       await import("../acp-workspace-provisioning.js");
@@ -449,6 +459,7 @@ export async function prepareAgentCommandExecution(
       storePath,
       isNewSession,
       previousSessionId,
+      ...(automaticReset ? { automaticReset } : {}),
       persistedThinking,
       persistedVerbose,
       sessionAgentId,

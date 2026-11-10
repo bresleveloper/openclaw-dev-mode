@@ -1,20 +1,86 @@
 import { c as normalizeOptionalLowercaseString, l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../string-coerce-1VuiLaaR.mjs";
-import { r as resolveAgentConfig } from "../agent-scope-config-CDYpzA0r.mjs";
-import { s as resolveAgentModelPrimaryValue } from "../model-input-C9K4a_6k.mjs";
-import "../defaults-Jag53zwP.mjs";
-import { g as resolveConfiguredPrimaryProviderFallback, i as buildModelAliasIndex } from "../model-selection-shared-DKlQ1p0S.mjs";
-import { n as parseModelRef } from "../model-selection-normalize-AjjSfI-g.mjs";
-import { r as resolvePersistedSelectedModelRef } from "../model-selection-D3_rVb38.mjs";
-import { o as resolveStoredSessionKeyForAgentStore } from "../session-store-key-Ci099tm9.mjs";
-import { t as classifySessionKind } from "../classify-session-kind-CT3WV_2y.mjs";
-import { n as resolveSessionStorePathForAcp } from "../session-meta-store-C2kPc7n-.mjs";
-import { n as readAcpSessionMetaForEntry } from "../session-meta-readonly-CvCR0QQG.mjs";
-import "../session-meta-DUw-8Na0.mjs";
-import { t as resolveCurrentSessionAgentRuntimeMetadata } from "../agent-runtime-metadata-BYpiZnNd.mjs";
-import { i as resolveContextTokensForModelFromCache, n as resolveAuthoredModelContextTokens } from "../context-resolution-rBaR4T59.mjs";
-import { c as waitForContextWindowCacheLoad } from "../context-DtziOKiU.mjs";
-import { n as resolveAgentRuntimeLabel } from "../agent-runtime-label-D9Q95kGc.mjs";
+import { t as createLazyImportLoader } from "../lazy-promise-DGqyc4Y4.mjs";
+import { M as parseAgentSessionKey } from "../session-key-CSDERtm3.mjs";
+import { r as resolveAgentConfig, w as tryResolveAmbientOwnerAgentId } from "../agent-scope-config-fjA2T9Gz.mjs";
+import { s as resolveAgentModelPrimaryValue } from "../model-input-CeM8o97s.mjs";
+import "../defaults-Bg930vxE.mjs";
+import { g as resolveConfiguredPrimaryProviderFallback, i as buildModelAliasIndex } from "../model-selection-shared-CVU_V2PQ.mjs";
+import { n as findModelInCatalog } from "../model-catalog-lookup-BJKolYfz.mjs";
+import { n as parseModelRef } from "../model-selection-normalize-DulZGI4S.mjs";
+import { t as classifySessionKind } from "../classify-session-kind-BBHw4D98.mjs";
+import { s as resolveStoredSessionKeyForAgentStore } from "../session-store-key-DKpto8R6.mjs";
+import { t as resolveCurrentSessionAgentRuntimeMetadata } from "../agent-runtime-metadata-B5dnCB4A.mjs";
+import { r as resolvePersistedSelectedModelRef } from "../model-selection-DdQ-ffuG.mjs";
+import { i as resolveContextTokensForModelFromCache, n as resolveAuthoredModelContextTokens } from "../context-resolution-CKREdq15.mjs";
+import { o as selectModelCatalogRuntimeEntry } from "../model-catalog-view-UkLRAY5C.mjs";
+import { t as resolveModelContextWindowProfile } from "../model-context-window-CoR3Uyg1.mjs";
+import { o as resolveEffectiveAgentRuntime } from "../thinking-runtime-DuxsJR5q.mjs";
+import { t as readAcpSessionMetaForEntries } from "../session-meta-readonly-CHaonIQO.mjs";
+import { n as resolveSessionStorePathForAcp } from "../session-meta-store-DksRcpO8.mjs";
+import { n as getPreparedModelCatalogSnapshot } from "../prepared-model-catalog-B9Dr8wIV.mjs";
+import "../session-meta-DC-FqIqd.mjs";
+import { n as resolveAgentRuntimeLabel } from "../agent-runtime-label-X2Hryd-W.mjs";
 //#region src/status/summary.runtime.ts
+const staticModelCatalogResolverLoader = createLazyImportLoader(async () => {
+	const modelCatalog = await import("../model.static-catalog-DF82iDu_.mjs");
+	return {
+		resolveManifestModel: modelCatalog.createBundledStaticCatalogModelResolver({ includeRuntimeDiscovery: true }),
+		createProviderContextResolver: modelCatalog.createBundledProviderStaticCatalogContextResolver
+	};
+});
+async function createStatusModelContextResolver(cfg) {
+	const { resolveManifestModel, createProviderContextResolver } = await staticModelCatalogResolverLoader.load();
+	const resolveProviderContext = createProviderContextResolver({ cfg });
+	const modelContextCache = /* @__PURE__ */ new Map();
+	return async (provider, model, agentId, runtimeId = "openclaw", sessionEntry) => {
+		if (!provider || !model) return {};
+		const ownerAgentId = agentId ?? tryResolveAmbientOwnerAgentId(cfg);
+		const catalog = ownerAgentId ? getPreparedModelCatalogSnapshot({
+			config: cfg,
+			agentId: ownerAgentId,
+			workspaceDir: sessionEntry?.spawnedWorkspaceDir
+		}) : void 0;
+		if (catalog) {
+			const logicalEntry = findModelInCatalog(catalog.entries, provider, model);
+			const entry = logicalEntry && selectModelCatalogRuntimeEntry({
+				entry: logicalEntry,
+				routeVariants: catalog.routeVariants,
+				runtimeId,
+				allowApiFallback: false
+			}).entry;
+			return {
+				modelContextWindow: resolveModelContextWindowProfile({
+					catalogEntry: entry,
+					selected: sessionEntry?.contextWindow
+				}).contextTokens,
+				modelContextTokens: entry?.contextTokens
+			};
+		}
+		if (runtimeId !== "openclaw" && runtimeId !== "auto" && runtimeId !== provider) return {};
+		const key = `${provider}\0${model}`;
+		const cached = modelContextCache.get(key);
+		if (cached) return cached;
+		const resolved = (async () => {
+			try {
+				const entry = resolveManifestModel({
+					provider,
+					modelId: model
+				}) ?? await resolveProviderContext({
+					provider,
+					modelId: model
+				});
+				return {
+					...entry?.contextWindow ? { modelContextWindow: entry.contextWindow } : {},
+					...entry?.contextTokens ? { modelContextTokens: entry.contextTokens } : {}
+				};
+			} catch {
+				return {};
+			}
+		})();
+		modelContextCache.set(key, resolved);
+		return resolved;
+	};
+}
 function resolveStatusModelRefFromRaw(params) {
 	const trimmed = params.rawModel.trim();
 	if (!trimmed) return null;
@@ -108,7 +174,7 @@ function resolveSessionModelRef(resolved, entry) {
 		allowPluginNormalization: false
 	}) ?? resolved;
 }
-function resolveSessionRuntime(params) {
+function resolveStatusAcpSession(params) {
 	const acpSessionKey = params.agentId ? resolveStoredSessionKeyForAgentStore({
 		cfg: params.cfg,
 		agentId: params.agentId,
@@ -118,12 +184,27 @@ function resolveSessionRuntime(params) {
 		cfg: params.cfg,
 		sessionKey: acpSessionKey
 	});
-	const acpMeta = readAcpSessionMetaForEntry({
-		cfg: params.cfg,
+	return {
 		sessionKey: acpSessionKey,
-		agentId: acpAgentId,
-		entry: params.entry
+		agentId: acpAgentId
+	};
+}
+async function readSessionRuntimeMetadata(cfg, candidates) {
+	return readAcpSessionMetaForEntries({
+		cfg,
+		entries: candidates.map(({ sessionKey, entry }) => ({
+			...resolveStatusAcpSession({
+				cfg,
+				sessionKey,
+				agentId: parseAgentSessionKey(sessionKey)?.agentId
+			}),
+			entry
+		}))
 	});
+}
+function resolveSessionRuntime(params) {
+	const { sessionKey: acpSessionKey, agentId: acpAgentId } = resolveStatusAcpSession(params);
+	const { acpMeta } = params;
 	const runtime = resolveCurrentSessionAgentRuntimeMetadata({
 		cfg: params.cfg,
 		agentId: params.agentId ?? acpAgentId,
@@ -134,7 +215,14 @@ function resolveSessionRuntime(params) {
 		acpRuntime: acpMeta != null,
 		acpBackend: acpMeta?.backend
 	});
-	const id = normalizeOptionalLowercaseString(runtime.id);
+	const id = normalizeOptionalLowercaseString(runtime.id === "auto" ? resolveEffectiveAgentRuntime({
+		cfg: params.cfg,
+		agentId: params.agentId ?? acpAgentId,
+		provider: params.provider,
+		modelId: params.model,
+		sessionKey: acpSessionKey,
+		sessionEntry: params.entry
+	}) : runtime.id);
 	const resolvedHarness = id && id !== "openclaw" && id !== "auto" ? id : void 0;
 	return {
 		id,
@@ -147,12 +235,13 @@ function resolveSessionRuntime(params) {
 	};
 }
 const statusSummaryRuntime = {
-	waitForContextWindowCacheLoad,
+	createStatusModelContextResolver,
 	resolveAuthoredModelContextTokens,
 	resolveContextTokensForModel: resolveContextTokensForModelFromCache,
 	classifySessionKey: classifySessionKind,
 	resolveSessionModelRef,
 	resolveSessionRuntime,
+	readSessionRuntimeMetadata,
 	resolveConfiguredStatusModelRef,
 	resolveStatusModelLookupRef,
 	resolveStatusModelComparisonLabel

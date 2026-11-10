@@ -1,10 +1,10 @@
 import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-1VuiLaaR.mjs";
 import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import path from "node:path";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
 import { rm } from "node:fs/promises";
 import os from "node:os";
+import path from "node:path";
 import { isIP } from "node:net";
 //#region extensions/device-pair/index.ts
 const loadDevicePairApiModule = createLazyRuntimeModule(() => import("./api.js"));
@@ -318,6 +318,11 @@ var device_pair_default = definePluginEntry({
 				const urlResult = await resolveMobilePairingGatewayUrl(api);
 				if (!urlResult.url) return { text: `Error: ${urlResult.error ?? "Gateway URL unavailable."}` };
 				const authLabel = authLabelResult.label ?? "auth";
+				const setupRequest = {
+					url: urlResult.url,
+					allowFullAccess: authState.canIssueFullAccessSetup,
+					assertCurrent: assertOwnerCurrent
+				};
 				if (action === "qr") {
 					const channel = ctx.channel;
 					const target = resolveQrReplyTarget(ctx);
@@ -334,11 +339,7 @@ var device_pair_default = definePluginEntry({
 					} catch (err) {
 						api.logger.warn?.(`device-pair: failed to arm one-shot pairing notify (${err?.message ?? err})`);
 					}
-					let payload = await issueSetupPayload({
-						url: urlResult.url,
-						allowFullAccess: authState.canIssueFullAccessSetup,
-						assertCurrent: assertOwnerCurrent
-					});
+					let payload = await issueSetupPayload(setupRequest);
 					let setupCode = encodeSetupCode(payload);
 					const infoLines = buildQrInfoLines({
 						payload,
@@ -369,11 +370,7 @@ var device_pair_default = definePluginEntry({
 							const { revokeDeviceBootstrapToken } = await loadDevicePairApiModule();
 							api.logger.warn?.(`device-pair: QR image send failed channel=${channel}, falling back (${err?.message ?? err})`);
 							await revokeDeviceBootstrapToken({ token: payload.bootstrapToken }).catch(() => {});
-							payload = await issueSetupPayload({
-								url: urlResult.url,
-								allowFullAccess: authState.canIssueFullAccessSetup,
-								assertCurrent: assertOwnerCurrent
-							});
+							payload = await issueSetupPayload(setupRequest);
 							setupCode = encodeSetupCode(payload);
 						} finally {
 							if (qrFilePath) await rm(path.dirname(qrFilePath), {
@@ -391,11 +388,7 @@ var device_pair_default = definePluginEntry({
 							const { revokeDeviceBootstrapToken } = await loadDevicePairApiModule();
 							api.logger.warn?.(`device-pair: webchat QR render failed, falling back (${err?.message ?? err})`);
 							await revokeDeviceBootstrapToken({ token: payload.bootstrapToken }).catch(() => {});
-							payload = await issueSetupPayload({
-								url: urlResult.url,
-								allowFullAccess: authState.canIssueFullAccessSetup,
-								assertCurrent: assertOwnerCurrent
-							});
+							payload = await issueSetupPayload(setupRequest);
 							return { text: "QR image delivery is not available on this channel right now, so I generated a pasteable setup code instead.\n\n" + formatSetupReply(payload, authLabel) };
 						}
 						return {
@@ -420,11 +413,7 @@ var device_pair_default = definePluginEntry({
 				}
 				const channel = ctx.channel;
 				const target = normalizeOptionalString(ctx.senderId) || normalizeOptionalString(ctx.from) || normalizeOptionalString(ctx.to) || "";
-				const payload = await issueSetupPayload({
-					url: urlResult.url,
-					allowFullAccess: authState.canIssueFullAccessSetup,
-					assertCurrent: assertOwnerCurrent
-				});
+				const payload = await issueSetupPayload(setupRequest);
 				if (channel === "telegram" && target) try {
 					const runtimeKeys = Object.keys(api.runtime ?? {});
 					const channelKeys = Object.keys(api.runtime?.channel ?? {});

@@ -1,1 +1,1 @@
-export * from "./dispatch-from-config.runtime-loaders-DngSyO7H.mjs";
+export * from "./dispatch-from-config.runtime-loaders-CkcRhxP5.mjs";

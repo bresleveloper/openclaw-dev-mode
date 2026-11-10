@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveSkillResourceCandidates(e,t){if(!e)return;let n=[...e.resolvedSkills??[]];for(let r of t)e.skills.some(e=>e.name===r.skill.name)&&!n.some(e=>e.name===r.skill.name)&&n.push(r.skill);return n}var t=e((()=>{}));export{resolveSkillResourceCandidates as n,t};

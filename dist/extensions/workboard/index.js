@@ -1,33 +1,33 @@
 import { g as readStringValue } from "../../string-coerce-1VuiLaaR.mjs";
-import { j as resolveIntegerOption } from "../../number-coercion-CuVhdCBs.mjs";
-import { a as resolveGlobalSingleton } from "../../global-singleton-0m-JziJW.mjs";
+import { j as resolveIntegerOption } from "../../number-coercion-CkhMiRw8.mjs";
+import { a as resolveGlobalSingleton } from "../../global-singleton-DrXvEBww.mjs";
 import { c as isRecord, o as asRecord, t as asNonArrayRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { b as redactToolPayloadText } from "../../redact-DJ8j6ADa.mjs";
-import { r as isIncognitoSessionKey } from "../../session-key-CmZ4o9-l.mjs";
-import { S as isCronSessionKey, l as resolveAgentIdFromSessionKey } from "../../session-key-C09ow4h0.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../security-runtime-CpTHQYW2.mjs";
+import { i as isIncognitoSessionKey } from "../../incognito-session-key-BWpn88lo.mjs";
+import { M as parseAgentSessionKey, S as isCronSessionKey } from "../../session-key-CSDERtm3.mjs";
 import { t as safeEqualSecret } from "../../secret-equal-DRsL8lKD.mjs";
-import "../../session-key-runtime-CgEY8jLa.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import { m as readToolStringParam } from "../../common-Dyxcwsy8.mjs";
-import "../../number-runtime-CgyXj1A5.mjs";
-import "../../routing-CEr1aXk1.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../core-5IrwDSpb.mjs";
-import "../../logging-core-e269L3HU.mjs";
-import "../../global-singleton-yHEs_vfD.mjs";
-import "../../api-Dw-2Dcz5.mjs";
-import { d as WORKBOARD_STATUSES, h as redactDispatchResult, m as redactClaimToken } from "../../src-C_j7E0TD.mjs";
-import { _ as resolveAgentWorkboardWorkspaceRuntime, a as WorkboardStore, c as cardBoardId, d as cleanupWorkboardCardWorktree, f as isWorkboardWorktreeCleanupCandidate, g as guardWorkboardToolsForWorkspaceAccess, h as canonicalizeWorkboardWorkspaceAccess, i as dispatchAndStartWorkboardCards, l as cardRunId, m as WORKBOARD_SESSIONS_BOARD_TOOL_NAMES, n as registerWorkboardStoreLifecycle, o as workboardCardMatchesLifecycleLink, p as WORKBOARD_CARD_TOOL_NAMES, r as resolveWorkboardSqliteWorkerModuleUrl, s as workboardCardSessionLookupKey, t as registerWorkboardGatewayMethods, u as cardSessionKey, v as resolveCommandWorkboardWorkspaceAccess, y as resolveWorkboardAgentWorkspace } from "../../runtime-api-Cb5w4zJv.mjs";
-import "../../sqlite-store-errors-ClY8dC8v.mjs";
+import { m as readToolStringParam } from "../../common-BofcG96e.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../security-runtime-6domDoE8.mjs";
+import "../../number-runtime-D3v2w3D4.mjs";
+import "../../routing-Dl7FngGa.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../core-BxoR6yel.mjs";
+import "../../api-BJPG29cQ.mjs";
+import { n as redactDispatchResult, t as redactClaimToken } from "../../card-redaction-BHQMNjYT.mjs";
+import { _ as guardWorkboardToolsForWorkspaceAccess, a as WorkboardStore, b as resolveWorkboardAgentWorkspace, c as workboardCardSessionLookupKey, d as cardSessionKey, f as cleanupWorkboardCardWorktree, g as canonicalizeWorkboardWorkspaceAccess, h as WORKBOARD_SESSIONS_BOARD_TOOL_NAMES, i as dispatchAndStartWorkboardCards, l as cardBoardId, m as WORKBOARD_CARD_TOOL_NAMES, n as registerWorkboardStoreLifecycle, o as normalizeCappedStringList, p as isWorkboardWorktreeCleanupCandidate, r as resolveWorkboardSqliteWorkerModuleUrl, s as workboardCardMatchesLifecycleLink, t as registerWorkboardGatewayMethods, u as cardRunId, v as resolveAgentWorkboardWorkspaceRuntime, y as resolveCommandWorkboardWorkspaceAccess } from "../../runtime-api-CjaFlFmv.mjs";
+import "../../sqlite-store-errors-BajGRUMO.mjs";
+import { u as WORKBOARD_STATUSES } from "../../src-uqZESs4H.mjs";
 import { t as resolveWorkboardCardByIdOrPrefix } from "../../card-lookup-BoXKYGHH.mjs";
+import { randomUUID } from "node:crypto";
+import { AsyncResource } from "node:async_hooks";
+import { isDeepStrictEqual } from "node:util";
 import { Type } from "typebox";
 //#region extensions/workboard/src/automation-nudge.ts
 const WORKBOARD_AUTOMATION_NUDGE_DEBOUNCE_MS = 6e4;
 const WORKBOARD_AUTOMATION_NUDGE_STATE_KEY = Symbol.for("openclaw.workboard.automationNudgeState");
 function clearPendingBoardNudges(state) {
-	for (const pending of state.pendingByBoard.values()) if (pending.timer) clearTimeout(pending.timer);
+	for (const timer of state.pendingByBoard.values()) if (timer) clearTimeout(timer);
 	state.pendingByBoard.clear();
 }
 function getWorkboardAutomationNudgeState() {
@@ -49,9 +49,8 @@ function createWorkboardAutomationNudgeService(params) {
 			owner.logger.warn(`workboard automation nudge skipped for board ${boardId}: debounce map full`);
 			return;
 		}
-		const pending = {};
-		const expiresAt = Date.now() + WORKBOARD_AUTOMATION_NUDGE_DEBOUNCE_MS;
-		state.pendingByBoard.set(boardId, pending);
+		const expiresAt = performance.now() + WORKBOARD_AUTOMATION_NUDGE_DEBOUNCE_MS;
+		state.pendingByBoard.set(boardId, void 0);
 		try {
 			const enqueueRun = owner.getCron?.()?.enqueueRun;
 			if (!enqueueRun) throw new Error("Workboard automation scheduler is unavailable");
@@ -64,13 +63,12 @@ function createWorkboardAutomationNudgeService(params) {
 			const runId = "runId" in result ? result.runId : void 0;
 			owner.logger.info(`workboard automation nudge requested for board ${boardId}: job ${jobId}${runId ? ` run ${runId}` : ""}`);
 		} catch (error) {
-			if (state.owner === owner) owner.logger.warn(`workboard automation nudge failed for board ${boardId}: ${String(error)}`);
+			owner.logger.warn(`workboard automation nudge failed for board ${boardId}: ${String(error)}`);
 		} finally {
-			if (state.owner === owner && state.pendingByBoard.get(boardId) === pending) {
-				pending.timer = setTimeout(() => {
-					if (state.pendingByBoard.get(boardId) === pending) state.pendingByBoard.delete(boardId);
-				}, Math.max(0, expiresAt - Date.now()));
-				pending.timer.unref?.();
+			if (state.owner === owner) {
+				const timer = setTimeout(() => state.pendingByBoard.delete(boardId), Math.max(0, expiresAt - performance.now()));
+				timer.unref?.();
+				state.pendingByBoard.set(boardId, timer);
 			}
 		}
 	};
@@ -91,8 +89,7 @@ function createWorkboardAutomationNudgeService(params) {
 			clearPendingBoardNudges(state);
 		},
 		async nudge(input) {
-			const state = getWorkboardAutomationNudgeState();
-			const owner = state.owner;
+			const owner = getWorkboardAutomationNudgeState().owner;
 			if (!owner || isCronOriginSession(input.sessionKey) || input.cards.length === 0) return;
 			try {
 				const automationByBoard = new Map((await params.store.listBoards()).boards.flatMap((board) => board.automationJobId ? [[board.id, board.automationJobId]] : []));
@@ -102,64 +99,30 @@ function createWorkboardAutomationNudgeService(params) {
 					return jobId ? [nudgeBoard(boardId, jobId, owner)] : [];
 				}));
 			} catch (error) {
-				if (state.owner === owner) owner.logger.warn(`workboard automation nudge failed: ${String(error)}`);
+				owner.logger.warn(`workboard automation nudge failed: ${String(error)}`);
 			}
 		}
 	};
 }
 //#endregion
 //#region extensions/workboard/src/change-events.ts
-const WORKBOARD_EXTERNAL_CHANGE_CHECK_MS = 1e3;
 function createWorkboardChangeEventService(store) {
 	let unsubscribe;
-	let timer;
-	let generation = 0;
-	let starting;
-	let polling;
 	return {
 		id: "workboard-change-events",
-		start(ctx) {
+		async start(ctx) {
 			const gatewayEvents = ctx.gatewayEvents;
-			if (!gatewayEvents || unsubscribe) return Promise.resolve();
-			if (starting?.generation === generation) return starting.promise;
-			const currentGeneration = generation;
-			const previous = starting?.promise;
-			const pending = (async () => {
-				await previous?.catch(() => void 0);
-				await store.ready();
-				if (currentGeneration !== generation) return;
-				const emit = (change) => {
-					gatewayEvents.emit("changed", change, { scope: "operator.read" });
-				};
-				unsubscribe = store.subscribeChanges(emit);
-				store.announceChangeEpoch();
-				timer = setInterval(() => {
-					if (polling) return;
-					polling = store.reconcileExternalChanges().then(() => void 0, (error) => {
-						ctx.logger.warn(`workboard external change check failed: ${String(error)}`);
-					}).finally(() => {
-						polling = void 0;
-					});
-				}, WORKBOARD_EXTERNAL_CHANGE_CHECK_MS);
-				timer.unref?.();
-			})().finally(() => {
-				if (starting?.promise === pending) starting = void 0;
-			});
-			starting = {
-				generation: currentGeneration,
-				promise: pending
+			if (!gatewayEvents || unsubscribe) return;
+			await store.ready();
+			const emit = (change) => {
+				gatewayEvents.emit("changed", change, { scope: "operator.read" });
 			};
-			return pending;
+			unsubscribe = store.subscribeChanges(emit);
+			store.announceChangeEpoch();
 		},
-		stop() {
-			generation += 1;
+		async stop() {
 			unsubscribe?.();
 			unsubscribe = void 0;
-			if (timer) {
-				clearInterval(timer);
-				timer = void 0;
-			}
-			return Promise.allSettled([starting?.promise, polling]).then(() => void 0);
 		}
 	};
 }
@@ -320,11 +283,13 @@ function registerWorkboardCommand(params) {
 //#region extensions/workboard/src/lifecycle-sync.ts
 const WORKBOARD_LIFECYCLE_SWEEP_MS = 6e4;
 const WORKBOARD_STALE_SESSION_MS = 18e5;
+const AGENT_END_RETRY_MAX_DELAY_MS = 1600;
 const WORKBOARD_SESSION_SWEEP_LIMIT = 1e4;
 const WORKBOARD_WORKTREE_CLEANUP_SWEEP_LIMIT = 32;
 const workboardLifecycleGatewayState = resolveGlobalSingleton(Symbol.for("openclaw.workboard.lifecycleGatewayState"), () => ({ ready: false }), (state) => {
 	state.ready = false;
 	state.abortSignal = void 0;
+	state.readSessions = void 0;
 });
 function sessionProvesPreparedAcceptance(session) {
 	return session.hasActiveRun === true || session.status === "done" || session.status === "failed" || session.status === "killed" || session.status === "timeout";
@@ -335,47 +300,43 @@ function needsWorkboardLifecycleReconciliation(card) {
 }
 const LIFECYCLE_TARGETS = {
 	running: {
-		card: "running",
-		execution: "running"
+		targetStatus: "running",
+		executionStatus: "running"
 	},
 	succeeded: {
-		card: "review",
-		execution: "review"
+		targetStatus: "review",
+		executionStatus: "review"
 	},
 	failed: {
-		card: "blocked",
-		execution: "blocked"
+		targetStatus: "blocked",
+		executionStatus: "blocked"
 	},
-	idle: { execution: "idle" },
+	idle: {
+		targetStatus: void 0,
+		executionStatus: "idle"
+	},
 	stale: {
-		card: "running",
-		execution: "running"
+		targetStatus: "running",
+		executionStatus: "running"
 	}
 };
-async function syncWorkboardCardLifecycle(params) {
-	const target = LIFECYCLE_TARGETS[params.observation.state];
-	return await params.store.syncLifecycle(params.cardId, {
-		targetStatus: "card" in target ? target.card : void 0,
-		executionStatus: "execution" in target ? target.execution : void 0,
-		sourceUpdatedAt: params.observation.sourceUpdatedAt,
-		stale: params.observation.stale,
-		now: params.now,
-		...params.association ? { association: params.association } : {}
-	});
-}
 async function syncWorkboardLifecycleEvent(params) {
 	const cards = (await params.store.list()).filter((card) => !card.metadata?.archivedAt && workboardCardMatchesLifecycleLink(card, params.source));
-	const updates = Promise.all(cards.map(async (card) => await syncWorkboardCardLifecycle({
-		...params,
-		cardId: card.id,
-		...params.source.sessionKey ? { association: {
-			...cardSessionKey(card) ? { expectedSessionKey: cardSessionKey(card) } : {},
-			...cardRunId(card) ? { expectedRunId: cardRunId(card) } : {},
-			sessionKey: params.source.sessionKey,
-			...params.source.runId ? { runId: params.source.runId } : {},
-			acceptedAt: params.observation.sourceUpdatedAt ?? params.now
-		} } : {}
-	})));
+	const updates = Promise.all(cards.map(async (card) => {
+		return await params.store.syncLifecycle(card.id, {
+			...LIFECYCLE_TARGETS[params.observation.state],
+			sourceUpdatedAt: params.observation.sourceUpdatedAt,
+			stale: params.observation.stale,
+			now: params.now,
+			...params.source.sessionKey ? { association: {
+				...cardSessionKey(card) ? { expectedSessionKey: cardSessionKey(card) } : {},
+				...cardRunId(card) ? { expectedRunId: cardRunId(card) } : {},
+				sessionKey: params.source.sessionKey,
+				...params.source.runId ? { runId: params.source.runId } : {},
+				acceptedAt: params.observation.sourceUpdatedAt ?? params.now
+			} } : {}
+		});
+	}));
 	await Promise.all([updates, params.onMatched?.({
 		cards,
 		...params.source.sessionKey ? { sessionKey: params.source.sessionKey } : {}
@@ -412,16 +373,26 @@ async function syncWorkboardSubagentEnded(params) {
 }
 async function syncWorkboardAgentEnded(params) {
 	const now = params.now ?? Date.now();
+	const session = (await params.readSessions({
+		includeUnknown: params.context.sessionKey === "unknown",
+		...params.context.sessionKey && parseAgentSessionKey(params.context.sessionKey) ? { sessionKey: params.context.sessionKey } : {}
+	})).sessions.find((entry) => entry.key === params.context.sessionKey);
+	if (!session) return 0;
+	const observation = params.allowIdleRunningTerminal && session.status === "running" && session.hasActiveRun === false ? {
+		state: params.event.success ? "succeeded" : "failed",
+		sourceUpdatedAt: session.updatedAt ?? now
+	} : lifecycleFromSession(session, now);
+	if (observation.state !== "succeeded" && observation.state !== "failed") {
+		params.onSessionActive?.();
+		return 0;
+	}
 	return (await syncWorkboardLifecycleEvent({
 		store: params.store,
 		source: {
 			sessionKey: params.context.sessionKey,
 			runId: params.event.runId ?? params.context.runId
 		},
-		observation: {
-			state: params.event.success ? "succeeded" : "failed",
-			sourceUpdatedAt: now
-		},
+		observation,
 		now,
 		...params.onMatched ? { onMatched: params.onMatched } : {}
 	})).count;
@@ -482,7 +453,7 @@ async function syncWorkboardLifecycleSessions(params) {
 		const launch = card.metadata?.automation?.launch;
 		const preparedAcceptanceAt = launch?.phase === "prepared" && session && sessionProvesPreparedAcceptance(session) ? session.hasActiveRun === true ? Math.max(now, launch.preparedAt) : session.updatedAt : void 0;
 		if (launch?.phase === "prepared" && (preparedAcceptanceAt === void 0 || preparedAcceptanceAt < launch.preparedAt)) {
-			if (params.complete && await params.store.failPreparedLaunch(card.id, {
+			if (params.complete && (params.recoverPreparedBefore === void 0 || launch.preparedAt < params.recoverPreparedBefore) && await params.store.failPreparedLaunch(card.id, {
 				expectedLaunch: launch,
 				reason: "Gateway did not accept the prepared Workboard session before restart.",
 				failedAt: now
@@ -491,10 +462,10 @@ async function syncWorkboardLifecycleSessions(params) {
 		}
 		if (!session) continue;
 		const observation = lifecycleFromSession(session, now);
-		if (await syncWorkboardCardLifecycle({
-			store: params.store,
-			cardId: card.id,
-			observation,
+		if (await params.store.syncLifecycle(card.id, {
+			...LIFECYCLE_TARGETS[observation.state],
+			sourceUpdatedAt: observation.sourceUpdatedAt,
+			stale: observation.stale,
 			now,
 			association: {
 				...cardSessionKey(card) ? { expectedSessionKey: cardSessionKey(card) } : {},
@@ -502,7 +473,13 @@ async function syncWorkboardLifecycleSessions(params) {
 				sessionKey: session.key,
 				...preparedAcceptanceAt === void 0 ? {} : { acceptedAt: preparedAcceptanceAt }
 			}
-		})) count += 1;
+		})) {
+			count += 1;
+			if (observation.state === "succeeded" || observation.state === "failed") await params.onMatched?.({
+				cards: [card],
+				sessionKey: session.key
+			});
+		}
 	}
 	return count;
 }
@@ -522,6 +499,19 @@ async function readWorkboardLifecycleSessions(gateway, options = { includeUnknow
 		sessions: [],
 		complete: false
 	};
+	if (options.sessionKey) {
+		const payload = await gateway.request("sessions.describe", {
+			key: options.sessionKey,
+			includeDerivedTitles: false,
+			includeLastMessage: false
+		}, { scopes: ["operator.read"] });
+		if (!isRecord(payload) || payload.session !== null && !isRecord(payload.session)) throw new Error("sessions.describe returned an invalid lifecycle snapshot");
+		const session = normalizeSession(payload.session);
+		return {
+			sessions: session ? [session] : [],
+			complete: false
+		};
+	}
 	let includeUnknown = false;
 	if (options.includeUnknown) {
 		const agentsPayload = await gateway.request("agents.list", {}, { scopes: ["operator.read"] });
@@ -531,6 +521,7 @@ async function readWorkboardLifecycleSessions(gateway, options = { includeUnknow
 	const payload = await gateway.request("sessions.list", {
 		limit: WORKBOARD_SESSION_SWEEP_LIMIT,
 		configuredAgentsOnly: true,
+		archived: "all",
 		includeGlobal: false,
 		includeUnknown
 	}, { scopes: ["operator.read"] });
@@ -547,8 +538,11 @@ function createWorkboardLifecycleService(params) {
 	let generation = 0;
 	let timer;
 	let begin;
+	let handleAgentEnd;
+	const agentEndRetryTimers = /* @__PURE__ */ new Set();
 	let removeDrainListener;
 	let cleanupCursor = 0;
+	let serviceReader;
 	const cleanupWorktrees = async (cards, warn) => {
 		if (!params.worktrees) return;
 		const candidates = cards.filter(isWorkboardWorktreeCleanupCandidate);
@@ -566,10 +560,15 @@ function createWorkboardLifecycleService(params) {
 		}
 	};
 	const stop = () => {
+		if (workboardLifecycleGatewayState.readSessions === serviceReader) workboardLifecycleGatewayState.readSessions = void 0;
+		serviceReader = void 0;
 		removeDrainListener?.();
 		removeDrainListener = void 0;
 		generation += 1;
 		begin = void 0;
+		handleAgentEnd = void 0;
+		for (const retryTimer of agentEndRetryTimers) clearTimeout(retryTimer);
+		agentEndRetryTimers.clear();
 		if (timer) {
 			clearTimeout(timer);
 			timer = void 0;
@@ -594,24 +593,53 @@ function createWorkboardLifecycleService(params) {
 	};
 	return {
 		id: "workboard-lifecycle-sync",
+		async readSessions(options) {
+			const reader = workboardLifecycleGatewayState.readSessions;
+			if (!reader) return {
+				sessions: [],
+				complete: false
+			};
+			return await reader(options);
+		},
+		async onAgentEnd(event, context) {
+			await handleAgentEnd?.(event, context);
+		},
 		start(ctx) {
 			const owner = ++generation;
+			const recoverPreparedBefore = params.now?.() ?? Date.now();
+			serviceReader = AsyncResource.bind(params.readSessions);
+			const readSessions = serviceReader;
+			workboardLifecycleGatewayState.readSessions = serviceReader;
 			let begun = false;
+			const onMatched = async (input) => {
+				if (generation === owner) await params.onMatched?.(input);
+			};
 			const reconcile = async () => {
 				try {
 					await params.store.runOperation(async () => {
 						let cards = await params.store.list();
 						if (generation !== owner) return;
 						if (cards.some((card) => needsWorkboardLifecycleReconciliation(card))) try {
-							const snapshot = await params.readSessions({ includeUnknown: cards.some((card) => !card.metadata?.archivedAt && cardSessionKey(card) === "unknown") });
-							if (generation !== owner) return;
+							const snapshot = await readSessions({ includeUnknown: cards.some((card) => !card.metadata?.archivedAt && cardSessionKey(card) === "unknown") });
+							let describedIncognitoKeys;
+							for (const card of cards) {
+								const sessionKey = cardSessionKey(card);
+								if (card.metadata?.archivedAt || !sessionKey || !isIncognitoSessionKey(sessionKey) || describedIncognitoKeys?.has(sessionKey)) continue;
+								(describedIncognitoKeys ??= /* @__PURE__ */ new Set()).add(sessionKey);
+								const exact = await readSessions({
+									includeUnknown: false,
+									sessionKey
+								});
+								snapshot.sessions.push(...exact.sessions);
+							}
 							await syncWorkboardLifecycleSessions({
 								store: params.store,
 								cards,
 								...snapshot,
-								now: params.now?.() ?? Date.now()
+								now: params.now?.() ?? Date.now(),
+								recoverPreparedBefore,
+								onMatched
 							});
-							if (generation !== owner) return;
 							cards = await params.store.list();
 						} catch (error) {
 							if (generation === owner) ctx.logger.warn(`workboard lifecycle sync failed: ${String(error)}`);
@@ -622,10 +650,47 @@ function createWorkboardLifecycleService(params) {
 					if (generation === owner) ctx.logger.warn(`workboard lifecycle recovery failed: ${String(error)}`);
 				} finally {
 					if (generation === owner) {
+						if (timer) clearTimeout(timer);
 						timer = setTimeout(() => void reconcile(), WORKBOARD_LIFECYCLE_SWEEP_MS);
 						timer.unref?.();
 					}
 				}
+			};
+			const retryAgentEnd = AsyncResource.bind((event, context, delayMs = 100) => {
+				const retryTimer = setTimeout(() => {
+					agentEndRetryTimers.delete(retryTimer);
+					if (generation !== owner) return;
+					let sessionActive = false;
+					params.store.runOperation(async () => {
+						if (await syncWorkboardAgentEnded({
+							store: params.store,
+							event,
+							context,
+							readSessions,
+							allowIdleRunningTerminal: true,
+							onMatched,
+							onSessionActive: () => {
+								sessionActive = true;
+							}
+						}) > 0) await cleanupWorktrees(await params.store.list(), (message) => ctx.logger.warn(message));
+					}).catch((error) => {
+						if (generation === owner) ctx.logger.warn(`workboard agent-end retry failed: ${String(error)}`);
+					}).finally(() => {
+						if (sessionActive && generation === owner && delayMs < AGENT_END_RETRY_MAX_DELAY_MS) retryAgentEnd(event, context, delayMs * 2);
+					});
+				}, delayMs);
+				agentEndRetryTimers.add(retryTimer);
+				retryTimer.unref?.();
+			});
+			handleAgentEnd = async (event, context) => {
+				if (generation !== owner) return;
+				if (await params.store.runOperation(() => syncWorkboardAgentEnded({
+					store: params.store,
+					event,
+					context,
+					readSessions,
+					onMatched
+				})) === 0 && generation === owner) retryAgentEnd(event, context);
 			};
 			begin = () => {
 				if (generation !== owner || begun) return;
@@ -656,62 +721,38 @@ function sessionsBoardFallback(board) {
 }
 //#endregion
 //#region extensions/workboard/src/sessions-board.ts
-const FACTS_BATCH_SIZE = 40;
 function activeState() {
 	return resolveGlobalSingleton(Symbol.for("openclaw.workboard.sessionsBoardService"), () => ({}), (state) => {
 		state.owner?.cancel();
 		state.owner = void 0;
 	});
 }
-/** Uses the existing Gateway session-list owner in the invoking caller's scope. */
-async function listSessions(gateway, board, view) {
-	const sessions = /* @__PURE__ */ new Map();
-	let people;
-	let offset = 0;
-	for (;;) {
-		const payload = await gateway.request("sessions.list", {
-			limit: 1e3,
-			offset,
-			configuredAgentsOnly: true,
-			includeGlobal: false,
-			includeUnknown: false,
-			archived: board.sessions.scope?.includeArchived ? "all" : false,
-			sortBy: "activity",
-			activeMinutes: Math.max(1, Math.ceil((board.sessions.scope?.maxAgeHours ?? 72) * 60)),
-			...board.sessions.scope?.agentIds?.length === 1 ? { agentId: board.sessions.scope.agentIds[0] } : {},
-			...view
-		}, { scopes: ["operator.read"] });
-		if (!isRecord(payload) || !Array.isArray(payload.sessions)) throw new Error("sessions.list returned an invalid Sessions board roster.");
-		if (offset === 0 && view?.includePeople) people = payload.people;
-		for (const session of payload.sessions) if (isRecord(session) && typeof session.key === "string" && typeof session.sessionId === "string" && session.visibility !== "draft" && session.incognito !== true && !isIncognitoSessionKey(session.key)) sessions.set(session.key, {
-			key: session.key,
-			sessionId: session.sessionId,
-			agentId: resolveAgentIdFromSessionKey(session.key),
-			label: typeof session.label === "string" ? session.label : void 0,
-			derivedTitle: typeof session.derivedTitle === "string" ? session.derivedTitle : void 0,
-			run: "idle",
-			pullRequests: [],
-			pullRequestsUnavailable: true,
-			archived: session.archived === true,
-			lastActivityAt: typeof session.lastActivityAt === "number" ? session.lastActivityAt : typeof session.updatedAt === "number" ? session.updatedAt : Date.now()
-		});
-		if (payload.hasMore !== true) return {
-			sessions,
-			people
-		};
-		const next = payload.nextOffset;
-		if (typeof next !== "number" || !Number.isSafeInteger(next) || next <= offset) throw new Error("sessions.list returned an invalid Sessions board page cursor.");
-		offset = next;
-	}
+function sessionSelection(board, view) {
+	return {
+		configuredAgentsOnly: true,
+		includeGlobal: false,
+		includeUnknown: false,
+		excludeDock: true,
+		...board.sessions.scope?.includeAutomation ? {} : {
+			excludeCron: true,
+			excludeSystem: true
+		},
+		archived: board.sessions.scope?.includeArchived ? "all" : false,
+		sortBy: "activity",
+		activeMinutes: Math.max(1, Math.ceil((board.sessions.scope?.maxAgeHours ?? 72) * 60)),
+		...board.sessions.scope?.agentIds?.length === 1 ? { agentId: board.sessions.scope.agentIds[0] } : {},
+		...view
+	};
 }
 function inScope(facts, board, now) {
 	const scope = board.sessions.scope;
 	return facts.key !== board.sessions.agentSessionKey && (!scope?.agentIds?.length || scope.agentIds.includes(facts.agentId)) && (scope?.includeArchived === true || !facts.archived) && facts.lastActivityAt >= now - (scope?.maxAgeHours ?? 72) * 36e5;
 }
 function createOwner(params, context, isCurrent) {
-	const cache = /* @__PURE__ */ new Map();
-	const refreshes = /* @__PURE__ */ new Map();
-	const reads = /* @__PURE__ */ new Map();
+	const lastKnown = /* @__PURE__ */ new Map();
+	const projections = /* @__PURE__ */ new Map();
+	const boards = /* @__PURE__ */ new Map();
+	let revision = params.store.sessionsRevision;
 	const now = params.now ?? Date.now;
 	let stopped = false;
 	let hasRead = false;
@@ -724,13 +765,11 @@ function createOwner(params, context, isCurrent) {
 		assertCurrent();
 		caller?.assertCurrent();
 	};
-	const unsubscribe = params.gateway.subscribeSessionChanges(({ sessionKey }) => {
-		const previous = cache.get(sessionKey);
-		if (stopped || !hasRead) return;
-		if (previous) cache.set(sessionKey, {
-			...previous,
-			dirty: true
-		});
+	const unsubscribe = params.gateway.subscribeSessionChanges(({ factsInvalidated }) => {
+		if (stopped || !hasRead || factsInvalidated === "category") return;
+		if (revision !== params.store.sessionsRevision) boards.clear();
+		params.store.invalidateSessionBoards();
+		revision = params.store.sessionsRevision;
 		if (timer) return;
 		timer = setTimeout(() => {
 			timer = void 0;
@@ -738,81 +777,67 @@ function createOwner(params, context, isCurrent) {
 		}, 5e3);
 		timer.unref?.();
 	});
-	const read = async (id, view, caller) => {
-		const assertReadCurrent = interactiveAuthority(caller);
-		assertReadCurrent();
-		const board = await params.store.getSessionsBoard(id);
-		hasRead = true;
-		const { sessions: roster, people } = await listSessions(params.gateway, board, view);
-		assertReadCurrent();
+	const project = (board, source, placements, preparedFacts) => {
+		for (const key of source.missingSessionKeys ?? []) lastKnown.delete(key);
 		const unavailable = /* @__PURE__ */ new Set();
 		const reasons = /* @__PURE__ */ new Set();
-		const omitted = /* @__PURE__ */ new Set();
-		while (refreshes.has(id)) {
-			await refreshes.get(id)?.catch(() => {});
-			assertReadCurrent();
-		}
-		const missing = [...roster.values()].filter((row) => {
-			const cached = cache.get(row.key);
-			return row.key !== board.sessions.agentSessionKey && (!cached || cached.sessionId !== row.sessionId || cached.dirty);
-		});
-		const refresh = async () => {
-			for (let offset = 0; offset < missing.length; offset += FACTS_BATCH_SIZE) {
-				const batch = missing.slice(offset, offset + FACTS_BATCH_SIZE);
-				for (const row of batch) if (cache.get(row.key)?.sessionId !== row.sessionId) cache.set(row.key, {
-					sessionId: row.sessionId,
-					dirty: true
-				});
-				const before = new Map(batch.map((row) => [row.key, cache.get(row.key)]));
-				try {
-					const result = await params.gateway.readSessionFacts({ sessionKeys: batch.map((row) => row.key) });
-					assertReadCurrent();
-					const returned = new Map(result.sessions.map((facts) => [facts.key, facts]));
-					for (const row of batch) {
-						const facts = returned.get(row.key);
-						if (!facts || facts.sessionId !== row.sessionId) {
-							omitted.add(row.key);
-							if (cache.get(row.key) === before.get(row.key)) cache.delete(row.key);
-						} else if (cache.get(row.key) === before.get(row.key)) cache.set(row.key, {
-							sessionId: facts.sessionId,
-							facts,
-							dirty: false
-						});
-					}
-				} catch (error) {
-					assertReadCurrent();
-					for (const row of batch) unavailable.add(row.key);
-					reasons.add(redactToolPayloadText(String(error)).replace(/\s+/g, " ").slice(0, 300));
-				}
+		const resolved = /* @__PURE__ */ new Map();
+		for (const row of source.sessions) {
+			if (row.key === board.sessions.agentSessionKey || row.isMain && !board.sessions.scope?.includeHome) continue;
+			const previous = preparedFacts?.get(row.key);
+			if (previous?.source === row && !row.unavailable && isDeepStrictEqual(previous.pin, placements.get(row.key))) {
+				resolved.set(row.key, previous);
+				continue;
 			}
-		};
-		if (missing.length) {
-			const computation = refresh();
-			refreshes.set(id, computation);
-			try {
-				await computation;
-			} finally {
-				if (refreshes.get(id) === computation) refreshes.delete(id);
-			}
+			const { isMain: _isMain, unavailable: failure, pullRequestsStale: _stale, ...facts } = row;
+			const current = {
+				source: row,
+				facts
+			};
+			if (failure) {
+				unavailable.add(row.key);
+				reasons.add(failure);
+				const previousFacts = lastKnown.get(row.key);
+				const known = previousFacts?.facts.sessionId === row.sessionId ? previousFacts : void 0;
+				current.facts = known ? known.facts : facts;
+				current.stale = known?.stale;
+			} else current.stale = row.pullRequestsStale;
+			resolved.set(row.key, current);
+			if (!failure) lastKnown.set(row.key, current);
 		}
-		const placements = new Map((await params.store.listSessionPlacements(id)).map((entry) => [entry.sessionKey, entry]));
-		assertReadCurrent();
 		const fallback = sessionsBoardFallback(board);
 		const sessions = [];
-		for (const row of roster.values()) {
-			if (omitted.has(row.key)) continue;
-			const cached = cache.get(row.key);
-			const known = cached?.sessionId === row.sessionId ? cached.facts : void 0;
-			const facts = known ?? row;
+		const prWarnings = /* @__PURE__ */ new Map();
+		for (const [key, cached] of resolved) {
+			const { facts, source: row } = cached;
 			if (!inScope(facts, board, now())) continue;
+			if (facts.pullRequestsUnavailable || facts.pullRequestsRateLimited) {
+				const reason = `${cached.stale ? "stale" : "not loaded yet"}${facts.pullRequestsRateLimited ? " (GitHub rate limited)" : ""}`;
+				prWarnings.set(reason, (prWarnings.get(reason) ?? 0) + 1);
+			}
+			if (cached.row) {
+				sessions.push(cached.row);
+				continue;
+			}
+			const known = !row.unavailable || lastKnown.get(key)?.facts.sessionId === row.sessionId;
 			const pin = placements.get(row.key);
 			const pinned = pin?.source === "operator" && board.sessions.columns.some((column) => column.id === pin.columnId);
-			const match = known ? board.sessions.columns.find((column) => sessionMatchesColumn(facts, column)) : void 0;
-			sessions.push({
+			const ruleFacts = facts.pullRequestsUnavailable || facts.pullRequestsRateLimited ? {
+				...facts,
+				pullRequestsUnavailable: !cached.stale
+			} : facts;
+			const match = known ? board.sessions.columns.find((column) => sessionMatchesColumn(ruleFacts, column)) : void 0;
+			const placed = {
 				...facts,
 				columnId: pinned ? pin.columnId : (match ?? fallback).id,
 				source: pinned ? "operator" : "state",
-				reason: pinned ? pin.reason : !known || !match && facts.pullRequestsUnavailable ? "facts-unavailable" : match ? "Matched column rules" : "fallback"
+				reason: pinned ? pin.reason : !known || !match && ruleFacts.pullRequestsUnavailable ? "facts-unavailable" : match ? "Matched column rules" : "fallback"
+			};
+			sessions.push(placed);
+			resolved.set(key, {
+				...cached,
+				pin,
+				row: placed
 			});
 		}
 		const warnings = [];
@@ -822,34 +847,103 @@ function createOwner(params, context, isCurrent) {
 			if (!factsFailureLogged) context.logger.warn(warning);
 			factsFailureLogged = true;
 		} else factsFailureLogged = false;
-		if (sessions.some((session) => session.pullRequestsUnavailable)) warnings.push("Some pull-request information is unavailable. The board updates when background facts are ready.");
+		for (const [reason, count] of prWarnings) warnings.push(`Pull-request facts for ${count} ${count === 1 ? "session" : "sessions"} are ${reason}.`);
 		return {
-			board,
-			columns: board.sessions.columns,
-			sessions,
-			...people !== void 0 ? { people } : {},
-			...warnings.length ? { warning: warnings.join(" ") } : {}
+			complete: unavailable.size === 0 && !source.missingSessionKeys?.length,
+			facts: resolved,
+			snapshot: {
+				board,
+				columns: board.sessions.columns,
+				sessions,
+				...source.people !== void 0 ? { people: source.people } : {},
+				...warnings.length ? { warning: warnings.join(" ") } : {}
+			}
 		};
+	};
+	const read = async (id, view, caller) => {
+		const assertReadCurrent = interactiveAuthority(caller);
+		assertReadCurrent();
+		hasRead = true;
+		if (revision !== params.store.sessionsRevision) {
+			boards.clear();
+			revision = params.store.sessionsRevision;
+		}
+		const admittedRevision = revision;
+		let boardRead = boards.get(id);
+		if (!boardRead) {
+			boardRead = params.store.getSessionsBoard(id);
+			if (boards.size >= 64) boards.delete(boards.keys().next().value);
+			boards.set(id, boardRead);
+			boardRead.catch(() => {
+				boards.delete(id);
+			});
+		}
+		const board = await boardRead;
+		assertReadCurrent();
+		return params.gateway.withSessionFacts(sessionSelection(board, view), async (source) => {
+			assertReadCurrent();
+			const key = JSON.stringify([
+				id,
+				view,
+				source.scope ?? source.revision
+			]);
+			const admittedAt = now();
+			const previous = projections.get(key);
+			let projection = previous;
+			if (projection && (projection.revision !== admittedRevision || projection.sourceRevision !== source.revision || projection.expires < admittedAt)) projection = void 0;
+			if (!projection) {
+				const prepared = {
+					revision: admittedRevision,
+					sourceRevision: source.revision,
+					board,
+					expires: source.activityExpiresAt ?? Infinity,
+					read: Promise.resolve().then(async () => {
+						const placements = (previous?.board === board ? previous.placements : void 0) ?? await params.store.listSessionPlacements(id);
+						prepared.placements = placements;
+						const { snapshot: result, complete, facts } = project(board, source, new Map(placements.map((pin) => [pin.sessionKey, pin])), isDeepStrictEqual(previous?.board.sessions.columns, board.sessions.columns) ? previous?.facts : void 0);
+						const maxAge = (board.sessions.scope?.maxAgeHours ?? 72) * 36e5;
+						prepared.expires = result.sessions.reduce((deadline, row) => Math.min(deadline, row.lastActivityAt + maxAge), prepared.expires);
+						prepared.facts = complete ? facts : void 0;
+						return {
+							snapshot: {
+								...result,
+								revision: {
+									...admittedRevision,
+									boardId: id,
+									scope: randomUUID()
+								}
+							},
+							complete
+						};
+					})
+				};
+				if (projections.size >= 64) projections.delete(projections.keys().next().value);
+				projections.set(key, prepared);
+				projection = prepared;
+			}
+			try {
+				const { snapshot, complete } = await projection.read;
+				assertReadCurrent();
+				if (!complete || params.store.sessionsRevision !== admittedRevision) projections.delete(key);
+				return snapshot;
+			} catch (error) {
+				projections.delete(key);
+				assertReadCurrent();
+				throw error;
+			}
+		});
 	};
 	const cancel = () => {
 		stopped = true;
 		unsubscribe();
 		if (timer) clearTimeout(timer);
 		timer = void 0;
-		cache.clear();
+		lastKnown.clear();
+		projections.clear();
+		boards.clear();
 	};
 	return {
-		read(id, view, caller) {
-			if (caller) return read(id, view, caller);
-			const key = JSON.stringify([id, view]);
-			const pending = reads.get(key);
-			if (pending) return pending;
-			const computation = read(id, view).finally(() => {
-				if (reads.get(key) === computation) reads.delete(key);
-			});
-			reads.set(key, computation);
-			return computation;
-		},
+		read,
 		cancel,
 		async stop() {
 			cancel();
@@ -862,11 +956,12 @@ function createOwner(params, context, isCurrent) {
 		async move(id, sessionKey, columnId, caller) {
 			const assertWriteCurrent = interactiveAuthority(caller);
 			assertWriteCurrent();
-			const board = await params.store.getSessionsBoard(id);
+			const snapshot = await read(id, void 0, caller);
+			const board = snapshot.board;
 			if (!board.sessions.columns.some((column) => column.id === columnId)) throw new Error("Unknown Sessions board column.");
-			const { sessions: visible } = await listSessions(params.gateway, board);
-			if (!visible.has(sessionKey)) throw new Error("Session is not available in this board's scope.");
-			if (!(await params.gateway.readSessionFacts({ sessionKeys: [sessionKey] })).sessions.find((entry) => entry.key === sessionKey && entry.sessionId === visible.get(sessionKey)?.sessionId && inScope(entry, board, now()))) throw new Error("Session is not available in this board's scope.");
+			const visible = snapshot.sessions.find((row) => row.key === sessionKey);
+			if (!visible) throw new Error("Session is not available in this board's scope.");
+			if (!(await params.gateway.readSessionFacts({ sessionKeys: [sessionKey] })).sessions.find((entry) => entry.key === sessionKey && entry.sessionId === visible.sessionId && inScope(entry, board, now()))) throw new Error("Session is not available in this board's scope.");
 			const previous = (await params.store.listSessionPlacements(id)).find((entry) => entry.sessionKey === sessionKey);
 			if (!await params.store.writeSessionPlacement(id, {
 				sessionKey,
@@ -918,26 +1013,16 @@ function createWorkboardSessionsBoardService(params) {
 }
 //#endregion
 //#region extensions/workboard/src/tools-card-mutations.ts
-function canMutateCard(card, ownerId, token) {
-	const claim = card.metadata?.claim;
-	return !claim || claim.ownerId === ownerId || safeEqualSecret(token, claim.token);
-}
-async function requireScopedCard(store, cardId, ownerId, token) {
-	const card = await store.get(cardId);
-	if (!card) throw new Error(`card not found: ${cardId}`);
-	if (!canMutateCard(card, ownerId, token)) throw new Error(`card is claimed by ${card.metadata?.claim?.ownerId ?? "another agent"}.`);
-	return card;
-}
-function redactedCardResult(card) {
-	return jsonResult({ card: redactClaimToken(card) });
-}
 function createWorkboardCardMutations(store, ownerId) {
 	const readParams = async (rawParams, requireClaim = false) => {
 		const record = asRecord(rawParams);
 		const id = readToolStringParam(record, "id", { required: true });
 		const token = readStringValue(record.token);
-		const card = await requireScopedCard(store, id, ownerId, token);
-		if (requireClaim && !card.metadata?.claim) throw new Error("card must be claimed before lifecycle completion.");
+		const card = await store.get(id);
+		if (!card) throw new Error(`card not found: ${id}`);
+		const claim = card.metadata?.claim;
+		if (claim && claim.ownerId !== ownerId && !safeEqualSecret(token, claim.token)) throw new Error(`card is claimed by ${claim.ownerId ?? "another agent"}.`);
+		if (requireClaim && !claim) throw new Error("card must be claimed before lifecycle completion.");
 		return {
 			record,
 			id,
@@ -949,11 +1034,11 @@ function createWorkboardCardMutations(store, ownerId) {
 	};
 	const cardMutation = (mutate, requireClaim = false) => async (_toolCallId, rawParams) => {
 		const { record, id, scope } = await readParams(rawParams, requireClaim);
-		return redactedCardResult(await mutate(id, record, scope));
+		return jsonResult({ card: redactClaimToken(await mutate(id, record, scope)) });
 	};
 	return {
 		readScopedCardToolParams: (rawParams) => readParams(rawParams),
-		scopedCardMutation: (mutate) => cardMutation(mutate),
+		scopedCardMutation: cardMutation,
 		claimedCardMutation: (mutate) => cardMutation(mutate, true)
 	};
 }
@@ -970,34 +1055,37 @@ function workspaceField() {
 	return Type.Optional(strictObject({
 		kind: Type.String({ description: "scratch, dir, or worktree." }),
 		path: Type.Optional(Type.String({ description: "Absolute dir/worktree path." })),
-		branch: Type.Optional(Type.String({ description: "Suggested branch." }))
+		branch: Type.Optional(Type.String({ description: "Optional worktree source base ref. Re-dispatch reuses a retained checkout; use a new card for a different base ref." }))
 	}));
 }
 //#endregion
 //#region extensions/workboard/src/tools-sessions-board.ts
 const boardIdField = Type.Optional(Type.String({ description: "Board id. May be omitted only when exactly one Sessions board exists." }));
+function optionalChoices(choices) {
+	return Type.Optional(Type.Array(Type.Union(choices.map((choice) => Type.Literal(choice)))));
+}
 const matchRuleSchema = strictObject({
-	health: Type.Optional(Type.Array(Type.Union([
-		Type.Literal("on-track"),
-		Type.Literal("grinding"),
-		Type.Literal("stuck"),
-		Type.Literal("waiting-on-user"),
-		Type.Literal("wrapping-up"),
-		Type.Literal("done"),
-		Type.Literal("failed")
-	]))),
-	run: Type.Optional(Type.Array(Type.Union([
-		Type.Literal("active"),
-		Type.Literal("idle"),
-		Type.Literal("failed")
-	]))),
-	pullRequest: Type.Optional(Type.Array(Type.Union([
-		Type.Literal("none"),
-		Type.Literal("open"),
-		Type.Literal("draft"),
-		Type.Literal("merged"),
-		Type.Literal("closed")
-	]))),
+	health: optionalChoices([
+		"on-track",
+		"grinding",
+		"stuck",
+		"waiting-on-user",
+		"wrapping-up",
+		"done",
+		"failed"
+	]),
+	run: optionalChoices([
+		"active",
+		"idle",
+		"failed"
+	]),
+	pullRequest: optionalChoices([
+		"none",
+		"open",
+		"draft",
+		"merged",
+		"closed"
+	]),
 	archived: Type.Optional(Type.Boolean())
 });
 const columnSchema = strictObject({
@@ -1056,6 +1144,8 @@ function createWorkboardSessionsBoardTools(params) {
 				scope: Type.Optional(strictObject({
 					agentIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
 					includeArchived: Type.Optional(Type.Boolean()),
+					includeAutomation: Type.Optional(Type.Boolean({ description: "Include automation (cron) and system sessions. Defaults to false." })),
+					includeHome: Type.Optional(Type.Boolean({ description: "Include each agent's Home session. Defaults to false." })),
 					maxAgeHours: Type.Optional(Type.Number({ exclusiveMinimum: 0 }))
 				}))
 			}),
@@ -1098,7 +1188,7 @@ const OptionalNextStatusField = Type.Optional(Type.String({ description: "Option
 const OptionalOperatorNoteField = Type.Optional(Type.String({ description: "Optional operator note." }));
 function createWorkboardOrchestrationTools(params) {
 	const { store, ownerId } = params;
-	const { scopedCardMutation, claimedCardMutation } = createWorkboardCardMutations(store, ownerId);
+	const { readScopedCardToolParams, scopedCardMutation, claimedCardMutation } = createWorkboardCardMutations(store, ownerId);
 	return [
 		{
 			name: "workboard_boards",
@@ -1198,14 +1288,8 @@ function createWorkboardOrchestrationTools(params) {
 				token: Type.Optional(Type.String({ description: "Claim token for claimed cards." }))
 			}),
 			execute: async (_toolCallId, rawParams) => {
-				const record = asNonArrayRecord(rawParams);
-				const id = readToolStringParam(record, "id", { required: true });
-				const token = typeof record.token === "string" ? record.token : void 0;
-				await requireScopedCard(store, id, ownerId, token);
-				return jsonResult({ card: redactClaimToken(await store.specify(id, record, {
-					ownerId,
-					token: record.token
-				})) });
+				const { record, id, scope } = await readScopedCardToolParams(asNonArrayRecord(rawParams));
+				return jsonResult({ card: redactClaimToken(await store.specify(id, record, scope)) });
 			}
 		},
 		{
@@ -1233,14 +1317,8 @@ function createWorkboardOrchestrationTools(params) {
 				}))
 			}),
 			execute: async (_toolCallId, rawParams) => {
-				const record = asNonArrayRecord(rawParams);
-				const id = readToolStringParam(record, "id", { required: true });
-				const token = typeof record.token === "string" ? record.token : void 0;
-				await requireScopedCard(store, id, ownerId, token);
-				const result = await store.decompose(id, record, {
-					ownerId,
-					token: record.token
-				});
+				const { record, id, scope } = await readScopedCardToolParams(asNonArrayRecord(rawParams));
+				const result = await store.decompose(id, record, scope);
 				return jsonResult({
 					parent: redactClaimToken(result.parent),
 					children: result.children.map(redactClaimToken)
@@ -1306,7 +1384,7 @@ function createWorkboardOrchestrationTools(params) {
 		{
 			name: "workboard_promote",
 			label: "Workboard Promote",
-			description: "Promote a dependency-ready card into ready, optionally forcing past holds for operator recovery.",
+			description: "Promote a todo card into ready, optionally forcing past dependency or schedule holds. Unblock blocked cards first.",
 			parameters: strictObject({
 				id: cardIdField(),
 				token: ScopedClaimTokenField$1,
@@ -1386,21 +1464,6 @@ function createWorkboardOrchestrationTools(params) {
 function contextOwner(ctx) {
 	return ctx?.agentId || ctx?.sessionKey || ctx?.sessionId || "agent";
 }
-function readParentIds(value) {
-	if (value == null) return [];
-	const entries = typeof value === "string" ? value.split(",") : Array.isArray(value) ? value : void 0;
-	if (!entries) throw new Error("parents must be an array or comma-separated string.");
-	const parents = [];
-	for (const entry of entries) {
-		if (typeof entry !== "string") throw new Error("parents must contain only strings.");
-		const parent = entry.trim();
-		if (!parent || parents.includes(parent)) continue;
-		if (parent.length > 120) throw new Error("parents must be 120 characters or fewer.");
-		parents.push(parent);
-		if (parents.length >= 20) break;
-	}
-	return parents;
-}
 function summarizeCard(card) {
 	return {
 		id: card.id,
@@ -1472,7 +1535,7 @@ function createWorkboardTools(params) {
 		{
 			name: "workboard_create",
 			label: "Workboard Create",
-			description: "Create a Workboard card, optionally with parent dependencies, tenant, skills, workspace, and idempotency key. Sessions boards do not hold cards; use workboard_sessions_board_read/update/move for them.",
+			description: "Create a Workboard card, optionally with parent dependencies, tenant, skills, workspace, and key to prevent duplicate requests. Sessions boards do not hold cards; use workboard_sessions_board_read/update/move for them.",
 			parameters: strictObject({
 				title: Type.String({ description: "Card title." }),
 				notes: Type.Optional(Type.String({ description: "Card notes or acceptance criteria." })),
@@ -1485,7 +1548,7 @@ function createWorkboardTools(params) {
 				tenant: Type.Optional(Type.String({ description: "Soft tenant namespace." })),
 				boardId: Type.Optional(Type.String({ description: "Soft board namespace." })),
 				createdByCardId: Type.Optional(Type.String({ description: "Parent card that created this card." })),
-				idempotencyKey: Type.Optional(Type.String({ description: "Idempotent create key." })),
+				idempotencyKey: Type.Optional(Type.String({ description: "Reuse this key when retrying to avoid creating a duplicate card." })),
 				skills: Type.Optional(Type.Array(Type.String(), { description: "Suggested skills." })),
 				workspace: workspaceField(),
 				maxRuntimeSeconds: Type.Optional(Type.Number({ description: "Run timeout seconds." })),
@@ -1494,7 +1557,7 @@ function createWorkboardTools(params) {
 			}),
 			execute: async (_toolCallId, rawParams) => {
 				const record = rawParams;
-				readParentIds(record.parents);
+				normalizeCappedStringList(record.parents, "parents");
 				return jsonResult({ card: redactClaimToken(await store.create(record, {
 					ownerId,
 					token: record.token
@@ -1528,11 +1591,10 @@ function createWorkboardTools(params) {
 			parameters: CardIdSchema,
 			execute: async (_toolCallId, rawParams) => {
 				const id = readToolStringParam(rawParams, "id", { required: true });
-				const card = await store.get(id);
-				if (!card) throw new Error(`card not found: ${id}`);
+				const { card, workerContext } = await store.readWithWorkerContext(id);
 				return jsonResult({
 					card: redactClaimToken(card),
-					workerContext: await store.buildWorkerContext(id)
+					workerContext
 				});
 			}
 		},
@@ -1732,7 +1794,26 @@ var workboard_default = definePluginEntry({
 	name: "Workboard",
 	description: "Dashboard workboard for agent-owned issues and sessions.",
 	register(api) {
-		const store = WorkboardStore.openSqlite(resolveWorkboardSqliteWorkerModuleUrl(api.runtimeSource));
+		api.registerCli(async ({ program }) => {
+			const { registerWorkboardCli } = await import("../../cli-hEjmcKo9.mjs");
+			registerWorkboardCli({
+				program,
+				withStore: async (action) => {
+					const cliStore = WorkboardStore.openSqlite(resolveWorkboardSqliteWorkerModuleUrl(api.runtimeSource), api.config);
+					try {
+						return await action(cliStore);
+					} finally {
+						await cliStore.close();
+					}
+				}
+			});
+		}, { descriptors: [{
+			name: "workboard",
+			description: "Manage Workboard cards and worker dispatch",
+			hasSubcommands: true
+		}] });
+		if (api.registrationMode === "cli-metadata") return;
+		const store = WorkboardStore.openSqlite(resolveWorkboardSqliteWorkerModuleUrl(api.runtimeSource), api.config);
 		const resourceServices = [];
 		registerWorkboardStoreLifecycle(api, store, async () => {
 			await Promise.all(resourceServices.map(async (service) => await service.stop()));
@@ -1749,7 +1830,8 @@ var workboard_default = definePluginEntry({
 		const lifecycleSync = createWorkboardLifecycleService({
 			store,
 			worktrees: api.runtime.worktrees,
-			readSessions: async (options) => await readWorkboardLifecycleSessions(api.runtime.gateway, options)
+			readSessions: async (options) => await readWorkboardLifecycleSessions(api.runtime.gateway, options),
+			onMatched: automationNudge.nudge
 		});
 		resourceServices.push(lifecycleSync);
 		api.session.controls.registerControlUiDescriptor({
@@ -1761,23 +1843,27 @@ var workboard_default = definePluginEntry({
 			group: "control",
 			requiredScopes: ["operator.read"]
 		});
-		api.session.controls.registerControlUiDescriptor({
+		for (const [id, label, scope] of [
+			[
+				"board",
+				"Workboard board",
+				"operator.read"
+			],
+			[
+				"card",
+				"Workboard card",
+				"operator.write"
+			],
+			[
+				"mini",
+				"Workboard summary",
+				"operator.read"
+			]
+		]) api.session.controls.registerControlUiDescriptor({
 			surface: "widget",
-			id: "board",
-			label: "Workboard board",
-			requiredScopes: ["operator.read"]
-		});
-		api.session.controls.registerControlUiDescriptor({
-			surface: "widget",
-			id: "card",
-			label: "Workboard card",
-			requiredScopes: ["operator.write"]
-		});
-		api.session.controls.registerControlUiDescriptor({
-			surface: "widget",
-			id: "mini",
-			label: "Workboard summary",
-			requiredScopes: ["operator.read"]
+			id,
+			label,
+			requiredScopes: [scope]
 		});
 		registerWorkboardGatewayMethods({
 			api,
@@ -1788,10 +1874,12 @@ var workboard_default = definePluginEntry({
 			api,
 			store
 		});
-		api.registerService(changeEvents);
-		api.registerService(automationNudge);
-		api.registerService(sessionsBoard);
-		api.registerService(lifecycleSync);
+		for (const service of [
+			changeEvents,
+			automationNudge,
+			sessionsBoard,
+			lifecycleSync
+		]) api.registerService(service);
 		api.on("gateway_start", (_event, context) => lifecycleSync.onGatewayStart(context.abortSignal));
 		api.on("gateway_stop", () => lifecycleSync.onGatewayStop());
 		api.on("subagent_ended", (event) => store.runOperation(async () => {
@@ -1802,25 +1890,7 @@ var workboard_default = definePluginEntry({
 				onMatched: automationNudge.nudge
 			});
 		}));
-		api.on("agent_end", (event, context) => store.runOperation(async () => {
-			await syncWorkboardAgentEnded({
-				store,
-				event,
-				context,
-				onMatched: automationNudge.nudge
-			});
-		}));
-		api.registerCli(async ({ program }) => {
-			const { registerWorkboardCli } = await import("../../cli-BAwvnhqM.mjs");
-			registerWorkboardCli({
-				program,
-				store
-			});
-		}, { descriptors: [{
-			name: "workboard",
-			description: "Manage Workboard cards and worker dispatch",
-			hasSubcommands: true
-		}] });
+		api.on("agent_end", (event, context) => lifecycleSync.onAgentEnd(event, context));
 		api.registerTool((context) => guardWorkboardToolsForWorkspaceAccess(createWorkboardTools({
 			context,
 			store

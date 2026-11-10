@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var ProcSafeError,t=e((()=>{ProcSafeError=class extends Error{code;details;constructor(e,t,n={}){super(t,n),this.name=`ProcSafeError`,this.code=e,this.details=n.details}}}));export{t as n,ProcSafeError as t};

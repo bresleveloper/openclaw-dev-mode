@@ -1,4 +1,4 @@
-import { n as listBundledChannelCatalogEntries } from "../bundled-channel-catalog-read-RnVMS1bC.mjs";
+import { n as listBundledChannelCatalogEntries } from "../bundled-channel-catalog-read-CP-G92J1.mjs";
 //#region src/plugin-sdk/chat-channel-ids.ts
 /**
 * Canonical bundled chat-channel id list.

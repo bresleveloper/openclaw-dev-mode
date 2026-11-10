@@ -1,4 +1,4 @@
-import { V as isQwenCodingPlanBaseUrl } from "./.setup/models-NTrSBQ85.mjs";
+import { z as isQwenCodingPlanBaseUrl } from "./.setup/models-BRg9bCBV.mjs";
 import { buildDashscopeVideoGenerationProvider } from "openclaw/plugin-sdk/video-generation";
 //#region extensions/qwen/video-generation-provider.ts
 const DEFAULT_QWEN_VIDEO_BASE_URL = "https://dashscope-intl.aliyuncs.com";

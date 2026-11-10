@@ -2,7 +2,6 @@ import type { ChannelAccountSnapshot } from "openclaw/plugin-sdk/channel-contrac
 import { channelBlockedPatch, channelReadyPatch } from "openclaw/plugin-sdk/gateway-runtime";
 import {
   computeBackoff,
-  logVerbose,
   sleepWithAbort,
   type BackoffPolicy,
   type RuntimeEnv,
@@ -76,6 +75,7 @@ export async function runSignalSseLoop({
     if (abortSignal?.aborted) {
       break;
     }
+    let lastError: string | undefined;
     try {
       await streamSignalEvents({
         baseUrl,
@@ -98,34 +98,32 @@ export async function runSignalSseLoop({
       if (abortSignal?.aborted) {
         return;
       }
-      publishSignalRecovering(statusSink);
-      reconnectAttempts += 1;
-      const delayMs = computeBackoff(reconnectPolicy, reconnectAttempts);
-      logVerbose(`Signal stream ended, reconnecting in ${delayMs / 1000}s...`);
-      await sleepWithAbort(delayMs, abortSignal);
+      lastError =
+        "Signal daemon closed the event stream. Check the daemon or proxy, then watch for reconnects.";
     } catch (err) {
       if (abortSignal?.aborted) {
         return;
       }
       runtime.error?.(`Signal stream error: ${String(err)}`);
       if (isPermanentSignalSseRejection(err)) {
-        const lastError = `Signal daemon rejected the event stream: ${err.message}. Check the configured account and daemon URL, fix the daemon or proxy response, then restart the channel.`;
+        lastError = `Signal daemon rejected the event stream: ${err.message}. Check the configured account and daemon URL, fix the daemon or proxy response, then restart the channel.`;
         runtime.log?.(`Signal reconnect stopped: ${lastError}`);
         statusSink?.(channelBlockedPatch(lastError, { connected: false }));
         return;
       }
-      publishSignalRecovering(statusSink, String(err));
-      reconnectAttempts += 1;
-      const delayMs = computeBackoff(reconnectPolicy, reconnectAttempts);
-      runtime.log?.(`Signal connection lost, reconnecting in ${delayMs / 1000}s...`);
-      try {
-        await sleepWithAbort(delayMs, abortSignal);
-      } catch (sleepErr) {
-        if (abortSignal?.aborted) {
-          return;
-        }
-        throw sleepErr;
+      lastError = String(err);
+    }
+    publishSignalRecovering(statusSink, lastError);
+    reconnectAttempts += 1;
+    const delayMs = computeBackoff(reconnectPolicy, reconnectAttempts);
+    runtime.log?.(`Signal connection lost (${lastError}), reconnecting in ${delayMs / 1000}s...`);
+    try {
+      await sleepWithAbort(delayMs, abortSignal);
+    } catch (sleepErr) {
+      if (abortSignal?.aborted) {
+        return;
       }
+      throw sleepErr;
     }
   }
 }

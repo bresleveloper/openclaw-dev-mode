@@ -6,8 +6,22 @@ import type {
   SessionMaintenanceLiveProtection,
 } from "../config/sessions/session-accessor.sqlite-lifecycle-types.js";
 import type { SessionEntry } from "../config/sessions/types.js";
-import { deferSqliteWorkerCommitReceipt } from "../infra/sqlite-worker-operation-admission.js";
+import { executeSqliteQueryTakeFirstSync, getNodeSqliteKysely } from "../infra/kysely-sync.js";
+import { captureSqliteNativeRuntimeAdmission } from "../infra/node-sqlite.js";
+import { repairDoctorSqliteIndexCorruption } from "../infra/sqlite-index-recovery.js";
+import { SqliteIntegrityError, type SqliteIntegrityCheck } from "../infra/sqlite-integrity.js";
+import {
+  deferSqliteWorkerCommitReceipt,
+  requestSqliteWorkerOperationAdmission,
+} from "../infra/sqlite-worker-operation-admission.js";
 import type { OpenClawAgentDatabase } from "./openclaw-agent-db-contract.js";
+import { mayShareAgentDatabaseFile } from "./openclaw-agent-db-lease-provenance.js";
+import {
+  readActiveOpenClawAgentDatabaseLeasesReadOnly,
+  type OpenClawAgentDatabaseWorkerLeaseReceipt,
+} from "./openclaw-agent-db-lease.js";
+import { AGENT_FTS_SCHEMAS } from "./openclaw-agent-fts-schema.js";
+import { runOpenClawStateWriteTransaction } from "./openclaw-state-db.js";
 import type { WorkerOperations } from "./worker-operation-registry.js";
 
 type PreparationInput = Omit<
@@ -25,7 +39,6 @@ type MetadataInput =
 /** Metadata preparation and commit share the canonical actor's retained snapshots. */
 export function createAgentDatabaseMaintenanceOwner(context: {
   databaseOptions: ReclamationDatabaseOptions;
-  assertFileIdentity(): void;
   openWriter(): OpenClawAgentDatabase;
   admit(stage: "transaction" | "commit", publication?: unknown): void;
 }) {
@@ -55,7 +68,6 @@ export function createAgentDatabaseMaintenanceOwner(context: {
     "session.maintenance.release": ({ id }: { id: string }) => releasePreparation(id),
     "session.maintenance.prepare": (input: PreparationInput) => {
       const kernel = expectDefined(maintenance, "Session maintenance kernel");
-      context.assertFileIdentity();
       if (preparations.has(input.id)) {
         throw new Error("Session maintenance preparation is already retained");
       }
@@ -66,7 +78,6 @@ export function createAgentDatabaseMaintenanceOwner(context: {
       const prepared = kernel.prepareSessionMaintenanceInWorker({
         kind: "maintenance-plan",
         input: input.input,
-        ageOwner: input.ageOwner,
         ageChanges: input.ageChanges,
         databaseOptions: context.databaseOptions,
       });
@@ -109,7 +120,7 @@ export function createAgentDatabaseMaintenanceOwner(context: {
             previous.set(sessionKey, before);
             current.set(sessionKey, after);
           },
-          beforeCommit(database) {
+          beforeCommit(database, maintenancePlan) {
             publication = preparePublication(
               {
                 pendingArchiveRecovery: false,
@@ -120,14 +131,16 @@ export function createAgentDatabaseMaintenanceOwner(context: {
               },
               database,
             );
+            if (maintenancePlan) {
+              publication.maintenancePlans = [maintenancePlan];
+            }
             deferSqliteWorkerCommitReceipt(database.db, publication);
             context.admit("commit", publication);
           },
         },
         preparation?.prepared,
       );
-      return value.kind === "maintenance-preservation-required" ||
-        value.kind === "maintenance-plan-stale"
+      return value.kind === "maintenance-plan-stale"
         ? { kind: "not-committed" as const, workerThreadId: threadId, value }
         : {
             kind: "committed" as const,
@@ -139,6 +152,59 @@ export function createAgentDatabaseMaintenanceOwner(context: {
   };
   return {
     operations,
+    repairStartupIntegrity(
+      receipt: OpenClawAgentDatabaseWorkerLeaseReceipt,
+      check: SqliteIntegrityCheck,
+      error: unknown,
+      assertCurrent: () => void,
+    ): boolean {
+      if (
+        !(error instanceof SqliteIntegrityError) ||
+        !error.findings ||
+        check.databaseLabel !== receipt.path
+      ) {
+        return false;
+      }
+      requestSqliteWorkerOperationAdmission({
+        stage: "prepare",
+        facts: { kind: "agent-startup-fts" },
+      });
+      const state = { env: context.databaseOptions.env, path: receipt.sharedStatePath };
+      // The shared write fence excludes new leases through Doctor's backed-up repair.
+      const changes = runOpenClawStateWriteTransaction(() => {
+        assertCurrent();
+        const owners = readActiveOpenClawAgentDatabaseLeasesReadOnly(state).filter((owner) =>
+          mayShareAgentDatabaseFile(owner.path, receipt.path),
+        );
+        if (owners.length !== 1 || owners[0]?.lease_id !== receipt.leaseId) {
+          throw new Error("Startup FTS repair requires an exclusive live agent database lease");
+        }
+        return repairDoctorSqliteIndexCorruption(check.database, check.databaseLabel, {
+          label: `agent ${context.databaseOptions.agentId}`,
+          ftsSchemas: AGENT_FTS_SCHEMAS,
+          ftsOnly: true,
+          assertCurrent,
+          describeRepair(indexes) {
+            const db = getNodeSqliteKysely<Record<string, Record<string, never>>>(
+              check.database,
+            ).withSchema("main");
+            const counts = indexes.map((name) => {
+              const row = executeSqliteQueryTakeFirstSync(
+                check.database,
+                db.selectFrom(name).select((eb) => eb.fn.countAll<number | bigint>().as("n")),
+              );
+              return `${name}=${String(row?.n)}`;
+            });
+            return `Rebuilt stale SQLite FTS indexes (agent ${context.databaseOptions.agentId}): ${counts.join(", ")}; SQLite ${captureSqliteNativeRuntimeAdmission()?.version}. No table rows were removed.`;
+          },
+        });
+      }, state);
+      requestSqliteWorkerOperationAdmission({
+        stage: "prepare",
+        facts: { kind: "agent-startup-fts", message: changes.join(" ") },
+      });
+      return true;
+    },
     prepare() {
       return Promise.all([
         import("../config/sessions/session-accessor.sqlite-maintenance-transaction.js"),

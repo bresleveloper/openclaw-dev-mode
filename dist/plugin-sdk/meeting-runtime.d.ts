@@ -1,292 +1,14 @@
-import { nn as SchemaContract, r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import "../config-Dpca5-xX.js";
-import { $d as RealtimeVoiceResponseOutcome, $i as OpenClawPluginNodeInvokePolicy, Dd as RealtimeTranscriptionProviderPlugin, Gd as TranscriptsStopResult, Hd as TranscriptStartRequest, Jd as RealtimeVoiceBridge, Kd as RealtimeVoiceAudioClearReason, Nr as OpenClawPluginConfigSchema, Od as RealtimeVoiceProviderPlugin, Pl as PluginStateKeyedStore, Qd as RealtimeVoiceProviderCapabilities, Ss as OpenClawPluginApi, Ud as TranscriptStopRequest, Wd as TranscriptsStartResult, Xd as RealtimeVoiceBridgeCreateRequest, Yd as RealtimeVoiceBridgeCallbacks, Zd as RealtimeVoiceBridgeEvent, Zi as OpenClawPluginCliRootCommandDescriptor, ef as RealtimeVoiceRole, ma as PluginRuntime, mi as RuntimeLogger, nf as RealtimeVoiceToolCallEvent, qd as RealtimeVoiceBargeInOptions, tf as RealtimeVoiceTool } from "../agent-harness-runtime-DZjstJNb.js";
-import { C as TalkEvent, T as TalkEventInput, w as TalkEventContext } from "../diagnostic-events-BAgdO5A_.js";
-import "../core-BDhYQ7DV.js";
-import { n as callGatewayFromCli } from "../gateway-rpc-8kP-oCwp.js";
-import { TObject } from "typebox";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { t as SchemaContract } from "../schema-contract-v05QRSzC.js";
+import { Bb as PluginStateKeyedStore, Ew as RealtimeVoiceProviderPlugin, Ft as OpenClawPluginConfigSchema, Hw as TranscriptStopRequest, It as OpenClawPluginApi, Mg as PluginRuntime, Tw as RealtimeTranscriptionProviderPlugin, Ut as RuntimeLogger, Uw as TranscriptsStartResult, Vw as TranscriptStartRequest, Ww as TranscriptsStopResult, _g as OpenClawPluginCliRootCommandDescriptor, iT as RealtimeVoiceToolCallEvent, rT as RealtimeVoiceTool, yg as OpenClawPluginNodeInvokePolicy } from "../config-contracts-CY87ANNp.js";
+import { T as TalkEventInput } from "../diagnostic-events-CMrJXSRl.js";
+import "../config-S5Zm-Svf.js";
+import { n as callGatewayFromCli } from "../gateway-rpc-CY-4AXWp.js";
+import { n as RealtimeVoiceBridgeSession, r as RealtimeVoiceAgentConsultToolPolicy, t as RealtimeVoiceSessionHarness } from "../realtime-session-harness-rq08dbmS.js";
 import { z } from "zod";
+import { TObject } from "typebox";
 import { Writable } from "node:stream";
 import { Command } from "commander";
-//#region src/talk/agent-consult-tool.d.ts
-/** Closed policy set controlling whether the consult tool is exposed. */
-declare const REALTIME_VOICE_AGENT_CONSULT_TOOL_POLICIES: readonly ["safe-read-only", "owner", "none"];
-/** Tool exposure policy for the shared realtime voice consult tool. */
-type RealtimeVoiceAgentConsultToolPolicy = (typeof REALTIME_VOICE_AGENT_CONSULT_TOOL_POLICIES)[number];
-//#endregion
-//#region src/talk/agent-talkback-runtime.d.ts
-type RealtimeVoiceAgentTalkbackQueue = {
-  close(): void;
-  enqueue(question: string, metadata?: unknown): void;
-  isIdle(): boolean;
-};
-//#endregion
-//#region src/talk/forced-consult-coordinator.d.ts
-/** Stable handle for one forced consult lifecycle. */
-type RealtimeVoiceForcedConsultHandle<TContext = unknown> = {
-  id: string;
-  question: string;
-  context?: TContext;
-};
-/** Classification of a native provider consult relative to forced consult state. */
-type RealtimeVoiceForcedConsultNativeMatch<TContext = unknown> = {
-  kind: "none";
-  question?: string;
-} | {
-  kind: "pending";
-  question?: string;
-  handle: RealtimeVoiceForcedConsultHandle<TContext>;
-} | {
-  kind: "in_flight";
-  question?: string;
-  handle: RealtimeVoiceForcedConsultHandle<TContext>;
-} | {
-  kind: "already_delivered";
-  question?: string;
-  handle: RealtimeVoiceForcedConsultHandle<TContext>;
-};
-type RealtimeVoiceForcedConsultNativeRecentOptions = {
-  /** Treat native calls without readable questions as recent generic consults. */
-  allowUnknownQuestion?: boolean;
-};
-/** Public state machine for forced/native consult dedupe in a voice session. */
-type RealtimeVoiceForcedConsultCoordinator<TContext = unknown> = {
-  prepare(question: string, options?: {
-    context?: TContext;
-    id?: string;
-  }): RealtimeVoiceForcedConsultHandle<TContext> | undefined;
-  schedule(handle: RealtimeVoiceForcedConsultHandle<TContext>, delayMs: number, run: (handle: RealtimeVoiceForcedConsultHandle<TContext>) => void): void;
-  clearPending(): void;
-  consumePending(question?: string): RealtimeVoiceForcedConsultHandle<TContext> | undefined;
-  cancelPending(handle: RealtimeVoiceForcedConsultHandle<TContext>): void;
-  recordNativeConsult(args: unknown, nativeCallId?: string): RealtimeVoiceForcedConsultNativeMatch<TContext>;
-  markStarted(handle: RealtimeVoiceForcedConsultHandle<TContext>): void;
-  markDelivered(handle: RealtimeVoiceForcedConsultHandle<TContext>): void;
-  markCancelled(handle: RealtimeVoiceForcedConsultHandle<TContext>): void;
-  isCancelled(handle: RealtimeVoiceForcedConsultHandle<TContext>): boolean;
-  nativeCallIds(handle: RealtimeVoiceForcedConsultHandle<TContext>): readonly string[];
-  handles(): readonly RealtimeVoiceForcedConsultHandle<TContext>[];
-  rememberQuestion(handle: RealtimeVoiceForcedConsultHandle<TContext>, question: string): void;
-  findRecent(question: string): RealtimeVoiceForcedConsultHandle<TContext> | undefined;
-  hasRecent(question: string): boolean;
-  hasRecentNativeConsult(question: string, options?: RealtimeVoiceForcedConsultNativeRecentOptions): boolean;
-  remove(handle: RealtimeVoiceForcedConsultHandle<TContext>): void;
-  clear(): void;
-};
-//#endregion
-//#region src/talk/output-activity-tracker.d.ts
-/** One output activity increment from source audio and/or sink audio. */
-type RealtimeVoiceOutputActivityDelta = {
-  audioMs?: number;
-  sourceAudioBytes?: number;
-  sinkAudioBytes?: number;
-};
-/** Current output counters and playback timestamps. */
-type RealtimeVoiceOutputActivitySnapshot = {
-  audioMs: number;
-  chunks: number;
-  sourceAudioBytes: number;
-  sinkAudioBytes: number;
-  playbackStarted: boolean;
-  streamEnding: boolean;
-  lastAudioAt?: number;
-  playbackStartedAt?: number;
-};
-/** Mutable tracker for one realtime voice output stream. */
-type RealtimeVoiceOutputActivityTracker = {
-  markStreamOpened(): void;
-  markStreamEnding(): void;
-  markPlaybackStarted(): void;
-  markAudio(delta: RealtimeVoiceOutputActivityDelta): void;
-  reset(): void;
-  /** Whether output exists or the downstream sink reports active playback. */
-  isActive(sinkActive?: boolean): boolean;
-  /** Whether caller speech should be treated as interrupting current output. */
-  isInterruptible(sinkActive?: boolean): boolean;
-  elapsedPlaybackMs(): number;
-  /** Delay before watchdog should assume playback has exceeded expected audio duration. */
-  playbackWatchdogDelayMs(options: {
-    marginMs: number;
-    minMs?: number;
-  }): number | undefined;
-  snapshot(): RealtimeVoiceOutputActivitySnapshot;
-};
-//#endregion
-//#region src/talk/session-log-runtime.d.ts
-/** Ring-buffer entry for transcript text used by Talk health and echo suppression. */
-type RealtimeVoiceTranscriptEntry = {
-  at: string;
-  role: RealtimeVoiceRole;
-  text: string;
-};
-/** Compact health snapshot exposed to diagnostics without dumping full transcript history. */
-type RealtimeVoiceTranscriptHealth = {
-  realtimeTranscriptLines: number;
-  lastRealtimeTranscriptAt?: string;
-  lastRealtimeTranscriptRole?: RealtimeVoiceRole;
-  lastRealtimeTranscriptText?: string;
-  recentRealtimeTranscript: RealtimeVoiceTranscriptEntry[];
-};
-/** Bridge event plus capture time, kept separate from provider event payload shape. */
-type RealtimeVoiceBridgeEventLogEntry = RealtimeVoiceBridgeEvent & {
-  at: string;
-};
-/** Compact health snapshot of recent realtime bridge events. */
-type RealtimeVoiceBridgeEventHealth = {
-  lastRealtimeEventAt?: string;
-  lastRealtimeEventType?: string;
-  lastRealtimeEventDetail?: string;
-  recentRealtimeEvents: RealtimeVoiceBridgeEventLogEntry[];
-};
-/** Summarizes transcript history for health endpoints and UI diagnostics. */
-declare function getRealtimeVoiceTranscriptHealth(transcript: RealtimeVoiceTranscriptEntry[]): RealtimeVoiceTranscriptHealth;
-/** Summarizes recent bridge events without exposing the full rolling event buffer. */
-declare function getRealtimeVoiceBridgeEventHealth(events: RealtimeVoiceBridgeEventLogEntry[]): RealtimeVoiceBridgeEventHealth;
-//#endregion
-//#region src/talk/provider-internal.d.ts
-type InternalRealtimeVoiceProviderCapabilities = RealtimeVoiceProviderCapabilities & {
-  /** Dynamic voice choices for the effective route without exposing its model identifier. */
-  voices?: readonly string[];
-  /** Treat absent configured voices as unsupported and fall back to the provider default. */
-  voiceSelectionPolicy?: "allowlist-default";
-  /** Model-specific voice choices; the provider's voices remain the default catalog. */
-  voicesByModel?: Record<string, readonly string[]>;
-  /** The provider owns agent delegation instead of exposing client-side function tools. */
-  handlesAgentConsult?: boolean;
-  /** The provider can keep browser media direct while exposing its control wire to Gateway. */
-  supportsGatewayControl?: boolean;
-};
-//#endregion
-//#region src/talk/session-runtime.d.ts
-/**
- * Transport-facing audio target used by realtime voice bridge sessions.
- */
-type RealtimeVoiceAudioSink = {
-  isOpen?: () => boolean;
-  sendAudio: RealtimeVoiceBridgeCallbacks["onAudio"];
-  getPlaybackState?: RealtimeVoiceBridgeCallbacks["getPlaybackState"];
-  clearAudio?: (reason?: RealtimeVoiceAudioClearReason) => void;
-  sendMark?: RealtimeVoiceBridgeCallbacks["onMark"];
-};
-/**
- * Controls how provider playback marks are bridged to transports that may or may not ack marks.
- */
-type RealtimeVoiceMarkStrategy = "transport" | "ack-immediately" | "ignore";
-/**
- * Stable session facade handed to gateway code and provider tool callbacks.
- */
-type RealtimeVoiceBridgeSession = Pick<RealtimeVoiceBridge, "acknowledgeMark" | "close" | "connect" | "sendAudio" | "setMediaTimestamp" | "submitToolResult"> & {
-  bridge: RealtimeVoiceBridge;
-  readonly capabilities?: InternalRealtimeVoiceProviderCapabilities;
-  sendUserMessage(text: string): void;
-  handleBargeIn(options?: RealtimeVoiceBargeInOptions): void;
-  triggerGreeting(instructions?: string): void;
-};
-/**
- * Provider bridge inputs plus transport callbacks for one realtime voice session.
- */
-type RealtimeVoiceBridgeSessionParams = Omit<RealtimeVoiceBridgeCreateRequest, "onAudio" | "onClearAudio" | "onMark" | "getPlaybackState" | "onToolCall" | "onReady"> & {
-  provider: RealtimeVoiceProviderPlugin;
-  capabilities?: InternalRealtimeVoiceProviderCapabilities;
-  audioSink: RealtimeVoiceAudioSink;
-  initialGreetingInstructions?: string;
-  markStrategy?: RealtimeVoiceMarkStrategy;
-  triggerGreetingOnReady?: boolean;
-  /** Admit a host-requested response before the provider can complete it synchronously. */
-  onResponseRequest?: () => void;
-  onToolCall?: (event: RealtimeVoiceToolCallEvent, session: RealtimeVoiceBridgeSession) => void | Promise<void>;
-  onReady?: (session: RealtimeVoiceBridgeSession) => void;
-};
-//#endregion
-//#region src/talk/talk-session-controller.d.ts
-type TalkTurnFailureReason = "no_active_turn" | "stale_turn";
-type TalkTurnSuccess = {
-  event: TalkEvent;
-  ok: true;
-  turnId: string;
-};
-type TalkTurnFailure = {
-  ok: false;
-  reason: TalkTurnFailureReason;
-};
-type TalkTurnResult = TalkTurnSuccess | TalkTurnFailure;
-type TalkEnsureTurnResult = {
-  event?: TalkEvent;
-  turnId: string;
-};
-type TalkSessionController = {
-  readonly activeTurnId: string | undefined;
-  readonly context: TalkEventContext;
-  readonly outputAudioActive: boolean;
-  readonly recentEvents: readonly TalkEvent[];
-  clearActiveTurn(): void;
-  emit<TPayload>(input: TalkEventInput<TPayload>): TalkEvent<TPayload>;
-  ensureTurn(params?: {
-    payload?: unknown;
-    turnId?: string;
-  }): TalkEnsureTurnResult;
-  startTurn(params?: {
-    payload?: unknown;
-    turnId?: string;
-  }): TalkEnsureTurnResult;
-  endTurn(params?: {
-    payload?: unknown;
-    turnId?: string;
-  }): TalkTurnResult;
-  cancelTurn(params?: {
-    payload?: unknown;
-    turnId?: string;
-  }): TalkTurnResult;
-  finishOutputAudio(params?: {
-    payload?: unknown;
-    turnId?: string;
-  }): TalkEvent | undefined;
-  startOutputAudio(params?: {
-    payload?: unknown;
-    turnId?: string;
-  }): TalkEnsureTurnResult;
-};
-//#endregion
-//#region src/talk/realtime-session-harness.d.ts
-type RealtimeVoiceSessionHarnessHealth = ReturnType<typeof getRealtimeVoiceTranscriptHealth> & Partial<ReturnType<typeof getRealtimeVoiceBridgeEventHealth>> & {
-  providerConnected: boolean;
-  realtimeReady: boolean;
-  audioInputActive: boolean;
-  audioOutputActive: boolean;
-  lastInputAt?: string;
-  lastOutputAt?: string;
-  lastSuppressedInputAt?: string;
-  lastInputBytes: number;
-  lastOutputBytes: number;
-  suppressedInputBytes: number;
-  recentTalkEvents: Array<Pick<TalkEvent, "id" | "type" | "sessionId" | "turnId" | "seq" | "timestamp" | "final">>;
-};
-type RealtimeVoiceSessionHarness<TForcedConsultContext = unknown> = {
-  readonly forcedConsults: RealtimeVoiceForcedConsultCoordinator<TForcedConsultContext>;
-  readonly outputActivity: RealtimeVoiceOutputActivityTracker;
-  readonly talk: TalkSessionController;
-  readonly talkback: RealtimeVoiceAgentTalkbackQueue | undefined;
-  readonly transcript: RealtimeVoiceTranscriptEntry[];
-  close(): void;
-  createBridge(params: RealtimeVoiceBridgeSessionParams): RealtimeVoiceBridgeSession;
-  emit<TPayload>(input: TalkEventInput<TPayload>): TalkEvent<TPayload>;
-  ensureTurn(): string;
-  endTurn(reason?: string): void;
-  finishResponse(outcome: RealtimeVoiceResponseOutcome): TalkTurnResult;
-  finishOutputAudio(reason: string): void;
-  flushOutput(flush: () => void): void;
-  getHealth(params: {
-    providerConnected: boolean;
-    realtimeReady: boolean;
-  }): RealtimeVoiceSessionHarnessHealth;
-  handleBargeIn(options: RealtimeVoiceBargeInOptions, flushOutput: () => void): void;
-  isLikelyAssistantEchoTranscript(text: string): boolean;
-  isOutputPlaybackWindowActive(): boolean;
-  recordInputAudio(audio: Buffer): boolean;
-  recordOutputAudio(audio: Buffer, activity?: RealtimeVoiceOutputActivityDelta): void;
-  recordTranscript(role: RealtimeVoiceRole, text: string): RealtimeVoiceTranscriptEntry;
-};
-//#endregion
 //#region src/meeting-bot/realtime-audio-format.d.ts
 type MeetingRealtimeAudioFormat = "pcm16-24khz" | "g711-ulaw-8khz";
 export declare function convertMeetingTtsAudioForBridge(audio: Buffer, sampleRate: number, audioFormat: MeetingRealtimeAudioFormat, outputFormat?: string, platformName?: string): Buffer;
@@ -406,20 +128,8 @@ export declare function startMeetingRealtimeEngine(params: {
 }): Promise<MeetingRealtimeAudioEngineHandle>;
 //#endregion
 //#region src/meeting-bot/realtime-agent-engine.d.ts
-export declare function startMeetingAgentRealtimeEngine(params: {
-  config: MeetingRealtimeEngineConfig;
-  fullConfig: OpenClawConfig;
-  runtime: PluginRuntime;
-  platform: MeetingRuntimePlatform;
-  meetingSessionId: string;
-  requesterSessionKey?: string;
-  logPrefix?: "node";
-  transport: MeetingRealtimeAudioTransport;
-  logger: RuntimeLogger;
+export declare function startMeetingAgentRealtimeEngine(params: Omit<Parameters<typeof startMeetingRealtimeEngine>[0], "providers" | "talkSessionId" | "talkContext" | "tools" | "handleToolCall"> & {
   providers?: RealtimeTranscriptionProviderPlugin[];
-  consultAgent: (params: MeetingAgentConsultParams) => Promise<{
-    text: string;
-  }>;
 }): Promise<MeetingRealtimeAudioEngineHandle>;
 //#endregion
 //#region src/meeting-bot/bridge-process.d.ts
@@ -1126,7 +836,7 @@ type MeetingBrowserControllerConfig = {
   joinTimeoutMs: number;
   waitForInCallMs: number;
 };
-type BrowserAdapter$1<Session, Mode extends string, Health extends MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot> = Pick<MeetingPlatformAdapter$1<Session, Mode, Health, Transcript>, "browser" | "browserLabel" | "urls">;
+type BrowserAdapter$1<Session = never, Mode extends string = string, Health extends MeetingBrowserHealth = MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot = MeetingTranscriptSnapshot> = Pick<MeetingPlatformAdapter$1<Session, Mode, Health, Transcript>, "browser" | "browserLabel" | "urls">;
 export declare function openMeetingWithBrowser<Session extends MeetingBrowserJoinSession<Mode>, Mode extends string, Health extends MeetingBrowserHealth & {
   browserTitle?: string;
   browserUrl?: string;
@@ -1169,7 +879,7 @@ export declare function recoverMeetingBrowserTab<Session, Mode extends string, H
 }>;
 //#endregion
 //#region src/meeting-bot/browser-session-control.d.ts
-type BrowserAdapter<Session, Mode extends string, Health extends MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot> = Pick<MeetingPlatformAdapter$1<Session, Mode, Health, Transcript>, "browser" | "browserLabel">;
+type BrowserAdapter<Session = never, Mode extends string = string, Health extends MeetingBrowserHealth = MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot = MeetingTranscriptSnapshot> = Pick<MeetingPlatformAdapter$1<Session, Mode, Health, Transcript>, "browser" | "browserLabel">;
 export declare function leaveMeetingWithBrowser<Session, Mode extends string, Health extends MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot>(params: {
   adapter: BrowserAdapter<Session, Mode, Health, Transcript>;
   callBrowser: MeetingBrowserRequestCaller;

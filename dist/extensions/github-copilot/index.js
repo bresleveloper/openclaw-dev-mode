@@ -1,26 +1,26 @@
-import { h as resolveDefaultSecretProviderAlias } from "../../ref-contract-D0kWy5jy.mjs";
-import { a as coerceSecretRef } from "../../types.secrets-DsPRn9Dz.mjs";
-import { s as resolveAgentModelPrimaryValue } from "../../model-input-C9K4a_6k.mjs";
+import { h as resolveDefaultSecretProviderAlias } from "../../ref-contract-Bfd9_-Lp.mjs";
+import { a as coerceSecretRef } from "../../types.secrets-Dgbd2kyP.mjs";
 import { t as normalizeOptionalSecretInput } from "../../normalize-secret-input-DBJvdk-L.mjs";
-import { f as listProfilesForProvider } from "../../order-B7W96aON.mjs";
-import { n as ensureAuthProfileStore } from "../../store-runtime-Qx0DZ2Si.mjs";
-import { t as applyAuthProfileConfig } from "../../provider-auth-helpers-CDvD9QW2.mjs";
-import "../../provider-onboard-CF3Sw4qH.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../provider-auth-BGYKg9mW.mjs";
-import { r as upsertAuthProfileWithLockCompat } from "../../provider-auth-write-compat-Bwk0aAVb.mjs";
-import { i as resolveRequiredConfiguredSecretRefInputString } from "../../secret-input-runtime-BO-nQ7OX.mjs";
+import { s as resolveAgentModelPrimaryValue } from "../../model-input-CeM8o97s.mjs";
+import { f as listProfilesForProvider } from "../../order-CElLtwMu.mjs";
+import { i as ensureAuthProfileStoreAsync } from "../../store-runtime-CwqGD12G.mjs";
+import { t as applyAuthProfileConfig } from "../../provider-auth-helpers-olPFvVdo.mjs";
+import "../../provider-onboard-sfE-MZsX.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../provider-auth-JCvgbsWg.mjs";
+import { r as upsertAuthProfileWithLockCompat } from "../../provider-auth-write-compat-OjysXMOc.mjs";
+import { i as resolveRequiredConfiguredSecretRefInputString } from "../../secret-input-runtime-D_NUng8k.mjs";
 import { a as resolveGithubCopilotDomain, r as normalizeGithubCopilotDomain, t as PUBLIC_GITHUB_COPILOT_DOMAIN } from "../../domain-VvPJpQNG.mjs";
-import { t as DEFAULT_COPILOT_MODEL } from "../../model-metadata-DcfNVGd3.mjs";
-import { t as buildCopilotRuntimeHeaders } from "../../runtime-identity-Dd194vpt.mjs";
-import { n as PROVIDER_ID } from "../../models-FpFBYioI.mjs";
-import { a as refreshGithubCopilotOAuth, i as parseGithubCopilotApiKey, n as formatGithubCopilotApiKey, r as loginGithubCopilotOAuth, t as buildGithubCopilotAuthDoctorHint } from "../../oauth-id601Ek_.mjs";
-import { t as resolveFirstGithubToken } from "../../auth-CY5jgm98.mjs";
-import { t as createGithubCopilotDynamicModelHooks } from "../../dynamic-models-26kLLU94.mjs";
-import { t as githubCopilotMemoryEmbeddingProviderAdapter } from "../../embeddings-rTX2MhHd.mjs";
-import { t as resolveThinkingProfile } from "../../provider-policy-api-BHLBjolY.mjs";
-import { n as sanitizeGithubCopilotReplayHistory, t as buildGithubCopilotReplayPolicy } from "../../replay-policy-C6bb5nrb.mjs";
-import { t as wrapCopilotProviderStream } from "../../stream-DvSWGq0M.mjs";
+import { t as DEFAULT_COPILOT_MODEL } from "../../model-metadata-B2CG4QPi.mjs";
+import { t as buildCopilotRuntimeHeaders } from "../../runtime-identity-BgXaHI7p.mjs";
+import { n as PROVIDER_ID } from "../../models-B4naEfx8.mjs";
+import { a as refreshGithubCopilotOAuth, i as parseGithubCopilotApiKey, n as formatGithubCopilotApiKey, r as loginGithubCopilotOAuth, t as buildGithubCopilotAuthDoctorHint } from "../../oauth-DdPnVQlR.mjs";
+import { t as resolveFirstGithubToken } from "../../auth-CDeHSCLt.mjs";
+import { t as createGithubCopilotDynamicModelHooks } from "../../dynamic-models-E_ux5Dkh.mjs";
+import { t as githubCopilotMemoryEmbeddingProviderAdapter } from "../../embeddings-pXUekrcO.mjs";
+import { t as resolveThinkingProfile } from "../../provider-policy-api-Dx5BbX6H.mjs";
+import { n as sanitizeGithubCopilotReplayHistory, t as buildGithubCopilotReplayPolicy } from "../../replay-policy-DVfYebd4.mjs";
+import { t as wrapCopilotProviderStream } from "../../stream-DcBRujTC.mjs";
 //#region extensions/github-copilot/index.ts
 const COPILOT_ENV_VAR = "COPILOT_GITHUB_TOKEN";
 const DEFAULT_COPILOT_PROFILE_ID = "github-copilot:github";
@@ -65,8 +65,8 @@ function applyCopilotDefaultModel(cfg, modelRef) {
 		}
 	};
 }
-function resolveExistingCopilotTokenProfileId(agentDir) {
-	const authStore = ensureAuthProfileStore(agentDir, { allowKeychainPrompt: false });
+async function resolveExistingCopilotTokenProfileId(agentDir) {
+	const authStore = await ensureAuthProfileStoreAsync(agentDir, { allowKeychainPrompt: false });
 	return listProfilesForProvider(authStore, PROVIDER_ID).find((profileId) => {
 		const profile = authStore.profiles[profileId];
 		if (profile?.type !== "token") return false;
@@ -135,32 +135,19 @@ async function resolveCopilotNonInteractiveToken(ctx, flagValue) {
 		allowProfile: false,
 		required: false
 	});
-	if (!resolved && referenceMode && flagValue) {
-		ctx.runtime.error("--github-copilot-token cannot be used with --secret-input-mode ref unless COPILOT_GITHUB_TOKEN is set in env. Set COPILOT_GITHUB_TOKEN and omit --github-copilot-token, or use --secret-input-mode plaintext.");
-		ctx.runtime.exit(1);
-	}
+	if (!resolved && referenceMode && flagValue) throw new Error("--github-copilot-token cannot be used with --secret-input-mode ref unless COPILOT_GITHUB_TOKEN is set in env. Set COPILOT_GITHUB_TOKEN and omit --github-copilot-token, or use --secret-input-mode plaintext.");
 	return resolved;
 }
 async function runGitHubCopilotNonInteractiveAuth(ctx) {
 	const opts = ctx.opts;
-	const flagValue = normalizeOptionalSecretInput(opts?.githubCopilotToken);
-	const resolved = await resolveCopilotNonInteractiveToken(ctx, flagValue);
+	const resolved = await resolveCopilotNonInteractiveToken(ctx, normalizeOptionalSecretInput(opts?.githubCopilotToken));
 	let profileId = DEFAULT_COPILOT_PROFILE_ID;
 	let githubToken = resolved?.key ?? "";
 	if (resolved) {
-		if (ctx.opts.secretInputMode === "ref" && resolved.source === "env" && !resolved.envVarName) {
-			ctx.runtime.error(["--secret-input-mode ref requires an explicit environment variable for provider \"github-copilot\".", "Set COPILOT_GITHUB_TOKEN in env and retry, or use --secret-input-mode plaintext."].join("\n"));
-			ctx.runtime.exit(1);
-			return null;
-		}
+		if (ctx.opts.secretInputMode === "ref" && resolved.source === "env" && !resolved.envVarName) throw new Error(["--secret-input-mode ref requires an explicit environment variable for provider \"github-copilot\".", "Set COPILOT_GITHUB_TOKEN in env and retry, or use --secret-input-mode plaintext."].join("\n"));
 	} else {
-		if (flagValue && ctx.opts.secretInputMode === "ref") return null;
-		const existingProfileId = resolveExistingCopilotTokenProfileId(ctx.agentDir);
-		if (!existingProfileId) {
-			ctx.runtime.error("Missing --github-copilot-token (or COPILOT_GITHUB_TOKEN env var) for --auth-choice github-copilot.");
-			ctx.runtime.exit(1);
-			return null;
-		}
+		const existingProfileId = await resolveExistingCopilotTokenProfileId(ctx.agentDir);
+		if (!existingProfileId) throw new Error("Missing --github-copilot-token (or COPILOT_GITHUB_TOKEN env var) for --auth-choice github-copilot.");
 		profileId = existingProfileId;
 		githubToken = (await resolveFirstGithubToken({
 			agentDir: ctx.agentDir,

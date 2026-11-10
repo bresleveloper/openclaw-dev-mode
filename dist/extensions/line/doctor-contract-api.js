@@ -110,7 +110,7 @@ const stateMigrations = [{
 		const preview = [];
 		for (const accountId of await spool.listChannelIngressQueueAccountIds()) {
 			const count = await countLegacySpoolRows(spool.openChannelIngressQueueForInspection({ accountId }));
-			if (count > 0) preview.push(`- LINE pre-drain spool rows (account "${accountId}"): ${count} row(s) -> canonical ingress contract`);
+			if (count > 0) preview.push(`- LINE pre-drain spool rows (account "${accountId}"): ${count} row(s) -> current ingress format`);
 		}
 		return preview.length > 0 ? { preview } : null;
 	},
@@ -126,9 +126,9 @@ const stateMigrations = [{
 			const result = await migrateLineLegacySpoolRows(openForMigration({ accountId }));
 			if (result.migrated > 0 || result.reconciled > 0 || result.deadLettered > 0 || result.recovered > 0) {
 				const recovered = result.recovered > 0 ? ` (${result.recovered} recovered from the dead-letter table)` : "";
-				const reconciled = result.reconciled > 0 ? `, ${result.reconciled} already settled under the canonical id` : "";
+				const reconciled = result.reconciled > 0 ? `, ${result.reconciled} already settled under the current ID` : "";
 				const dispatchNote = configuredAccountIds.has(accountId) ? "" : ` (account not currently configured, so these stay queued until it is restored)`;
-				changes.push(`Migrated LINE pre-drain spool rows (account "${accountId}"): ${result.migrated} queued under the canonical contract, ${result.deadLettered} dead-lettered at the identity fence${reconciled}${recovered}${dispatchNote}`);
+				changes.push(`Migrated LINE pre-drain spool rows (account "${accountId}"): ${result.migrated} queued under the current format, ${result.deadLettered} dead-lettered at the identity fence${reconciled}${recovered}${dispatchNote}`);
 			}
 			for (const failure of result.failures) warnings.push(`Failed migrating a LINE pre-drain spool row (account "${accountId}", ${failure}); the row stays pending and the migration retries on the next run`);
 		}

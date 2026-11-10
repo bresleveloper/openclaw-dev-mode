@@ -126,6 +126,7 @@ type ErroredAssistantResultPolicy = "preserve" | "drop";
 type ToolUseResultPairingOptions = {
   erroredAssistantResultPolicy?: ErroredAssistantResultPolicy;
   missingToolResultText?: string;
+  missingToolResultTimestamp?: "assistant";
   // A valid Responses checkpoint may split a call from its later output.
   // Only that replay owner may retain results that normal repair treats as orphaned.
   preserveUnframedToolResults?: boolean;
@@ -280,7 +281,11 @@ export function sanitizeToolUseResultPairing(
   messages: AgentMessage[],
   options?: ToolUseResultPairingOptions,
 ): AgentMessage[] {
-  return repairToolUseResultPairing(messages, options).messages;
+  // Replay projections keep synthetic results stable across wall-clock changes.
+  return repairToolUseResultPairing(messages, {
+    ...options,
+    missingToolResultTimestamp: "assistant",
+  }).messages;
 }
 
 export function sanitizeToolUseResultPairingForModel(
@@ -348,33 +353,33 @@ export function repairToolUseResultPairing(
     pushUnframedRange(frame.startIndex);
     cursor = frame.endIndex;
 
-    if (!(frame.failed && options?.erroredAssistantResultPolicy === "drop")) {
+    const dropFailed = frame.failed && options?.erroredAssistantResultPolicy === "drop";
+    if (!dropFailed) {
       out.push(frame.assistant);
-      for (const occurrence of frame.occurrences) {
-        if (occurrence.result) {
-          out.push(occurrence.result);
-          continue;
-        }
-        if (frame.failed) {
-          continue;
-        }
-        const missing = makeMissingToolResult({
-          toolCallId: occurrence.id,
-          toolName: occurrence.name,
-          text: options?.missingToolResultText,
-        });
-        occurrence.result = missing;
-        added.push(missing);
-        out.push(missing);
-      }
-    } else {
-      for (const occurrence of frame.occurrences) {
+    }
+    for (const occurrence of frame.occurrences) {
+      if (dropFailed) {
         if (occurrence.sourceResult) {
           discarded.push({
             message: occurrence.sourceResult,
             index: occurrence.sourceResultIndex ?? messages.indexOf(occurrence.sourceResult),
           });
         }
+      } else if (occurrence.result) {
+        out.push(occurrence.result);
+      } else if (!frame.failed) {
+        const missing = makeMissingToolResult({
+          toolCallId: occurrence.id,
+          toolName: occurrence.name,
+          text: options?.missingToolResultText,
+          timestamp:
+            options?.missingToolResultTimestamp === "assistant"
+              ? (frame.assistant.timestamp ?? 0)
+              : undefined,
+        });
+        occurrence.result = missing;
+        added.push(missing);
+        out.push(missing);
       }
     }
     out.push(...frame.remainder);

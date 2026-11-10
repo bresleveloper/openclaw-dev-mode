@@ -187,7 +187,7 @@ function parseDeepSeekDsmlToolCallBlock(body: string): RecoveredTextToolCall[] {
       kind: "toolCall",
       name: invokeName,
       arguments: parsedArguments,
-      partialArgs: JSON.stringify(parsedArguments),
+      partialJson: JSON.stringify(parsedArguments),
     });
   }
   return toolCalls;

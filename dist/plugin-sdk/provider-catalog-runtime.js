@@ -1,8 +1,8 @@
-import { t as _usingCtx } from "../usingCtx-DwOBYOJf.mjs";
-import { d as resolveOwningPluginIdsForProvider, i as resolveCatalogHookProviderPluginIds } from "../providers-DQUFJKZx.mjs";
-import { r as resolvePluginProvidersCore, t as isPluginProvidersLoadInFlight } from "../providers.runtime-BsABoqOU.mjs";
-import { n as augmentModelCatalogWithProviderPlugins } from "../provider-runtime-Ck_Cecr1.mjs";
-import { t as createLegacyPluginSdkProviderProjection } from "../legacy-sdk-provider-projection-BsT-Rpn5.mjs";
+import { t as _usingCtx } from "../usingCtx-BhiZp_rS.mjs";
+import { d as resolveOwningPluginIdsForProvider, i as resolveCatalogHookProviderPluginIds } from "../providers-3h1HIigh.mjs";
+import { r as resolvePluginProvidersCore, t as isPluginProvidersLoadInFlight } from "../providers.runtime-CGIaZ9Jy.mjs";
+import { n as augmentModelCatalogWithProviderPlugins } from "../provider-runtime-DZ8luukj.mjs";
+import { t as createLegacyPluginSdkProviderProjection } from "../legacy-sdk-provider-projection-CV4vzXCg.mjs";
 //#region src/plugin-sdk/provider-catalog-runtime.ts
 /** Bare provider callbacks retain borrowed resources until their SDK host closes. */
 function resolvePluginProvidersForSdk(params) {

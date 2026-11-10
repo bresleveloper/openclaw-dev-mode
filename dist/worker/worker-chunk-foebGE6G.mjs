@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./worker-chunk-f3wQ1dUK.mjs";e();export{t as maybeRepairUiProtocolFreshness};

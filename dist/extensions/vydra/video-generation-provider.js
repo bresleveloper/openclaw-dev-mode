@@ -1,6 +1,6 @@
 import { DEFAULT_VYDRA_VIDEO_MODEL } from "./defaults.js";
 import { runVydraGeneration } from "./shared.js";
-import { isProviderApiKeyConfigured } from "openclaw/plugin-sdk/provider-auth";
+import { isProviderApiKeyConfiguredAsync } from "openclaw/plugin-sdk/provider-auth";
 //#region extensions/vydra/video-generation-provider.ts
 const VYDRA_KLING_MODEL = "kling";
 const DEFAULT_VYDRA_VIDEO_TIMEOUT_MS = 12e4;
@@ -10,7 +10,7 @@ function buildVydraVideoGenerationProvider() {
 		label: "Vydra",
 		defaultModel: DEFAULT_VYDRA_VIDEO_MODEL,
 		models: [DEFAULT_VYDRA_VIDEO_MODEL, VYDRA_KLING_MODEL],
-		isConfigured: (ctx) => isProviderApiKeyConfigured({
+		isConfiguredAsync: (ctx) => isProviderApiKeyConfiguredAsync({
 			provider: "vydra",
 			...ctx
 		}),

@@ -1,6 +1,10 @@
 /** Validates and normalizes provider plugin definitions before registry registration. */
 import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
 import { normalizeUniqueTrimmedStringList } from "@openclaw/normalization-core/string-normalization";
+import {
+  omitUndefinedManifestFields,
+  optionalManifestFields,
+} from "./manifest-capability-normalizers.js";
 import type { PluginDiagnostic } from "./manifest-types.js";
 import type { ProviderAuthMethod, ProviderPlugin } from "./types.js";
 
@@ -37,9 +41,14 @@ function normalizeProviderOAuthProfileIdRepairs(
   }
   const normalized = values
     .map((value) => {
-      const legacyProfileId = normalizeOptionalString(value?.legacyProfileId);
-      const promptLabel = normalizeOptionalString(value?.promptLabel);
-      if (!legacyProfileId && !promptLabel) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return null;
+      }
+      const { legacyProfileId: rawLegacyProfileId, promptLabel: rawPromptLabel } = value;
+      const legacyProfileId = normalizeOptionalString(rawLegacyProfileId);
+      const promptLabel = normalizeOptionalString(rawPromptLabel);
+      const usesProviderDefaults = rawLegacyProfileId === undefined && rawPromptLabel === undefined;
+      if (!legacyProfileId && !promptLabel && !usesProviderDefaults) {
         return null;
       }
       return {
@@ -57,76 +66,62 @@ function buildNormalizedModelAllowlist(
   if (!modelAllowlist) {
     return undefined;
   }
-  const allowedKeys = normalizeTextList(modelAllowlist.allowedKeys);
-  const initialSelections = normalizeTextList(modelAllowlist.initialSelections);
-  const loadCatalog = modelAllowlist.loadCatalog === true;
-  const message = normalizeOptionalString(modelAllowlist.message);
-  if (!allowedKeys && !initialSelections && !loadCatalog && !message) {
-    return undefined;
-  }
-  return {
-    ...(allowedKeys ? { allowedKeys } : {}),
-    ...(initialSelections ? { initialSelections } : {}),
-    ...(loadCatalog ? { loadCatalog } : {}),
-    ...(message ? { message } : {}),
-  };
+  return optionalManifestFields({
+    allowedKeys: normalizeTextList(modelAllowlist.allowedKeys),
+    initialSelections: normalizeTextList(modelAllowlist.initialSelections),
+    loadCatalog: modelAllowlist.loadCatalog === true ? true : undefined,
+    message: normalizeOptionalString(modelAllowlist.message),
+  });
 }
 
 function buildNormalizedWizardSetup(
   setup: ProviderWizardSetup,
   methodId: string | undefined,
 ): ProviderWizardSetup {
-  const choiceId = normalizeOptionalString(setup.choiceId);
-  const choiceLabel = normalizeOptionalString(setup.choiceLabel);
-  const choiceHint = normalizeOptionalString(setup.choiceHint);
-  const groupId = normalizeOptionalString(setup.groupId);
-  const groupLabel = normalizeOptionalString(setup.groupLabel);
-  const groupHint = normalizeOptionalString(setup.groupHint);
-  const onboardingScopes = normalizeOnboardingScopes(setup.onboardingScopes);
-  const modelAllowlist = buildNormalizedModelAllowlist(setup.modelAllowlist);
-  const modelSelection = {
-    ...(typeof setup.modelSelection?.promptWhenAuthChoiceProvided === "boolean"
-      ? { promptWhenAuthChoiceProvided: setup.modelSelection.promptWhenAuthChoiceProvided }
-      : {}),
-    ...(typeof setup.modelSelection?.allowKeepCurrent === "boolean"
-      ? { allowKeepCurrent: setup.modelSelection.allowKeepCurrent }
-      : {}),
-  };
-  return {
-    ...(choiceId ? { choiceId } : {}),
-    ...(setup.modelTarget === "utility" ? { modelTarget: "utility" as const } : {}),
-    ...(choiceLabel ? { choiceLabel } : {}),
-    ...(choiceHint ? { choiceHint } : {}),
-    ...(typeof setup.assistantPriority === "number" && Number.isFinite(setup.assistantPriority)
-      ? { assistantPriority: setup.assistantPriority }
-      : {}),
-    ...(setup.assistantVisibility === "manual-only" ||
-    setup.assistantVisibility === "visible" ||
-    setup.assistantVisibility === "detected-only"
-      ? { assistantVisibility: setup.assistantVisibility }
-      : {}),
-    ...(setup.onboardingFeatured === true ? { onboardingFeatured: true } : {}),
-    ...(groupId ? { groupId } : {}),
-    ...(groupLabel ? { groupLabel } : {}),
-    ...(groupHint ? { groupHint } : {}),
-    ...(methodId ? { methodId } : {}),
-    ...(onboardingScopes ? { onboardingScopes } : {}),
-    ...(modelAllowlist ? { modelAllowlist } : {}),
-    ...(Object.keys(modelSelection).length > 0 ? { modelSelection } : {}),
-  };
+  return omitUndefinedManifestFields({
+    choiceId: normalizeOptionalString(setup.choiceId),
+    modelTarget: setup.modelTarget === "utility" ? ("utility" as const) : undefined,
+    choiceLabel: normalizeOptionalString(setup.choiceLabel),
+    choiceHint: normalizeOptionalString(setup.choiceHint),
+    assistantPriority:
+      typeof setup.assistantPriority === "number" && Number.isFinite(setup.assistantPriority)
+        ? setup.assistantPriority
+        : undefined,
+    assistantVisibility:
+      setup.assistantVisibility === "manual-only" ||
+      setup.assistantVisibility === "visible" ||
+      setup.assistantVisibility === "detected-only"
+        ? setup.assistantVisibility
+        : undefined,
+    onboardingFeatured: setup.onboardingFeatured === true ? true : undefined,
+    groupId: normalizeOptionalString(setup.groupId),
+    groupLabel: normalizeOptionalString(setup.groupLabel),
+    groupHint: normalizeOptionalString(setup.groupHint),
+    methodId,
+    onboardingScopes: normalizeOnboardingScopes(setup.onboardingScopes),
+    modelAllowlist: buildNormalizedModelAllowlist(setup.modelAllowlist),
+    modelSelection: optionalManifestFields({
+      promptWhenAuthChoiceProvided:
+        typeof setup.modelSelection?.promptWhenAuthChoiceProvided === "boolean"
+          ? setup.modelSelection.promptWhenAuthChoiceProvided
+          : undefined,
+      allowKeepCurrent:
+        typeof setup.modelSelection?.allowKeepCurrent === "boolean"
+          ? setup.modelSelection.allowKeepCurrent
+          : undefined,
+    }),
+  });
 }
 
 function buildNormalizedModelPicker(
   modelPicker: ProviderWizardModelPicker,
   methodId: string | undefined,
 ): ProviderWizardModelPicker {
-  const label = normalizeOptionalString(modelPicker.label);
-  const hint = normalizeOptionalString(modelPicker.hint);
-  return {
-    ...(label ? { label } : {}),
-    ...(hint ? { hint } : {}),
-    ...(methodId ? { methodId } : {}),
-  };
+  return omitUndefinedManifestFields({
+    label: normalizeOptionalString(modelPicker.label),
+    hint: normalizeOptionalString(modelPicker.hint),
+    methodId,
+  });
 }
 
 /** Normalizes provider plugin metadata and emits diagnostics for invalid public fields. */
@@ -222,6 +217,8 @@ export function normalizeRegisteredProvider(params: {
     wizard: _ignoredWizard,
     docsPath: _ignoredDocsPath,
     aliases: _ignoredAliases,
+    deprecatedProfileIds: _ignoredDeprecatedProfileIds,
+    oauthProfileIdRepairs: _ignoredOAuthProfileIdRepairs,
     envVars: _ignoredEnvVars,
     catalog: _ignoredCatalog,
     ...restProvider

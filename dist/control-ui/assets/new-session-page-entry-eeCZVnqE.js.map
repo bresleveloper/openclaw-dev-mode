@@ -1,0 +1,1 @@
+{"version":3,"file":"new-session-page-entry-eeCZVnqE.js","names":["__esmMin","init_new_session_page","NewSessionRoute","init_new_session_page_entry"],"sources":["../../../ui/src/pages/new-session/new-session-page-entry.ts"],"sourcesContent":["export { NewSessionRoute as renderSolid } from \"./new-session-page.tsx\";\n"],"mappings":""}

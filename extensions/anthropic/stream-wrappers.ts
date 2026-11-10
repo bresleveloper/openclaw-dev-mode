@@ -18,7 +18,6 @@ import { createSubsystemLogger } from "openclaw/plugin-sdk/runtime-env";
 import {
   normalizeFastMode,
   normalizeLowercaseStringOrEmpty,
-  readStringValue,
 } from "openclaw/plugin-sdk/string-coerce-runtime";
 import {
   normalizeAnthropicServiceTier,
@@ -250,9 +249,9 @@ export function createAnthropicServiceTierWrapper(
     baseStreamFn,
     ({ payload, model }) => {
       const payloadPolicy = resolveAnthropicPayloadPolicy({
-        provider: readStringValue(model.provider),
-        api: readStringValue(model.api),
-        baseUrl: readStringValue(model.baseUrl),
+        provider: model.provider,
+        api: model.api,
+        baseUrl: model.baseUrl,
         serviceTier,
       });
       applyAnthropicPayloadPolicyToParams(payload, payloadPolicy, new Set());
@@ -264,9 +263,9 @@ export function createAnthropicServiceTierWrapper(
           return false;
         }
         return resolveAnthropicPayloadPolicy({
-          provider: readStringValue(model.provider),
-          api: readStringValue(model.api),
-          baseUrl: readStringValue(model.baseUrl),
+          provider: model.provider,
+          api: model.api,
+          baseUrl: model.baseUrl,
           serviceTier,
         }).allowsServiceTier;
       },
@@ -286,10 +285,7 @@ export function resolveAnthropicFastMode(
   extraParams: Record<string, unknown> | undefined,
 ): boolean | undefined {
   const raw = extraParams?.fastMode ?? extraParams?.fast_mode;
-  const fastMode =
-    typeof raw === "function"
-      ? normalizeFastMode((raw as () => unknown)() as string | boolean | null | undefined)
-      : normalizeFastMode(raw as string | boolean | null | undefined);
+  const fastMode = normalizeFastMode(typeof raw === "function" ? (raw as () => unknown)() : raw);
   return fastMode === "auto" ? undefined : fastMode === "ultrafast" ? true : fastMode;
 }
 
@@ -305,9 +301,7 @@ export function resolveAnthropicServiceTier(
   return normalized;
 }
 
-export function wrapAnthropicProviderStream(
-  ctx: ProviderWrapStreamFnContext,
-): StreamFn | undefined {
+export function wrapAnthropicProviderStream(ctx: ProviderWrapStreamFnContext): StreamFn {
   const anthropicBetas = resolveAnthropicBetas(ctx.extraParams, ctx.modelId);
   const needsAnthropicBetaWrapper =
     anthropicBetas !== undefined ||
@@ -317,7 +311,7 @@ export function wrapAnthropicProviderStream(
   const hasFastModeParam =
     ctx.extraParams !== undefined &&
     (Object.hasOwn(ctx.extraParams, "fastMode") || Object.hasOwn(ctx.extraParams, "fast_mode"));
-  return composeProviderStreamWrappers(
+  const wrapped = composeProviderStreamWrappers(
     ctx.streamFn,
     needsAnthropicBetaWrapper
       ? (streamFn) => createAnthropicBetaHeadersWrapper(streamFn, anthropicBetas ?? [])
@@ -335,6 +329,6 @@ export function wrapAnthropicProviderStream(
       : undefined,
     // The shared plan owns the default, opt-out, and per-request auth/route gates.
     (streamFn) => createAnthropicCompactionWrapper(streamFn, ctx.extraParams),
-    createAnthropicThinkingPrefillWrapper,
   );
+  return createAnthropicThinkingPrefillWrapper(wrapped);
 }

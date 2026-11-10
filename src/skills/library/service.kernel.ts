@@ -1,27 +1,26 @@
-import type { DatabaseSync } from "node:sqlite";
-import {
-  SKILL_LIBRARY_MAX_SELECTIONS,
-  type SkillsLibraryListParams,
-  type SkillsLibraryListResult,
+import type {
+  SkillsLibraryListParams,
+  SkillsLibraryListResult,
 } from "../../../packages/gateway-protocol/src/schema/skill-library.js";
 import { executeSqliteQuerySync } from "../../infra/kysely-sync.js";
+import type { EngineConnection } from "../../infra/sql-connection.js";
 import { tableExists } from "../../state/openclaw-state-db-schema-helpers.js";
 import { selectHasMultipleSessionSharingIdentities } from "../../state/user-profile-identity.read.js";
 import { SkillLibraryError } from "../skill-library-error.js";
 import type { SkillLibraryWorkerAuthority } from "./read.contract.js";
 import { skillLibraryReceipt } from "./receipt.js";
 import {
+  projectSkillLibraryList,
   assertSkillLibraryNameAvailable,
   assertSkillLibraryRevision,
   recordSkillLibraryEvent,
   requireSkillLibraryProfile,
   requireSkillLibraryUploadMetadata,
   selectSkillLibraryRevisionMetadata,
-  projectSkillLibraryEntry,
+  selectSkillLibraryEntries,
   requireSkillLibraryEntry,
   resolveSkillLibraryActor,
   selectSkillLibraryRevision,
-  selectSkillLibraryRow,
   skillLibraryDb,
   type SkillLibraryAuthority,
 } from "./store.js";
@@ -35,15 +34,15 @@ export function hydrateSkillLibraryWorkerAuthority(
 }
 
 export function resolveSkillLibraryPresentationInDatabase(
-  db: DatabaseSync,
+  db: EngineConnection,
   authority: SkillLibraryAuthority,
+  actor = resolveSkillLibraryActor(db, authority),
 ): Pick<
   SkillsLibraryListResult,
   "profileId" | "multipleProfiles" | "defaultTarget" | "canManageWorkspace"
 > {
   const multipleProfiles =
     tableExists(db, "user_profiles") && selectHasMultipleSessionSharingIdentities(db);
-  const actor = resolveSkillLibraryActor(db, authority);
   return {
     profileId: actor.profileId ?? null,
     multipleProfiles,
@@ -58,91 +57,45 @@ export function resolveSkillLibraryPresentationInDatabase(
 }
 
 export function listSkillLibraryInDatabase(
-  db: DatabaseSync,
+  db: EngineConnection,
   authority: SkillLibraryAuthority,
   params: SkillsLibraryListParams = {},
 ): SkillsLibraryListResult {
-  const presentation = resolveSkillLibraryPresentationInDatabase(db, authority);
-  const entries = tableExists(db, "skill_library_entries")
-    ? executeSqliteQuerySync(
-        db,
-        skillLibraryDb(db)
-          .selectFrom("skill_library_entries")
-          .selectAll()
-          .where("removed", "=", 0)
-          .orderBy("slug")
-          .orderBy("skill_id"),
-      ).rows.flatMap((row) => {
-        const entry = projectSkillLibraryEntry(db, row, authority);
-        if (
-          !entry ||
-          (params.scope === "mine" &&
-            (!presentation.profileId || entry.ownerProfileId !== presentation.profileId)) ||
-          (params.scope === "team" && !entry.shared && entry.ownerProfileId !== null)
-        ) {
-          return [];
-        }
-        return [entry];
-      })
-    : [];
-  return {
-    entries,
-    ...presentation,
-    defaultSelectionLimit: SKILL_LIBRARY_MAX_SELECTIONS,
-    ...(presentation.profileId &&
-    entries.filter(
-      (entry) =>
-        entry.enabled &&
-        (entry.ownerProfileId === presentation.profileId ||
-          entry.ownerProfileId === null ||
-          entry.shared),
-    ).length > SKILL_LIBRARY_MAX_SELECTIONS
-      ? {
-          defaultSelectionNotice:
-            "New sessions select up to 64 enabled skills, personal skills first and then stable ID order. In a session, detach a selected skill to make room and attach another from the library.",
-        }
-      : {}),
-  };
+  const actor = resolveSkillLibraryActor(db, authority);
+  return projectSkillLibraryList(
+    {
+      entries: tableExists(db, "skill_library_entries")
+        ? selectSkillLibraryEntries(db, authority, {}, actor)
+        : [],
+      ...resolveSkillLibraryPresentationInDatabase(db, authority, actor),
+    },
+    params,
+  );
 }
 
-function authorizeSkillLibraryReadInDatabase(
-  db: DatabaseSync,
+export function readSkillLibraryMetadataInDatabase(
+  db: EngineConnection,
   authority: SkillLibraryAuthority,
   skillId: string,
   revision?: string,
   selectedRevision?: string,
 ) {
-  if (!selectedRevision) {
-    return requireSkillLibraryEntry(db, skillId, authority);
-  }
-  if (revision !== selectedRevision) {
+  if (selectedRevision && revision !== selectedRevision) {
     throw new SkillLibraryError(
       "FORBIDDEN",
       "Only the session's exact selected revision can be read.",
     );
   }
-  const row = selectSkillLibraryRow(db, skillId);
-  const entry = row && projectSkillLibraryEntry(db, row, authority, selectedRevision, true);
+  const entry = selectedRevision
+    ? selectSkillLibraryEntries(db, authority, {
+        skillId,
+        revision: selectedRevision,
+        selectedBySession: true,
+      })[0]
+    : requireSkillLibraryEntry(db, skillId, authority);
   if (!entry) {
     throw new SkillLibraryError("NOT_FOUND", "Selected revision is unavailable.");
   }
-  return { ...entry, canEdit: false };
-}
-
-export function readSkillLibraryMetadataInDatabase(
-  db: DatabaseSync,
-  authority: SkillLibraryAuthority,
-  skillId: string,
-  revision?: string,
-  selectedRevision?: string,
-) {
-  const entry = authorizeSkillLibraryReadInDatabase(
-    db,
-    authority,
-    skillId,
-    revision,
-    selectedRevision,
-  );
   const chosenRevision = revision ?? entry.revision;
   const metadata = selectSkillLibraryRevision(db, skillId, chosenRevision);
   if (!metadata) {
@@ -150,7 +103,12 @@ export function readSkillLibraryMetadataInDatabase(
   }
   return {
     manifestJson: metadata.files_json,
-    entry: { ...entry, revision: chosenRevision, description: metadata.description },
+    entry: {
+      ...entry,
+      revision: chosenRevision,
+      description: metadata.description,
+      canEdit: !selectedRevision && entry.canEdit,
+    },
     revisions: selectedRevision
       ? [{ revision: selectedRevision, createdAt: metadata.created_at }]
       : executeSqliteQuerySync(
@@ -164,7 +122,10 @@ export function readSkillLibraryMetadataInDatabase(
   };
 }
 
-export function publishSkillLibraryInDatabase(db: DatabaseSync, input: SkillLibraryPublishInput) {
+export function publishSkillLibraryInDatabase(
+  db: EngineConnection,
+  input: SkillLibraryPublishInput,
+) {
   const { params, skillId, bundle, uploadId } = input;
   const authority = hydrateSkillLibraryWorkerAuthority(input.authority);
   const actor = requireSkillLibraryProfile(db, authority);
@@ -244,7 +205,7 @@ export function publishSkillLibraryInDatabase(db: DatabaseSync, input: SkillLibr
   return skillLibraryReceipt(requireSkillLibraryEntry(db, skillId, authority));
 }
 
-export function mutateSkillLibraryInDatabase(db: DatabaseSync, input: SkillLibraryMutateInput) {
+export function mutateSkillLibraryInDatabase(db: EngineConnection, input: SkillLibraryMutateInput) {
   const { params } = input;
   const authority = hydrateSkillLibraryWorkerAuthority(input.authority);
   if (!tableExists(db, "skill_library_entries")) {

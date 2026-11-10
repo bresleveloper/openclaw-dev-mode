@@ -58,18 +58,7 @@ const ANTHROPIC_COMPACTION_INSTRUCTIONS =
   "Do not call any tools while writing this summary; respond with text only.";
 
 /** @deprecated Anthropic-family provider payload helper; do not use from third-party plugins. */
-type AnthropicPayloadPolicy = {
-  allowsServiceTier: boolean;
-  cacheControl: AnthropicEphemeralCacheControl | undefined;
-  compactThreshold: number;
-  serviceTier: AnthropicServiceTier | undefined;
-  useServerCompaction: boolean;
-  toolClearing?: {
-    trigger: number;
-    clearAtLeast: number;
-    tools: NonNullable<AnthropicContextManagementOptions["cacheTtlPruning"]>["tools"];
-  };
-};
+type AnthropicPayloadPolicy = ReturnType<typeof resolveAnthropicPayloadPolicy>;
 
 /** Resolve the Anthropic input-token trigger, including the API's minimum. */
 function resolveAnthropicCompactThreshold(
@@ -136,7 +125,7 @@ export function isDirectAnthropicModel(
     normalizeOptionalLowercaseString(model.provider) === "anthropic" &&
     (endpointClass === "anthropic-public" ||
       (endpointClass === "default" &&
-        (!baseUrl || resolveBaseUrlHostname(baseUrl) === "api.anthropic.com")))
+        (!baseUrl || URL.parse(baseUrl)?.hostname === "api.anthropic.com")))
   );
 }
 
@@ -164,15 +153,11 @@ export function isAnthropicServerToolClearingEnabled(
   );
 }
 
-function resolveBaseUrlHostname(baseUrl: string): string | undefined {
-  return URL.parse(baseUrl)?.hostname;
-}
-
 function isLongTtlEligibleEndpoint(baseUrl: string | undefined): boolean {
   if (typeof baseUrl !== "string") {
     return false;
   }
-  const hostname = resolveBaseUrlHostname(baseUrl);
+  const hostname = URL.parse(baseUrl)?.hostname;
   if (!hostname) {
     return false;
   }
@@ -229,11 +214,7 @@ export function buildAnthropicSystemBlocks(
   const blocks: TextBlockParam[] = systemPrompt
     ? [{ type: "text", text: sanitizeSurrogates(systemPrompt) }]
     : [];
-  if (cacheControl) {
-    applyAnthropicCacheControlToSystem(blocks, cacheControl);
-  } else {
-    stripAnthropicSystemPromptBoundary(blocks);
-  }
+  normalizeAnthropicSystemBlocks(blocks, cacheControl);
   if (systemPrompt && blocks.length === 0) {
     blocks.push({ type: "text", text: "" });
   }
@@ -284,9 +265,9 @@ export function applyAnthropicRequestCacheControl(
   );
 }
 
-function applyAnthropicCacheControlToSystem(
+function normalizeAnthropicSystemBlocks(
   system: unknown,
-  cacheControl: AnthropicEphemeralCacheControl,
+  cacheControl: AnthropicEphemeralCacheControl | undefined,
 ): void {
   if (!Array.isArray(system)) {
     return;
@@ -302,6 +283,10 @@ function applyAnthropicCacheControlToSystem(
     const blockText = record.text;
     if (record.type !== "text" || typeof blockText !== "string") {
       normalizedBlocks.push(block);
+      continue;
+    }
+    if (!cacheControl) {
+      record.text = stripSystemPromptCacheBoundary(blockText);
       continue;
     }
     // This transport relocates nothing, so the relocatable marker must not
@@ -333,22 +318,8 @@ function applyAnthropicCacheControlToSystem(
     }
   }
 
-  system.splice(0, system.length, ...normalizedBlocks);
-}
-
-function stripAnthropicSystemPromptBoundary(system: unknown): void {
-  if (!Array.isArray(system)) {
-    return;
-  }
-
-  for (const block of system) {
-    if (!block || typeof block !== "object") {
-      continue;
-    }
-    const record = block as Record<string, unknown>;
-    if (record.type === "text" && typeof record.text === "string") {
-      record.text = stripSystemPromptCacheBoundary(record.text);
-    }
+  if (cacheControl) {
+    system.splice(0, system.length, ...normalizedBlocks);
   }
 }
 
@@ -417,10 +388,7 @@ function countAnthropicCacheControlMarkers(blocks: unknown): number {
 }
 
 /** @deprecated Anthropic-family provider payload helper; do not use from third-party plugins. */
-export function resolveAnthropicPayloadPolicy(
-  input: AnthropicPayloadPolicyInput,
-  model?: Model,
-): AnthropicPayloadPolicy {
+export function resolveAnthropicPayloadPolicy(input: AnthropicPayloadPolicyInput, model?: Model) {
   const capabilities = resolveProviderRequestCapabilities(
     {
       provider: input.provider,
@@ -661,11 +629,7 @@ export function applyAnthropicPayloadPolicyToParams(
     payloadObj.service_tier = policy.serviceTier;
   }
 
-  if (policy.cacheControl) {
-    applyAnthropicCacheControlToSystem(payloadObj.system, policy.cacheControl);
-  } else {
-    stripAnthropicSystemPromptBoundary(payloadObj.system);
-  }
+  normalizeAnthropicSystemBlocks(payloadObj.system, policy.cacheControl);
 
   applyAnthropicContextManagementEdits(payloadObj, policy);
 

@@ -1,16 +1,17 @@
 #!/usr/bin/env node
-import { t as disableExitUnsafeCompilers } from "./node-exit-safe-compilers-B7V3uapp.mjs";
-import { t as resolveCliArgvInvocation } from "./argv-invocation-CV_-dmd8.mjs";
-import { n as tryRunUpdateAdmissionBeforeStartup } from "./run-main-update-admission-BobnKS48.mjs";
-import { i as createGatewayDispatchStartupTrace, n as configureGatewayStartupTraceConsoleFormatting } from "./startup-trace-C4xndCPa.mjs";
-import { t as tryHandleRootVersionFastPath } from "./detached-async-context-B1URpzvl.mjs";
+import { n as resolveOpenClawCompileCacheDirectory, r as resolveOpenClawCompileCacheRespawnEnv, t as enableOpenClawCompileCache } from "./node-compile-cache-D2yvJTzP.mjs";
+import { r as isForegroundGatewayRunArgv } from "./gateway-run-argv-uoU8-Fwk.mjs";
+import "./detached-async-context-D04NzekX.mjs";
+import { t as resolveCliArgvInvocation } from "./argv-invocation-CJfjJu7L.mjs";
+import { i as shouldKeepNativeHookRelayInProcess, t as isForegroundGmailRunArgv } from "./respawn-policy-XYVGlIrI.mjs";
+import { n as tryRunUpdateAdmissionBeforeStartup } from "./run-main-update-admission-p8v6RIi-.mjs";
+import { i as createGatewayDispatchStartupTrace, n as configureGatewayStartupTraceConsoleFormatting } from "./startup-trace-AW_r3L-l.mjs";
 import { t as isMainModule } from "./is-main-DYSvvM1W.mjs";
 import { existsSync } from "node:fs";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 //#region src/index.ts
 const isMain = isMainModule({ currentFile: fileURLToPath(import.meta.url) });
-if (isMain) disableExitUnsafeCompilers();
 const handledAdmission = isMain && await tryRunUpdateAdmissionBeforeStartup(resolveCliArgvInvocation(process.argv));
 const packageRootUrl = new URL("../", import.meta.url);
 if (!handledAdmission && !existsSync(new URL("entry.ts", import.meta.url)) && (existsSync(new URL(".openclaw-lifecycle-pending", packageRootUrl)) || existsSync(new URL("dist/openclaw-install-guard", packageRootUrl)))) {
@@ -21,7 +22,6 @@ if (!handledAdmission && !existsSync(new URL("entry.ts", import.meta.url)) && (e
 		throw new Error(`OpenClaw package lifecycle is incomplete. Reinstall with package scripts enabled, then retry. ${error instanceof Error ? error.message : String(error)}`, { cause: error });
 	}
 }
-const handledRootVersion = isMain && !handledAdmission && tryHandleRootVersionFastPath(process.argv);
 let applyTemplate;
 let createDefaultDeps;
 let deriveSessionKey;
@@ -50,20 +50,43 @@ async function runLegacyCliEntry(argv = process.argv, deps, options) {
 	const { runCli } = deps ?? await loadLegacyCliDeps(argv);
 	await runCli(argv, options);
 }
-if (!isMain) ({applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, monitorWebChannel, normalizeE164, PortInUseError, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, waitForever} = await import("./library-BOXFab1R.mjs"));
-if (isMain && !handledRootVersion && !handledAdmission) {
-	const [{ formatCliFailureLines, formatCliJsonFailure, isExpectedCliError }, { isJsonOutputModeActive }, { runCliWithExitFinalization }, { withCliProcessScope }, { installDistEsmResolveFastPath: installFastPath }, { formatUncaughtError }, { runFatalErrorHooks }, { installUnhandledRejectionHandler, isBenignUncaughtExceptionError, isUncaughtExceptionHandled }] = await Promise.all([
-		import("./failure-output-CKN7Q5cE.mjs"),
-		import("./json-output-mode-BR-Z3WUl.mjs"),
-		import("./one-shot-exit-BwX7kJPB.mjs"),
-		import("./runtime-cleanup-scope-Bw7FGGr4.mjs"),
-		import("./entry.esm-resolve-fast-path-nYOOyhlm.mjs"),
+const handledRootVersion = isMain && !handledAdmission && (await import("./entry.version-fast-path-DsQRohZF.mjs")).tryHandleRootVersionFastPath(process.argv);
+if (!isMain) ({applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, monitorWebChannel, normalizeE164, PortInUseError, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, waitForever} = await import("./library-B1SOwJoP.mjs"));
+const shouldRunCli = isMain && !handledRootVersion && !handledAdmission;
+const compileCacheDirectory = shouldRunCli ? resolveOpenClawCompileCacheDirectory({
+	installRoot: fileURLToPath(packageRootUrl),
+	foregroundGateway: isForegroundGatewayRunArgv(process.argv)
+}) : void 0;
+const compileCacheRespawnEnv = shouldRunCli && !isForegroundGmailRunArgv(process.argv) && !shouldKeepNativeHookRelayInProcess(process.argv, process.platform) ? resolveOpenClawCompileCacheRespawnEnv({
+	directory: compileCacheDirectory,
+	foregroundGateway: isForegroundGatewayRunArgv(process.argv)
+}) : void 0;
+if (compileCacheRespawnEnv) {
+	const args = [
+		...process.execArgv,
+		fileURLToPath(import.meta.url),
+		...process.argv.slice(2)
+	];
+	if (process.platform !== "win32" && process.execve && isForegroundGatewayRunArgv(process.argv)) process.execve(process.execPath, [process.execPath, ...args], compileCacheRespawnEnv);
+	const { runRespawnedChild } = await import("./node-runtime-recovery-Cs6l5Wzv.mjs");
+	await runRespawnedChild(process.execPath, args, compileCacheRespawnEnv);
+}
+if (shouldRunCli && !compileCacheRespawnEnv) {
+	enableOpenClawCompileCache({
+		directory: compileCacheDirectory,
+		foregroundGateway: isForegroundGatewayRunArgv(process.argv)
+	});
+	const [{ formatCliFailureLines, formatCliJsonFailure, isExpectedCliError }, { isJsonOutputModeActive }, { runCliWithExitFinalization }, { withCliProcessScope }, { formatUncaughtError }, { runFatalErrorHooks }, { installUnhandledRejectionHandler, isBenignUncaughtExceptionError, isUncaughtExceptionHandled }] = await Promise.all([
+		import("./failure-output-DuWfXOiW.mjs"),
+		import("./json-output-mode-DJvhLoPt.mjs"),
+		import("./one-shot-exit-BcO1IrwG.mjs"),
+		import("./runtime-cleanup-scope-B7DoY3fg.mjs"),
 		import("./infra/errors.js"),
-		import("./fatal-error-hooks-Q7ktJSt7.mjs"),
-		import("./unhandled-rejections-B3DEjwQf.mjs")
+		import("./fatal-error-hooks-DGD-L3B8.mjs"),
+		import("./unhandled-rejections-DvTkjUPI.mjs")
 	]);
-	installFastPath(import.meta.url);
-	const { defaultRuntime, restoreRuntimeTerminalState } = await import("./runtime-C3rISTtF.mjs");
+	const { defaultRuntime, restoreRuntimeTerminalState } = await import("./runtime-DqKM42HJ.mjs");
+	const { exitAfterSignalExitBarriers } = await import("./signal-exit-barrier-Bj-a5wKU.mjs");
 	installUnhandledRejectionHandler();
 	process.on("uncaughtException", (error) => {
 		if (isUncaughtExceptionHandled(error)) return;
@@ -82,7 +105,7 @@ if (isMain && !handledRootVersion && !handledAdmission) {
 			error
 		})) console.error("[openclaw]", message);
 		restoreRuntimeTerminalState("uncaught exception", { resumeStdinIfPaused: false });
-		process.exit(1);
+		exitAfterSignalExitBarriers(1, "uncaught exception");
 	});
 	runCliWithExitFinalization({
 		run: () => withCliProcessScope(() => runLegacyCliEntry(process.argv, void 0, { retainConsoleRoutingUntilProcessExit: true })),

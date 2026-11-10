@@ -3,7 +3,6 @@ import { buildChannelConfigSchema } from "openclaw/plugin-sdk/channel-config-sch
 import {
   buildChannelOutboundSessionRoute,
   createChatChannelPlugin,
-  stripChannelTargetPrefix,
   type PluginRuntime,
 } from "openclaw/plugin-sdk/channel-core";
 import {
@@ -14,7 +13,6 @@ import {
   createLoggedPairingApprovalNotifier,
   createPairingPrefixStripper,
 } from "openclaw/plugin-sdk/channel-pairing";
-import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
 import { buildPassiveProbedChannelStatusSummary } from "openclaw/plugin-sdk/extension-shared";
 import {
   createComputedAccountStatusAdapter,
@@ -36,25 +34,9 @@ import { probeTwitch } from "./probe.js";
 import { resolveTwitchTargets } from "./resolver.js";
 import { twitchSetupPlugin } from "./setup-surface.js";
 import { collectTwitchStatusIssues } from "./status.js";
-import type {
-  ChannelLogSink,
-  ChannelPlugin,
-  ChannelResolveKind,
-  ChannelResolveResult,
-  TwitchAccountConfig,
-} from "./types.js";
-import { isAccountConfigured, normalizeTwitchChannel } from "./utils/twitch.js";
-
-function normalizeTwitchMessagingTarget(target: string): string {
-  const providerTarget = stripChannelTargetPrefix(target, "twitch", "twitch-chat");
-  const kindMatch = /^(user|dm|channel|group|conversation|room):/i.exec(providerTarget);
-  const kind = kindMatch?.[1]?.toLowerCase();
-  if (kind === "user" || kind === "dm") {
-    return "";
-  }
-  const channelTarget = kindMatch ? providerTarget.slice(kindMatch[0].length) : providerTarget;
-  return normalizeTwitchChannel(channelTarget);
-}
+import { normalizeTwitchMessagingTarget } from "./target.js";
+import type { ChannelLogSink, ChannelPlugin, TwitchAccountConfig } from "./types.js";
+import { isAccountConfigured } from "./utils/twitch.js";
 
 export const twitchPlugin: ChannelPlugin<ResolvedTwitchAccount> =
   createChatChannelPlugin<ResolvedTwitchAccount>({
@@ -137,19 +119,7 @@ export const twitchPlugin: ChannelPlugin<ResolvedTwitchAccount> =
       },
       actions: twitchMessageActions,
       resolver: {
-        resolveTargets: async ({
-          cfg,
-          accountId,
-          inputs,
-          kind,
-          runtime,
-        }: {
-          cfg: OpenClawConfig;
-          accountId?: string | null;
-          inputs: string[];
-          kind: ChannelResolveKind;
-          runtime: import("openclaw/plugin-sdk/runtime-env").RuntimeEnv;
-        }): Promise<ChannelResolveResult[]> => {
+        resolveTargets: async ({ cfg, accountId, inputs, kind, runtime }) => {
           const account = getAccountConfig(cfg, accountId ?? resolveDefaultTwitchAccountId(cfg));
           if (!account) {
             return inputs.map((input) => ({

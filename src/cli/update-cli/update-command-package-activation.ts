@@ -1,10 +1,7 @@
 import { formatErrorMessage } from "../../infra/errors.js";
 import { capturePackageActivationRuntime } from "../../infra/package-update-activation-paths.js";
 import type { PackageActivationRuntime } from "../../infra/package-update-activation-runtime.types.js";
-import {
-  assertNoPendingPackageActivation,
-  settlePendingPackageActivation,
-} from "../../infra/package-update-activation.js";
+import { assertNoPendingPackageActivation } from "../../infra/package-update-activation.js";
 import { resolveUpdateInstallRoot } from "../../infra/update-install-root.js";
 import { defaultRuntime } from "../../runtime.js";
 import type { MutableUpdateExecutionParams } from "./update-command-execution.types.js";
@@ -20,16 +17,26 @@ export function assertUpdatePackageActivationAdmission(
   try {
     assertNoPendingPackageActivation(resolveUpdateInstallRoot(root), options);
   } catch (cause) {
+    const message = formatErrorMessage(cause);
     throw new UpdateCommandPendingRecoveryFailure(
       {
         status: "error",
         mode: "unknown",
         root,
         reason: "update-recovery-pending",
-        steps: [],
+        steps: [
+          {
+            name: "update-recovery-pending",
+            command: "openclaw update",
+            cwd: root,
+            durationMs: 0,
+            exitCode: 1,
+            diagnostics: [message],
+          },
+        ],
         durationMs: 0,
       },
-      formatErrorMessage(cause),
+      message,
       { cause },
     );
   }
@@ -40,28 +47,6 @@ export function assertUpdatePackageActivationAdmission(
       dryRun: options.dryRun,
     });
   }
-}
-
-/** Settle a retained operation whose only blocker is a lost or replaced handoff lease. */
-export async function settleStalePackageActivationAdmission(
-  root: string,
-  dryRun: boolean | undefined,
-): Promise<string | undefined> {
-  const settled = await settlePendingPackageActivation(
-    resolveUpdateInstallRoot(root),
-    undefined,
-    undefined,
-    { onlyStaleLease: true, dryRun },
-  ).catch((cause: unknown) => {
-    throw new UpdateCommandPendingRecoveryFailure(
-      { status: "error", mode: "unknown", root, steps: [], durationMs: 0 },
-      formatErrorMessage(cause),
-      { cause },
-    );
-  });
-  return settled
-    ? `${dryRun ? "Would settle" : "Settled"} previous package update ${settled.operationId} (${settled.reason}); update can proceed past package recovery admission. Evidence ${dryRun ? "would be retained" : "retained"} at ${settled.retained}.${settled.warning ? ` ${settled.warning}` : ""}`
-    : undefined;
 }
 
 export function createPackageUpdateActivationOptions(params: {

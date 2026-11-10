@@ -1,4 +1,4 @@
-import { a as openclaw_plugin_default, i as VENICE_MODEL_DISCOVERY_OPTIONS } from "./.setup/models-D73jPrCr.mjs";
+import { a as openclaw_plugin_default, i as VENICE_MODEL_DISCOVERY_OPTIONS, t as VENICE_BASE_URL } from "./.setup/models-D73jPrCr.mjs";
 import { applyVeniceConfig } from "./onboard.js";
 import { buildStaticVeniceProvider } from "./provider-catalog.js";
 import { createVeniceStreamWrapper } from "./stream.js";
@@ -41,14 +41,20 @@ var venice_default = defineSingleProviderPluginEntry({
 			buildProvider: buildStaticVeniceProvider,
 			liveModelDiscovery: VENICE_MODEL_DISCOVERY_OPTIONS
 		},
-		normalizeResolvedModel: ({ modelId, model }) => isXaiBackedVeniceModel(modelId) ? applyModelCompatPatch(model, {
-			toolSchemaProfile: "xai",
-			unsupportedToolSchemaKeywords: [...XAI_UNSUPPORTED_SCHEMA_KEYWORDS],
-			toolCallArgumentsEncoding: "html-entities"
-		}) : void 0,
+		normalizeResolvedModel: ({ modelId, model }) => {
+			const normalized = isXaiBackedVeniceModel(modelId) ? applyModelCompatPatch(model, {
+				toolSchemaProfile: "xai",
+				unsupportedToolSchemaKeywords: [...XAI_UNSUPPORTED_SCHEMA_KEYWORDS],
+				toolCallArgumentsEncoding: "html-entities"
+			}) : model;
+			return model.api === "openai-completions" && model.baseUrl?.trim().replace(/\/+$/u, "") === VENICE_BASE_URL ? applyModelCompatPatch(normalized, {
+				supportsPromptCacheKey: model.compat?.supportsPromptCacheKey ?? true,
+				supportsLongCacheRetention: model.compat?.supportsLongCacheRetention ?? false
+			}) : normalized;
+		},
 		wrapStreamFn: (ctx) => createVeniceStreamWrapper(ctx.streamFn),
 		resolveUsageAuth: async (ctx) => {
-			const apiKey = ctx.resolveApiKeyFromConfigAndStore({ envDirect: [ctx.env.VENICE_API_KEY] });
+			const apiKey = (await ctx.resolveApiKeyCandidatesFromConfigAndStore?.({ envDirect: [ctx.env.VENICE_API_KEY] }))?.[0];
 			return apiKey ? { token: apiKey } : null;
 		},
 		fetchUsageSnapshot: async (ctx) => await fetchVeniceUsage({

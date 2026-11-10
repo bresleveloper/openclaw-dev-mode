@@ -3,11 +3,15 @@ import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { resolvePathPrefixSync } from "@openclaw/fs-safe/advanced";
+import { readRegularFile, resolvePathPrefixSync } from "@openclaw/fs-safe/advanced";
 import {
   normalizeLowercaseStringOrEmpty,
   normalizeOptionalString,
 } from "@openclaw/normalization-core/string-coerce";
+import {
+  hasTerminalControl,
+  sanitizeTerminalText,
+} from "../../packages/terminal-core/src/safe-text.js";
 import { resolveStateDir } from "../config/paths.js";
 import { isErrno } from "../infra/errors.js";
 import { decodeWindowsTextFileBuffer } from "../infra/windows-encoding.js";
@@ -22,7 +26,7 @@ export const COMPLETION_SKIP_PLUGIN_COMMANDS_ENV = "OPENCLAW_COMPLETION_SKIP_PLU
 type CompletionProfileEncoding = "utf8" | "utf8bom" | "utf16le" | "utf16be";
 
 async function readCompletionProfile(profilePath: string, shell: CompletionShell) {
-  const buffer = await fs.readFile(profilePath);
+  const { buffer } = await readRegularFile({ filePath: await fs.realpath(profilePath) });
   let encoding: CompletionProfileEncoding = "utf8";
   if (shell === "powershell" && process.platform === "win32") {
     const [first, second, third] = buffer;
@@ -79,24 +83,12 @@ export function resolveShellFromEnv(
   return platform === "win32" ? "powershell" : "zsh";
 }
 
-function sanitizeCompletionBasename(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "openclaw";
-  }
-  return trimmed.replace(/[^a-zA-Z0-9._-]/g, "-");
-}
-
-function resolveCompletionCacheDir(env: NodeJS.ProcessEnv = process.env): string {
-  const stateDir = resolveStateDir(env, os.homedir);
-  return path.join(stateDir, "completions");
-}
-
 /** Returns the per-shell cached completion script path for a sanitized CLI binary name. */
 export function resolveCompletionCachePath(shell: CompletionShell, binName: string): string {
-  const basename = sanitizeCompletionBasename(binName);
+  const basename = (binName.trim() || "openclaw").replace(/[^a-zA-Z0-9._-]/g, "-");
   return path.join(
-    resolveCompletionCacheDir(),
+    resolveStateDir(process.env, os.homedir),
+    "completions",
     `${basename}.${shell === "powershell" ? "ps1" : shell}`,
   );
 }
@@ -152,10 +144,6 @@ export function formatCompletionReloadCommand(shell: CompletionShell, scriptPath
   const homePrefix = scriptPath.startsWith("~/") ? "~/" : "";
   const value = scriptPath.slice(homePrefix.length);
   return `source ${homePrefix}${quoteCompletionPath(shell, value)}`;
-}
-
-function isCompletionProfileHeader(line: string): boolean {
-  return line.trim() === "# OpenClaw Completion";
 }
 
 function isCompletionProfileLine(line: string, binName: string, cachePath: string): boolean {
@@ -370,7 +358,7 @@ function updateCompletionProfile(
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
-    if (isCompletionProfileHeader(line)) {
+    if (line.trim() === "# OpenClaw Completion") {
       const following = lines[i + 1] ?? "";
       if (isPortableCompletionSourceLine(following, shell, cachePath, homeDir)) {
         filtered.push(line);
@@ -402,7 +390,7 @@ function updateCompletionProfile(
     const next = filtered.join("\n");
     return { next, changed: next !== content, hadExisting };
   }
-  const trimmed = filtered.join("\n").trimEnd();
+  const trimmed = filtered.join("\n").replace(/(?<!\n)\n+$/u, "");
   const block = `# OpenClaw Completion\n${formatCompletionSourceLine(shell, cachePath)}`;
   const next = trimmed ? `${trimmed}\n\n${block}\n` : `${block}\n`;
   return { next, changed: next !== content, hadExisting };
@@ -568,7 +556,9 @@ export async function installCompletion(shell: string, yes: boolean, binName = "
         throw error;
       }
       if (!yes) {
-        console.warn(`Profile not found at ${profilePath}. Creating a new one.`);
+        console.warn(
+          `Profile not found at ${sanitizeTerminalText(profilePath)}. Creating a new one.`,
+        );
       }
       content = "";
     }
@@ -576,14 +566,14 @@ export async function installCompletion(shell: string, yes: boolean, binName = "
     const update = updateCompletionProfile(content, binName, cachePath, shell, homeDir);
     if (!update.changed) {
       if (!yes) {
-        console.log(`Completion already installed in ${profilePath}`);
+        console.log(`Completion already installed in ${sanitizeTerminalText(profilePath)}`);
       }
       return;
     }
 
     if (!yes) {
       const action = update.hadExisting ? "Updating" : "Installing";
-      console.log(`${action} completion in ${profilePath}...`);
+      console.log(`${action} completion in ${sanitizeTerminalText(profilePath)}...`);
     }
 
     await publishOutputFileAtomically({
@@ -597,8 +587,11 @@ export async function installCompletion(shell: string, yes: boolean, binName = "
       },
     });
     if (!yes) {
+      const profileHint = resolveCompletionProfileHint(shell);
       console.log(
-        `Completion installed. Restart your shell or run: ${formatCompletionReloadCommand(shell, resolveCompletionProfileHint(shell))}`,
+        hasTerminalControl(profileHint)
+          ? "Completion installed. Restart your shell to load it."
+          : `Completion installed. Restart your shell or run: ${formatCompletionReloadCommand(shell, profileHint)}`,
       );
     }
   } catch (err) {

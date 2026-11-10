@@ -1,7 +1,6 @@
-import { S as normalizeChannelConfigEntries, T as normalizeLowercaseStringOrEmpty, a as defineChannelAliasMigration, b as hasLegacyAccountStreamingAliases, k as asNullableRecord, n as defineKeyMoveMigration, o as stripRetiredChannelKeys } from "./runtime-doctor-migrations-BhouWAUC.js";
-import "./string-coerce-runtime-CM4JCyJk.js";
+import { A as normalizeLowercaseStringOrEmpty, E as normalizeChannelConfigEntries, P as asNullableRecord, a as defineChannelAliasMigration, n as defineKeyMoveMigration, o as stripRetiredChannelKeys, w as hasLegacyAccountStreamingAliases } from "./runtime-doctor-migrations-Bq3PkBbD.js";
+import "./string-coerce-runtime-D5jaFnkP.js";
 //#region src/utils/boolean.ts
-/** Returns only real boolean values and leaves boolean-like strings for explicit parsing. */
 function asBoolean(value) {
 	return typeof value === "boolean" ? value : void 0;
 }

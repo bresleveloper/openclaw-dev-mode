@@ -1,12 +1,13 @@
 import { c as isRecord } from "../../../record-coerce-TIsquoVR.mjs";
-import { t as _usingCtx } from "../../../usingCtx-DwOBYOJf.mjs";
-import { n as serveWorkerTasks } from "../../../worker-task-server-BC_7U18u.mjs";
-import { a as normalizeSourceStack, i as buildUserSource, n as SOURCE_LOCATION_KEY, o as CODE_MODE_CONTROLLER_SOURCE, r as USER_SOURCE_FILE, t as prepareSource } from "../../../code-mode-source-f8CZaGjY.mjs";
-import { a as captureCodeModeValue, i as captureCodeModeOutput, n as EMPTY_CODE_MODE_OUTPUT, r as boundCodeModeError } from "../../../code-mode-json-DLneEPkt.mjs";
+import { t as _usingCtx } from "../../../usingCtx-BhiZp_rS.mjs";
 import { n as ToolInputError } from "../../../tool-input-error-mjW74R8m.mjs";
-import "../../../worker-task-server-OcaoXQUy.mjs";
-import "../../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../../code-mode-executor-runtime-QLmhmUPX.mjs";
+import { n as serveWorkerTasks } from "../../../worker-task-server-sMsYUF1K.mjs";
+import { a as buildUserSource, i as USER_SOURCE_FILE, n as prepareSource, o as normalizeSourceStack, r as SOURCE_LOCATION_KEY, s as CODE_MODE_CONTROLLER_SOURCE } from "../../../code-mode-source-DsethwuR.mjs";
+import { a as captureCodeModeValue, i as captureCodeModeOutput, n as EMPTY_CODE_MODE_OUTPUT, r as boundCodeModeError } from "../../../code-mode-json-DSNnk8AT.mjs";
+import "../../../worker-task-server-T-g3Ibxb.mjs";
+import "../../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../../code-mode-executor-runtime-CQMljPHJ.mjs";
+import { threadId } from "node:worker_threads";
 //#region node_modules/.pnpm/quickjs-wasi@3.6.2/node_modules/quickjs-wasi/dist/wasi-shim.js
 /**
 * Minimal WASI shim for running QuickJS in any WebAssembly environment.
@@ -2771,6 +2772,17 @@ var CodeModeWorkerFailure = class extends Error {
 		this.code = code;
 	}
 };
+function notifyWorkerFailure(channel, error) {
+	channel?.notify({
+		status: "failure",
+		error: error instanceof Error ? {
+			name: error.name,
+			message: error.message,
+			stack: error.stack
+		} : String(error),
+		failurePhase: error instanceof CodeModeWorkerFailure ? error.failurePhase ?? "guest" : "guest"
+	});
+}
 function isQuickJsInterruptedError(error) {
 	return error instanceof JSException && error.message === "interrupted";
 }
@@ -2782,8 +2794,7 @@ function formatQuickJsError(name, message, stack, location) {
 }
 function errorMessage(error, location) {
 	if (error instanceof JSException) return formatQuickJsError(error.name, error.message, error.stack, location);
-	if (error instanceof Error) return error.message || String(error);
-	return String(error);
+	return error instanceof Error ? error.message || String(error) : String(error);
 }
 function trackPromiseRejection(promise, reason, handled) {
 	const vm = promise.vm;
@@ -2852,6 +2863,32 @@ async function createVm(input, bridge) {
 				vm,
 				bridge
 			})],
+			["__openclawHostTakeBridgeReply", () => {
+				const request = bridge.replies?.[bridge.replyIndex];
+				if (!request) return vm.undefined;
+				bridge.replyIndex++;
+				const reply = vm.newObject();
+				try {
+					try {
+						var _usingCtx$1 = _usingCtx();
+						const id = _usingCtx$1.u(vm.newString(request.id));
+						const json = _usingCtx$1.u(vm.newString(request.json));
+						vm.defineProp(reply, "id", id);
+						vm.defineProp(reply, "ok", request.ok ? vm.true : vm.false);
+						vm.defineProp(reply, "json", json);
+					} catch (_) {
+						_usingCtx$1.e = _;
+					} finally {
+						_usingCtx$1.d();
+					}
+				} catch (error) {
+					reply.dispose();
+					throw error;
+				} finally {
+					request.json = "";
+				}
+				return reply;
+			}],
 			["__openclawHostObserveNetworkContent", () => {
 				bridge.networkContentObserved = true;
 				return vm.undefined;
@@ -2937,9 +2974,13 @@ async function readCompletedResult(vm, resultHandle) {
 	const settled = await vm.resolvePromise(resultHandle);
 	if ("error" in settled) return settled.error.consume((error) => {
 		const dumped = vm.dump(error);
-		const bridgeError = vm.global.getProp("__openclawIsBridgeError").consume((check) => vm.callFunction(check, vm.undefined, error).consume((value) => vm.dump(value) === true));
-		if (!bridgeError && dumped instanceof Error && dumped.name === "ReferenceError" && /^(?:require|module|process) is not defined$/u.test(dumped.message)) throw new CodeModeWorkerFailure("invalid_input", "code mode module access is disabled.");
-		throw new CodeModeWorkerFailure("internal_error", dumped instanceof Error ? formatQuickJsError(dumped.name, dumped.message, dumped.stack, readSourceLocation(vm)) : errorMessage(dumped), bridgeError ? "bridge" : void 0);
+		const bridgeCode = vm.global.getProp("__openclawBridgeFailureCode").consume((read) => vm.callFunction(read, vm.undefined, error).consume((value) => {
+			const code = vm.dump(value);
+			return code === "invalid_input" || code === "internal_error" ? code : void 0;
+		}));
+		if (bridgeCode === void 0 && dumped instanceof Error && dumped.name === "ReferenceError" && /^(?:require|module|process) is not defined$/u.test(dumped.message)) throw new CodeModeWorkerFailure("invalid_input", "code mode module access is disabled.");
+		const text = dumped instanceof Error ? formatQuickJsError(dumped.name, dumped.message, dumped.stack, readSourceLocation(vm)) : errorMessage(dumped);
+		throw new CodeModeWorkerFailure(bridgeCode ?? "internal_error", text, bridgeCode === void 0 ? void 0 : "bridge");
 	});
 	return settled.value.consume((value) => JSON.parse(value.toString()));
 }
@@ -2977,7 +3018,7 @@ async function runVmExecution(params) {
 			const resultHandle = params.vm.global.getProp("__openclawResult");
 			try {
 				try {
-					var _usingCtx$1 = _usingCtx();
+					var _usingCtx3 = _usingCtx();
 					const promisePending = resultHandle.isPromise && resultHandle.promiseState === 0;
 					if (promisePending && params.bridge.pendingRequests.length === 0) throw new Error("code mode promise is pending without host work");
 					const requiredPendingRequestIds = params.bridge.pendingRequests.map((request) => request.id);
@@ -3005,7 +3046,7 @@ async function runVmExecution(params) {
 								params.setBudget(command.timeoutMs);
 								params.bridge.pendingRequests = command.pendingRequests;
 								params.bridge.canceledRequestIds = [];
-								prepare = () => settleRequests(params.vm, command.settledRequests);
+								prepare = () => settleRequests(params.vm, params.bridge, command.settledRequests);
 								continue;
 							}
 							if (command.kind !== "checkpoint") throw new Error("invalid code mode continuation");
@@ -3021,7 +3062,7 @@ async function runVmExecution(params) {
 						});
 					}
 					const value = await readCompletedResult(params.vm, resultHandle);
-					const rejection = _usingCtx$1.u(params.vm.global.getProp("__openclawUnhandledRejection").consume((read) => params.vm.callFunction(read, params.vm.undefined)));
+					const rejection = _usingCtx3.u(params.vm.global.getProp("__openclawUnhandledRejection").consume((read) => params.vm.callFunction(read, params.vm.undefined)));
 					if (rejection.isPromise) await readCompletedResult(params.vm, rejection);
 					return {
 						status: "completed",
@@ -3029,15 +3070,16 @@ async function runVmExecution(params) {
 						output
 					};
 				} catch (_) {
-					_usingCtx$1.e = _;
+					_usingCtx3.e = _;
 				} finally {
-					_usingCtx$1.d();
+					_usingCtx3.d();
 				}
 			} finally {
 				resultHandle.dispose();
 			}
 		}
 	} catch (error) {
+		notifyWorkerFailure(params.channel, error);
 		return workerFailureResult({
 			error,
 			didTimeout: params.didTimeout,
@@ -3048,21 +3090,14 @@ async function runVmExecution(params) {
 		params.vm.dispose();
 	}
 }
-function settleRequests(vm, requests) {
+function settleRequests(vm, bridge, requests) {
+	bridge.replies = requests;
+	bridge.replyIndex = 0;
 	try {
-		vm.global.getProp("__openclawSettleBridge").consume((settle) => {
-			for (const request of requests) try {
-				var _usingCtx3 = _usingCtx();
-				const id = _usingCtx3.u(vm.newString(request.id));
-				const payload = _usingCtx3.u(vm.newString(request.json));
-				vm.callFunction(settle, vm.undefined, id, request.ok ? vm.true : vm.false, payload).dispose();
-			} catch (_) {
-				_usingCtx3.e = _;
-			} finally {
-				_usingCtx3.d();
-			}
-		});
+		vm.global.getProp("__openclawSettleBridge").consume((settle) => vm.callFunction(settle, vm.undefined).dispose());
 	} finally {
+		bridge.replies = void 0;
+		bridge.replyIndex = 0;
 		for (const request of requests) request.json = "";
 		requests.length = 0;
 	}
@@ -3077,7 +3112,8 @@ async function run(input, channel) {
 	if (config.timeoutMs <= 0) throw new CodeModeWorkerFailure("timeout", "code mode timeout exceeded");
 	const bridge = {
 		pendingRequests: input.kind === "resume" ? [...input.pendingRequests ?? []] : [],
-		canceledRequestIds: []
+		canceledRequestIds: [],
+		replyIndex: 0
 	};
 	const { vm, didTimeout, setBudget, pauseBudget } = await createVm({
 		...input,
@@ -3099,7 +3135,7 @@ async function run(input, channel) {
 				vm.evalCode(program.source, USER_SOURCE_FILE, EvalFlags.ASYNC).dispose();
 				return;
 			}
-			settleRequests(vm, input.settledRequests);
+			settleRequests(vm, bridge, input.settledRequests);
 		}
 	});
 	return bridge.networkContentObserved ? {
@@ -3114,6 +3150,10 @@ function isQuickJsWasmExtensions(value) {
 	return Array.isArray(value) && value.every((extension) => isRecord(extension) && typeof extension.name === "string" && isQuickJsWasmModule(extension.wasm));
 }
 async function main(input, channel) {
+	channel?.notify({
+		status: "worker",
+		workerId: `code-mode-quickjs:${threadId}`
+	});
 	if (!isRecord(input) || !isRecord(input.config) || !isQuickJsWasmModule(input.wasmModule) || !isQuickJsWasmExtensions(input.wasmExtensions)) return {
 		...failedWorkerResult("invalid_input", "invalid code mode worker input"),
 		output: EMPTY_CODE_MODE_OUTPUT
@@ -3121,7 +3161,8 @@ async function main(input, channel) {
 	const config = input.config;
 	try {
 		if (config.timeoutMs <= 0) throw new CodeModeWorkerFailure("timeout", "code mode timeout exceeded");
-		if (input.kind === "exec" && typeof input.source === "string") return captureWorkerResult(await run({
+		let payload;
+		if (input.kind === "exec" && typeof input.source === "string") payload = {
 			kind: "exec",
 			wasmModule: input.wasmModule,
 			wasmExtensions: input.wasmExtensions,
@@ -3133,22 +3174,26 @@ async function main(input, channel) {
 			apiFiles: Array.isArray(input.apiFiles) ? input.apiFiles : [],
 			namespaces: Array.isArray(input.namespaces) ? input.namespaces : [],
 			swarmEnabled: input.swarmEnabled === true
-		}, channel), config, input.retainFinalValue === true);
-		const snapshot = input.continuation;
-		if (input.kind === "resume" && snapshot?.memory instanceof Uint8Array) return captureWorkerResult(await run({
-			kind: "resume",
-			wasmModule: input.wasmModule,
-			wasmExtensions: input.wasmExtensions,
-			continuation: snapshot,
-			config,
-			settledRequests: Array.isArray(input.settledRequests) ? input.settledRequests : [],
-			pendingRequests: Array.isArray(input.pendingRequests) ? input.pendingRequests : []
-		}, channel), config, input.retainFinalValue === true);
-		return {
-			...failedWorkerResult("invalid_input", "invalid code mode worker input"),
-			output: EMPTY_CODE_MODE_OUTPUT
 		};
+		else {
+			const snapshot = input.continuation;
+			if (input.kind !== "resume" || !(snapshot?.memory instanceof Uint8Array)) return {
+				...failedWorkerResult("invalid_input", "invalid code mode worker input"),
+				output: EMPTY_CODE_MODE_OUTPUT
+			};
+			payload = {
+				kind: "resume",
+				wasmModule: input.wasmModule,
+				wasmExtensions: input.wasmExtensions,
+				continuation: snapshot,
+				config,
+				settledRequests: Array.isArray(input.settledRequests) ? input.settledRequests : [],
+				pendingRequests: Array.isArray(input.pendingRequests) ? input.pendingRequests : []
+			};
+		}
+		return captureWorkerResult(await run(payload, channel), config, input.retainFinalValue === true);
 	} catch (error) {
+		notifyWorkerFailure(channel, error);
 		const timedOut = isQuickJsInterruptedError(error);
 		return captureWorkerResult(failedWorkerResult(timedOut ? "timeout" : error instanceof CodeModeWorkerFailure ? error.code : error instanceof ToolInputError ? "invalid_input" : "internal_error", timedOut ? "code mode timeout exceeded" : errorMessage(error)), config);
 	}

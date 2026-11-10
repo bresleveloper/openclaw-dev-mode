@@ -1,0 +1,130 @@
+import { i as collectNestedErrorCandidates } from "./error-coercion-BwMr25F8.mjs";
+import { i as createAbortError } from "./src-Bzfi3cQM.mjs";
+import "./abort-signal-C9DFO3n5.mjs";
+import { c as normalizeAgentRunTimeoutPhase, l as normalizeProviderStarted, n as AGENT_RUN_RESTART_ABORT_STOP_REASON, r as AGENT_RUN_SUPERSEDED_STOP_REASON, t as AGENT_RUN_ABORTED_STOP_REASON } from "./agent-run-terminal-outcome-CrMEEYuY.mjs";
+import { f as isGatewayRestartDrainError } from "./gateway-work-admission-FWbk4b3p.mjs";
+import { n as findAgentRunTerminalOutcome } from "./agent-run-terminal-error-HtG1NUd1.mjs";
+import { o as isFailoverError, r as findErrorProperty, s as isSignalTimeoutReason } from "./error-Bcp4ZyOv.mjs";
+//#region src/agents/run-termination.ts
+/**
+* Shared agent run termination constants.
+*
+* Runtime and stream consumers use these stable literals to recognize user or
+* controller aborts without matching free-form error text.
+*/
+/** Error text used for aborted agent runs. */
+const AGENT_RUN_ABORTED_ERROR = "agent run aborted";
+/** Error text used for agent runs aborted by a gateway restart. */
+const AGENT_RUN_RESTART_ABORT_ERROR = "agent run aborted for restart";
+const AGENT_RUN_SUPERSEDED_ERROR = "agent run superseded by a newer session writer";
+/**
+* Transports copy this code onto the persisted assistant message via
+* `errorCode`, so restart recovery can recognize its own abort without matching
+* free-form provider error text.
+*/
+const AGENT_RUN_RESTART_ABORT_ERROR_CODE = "OPENCLAW_RESTART_ABORT";
+const AGENT_RUN_SUPERSEDED_ABORT_ERROR_CODE = "AGENT_RUN_SUPERSEDED_ABORT";
+const AGENT_RUN_DIRECT_ABORT_ERROR_CODE = "OPENCLAW_DIRECT_ABORT";
+function createAgentRunDirectAbortError() {
+	return Object.assign(createAbortError(AGENT_RUN_ABORTED_ERROR), { code: AGENT_RUN_DIRECT_ABORT_ERROR_CODE });
+}
+function hasAgentRunAbortCode(value, code) {
+	try {
+		return value instanceof Error && "code" in value && value.code === code;
+	} catch {
+		return false;
+	}
+}
+function isAgentRunDirectAbortReason(value) {
+	return hasAgentRunAbortCode(value, AGENT_RUN_DIRECT_ABORT_ERROR_CODE);
+}
+function createAgentRunRestartAbortError() {
+	return Object.assign(createAbortError(AGENT_RUN_RESTART_ABORT_ERROR), { code: AGENT_RUN_RESTART_ABORT_ERROR_CODE });
+}
+function createAgentRunSupersededAbortError() {
+	return Object.assign(createAbortError(AGENT_RUN_SUPERSEDED_ERROR), { code: AGENT_RUN_SUPERSEDED_ABORT_ERROR_CODE });
+}
+function isAgentRunRestartAbortReason(value) {
+	return hasAgentRunAbortCode(value, AGENT_RUN_RESTART_ABORT_ERROR_CODE);
+}
+function isAgentRunSupersededAbortReason(value) {
+	return collectNestedErrorCandidates(value).some((candidate) => hasAgentRunAbortCode(candidate, AGENT_RUN_SUPERSEDED_ABORT_ERROR_CODE));
+}
+function throwAgentRunRestartAbortReason(value) {
+	if (isAgentRunRestartAbortReason(value)) throw value;
+}
+const SESSION_PLACEMENT_TURN_SETTLEMENT_CLOSED_ERROR_CODE = "SESSION_PLACEMENT_TURN_SETTLEMENT_CLOSED";
+/** Mark loss of the turn's settlement lifetime without asserting a successor exists. */
+function createSessionPlacementSettlementClosedAbortError() {
+	return Object.assign(createAbortError("session placement turn settlement is closed"), { code: SESSION_PLACEMENT_TURN_SETTLEMENT_CLOSED_ERROR_CODE });
+}
+/** Recognize the owner's typed marker through error wrappers, never display text. */
+function isSessionPlacementSettlementClosedError(value) {
+	return collectNestedErrorCandidates(value).some((candidate) => hasAgentRunAbortCode(candidate, SESSION_PLACEMENT_TURN_SETTLEMENT_CLOSED_ERROR_CODE));
+}
+function resolveAgentRunAbortLifecycleFields(signal) {
+	if (!signal?.aborted) return {};
+	return {
+		aborted: true,
+		stopReason: isAgentRunRestartAbortReason(signal.reason) || isGatewayRestartDrainError(signal.reason) ? AGENT_RUN_RESTART_ABORT_STOP_REASON : isAgentRunSupersededAbortReason(signal.reason) ? AGENT_RUN_SUPERSEDED_STOP_REASON : isSignalTimeoutReason(signal.reason) ? "timeout" : AGENT_RUN_ABORTED_STOP_REASON
+	};
+}
+function resolveRunErrorTimeout(error) {
+	try {
+		const terminal = findAgentRunTerminalOutcome(error);
+		const timeout = terminal?.status === "timeout" ? terminal : findErrorProperty(error, (candidate) => isFailoverError(candidate) ? candidate.timeout : isSignalTimeoutReason(candidate) ? { timeoutPhase: "provider" } : void 0);
+		if (!timeout) return;
+		const timeoutPhase = normalizeAgentRunTimeoutPhase(timeout.timeoutPhase);
+		const providerStarted = normalizeProviderStarted(timeout.providerStarted);
+		return {
+			...timeoutPhase ? { timeoutPhase } : {},
+			...providerStarted !== void 0 ? { providerStarted } : {}
+		};
+	} catch {
+		return;
+	}
+}
+/** Preserve recorded run timeouts when no caller abort signal was raised. */
+function resolveAgentRunErrorLifecycleFields(error, signal) {
+	const abortFields = resolveAgentRunAbortLifecycleFields(signal);
+	if (abortFields.aborted) return abortFields;
+	if (isAgentRunDirectAbortReason(error)) return {
+		aborted: true,
+		stopReason: "aborted"
+	};
+	if (isAgentRunRestartAbortReason(error)) return {
+		aborted: true,
+		stopReason: AGENT_RUN_RESTART_ABORT_STOP_REASON
+	};
+	if (isAgentRunSupersededAbortReason(error)) return {
+		aborted: true,
+		stopReason: AGENT_RUN_SUPERSEDED_STOP_REASON
+	};
+	const timeout = resolveRunErrorTimeout(error);
+	if (timeout) return {
+		stopReason: "timeout",
+		...timeout
+	};
+	if (collectNestedErrorCandidates(error).some(isGatewayRestartDrainError)) return {
+		aborted: true,
+		stopReason: AGENT_RUN_RESTART_ABORT_STOP_REASON
+	};
+	return {};
+}
+/**
+* CLI tool terminal reason for one-shot and live runners.
+* Abort-signal lifecycle is authoritative so a timeout abort stays timed_out
+* even when the delivered error is a generic AbortError.
+*/
+function resolveCliToolTerminalReason(params) {
+	const terminal = resolveAgentRunErrorLifecycleFields(params.error, params.abortSignal);
+	if (terminal.stopReason === "timeout") return "timed_out";
+	if (terminal.aborted) return "cancelled";
+	const { error } = params;
+	try {
+		if (error instanceof Error && error.name === "AbortError") return "cancelled";
+	} catch {}
+	return "failed";
+}
+//#endregion
+export { createAgentRunDirectAbortError as a, createSessionPlacementSettlementClosedAbortError as c, isAgentRunSupersededAbortReason as d, isSessionPlacementSettlementClosedError as f, throwAgentRunRestartAbortReason as g, resolveCliToolTerminalReason as h, AGENT_RUN_SUPERSEDED_ERROR as i, isAgentRunDirectAbortReason as l, resolveAgentRunErrorLifecycleFields as m, AGENT_RUN_RESTART_ABORT_ERROR as n, createAgentRunRestartAbortError as o, resolveAgentRunAbortLifecycleFields as p, AGENT_RUN_RESTART_ABORT_ERROR_CODE as r, createAgentRunSupersededAbortError as s, AGENT_RUN_ABORTED_ERROR as t, isAgentRunRestartAbortReason as u };

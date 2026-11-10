@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { pruneMapToMaxSize } from "openclaw/plugin-sdk/collection-runtime";
+import { createSubsystemLogger } from "openclaw/plugin-sdk/logging-core";
 import { readResponseWithLimit } from "openclaw/plugin-sdk/response-limit-runtime";
 import { parseRetryAfterHeaderSeconds } from "openclaw/plugin-sdk/retry-runtime";
 import {
@@ -53,15 +54,19 @@ const GITHUB_API_VERSION = "2022-11-28";
 const GITHUB_API_MAX_REDIRECTS = 3;
 const GITHUB_QUOTA_CACHE_LIMIT = 200;
 const GITHUB_QUOTA_RETRY_MS = 60_000;
+const log = createSubsystemLogger("github/http");
 
 // Normal Gateway callers share global fetch; injected transports own separate
 // API environments and release their cooldown state with that transport.
 const transportCooldowns = new WeakMap<typeof fetch, Map<string, ControlUiGitHubError>>();
 // Body-reported quotas belong to the admitted request even after API configuration changes.
-const responseCredentialScopes = new WeakMap<Response, string>();
+const responseRequestScopes = new WeakMap<
+  Response,
+  { credentialScope: string; fetchImpl: typeof fetch; resource: string }
+>();
 
 export class ControlUiGitHubError extends Error {
-  private readonly retryAtMs?: number;
+  readonly retryAtMs: number | undefined;
   readonly upstreamStatus: number;
   readonly retryable: boolean;
 
@@ -288,12 +293,15 @@ export async function fetchGitHubApi(
   const timeout = AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS);
   const signal = callerSignal ? AbortSignal.any([timeout, callerSignal]) : timeout;
   for (let redirects = 0; ; redirects += 1) {
+    const startedAt = performance.now();
     // Recheck every dispatch, including redirects and auxiliary metadata reads.
     // Selection must still be current after the asynchronous credential read.
     if (identity) {
       await identity.revalidate();
       identity.assertSelected();
     }
+    const authorizedAt = performance.now();
+    const authMs = Math.round(authorizedAt - startedAt);
     callerSignal?.throwIfAborted();
     const resource = githubApiResource(url, baseUrl, graphqlUrl);
     const sharedCooldown = activeGitHubCooldown(cooldowns, `${credentialScope}:*`);
@@ -316,6 +324,16 @@ export async function fetchGitHubApi(
         ...(graphql ? { method: "POST", body: JSON.stringify(graphql) } : {}),
         redirect: "manual",
         signal,
+      }).finally(() => {
+        const finishedAt = performance.now();
+        if (authMs + finishedAt - authorizedAt >= 500) {
+          log.info("Slow GitHub API request", {
+            authMs,
+            networkMs: Math.round(finishedAt - authorizedAt),
+            resource,
+            aborted: signal.aborted,
+          });
+        }
       });
     } catch (error) {
       const timedOut = signal.aborted || (error instanceof Error && error.name === "TimeoutError");
@@ -335,7 +353,7 @@ export async function fetchGitHubApi(
       throw retained;
     }
     if (!isGitHubApiRedirect(response.status)) {
-      responseCredentialScopes.set(response, credentialScope);
+      responseRequestScopes.set(response, { credentialScope, fetchImpl, resource });
       return response;
     }
 
@@ -359,7 +377,7 @@ export async function fetchGitHubApi(
 }
 
 export async function discardResponse(response: Response): Promise<void> {
-  await response.body?.cancel().catch(() => {});
+  void response.body?.cancel().catch(() => {});
 }
 
 export async function readBoundedResponse(response: Response, maxBytes: number): Promise<Buffer> {
@@ -373,8 +391,8 @@ export async function readBoundedResponse(response: Response, maxBytes: number):
 }
 
 // GitHub reports quota exhaustion as 429 or as 403 with exhausted-quota
-// headers; a bare 403 is a permission response and must stay distinguishable
-// so callers can degrade optional fetches instead of flagging rate limits.
+// headers. Body-reported secondary limits are classified by the JSON reader;
+// other 403 responses remain permission failures.
 function isGitHubRateLimitResponse(response: Response): boolean {
   if (response.status === 429) {
     return true;
@@ -395,8 +413,8 @@ function githubResponseErrorStatus(response: Response): number {
   return 502;
 }
 
-function githubResponseError(response: Response, graphqlRateLimited = false): ControlUiGitHubError {
-  const status = graphqlRateLimited ? 429 : githubResponseErrorStatus(response);
+function githubResponseError(response: Response, rateLimited = false): ControlUiGitHubError {
+  const status = rateLimited ? 429 : githubResponseErrorStatus(response);
   let retryAtMs: number | undefined;
   if (status === 429) {
     const now = Date.now();
@@ -413,7 +431,10 @@ function githubResponseError(response: Response, graphqlRateLimited = false): Co
           ? reset * 1_000
           : undefined;
     retryAtMs =
-      proposed !== undefined && Number.isSafeInteger(proposed) && proposed > now
+      proposed !== undefined &&
+      Number.isSafeInteger(proposed) &&
+      Number.isFinite(new Date(proposed).getTime()) &&
+      proposed > now
         ? proposed
         : now + GITHUB_QUOTA_RETRY_MS;
   }
@@ -431,7 +452,7 @@ export async function readGitHubGraphQLResponse(
   maxBytes?: number,
 ): Promise<unknown> {
   const credentialScope =
-    responseCredentialScopes.get(response) ??
+    responseRequestScopes.get(response)?.credentialScope ??
     `${DEFAULT_GITHUB_API_BASE_URL}:${githubApiCredentialCacheScope(token)}`;
   const value =
     response.status === 403 && !isGitHubRateLimitResponse(response)
@@ -527,6 +548,31 @@ export async function readGitHubJsonResponse(
   maxBytes = GITHUB_JSON_MAX_BYTES,
 ): Promise<unknown> {
   if (!response.ok) {
+    if (response.status === 403 && !isGitHubRateLimitResponse(response)) {
+      let payload: unknown;
+      try {
+        payload = await readGitHubJsonBody(response, maxBytes);
+      } catch {
+        // An unreadable error body must not change a permission failure's status.
+      }
+      if (
+        isRecord(payload) &&
+        typeof payload.message === "string" &&
+        /\b(?:secondary rate limit|abuse detection)\b/iu.test(payload.message)
+      ) {
+        const error = githubResponseError(response, true);
+        const scope = responseRequestScopes.get(response);
+        throw scope
+          ? retainGitHubCooldown(
+              scope.fetchImpl,
+              scope.credentialScope,
+              scope.resource,
+              response,
+              error,
+            )
+          : error;
+      }
+    }
     await discardResponse(response);
     throw githubResponseError(response);
   }

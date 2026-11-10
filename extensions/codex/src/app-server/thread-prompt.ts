@@ -28,30 +28,72 @@ export type CodexThreadPromptContext = Pick<
   | "disableTools"
   | "disableMessageTool"
   | "delegationCapability"
+  | "pluginHarnessToolPolicyRestricted"
+  | "requireWorkspaceOnly"
   | "toolsAllow"
   | "sourceReplyDeliveryMode"
   | "promptMode"
   | "extraSystemPrompt"
+  | "extraSystemPromptTurnContext"
   | "gitCoauthorPrompt"
   | "runtimePlan"
 >;
 
+/** Move only the exact section annotated by its producer; later policy additions survive. */
+export function splitCodexExtraSystemPrompt(
+  params: Pick<CodexThreadPromptContext, "extraSystemPrompt" | "extraSystemPromptTurnContext">,
+) {
+  const prompt = params.extraSystemPrompt;
+  const context = params.extraSystemPromptTurnContext;
+  if (!prompt || !context?.text || !Number.isInteger(context.start) || context.start < 0) {
+    return { persistent: prompt, turn: undefined };
+  }
+  const end = context.start + context.text.length;
+  if (
+    prompt.slice(context.start, end) !== context.text ||
+    (context.start > 0 && prompt.slice(context.start - 2, context.start) !== "\n\n") ||
+    (end < prompt.length && prompt.slice(end, end + 2) !== "\n\n")
+  ) {
+    return { persistent: prompt, turn: undefined };
+  }
+  return {
+    persistent:
+      context.start === 0
+        ? prompt.slice(end === prompt.length ? end : end + 2)
+        : prompt.slice(0, context.start - 2) + prompt.slice(end),
+    turn: context.text,
+  };
+}
+
+/** Complete current snapshot for the existing parent-local inference relay. */
+export function buildCodexConversationTurnInstructions(
+  params: Pick<CodexThreadPromptContext, "extraSystemPrompt" | "extraSystemPromptTurnContext">,
+  availableDynamicTools: readonly CodexDynamicToolSpec[],
+): string {
+  const availableNames = availableDynamicTools.flatMap((spec) =>
+    spec.type === "namespace" ? spec.tools.map((tool) => `${spec.name}.${tool.name}`) : [spec.name],
+  );
+  return [
+    "Current OpenClaw conversation instructions (replace earlier conversation context, not persistent policy):",
+    splitCodexExtraSystemPrompt(params).turn ??
+      "No additional conversation instructions for this turn.",
+    `Current OpenClaw tool bindings for this turn (accepted declarations alone do not grant execution): ${availableNames.length ? availableNames.toSorted().join(", ") : "none"}.`,
+  ].join("\n\n");
+}
+
 export function buildDeveloperInstructions(
   params: CodexThreadPromptContext,
-  options: { dynamicTools?: readonly CodexDynamicToolSpec[] } = {},
+  options: {
+    dynamicTools?: readonly CodexDynamicToolSpec[];
+    nativeCodeModeOnlyEnabled?: boolean;
+    /** Requires a selected compaction-safe relay before omitting context. */
+    omitConversationTurnContext?: boolean;
+  } = {},
 ): string {
   const deferredToolNames = new Set<string>();
-  let screenToolName: string | undefined;
-  let showWidgetToolName: string | undefined;
-  let dashboardToolName: string | undefined;
-  let portalToolName: string | undefined;
+  const toolNames = new Map<string, string>();
   let messageTool: Parameters<typeof buildUiPresentationPrompt>[0]["messageTool"];
-  let hasSkillWorkshop = false;
-  let hasSessionsSpawn = false;
   let hasSessionsYield = false;
-  let hasSubagentsList = false;
-  let hasSessionsSend = false;
-  let hasControlTools = false;
   let hasSeenDirectNamespace = false;
   for (const spec of options.dynamicTools ?? []) {
     const isDirectNamespace =
@@ -67,29 +109,16 @@ export function buildDeveloperInstructions(
       if (tool.deferLoading === true && name) {
         deferredToolNames.add(name);
       }
-      if (name === "screen") {
-        screenToolName ??= qualifiedName;
-      }
-      if (name === "show_widget") {
-        showWidgetToolName ??= qualifiedName;
-      }
-      if (name === "dashboard") {
-        dashboardToolName ??= qualifiedName;
-      }
-      if (name === "portal") {
-        portalToolName ??= qualifiedName;
+      if (!toolNames.has(name)) {
+        toolNames.set(name, qualifiedName);
       }
       if (name === "message") {
         messageTool ??= { name: qualifiedName, parameters: tool.inputSchema };
       }
-      hasSkillWorkshop ||= name === SKILL_WORKSHOP_TOOL_NAME;
-      hasSessionsSpawn ||= name === "sessions_spawn";
       hasSessionsYield ||= isDirectNamespace && name === "sessions_yield";
-      hasSubagentsList ||= name === "subagents";
-      hasSessionsSend ||= name === "sessions_send";
-      hasControlTools ||= name === "openclaw" || name === "gateway";
     }
   }
+  const hasSessionsSpawn = toolNames.has("sessions_spawn");
   const nativeCommandGuidance = listRegisteredPluginAgentPromptGuidance({
     surface: "codex_app_server",
     includeLegacyGlobalGuidance: false,
@@ -101,12 +130,16 @@ export function buildDeveloperInstructions(
     !isMessageOnlyCodexSourceReply(params);
   const nativeDelegationAvailable =
     delegationGuidanceAvailable &&
+    params.pluginHarnessToolPolicyRestricted !== true &&
+    params.requireWorkspaceOnly !== true &&
     !isCodexResponsesOAuthRun(params) &&
     !isSystemAgentOnlyCodexDynamicToolAllowlist(params.toolsAllow) &&
     !shouldDisableCodexToolSearchForModel(params.modelId);
   const deferredToolDiscoveryGuidance =
     deferredToolNames.size > 0 || nativeDelegationAvailable
-      ? "Deferred tools may be absent from the direct tool list. Use `tool_search` when directly callable. On code-mode-only models, use `exec` instead: filter `ALL_TOOLS` by name and description, then call the matching entry through `tools`."
+      ? options.nativeCodeModeOnlyEnabled === true
+        ? "Deferred tools may be absent from the direct tool list. Use `tool_search` when directly callable. On code-mode-only models, use `exec` instead: filter `ALL_TOOLS` by name and description, then call the matching entry through `tools`."
+        : "Deferred tools may be absent from the direct tool list. Call a tool that is in the direct tool list directly. Use `tool_search` to find a tool that is not listed; if `tool_search` is not directly callable, use `exec` to filter `ALL_TOOLS` by name and description and call the matching entry through `tools`. Never use `exec` to look up a tool that is already listed, and do not re-run a completed call to get a result you already have."
       : undefined;
   const sections = [
     "You are a personal agent running inside OpenClaw. OpenClaw has dynamic tools for OpenClaw-owned messaging, cron, sessions, media, gateway, and nodes.",
@@ -116,7 +149,9 @@ export function buildDeveloperInstructions(
           .join(", ")}.`
       : undefined,
     deferredToolDiscoveryGuidance,
-    hasSkillWorkshop ? buildSkillWorkshopPromptSection().join("\n") : undefined,
+    toolNames.has(SKILL_WORKSHOP_TOOL_NAME)
+      ? buildSkillWorkshopPromptSection().join("\n")
+      : undefined,
     // Codex defers native collab tools behind tool_search on search-capable
     // models (codex-rs spec_plan add_collaboration_tools). Without this hint
     // models cannot see spawn_agent and grab the always-direct sessions_spawn.
@@ -142,25 +177,28 @@ export function buildDeveloperInstructions(
               : "",
           hasVisibleSessionSpawn: hasSessionsSpawn,
           hasSessionsYield,
-          hasSubagentsList,
-          hasSessionsSend,
+          hasSubagentsList: toolNames.has("subagents"),
+          hasSessionsSend: toolNames.has("sessions_send"),
         }).join("\n")
       : undefined,
     params.disableTools !== true && params.promptMode !== "minimal" && params.promptMode !== "none"
       ? buildUiPresentationPrompt({
-          screenToolName,
-          showWidgetToolName,
-          dashboardToolName,
-          portalToolName,
+          screenToolName: toolNames.get("screen"),
+          showWidgetToolName: toolNames.get("show_widget"),
+          dashboardToolName: toolNames.get("dashboard"),
+          portalToolName: toolNames.get("portal"),
           messageTool,
         })
       : undefined,
     buildCredentialSafetyPrompt({
-      controlToolsAvailable: params.disableTools !== true && hasControlTools,
+      controlToolsAvailable:
+        params.disableTools !== true && (toolNames.has("openclaw") || toolNames.has("gateway")),
     }),
     nativeCommandGuidance,
     params.gitCoauthorPrompt,
-    params.extraSystemPrompt,
+    options.omitConversationTurnContext
+      ? splitCodexExtraSystemPrompt(params).persistent
+      : params.extraSystemPrompt,
   ];
   return sections.filter((section) => typeof section === "string" && section.trim()).join("\n\n");
 }

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-IQf3eJtA.mjs";import{b as t}from"./worker-chunk-veWgqhub.mjs";function init_absolute_deadline(){return(init_absolute_deadline=e((()=>{t()})))()}export{init_absolute_deadline as t};

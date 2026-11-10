@@ -1,11 +1,11 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
-import { n as assertOkOrThrowHttpError, p as readProviderJsonObjectResponse } from "../../provider-http-errors-DmewLLH7.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { f as postMultipartRequest, h as resolveProviderHttpRequestConfig, t as buildAudioTranscriptionFormData } from "../../shared-DcnGQdHV.mjs";
-import "../../provider-http-CuRGJD0L.mjs";
-import { t as XAI_BASE_URL } from "../../model-definitions-BTg9V4Hq.mjs";
-import { l as createXaiMediaUnderstandingProviderMetadata } from "../../capability-provider-metadata-factory-C2QQ6-HN.mjs";
-import "../../capability-provider-metadata-mORI2UCe.mjs";
+import { n as assertOkOrThrowHttpError, p as readProviderJsonObjectResponse } from "../../provider-http-errors-CjVOxCE5.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { f as postMultipartRequest, h as resolveProviderHttpRequestConfig, p as requireTranscriptionText, t as buildAudioTranscriptionFormData } from "../../shared-BMUa_P4s.mjs";
+import "../../provider-http-BuV15s4V.mjs";
+import { t as XAI_BASE_URL } from "../../model-definitions-Bv0caRc4.mjs";
+import { l as createXaiMediaUnderstandingProviderMetadata } from "../../capability-provider-metadata-factory-Cs1Hgti5.mjs";
+import "../../capability-provider-metadata-D94p50HJ.mjs";
 //#region extensions/xai/stt.ts
 function resolveXaiSttBaseUrl(value) {
 	return normalizeOptionalString(value ?? process.env.XAI_BASE_URL) ?? XAI_BASE_URL;
@@ -44,8 +44,7 @@ async function transcribeXaiAudio(params) {
 	try {
 		await assertOkOrThrowHttpError(response, "xAI audio transcription failed");
 		const payload = await readProviderJsonObjectResponse(response, "xai.stt");
-		if (typeof payload.text !== "string") throw new Error("xAI transcription response missing text");
-		return { text: payload.text.trim() };
+		return { text: requireTranscriptionText(payload.text, "xAI transcription response missing text") };
 	} finally {
 		await release();
 	}

@@ -213,14 +213,7 @@ export function createBlockedPluginDiagnosticLookup(params: {
     ) {
       return true;
     }
-    const loadPaths = params.config?.plugins?.load?.paths;
-    if (!Array.isArray(loadPaths)) {
-      return false;
-    }
-    for (const loadPath of loadPaths) {
-      if (typeof loadPath !== "string") {
-        continue;
-      }
+    for (const loadPath of params.config?.plugins?.load?.paths ?? []) {
       const resolvedLoadPath = normalizeBlockedDiagnosticPath(loadPath);
       if (
         resolvedLoadPath &&

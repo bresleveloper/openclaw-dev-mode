@@ -10,9 +10,9 @@ import {
   resolveInlineImageJsonResponseMaxBytes,
   toImageDataUrl,
 } from "openclaw/plugin-sdk/image-generation";
-import { resolveGeneratedMediaMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
+import { resolveGeneratedImageDownloadMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
 import { resolveIntegerOption } from "openclaw/plugin-sdk/number-runtime";
-import { isProviderApiKeyConfigured } from "openclaw/plugin-sdk/provider-auth";
+import { isProviderApiKeyConfiguredAsync } from "openclaw/plugin-sdk/provider-auth";
 import {
   assertOkOrThrowHttpError,
   postJsonRequest,
@@ -255,7 +255,7 @@ export function buildOpenRouterImageGenerationProvider(): ImageGenerationProvide
     label: "OpenRouter",
     defaultModel: DEFAULT_MODEL,
     models: [...SUPPORTED_MODELS],
-    isConfigured: (ctx) => isProviderApiKeyConfigured({ provider: "openrouter", ...ctx }),
+    isConfiguredAsync: (ctx) => isProviderApiKeyConfiguredAsync({ provider: "openrouter", ...ctx }),
     capabilities: {
       generate: {
         maxCount: MAX_IMAGE_RESULTS,
@@ -322,7 +322,7 @@ export function buildOpenRouterImageGenerationProvider(): ImageGenerationProvide
               {
                 maxBytes: resolveInlineImageJsonResponseMaxBytes(
                   canonicalBaseUrl ? 1 : count,
-                  resolveGeneratedMediaMaxBytes(req.cfg, "image"),
+                  resolveGeneratedImageDownloadMaxBytes(req.cfg),
                 ),
               },
             );

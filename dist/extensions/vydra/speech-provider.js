@@ -30,6 +30,7 @@ function readVydraSpeechConfig(config) {
 	};
 }
 function buildVydraSpeechProvider() {
+	const isConfigured = ({ providerConfig }) => Boolean(resolveSpeechProviderApiKey(readVydraSpeechConfig(providerConfig).apiKey, process.env.VYDRA_API_KEY));
 	return {
 		id: "vydra",
 		label: "Vydra",
@@ -37,7 +38,8 @@ function buildVydraSpeechProvider() {
 		voices: VYDRA_SPEECH_VOICES.map((voice) => voice.id),
 		resolveConfig: ({ rawConfig }) => normalizeVydraSpeechConfig(rawConfig),
 		listVoices: async () => VYDRA_SPEECH_VOICES.map((voice) => Object.assign({}, voice)),
-		isConfigured: ({ providerConfig }) => Boolean(resolveSpeechProviderApiKey(readVydraSpeechConfig(providerConfig).apiKey, process.env.VYDRA_API_KEY)),
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		synthesize: async (req) => {
 			const { downloadVydraAsset, extractVydraResultUrls } = await import("./shared.js");
 			const config = readVydraSpeechConfig(req.providerConfig);

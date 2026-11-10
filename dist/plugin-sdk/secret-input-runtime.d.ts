@@ -1,6 +1,6 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { c as normalizeResolvedSecretInputString, d as SecretInput, h as isSecretRef, l as normalizeSecretInputString, n as SecretInputStringResolution, o as coerceSecretRef, r as SecretInputStringResolutionMode, s as hasConfiguredSecretInput, u as resolveSecretInputString } from "../types.secrets-CqlN900w.js";
-import { n as PluginManifestRegistry } from "../manifest-registry-Bj1Q7bnt.js";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { a as coerceSecretRef, c as normalizeSecretInputString, l as resolveSecretInputString, m as isSecretRef, n as SecretInputStringResolution, o as hasConfiguredSecretInput, r as SecretInputStringResolutionMode, s as normalizeResolvedSecretInputString, u as SecretInput } from "../types.secrets-BcsEzH0R.js";
+import { n as PluginManifestRegistry } from "../manifest-registry-DcAsDGQ5.js";
 //#region src/gateway/resolve-configured-secret-input-string.d.ts
 type SecretInputUnresolvedReasonStyle = "generic" | "detailed";
 type ConfiguredSecretInputSource = "config" | "secretRef" | "fallback";

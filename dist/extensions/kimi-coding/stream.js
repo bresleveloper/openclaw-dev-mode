@@ -1,6 +1,6 @@
-import { isKimiK3ModelId } from "./provider-policy-api.js";
+import { KIMI_K3_THINKING_EFFORTS, isKimiK31ModelId, isKimiK3ModelId } from "./provider-policy-api.js";
 import { asFiniteNumberInRange, asOptionalObjectRecord, isRecord, parseBooleanValue } from "openclaw/plugin-sdk/string-coerce-runtime";
-import { streamSimple } from "openclaw/plugin-sdk/llm";
+import { resolveOpenAIRequestReasoning, streamSimple } from "openclaw/plugin-sdk/llm";
 import { normalizeOpenAICompatibleReasoningReplay, streamWithPayloadPatch, transformProviderStreamMessages } from "openclaw/plugin-sdk/provider-stream-shared";
 //#region extensions/kimi-coding/stream.ts
 const TOOL_CALLS_SECTION_BEGIN = "<|tool_calls_section_begin|>";
@@ -19,15 +19,6 @@ const KIMI_ANTHROPIC_THINKING_BUDGETS = {
 };
 const KIMI_ANTHROPIC_VISIBLE_OUTPUT_RESERVE_TOKENS = 1024;
 const KIMI_ANTHROPIC_MIN_OUTPUT_TOKENS = 16e3;
-const KIMI_K3_THINKING_EFFORTS = {
-	minimal: "low",
-	low: "low",
-	medium: "high",
-	high: "high",
-	adaptive: "high",
-	xhigh: "max",
-	max: "max"
-};
 function ensureKimiAnthropicMaxTokens(payloadObj, thinkingConfig) {
 	if (thinkingConfig.type !== "enabled" || thinkingConfig.budget_tokens === void 0) return;
 	const required = Math.max(KIMI_ANTHROPIC_MIN_OUTPUT_TOKENS, thinkingConfig.budget_tokens + KIMI_ANTHROPIC_VISIBLE_OUTPUT_RESERVE_TOKENS);
@@ -141,13 +132,18 @@ function createKimiToolCallMarkupWrapper(baseStreamFn) {
 }
 function wrapKimiProviderStream(ctx) {
 	const configured = normalizeKimiThinkingConfig(ctx.extraParams?.thinking);
+	const extraBody = asOptionalObjectRecord(ctx.extraParams?.extra_body ?? ctx.extraParams?.extraBody);
+	const templateKwargs = asOptionalObjectRecord(extraBody?.chat_template_kwargs ?? ctx.extraParams?.chat_template_kwargs ?? ctx.extraParams?.chatTemplateKwargs);
 	const underlying = ctx.streamFn ?? streamSimple;
 	return createKimiToolCallMarkupWrapper((model, context, options) => {
-		const anthropic = (ctx.sourceApi ?? model.api) === "anthropic-messages";
+		const api = ctx.sourceApi ?? model.api;
+		const anthropic = api === "anthropic-messages";
 		const k3 = anthropic && isKimiK3ModelId(model.id);
-		const thinkingLevel = options?.reasoning ?? ctx.thinkingLevel ?? (k3 ? "high" : void 0);
+		const openaiK3 = api === "openai-completions" && isKimiK3ModelId(model.id);
+		const requestedLevel = options?.reasoning ?? ctx.thinkingLevel ?? (k3 ? "high" : void 0);
+		const thinkingLevel = anthropic && isKimiK31ModelId(model.id) && requestedLevel === "off" ? "high" : requestedLevel;
 		const thinkingConfig = resolveKimiThinkingConfig(configured, thinkingLevel);
-		const enabledLevel = thinkingLevel && thinkingLevel !== "off" ? thinkingLevel : k3 ? "high" : "low";
+		const enabledLevel = thinkingLevel && thinkingLevel !== "off" ? thinkingLevel : k3 || openaiK3 ? "high" : "low";
 		const nativeLevel = enabledLevel === "adaptive" ? "high" : enabledLevel;
 		const reasoning = thinkingConfig.type === "disabled" ? "off" : k3 ? KIMI_K3_THINKING_EFFORTS[nativeLevel] : nativeLevel;
 		const runtimeModel = k3 ? {
@@ -155,6 +151,12 @@ function wrapKimiProviderStream(ctx) {
 			compat: {
 				...model.compat,
 				allowEmptySignature: true
+			}
+		} : openaiK3 ? {
+			...model,
+			thinkingLevelMap: {
+				...KIMI_K3_THINKING_EFFORTS,
+				...model.thinkingLevelMap
 			}
 		} : model;
 		return streamWithPayloadPatch(underlying, runtimeModel, context, {
@@ -183,10 +185,16 @@ function wrapKimiProviderStream(ctx) {
 			}
 			payloadObj.thinking = anthropic ? { ...thinkingConfig } : { type: thinkingConfig.type };
 			if (anthropic) ensureKimiAnthropicMaxTokens(payloadObj, thinkingConfig);
-			else normalizeOpenAICompatibleReasoningReplay(payloadObj, {
-				thinkingEnabled: thinkingConfig.type === "enabled",
-				shouldBackfillAssistantMessage: (message) => Array.isArray(message.tool_calls) && message.tool_calls.length > 0
-			});
+			else {
+				if (openaiK3 && reasoning !== "off" && templateKwargs?.reasoning_effort === void 0) {
+					const { effort } = resolveOpenAIRequestReasoning(runtimeModel, reasoning);
+					if (effort !== void 0) payloadObj.reasoning_effort = effort;
+				}
+				normalizeOpenAICompatibleReasoningReplay(payloadObj, {
+					thinkingEnabled: thinkingConfig.type === "enabled",
+					shouldBackfillAssistantMessage: (message) => Array.isArray(message.tool_calls) && message.tool_calls.length > 0
+				});
+			}
 		});
 	});
 }

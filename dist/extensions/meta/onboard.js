@@ -1,4 +1,4 @@
-import { a as openclaw_plugin_default, r as buildMetaCatalogModels, t as META_BASE_URL } from "./.setup/provider-catalog-BNTlqvTm.mjs";
+import { a as openclaw_plugin_default, r as buildMetaCatalogModels, t as META_BASE_URL } from "./.setup/provider-catalog-Drud68bm.mjs";
 import { readManifestProviderDefaultModelRef } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { createModelCatalogPresetAppliers, createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/meta/onboard.ts

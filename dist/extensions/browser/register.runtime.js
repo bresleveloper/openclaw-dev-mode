@@ -1,43 +1,42 @@
 import { o as normalizeLowercaseStringOrEmpty, t as hasNonEmptyString } from "../../string-coerce-1VuiLaaR.mjs";
-import { n as isTruthyEnvValue } from "../../env-BBJTTIuE.mjs";
+import { n as isTruthyEnvValue } from "../../env-DbG527wb.mjs";
 import { r as asNullableRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { d as normalizeStringEntries } from "../../string-normalization-CECOqf64.mjs";
-import { o as hasConfiguredSecretInput } from "../../types.secrets-DsPRn9Dz.mjs";
-import { t as formatCliCommand } from "../../command-format-DwEdrDKL.mjs";
+import { d as normalizeStringEntries } from "../../string-normalization-D6DKCpwE.mjs";
+import { o as hasConfiguredSecretInput } from "../../types.secrets-Dgbd2kyP.mjs";
 import { Et as _enum, Jn as string, Lt as boolean, Pn as number, Un as record, qn as strictObject, sr as unknown } from "../../schemas-BOYIvvln.mjs";
-import { s as isPrivateIpAddress } from "../../ssrf-v45DW-yR.mjs";
-import { t as ErrorCodes } from "../../gateway-error-details-DIefe7Zy.mjs";
-import { f as errorShape } from "../../error-codes-Dh56LniQ.mjs";
-import { n as detectMime } from "../../mime-CGDYrRzL.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../runtime-env-BjPzo7IN.mjs";
-import "../../secret-input-BXhRrpGu.mjs";
-import "../../setup-tools-D6A0I-Kz.mjs";
-import { i as isPrivateNetworkOptInEnabled } from "../../ssrf-policy-CWFvb6PK.mjs";
-import "../../media-mime-DLFR6fqC.mjs";
-import { t as startLazyPluginServiceModule } from "../../plugin-runtime-DJr2pk-j.mjs";
-import "../../gateway-runtime-DMDKFL1_.mjs";
-import { n as redactCdpUrl } from "../../browser-cdp-DgJ98Oxl.mjs";
-import { $ as getOptionalBrowserStateRuntime, Q as getBrowserStateRuntime } from "../../session-tab-store-D3MRWtH0.mjs";
-import { n as applyBrowserTabToolBinding, r as BROWSER_PROXY_COMMAND } from "../../browser-tool-description-CRHph32o.mjs";
-import { i as resolveBrowserConfig, r as isLocalManagedProfile, s as resolveProfile } from "../../config-DQZ6ubGi.mjs";
-import { n as resolveCdpControlPolicy } from "../../cdp-reachability-policy-38poFoxo.mjs";
-import { r as closeTrackedCdpTarget } from "../../cdp.helpers-r6708sL2.mjs";
-import { a as loadBrowserConfigForRuntimeRefresh } from "../../server-context-D9ePJOZb.mjs";
-import { c as isProfileGenerationCurrent, o as getProfileLifecycle } from "../../server-context.lifecycle-Dpq7t7Ns.mjs";
-import { n as getPwAiModule } from "../../pw-ai-module-DlH89P_E.mjs";
-import { a as browserNavigationPolicyForProfile, c as normalizeBrowserRequestPath, l as resolveRequestedBrowserProfile, o as isBrowserHostLocalRoute, s as isPersistentBrowserProfileMutation } from "../../routes-CNPUwaUB.mjs";
-import { t as createBrowserRouteDispatcher } from "../../dispatcher-vGeVOdV2.mjs";
-import { n as resolveBrowserControlAuth } from "../../control-auth-DFBKuIY4.mjs";
-import { i as createBrowserTool, n as handleBrowserGatewayRequest, r as withTimeout } from "../../browser-request-CZ2fWUTe.mjs";
-import { d as assertBrowserProxyFileCountWithinLimit, f as createBrowserProxyFailure, h as visitBrowserProxyFilePaths, n as ensureBrowserProxyUploadCleanup, o as stageBrowserProxyUploadRequest, r as hasBrowserProxyUploadWork, s as BROWSER_PROXY_ERROR_ENVELOPE, t as discardStagedBrowserProxyUpload, u as assertBrowserProxyFileBytesWithinLimits } from "../../browser-proxy-upload-BdXafJCn.mjs";
-import { t as resolveBrowserProxyTimeoutMs } from "../../browser-proxy-timeouts-l1Xf3Ykq.mjs";
-import { i as hasBrowserControlWork, r as getBrowserControlState, t as createBrowserControlContext } from "../../browser-control-state-GDpb2Kjv.mjs";
-import { t as describeBrowserControlUnavailable } from "../../plugin-enabled-6OuZ5GNX.mjs";
-import { n as stopBrowserControlService, t as startBrowserControlServiceFromConfig } from "../../control-service-TYtFFvCT.mjs";
-import { n as sameBrowserDashboardDefinition, t as readBrowserDashboardDefinition } from "../../browser-dashboard-definition-BDAe-mpi.mjs";
+import { t as formatCliCommand } from "../../command-format-CYoE8cOC.mjs";
+import { Ng as errorShape } from "../../src-pLJQA6J5.mjs";
+import { t as ErrorCodes } from "../../gateway-error-details-Cl-eEOTQ.mjs";
+import { n as detectMime } from "../../mime-C3j3dfQb.mjs";
+import { s as isPrivateIpAddress } from "../../ssrf-K50Tjeok.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../runtime-env-BMLaJD4Z.mjs";
+import "../../secret-input-CHX7JVid.mjs";
+import "../../setup-tools-CXw-D_tA.mjs";
+import { i as isPrivateNetworkOptInEnabled } from "../../ssrf-policy-DoYWKlsK.mjs";
+import "../../media-mime-CvBp3WXh.mjs";
+import { t as startLazyPluginServiceModule } from "../../plugin-runtime-BaFUwWWh.mjs";
+import "../../gateway-runtime-DVShvn9X.mjs";
+import { n as redactCdpUrl } from "../../browser-cdp-Dob0VJzE.mjs";
+import { J as getOptionalBrowserStateRuntime, q as getBrowserStateRuntime } from "../../session-tab-store-BOOOSxTp.mjs";
+import { n as applyBrowserTabToolBinding, r as BROWSER_PROXY_COMMAND } from "../../browser-tool-description-C4fzwnZx.mjs";
+import { i as resolveBrowserConfig, r as isLocalManagedProfile, s as resolveProfile } from "../../config-xjgIR3E-.mjs";
+import { n as resolveCdpControlPolicy } from "../../cdp-reachability-policy-CO2D0o9N.mjs";
+import { r as closeTrackedCdpTarget } from "../../cdp.helpers-BaWyTLh_.mjs";
+import { o as loadBrowserConfigForRuntimeRefresh } from "../../server-context-CPt-k1G_.mjs";
+import { c as isProfileOperationCurrent, o as getProfileLifecycle } from "../../server-context.lifecycle-BoKswvT1.mjs";
+import { n as getPwAiModule } from "../../pw-ai-module-NkBl91vk.mjs";
+import { a as normalizeBrowserRequestPath, i as isPersistentBrowserProfileMutation, n as browserNavigationPolicyForProfile, o as resolveRequestedBrowserProfile, r as isBrowserHostLocalRoute } from "../../routes-BpsKYDb5.mjs";
+import { t as createBrowserRouteDispatcher } from "../../dispatcher-DYRymHcZ.mjs";
+import { n as resolveBrowserControlAuth } from "../../control-auth-BCUpmUa6.mjs";
+import { i as createBrowserTool, n as handleBrowserGatewayRequest, r as withTimeout } from "../../browser-request-6GApw1ft.mjs";
+import { d as assertBrowserProxyFileCountWithinLimit, f as createBrowserProxyFailure, h as visitBrowserProxyFilePaths, n as ensureBrowserProxyUploadCleanup, o as stageBrowserProxyUploadRequest, r as hasBrowserProxyUploadWork, s as BROWSER_PROXY_ERROR_ENVELOPE, t as discardStagedBrowserProxyUpload, u as assertBrowserProxyFileBytesWithinLimits } from "../../browser-proxy-upload-Cz7FvmpQ.mjs";
+import { t as resolveBrowserProxyTimeoutMs } from "../../browser-proxy-timeouts-C7OWnqcB.mjs";
+import { i as hasBrowserControlWork, r as getBrowserControlState, t as createBrowserControlContext } from "../../browser-control-state-bUudnqjR.mjs";
+import { t as describeBrowserControlUnavailable } from "../../plugin-enabled-BozM7gNo.mjs";
+import { n as stopBrowserControlService, t as startBrowserControlServiceFromConfig } from "../../control-service-PkoHhWT0.mjs";
+import { n as sameBrowserDashboardDefinition, t as readBrowserDashboardDefinition } from "../../browser-dashboard-definition-ChIzdThd.mjs";
 import fs from "node:fs/promises";
-import { toUSVString } from "node:util";
 //#region extensions/browser/src/session-browser-dashboard.ts
 const MAX_SESSION_DASHBOARDS = 64;
 function keyFor(definition) {
@@ -72,22 +71,17 @@ async function createResource(definition, authority, signal, operation) {
 	const session = authority.retainSession();
 	const controller = new AbortController();
 	const key = keyFor(definition);
-	let retired = false;
-	let definitionPending = false;
-	let definitionEpoch = 0;
-	let page;
 	let assertProfileCurrent;
 	let removeProfileAbort;
 	let closing;
 	const close = () => {
-		retired = true;
 		controller.abort(/* @__PURE__ */ new Error("The isolated browser dashboard was retired."));
 		session.signal.removeEventListener("abort", onAbort);
 		session.release();
 		removeProfileAbort?.();
 		removeProfileAbort = void 0;
 		if (!closing) closing = (async () => {
-			await page?.close();
+			await resource.page?.close();
 			if (resources.get(key) === resource) resources.delete(key);
 		})().catch((error) => {
 			closing = void 0;
@@ -97,9 +91,8 @@ async function createResource(definition, authority, signal, operation) {
 	};
 	const assertCurrent = () => {
 		session.assertCurrent();
-		if (retired || getOptionalBrowserStateRuntime() !== runtime || page && !page.isCurrent()) throw new Error("The isolated browser context is no longer available. Reopen the dashboard.");
+		if (controller.signal.aborted || getOptionalBrowserStateRuntime() !== runtime || resource.page && !resource.page.isCurrent()) throw new Error("The isolated browser context is no longer available. Reopen the dashboard.");
 		assertProfileCurrent?.();
-		if (definitionPending) throw new Error("The dashboard definition changed. Refresh the dashboard before continuing.");
 	};
 	const resource = {
 		definition,
@@ -109,20 +102,13 @@ async function createResource(definition, authority, signal, operation) {
 		assertCurrent,
 		assertDefinitionCurrent: async () => {
 			session.assertCurrent();
-			const epoch = definitionEpoch;
 			const current = await readBrowserDashboardDefinition(definition, getBrowserControlState()?.resolved.defaultProfile);
 			session.assertCurrent();
-			if (epoch !== definitionEpoch) throw new Error("The dashboard changed during verification. Retry the operation.");
 			if (!sameBrowserDashboardDefinition(definition, current)) {
 				await close();
 				throw new Error("The dashboard was removed or replaced. Open its current definition.");
 			}
-			definitionPending = false;
 			assertCurrent();
-		},
-		definitionChanged: () => {
-			definitionPending = true;
-			definitionEpoch += 1;
 		},
 		close
 	};
@@ -148,24 +134,21 @@ async function createResource(definition, authority, signal, operation) {
 			const state = getBrowserControlState();
 			const profile = state?.profiles.get(definition.profile);
 			if (!state || !profile) throw new Error("Browser profile is unavailable.");
-			const lifecycle = getProfileLifecycle(profile);
-			const generation = lifecycle.generation;
-			const configRevision = lifecycle.configRevision;
+			const profileSignal = getProfileLifecycle(profile).controller.signal;
 			assertProfileCurrent = () => {
-				if (getBrowserControlState() !== state || state.profiles.get(definition.profile) !== profile || !isProfileGenerationCurrent({
+				if (getBrowserControlState() !== state || state.profiles.get(definition.profile) !== profile || !isProfileOperationCurrent({
 					state,
 					runtime: profile,
-					generation,
-					configRevision
+					signal: profileSignal
 				})) throw new Error("The browser profile changed. Reopen the dashboard.");
 			};
-			lifecycle.controller.signal.addEventListener("abort", onAbort, { once: true });
-			removeProfileAbort = () => lifecycle.controller.signal.removeEventListener("abort", onAbort);
+			profileSignal.addEventListener("abort", onAbort, { once: true });
+			removeProfileAbort = () => profileSignal.removeEventListener("abort", onAbort);
 			const playwright = await getPwAiModule({ mode: "strict" });
 			authority.assertCurrent();
 			assertProfileCurrent();
 			if (!playwright) throw new Error("Isolated session dashboards require Playwright in this Gateway build.");
-			page = await playwright.createPageViaPlaywright({
+			resource.page = await playwright.createPageViaPlaywright({
 				cdpUrl: profileContext.profile.cdpUrl,
 				url: definition.url,
 				isolatedContext: true,
@@ -181,9 +164,8 @@ async function createResource(definition, authority, signal, operation) {
 					controller.signal
 				]) : AbortSignal.any([session.signal, controller.signal])
 			});
-			resource.page = page;
-			if (retired) {
-				await page.close();
+			if (controller.signal.aborted) {
+				await resource.page.close();
 				throw new Error("The session browser was retired during startup.");
 			}
 			authority.assertCurrent();
@@ -213,18 +195,19 @@ async function accessSessionBrowserDashboard(request, authority, options) {
 	const key = keyFor(definition);
 	const operationKey = `session:${key}`;
 	const previous = runtime.dashboardOperations.get(operationKey)?.promise;
-	const promise = (async () => {
-		await previous?.catch(() => {});
+	const assertOperationCurrent = () => {
 		authority.assertCurrent();
 		options.signal?.throwIfAborted();
 		if (getOptionalBrowserStateRuntime() !== runtime) throw new Error("Browser runtime changed.");
+	};
+	const promise = (async () => {
+		await previous?.catch(() => {});
+		assertOperationCurrent();
 		const currentDefinition = await readBrowserDashboardDefinition({
 			...request,
 			instanceId: definition.instanceId
 		}, getBrowserControlState()?.resolved.defaultProfile);
-		authority.assertCurrent();
-		options.signal?.throwIfAborted();
-		if (getOptionalBrowserStateRuntime() !== runtime) throw new Error("Browser runtime changed.");
+		assertOperationCurrent();
 		if (!sameBrowserDashboardDefinition(definition, currentDefinition)) throw new Error("The dashboard changed before this operation. Open its current definition.");
 		let resource = runtime.sessionDashboards?.get(key);
 		if (resource && (!sameBrowserDashboardDefinition(resource.definition, definition) || resource.session.sessionId !== authority.target.sessionId || resource.session.lifecycleRevision !== authority.target.lifecycleRevision)) {
@@ -449,10 +432,6 @@ function countBrowserProxyEncodedPayloadBytes(serialized) {
 			index = serialized.indexOf(character, index);
 		}
 	}
-	const wellFormed = toUSVString(serialized);
-	if (wellFormed !== serialized) {
-		for (let index = wellFormed.indexOf("�"); index !== -1; index = wellFormed.indexOf("�", index + 1)) if (serialized.charCodeAt(index) !== 65533) bytes += 3;
-	}
 	return bytes;
 }
 function resolveBrowserProxyConfig(cfg = loadBrowserConfigForRuntimeRefresh()) {
@@ -469,17 +448,16 @@ async function ensureBrowserControlService() {
 	const current = getBrowserControlState();
 	if (current && current === admittedBrowserControlState) return;
 	if (browserControlReady) return browserControlReady;
-	const sharedStartup = (async () => {
+	browserControlReady = (async () => {
 		const cfg = loadBrowserConfigForRuntimeRefresh();
 		if (!resolveBrowserConfig(cfg.browser, cfg).enabled) throw new Error(await describeBrowserControlUnavailable(cfg));
 		const started = await startBrowserControlServiceFromConfig();
 		if (!started) throw new Error(await describeBrowserControlUnavailable(cfg));
 		admittedBrowserControlState = started;
 	})().finally(() => {
-		if (browserControlReady === sharedStartup) browserControlReady = null;
+		browserControlReady = null;
 	});
-	browserControlReady = sharedStartup;
-	return sharedStartup;
+	return browserControlReady;
 }
 function collectBrowserProxyPaths(payload) {
 	const paths = /* @__PURE__ */ new Set();
@@ -604,7 +582,7 @@ async function runBrowserProxyCommand(paramsJSON, command = BROWSER_PROXY_COMMAN
 	};
 	assertCurrent();
 	const timeoutMs = resolveBrowserProxyTimeoutMs(params.timeoutMs);
-	const deadlineAt = Date.now() + timeoutMs;
+	const deadlineAt = performance.now() + timeoutMs;
 	const timeoutDetails = {
 		method,
 		path,
@@ -667,7 +645,7 @@ async function runBrowserProxyCommand(paramsJSON, command = BROWSER_PROXY_COMMAN
 		await discardStagedBrowserProxyUpload(stagedUpload);
 		throw error;
 	}
-	const remainingTimeoutMs = deadlineAt - Date.now();
+	const remainingTimeoutMs = deadlineAt - performance.now();
 	if (remainingTimeoutMs <= 0) {
 		await discardStagedBrowserProxyUpload(stagedUpload);
 		throw new Error(formatBrowserProxyTimeoutMessage({
@@ -746,7 +724,7 @@ function createBrowserPluginService(params) {
 				skipEnvVar: "OPENCLAW_SKIP_BROWSER_CONTROL_SERVER",
 				overrideEnvVar: "OPENCLAW_BROWSER_CONTROL_MODULE",
 				validateOverrideSpecifier: validateBrowserControlOverrideSpecifier,
-				loadDefaultModule: async () => await import("../../server-B1CgGw_z.mjs"),
+				loadDefaultModule: async () => await import("../../server-BzHSm6it.mjs"),
 				startExportNames: ["startBrowserControlServiceFromConfig", "startBrowserControlServerFromConfig"],
 				stopExportNames: ["stopBrowserControlService", "stopBrowserControlServer"]
 			});
@@ -811,12 +789,8 @@ function collectBrowserSecurityAuditFindings(ctx) {
 	for (const name of Object.keys(resolved.profiles)) {
 		const profile = resolveProfile(resolved, name);
 		if (!profile || profile.cdpIsLoopback) continue;
-		let url;
-		try {
-			url = new URL(profile.cdpUrl);
-		} catch {
-			continue;
-		}
+		const url = URL.parse(profile.cdpUrl);
+		if (!url) continue;
 		const redactedCdpUrl = redactCdpUrl(profile.cdpUrl) ?? profile.cdpUrl;
 		if (url.protocol === "http:") findings.push({
 			checkId: "browser.remote_cdp_http",

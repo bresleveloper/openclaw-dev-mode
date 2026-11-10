@@ -1,14 +1,12 @@
+import { t as formatErrorMessage } from "../../errors-DPfGDWk1.mjs";
 import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
-import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
-import "../../error-runtime-BmospGvZ.mjs";
-import { o as selectDefaultNodeFromList } from "../../nodes-utils-BMFQ12NT.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../agent-harness-runtime-C7pYQoeO.mjs";
-import { n as isCanvasHostEnabled, t as canvasConfigSchema } from "../../config-BCYmuAc8.mjs";
-import { t as A2UI_PATH } from "../../a2ui-shared-BVnsAcOM.mjs";
-import { i as canvasToolDefinition, n as isEligibleCanvasNode, t as CANVAS_PRESENT_COMMAND } from "../../node-eligibility-WpKiNhTw.mjs";
+import "../../error-runtime-ikopZs5O.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import { n as isCanvasHostEnabled, t as canvasConfigSchema } from "../../config-tyhj-6H_.mjs";
+import { t as A2UI_PATH } from "../../a2ui-shared-DI6_vfTr.mjs";
+import { i as canvasToolDefinition, n as isEligibleCanvasNode, t as CANVAS_PRESENT_COMMAND } from "../../node-eligibility-DVuycbWq.mjs";
 import { randomUUID } from "node:crypto";
-//#region node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/util.js
+//#region node_modules/.pnpm/zod@3.25.76_patch_hash=2f14_be4895c0337b4443c2131a984f268edb/node_modules/zod/v3/helpers/util.js
 var util;
 (function(util) {
 	util.assertEqual = (_) => {};
@@ -104,7 +102,7 @@ const getParsedType = (data) => {
 	}
 };
 //#endregion
-//#region node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/ZodError.js
+//#region node_modules/.pnpm/zod@3.25.76_patch_hash=2f14_be4895c0337b4443c2131a984f268edb/node_modules/zod/v3/ZodError.js
 const ZodIssueCode = util.arrayToEnum([
 	"invalid_type",
 	"invalid_literal",
@@ -203,7 +201,7 @@ ZodError.create = (issues) => {
 	return new ZodError(issues);
 };
 //#endregion
-//#region node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/locales/en.js
+//#region node_modules/.pnpm/zod@3.25.76_patch_hash=2f14_be4895c0337b4443c2131a984f268edb/node_modules/zod/v3/locales/en.js
 const errorMap = (issue, _ctx) => {
 	let message;
 	switch (issue.code) {
@@ -281,13 +279,13 @@ const errorMap = (issue, _ctx) => {
 	return { message };
 };
 //#endregion
-//#region node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/errors.js
+//#region node_modules/.pnpm/zod@3.25.76_patch_hash=2f14_be4895c0337b4443c2131a984f268edb/node_modules/zod/v3/errors.js
 let overrideErrorMap = errorMap;
 function getErrorMap() {
 	return overrideErrorMap;
 }
 //#endregion
-//#region node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/parseUtil.js
+//#region node_modules/.pnpm/zod@3.25.76_patch_hash=2f14_be4895c0337b4443c2131a984f268edb/node_modules/zod/v3/helpers/parseUtil.js
 const makeIssue = (params) => {
 	const { data, path, errorMaps, issueData } = params;
 	const fullPath = [...path, ...issueData.path || []];
@@ -391,14 +389,14 @@ const isDirty = (x) => x.status === "dirty";
 const isValid = (x) => x.status === "valid";
 const isAsync = (x) => typeof Promise !== "undefined" && x instanceof Promise;
 //#endregion
-//#region node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/errorUtil.js
+//#region node_modules/.pnpm/zod@3.25.76_patch_hash=2f14_be4895c0337b4443c2131a984f268edb/node_modules/zod/v3/helpers/errorUtil.js
 var errorUtil;
 (function(errorUtil) {
 	errorUtil.errToObj = (message) => typeof message === "string" ? { message } : message || {};
 	errorUtil.toString = (message) => typeof message === "string" ? message : message?.message;
 })(errorUtil || (errorUtil = {}));
 //#endregion
-//#region node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js
+//#region node_modules/.pnpm/zod@3.25.76_patch_hash=2f14_be4895c0337b4443c2131a984f268edb/node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
 	constructor(parent, value, path, key) {
 		this._cachedPath = [];
@@ -1997,6 +1995,7 @@ var ZodArray = class ZodArray extends ZodType {
 					exact: true,
 					message: def.exactLength.message
 				});
+				if (tooBig) return INVALID;
 				status.dirty();
 			}
 		}
@@ -2023,7 +2022,7 @@ var ZodArray = class ZodArray extends ZodType {
 					exact: false,
 					message: def.maxLength.message
 				});
-				status.dirty();
+				return INVALID;
 			}
 		}
 		if (ctx.common.async) return Promise.all([...ctx.data].map((item, i) => {
@@ -2803,7 +2802,7 @@ var ZodSet = class ZodSet extends ZodType {
 					exact: false,
 					message: def.maxSize.message
 				});
-				status.dirty();
+				return INVALID;
 			}
 		}
 		const valueType = this._def.valueType;
@@ -3523,7 +3522,7 @@ var ZodFirstPartyTypeKind;
 	ZodFirstPartyTypeKind["ZodReadonly"] = "ZodReadonly";
 })(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 const stringType = ZodString.create;
-const numberType = ZodNumber.create;
+ZodNumber.create;
 ZodNaN.create;
 ZodBigInt.create;
 const booleanType = ZodBoolean.create;
@@ -3556,114 +3555,34 @@ ZodOptional.create;
 ZodNullable.create;
 ZodEffects.createWithPreprocess;
 ZodPipeline.create;
-//#endregion
-//#region node_modules/.pnpm/@a2ui+web_core@0.11.0/node_modules/@a2ui/web_core/src/v0_9/schema/common-types.js
-const DataBindingSchema = objectType({ "path": stringType().describe("A JSON Pointer path to a value in the data model.") }).describe("REF:common_types.json#/$defs/DataBinding|A JSON Pointer path to a value in the data model.");
-const FunctionCallSchema = objectType({
-	"call": stringType().describe("The name of the function to call."),
-	"args": recordType(anyType()).describe("Arguments passed to the function."),
-	"returnType": enumType([
-		"string",
-		"number",
-		"boolean",
-		"array",
-		"object",
-		"any",
-		"void"
-	]).default("boolean")
-}).describe("REF:common_types.json#/$defs/FunctionCall|Invokes a named function on the client.");
-const DynamicBooleanSchema = unionType([
-	booleanType(),
-	DataBindingSchema,
-	FunctionCallSchema
-]).describe("REF:common_types.json#/$defs/DynamicBoolean|A boolean value that can be a literal, a path, or a function call returning a boolean.");
-const DynamicStringSchema = unionType([
-	stringType(),
-	DataBindingSchema,
-	FunctionCallSchema
-]).describe("REF:common_types.json#/$defs/DynamicString|Represents a string");
-unionType([
-	numberType(),
-	DataBindingSchema,
-	FunctionCallSchema
-]).describe("REF:common_types.json#/$defs/DynamicNumber|Represents a value that can be either a literal number, a path to a number in the data model, or a function call returning a number.");
-unionType([
-	arrayType(stringType()),
-	DataBindingSchema,
-	FunctionCallSchema
-]).describe("REF:common_types.json#/$defs/DynamicStringList|Represents a value that can be either a literal array of strings, a path to a string array in the data model, or a function call returning a string array.");
-const DynamicValueSchema = unionType([
-	stringType(),
-	numberType(),
-	booleanType(),
-	arrayType(anyType()),
-	DataBindingSchema,
-	FunctionCallSchema
-]).describe("REF:common_types.json#/$defs/DynamicValue|A value that can be a literal, a path, or a function call returning any type.");
-const ComponentIdSchema = markChildRef(stringType().describe("REF:common_types.json#/$defs/ComponentId|The unique identifier for a component."), "component-id");
-/**
-* Stamps the child-reference kind into the schema's zod metadata. Methods
-* like `.describe()` and `.optional()` rebuild schemas from `_def`, so the
-* flag survives them; the `REF:` description remains the wire-facing pointer
-* the capabilities generator resolves into a `$ref`.
-*/
-function markChildRef(schema, ref) {
-	schema._def.a2uiChildRef = ref;
-	return schema;
-}
-markChildRef(unionType([arrayType(ComponentIdSchema).describe("A static list of child component IDs."), objectType({
-	"componentId": ComponentIdSchema,
-	"path": stringType().describe("The path to the list of component property objects in the data model.")
-}).describe("A template for generating a dynamic list of children.")]).describe("REF:common_types.json#/$defs/ChildList"), "child-list");
-unionType([objectType({ "event": objectType({
-	"name": stringType(),
-	"context": recordType(DynamicValueSchema).optional()
-}) }).describe("Triggers a server-side event."), objectType({ "functionCall": FunctionCallSchema }).describe("Executes a local client-side function.")]).describe("REF:common_types.json#/$defs/Action");
-objectType({
-	"checks": arrayType(objectType({
-		"condition": DynamicBooleanSchema,
-		"message": stringType().describe("The error message to display if the check fails.")
-	}).describe("REF:common_types.json#/$defs/CheckRule|A check rule consisting of a condition and an error message.")).optional().describe("A list of checks to perform."),
-	"isValid": booleanType().optional().describe("Whether the checks currently pass."),
-	"validationErrors": arrayType(stringType()).optional().describe("Current validation error messages.")
-}).describe("REF:common_types.json#/$defs/Checkable|Properties for components that support client-side checks.");
-objectType({
-	"label": DynamicStringSchema.optional().describe("REF:common_types.json#/$defs/DynamicString|A short string used by assistive technologies to convey the purpose of an element."),
-	"description": DynamicStringSchema.optional().describe("REF:common_types.json#/$defs/DynamicString|Additional information provided by assistive technologies about an element.")
-}).describe("REF:common_types.json#/$defs/AccessibilityAttributes|Attributes to enhance accessibility.");
-const AnyComponentSchema = objectType({
-	"component": stringType().describe("The type name of the component."),
-	"id": ComponentIdSchema.optional(),
-	"weight": numberType().optional()
-}).passthrough().describe("A generic A2UI component definition.");
 const A2uiMessageSchema = unionType([
 	objectType({
-		version: enumType(["v0.9", "v0.9.1"]),
-		createSurface: objectType({
-			surfaceId: stringType().describe("The unique identifier for the UI surface to be rendered."),
-			catalogId: stringType().describe("A string that uniquely identifies this catalog."),
-			theme: anyType().optional().describe("Theme parameters for the surface."),
-			sendDataModel: booleanType().optional().describe("If true, the client will send the full data model.")
-		}).strict()
+		"version": enumType(["v0.9", "v0.9.1"]),
+		"createSurface": objectType({
+			"surfaceId": stringType().describe("The unique identifier for the UI surface to be rendered."),
+			"catalogId": stringType().describe("A string that uniquely identifies this catalog. It is recommended to prefix this with an internet domain that you own, to avoid conflicts e.g. mycompany.com:somecatalog'."),
+			"theme": anyType().optional(),
+			"sendDataModel": booleanType().describe("If true, the client will send the full data model of this surface in the metadata of every A2A message sent to the server that created the surface. Defaults to false.").optional()
+		}).strict().describe("Signals the client to create a new surface and begin rendering it. It is an error to send 'createSurface' for a surfaceId that already exists without first deleting it. When this message is sent, the client will expect 'updateComponents' and/or 'updateDataModel' messages for the same surfaceId that define the component tree.")
 	}).strict(),
 	objectType({
-		version: enumType(["v0.9", "v0.9.1"]),
-		updateComponents: objectType({
-			surfaceId: stringType().describe("The unique identifier for the UI surface to be updated."),
-			components: arrayType(AnyComponentSchema).min(1).describe("A list containing all UI components for the surface.")
-		}).strict()
+		"version": enumType(["v0.9", "v0.9.1"]),
+		"updateComponents": objectType({
+			"surfaceId": stringType().describe("The unique identifier for the UI surface to be updated."),
+			"components": arrayType(recordType(stringType(), anyType())).min(1).describe("A list containing all UI components for the surface.")
+		}).strict().describe("Updates a surface with a new set of components. This message can be sent multiple times to update the component tree of an existing surface. One of the components in one of the components lists MUST have an 'id' of 'root' to serve as the root of the component tree. A createSurface message MUST have been previously sent for the 'surfaceId' in this message; the surface's catalog is the one specified by that createSurface.")
 	}).strict(),
 	objectType({
-		version: enumType(["v0.9", "v0.9.1"]),
-		updateDataModel: objectType({
-			surfaceId: stringType().describe("The unique identifier for the UI surface this data model update applies to."),
-			path: stringType().optional().describe("An optional path to a location within the data model."),
-			value: anyType().optional().describe("The data to be updated in the data model.")
-		}).strict()
+		"version": enumType(["v0.9", "v0.9.1"]),
+		"updateDataModel": objectType({
+			"surfaceId": stringType().describe("The unique identifier for the UI surface this data model update applies to."),
+			"path": stringType().describe("An optional path to a location within the data model (e.g., '/user/name'). If omitted, or set to '/', refers to the entire data model.").optional(),
+			"value": anyType().describe("The data to be updated in the data model. If present, the value at 'path' is replaced (or created). If omitted, the key at 'path' is removed.").optional()
+		}).strict().describe("Updates the data model for an existing surface. This message can be sent multiple times to update the data model. A createSurface message MUST have been previously sent for the 'surfaceId' in this message; the surface's catalog is the one specified by that createSurface.")
 	}).strict(),
 	objectType({
-		version: enumType(["v0.9", "v0.9.1"]),
-		deleteSurface: objectType({ surfaceId: stringType().describe("The unique identifier for the UI surface to be deleted.") }).strict()
+		"version": enumType(["v0.9", "v0.9.1"]),
+		"deleteSurface": objectType({ "surfaceId": stringType().describe("The unique identifier for the UI surface to be deleted.") }).strict().describe("Signals the client to delete the surface identified by 'surfaceId'. A createSurface message MUST have been previously sent for the 'surfaceId' in this message; the surface's catalog is the one specified by that createSurface.")
 	}).strict()
 ]);
 objectType({ messages: arrayType(A2uiMessageSchema).describe("A list of messages.") }).strict().describe("An object wrapping a list of messages.");
@@ -3681,7 +3600,6 @@ const A2UI_V09_ACTION_KEYS = [
 	"updateDataModel",
 	"deleteSurface"
 ];
-/** Validates A2UI JSONL and returns the detected dialect/version metadata. */
 function validateSupportedA2UIJsonl(jsonl) {
 	const lines = jsonl.split(/\r?\n/);
 	const errors = [];
@@ -3774,7 +3692,7 @@ const canvasA2UIBoardWidgetKind = {
 		paths: [A2UI_V08_BUNDLE_PATH, A2UI_V09_BUNDLE_PATH],
 		readPublicResource: async (resourcePath) => {
 			if (resourcePath !== A2UI_V08_BUNDLE_PATH && resourcePath !== A2UI_V09_BUNDLE_PATH) return;
-			const { readPublicA2uiResource } = await import("../../a2ui-BNEOlgB3.mjs");
+			const { readPublicA2uiResource } = await import("../../a2ui-GGuiWq3b.mjs");
 			return await readPublicA2uiResource(resourcePath);
 		}
 	},
@@ -3793,6 +3711,7 @@ const canvasA2UIBoardWidgetKind = {
 //#region extensions/canvas/src/widget-presenter.ts
 const DEFAULT_CANVAS_NODE_INVOKE_TIMEOUT_MS = 3e4;
 async function selectCanvasNode(nodesRuntime) {
+	const { selectDefaultNodeFromList } = await import("../../plugin-sdk/agent-harness-runtime.js");
 	const { nodes } = await nodesRuntime.list({ connected: true });
 	return selectDefaultNodeFromList(nodes.filter(isEligibleCanvasNode), {
 		capability: "canvas",
@@ -3800,7 +3719,6 @@ async function selectCanvasNode(nodesRuntime) {
 		preferLocalMac: true
 	});
 }
-/** Creates the Canvas-owned presenter for hosted widget documents. */
 function createCanvasWidgetPresenter(nodesRuntime) {
 	return {
 		target: "node_panel",
@@ -3892,7 +3810,7 @@ const CANVAS_NODE_COMMANDS = [
 	"canvas.navigate"
 ];
 function createLazyCanvasTool(agentSessionKey) {
-	const loadTool = createLazyRuntimeModule(() => import("../../tool-V_Jnb_OB.mjs").then(({ createCanvasTool }) => createCanvasTool({ agentSessionKey })));
+	const loadTool = createLazyRuntimeModule(() => import("../../tool-DX6WZB6B.mjs").then(({ createCanvasTool }) => createCanvasTool({ agentSessionKey })));
 	return {
 		...canvasToolDefinition,
 		execute: async (...args) => await (await loadTool()).execute(...args)
@@ -3906,7 +3824,7 @@ var canvas_default = definePluginEntry({
 	register(api) {
 		if (isCanvasHostEnabled(api.config)) {
 			api.registerBoardWidgetContentKind(canvasA2UIBoardWidgetKind);
-			const loadRenderer = createLazyRuntimeModule(() => import("../../a2ui-BNEOlgB3.mjs"));
+			const loadRenderer = createLazyRuntimeModule(() => import("../../a2ui-GGuiWq3b.mjs"));
 			api.registerHttpRoute({
 				path: A2UI_PATH,
 				auth: "plugin",
@@ -3923,8 +3841,8 @@ var canvas_default = definePluginEntry({
 		});
 		api.registerTool((ctx) => createLazyCanvasTool(ctx.sessionKey));
 		api.registerNodeCliFeature(async ({ program }) => {
-			const { createDefaultCanvasCliDependencies, registerNodesCanvasCommands } = await import("../../cli-DUOZu1JY.mjs");
-			registerNodesCanvasCommands(program, createDefaultCanvasCliDependencies());
+			const { registerNodesCanvasCommands } = await import("../../cli-B-KqRf76.mjs");
+			registerNodesCanvasCommands(program);
 		}, { descriptors: [{
 			name: "canvas",
 			description: "Present widget documents on a paired macOS panel",

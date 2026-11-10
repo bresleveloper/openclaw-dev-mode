@@ -1,4 +1,4 @@
-import { t as COHERE_BASE_URL } from "./.setup/models-BLTLa6bn.mjs";
+import { t as COHERE_BASE_URL } from "./.setup/models-BtjAnVPh.mjs";
 import { asOptionalObjectRecord, asOptionalRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/cohere/provider-catalog.ts
 const COHERE_LIVE_MODEL_DISCOVERY = {

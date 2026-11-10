@@ -1,4 +1,4 @@
-import { i as openclaw_plugin_default, n as CHUTES_MODEL_CATALOG, t as CHUTES_BASE_URL } from "./.setup/models-DUGqZYGQ.mjs";
+import { i as openclaw_plugin_default, n as CHUTES_MODEL_CATALOG, t as CHUTES_BASE_URL } from "./.setup/models-mN33VNCv.mjs";
 import { readManifestProviderDefaultModelRef } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { applyAgentDefaultModelPrimary, createModelCatalogPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/chutes/onboard.ts

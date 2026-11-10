@@ -1,7 +1,7 @@
 import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
 import { t as appendConfigPathSegment } from "../dot-path-CVD5Jolm.mjs";
-import "../shared-CvirZ99o.mjs";
-import { t as collectTtsApiKeyAssignments } from "../runtime-config-collectors-tts-BURNUsxU.mjs";
+import "../shared-BVDjoVcf.mjs";
+import { t as collectTtsApiKeyAssignments } from "../runtime-config-collectors-tts-hyAX43bP.mjs";
 //#region src/secrets/channel-secret-tts-runtime.ts
 /** Runtime adapter for channel text-to-speech secret contracts. */
 /** Collects nested provider SecretRefs from channel root and account blocks. */

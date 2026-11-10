@@ -1,2 +1,2 @@
-import { a as resetGlobalHookRunner, i as initializeGlobalHookRunner, n as getGlobalPluginRegistry, o as runGlobalGatewayStopSafely, r as hasGlobalHooks, t as getGlobalHookRunner } from "../hook-runner-global-D5rL9Ed5.mjs";
-export { getGlobalHookRunner, getGlobalPluginRegistry, hasGlobalHooks, initializeGlobalHookRunner, resetGlobalHookRunner, runGlobalGatewayStopSafely };
+import { a as initializeGlobalHookRunner, i as hasGlobalHooks, n as getGlobalHookRunner, o as resetGlobalHookRunner, r as getGlobalPluginRegistry, s as runGlobalGatewayStopSafely, t as ensureGlobalHookRunner } from "../hook-runner-global-yjqy4fXI.mjs";
+export { ensureGlobalHookRunner, getGlobalHookRunner, getGlobalPluginRegistry, hasGlobalHooks, initializeGlobalHookRunner, resetGlobalHookRunner, runGlobalGatewayStopSafely };

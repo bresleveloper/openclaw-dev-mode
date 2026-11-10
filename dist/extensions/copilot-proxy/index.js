@@ -1,12 +1,11 @@
-import { h as normalizeUniqueStringEntries } from "../../string-normalization-CECOqf64.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../runtime-api-BqbNDvaK.mjs";
+import { h as normalizeUniqueStringEntries } from "../../string-normalization-D6DKCpwE.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../runtime-api-CWOwfgr0.mjs";
 //#region extensions/copilot-proxy/index.ts
 const DEFAULT_BASE_URL = "http://localhost:3000/v1";
 const DEFAULT_API_KEY = "n/a";
 const DEFAULT_CONTEXT_WINDOW = 128e3;
-const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_MODEL_IDS = [
 	"gpt-5-mini",
 	"claude-opus-4.6",
@@ -27,7 +26,7 @@ function validateBaseUrl(value) {
 function parseModelIds(input) {
 	return normalizeUniqueStringEntries(input.split(/[\n,]/));
 }
-function buildModelDefinition(modelId) {
+function buildModelDefinition(modelId, maxTokens) {
 	return {
 		id: modelId,
 		name: modelId,
@@ -41,7 +40,7 @@ function buildModelDefinition(modelId) {
 			cacheWrite: 0
 		},
 		contextWindow: DEFAULT_CONTEXT_WINDOW,
-		maxTokens: DEFAULT_MAX_TOKENS
+		maxTokens
 	};
 }
 var copilot_proxy_default = definePluginEntry({
@@ -72,6 +71,7 @@ var copilot_proxy_default = definePluginEntry({
 					const baseUrl = normalizeBaseUrl(baseUrlInput);
 					const modelIds = parseModelIds(modelInput);
 					const defaultModelRef = `copilot-proxy/${modelIds[0] ?? DEFAULT_MODEL_IDS[0]}`;
+					const { resolveDefaultModelMaxTokens } = await import("../../plugin-sdk/provider-model-shared.js");
 					return {
 						profiles: [{
 							profileId: "copilot-proxy:local",
@@ -87,7 +87,7 @@ var copilot_proxy_default = definePluginEntry({
 								apiKey: DEFAULT_API_KEY,
 								api: "openai-completions",
 								authHeader: false,
-								models: modelIds.map((modelId) => buildModelDefinition(modelId))
+								models: modelIds.map((modelId) => buildModelDefinition(modelId, resolveDefaultModelMaxTokens(DEFAULT_CONTEXT_WINDOW)))
 							} } },
 							agents: { defaults: { models: Object.fromEntries(modelIds.map((modelId) => [`copilot-proxy/${modelId}`, {}])) } }
 						},

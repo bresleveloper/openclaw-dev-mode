@@ -1,7 +1,7 @@
-import { F as GatewayAuthRateLimitConfig } from "../types.openclaw-DWWUw8hA.js";
-import { Ji as PluginRegistry, hs as RateLimitConfig, ms as AuthRateLimiter, qi as PluginHttpRouteRegistration } from "../agent-harness-runtime-DZjstJNb.js";
-import { C as DEFAULT_WEBHOOK_MAX_BODY_BYTES, D as readRequestBodyWithLimit, O as requestBodyErrorToText, S as createWebhookAnomalyTracker, T as isRequestBodyLimitError, _ as WEBHOOK_ANOMALY_STATUS_CODES, a as applyBasicWebhookRequestGuards, b as createBoundedCounter, c as isJsonContentType, g as WEBHOOK_ANOMALY_COUNTER_DEFAULTS, h as FixedWindowRateLimiter, i as WebhookInFlightLimiter, l as readJsonWebhookBodyOrReject, m as BoundedCounter, n as WEBHOOK_IN_FLIGHT_DEFAULTS, o as beginWebhookRequestPipelineOrReject, r as WebhookBodyReadProfile, s as createWebhookInFlightLimiter, t as WEBHOOK_BODY_READ_DEFAULTS, u as readWebhookBodyOrReject, v as WEBHOOK_RATE_LIMIT_DEFAULTS, x as createFixedWindowRateLimiter, y as WebhookAnomalyTracker } from "../webhook-request-guards-B3FpDTVl.js";
-import WebSocket$1 from "ws";
+import { An as GatewayAuthRateLimitConfig } from "../types-D7I_F5Ux.js";
+import { Am as PluginRegistry, iw as RateLimitConfig, km as PluginHttpRouteRegistration, rw as AuthRateLimiter } from "../config-contracts-CY87ANNp.js";
+import { C as DEFAULT_WEBHOOK_MAX_BODY_BYTES, D as readRequestBodyWithLimit, O as requestBodyErrorToText, S as createWebhookAnomalyTracker, T as isRequestBodyLimitError, _ as WEBHOOK_ANOMALY_STATUS_CODES, a as applyBasicWebhookRequestGuards, b as createBoundedCounter, c as isJsonContentType, g as WEBHOOK_ANOMALY_COUNTER_DEFAULTS, h as FixedWindowRateLimiter, i as WebhookInFlightLimiter, l as readJsonWebhookBodyOrReject, m as BoundedCounter, n as WEBHOOK_IN_FLIGHT_DEFAULTS, o as beginWebhookRequestPipelineOrReject, r as WebhookBodyReadProfile, s as createWebhookInFlightLimiter, t as WEBHOOK_BODY_READ_DEFAULTS, u as readWebhookBodyOrReject, v as WEBHOOK_RATE_LIMIT_DEFAULTS, x as createFixedWindowRateLimiter, y as WebhookAnomalyTracker } from "../webhook-request-guards-Co1bgFYB.js";
+import { t as rawDataToString } from "../ws-ErFB-ETM.js";
 import { IncomingMessage, ServerResponse } from "node:http";
 //#region src/plugins/http-legacy-listener.d.ts
 type LegacyEndpoint = Readonly<{
@@ -145,9 +145,6 @@ export declare function resolveWebhookTargetWithAuthOrReject<T>(params: WebhookT
 /** Synchronous variant of webhook auth resolution for cheap in-memory match checks. */
 export declare function resolveWebhookTargetWithAuthOrRejectSync<T>(params: WebhookTargetAuthOptions<T, boolean>): T | null;
 //#endregion
-//#region src/infra/ws.d.ts
-export declare function rawDataToString(data: WebSocket$1.RawData, encoding?: BufferEncoding): string;
-//#endregion
 //#region src/plugins/http-path.d.ts
 /** Normalizes plugin HTTP paths to leading-slash form with optional fallback. */
 export declare function normalizePluginHttpPath(path?: string | null, fallback?: string | null): string | null;
@@ -158,4 +155,4 @@ export declare function createAuthRateLimiter(config?: RateLimitConfig): AuthRat
   updateConfig: (config?: GatewayAuthRateLimitConfig) => void;
 };
 //#endregion
-export { type AuthRateLimiter, type BoundedCounter, DEFAULT_WEBHOOK_MAX_BODY_BYTES, type FixedWindowRateLimiter, type RateLimitConfig, type RegisterWebhookPluginRouteOptions, type RegisterWebhookTargetOptions, type RegisteredWebhookTarget, WEBHOOK_ANOMALY_COUNTER_DEFAULTS, WEBHOOK_ANOMALY_STATUS_CODES, WEBHOOK_BODY_READ_DEFAULTS, WEBHOOK_IN_FLIGHT_DEFAULTS, WEBHOOK_RATE_LIMIT_DEFAULTS, type WebhookAnomalyTracker, type WebhookBodyReadProfile, type WebhookInFlightLimiter, type WebhookTargetMatchResult, applyBasicWebhookRequestGuards, beginWebhookRequestPipelineOrReject, createBoundedCounter, createFixedWindowRateLimiter, createWebhookAnomalyTracker, createWebhookInFlightLimiter, isJsonContentType, isRequestBodyLimitError, readJsonWebhookBodyOrReject, readRequestBodyWithLimit, readWebhookBodyOrReject, requestBodyErrorToText };
+export { type AuthRateLimiter, type BoundedCounter, DEFAULT_WEBHOOK_MAX_BODY_BYTES, type FixedWindowRateLimiter, type RateLimitConfig, type RegisterWebhookPluginRouteOptions, type RegisterWebhookTargetOptions, type RegisteredWebhookTarget, WEBHOOK_ANOMALY_COUNTER_DEFAULTS, WEBHOOK_ANOMALY_STATUS_CODES, WEBHOOK_BODY_READ_DEFAULTS, WEBHOOK_IN_FLIGHT_DEFAULTS, WEBHOOK_RATE_LIMIT_DEFAULTS, type WebhookAnomalyTracker, type WebhookBodyReadProfile, type WebhookInFlightLimiter, type WebhookTargetMatchResult, applyBasicWebhookRequestGuards, beginWebhookRequestPipelineOrReject, createBoundedCounter, createFixedWindowRateLimiter, createWebhookAnomalyTracker, createWebhookInFlightLimiter, isJsonContentType, isRequestBodyLimitError, rawDataToString, readJsonWebhookBodyOrReject, readRequestBodyWithLimit, readWebhookBodyOrReject, requestBodyErrorToText };

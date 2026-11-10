@@ -1,1 +1,0 @@
-import{o as e,r as t}from"./worker-chunk-BiRX7Frk.mjs";t();export{e as resolvePluginCapabilityConsent};

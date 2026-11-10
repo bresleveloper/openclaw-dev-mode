@@ -1,4 +1,4 @@
-import { n as RAFT_CHANNEL_ID, t as raftSetupPlugin } from "./.setup/setup-DgJ7DQHN.mjs";
+import { n as RAFT_CHANNEL_ID, t as raftSetupPlugin } from "./.setup/setup-D1PKbHyr.mjs";
 import { describeAccountSnapshot } from "openclaw/plugin-sdk/account-helpers";
 import { createChatChannelPlugin } from "openclaw/plugin-sdk/channel-core";
 import { detectBinary } from "openclaw/plugin-sdk/setup-tools";
@@ -6,7 +6,6 @@ import { buildBaseChannelStatusSummary, createComputedAccountStatusAdapter, crea
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { buildChannelConfigSchema, buildMultiAccountChannelSchema } from "openclaw/plugin-sdk/channel-config-schema";
 import { z } from "zod";
-import { spawn } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import process from "node:process";
@@ -14,7 +13,7 @@ import { keepHttpServerTaskAlive, waitUntilAbort } from "openclaw/plugin-sdk/cha
 import { channelReadyPatch } from "openclaw/plugin-sdk/gateway-runtime";
 import { KeyedAsyncQueue } from "openclaw/plugin-sdk/keyed-async-queue";
 import { createChannelReplayGuard } from "openclaw/plugin-sdk/persistent-dedupe";
-import { killProcessTree } from "openclaw/plugin-sdk/process-runtime";
+import { killProcessTree, spawnOomScoreAdjusted } from "openclaw/plugin-sdk/process-runtime";
 import { safeEqualSecret } from "openclaw/plugin-sdk/security-runtime";
 import { WEBHOOK_BODY_READ_DEFAULTS, readJsonBodyWithLimit, sendHttpRequestRejection } from "openclaw/plugin-sdk/webhook-request-guards";
 //#region extensions/raft/src/config-schema.ts
@@ -32,8 +31,7 @@ const WAKE_TEXT = "Raft wake hint received. Check Raft for pending messages, the
 function shellQuote(value) {
 	return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
-async function dispatchRaftWake(params) {
-	const { ctx } = params;
+async function dispatchRaftWake(ctx) {
 	const channelRuntime = ctx.channelRuntime;
 	const profile = ctx.account.profile;
 	if (!channelRuntime || !profile) return;
@@ -146,7 +144,7 @@ var WakeRequestError = class extends Error {
 	}
 };
 function spawnRaftBridge(params) {
-	return spawn("raft", [
+	return spawnOomScoreAdjusted("raft", [
 		"--profile",
 		params.profile,
 		"agent",
@@ -299,19 +297,13 @@ async function startRaftGatewayAccount(ctx) {
 			if (!dedupeKey) throw new WakeRequestError(400, "Wake payload must include a stable event identity.");
 			const dispatched = await wakeQueue.enqueue(ctx.accountId, async () => {
 				assertWakeActive();
-				const result = await wakeDedupe.processGuarded({
+				return (await wakeDedupe.processGuarded({
 					accountId: ctx.accountId,
 					key: dedupeKey
 				}, async () => {
 					assertWakeActive();
-					await dispatchRaftWake({ ctx });
-				});
-				if (result.kind === "duplicate") return false;
-				if (result.kind === "inflight") {
-					if (await result.pending) return false;
-					throw new WakeRequestError(503, "Raft wake delivery is retrying.");
-				}
-				return true;
+					await dispatchRaftWake(ctx);
+				})).kind === "processed";
 			});
 			sendJson(response, 202, {
 				ok: true,

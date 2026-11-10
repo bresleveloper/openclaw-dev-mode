@@ -1,0 +1,1 @@
+import{i as e,t}from"./worker-chunk-BgnXrSNw.mjs";t();export{e as resolveGatewayStartupPluginActivationConfig};

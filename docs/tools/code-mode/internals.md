@@ -64,9 +64,12 @@ preserving: active agent id, session id and key, sender and channel context,
 sandbox policy, approval policy, plugin `before_tool_call` hooks, abort
 signal, streaming updates where available, and trajectory/audit events.
 
-Completed nested calls persist as bounded, redacted display-only activity, retaining
+Completed nested calls persist as bounded display-only activity, retaining
 their original parent and invocation ids across history reloads. Provider replay
 contains only the actual model calls; child activity adds no synthetic model turns.
+Nested invocation ids include the cell's replay identity, so a provider can reuse
+a tool-call id in a later assistant response without colliding with earlier activity.
+Replaying the same call within the same run and assistant response preserves its nested ids.
 Runtime transcript views omit these persisted payloads. Finalization and agent-end
 hooks read the accepted activity for their attempt from the transcript when needed.
 If a `before_message_write` hook suppresses a nested activity row, finalization and
@@ -75,8 +78,9 @@ for turn settlement; suppressing its display history does not undo its execution
 Starts and partial updates remain transient. Older missing child history cannot be
 reconstructed from source code or outer results.
 
-Nested tool failures cross into the guest as catchable JavaScript errors. If
-guest code does not catch an error, `exec` or `wait` returns a failed tool
+Thrown tool errors are catchable. Returned values may instead report failure.
+Follow the tool's result contract, and inspect possible effects before retrying.
+If guest code does not catch an error, `exec` or `wait` returns a failed tool
 result and the agent can continue normally. Follow the
 [tool-error guidance](/tools/code-mode/quickstart#recover-from-tool-errors) to inspect possible partial
 effects before choosing another action. Network-controlled tool output and errors

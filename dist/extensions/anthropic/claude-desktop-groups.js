@@ -1,2 +1,2 @@
-import { t as readClaudeDesktopCustomGroups } from "../../claude-desktop-groups-2etqzeIE.mjs";
+import { t as readClaudeDesktopCustomGroups } from "../../claude-desktop-groups-BOEfNGAG.mjs";
 export { readClaudeDesktopCustomGroups };

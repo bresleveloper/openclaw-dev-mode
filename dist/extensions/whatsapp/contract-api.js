@@ -1,4 +1,4 @@
-import { c as normalizeWhatsAppTarget$1, t as isWhatsAppGroupJid$1 } from "./.setup/normalize-target-BGra1ZnM.mjs";
+import { c as normalizeWhatsAppTarget$1, t as isWhatsAppGroupJid$1 } from "./.setup/normalize-target-D67Kc3g6.mjs";
 import { t as whatsappCommandPolicy$1 } from "./.setup/command-policy-BIOSHySD.mjs";
 import { t as resolveLegacyGroupSessionKey$1 } from "./.setup/group-session-contract-DDnZSsJ1.mjs";
 import { r as isLegacyGroupSessionKey$1, t as canonicalizeLegacySessionKey$1 } from "./.setup/session-contract-DMTm6Q_L.mjs";

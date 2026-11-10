@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Ho as t,Zo as n}from"./ui-CFzBFVbW.js";import{$c as r,el as i}from"./control-ui-boot-shared-Bqpsa0Q8.js";import{T as a,_ as o,w as s}from"./control-ui-boot-new-BbBfERB2.js";function c(e,n={}){return i(()=>t(s,{look:e,...n}))}function l(){return(l=e((()=>{n(),r(),a(),o()})))()}export{c as n,l as t};
+//# sourceMappingURL=lobster-pet-look-DL3IGxEM.js.map

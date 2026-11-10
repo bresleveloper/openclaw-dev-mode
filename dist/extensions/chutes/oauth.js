@@ -1,10 +1,12 @@
 import { generatePkceVerifierChallenge } from "openclaw/plugin-sdk/provider-auth";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { randomBytes } from "node:crypto";
+import { withTrustedEnvProxyGuardedFetchMode } from "openclaw/plugin-sdk/fetch-runtime";
 import { resolveExpiresAtMsFromDurationSeconds } from "openclaw/plugin-sdk/number-runtime";
 import { parseOAuthCallbackInput, waitForLocalOAuthCallback } from "openclaw/plugin-sdk/provider-auth-runtime";
 import { assertOkOrThrowProviderError, readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
 import { buildOAuthRequestSignal } from "openclaw/plugin-sdk/provider-oauth-runtime";
+import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
 //#region extensions/chutes/oauth.ts
 const CHUTES_AUTHORIZE_ENDPOINT = "https://api.chutes.ai/idp/authorize";
 const CHUTES_TOKEN_ENDPOINT = "https://api.chutes.ai/idp/token";
@@ -38,45 +40,53 @@ function resolveChutesExpiresAt(value, now) {
 	});
 }
 async function requestChutesTokenGrant(params) {
-	const response = await (params.fetchFn ?? fetch)(CHUTES_TOKEN_ENDPOINT, {
-		method: "POST",
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		body: params.body,
+	const { response, release } = await fetchWithSsrFGuard(withTrustedEnvProxyGuardedFetchMode({
+		url: CHUTES_TOKEN_ENDPOINT,
+		init: {
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body: params.body
+		},
 		signal: buildOAuthRequestSignal({
 			timeoutMs: CHUTES_OAUTH_REQUEST_TIMEOUT_MS,
 			...params.signal ? { signal: params.signal } : {}
 		})
-	});
-	await assertOkOrThrowProviderError(response, `${params.responseLabel} failed`);
-	const data = await readProviderJsonResponse(response, params.responseLabel);
-	const access = normalizeOptionalString(data.access_token);
-	const expires = resolveChutesExpiresAt(data.expires_in, params.now ?? Date.now());
-	if (!access) throw new Error(`${params.responseLabel} returned no access_token`);
-	if (expires === void 0) throw new Error(`${params.responseLabel} returned invalid expires_in`);
-	return {
-		access,
-		refresh: normalizeOptionalString(data.refresh_token),
-		expires
-	};
+	}));
+	try {
+		await assertOkOrThrowProviderError(response, `${params.responseLabel} failed`);
+		const data = await readProviderJsonResponse(response, params.responseLabel);
+		const access = normalizeOptionalString(data.access_token);
+		const expires = resolveChutesExpiresAt(data.expires_in, params.now ?? Date.now());
+		if (!access) throw new Error(`${params.responseLabel} returned no access_token`);
+		if (expires === void 0) throw new Error(`${params.responseLabel} returned invalid expires_in`);
+		return {
+			access,
+			refresh: normalizeOptionalString(data.refresh_token),
+			expires
+		};
+	} finally {
+		await release();
+	}
 }
 async function fetchChutesUserInfo(params) {
-	const response = await (params.fetchFn ?? fetch)(CHUTES_USERINFO_ENDPOINT, {
-		headers: { Authorization: `Bearer ${params.accessToken}` },
+	const { response, release } = await fetchWithSsrFGuard(withTrustedEnvProxyGuardedFetchMode({
+		url: CHUTES_USERINFO_ENDPOINT,
+		init: { headers: { Authorization: `Bearer ${params.accessToken}` } },
 		signal: buildOAuthRequestSignal({
 			timeoutMs: CHUTES_OAUTH_REQUEST_TIMEOUT_MS,
 			...params.signal ? { signal: params.signal } : {}
 		})
-	});
-	if (!response.ok) {
-		await response.body?.cancel().catch(() => void 0);
-		return null;
+	}));
+	try {
+		if (!response.ok) return null;
+		const data = await readProviderJsonResponse(response, "Chutes userinfo");
+		return data && typeof data === "object" ? data : null;
+	} finally {
+		await release();
 	}
-	const data = await readProviderJsonResponse(response, "Chutes userinfo");
-	return data && typeof data === "object" ? data : null;
 }
 async function exchangeChutesCodeForTokens(params) {
-	const fetchFn = params.fetchFn ?? fetch;
-	const now = params.now ?? Date.now();
+	const now = Date.now();
 	const body = new URLSearchParams({
 		grant_type: "authorization_code",
 		client_id: params.app.clientId,
@@ -88,7 +98,6 @@ async function exchangeChutesCodeForTokens(params) {
 	const token = await requestChutesTokenGrant({
 		body,
 		responseLabel: "Chutes token exchange",
-		fetchFn,
 		now,
 		...params.signal ? { signal: params.signal } : {}
 	});
@@ -97,7 +106,6 @@ async function exchangeChutesCodeForTokens(params) {
 	try {
 		info = await fetchChutesUserInfo({
 			accessToken: token.access,
-			fetchFn,
 			...params.signal ? { signal: params.signal } : {}
 		});
 	} catch (error) {
@@ -113,7 +121,7 @@ async function exchangeChutesCodeForTokens(params) {
 	};
 }
 /** Refreshes a stored Chutes OAuth credential through the provider token endpoint. */
-async function refreshChutesOAuthCredential(credential, options = {}) {
+async function refreshChutesOAuthCredential(credential) {
 	const refreshToken = normalizeOptionalString(credential.refresh);
 	if (!refreshToken) throw new Error("Chutes OAuth credential is missing refresh token");
 	const clientId = normalizeOptionalString(credential.clientId ?? process.env.CHUTES_CLIENT_ID);
@@ -127,9 +135,7 @@ async function refreshChutesOAuthCredential(credential, options = {}) {
 	if (clientSecret) body.set("client_secret", clientSecret);
 	const token = await requestChutesTokenGrant({
 		body,
-		responseLabel: "Chutes token refresh",
-		fetchFn: options.fetchFn,
-		now: options.now
+		responseLabel: "Chutes token refresh"
 	});
 	return {
 		...credential,
@@ -142,8 +148,7 @@ async function refreshChutesOAuthCredential(credential, options = {}) {
 /** Runs Chutes OAuth and returns refreshable stored credentials. */
 async function loginChutes(params) {
 	const { verifier, challenge } = generatePkceVerifierChallenge();
-	const state = params.createState?.() ?? randomBytes(16).toString("hex");
-	const timeoutMs = params.timeoutMs ?? 18e4;
+	const state = randomBytes(16).toString("hex");
 	const query = new URLSearchParams({
 		client_id: params.app.clientId,
 		redirect_uri: params.app.redirectUri,
@@ -167,7 +172,7 @@ async function loginChutes(params) {
 		const redirect = parseRedirectUri(params.app.redirectUri);
 		const callback = waitForLocalOAuthCallback({
 			expectedState: state,
-			timeoutMs,
+			timeoutMs: 18e4,
 			port: redirect.port,
 			callbackPath: redirect.pathname,
 			redirectUri: params.app.redirectUri,
@@ -188,7 +193,6 @@ async function loginChutes(params) {
 		app: params.app,
 		code: codeAndState.code,
 		codeVerifier: verifier,
-		fetchFn: params.fetchFn,
 		...params.signal ? { signal: params.signal } : {}
 	});
 }

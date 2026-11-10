@@ -1,90 +1,10 @@
 import { t as createDeferredCore } from "../deferred-D0La5CRk.mjs";
-import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
-import { s as readDatabaseFileIdentity } from "../sqlite-worker-identity-KSR14F6C.mjs";
-import { s as throwSqliteLifecycleErrors } from "../sqlite-lifecycle-errors-DuOygjcn.mjs";
-import { t as isPrivateDirectoryCreationRefused } from "../private-directory-creation-BJJHaRfP.mjs";
-import { t as SqliteSnapshotCleanupError } from "../sqlite-readonly-location-cleanup-CPS8QEIp.mjs";
-import { a as SqliteSnapshotAllocationRefusedError } from "../sqlite-readonly-worker-session-DK-j16po.mjs";
-import { n as createScopedSqliteReadOnlyWorker, p as runSqliteReadOnlyWorkerOnce } from "../sqlite-readonly-worker-TSy0m8v6.mjs";
-import { n as hydrateOpenClawStateWorkerError, r as retainOpenClawStateWorkerErrorPayload, t as encodeOpenClawStateWorkerError } from "../openclaw-state-worker-error-Cmtk9G4_.mjs";
+import { s as throwSqliteLifecycleErrors } from "../sqlite-lifecycle-errors-Ca_9goHE.mjs";
+import { m as runSqliteReadOnlyWorkerOnce, r as createScopedSqliteReadOnlyWorker } from "../sqlite-readonly-worker-C2DDLw_y.mjs";
+import { t as SqliteSnapshotCleanupError } from "../sqlite-readonly-location-cleanup-zmu6YCue.mjs";
+import { n as hydrateOpenClawStateWorkerError, r as retainOpenClawStateWorkerErrorPayload, t as encodeOpenClawStateWorkerError } from "../openclaw-state-worker-error-B93Lf_P2.mjs";
 import fs from "node:fs/promises";
 //#region src/infra/sqlite-readonly-native-resource.ts
-function readId(value) {
-	if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) throw new Error("SQLite native resource requires a positive request identity");
-	return value;
-}
-function readPath(value) {
-	if (typeof value !== "string" || !value || value.includes("\0")) throw new Error("SQLite native resource requires a filesystem path");
-	return value;
-}
-function readLaunch(value) {
-	if (!isRecord(value) || !isRecord(value.env)) throw new Error("SQLite native resource requires captured launch facts");
-	const entries = [];
-	for (const [key, item] of Object.entries(value.env)) {
-		if (!key || key.includes("=") || key.includes("\0") || item !== void 0 && (typeof item !== "string" || item.includes("\0"))) throw new Error("SQLite native resource received an invalid environment");
-		entries.push([key, item]);
-	}
-	return {
-		env: Object.fromEntries(entries),
-		cwd: readPath(value.cwd)
-	};
-}
-function readRequest(value) {
-	if (!isRecord(value)) throw new Error("SQLite native resource requires a command");
-	const id = readId(value.id);
-	if (value.type === "copy.cancel") return {
-		type: value.type,
-		id
-	};
-	if (value.type === "directory.removed") return {
-		type: value.type,
-		id,
-		directory: readPath(value.directory)
-	};
-	if (value.type === "session.close") return {
-		type: value.type,
-		id,
-		session: readId(value.session)
-	};
-	if (value.type === "session.run" && (value.mode === "staging-create" || value.mode === "staging-create-legacy" || value.mode === "staging-retire" || value.mode === "staging-reconcile")) return {
-		type: value.type,
-		id,
-		session: readId(value.session),
-		pathname: readPath(value.pathname),
-		...value.mode === "staging-create" || value.mode === "staging-create-legacy" ? {
-			mode: value.mode,
-			preparationId: readId(value.preparationId)
-		} : { mode: value.mode }
-	};
-	if (value.type === "session.create" && isRecord(value.launch) && isRecord(value.launch.transport) && value.launch.transport.kind === "native" && (value.launch.retainLifetime === void 0 || typeof value.launch.retainLifetime === "boolean") && (value.launch.retainOnOperationError === void 0 || typeof value.launch.retainOnOperationError === "boolean")) return {
-		type: value.type,
-		id,
-		session: readId(value.session),
-		launch: {
-			...readLaunch(value.launch),
-			transport: { kind: "native" },
-			retainLifetime: value.launch.retainLifetime,
-			retainOnOperationError: value.launch.retainOnOperationError
-		}
-	};
-	if (value.type === "copy.run" && (value.mode === "sync" || value.mode === "async") && isRecord(value.launch) && typeof value.launch.deadlineOwnedByCaller === "boolean") {
-		const expectedSourceIdentity = value.expectedSourceIdentity === void 0 ? void 0 : readDatabaseFileIdentity(value.expectedSourceIdentity);
-		if (expectedSourceIdentity && value.mode !== "sync") throw new Error("SQLite source identity requires artifact-preserving preparation");
-		return {
-			type: value.type,
-			id,
-			pathname: readPath(value.pathname),
-			mode: value.mode,
-			stagingRoot: value.stagingRoot === void 0 ? void 0 : readPath(value.stagingRoot),
-			expectedSourceIdentity,
-			launch: {
-				...readLaunch(value.launch),
-				deadlineOwnedByCaller: value.launch.deadlineOwnedByCaller
-			}
-		};
-	}
-	throw new Error("SQLite native resource received an unsupported command");
-}
 /** NativeLifetime installs this owner before delivering the port to its target Worker. */
 function createNativeWorkerResource(port, input, ownerPort) {
 	if (input !== void 0) throw new Error("SQLite native resource does not accept bootstrap input");
@@ -92,7 +12,6 @@ function createNativeWorkerResource(port, input, ownerPort) {
 	const sendOwnerMessage = ownerPort.postMessage.bind(ownerPort);
 	const sessions = /* @__PURE__ */ new Map();
 	const directories = /* @__PURE__ */ new Map();
-	const uncertainAllocations = [];
 	const copies = /* @__PURE__ */ new Map();
 	const active = /* @__PURE__ */ new Set();
 	const ownerRequests = /* @__PURE__ */ new Map();
@@ -107,11 +26,8 @@ function createNativeWorkerResource(port, input, ownerPort) {
 		ownerRequests.clear();
 		return ownerUnavailable;
 	};
-	ownerPort.on("message", (value) => {
-		if (!isRecord(value) || typeof value.id !== "number" || !Number.isSafeInteger(value.id) || value.id < 1 || value.ok !== true && value.ok !== false) {
-			loseOwner();
-			return;
-		}
+	ownerPort.on("message", (message) => {
+		const value = message;
 		const request = ownerRequests.get(value.id);
 		if (!request) return;
 		ownerRequests.delete(value.id);
@@ -130,17 +46,16 @@ function createNativeWorkerResource(port, input, ownerPort) {
 		const request = createDeferredCore();
 		ownerRequests.set(id, request);
 		try {
-			const message = type === "allocated" ? {
+			sendOwnerMessage(type === "allocated" ? {
 				id,
 				type,
 				directory,
-				preparationId: readId(preparationId)
+				preparationId
 			} : {
 				id,
 				type,
 				directory
-			};
-			sendOwnerMessage(message);
+			});
 		} catch (error) {
 			loseOwner(error);
 		}
@@ -233,15 +148,8 @@ function createNativeWorkerResource(port, input, ownerPort) {
 		session.running = true;
 		try {
 			const allocating = request.mode === "staging-create" || request.mode === "staging-create-legacy";
-			let result;
-			try {
-				result = await session.native.run(request.pathname, { mode: request.mode });
-				if (allocating && (typeof result !== "string" || result.length === 0 || result.includes("\0"))) throw new Error("SQLite native allocation returned no exact directory");
-			} catch (error) {
-				if (allocating && !session.native.notStarted && !(error instanceof SqliteSnapshotAllocationRefusedError) && !isPrivateDirectoryCreationRefused(error)) uncertainAllocations.push(new SqliteSnapshotCleanupError("SQLite snapshot allocation has no exact directory receipt; cleanup is unresolved", { cause: error }));
-				throw error;
-			}
-			if ((request.mode === "staging-create" || request.mode === "staging-create-legacy") && typeof result === "string") {
+			const result = await session.native.run(request.pathname, { mode: request.mode });
+			if (allocating && typeof result === "string") {
 				const owned = {
 					preparationId: request.preparationId,
 					session,
@@ -256,18 +164,8 @@ function createNativeWorkerResource(port, input, ownerPort) {
 			session.running = false;
 		}
 	}
-	const receive = (value) => {
-		let request;
-		try {
-			request = readRequest(value);
-		} catch (error) {
-			if (isRecord(value) && typeof value.id === "number" && Number.isSafeInteger(value.id) && value.id > 0) fail(value.id, error);
-			else {
-				available = false;
-				port.close();
-			}
-			return;
-		}
+	const receive = (message) => {
+		const request = message;
 		if (request.type === "copy.cancel") {
 			copies.get(request.id)?.abort(/* @__PURE__ */ new Error("SQLite native copy cancelled"));
 			return;
@@ -319,7 +217,7 @@ function createNativeWorkerResource(port, input, ownerPort) {
 				throwSqliteLifecycleErrors(fences.flatMap((outcome) => outcome.status === "rejected" ? [outcome.reason] : []), "SQLite snapshot host cleanup admission failed");
 				const outcomes = await Promise.allSettled([...sessions].map(([id, session]) => closeSession(id, session)));
 				throwSqliteLifecycleErrors(outcomes.flatMap((outcome) => outcome.status === "rejected" ? [outcome.reason] : []), "SQLite native resource cleanup failed");
-				const failures = [...uncertainAllocations];
+				const failures = [];
 				for (const [directory, owned] of directories) try {
 					if (!owned.removed) {
 						await runSqliteReadOnlyWorkerOnce(directory, { mode: "staging-reconcile" }, {

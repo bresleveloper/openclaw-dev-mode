@@ -1,12 +1,12 @@
 /** Connection-bound hosted catalog snapshot SQL and monotonicity checks. */
 import { createHash } from "node:crypto";
-import type { DatabaseSync } from "node:sqlite";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import {
   executeSqliteQuerySync,
   executeSqliteQueryTakeFirstSync,
   getNodeSqliteKysely,
 } from "../infra/kysely-sync.js";
+import type { EngineConnection } from "../infra/sql-connection.js";
 import { coerceRequiredSqliteNumber as sqliteNumber } from "../infra/sqlite-number.js";
 import type { DB as OpenClawStateKyselyDatabase } from "../state/openclaw-state-db.generated.js";
 import {
@@ -56,11 +56,6 @@ function rowToTrustState(
   };
 }
 
-function decodeBase64Payload(payload: string): string {
-  const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-  return Buffer.from(normalized, "base64").toString("utf8");
-}
-
 function readMonotonicStateFromBody(body: string): StoredHostedCatalogMonotonicState | undefined {
   try {
     const document: unknown = JSON.parse(body);
@@ -68,7 +63,9 @@ function readMonotonicStateFromBody(body: string): StoredHostedCatalogMonotonicS
       return undefined;
     }
     const payload =
-      typeof document.payload === "string" ? decodeBase64Payload(document.payload) : body;
+      typeof document.payload === "string"
+        ? Buffer.from(document.payload, "base64").toString("utf8")
+        : body;
     const feed: unknown = typeof document.payload === "string" ? JSON.parse(payload) : document;
     if (!isRecord(feed) || !isOfficialExternalPluginCatalogSequence(feed.sequence)) {
       return undefined;
@@ -154,7 +151,7 @@ function rowToSnapshot(
   };
 }
 
-function readHostedCatalogSnapshotRow(db: DatabaseSync, url: string) {
+function readHostedCatalogSnapshotRow(db: EngineConnection, url: string) {
   const stateDb = getNodeSqliteKysely<HostedCatalogSnapshotDatabase>(db);
   return executeSqliteQueryTakeFirstSync(
     db,
@@ -179,7 +176,7 @@ function readHostedCatalogSnapshotRow(db: DatabaseSync, url: string) {
 }
 
 export function readHostedCatalogSnapshotInDatabase(
-  db: DatabaseSync,
+  db: EngineConnection,
   url: string,
 ): HostedOfficialExternalPluginCatalogSnapshot | null {
   return rowToSnapshot(readHostedCatalogSnapshotRow(db, url));
@@ -187,7 +184,7 @@ export function readHostedCatalogSnapshotInDatabase(
 
 /** The caller owns the write transaction containing the reread and upsert. */
 export function writeHostedCatalogSnapshotInDatabase(
-  db: DatabaseSync,
+  db: EngineConnection,
   snapshot: HostedOfficialExternalPluginCatalogSnapshot,
   now: number,
 ): void {

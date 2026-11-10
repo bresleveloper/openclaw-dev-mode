@@ -5,10 +5,8 @@ export type {
   WebContentExtractionRequest,
   WebContentExtractionResult,
   WebContentExtractorPlugin,
-  WebContentExtractMode,
 } from "../plugins/web-content-extractor-types.js";
 export {
-  extractBasicHtmlContent,
   htmlToMarkdown,
   markdownToText,
   normalizeWhitespace,

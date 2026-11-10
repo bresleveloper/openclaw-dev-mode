@@ -33,8 +33,8 @@ export type Entry = {
   actor?: ReturnType<typeof getSqliteWorkerActorIdentity>;
   bound?: boolean;
   cleanup?: SqliteWorkerAdmissionCleanup;
+  nativeLostListeners: Set<() => void>;
   activeOperations: number;
-  operationGeneration: number;
   idleTimer?: IdleTimer;
 };
 export type ActorRetirement = {

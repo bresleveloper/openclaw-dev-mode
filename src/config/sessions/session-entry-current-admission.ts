@@ -16,8 +16,21 @@ function decodeSessionEntryCurrentFacts(
   if (!isRecord(value) || typeof value.sessionId !== "string") {
     throw new Error("Session currency facts have an invalid entry identity");
   }
+  const folder = value.deviceFolder;
+  let deviceFolder: SessionEntryCurrentFacts["deviceFolder"];
+  if (folder !== undefined) {
+    if (
+      !isRecord(folder) ||
+      typeof folder.deviceId !== "string" ||
+      typeof folder.path !== "string"
+    ) {
+      throw new Error("Session currency facts have an invalid device folder projection");
+    }
+    deviceFolder = { deviceId: folder.deviceId, path: folder.path };
+  }
   if (capability) {
     return {
+      ...(deviceFolder ? { deviceFolder } : {}),
       sessionId: value.sessionId,
       spawnedBy: value.spawnedBy,
       spawnDepth: value.spawnDepth,
@@ -25,8 +38,10 @@ function decodeSessionEntryCurrentFacts(
       subagentRole: value.subagentRole,
       subagentControlScope: value.subagentControlScope,
       inheritedToolPolicyVersion: value.inheritedToolPolicyVersion,
+      inheritedToolPolicySource: value.inheritedToolPolicySource,
       inheritedToolAllow: value.inheritedToolAllow,
       inheritedToolDeny: value.inheritedToolDeny,
+      delegatedToolPolicy: value.delegatedToolPolicy,
     };
   }
   const recovery = value.subagentRecovery;
@@ -34,6 +49,7 @@ function decodeSessionEntryCurrentFacts(
     throw new Error("Session currency facts have an invalid recovery projection");
   }
   return {
+    ...(deviceFolder ? { deviceFolder } : {}),
     sessionId: value.sessionId,
     previousSessionId: value.previousSessionId,
     ...(value.archivedAt === undefined ? {} : { archivedAt: value.archivedAt }),

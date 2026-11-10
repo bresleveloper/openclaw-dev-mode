@@ -1,2 +1,2 @@
-import { n as PluginRuntime, s as OpenClawPluginApi, t as definePluginEntry } from "../../channel-core-Dw23qZdV.js";
+import { It as OpenClawPluginApi, Mg as PluginRuntime, oC as definePluginEntry } from "../../config-contracts-CY87ANNp.js";
 export { type OpenClawPluginApi, type PluginRuntime, definePluginEntry };

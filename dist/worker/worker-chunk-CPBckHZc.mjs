@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-IQf3eJtA.mjs";function isPromiseLike(e){if(e===null||typeof e!=`object`&&typeof e!=`function`)return!1;try{return typeof e.then==`function`}catch{return!1}}function init_promise_like(){return(init_promise_like=e((()=>{})))()}export{isPromiseLike as n,init_promise_like as t};

@@ -1,14 +1,11 @@
-import { a as defineChannelAliasMigration, d as normalizeAccountId } from "./runtime-doctor-migrations-BhouWAUC.js";
-import { t as createLegacyWebhookListenerDoctorContract } from "./legacy-webhook-listener-migration-Bu-ybctG.js";
-import { o as createAccountListHelpers, s as hasConfiguredAccountValue } from "./account-core-bZmYRKLc.js";
+import { a as defineChannelAliasMigration, d as normalizeAccountId } from "./runtime-doctor-migrations-Bq3PkBbD.js";
+import { t as createLegacyWebhookListenerDoctorContract } from "./legacy-webhook-listener-migration-S3H2cekT.js";
+import { g as hasConfiguredAccountValue, h as createAccountListHelpers } from "./account-core-D92inL1O.js";
 //#region extensions/nextcloud-talk/configured-state.ts
 const { listAccountIds: listNextcloudTalkAccountIds, resolveDefaultAccountId: resolveDefaultNextcloudTalkAccountId, resolveAccountConfig: mergeNextcloudTalkAccountConfig } = createAccountListHelpers("nextcloud-talk", {
 	normalizeAccountId,
 	omitKeys: ["defaultAccount"],
-	hasImplicitDefaultAccount: (cfg) => {
-		const channel = cfg.channels?.["nextcloud-talk"];
-		return Boolean(channel?.baseUrl?.trim() && (hasConfiguredAccountValue(channel.botSecret) || channel.botSecretFile?.trim() || process.env.NEXTCLOUD_TALK_BOT_SECRET?.trim()));
-	}
+	hasImplicitDefaultAccount: (cfg) => hasConfiguredNextcloudAccount(cfg.channels?.["nextcloud-talk"], process.env)
 });
 function hasConfiguredNextcloudAccount(account, env) {
 	return Boolean(account?.baseUrl?.trim() && (hasConfiguredAccountValue(account.botSecret) || hasConfiguredAccountValue(account.botSecretFile) || hasConfiguredAccountValue(env.NEXTCLOUD_TALK_BOT_SECRET)));

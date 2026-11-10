@@ -1,8 +1,8 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { i as defaultRuntime, n as RuntimeEnv, r as createNonExitingRuntime, t as OutputRuntimeEnv } from "../runtime-DlqUc5_p.js";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { i as defaultRuntime, n as RuntimeEnv, r as createNonExitingRuntime, t as OutputRuntimeEnv } from "../runtime-M_jncu14.js";
 import { t as PluginServiceSchedulerV1 } from "../service-scheduler.types-BeqzszjJ.js";
-import { n as resolveRuntimeEnv, t as createLoggerBackedRuntime } from "../runtime-logger.internal-Dlpp6FcE.js";
 import { n as registerUnhandledRejectionHandler, r as waitForAbortSignal, t as registerUncaughtExceptionHandler } from "../unhandled-rejections-wpUvkHsZ.js";
+import { n as resolveRuntimeEnv, t as createLoggerBackedRuntime } from "../runtime-logger.internal-DbcYwkHp.js";
 //#region src/cli/command-secret-gateway.d.ts
 type ResolveCommandSecretsResult = {
   resolvedConfig: OpenClawConfig;
@@ -14,15 +14,17 @@ type CommandSecretResolutionMode = "enforce_resolved" | "read_only_status" | "re
 type LegacyCommandSecretResolutionMode = "strict" | "summary" | "operational_readonly";
 type CommandSecretResolutionModeInput = CommandSecretResolutionMode | LegacyCommandSecretResolutionMode;
 type CommandSecretTargetState = "resolved_gateway" | "resolved_local" | "inactive_surface" | "unresolved";
-export declare function resolveCommandSecretRefsViaGateway(params: {
+type CommandSecretScope = {
   config: OpenClawConfig;
   commandName: string;
   targetIds: Set<string>;
   agentId?: string;
-  mode?: CommandSecretResolutionModeInput;
   allowedPaths?: ReadonlySet<string>;
   forcedActivePaths?: ReadonlySet<string>;
   optionalActivePaths?: ReadonlySet<string>;
+};
+export declare function resolveCommandSecretRefsViaGateway(params: CommandSecretScope & {
+  mode?: CommandSecretResolutionModeInput;
   allowLocalExecSecretRefs?: boolean;
   scrubUnresolvedSecretRefs?: boolean;
   gatewaySecretResolveTimeoutMs?: number;

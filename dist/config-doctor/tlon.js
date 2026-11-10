@@ -1,4 +1,4 @@
-import { i as createLegacyPrivateNetworkDoctorContract } from "./runtime-doctor-migrations-BhouWAUC.js";
+import { i as createLegacyPrivateNetworkDoctorContract } from "./runtime-doctor-migrations-Bq3PkBbD.js";
 //#region extensions/tlon/src/doctor-contract.ts
 const contract = createLegacyPrivateNetworkDoctorContract({ channelKey: "tlon" });
 const legacyConfigRules = contract.legacyConfigRules;

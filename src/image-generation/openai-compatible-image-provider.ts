@@ -1,6 +1,6 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-import { resolveGeneratedMediaMaxBytes } from "../media/configured-max-bytes.js";
+import { resolveGeneratedImageDownloadMaxBytes } from "../media/configured-max-bytes.js";
 import { resolveApiKeyForProvider } from "../plugin-sdk/provider-auth-runtime.js";
 import {
   assertOkOrThrowHttpError,
@@ -12,7 +12,10 @@ import {
   resolveProviderOperationTimeoutMs,
   sanitizeConfiguredModelProviderRequest,
 } from "../plugin-sdk/provider-http.js";
-import { isProviderApiKeyConfigured } from "../plugins/provider-auth-availability.js";
+import {
+  isProviderApiKeyConfigured,
+  isProviderApiKeyConfiguredAsync,
+} from "../plugins/provider-auth-availability.js";
 import {
   parseOpenAiCompatibleImageResponse,
   resolveInlineImageJsonResponseMaxBytes,
@@ -106,6 +109,7 @@ export function createOpenAiCompatibleImageGenerationProvider(
       : {}),
     models: [...options.models],
     isConfigured: (ctx) => isProviderApiKeyConfigured({ provider: options.id, ...ctx }),
+    isConfiguredAsync: (ctx) => isProviderApiKeyConfiguredAsync({ provider: options.id, ...ctx }),
     capabilities: options.capabilities,
     async generateImage(req): Promise<ImageGenerationResult> {
       const inputImages = req.inputImages ?? [];
@@ -216,7 +220,7 @@ export function createOpenAiCompatibleImageGenerationProvider(
         const payload = await readProviderJsonResponse(response, `${options.id}.image-generation`, {
           maxBytes: resolveInlineImageJsonResponseMaxBytes(
             options.capabilities[mode].maxCount ?? count,
-            resolveGeneratedMediaMaxBytes(req.cfg, "image"),
+            resolveGeneratedImageDownloadMaxBytes(req.cfg),
           ),
         });
         const images = parseOpenAiCompatibleImageResponse(payload, {

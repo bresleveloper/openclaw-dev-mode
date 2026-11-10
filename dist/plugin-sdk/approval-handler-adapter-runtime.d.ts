@@ -1,2 +1,2 @@
-import { n as createLazyChannelApprovalNativeRuntimeAdapter, t as CHANNEL_APPROVAL_NATIVE_RUNTIME_CONTEXT_CAPABILITY } from "../approval-handler-adapter-runtime-CiDDDfqz.js";
-export { CHANNEL_APPROVAL_NATIVE_RUNTIME_CONTEXT_CAPABILITY, createLazyChannelApprovalNativeRuntimeAdapter };
+import { n as createLazyChannelApprovalNativeRuntimeAdapter, r as createLazyChannelApprovalNativeRuntimeAdapterAsync, t as CHANNEL_APPROVAL_NATIVE_RUNTIME_CONTEXT_CAPABILITY } from "../approval-handler-adapter-runtime-BNoLjZ7h.js";
+export { CHANNEL_APPROVAL_NATIVE_RUNTIME_CONTEXT_CAPABILITY, createLazyChannelApprovalNativeRuntimeAdapter, createLazyChannelApprovalNativeRuntimeAdapterAsync };

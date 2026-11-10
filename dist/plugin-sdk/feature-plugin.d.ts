@@ -1,6 +1,5 @@
-import { c as AgentToolUpdateCallback } from "../types-DIrCJOzw.js";
-import { Fc as PluginCommandContext, Ic as PluginCommandResult, Ku as PluginSessionActionContext, Mr as OpenClawPluginDefinition, Nr as OpenClawPluginConfigSchema, Ss as OpenClawPluginApi, ws as OpenClawPluginToolContext } from "../agent-harness-runtime-DZjstJNb.js";
-import "../plugin-entry-D4JWmN6h.js";
+import { Ft as OpenClawPluginConfigSchema, It as OpenClawPluginApi, Pt as OpenClawPluginDefinition, Ua as PluginCommandContext, Wa as PluginCommandResult, my as PluginSessionActionContext, pn as OpenClawPluginToolContext } from "../config-contracts-CY87ANNp.js";
+import { T as AgentToolUpdateCallback } from "../common-CCG3ut4I.js";
 import { FeatureContract, FeatureEvent, FeatureEventName, FeatureInput, FeatureOperationName, FeatureOutput } from "./feature-contract.js";
 //#region src/plugin-sdk/feature-plugin.d.ts
 export type FeatureInvocationContext = {

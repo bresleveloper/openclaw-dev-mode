@@ -28,12 +28,8 @@ function normalizeDeepgramEncoding(value) {
 function normalizeDeepgramRealtimeBaseUrl(value) {
 	const resolved = normalizeOptionalString(value ?? process.env.DEEPGRAM_BASE_URL);
 	if (!resolved) return DEFAULT_DEEPGRAM_AUDIO_BASE_URL;
-	let parsed;
-	try {
-		parsed = new URL(resolved);
-	} catch {
-		throw new Error("Invalid Deepgram baseUrl: value is not a valid URL");
-	}
+	const parsed = URL.parse(resolved);
+	if (!parsed) throw new Error("Invalid Deepgram baseUrl: value is not a valid URL");
 	const { protocol } = parsed;
 	if (protocol !== "http:" && protocol !== "https:" && protocol !== "ws:" && protocol !== "wss:") throw new Error(`Invalid Deepgram baseUrl: unsupported scheme "${protocol}" (expected http, https, ws, or wss)`);
 	return resolved;
@@ -184,6 +180,7 @@ function createDeepgramRealtimeTranscriptionSession(config, createRealtimeTransc
 	});
 }
 function buildDeepgramRealtimeTranscriptionProvider({ createRealtimeTranscriptionWebSocketSession }) {
+	const isConfigured = ({ providerConfig }) => Boolean(normalizeProviderConfig(providerConfig).apiKey || process.env.DEEPGRAM_API_KEY);
 	return {
 		id: "deepgram",
 		label: "Deepgram Realtime Transcription",
@@ -191,7 +188,8 @@ function buildDeepgramRealtimeTranscriptionProvider({ createRealtimeTranscriptio
 		defaultModel: DEFAULT_DEEPGRAM_AUDIO_MODEL,
 		autoSelectOrder: 35,
 		resolveConfig: ({ rawConfig }) => normalizeProviderConfig(rawConfig),
-		isConfigured: ({ providerConfig }) => Boolean(normalizeProviderConfig(providerConfig).apiKey || process.env.DEEPGRAM_API_KEY),
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		createSession: (req) => {
 			const config = normalizeProviderConfig(req.providerConfig);
 			const apiKey = config.apiKey || process.env.DEEPGRAM_API_KEY;

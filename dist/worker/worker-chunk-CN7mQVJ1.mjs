@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function statIdentityFromNative(e){return e<=9223372036854775807n||process.versions.bun?e:BigInt.asIntN(64,e)}function isNativeStatIdentity(e){return typeof e==`bigint`&&e>=0n&&e<=18446744073709551615n}var t=e((()=>{}));export{isNativeStatIdentity as n,statIdentityFromNative as r,t};

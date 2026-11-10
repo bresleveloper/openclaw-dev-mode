@@ -1,4 +1,4 @@
-import { t as createSearxngWebSearchProvider } from "./.setup/searxng-search-provider-BZpmzKiT.mjs";
+import { t as createSearxngWebSearchProvider } from "./.setup/searxng-search-provider-G09qHDjp.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 //#region extensions/searxng/index.ts
 var searxng_default = definePluginEntry({

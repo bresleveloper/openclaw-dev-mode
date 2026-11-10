@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function recordRetryAttemptErrors(e,n){t.set(e,[...n])}function getRetryAttemptErrors(e){return e!==null&&(typeof e==`object`||typeof e==`function`)?t.get(e):void 0}var t,n=e((()=>{t=/* @__PURE__ */ new WeakMap}));export{n,recordRetryAttemptErrors as r,getRetryAttemptErrors as t};

@@ -1,6 +1,6 @@
-import { n as RuntimeEnv } from "../runtime-DlqUc5_p.js";
-import { a as formatAllowlistMatchMeta, c as resolveAllowlistMatchSimple, i as compileAllowlist, l as resolveCompiledAllowlistMatch, n as AllowlistMatchSource, o as resolveAllowlistCandidates, r as CompiledAllowlist, s as resolveAllowlistMatchByCandidates, t as AllowlistMatch, u as isAllowedParsedChatSender } from "../allowlist-match-Cfjke1wF.js";
-import { a as resolveGroupAllowFromSources, n as isSenderIdAllowed, r as mergeDmAllowFromSources, t as firstDefined } from "../allow-from-DUowZC7U.js";
+import { n as RuntimeEnv } from "../runtime-M_jncu14.js";
+import { a as resolveGroupAllowFromSources, n as isSenderIdAllowed, r as mergeDmAllowFromSources, t as firstDefined } from "../allow-from-DFqtsHlu.js";
+import { a as AllowlistMatchSource, c as formatAllowlistMatchMeta, d as resolveAllowlistMatchSimple, f as resolveCompiledAllowlistMatch, i as AllowlistMatch, l as resolveAllowlistCandidates, o as CompiledAllowlist, s as compileAllowlist, t as isAllowedParsedChatSender, u as resolveAllowlistMatchByCandidates } from "../chat-target-prefixes-B57oBdKY.js";
 //#region src/channels/allowlists/resolve-utils.d.ts
 type AllowlistUserResolutionLike = {
   input: string;
@@ -11,7 +11,6 @@ export declare function mergeAllowlist(params: {
   existing?: Array<string | number>;
   additions: string[];
 }): string[];
-/** Splits lookup results into resolved mappings, unresolved display text, and id additions. */
 export declare function buildAllowlistResolutionSummary<T extends AllowlistUserResolutionLike>(resolvedUsers: T[], opts?: {
   /** Return null to omit an entry from the logged mapping (e.g. identity lookups). */
   formatResolved?: (entry: T) => string | null;
@@ -28,7 +27,6 @@ export declare function canonicalizeAllowlistWithResolvedIds<T extends Allowlist
   resolvedMap: Map<string, T>;
   entryKey?: (entry: string) => string;
 }): string[];
-/** Updates nested `{ users }` allowlist entries using merge or canonicalize semantics. */
 export declare function patchAllowlistUsersInConfigEntries<T extends AllowlistUserResolutionLike, TEntries extends Record<string, unknown>>(params: {
   entries: TEntries;
   resolvedMap: Map<string, T>;
@@ -37,7 +35,6 @@ export declare function patchAllowlistUsersInConfigEntries<T extends AllowlistUs
 }): TEntries;
 /** Collects concrete user lookup targets from one config entry, excluding wildcard policy entries. */
 export declare function addAllowlistUserEntriesFromConfigEntry(target: Set<string>, entry: unknown): void;
-/** Logs a compact resolved/unresolved allowlist lookup summary when there is anything to report. */
 export declare function summarizeMapping(label: string, mapping: string[], unresolved: string[], runtime: RuntimeEnv): void;
 //#endregion
 //#region src/plugin-sdk/allow-from.d.ts
@@ -104,8 +101,6 @@ export type BasicAllowlistResolutionEntry = {
   /** Optional resolver note for UI or docs output. */
   note?: string;
 };
-/** Clone allowlist resolution entries into a plain serializable shape for UI and docs output. */
-export declare function mapBasicAllowlistResolutionEntries(entries: BasicAllowlistResolutionEntry[]): BasicAllowlistResolutionEntry[];
 /** Map allowlist inputs sequentially so resolver side effects stay ordered and predictable. */
 export declare function mapAllowlistResolutionInputs<T>(params: {
   /** Ordered allowlist inputs to resolve. */

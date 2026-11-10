@@ -89,18 +89,18 @@ describe("fixConfigContent", { timeout: 300_000 }, () => {
     await withConfigHome(
       {
         gateway: { mode: "local" },
-        agents: { defaults: { heartbeat: { activeHours: { start: "25:99", end: "nope" } } } },
+        // 11.3: doctor keeps an invalid heartbeat.activeHours and only warns; a null agent
+        // workspace is still removed, which is what this case needs.
+        agents: { entries: { main: { workspace: null } } },
       },
       async (home) => {
         const report = await fixConfigContent();
 
         expect(report).toMatchObject({ status: "fixed" });
-        expect(report.changes).toEqual([
-          expect.stringContaining("Removed invalid agents.defaults.heartbeat.activeHours"),
-        ]);
+        expect(report.changes).toEqual(["Removed null workspace value from agents.entries entry."]);
         expect(await readWrittenConfig(home.configPath)).toEqual({
           gateway: { mode: "local" },
-          agents: { defaults: { heartbeat: {} } },
+          agents: { entries: { main: {} } },
         });
       },
     );
@@ -292,7 +292,9 @@ describe("fixConfigContent", { timeout: 300_000 }, () => {
         const report = await fixConfigContent();
 
         expect(report).toMatchObject({ status: "write-failed" });
-        expect(report.error).toContain("size-drop");
+        // 2026.10.10 hides the guard's "size-drop" reason behind one user-facing message
+        // (src/config/io.write-errors.ts createConfigWriteSafetyRejectionError).
+        expect(report.error).toContain("could overwrite or remove existing settings");
         expect(await fs.readFile(home.configPath, "utf-8")).toBe(home.originalRaw);
       },
     );

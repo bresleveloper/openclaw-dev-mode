@@ -16,6 +16,7 @@ import { withGitProcessOperation, type GitProcessOperation } from "../process/sp
 import { createDeferredCore } from "../shared/deferred.js";
 import { resolveGlobalSingleton } from "../shared/global-singleton.js";
 import {
+  gitCommandName,
   retryableGitNetworkOperation,
   withGitNetworkRetry,
   type GitOperationStarter,
@@ -23,6 +24,27 @@ import {
 import { startGitOperationTiming } from "./git-operation-timing.js";
 
 export const GIT_TIMEOUT_MS = 120_000;
+
+/** Inspection consumes local objects; only explicit transfers may hydrate a partial clone. */
+export function gitReadOnlyEnvironment(
+  args: readonly string[],
+  env: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const command = gitCommandName(args);
+  return command &&
+    (/^(?:cat-file|check-attr|check-ignore|config|describe|diff|diff-files|diff-index|diff-tree|for-each-ref|log|ls-files|ls-tree|merge-base|name-rev|rev-list|rev-parse|show|show-ref|status)$/.test(
+      command,
+    ) ||
+      (command === "worktree" && args[args.indexOf(command) + 1] === "list") ||
+      (command === "branch" && args.includes("--list")))
+    ? { ...env, GIT_NO_LAZY_FETCH: "1" }
+    : env;
+}
+
+export class GitCommandTimeoutError extends Error {
+  override name = "GitCommandTimeoutError";
+}
+
 // Keep live writers ordered across runtime chunks and shutdown. Settled tails
 // remove themselves; resetting this queue would release already-owned cleanup.
 const gitRefMutations = resolveGlobalSingleton(
@@ -112,10 +134,19 @@ export function gitCommandArgv(cwd: string, args: string[], config: string[] = [
   ];
 }
 
-function withForegroundGitMaintenance(argv: string[]): string[] {
+function gitExecutionArgv(
+  cwd: string,
+  args: string[],
+  options: { killProcessTree?: boolean; lowerPriority?: boolean },
+): string[] {
   // Maintenance and legacy auto-GC must stay in their cancellable process tree.
-  return argv[0] === "git"
-    ? ["git", "-c", "maintenance.autoDetach=false", "-c", "gc.autoDetach=false", ...argv.slice(1)]
+  const argv = gitCommandArgv(
+    cwd,
+    args,
+    options.killProcessTree ? ["maintenance.autoDetach=false", "gc.autoDetach=false"] : [],
+  );
+  return options.lowerPriority && process.platform !== "win32"
+    ? ["nice", "-n", "10", ...argv]
     : argv;
 }
 
@@ -131,6 +162,10 @@ export type GitCommandOptions = Pick<
   | "maxOutputBytes"
   | "terminateOnOutputLimit"
 > & {
+  /** Canonical ref owner when content commands use a temporary safe configuration view. */
+  refMutationDirectory?: string;
+  /** Yield CPU to foreground Gateway work for content-heavy background reads. */
+  lowerPriority?: boolean;
   operation?: GitProcessOperation;
   /** An admitted destructive operation must settle without the generic Git deadline. */
   waitForExit?: boolean;
@@ -168,13 +203,15 @@ async function executeGitCommandWithOutput<Result extends SpawnResult | BufferSp
   args: string[],
   options: GitCommandOptions,
 ): Promise<Result & { timeoutMs: number }> {
+  const env = gitReadOnlyEnvironment(args, options.env ?? {});
   const timeoutMs = options.timeoutMs ?? GIT_TIMEOUT_MS;
-  const argv = gitCommandArgv(cwd, args);
+  const argv = gitExecutionArgv(cwd, args, options);
   if (options.waitForExit === true) {
     const start = () => {
       options.beforeRun?.();
-      return run(options.killProcessTree ? withForegroundGitMaintenance(argv) : argv, {
+      return run(argv, {
         ...options,
+        env,
         timeoutMs: undefined,
       });
     };
@@ -185,8 +222,9 @@ async function executeGitCommandWithOutput<Result extends SpawnResult | BufferSp
     retryableGitNetworkOperation(args),
     { ...options, timeoutMs },
     (attemptTimeoutMs) =>
-      run(options.killProcessTree ? withForegroundGitMaintenance(argv) : argv, {
+      run(argv, {
         ...options,
+        env,
         timeoutMs: attemptTimeoutMs,
       }),
   );
@@ -194,6 +232,8 @@ async function executeGitCommandWithOutput<Result extends SpawnResult | BufferSp
 }
 
 export type GitBufferedCommandOptions = BufferedCommandOptions & {
+  refMutationDirectory?: string;
+  lowerPriority?: boolean;
   beforeRun?: () => void;
   startRun?: GitOperationStarter;
   operation?: GitProcessOperation;
@@ -204,16 +244,16 @@ export async function executeGitCommandBuffered(
   args: string[],
   options: GitBufferedCommandOptions = {},
 ): Promise<BufferedCommandResult> {
-  const argv = gitCommandArgv(cwd, args);
+  const env = gitReadOnlyEnvironment(args, options.env ?? {});
+  const argv = gitExecutionArgv(cwd, args, {
+    ...options,
+    killProcessTree: options.killProcessTree !== false,
+  });
   return await withGitProcessOperation(options.operation, () =>
     withGitNetworkRetry(
       retryableGitNetworkOperation(args),
       { ...options, timeoutMs: options.timeoutMs ?? GIT_TIMEOUT_MS },
-      (timeoutMs) =>
-        runCommandBuffered(
-          options.killProcessTree === false ? argv : withForegroundGitMaintenance(argv),
-          { ...options, timeoutMs },
-        ),
+      (timeoutMs) => runCommandBuffered(argv, { ...options, env, timeoutMs }),
     ),
   );
 }
@@ -228,7 +268,9 @@ export function createGitCommandError(
     timeoutMs,
   });
   if (result.termination === "timeout") {
-    error.message += `\nGit did not finish within its ${timeoutMs / 1000}s budget; check remote reachability, repository locks, and clone shape (partial clones fetch missing objects lazily).`;
+    return new GitCommandTimeoutError(
+      `${error.message}\nGit did not finish within its ${timeoutMs / 1000}s budget; check remote reachability, repository locks, and clone shape (partial clones fetch missing objects lazily).`,
+    );
   }
   return error;
 }

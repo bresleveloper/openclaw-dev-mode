@@ -1,10 +1,11 @@
-import { c as ModelProviderDeclarationConfig, i as ModelDefinitionConfig, n as OpenClawConfig, u as Api, v as Model } from "../../types.openclaw-C-OasKBU.js";
-import { n as ProviderResolveDynamicModelContext, x as ImageGenerationProvider } from "../../net-CNd-dg0-.js";
-import "../../node-list-types-BtJ_nH3c.js";
-import "../../config-contracts-C9WIRZbi.js";
-import "../../provider-onboard-D9ID6ldl.js";
-import "../../ssrf-runtime-0hwhAsr2.js";
-import "../../provider-catalog-live-runtime-DHZnwJmJ.js";
+import { M as OpenClawConfig, U as ModelProviderDeclarationConfig, bt as Model, q as Api, z as ModelDefinitionConfig } from "../../types-D7I_F5Ux.js";
+import "../../index-DsXRfkLu.js";
+import { fh as ProviderResolveDynamicModelContext } from "../../config-contracts-CY87ANNp.js";
+import { _ as ImageGenerationProvider } from "../../runtime-types-BaNsKfbh.js";
+import "../../provider-model-shared-uYxY__EE.js";
+import "../../provider-onboard-BNuhTHon.js";
+import "../../provider-catalog-live-runtime-B4afebj8.js";
+import "../../image-generation-aivnygx5.js";
 //#region extensions/xai/model-id.d.ts
 export declare function normalizeXaiModelId(id: string): string;
 //#endregion
@@ -29,7 +30,7 @@ export declare function buildXaiImageGenerationProvider(): ImageGenerationProvid
 //#region extensions/xai/model-definitions.d.ts
 export declare const XAI_BASE_URL: string;
 export declare const XAI_DEFAULT_IMAGE_MODEL = "grok-imagine-image";
-export declare const XAI_IMAGE_MODELS: readonly ["grok-imagine-image", "grok-imagine-image-quality"];
+export declare const XAI_IMAGE_MODELS: readonly ["grok-imagine-image", "grok-imagine-image-2.0", "grok-imagine-image-quality"];
 export declare const XAI_DEFAULT_CONTEXT_WINDOW = 1000000;
 export declare const XAI_DEFAULT_MAX_TOKENS = 64000;
 export declare const XAI_DEFAULT_MODEL_ID = "grok-4.7";

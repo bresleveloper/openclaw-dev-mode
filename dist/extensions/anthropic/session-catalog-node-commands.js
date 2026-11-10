@@ -1,10 +1,10 @@
-import { r as validateClaudeSessionId } from "../../invoke-agent-cli-claude-params-C_OgNYoh.mjs";
-import { i as runNodePtyCommand, n as decodeNodePtyResumeParams, r as decodeNodePtyStartParams } from "../../node-host-CcDjU14I.mjs";
-import { t as resolveClaudeTerminalExecutable } from "../../session-catalog-executable-CCw_I-M0.mjs";
+import { r as validateClaudeSessionId } from "../../invoke-agent-cli-claude-params-D_miSykQ.mjs";
+import { i as runNodePtyCommand, n as decodeNodePtyResumeParams, r as decodeNodePtyStartParams } from "../../node-host-CIghcYFc.mjs";
+import { t as resolveClaudeTerminalExecutable } from "../../session-catalog-executable-B1_WSP_7.mjs";
 import { s as isResumableClaudeSource } from "../../session-catalog-shared-CiyzxK6Y.mjs";
 import { t as isExactClaudeSessionCursor } from "../../session-catalog-cursor-NPLrVaSJ.mjs";
-import { o as readLocalClaudeTranscriptPage, r as listLocalClaudeSessionPage } from "../../session-catalog-listing-BWNzRgOl.mjs";
-import "../../session-catalog-DrzL-Oly.mjs";
+import { o as readLocalClaudeTranscriptPage, r as listLocalClaudeSessionPage } from "../../session-catalog-listing-BmnMe3i4.mjs";
+import "../../session-catalog-CTNCPIkc.mjs";
 //#region extensions/anthropic/session-catalog-node-commands.ts
 const CLAUDE_NODE_LOOKUP_PAGE_LIMIT = 100;
 function parseNodeParams(paramsJSON) {
@@ -21,6 +21,7 @@ async function requireLocalResumableClaudeSession(threadId) {
 	while (true) {
 		const page = await listLocalClaudeSessionPage({
 			limit: CLAUDE_NODE_LOOKUP_PAGE_LIMIT,
+			searchTerm: threadId,
 			...cursor ? { cursor } : {}
 		});
 		const record = page.sessions.find((candidate) => candidate.threadId === threadId);

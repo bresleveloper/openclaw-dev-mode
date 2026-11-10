@@ -1,4 +1,4 @@
-import "../node-list-types-By5Rieo2.js";
+import "../node-list-types-kzEt3Ma3.js";
 import { Command } from "commander";
 //#region src/cli/nodes-cli/cli-utils.d.ts
 /** Return color helpers that degrade to plain text in non-rich terminals. */

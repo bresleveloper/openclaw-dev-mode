@@ -1,13 +1,12 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
 import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { o as sendHttpRequestRejection } from "../../http-request-lifecycle-DO9mb9Gu.mjs";
-import { a as readJsonBodyWithLimit } from "../../http-body-CgfQBa7S.mjs";
-import { a as getPluginRuntimeGatewayRequestScope } from "../../gateway-request-scope-BSmCVVpP.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../plugin-runtime-DJr2pk-j.mjs";
-import { t as dispatchGatewayMethod } from "../../gateway-method-runtime-IxQWOVrh.mjs";
-import { t as WEBHOOK_BODY_READ_DEFAULTS } from "../../webhook-request-guards-o9Ex3xOU.mjs";
+import { o as getPluginRuntimeGatewayRequestScope } from "../../gateway-request-scope-1BXD1G3l.mjs";
+import { a as readJsonBodyWithLimit, f as sendHttpRequestRejection } from "../../http-body-DZQjJc2J.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../plugin-runtime-BaFUwWWh.mjs";
+import { t as dispatchGatewayMethod } from "../../gateway-method-runtime-B44Mx2CX.mjs";
+import { t as WEBHOOK_BODY_READ_DEFAULTS } from "../../webhook-request-guards-BYZUECo_.mjs";
 import { randomUUID } from "node:crypto";
 //#region extensions/admin-http-rpc/src/methods.ts
 const ADMIN_HTTP_RPC_ALLOWED_METHODS = new Set(Object.values({
@@ -78,11 +77,9 @@ const ADMIN_HTTP_RPC_ALLOWED_METHODS = new Set(Object.values({
 	],
 	diagnostics: ["doctor.memory.status", "update.status"]
 }).flat());
-/** Return whether an admin RPC method is exposed over HTTP. */
 function isAdminHttpRpcAllowedMethod(method) {
 	return ADMIN_HTTP_RPC_ALLOWED_METHODS.has(method);
 }
-/** List all admin RPC methods exposed over HTTP. */
 function listAdminHttpRpcAllowedMethods() {
 	return Array.from(ADMIN_HTTP_RPC_ALLOWED_METHODS);
 }
@@ -156,16 +153,15 @@ async function dispatchAdminRpc(request) {
 	};
 	try {
 		const response = await dispatchGatewayMethod(request.method, request.params);
-		if (response.ok) return {
-			id: request.id,
-			ok: true,
-			payload: response.payload,
-			...response.meta ? { meta: response.meta } : {}
-		};
 		return {
 			id: request.id,
-			ok: false,
-			error: response.error ?? unavailable,
+			...response.ok ? {
+				ok: true,
+				payload: response.payload
+			} : {
+				ok: false,
+				error: response.error ?? unavailable
+			},
 			...response.meta ? { meta: response.meta } : {}
 		};
 	} catch {

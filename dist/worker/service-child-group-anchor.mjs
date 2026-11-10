@@ -1,9 +1,11 @@
 import { createRequire } from "node:module";
 import { once } from "node:events";
-import fs, { closeSync, readFileSync, readdirSync } from "node:fs";
+import fs, { closeSync, fstatSync, openSync, readFileSync, readSync, readdirSync } from "node:fs";
 import { Socket } from "node:net";
 import { pipeline } from "node:stream";
 import { spawn, spawnSync } from "node:child_process";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { isatty } from "node:tty";
 //#region packages/normalization-core/src/record-coerce.ts
 /** Type guard for non-array object records at browser-safe boundaries. */
 function isRecord(value) {
@@ -16,7 +18,66 @@ function createDeferredCore() {
 	return promiseWithResolvers.withResolvers();
 }
 //#endregion
+//#region packages/terminal-core/src/ansi-sequences.ts
+const ANSI_OSC_INTRODUCER_PATTERN = "(?:\\x1b\\]|\\x9d)";
+const ANSI_STRING_TERMINATOR_PATTERN = "(?:\\x1b\\\\|\\x07|\\x9c)";
+const ANSI_OSC_PATTERN = `${ANSI_OSC_INTRODUCER_PATTERN}[^\\x07\\x1b\\x9c]*${ANSI_STRING_TERMINATOR_PATTERN}`;
+const ANSI_COMPAT_CONTROL_SEQUENCE_PATTERN = "[\\u001B\\u009B][[\\]()#;?]*(?:\\d{1,4}(?:[;:]\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]";
+new RegExp(ANSI_OSC_PATTERN, "y");
+new RegExp(`${`${ANSI_OSC_INTRODUCER_PATTERN}[\\s\\S]*?${ANSI_STRING_TERMINATOR_PATTERN}`}|${ANSI_COMPAT_CONTROL_SEQUENCE_PATTERN}`, "y");
+new Intl.Segmenter(void 0, { granularity: "grapheme" });
+new RegExp(`[${String.fromCharCode(0)}-${String.fromCharCode(31)}${String.fromCharCode(127)}-${String.fromCharCode(159)}]`, "g");
+//#endregion
+//#region packages/normalization-core/src/string-coerce.ts
+/** Trims string input and returns null for non-strings or empty strings. */
+function normalizeNullableString(value) {
+	if (typeof value !== "string") return null;
+	const trimmed = value.trim();
+	return trimmed ? trimmed : null;
+}
+/** Trims string input and returns undefined for non-strings or empty strings. */
+function normalizeOptionalString(value) {
+	return normalizeNullableString(value) ?? void 0;
+}
+/** Lowercases a normalized optional string. */
+function normalizeOptionalLowercaseString(value) {
+	return normalizeOptionalString(value)?.toLowerCase();
+}
+//#endregion
+//#region src/utils/boolean.ts
+const DEFAULT_TRUTHY = [
+	"true",
+	"1",
+	"yes",
+	"on"
+];
+const DEFAULT_FALSY = [
+	"false",
+	"0",
+	"no",
+	"off"
+];
+function asBoolean(value) {
+	return typeof value === "boolean" ? value : void 0;
+}
+function parseBooleanValue(value, options = {}) {
+	const booleanValue = asBoolean(value);
+	if (booleanValue !== void 0) return booleanValue;
+	const normalized = normalizeOptionalLowercaseString(value);
+	if (!normalized) return;
+	if ((options.truthy ?? DEFAULT_TRUTHY).includes(normalized)) return true;
+	if ((options.falsy ?? DEFAULT_FALSY).includes(normalized)) return false;
+}
+//#endregion
 //#region src/process/linux-oom-score.ts
+/**
+* Linux children inherit the Gateway's OOM score, leaving the larger Gateway
+* vulnerable under memory pressure (#70404). Raise children to 1000 through a
+* shell that execs the command, or after native spawn when argv0 must be retained.
+* Raising a same-user child's score needs no CAP_SYS_RESOURCE.
+* OPENCLAW_CHILD_OOM_SCORE_ADJ=0 (also false/no/off) opts out per child or process.
+*/
+const CHILD_OOM_SCORE_ADJ_ENV_KEY = "OPENCLAW_CHILD_OOM_SCORE_ADJ";
 const OOM_SCORE_WRAP_SHELL = "/bin/sh";
 const OOM_SCORE_WRAP_SCRIPT = "echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec \"$0\" \"$@\"";
 [
@@ -25,12 +86,27 @@ const OOM_SCORE_WRAP_SCRIPT = "echo 1000 > /proc/self/oom_score_adj 2>/dev/null;
 	"if [ \"${OC_INTERNAL_OOM_EXEC_CDPATH+x}\" = x ]; then CDPATH=\"$OC_INTERNAL_OOM_EXEC_CDPATH\"; export CDPATH; fi; unset OC_INTERNAL_OOM_EXEC_CDPATH",
 	"if [ \"${OC_INTERNAL_OOM_EXEC_PS4+x}\" = x ]; then PS4=\"$OC_INTERNAL_OOM_EXEC_PS4\"; export PS4; fi; unset OC_INTERNAL_OOM_EXEC_PS4; exec \"$0\" \"$@\""
 ].join("; ");
+function raiseChildOomScore(pid) {
+	if (pid === void 0) return;
+	try {
+		fs.writeFileSync(`/proc/${pid}/oom_score_adj`, "1000");
+	} catch {}
+}
+function spawnOomScoreAdjusted(command, args, options) {
+	const child = spawn(command, args, options);
+	if (!options.shell && shouldAdjustChildOomScore(options)) raiseChildOomScore(child.pid);
+	return child;
+}
+function shouldAdjustChildOomScore(options) {
+	if ((options?.platform ?? process.platform) !== "linux") return false;
+	return parseBooleanValue(options?.env?.[CHILD_OOM_SCORE_ADJ_ENV_KEY] ?? process.env[CHILD_OOM_SCORE_ADJ_ENV_KEY]) !== false;
+}
 function isWrapped(command, args) {
 	return command === OOM_SCORE_WRAP_SHELL && args[0] === "-c" && args[1] === OOM_SCORE_WRAP_SCRIPT;
 }
 /** Only small spawn owners may temporarily raise their score; never call from the Gateway. */
 function spawnWithInheritedOomScore(command, args, options) {
-	if (process.platform !== "linux" || !isWrapped(command, args) || !args[2] || options.shell || options.argv0 !== void 0) return spawn(command, args, options);
+	if (process.platform !== "linux" || !isWrapped(command, args) || !args[2] || options.shell || options.argv0 !== void 0) return spawnOomScoreAdjusted(command, args, options);
 	let scoreFd;
 	let original;
 	try {
@@ -54,6 +130,36 @@ function spawnWithInheritedOomScore(command, args, options) {
 	}
 }
 //#endregion
+//#region src/process/release-stdin.ts
+/**
+* Releases inherited stdin before a child entry point disconnects.
+*
+* Node 26 closes fd 0 when destroying a stdin ReadStream over a regular file or
+* /dev/null (stdio "ignore"). libuv then hands fd 0 to the next worker loop and
+* aborts when that loop closes it. Such stdin holds no handle that keeps the
+* process alive, so it is left open; pipes, sockets and TTYs are still released.
+* Bun reports pipe stdin as a ReadStream too, so the fd type decides, not the class.
+*/
+function releaseProcessStdin() {
+	let fileBacked = false;
+	try {
+		const stat = fstatSync(0);
+		fileBacked = stat.isFile() || stat.isCharacterDevice() && !isatty(0);
+	} catch {}
+	if (!fileBacked) process.stdin.destroy();
+}
+//#endregion
+//#region src/process/spawn-broker/protocol.ts
+function serializeBrokerError(error) {
+	return {
+		message: error.message,
+		code: error.code,
+		errno: error.errno,
+		syscall: error.syscall,
+		path: error.path
+	};
+}
+//#endregion
 //#region src/process/supervisor/cancellation-policy.ts
 const GRACEFUL_CANCEL_TIMEOUT_MS = 5e3;
 //#endregion
@@ -71,12 +177,264 @@ function extractErrorCode(err) {
 	return typeof code === "string" || typeof code === "number" ? String(code) : void 0;
 }
 //#endregion
+//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/errors.js
+var ProcSafeError = class extends Error {
+	code;
+	details;
+	constructor(code, message, options = {}) {
+		super(message, options);
+		this.name = "ProcSafeError";
+		this.code = code;
+		this.details = options.details;
+	}
+};
+//#endregion
+//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/native-error.js
+const nativeCodes = /* @__PURE__ */ new Set([
+	"unsupported-platform",
+	"helper-unavailable",
+	"access-denied",
+	"layout-mismatch",
+	"timeout",
+	"incomplete",
+	"invalid-argument",
+	"operation-failed"
+]);
+/** Internal native errors carry a closed code before the first colon. */
+function fromNativeError(error) {
+	if (error instanceof ProcSafeError) return error;
+	const message = error instanceof Error ? error.message : String(error);
+	const code = message.slice(0, message.indexOf(":"));
+	const dbusErrorName = /^[^:]+: dbus-error\[([A-Za-z0-9_.]+)\]$/.exec(message)?.[1];
+	const peerUidMismatch = /^access-denied: peer-uid-mismatch\[(\d+),(\d+)\]$/.exec(message);
+	const pinAccess = /^invalid-argument: insufficient-pin-access\[(lifetime-owner|job-member),(observe|lifetime-owner|job-member)\]$/.exec(message);
+	return new ProcSafeError(nativeCodes.has(code) ? code : "operation-failed", message, {
+		cause: error,
+		...dbusErrorName ? { details: { dbusErrorName } } : {},
+		...peerUidMismatch ? { details: {
+			reason: "peer-uid-mismatch",
+			expectedUid: Number(peerUidMismatch[1]),
+			actualUid: Number(peerUidMismatch[2])
+		} } : {},
+		...pinAccess ? { details: {
+			reason: "insufficient-pin-access",
+			required: pinAccess[1],
+			actual: pinAccess[2]
+		} } : {},
+		...code === "access-denied" && message === "access-denied: visibility-policy" ? { details: { reason: "visibility-policy" } } : {},
+		...code === "operation-failed" && message === "operation-failed: not-a-child" ? { details: { reason: "not-a-child" } } : {}
+	});
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/native-load-error.js
+/** Recognize only a resolver error naming the selected package, not a missing child dependency. */
+function isMissingNativePackage(error, packageName) {
+	if (!(error instanceof Error) || !("code" in error) || error.code !== "MODULE_NOT_FOUND") return false;
+	const firstLine = error.message.split("\n", 1)[0];
+	const missing = `Cannot find module '${packageName}'`;
+	return firstLine === missing || firstLine?.startsWith(`${missing} from '`) === true && firstLine.endsWith("'");
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/native.js
+const require = createRequire(import.meta.url);
+const initialize = AsyncLocalStorage.snapshot();
+let binding;
+let attempted = false;
+let loadError;
+let selectedTarget;
+let targetDescription;
+function getNativeModeSetting() {
+	const mode = process.env.PROC_SAFE_NATIVE ?? "auto";
+	if (mode !== "auto" && mode !== "off" && mode !== "require") throw new ProcSafeError("invalid-argument", "PROC_SAFE_NATIVE must be auto, off, or require");
+	return {
+		mode,
+		source: process.env.PROC_SAFE_NATIVE === void 0 ? "default" : "PROC_SAFE_NATIVE"
+	};
+}
+function classifyLoadFailure(error, packageName) {
+	try {
+		const code = typeof error === "object" && error !== null && "code" in error ? error.code : void 0;
+		if (isMissingNativePackage(error, packageName)) try {
+			require.resolve(packageName);
+		} catch (resolutionError) {
+			if (isMissingNativePackage(resolutionError, packageName)) return { reason: "package-missing" };
+		}
+		return {
+			reason: "load-failed",
+			code: typeof code === "string" && [
+				"ERR_DLOPEN_FAILED",
+				"MODULE_NOT_FOUND",
+				"ERR_MODULE_NOT_FOUND",
+				"ERR_PACKAGE_PATH_NOT_EXPORTED",
+				"ERR_INVALID_PACKAGE_CONFIG",
+				"EACCES",
+				"EPERM",
+				"ENOENT"
+			].includes(code) ? code : "UNKNOWN"
+		};
+	} catch {
+		return {
+			reason: "load-failed",
+			code: "UNKNOWN"
+		};
+	}
+}
+function isMuslFilename(file) {
+	return file.includes("libc.musl-") || file.includes("ld-musl-");
+}
+function isMuslFromReport() {
+	try {
+		if (!process.report || typeof process.report.getReport !== "function") return void 0;
+		const report = process.report.getReport();
+		if (report.header?.glibcVersionRuntime) return false;
+		if (report.sharedObjects?.some(isMuslFilename)) return true;
+	} catch {}
+}
+function isMuslFromFilesystem() {
+	for (const directory of ["/lib", "/usr/lib"]) try {
+		if (readdirSync(directory).some(isMuslFilename)) return true;
+	} catch {}
+}
+function readUInt(buffer, offset, bytes, littleEndian) {
+	if (offset < 0 || offset + bytes > buffer.length) return void 0;
+	if (bytes === 2) return littleEndian ? buffer.readUInt16LE(offset) : buffer.readUInt16BE(offset);
+	if (bytes === 4) return littleEndian ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset);
+	const value = littleEndian ? buffer.readBigUInt64LE(offset) : buffer.readBigUInt64BE(offset);
+	return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : void 0;
+}
+function isMuslFromElfInterpreter() {
+	let fd;
+	try {
+		fd = openSync(process.execPath, "r");
+		const header = Buffer.alloc(64);
+		if (readSync(fd, header, 0, header.length, 0) < 52) return void 0;
+		if (!header.subarray(0, 4).equals(Buffer.from([
+			127,
+			69,
+			76,
+			70
+		]))) return void 0;
+		const elfClass = header[4];
+		const dataEncoding = header[5];
+		if (elfClass !== 1 && elfClass !== 2 || dataEncoding !== 1 && dataEncoding !== 2) return;
+		const littleEndian = dataEncoding === 1;
+		const is64Bit = elfClass === 2;
+		const tableOffset = readUInt(header, is64Bit ? 32 : 28, is64Bit ? 8 : 4, littleEndian);
+		const entrySize = readUInt(header, is64Bit ? 54 : 42, 2, littleEndian);
+		const entryCount = readUInt(header, is64Bit ? 56 : 44, 2, littleEndian);
+		if (tableOffset === void 0 || entrySize === void 0 || entryCount === void 0 || entrySize < (is64Bit ? 56 : 32) || entryCount > 1024) return;
+		const programHeader = Buffer.alloc(entrySize);
+		for (let index = 0; index < entryCount; index += 1) {
+			const offset = tableOffset + index * entrySize;
+			if (readSync(fd, programHeader, 0, entrySize, offset) !== entrySize) return void 0;
+			if (readUInt(programHeader, 0, 4, littleEndian) !== 3) continue;
+			const interpreterOffset = readUInt(programHeader, is64Bit ? 8 : 4, is64Bit ? 8 : 4, littleEndian);
+			const interpreterSize = readUInt(programHeader, is64Bit ? 32 : 16, is64Bit ? 8 : 4, littleEndian);
+			if (interpreterOffset === void 0 || interpreterSize === void 0 || interpreterSize < 1 || interpreterSize > 4096) return;
+			const interpreter = Buffer.alloc(interpreterSize);
+			if (readSync(fd, interpreter, 0, interpreterSize, interpreterOffset) !== interpreterSize) return;
+			return isMuslFilename(interpreter.toString("utf8"));
+		}
+	} catch {
+		return;
+	} finally {
+		if (fd !== void 0) try {
+			closeSync(fd);
+		} catch {}
+	}
+}
+function isMusl() {
+	if (process.platform !== "linux") return false;
+	for (const detector of [
+		isMuslFromReport,
+		isMuslFromElfInterpreter,
+		isMuslFromFilesystem
+	]) {
+		const result = detector();
+		if (result !== void 0) return result;
+	}
+	return false;
+}
+function target() {
+	if (targetDescription !== void 0) return selectedTarget;
+	const { platform, arch } = process;
+	targetDescription = `${platform}-${arch}${platform === "linux" ? `-${isMusl() ? "musl" : "gnu"}` : platform === "win32" ? "-msvc" : ""}`;
+	if ((arch === "x64" || arch === "arm64") && [
+		"darwin",
+		"freebsd",
+		"win32",
+		"linux"
+	].includes(platform)) selectedTarget = targetDescription;
+	return selectedTarget;
+}
+function getNativeBinding() {
+	const { mode } = getNativeModeSetting();
+	if (mode === "off") return void 0;
+	if (!attempted) {
+		attempted = true;
+		try {
+			const selected = target();
+			if (selected) {
+				binding = initialize(() => require(`@openclaw/proc-safe-${selected}`));
+				binding?.readProcessIdentity;
+			}
+		} catch (error) {
+			loadError = error;
+			classifyLoadFailure(error, `@openclaw/proc-safe-${selectedTarget}`);
+		}
+	}
+	if (!binding && mode === "require") throw new ProcSafeError("helper-unavailable", "native proc-safe binding is unavailable", { cause: loadError });
+	return binding;
+}
+function validatePid(pid) {
+	const max = process.platform === "win32" ? 4294967295 : 2147483647;
+	if (!Number.isInteger(pid) || pid <= 0 || pid > max) throw new ProcSafeError("invalid-argument", "pid must be a positive platform PID");
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/identity.js
+function platformSupported$1() {
+	return [
+		"darwin",
+		"linux",
+		"win32",
+		"freebsd"
+	].includes(process.platform) && ["x64", "arm64"].includes(process.arch);
+}
+/** null means no kernel object exists; retained exited objects still have an identity. */
+function readProcessIdentity(pid) {
+	validatePid(pid);
+	if (!platformSupported$1()) throw new ProcSafeError("unsupported-platform", "process identity is unsupported on this platform");
+	const query = getNativeBinding()?.readProcessIdentity;
+	if (!query) throw new ProcSafeError("helper-unavailable", "native process identity is unavailable");
+	try {
+		const result = query(pid);
+		return result === null ? null : Object.freeze(result);
+	} catch (error) {
+		throw fromNativeError(error);
+	}
+}
+//#endregion
 //#region src/shared/pid-alive.ts
+/** Unknown observations never prove death; Linux keeps its thread-aware procfs policy. */
+function readNativeLiveness(pid) {
+	if (![
+		"darwin",
+		"win32",
+		"freebsd"
+	].includes(process.platform) || true) return;
+	try {
+		const identity = readProcessIdentity(pid);
+		return identity !== null && !identity.exited;
+	} catch (error) {
+		if (error instanceof ProcSafeError && (error.code === "helper-unavailable" || error.code === "unsupported-platform")) return;
+		return true;
+	}
+}
 function isValidPid(pid) {
 	return Number.isInteger(pid) && pid > 0;
 }
 /**
-* Check whether a Linux task is terminal and has no live sibling threads.
+* Reject recycled worker TIDs and terminal leaders without live sibling threads.
 * Missing or reaped procfs snapshots require a fresh existence probe.
 */
 function isExitedLinuxProcess(pid) {
@@ -85,7 +443,10 @@ function isExitedLinuxProcess(pid) {
 		const status = fs.readFileSync(`/proc/${pid}/status`, "utf8");
 		const state = status.match(/^State:\s+(\S)/m)?.[1];
 		const threads = status.match(/^Threads:[ \t]+(\d+)[ \t]*$/m)?.[1];
-		if (threads !== "0") return (state === "Z" || state === "X") && threads === "1";
+		if (threads !== "0") {
+			const tgid = status.match(/^Tgid:[ \t]+(\d+)[ \t]*$/m)?.[1];
+			return tgid !== void 0 && Number(tgid) !== pid || (state === "Z" || state === "X") && threads === "1";
+		}
 	} catch {}
 	try {
 		process.kill(pid, 0);
@@ -94,15 +455,132 @@ function isExitedLinuxProcess(pid) {
 	}
 	return false;
 }
-/** Returns true only when the PID is invalid, missing, or a known terminal Linux task. */
+/** Returns true only when the PID is invalid, missing, or a known terminal task. */
 function isPidDefinitelyDead(pid) {
 	if (!isValidPid(pid)) return true;
 	try {
 		process.kill(pid, 0);
-	} catch (err) {
-		return err.code === "ESRCH";
+	} catch (error) {
+		if (error.code !== "ESRCH") return false;
+		const native = readNativeLiveness(pid);
+		return native === void 0 ? process.platform !== "freebsd" : !native;
 	}
-	return isExitedLinuxProcess(pid);
+	const native = readNativeLiveness(pid);
+	return native === void 0 ? isExitedLinuxProcess(pid) : !native;
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/inspect.js
+function commandResult(result) {
+	return Object.freeze({
+		executable: result.executable,
+		argv: Object.freeze(result.argv),
+		...result.commandLine === void 0 ? {} : { commandLine: result.commandLine },
+		...result.cwd === void 0 ? {} : { cwd: result.cwd },
+		environment: Object.freeze(Object.fromEntries(result.environment.map((entry) => [entry.key, entry.value])))
+	});
+}
+function platformSupported() {
+	return ["darwin", "win32"].includes(process.platform) && ["x64", "arm64"].includes(process.arch);
+}
+/** Complete Darwin or Windows PID census; unreadable facts remain explicitly unknown. */
+function listProcesses(options) {
+	const start = performance.now();
+	const timeoutMs = options?.timeoutMs;
+	if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0 || options.includeCommand !== void 0 && typeof options.includeCommand !== "boolean") throw new ProcSafeError("invalid-argument", "timeoutMs must be positive and finite; includeCommand must be boolean");
+	if (options.pids !== void 0) {
+		if (!Array.isArray(options.pids)) throw new ProcSafeError("invalid-argument", "pids must be an array of platform PIDs");
+		for (const pid of options.pids) validatePid(pid);
+	}
+	if (!platformSupported()) throw new ProcSafeError("unsupported-platform", "process census requires Darwin or Windows");
+	const query = getNativeBinding()?.listProcesses;
+	if (!query) throw new ProcSafeError("helper-unavailable", "native process census is unavailable");
+	try {
+		const rows = query(timeoutMs, options.includeCommand ?? false, options.pids === void 0 ? void 0 : [...new Set(options.pids)]).map((row) => Object.freeze({
+			pid: row.pid,
+			owner: row.owner,
+			...row.parentPid === void 0 ? {} : { parentPid: row.parentPid },
+			...row.processGroupId === void 0 ? {} : { processGroupId: row.processGroupId },
+			...row.state === void 0 ? {} : { state: row.state },
+			...row.identity === void 0 ? {} : { identity: Object.freeze(row.identity) },
+			...row.command === void 0 ? {} : { command: commandResult(row.command) }
+		}));
+		if (performance.now() - start >= timeoutMs) throw new ProcSafeError("timeout", "process census exceeded timeoutMs");
+		return rows;
+	} catch (error) {
+		throw fromNativeError(error);
+	}
+}
+//#endregion
+//#region src/process/darwin-process-inspection.ts
+var DarwinProcessInspectionError = class extends Error {
+	constructor(reason, options) {
+		super(`Darwin process inspection ${reason}`, options);
+		this.reason = reason;
+		this.name = "DarwinProcessInspectionError";
+		this.code = reason === "deadline" ? "ETIMEDOUT" : reason === "permission" ? "EPERM" : "EIO";
+	}
+};
+function failure(cause) {
+	if (cause instanceof DarwinProcessInspectionError) return cause;
+	const code = cause && typeof cause === "object" && "code" in cause ? cause.code : void 0;
+	return new DarwinProcessInspectionError(code === "ETIMEDOUT" || code === "ABORT_ERR" || code === "timeout" ? "deadline" : [
+		"EACCES",
+		"EPERM",
+		"ERR_ACCESS_DENIED",
+		"access-denied"
+	].includes(String(code)) ? "permission" : "unavailable", { cause });
+}
+function remaining(deadline) {
+	const ms = Math.floor(deadline - performance.now());
+	if (ms <= 0) throw new DarwinProcessInspectionError("deadline");
+	return ms;
+}
+const states = {
+	running: "R",
+	sleeping: "S",
+	stopped: "T",
+	zombie: "Z",
+	idle: "I",
+	unknown: "?"
+};
+function hasReadableTopology(row) {
+	if (row.parentPid === void 0 || row.processGroupId === void 0 || row.state === void 0) {
+		if (readProcessIdentity(row.pid) === null) return false;
+		throw new DarwinProcessInspectionError("unavailable");
+	}
+	return true;
+}
+function topology(row) {
+	return {
+		pid: row.pid,
+		ppid: row.parentPid,
+		pgid: row.processGroupId,
+		state: states[row.state],
+		owner: row.owner
+	};
+}
+function census(deadline, pids) {
+	try {
+		const rows = listProcesses({
+			timeoutMs: remaining(deadline),
+			...pids ? { pids } : {}
+		}).filter(hasReadableTopology);
+		remaining(deadline);
+		return rows;
+	} catch (cause) {
+		remaining(deadline);
+		throw failure(cause);
+	}
+}
+/** Synchronous census for the process-group cleanup worker, without spawning ps. */
+function* readDarwinProcessCensus(timeoutMs) {
+	const deadline = performance.now() + timeoutMs;
+	const rows = census(deadline).map(topology);
+	for (const row of rows) {
+		remaining(deadline);
+		yield row;
+	}
+	remaining(deadline);
 }
 //#endregion
 //#region src/process/supervisor/service-child-group-ownership.ts
@@ -127,11 +605,12 @@ function killOwnedProcessGroupMembers() {
 		}
 	}
 }
-/** The caller supplies native command inspection; the standalone group worker stays dependency-free. */
+/** The caller supplies command inspection; group cleanup only reads native topology. */
 function* readProcessGroupMembers(timeoutMs, commandInspection) {
 	const includeCommand = commandInspection !== void 0;
 	if (process.platform === "linux") {
-		const deadline = Date.now() + timeoutMs;
+		const startedAt = Date.now();
+		const deadline = startedAt + timeoutMs;
 		for (const name of readdirSync("/proc")) {
 			if (Date.now() >= deadline) throw new Error("Process group census exceeded its deadline");
 			if (!/^\d+$/.test(name)) continue;
@@ -157,7 +636,10 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 				throw new Error(`Could not classify PID ${pid}: process command inspection failed (${extractErrorCode(error) ?? "unavailable"}).`, { cause: error });
 			}
 			const match = /^(\d+) \([\s\S]*\) (\S) (\d+) (\d+)(?:\s|$)/.exec(stat);
-			if (!match || Number(match[1]) !== pid || Date.now() >= deadline) throw new Error("Process group census is unavailable");
+			if (!match) throw new Error(`Process group census is unavailable: malformed stat for PID ${pid}`);
+			if (Number(match[1]) !== pid) throw new Error(`Process group census is unavailable: stat PID mismatch for PID ${pid} (stat PID=${Number(match[1])})`);
+			const now = Date.now();
+			if (now >= deadline) throw new Error(`Process group census exceeded its deadline after reading PID ${pid} (elapsed=${now - startedAt}ms, budget=${timeoutMs}ms)`);
 			if (argv?.length === 0) {
 				const flags = Number(stat.slice(stat.lastIndexOf(")") + 2).split(/\s+/)[6]);
 				if (!(Number.isInteger(flags) && (flags & 2097152) !== 0) && !isPidDefinitelyDead(pid)) {
@@ -186,12 +668,29 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 		if (Date.now() >= deadline) throw new Error("Process group census exceeded its deadline");
 		return;
 	}
-	if (includeCommand && process.platform !== "darwin") throw new Error(`Exact process command census is unavailable on ${process.platform}.`);
+	if (process.platform === "darwin") {
+		for (const member of readDarwinProcessCensus(timeoutMs)) {
+			const command = includeCommand ? member.state.startsWith("Z") || member.pid === 0 ? { argv: [] } : commandInspection?.readDarwinCommand(member.pid, member.owner) : void 0;
+			if (includeCommand && !command) continue;
+			yield {
+				pid: member.pid,
+				pgid: member.pgid,
+				state: member.state,
+				...command ? { command: {
+					ppid: member.ppid,
+					owner: member.owner,
+					...command
+				} } : {}
+			};
+		}
+		return;
+	}
+	if (includeCommand) throw new Error(`Exact process command census is unavailable on ${process.platform}.`);
 	const deadline = Date.now() + timeoutMs;
 	const census = spawnSync("/bin/ps", [
 		"-A",
 		"-o",
-		includeCommand ? "pid=,pgid=,stat=,ppid=,uid=" : "pid=,pgid=,stat="
+		"pid=,pgid=,stat="
 	], {
 		encoding: "utf8",
 		timeout: timeoutMs,
@@ -200,24 +699,14 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 	if (census.error || census.status !== 0) throw new Error("Process group census is unavailable");
 	for (const line of census.stdout.split("\n")) {
 		if (!line.trim()) continue;
-		const match = includeCommand ? /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(-?\d+)\s*$/.exec(line) : /^\s*(\d+)\s+(\d+)\s+(\S+)\s*$/.exec(line);
+		const match = /^\s*(\d+)\s+(\d+)\s+(\S+)\s*$/.exec(line);
 		if (!match) throw new Error("Process group census is unavailable");
 		const pid = Number(match[1]);
-		if (pid !== census.pid) {
-			if (includeCommand && Date.now() >= deadline) throw new Error("Process group census exceeded its deadline");
-			const command = includeCommand ? match[3].startsWith("Z") || pid === 0 ? { argv: [] } : commandInspection?.readDarwinCommand(pid, Number(match[5]) >>> 0) : void 0;
-			if (includeCommand && !command) continue;
-			yield {
-				pid,
-				pgid: Number(match[2]),
-				state: match[3],
-				...command ? { command: {
-					ppid: Number(match[4]),
-					...command,
-					uid: Number(match[5]) >>> 0
-				} } : {}
-			};
-		}
+		if (pid !== census.pid) yield {
+			pid,
+			pgid: Number(match[2]),
+			state: match[3]
+		};
 	}
 	if (includeCommand && Date.now() >= deadline) throw new Error("Process group census exceeded its deadline");
 }
@@ -276,7 +765,9 @@ function delay(ms, retainOwner = false) {
 	});
 }
 function runServiceChildGroupAnchor() {
+	const launchGrant = createDeferredCore();
 	let start;
+	let descendantsReaped = false;
 	let state = "starting";
 	let sequence = 0;
 	let lastHostSequence = 0;
@@ -294,6 +785,7 @@ function runServiceChildGroupAnchor() {
 	let lineageObservationFailed = false;
 	let markHostLineageClosed;
 	let forceCleanup = false;
+	let parentLost = false;
 	const forceCleanupRequested = createDeferredCore();
 	const lineageDone = createDeferredCore();
 	const rootExited = createDeferredCore();
@@ -301,6 +793,8 @@ function runServiceChildGroupAnchor() {
 	const startupErrorAcknowledged = createDeferredCore();
 	const retirementReady = createDeferredCore();
 	let closingSequence;
+	let inputEndRequested = false;
+	let finishInput;
 	const send = async (message) => {
 		if (!start || !control || control.destroyed) return;
 		sequence += 1;
@@ -311,6 +805,19 @@ function runServiceChildGroupAnchor() {
 				sequence
 			}), () => resolve());
 		});
+	};
+	const finish = (code) => {
+		process.exitCode = code;
+		releaseProcessStdin();
+		const disconnect = () => {
+			control?.off("close", disconnect);
+			control?.destroy();
+			if (process.connected) process.disconnect?.();
+		};
+		if (control && !control.destroyed) {
+			control.once("close", disconnect);
+			control.end(disconnect);
+		} else disconnect();
 	};
 	const closeAuthority = async (reason, hardKill, deadline = Date.now() + GRACEFUL_CANCEL_TIMEOUT_MS) => {
 		if (!start || state === "closed") return;
@@ -324,7 +831,7 @@ function runServiceChildGroupAnchor() {
 				reason
 			});
 			const acknowledged = await Promise.race([retirementReady.promise, delay(Math.max(0, deadline - Date.now())).then(() => false)]);
-			control?.end(() => process.exit(acknowledged ? 0 : 1));
+			finish(acknowledged ? 0 : 1);
 			return;
 		}
 		state = "closed";
@@ -345,7 +852,7 @@ function runServiceChildGroupAnchor() {
 			process.kill(0, "SIGKILL");
 			return;
 		}
-		control?.end(() => process.exit(0));
+		finish(0);
 	};
 	const closeInheritedLineage = () => {
 		if (start?.lineageFd !== void 0 && !inheritedLineageClosed) {
@@ -357,26 +864,36 @@ function runServiceChildGroupAnchor() {
 		closeInheritedLineage();
 		await send({
 			type: "startup-error",
-			error
+			anchorPid: process.pid,
+			error: error instanceof Error ? error.message : error,
+			...error instanceof Error ? { errorDetails: serializeBrokerError(error) } : {}
 		});
 		await Promise.race([startupErrorAcknowledged.promise, retirementReady.promise]);
 		await closeAuthority("lineage-lost", hardKill);
 	};
 	const requestCleanup = async (reason, signal = "SIGTERM") => {
 		if (!start || state === "closed") return;
+		parentLost ||= reason === "parent-lost";
+		const force = signal === "SIGKILL" || parentLost && start.terminateOnHostLoss === true;
+		if (parentLost && start.terminateOnHostLoss && descendantsReaped);
 		if (state === "closing") {
-			forceCleanup ||= signal === "SIGKILL";
+			forceCleanup ||= force;
 			if (forceCleanup) forceCleanupRequested.resolve();
 			return;
 		}
 		state = "closing";
-		forceCleanup = signal === "SIGKILL";
+		forceCleanup = force;
 		if (!command) {
 			await reportStartupFailure("command startup cancelled before spawn", true);
 			return;
 		}
 		const cleanupDeadline = Date.now() + GRACEFUL_CANCEL_TIMEOUT_MS;
 		const termGraceDone = delay(GRACEFUL_CANCEL_TIMEOUT_MS);
+		if (!start.ownedWorker && !forceCleanup && rootExit && pendingOutput.size > 0) await Promise.race([
+			rootSettledDone.promise,
+			termGraceDone,
+			forceCleanupRequested.promise
+		]);
 		if (start.ownedWorker) {
 			if (!forceCleanup) process.kill(0, "SIGTERM");
 			const settled = Promise.all([rootExited.promise, lineageDone.promise]);
@@ -454,12 +971,21 @@ function runServiceChildGroupAnchor() {
 		}
 		if (state === "closed") return;
 		lastHostSequence = message.sequence;
+		if (message.type === "launch") {
+			launchGrant.resolve();
+			return;
+		}
 		if (message.type === "startup-error-ack") {
 			startupErrorAcknowledged.resolve();
 			return;
 		}
 		if (message.type === "lineage-closed") {
 			markHostLineageClosed?.();
+			return;
+		}
+		if (message.type === "stdin-end") {
+			inputEndRequested = true;
+			finishInput?.();
 			return;
 		}
 		if (message.type === "worker-close") {
@@ -488,7 +1014,8 @@ function runServiceChildGroupAnchor() {
 	const startCommand = async (next) => {
 		const controlFd = next.controlFd;
 		if (controlFd === void 0) {
-			process.exitCode = 1;
+			state = "closed";
+			finish(1);
 			return;
 		}
 		start = next;
@@ -529,8 +1056,12 @@ function runServiceChildGroupAnchor() {
 		if (next.treeOwnership === "linux-subreaper") try {
 			throw new Error("portable workers require their admitted host-native process owner");
 		} catch (error) {
-			await reportStartupFailure(error instanceof Error ? error.message : String(error));
+			await reportStartupFailure(error instanceof Error ? error : String(error));
 			return;
+		}
+		if (next.type === "prepare") {
+			await send({ type: "prepared" });
+			await Promise.race([launchGrant.promise, retirementReady.promise]);
 		}
 		if (start !== next || control !== socket || state !== "starting" || socket.destroyed || socket.readableEnded || socket.writableEnded || !process.connected) {
 			await requestCleanup("parent-lost");
@@ -559,7 +1090,7 @@ function runServiceChildGroupAnchor() {
 			if (command.pid);
 			await once(command, "spawn");
 		} catch (error) {
-			await reportStartupFailure(error instanceof Error ? error.message : String(error));
+			await reportStartupFailure(error instanceof Error ? error : String(error));
 			return;
 		}
 		const markLineageClosed = () => {
@@ -615,19 +1146,23 @@ function runServiceChildGroupAnchor() {
 		if (start.stdinMode !== "inherit" && command.stdin) {
 			const input = process.stdin;
 			const destination = command.stdin;
-			const endInput = () => destination.end();
+			const endInput = () => {
+				if (!start?.terminateOnHostLoss || inputEndRequested) destination.end();
+			};
+			finishInput = () => {
+				if (input.readableEnded) endInput();
+			};
 			let inputClosed = false;
 			const stopInput = () => {
 				input.unpipe(destination);
 				input.off("end", endInput);
-				input.destroy();
+				releaseProcessStdin();
 				if (!inputClosed) {
 					inputClosed = true;
 					send({ type: "stdin-closed" });
 				}
 			};
-			destination.once("error", stopInput);
-			destination.once("close", stopInput);
+			destination.once("error", stopInput).once("close", stopInput);
 			input.pipe(destination, { end: false });
 			if (input.readableEnded) endInput();
 			else input.once("end", endInput);
@@ -674,8 +1209,12 @@ function runServiceChildGroupAnchor() {
 	});
 	process.on("message", (raw) => {
 		const message = raw;
-		if (message.type === "start" && !start && state === "starting") {
-			if (isRecord(raw) && raw.acknowledgeClosing !== void 0 && raw.acknowledgeClosing !== true) process.exit(1);
+		if ((message.type === "start" || message.type === "prepare") && !start && state === "starting") {
+			if (isRecord(raw) && raw.acknowledgeClosing !== void 0 && raw.acknowledgeClosing !== true) {
+				state = "closed";
+				finish(1);
+				return;
+			}
 			startCommand(message);
 		} else if (message.type === "parent-loss" && message.generation === start?.generation) {
 			retirementReady.resolve(false);

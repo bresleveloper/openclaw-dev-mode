@@ -1,4 +1,4 @@
-import { o as buildStaticBasetenModels, t as BASETEN_BASE_URL } from "./.setup/models-BOkRtUeP.mjs";
+import { o as buildStaticBasetenModels, t as BASETEN_BASE_URL } from "./.setup/models-wG5xIuOb.mjs";
 //#region extensions/baseten/provider-catalog.ts
 function buildStaticBasetenProvider() {
 	return {

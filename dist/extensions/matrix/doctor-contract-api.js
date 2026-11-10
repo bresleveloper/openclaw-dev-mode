@@ -1,37 +1,16 @@
-import { n as normalizeCompatibilityConfig, r as runtime_doctor_migrations_exports, t as legacyConfigRules } from "./.setup/doctor-contract-CsTNmbMa.mjs";
+import { t as runtime_doctor_migrations_exports } from "./.setup/runtime-doctor-migrations-hxP-CXX7.mjs";
 import { i as normalizeMatrixStoredCredentials, n as isMatrixCredentialRevocation, r as matrixCredentialsStoreKey, t as MATRIX_CREDENTIALS_NAMESPACE } from "./.setup/credentials-state-B3cuUFwZ.mjs";
-import { c as resolveMatrixStateLayoutChildDepth, i as resolveMatrixCredentialsDir } from "./.setup/storage-paths-B51JM-pC.mjs";
-import { a as describeRetiredMatrixState, o as resolveMatrixSqliteStateEnv, t as RETIRED_MATRIX_STATE_FILENAMES } from "./.setup/retired-state-BXUQ2I-C.mjs";
-import { i as readLegacyMatrixSyncCacheState, n as hasMatrixSyncCacheStateInStore, r as openMatrixSyncCacheStoreOptions, s as writeMatrixSyncCacheStateToStore } from "./.setup/sync-cache-state-C2z64uyk.mjs";
+import { i as resolveMatrixCredentialsDir } from "./.setup/storage-paths-B51JM-pC.mjs";
+import { n as normalizeCompatibilityConfig, t as legacyConfigRules } from "./.setup/doctor-contract-BANpMUbP.mjs";
+import { a as describeRetiredMatrixState, t as RETIRED_MATRIX_STATE_FILENAMES } from "./.setup/retired-state-C4UnLIg4.mjs";
+import { t as resolveMatrixSqliteStateEnv } from "./.setup/sqlite-state-LByPx4Yp.mjs";
+import { t as walkMatrixStateFiles } from "./.setup/state-layout-walk-BQMgMykU.mjs";
+import { i as readLegacyMatrixSyncCacheState, n as hasMatrixSyncCacheStateInStore, r as openMatrixSyncCacheStoreOptions, s as writeMatrixSyncCacheStateToStore } from "./.setup/sync-cache-state-L1kwjhjj.mjs";
 import { normalizeAccountId } from "openclaw/plugin-sdk/account-id";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { hasNodeErrorCode } from "@openclaw/fs-safe/path";
-import { walkDirectory } from "@openclaw/fs-safe/walk";
-//#region extensions/matrix/src/matrix/state-layout-walk.ts
-/** Traverse only shipped Matrix layouts; archives and unrelated descendants stay unopened. */
-async function walkMatrixStateFiles(stateDir, includeFile, stateRootDepths = []) {
-	const matrixRoot = path.resolve(stateDir, "matrix");
-	const depths = /* @__PURE__ */ new Map([[matrixRoot, 0]]);
-	const result = await walkDirectory(matrixRoot, {
-		symlinks: "skip",
-		include: (entry) => entry.kind === "file" && includeFile(entry.name, depths.get(path.dirname(entry.path))),
-		descend: (entry) => {
-			const parentDepth = depths.get(path.dirname(entry.path));
-			const depth = entry.name === "state" && stateRootDepths.includes(parentDepth) ? 5 : resolveMatrixStateLayoutChildDepth(parentDepth, entry.name);
-			if (depth === null) return false;
-			depths.set(entry.path, depth);
-			return true;
-		}
-	});
-	return {
-		entries: result.entries,
-		failedDirs: result.failedDirs.filter((failure) => failure.path !== matrixRoot || !hasNodeErrorCode(failure.error, "ENOENT"))
-	};
-}
-//#endregion
 //#region extensions/matrix/src/matrix/account-state-schema-doctor.ts
 const STATE_DATABASE_FILENAME = "openclaw.sqlite";
 async function collectMatrixAccountStateRoots(stateDir) {
@@ -239,9 +218,9 @@ async function verifyMatrixInboundDedupeSourcesRetired(stateDir) {
 */
 async function importNewestInboundDedupeMarkers(params) {
 	const { createPersistentDedupeImportEntry } = await import("openclaw/plugin-sdk/persistent-dedupe");
-	const { buildMatrixInboundDedupeEventKey, MATRIX_INBOUND_DEDUPE_STATE_MAX_ENTRIES, MATRIX_INBOUND_DEDUPE_TTL_MS, resolveMatrixInboundDedupeStateNamespace } = await import("./.setup/inbound-dedupe-C-EBGY0B.mjs");
+	const { buildMatrixInboundDedupeEventKey, MATRIX_INBOUND_DEDUPE_STATE_MAX_ENTRIES, MATRIX_INBOUND_DEDUPE_TTL_MS, resolveMatrixInboundDedupeStateNamespace } = await import("./.setup/inbound-dedupe-sW_gaR44.mjs");
 	const now = params.now ?? Date.now();
-	const stateMaxEntries = params.stateMaxEntries ?? MATRIX_INBOUND_DEDUPE_STATE_MAX_ENTRIES;
+	const stateMaxEntries = MATRIX_INBOUND_DEDUPE_STATE_MAX_ENTRIES;
 	const newestByKey = /* @__PURE__ */ new Map();
 	for (const marker of params.markers) {
 		const key = buildMatrixInboundDedupeEventKey(marker);
@@ -320,7 +299,7 @@ async function collectLegacyMatrixCredentialSources(params) {
 		return left.name.localeCompare(right.name);
 	});
 	if (files.length === 0) return [];
-	const { requiresExplicitMatrixDefaultAccount, resolveMatrixDefaultOrOnlyAccountId } = await import("./.setup/account-selection-BDeeqwwR.mjs").then((n) => n.t);
+	const { requiresExplicitMatrixDefaultAccount, resolveMatrixDefaultOrOnlyAccountId } = await import("./.setup/account-selection-CWsL5zIU.mjs").then((n) => n.t);
 	return files.map((entry) => {
 		const namedAccount = /^credentials(?:-([a-z0-9._-]+))?\.json$/iu.exec(entry.name)?.[1];
 		return {
@@ -332,27 +311,56 @@ async function collectLegacyMatrixCredentialSources(params) {
 async function readLegacyMatrixCredentials(source) {
 	if (!source.accountId) return null;
 	try {
-		const raw = JSON.parse(await fs.readFile(source.filePath, "utf8"));
+		const raw = JSON.parse((0, runtime_doctor_migrations_exports.decodeUtf8Input)(await fs.readFile(source.filePath), "Legacy Matrix credentials"));
 		const createdAt = isRecord(raw) && typeof raw.createdAt === "string" && raw.createdAt ? raw.createdAt : (await fs.stat(source.filePath)).mtime.toISOString();
 		return normalizeMatrixStoredCredentials(isRecord(raw) ? {
 			...raw,
 			createdAt
 		} : raw, source.accountId);
-	} catch {
+	} catch (error) {
+		if (error instanceof runtime_doctor_migrations_exports.Utf8InputError) throw error;
 		return null;
 	}
 }
 async function* readLegacyMatrixSyncCacheSources(stateDir) {
 	const { entries } = await walkMatrixStateFiles(stateDir, (name, depth) => name === MATRIX_SYNC_CACHE_FILENAME && (depth === 2 || depth === 4));
 	for (const storageRootDir of entries.map((entry) => path.dirname(entry.path)).toSorted()) {
-		const payload = await readLegacyMatrixSyncCacheState(storageRootDir);
+		let payload;
+		try {
+			payload = await readLegacyMatrixSyncCacheState(storageRootDir);
+		} catch (error) {
+			if (!(error instanceof runtime_doctor_migrations_exports.Utf8InputError)) throw error;
+			yield {
+				storageRootDir,
+				payload: null,
+				error
+			};
+			continue;
+		}
 		if (payload) yield {
 			storageRootDir,
-			payload
+			payload,
+			error: void 0
 		};
 	}
 }
 const stateMigrations = [
+	{
+		id: "matrix-crypto-unsafe-state",
+		label: "Matrix crypto unsafe final state",
+		async detectLegacyState(params) {
+			const { listMatrixCryptoUnsafeState } = await import("./.setup/crypto-unsafe-state-doctor-BG9qMu0B.mjs").then((n) => n.t);
+			const roots = await listMatrixCryptoUnsafeState(params.stateDir, { openKeyedStoreV2: params.context.openPluginStateKeyedStore });
+			return roots.length > 0 ? { preview: roots.map((root) => `Matrix crypto store is blocked after unsafe final save: ${root}. Run openclaw matrix doctor inspect; recovery is never automatic.`) } : null;
+		},
+		async migrateLegacyState(params) {
+			const { listMatrixCryptoUnsafeState } = await import("./.setup/crypto-unsafe-state-doctor-BG9qMu0B.mjs").then((n) => n.t);
+			return {
+				changes: [],
+				warnings: (await listMatrixCryptoUnsafeState(params.stateDir, { openKeyedStoreV2: params.context.openPluginStateKeyedStore })).map((root) => `Matrix crypto store remains blocked: ${root}. Inspect with openclaw matrix doctor inspect; explicit recovery may roll back keys.`)
+			};
+		}
+	},
 	matrixAccountStateSchemaMigration,
 	{
 		id: "matrix-credentials-json-to-plugin-state",
@@ -365,6 +373,7 @@ const stateMigrations = [
 			const changes = [];
 			const warnings = [];
 			const sources = await collectLegacyMatrixCredentialSources(params);
+			let utf8Warnings = 0;
 			const store = params.context.openPluginStateKeyedStore({
 				namespace: MATRIX_CREDENTIALS_NAMESPACE,
 				maxEntries: 256,
@@ -375,32 +384,36 @@ const stateMigrations = [
 					warnings.push(`Left ambiguous Matrix credential legacy source in place because no default account is selected: ${source.filePath}`);
 					continue;
 				}
-				const credentials = await readLegacyMatrixCredentials(source);
+				let credentials;
+				try {
+					credentials = await readLegacyMatrixCredentials(source);
+				} catch (error) {
+					if (!(error instanceof runtime_doctor_migrations_exports.Utf8InputError)) throw error;
+					warnings.push(`${error.message} Left legacy source in place: ${source.filePath}`);
+					utf8Warnings++;
+					continue;
+				}
 				if (!credentials) {
 					warnings.push(`Left invalid Matrix credential legacy source in place: ${source.filePath}`);
 					continue;
 				}
 				const key = matrixCredentialsStoreKey(source.accountId);
 				const stored = await store.lookup(key);
+				const archiveSource = () => (0, runtime_doctor_migrations_exports.archiveLegacyStateSource)({
+					filePath: source.filePath,
+					label: "Matrix credentials",
+					changes,
+					warnings
+				});
 				if (isMatrixCredentialRevocation(stored, source.accountId)) {
 					changes.push(`Archived revoked Matrix credential legacy source for account ${source.accountId}`);
-					await (0, runtime_doctor_migrations_exports.archiveLegacyStateSource)({
-						filePath: source.filePath,
-						label: "Matrix credentials",
-						changes,
-						warnings
-					});
+					await archiveSource();
 					continue;
 				}
 				const existing = normalizeMatrixStoredCredentials(stored, source.accountId);
 				if (existing && JSON.stringify(existing) !== JSON.stringify(credentials)) {
 					changes.push(`Kept existing Matrix credentials for account ${source.accountId}`);
-					await (0, runtime_doctor_migrations_exports.archiveLegacyStateSource)({
-						filePath: source.filePath,
-						label: "Matrix credentials",
-						changes,
-						warnings
-					});
+					await archiveSource();
 					continue;
 				}
 				if (!existing) try {
@@ -415,16 +428,12 @@ const stateMigrations = [
 					continue;
 				}
 				changes.push(`Migrated Matrix credentials for account ${source.accountId} to SQLite`);
-				await (0, runtime_doctor_migrations_exports.archiveLegacyStateSource)({
-					filePath: source.filePath,
-					label: "Matrix credentials",
-					changes,
-					warnings
-				});
+				await archiveSource();
 			}
 			return {
 				changes,
-				warnings
+				warnings,
+				...utf8Warnings > 0 && utf8Warnings === warnings.length ? { warningDisposition: "recoverable" } : {}
 			};
 		}
 	},
@@ -526,7 +535,13 @@ const stateMigrations = [
 			const changes = [];
 			const warnings = [];
 			const notices = [];
+			let utf8Warnings = 0;
 			for await (const source of readLegacyMatrixSyncCacheSources(params.stateDir)) {
+				if (source.error) {
+					warnings.push(`${source.error.message} Left legacy source in place: ${source.storageRootDir}`);
+					utf8Warnings++;
+					continue;
+				}
 				const store = params.context.openPluginStateKeyedStore(openMatrixSyncCacheStoreOptions(source.storageRootDir));
 				const existing = await hasMatrixSyncCacheStateInStore({
 					...source,
@@ -551,7 +566,8 @@ const stateMigrations = [
 			return {
 				changes,
 				warnings,
-				...notices.length > 0 ? { notices } : {}
+				...notices.length > 0 ? { notices } : {},
+				...utf8Warnings > 0 && utf8Warnings === warnings.length ? { warningDisposition: "recoverable" } : {}
 			};
 		}
 	}

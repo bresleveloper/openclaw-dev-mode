@@ -1,10 +1,8 @@
-import { cn as PluginManifestActivation } from "../types.openclaw-DWWUw8hA.js";
-import { y as JsonSchemaObject } from "../zod-schema.implicit-mentions-BfiN-dfC.js";
-import "../manifest-registry-Bj1Q7bnt.js";
-import { c as AgentToolUpdateCallback } from "../types-DIrCJOzw.js";
-import { Ss as OpenClawPluginApi, ws as OpenClawPluginToolContext } from "../agent-harness-runtime-DZjstJNb.js";
-import { n as AnyAgentTool } from "../common-K-HB_vKp.js";
-import { n as definePluginEntry } from "../plugin-entry-D4JWmN6h.js";
+import { ci as PluginManifestActivation } from "../types-D7I_F5Ux.js";
+import { h as JsonSchemaObject } from "../zod-schema.implicit-mentions-D1hpe8-m.js";
+import { It as OpenClawPluginApi, oC as definePluginEntry, pn as OpenClawPluginToolContext } from "../config-contracts-CY87ANNp.js";
+import { T as AgentToolUpdateCallback, n as AnyAgentTool } from "../common-CCG3ut4I.js";
+import "../manifest-registry-DcAsDGQ5.js";
 import { Static, TSchema } from "typebox";
 //#region src/plugin-sdk/tool-plugin.d.ts
 /** Non-enumerable metadata symbol attached to entries created by `defineToolPlugin`. */
@@ -42,6 +40,8 @@ type ToolPluginToolDefinitionBase<TParamsSchema extends TSchema> = {
   parameters: TParamsSchema;
   /** Register as optional so runtimes may omit it when unsupported. */
   optional?: boolean;
+  /** False is workspace-independent; execute defers workspace access until execution. */
+  workspaceAccess?: boolean | "execute";
 };
 /** Static tool declaration accepted by the tool-plugin factory callback. */
 export type ToolPluginToolDefinition<TConfig, TParamsSchema extends TSchema> = ToolPluginToolDefinitionBase<TParamsSchema> & ({
@@ -64,6 +64,7 @@ type DefinedToolPluginTool = {
   parameters: TSchema;
   outputSchema?: TSchema;
   optional: boolean;
+  workspaceAccess?: boolean | "execute";
   execute?: (params: unknown, config: unknown, context: ToolPluginExecutionContext) => unknown;
   factory?: (context: ToolPluginFactoryContext<unknown>) => AnyAgentTool | AnyAgentTool[] | null | undefined;
 };
@@ -75,6 +76,7 @@ export type ToolPluginStaticToolMetadata = {
   parameters: JsonSchemaObject;
   outputSchema?: JsonSchemaObject;
   optional?: boolean;
+  workspaceAccess?: boolean | "execute";
 };
 /** Metadata attached to a defined tool plugin for manifest/catalog generation. */
 export type ToolPluginMetadata = {

@@ -9,8 +9,8 @@ import { resolveIngressWorkspaceOverrideForSessionRun } from "../../agents/spawn
 import type { SilentReplyPromptMode } from "../../agents/system-prompt.types.js";
 import { resolveEffectiveAgentRuntime } from "../../agents/thinking-runtime.js";
 import { copyChannelParticipantAdmissionEvidence } from "../../channels/message-access/admission-evidence.js";
-import { loadSessionEntry } from "../../config/sessions/session-accessor.js";
 import { resolveSilentReplySettings } from "../../config/silent-reply.js";
+import { resolveCronSessionWorkspaceOwnershipError } from "../../cron/run-authority.js";
 import { logVerbose } from "../../globals.js";
 import { measureDiagnosticsTimelineSpan } from "../../infra/diagnostics-timeline.js";
 import { isFastTestRuntimeEnv } from "../../infra/env.js";
@@ -34,6 +34,7 @@ import { resolveReplyPolicyConversationType } from "./get-reply-conversation-typ
 import { shouldUseReplyFastTestRuntime } from "./get-reply-fast-path.js";
 import {
   buildExecOverridePromptHint,
+  finishReplyPreparation,
   hasInboundHistoryBody,
   hasReplyTargetContext,
 } from "./get-reply-run-helpers.js";
@@ -46,7 +47,7 @@ import {
   formatActiveGoalContext,
   resolveInboundUserContextPromptJoiner,
 } from "./inbound-meta.js";
-import { buildReplyPromptEnvelopeBase } from "./prompt-prelude.js";
+import { buildReplyPromptEnvelope, buildReplyPromptEnvelopeBase } from "./prompt-prelude.js";
 import { resolveReplyOperationRunState } from "./reply-operation-run-state.js";
 import { resolveRuntimePolicySessionKey } from "./runtime-policy-session-key.js";
 import {
@@ -86,15 +87,14 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
     resetTriggered,
     systemSent,
     sessionKey,
-    storePath,
     workspaceDir: configuredWorkspaceDir,
     sessionEntryHandle,
     sessionStore,
   } = params;
   const runtimePolicySessionKey = resolveRuntimePolicySessionKey({ agentId, cfg, ctx, sessionKey });
-  const { resolvedElevatedLevel, execOverrides, abortedLastRun } = params;
-  const { sessionEntry } = params;
+  const { resolvedElevatedLevel, execOverrides, abortedLastRun, sessionEntry } = params;
   const isHeartbeat = opts?.isHeartbeat === true;
+  const isInternalEvent = opts?.internalEventExecution !== undefined;
   const explicitThinkingLevelOverride = normalizeThinkLevel(opts?.thinkingLevelOverride);
   const effectiveQueueMode = opts?.queueModeOverride ?? perMessageQueueMode;
   const traceAttributes = {
@@ -136,7 +136,7 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
   const sessionPromptSourceReplyDeliveryMode =
     opts?.sessionPromptSourceReplyDeliveryMode ??
     (isSyntheticTurn && sessionEntry
-      ? resolveSessionStableReplyMode({
+      ? await resolveSessionStableReplyMode({
           cfg,
           ctx: { ...promptSessionCtx, CommandAuthorized: false },
           sessionEntry,
@@ -222,12 +222,15 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
     isHeartbeat,
   });
   const replyOperationRunState = resolveReplyOperationRunState(opts);
-  if (replyOperationRunState) {
-    replyOperationRunState.replyCompletion = resolveReplyCompletion(
-      terminalReplyExpectation,
-      "empty",
-    );
-  }
+  const setReplyCompletion = (evidence: Parameters<typeof resolveReplyCompletion>[1]) => {
+    if (replyOperationRunState) {
+      replyOperationRunState.replyCompletion = resolveReplyCompletion(
+        terminalReplyExpectation,
+        evidence,
+      );
+    }
+  };
+  setReplyCompletion("empty");
   const groupSystemPrompt = normalizeOptionalString(promptSessionCtx.GroupSystemPrompt) ?? "";
   const inboundMetaPrompt = buildInboundMetaSystemPrompt(
     isNewSession ? promptSessionCtx : { ...promptSessionCtx, ThreadStarterBody: undefined },
@@ -240,26 +243,26 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
     fullAccessAvailable: fullAccessState.available,
     fullAccessBlockedReason: fullAccessState.blockedReason,
   });
-  const extraSystemPromptParts = [
-    inboundMetaPrompt,
+  const staticSystemPromptParts = [
     sessionStableConversationContext,
     groupIntro,
     groupSystemPrompt,
     execOverridePromptHint,
   ].filter(Boolean);
+  const extraSystemPromptParts = [inboundMetaPrompt, ...staticSystemPromptParts].filter(Boolean);
+  // Metadata and conversation guidance vary per turn; configured policy and exec hints do not.
+  const turnContextText = [inboundMetaPrompt, sessionStableConversationContext, groupIntro]
+    .filter(Boolean)
+    .join("\n\n");
+  const extraSystemPromptTurnContext = turnContextText
+    ? { start: 0, text: turnContextText }
+    : undefined;
   const sourceConversationContextPromptOffset = sessionStableConversationContext
     ? inboundMetaPrompt
       ? inboundMetaPrompt.length + 2
       : 0
     : undefined;
-  const extraSystemPromptStatic = [
-    sessionStableConversationContext,
-    groupIntro,
-    groupSystemPrompt,
-    execOverridePromptHint,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const extraSystemPromptStatic = staticSystemPromptParts.join("\n\n");
   const cliSessionBindingFacts = {
     extraSystemPromptStatic,
     ...(sessionPromptSourceReplyDeliveryMode
@@ -297,15 +300,9 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
     (!commandAuthorized || !command.isAuthorizedSender) &&
     isRegisteredWholeMessageCommand
   ) {
-    if (replyOperationRunState) {
-      replyOperationRunState.replyCompletion = resolveReplyCompletion(
-        terminalReplyExpectation,
-        "blocked",
-      );
-    }
+    setReplyCompletion("blocked");
     opts?.onDeliberateSilentTerminalReply?.();
-    typing.cleanup();
-    return { kind: "reply", reply: undefined } as const;
+    return finishReplyPreparation(typing);
   }
   const isBareNewOrReset = /^\/(new|reset)$/i.test(normalizedCommandBody);
   const isBareSessionReset =
@@ -323,6 +320,28 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
     workspaceDir: sessionEntry?.spawnedWorkspaceDir,
     cwd: sessionEntry?.spawnedCwd,
   });
+  if (opts?.scheduledAutomation) {
+    opts.operatorAuthority?.assertCurrent();
+    opts.abortSignal?.throwIfAborted();
+    opts.queuedFollowupAbortSignal?.throwIfAborted();
+    opts.replyOperation?.abortSignal.throwIfAborted();
+    opts.internalEventExecution?.assertCurrent?.();
+    opts.scheduledAutomation.assertCurrent();
+    if (!sessionKey) {
+      throw new Error("A scheduled session turn requires its admitted session key");
+    }
+    const ownershipError = resolveCronSessionWorkspaceOwnershipError({
+      cfg,
+      agentId,
+      sessionKey,
+      admissionSource: opts.scheduledAutomation.admissionSource,
+      ownerSessionKey: opts.scheduledAutomation.job.owner?.sessionKey,
+      hasWorkspaceBinding: Boolean(sessionWorkspaceOverride || sessionEntry?.worktree),
+    });
+    if (ownershipError) {
+      throw new Error(ownershipError);
+    }
+  }
   const workspaceDir = sessionWorkspaceOverride ?? configuredWorkspaceDir;
   const bareResetPromptState =
     isBareSessionReset && workspaceDir
@@ -364,11 +383,9 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
       await typing.onReplyStart();
     }
     logVerbose("Inbound body empty after normalization; skipping agent run");
-    typing.cleanup();
-    return {
-      kind: "reply",
-      reply: { text: "I didn't receive any text in your message. Please resend or add a caption." },
-    } as const;
+    return finishReplyPreparation(typing, () => ({
+      text: "I didn't receive any text in your message. Please resend or add a caption.",
+    }));
   }
 
   const envelopeOptions = resolveEnvelopeFormatOptions(cfg);
@@ -380,40 +397,37 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
           : {}),
       }
     : { ...sessionCtx, ThreadStarterBody: undefined };
-  let inboundContextSessionEntry = isHeartbeat
-    ? undefined
-    : ((sessionKey !== undefined ? sessionStore?.[sessionKey] : undefined) ??
-      sessionEntryHandle?.getCurrent() ??
-      sessionEntry);
-  let activeGoalContext = formatActiveGoalContext(inboundContextSessionEntry);
-  // Heartbeats are synthetic system turns: delivery facts still drive routing and
-  // formatting, but must not be presented to the model as user-role inbound context.
-  let inboundUserContext = isHeartbeat
-    ? ""
-    : buildInboundUserContextPrefix(
-        inboundUserContextSessionCtx,
-        envelopeOptions,
-        inboundContextSessionEntry,
-      );
-  const refreshInboundContextAfterAdmissionWait = async () => {
-    if (isHeartbeat) {
+  let inboundContextSessionEntry =
+    isHeartbeat || isInternalEvent
+      ? undefined
+      : ((sessionKey !== undefined ? sessionStore?.[sessionKey] : undefined) ??
+        sessionEntryHandle?.getCurrent() ??
+        sessionEntry);
+  // Synthetic turns retain routing facts without inventing user-role inbound context.
+  const buildInboundContextState = () => ({
+    activeGoalContext: formatActiveGoalContext(inboundContextSessionEntry),
+    inboundUserContext:
+      isHeartbeat || isInternalEvent
+        ? ""
+        : buildInboundUserContextPrefix(
+            inboundUserContextSessionCtx,
+            envelopeOptions,
+            inboundContextSessionEntry,
+          ),
+  });
+  let { activeGoalContext, inboundUserContext } = buildInboundContextState();
+  const refreshInboundContextAfterAdmissionWait = () => {
+    if (isHeartbeat || isInternalEvent) {
       return;
     }
     inboundContextSessionEntry =
-      storePath && sessionKey
-        ? loadSessionEntry({ storePath, sessionKey, readConsistency: "latest" })
-        : (sessionEntryHandle?.getCurrent() ??
-          (sessionKey !== undefined ? sessionStore?.[sessionKey] : undefined) ??
-          sessionEntry);
-    activeGoalContext = formatActiveGoalContext(inboundContextSessionEntry);
-    inboundUserContext = buildInboundUserContextPrefix(
-      inboundUserContextSessionCtx,
-      envelopeOptions,
-      inboundContextSessionEntry,
-    );
+      sessionEntryHandle?.getCurrent() ??
+      (sessionKey !== undefined ? sessionStore?.[sessionKey] : undefined) ??
+      sessionEntry;
+    ({ activeGoalContext, inboundUserContext } = buildInboundContextState());
   };
   const inboundUserContextPromptJoiner = resolveInboundUserContextPromptJoiner(sessionCtx);
-  const promptEnvelopeBase = buildReplyPromptEnvelopeBase({
+  const getPromptEnvelopeParams = (): Parameters<typeof buildReplyPromptEnvelopeBase>[0] => ({
     ctx,
     sessionCtx,
     baseBody: baseBodyFinal,
@@ -429,6 +443,7 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
     inboundEventKind,
     sourceReplyDeliveryMode,
   });
+  const promptEnvelopeBase = buildReplyPromptEnvelopeBase(getPromptEnvelopeParams());
   const prefixedBodyBase = applySessionHints({
     baseBody: promptEnvelopeBase.effectiveBaseBody,
     abortedLastRun,
@@ -454,6 +469,7 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
     fullAccessState,
     isFirstTurnInSession,
     extraSystemPromptParts,
+    extraSystemPromptTurnContext,
     sourceConversationContextByMode,
     sourceConversationContextPromptOffset,
     extraSystemPromptStatic,
@@ -461,20 +477,20 @@ export async function prepareReplyRunContext(params: RunPreparedReplyParams) {
     baseBodyTrimmedRaw,
     effectiveResetTriggered,
     isBareSessionReset,
-    startupAction,
-    startupContextPrelude,
-    softResetTail,
     workspaceDir,
     skillsWorkspaceDir: configuredWorkspaceDir,
-    baseBodyFinal,
     hasUserBody,
     shouldInjectGroupIntro,
     typingMode,
     prefixedBodyBase,
     sessionEntry,
     isMainSession,
-    inboundUserContextPromptJoiner,
-    getInboundContext: () => ({ activeGoalContext, inboundUserContext }),
+    buildPromptBodies: (
+      additions: Pick<
+        Parameters<typeof buildReplyPromptEnvelope>[0],
+        "prefixedBody" | "threadContextNote" | "systemEventBlocks" | "media"
+      >,
+    ) => buildReplyPromptEnvelope({ ...getPromptEnvelopeParams(), ...additions }),
     refreshInboundContextAfterAdmissionWait,
     terminalReplyExpectation,
   } as const;

@@ -93,12 +93,15 @@ export function ownCodexInferenceClient(
   };
   client.addCloseHandler(close);
   client.addNotificationHandler((notification) => {
+    // Unsubscribe releases the subscription, but native configuration stays loaded until teardown.
     if (
-      notification.method === "thread/closed" &&
+      (notification.method === "thread/closed" ||
+        notification.method === "thread/archived" ||
+        notification.method === "thread/deleted") &&
       isJsonObject(notification.params) &&
       typeof notification.params.threadId === "string"
     ) {
-      owner.threads.delete(notification.params.threadId);
+      forgetCodexInferenceThread(client, notification.params.threadId);
     }
     if (notification.method !== "account/updated" || !owner.authRoute) {
       return;
@@ -153,6 +156,10 @@ async function prepareCodexInferenceRoute(params: {
       ...(params.authority ? { withCurrent: params.authority.withCurrent } : {}),
     }));
   assertCurrent();
+  const feature = (name: string) =>
+    params.config?.[`features.${name}`] ??
+    (isJsonObject(params.config?.features) ? params.config.features[name] : undefined) ??
+    (isJsonObject(snapshot.config.features) ? snapshot.config.features[name] : undefined);
   const unsupported = () => {
     if (owner.oauth) {
       throw new Error(
@@ -201,14 +208,7 @@ async function prepareCodexInferenceRoute(params: {
   }
   // Native system-proxy routing owns its transport, including loopback bypass.
   // Leave that profile intact instead of proxying its private inference IPC.
-  const systemProxy =
-    params.config?.["features.respect_system_proxy"] ??
-    (isJsonObject(params.config?.features)
-      ? params.config.features.respect_system_proxy
-      : undefined) ??
-    (isJsonObject(snapshot.config.features)
-      ? snapshot.config.features.respect_system_proxy
-      : undefined);
+  const systemProxy = feature("respect_system_proxy");
   if (systemProxy === true) {
     return unsupported();
   }
@@ -305,10 +305,7 @@ async function prepareCodexInferenceRoute(params: {
   const preserveCodexBackendRoutes =
     nativeProviderName === "OpenAI" &&
     (configured == null || configured.replace(/\/+$/, "").endsWith("/backend-api/codex"));
-  const memoryFeature =
-    params.config?.["features.memories"] ??
-    (isJsonObject(params.config?.features) ? params.config.features.memories : undefined) ??
-    (isJsonObject(snapshot.config.features) ? snapshot.config.features.memories : undefined);
+  const memoryFeature = feature("memories");
   const modelPolicyEnforced = params.modelPolicyEnforced !== false;
   const key = JSON.stringify([
     provider,
@@ -347,6 +344,7 @@ async function prepareCodexInferenceRoute(params: {
         assertClient();
         return createCodexInferenceProxy({
           upstream: target,
+          configurationIdentity: key,
           assertCurrent: assertClient,
           oauth: owner.oauth,
           preserveAzureUrlFeatures,
@@ -458,27 +456,6 @@ export async function prepareCodexInferenceThreadConfig(params: {
     retained?.route ?? (await prepareCodexInferenceRoute({ ...params, effectiveConfig }));
   if (!route) {
     return undefined;
-  }
-  if (
-    binding?.clientId === params.clientId &&
-    !getCodexInferenceThread(params.client, binding.threadId)
-  ) {
-    const { thread } = await params.client.request(
-      "thread/read",
-      { threadId: binding.threadId, includeTurns: false },
-      {
-        signal: params.signal,
-        assertCurrent: params.assertCurrent,
-        withCurrent: params.authority?.withCurrent,
-      },
-    );
-    params.signal?.throwIfAborted();
-    params.assertCurrent();
-    if (thread.id !== binding.threadId || thread.status?.type !== "notLoaded") {
-      throw new Error(
-        "Codex loaded thread has no owned inference route; reconnect before retrying",
-      );
-    }
   }
   const provider = owner.handles.get(route)?.provider;
   if (!provider) {
@@ -602,7 +579,7 @@ export function bindCodexInferenceThread(
     throw new Error("Codex inference client is closed");
   }
   if (!route) {
-    owner.threads.delete(threadId);
+    forgetCodexInferenceThread(client, threadId);
     return;
   }
   route.assertCurrent();
@@ -643,7 +620,17 @@ export function bindCodexInferenceThread(
         },
       })
     : undefined;
+  const previous = owner.threads.get(threadId)?.route;
+  if (previous && previous !== route) {
+    previous.context.forget(threadId);
+  }
   owner.threads.set(threadId, { route, providers: projected, qualification });
+}
+
+function forgetCodexInferenceThread(client: CodexAppServerClient, threadId: string): void {
+  const owner = owners.get(client);
+  owner?.threads.get(threadId)?.route.context.forget(threadId);
+  owner?.threads.delete(threadId);
 }
 
 export function getCodexInferenceThread(

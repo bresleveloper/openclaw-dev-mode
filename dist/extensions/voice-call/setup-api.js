@@ -109,12 +109,13 @@ function migrateVoiceCallPluginConfig(config) {
 	});
 	if (migration.changes.length === 0) return null;
 	const plugins = structuredClone(config.plugins ?? {});
-	const entries = { ...plugins.entries };
-	entries["voice-call"] = {
-		...isRecord(entries["voice-call"]) ? entries["voice-call"] : {},
-		config: migration.config
+	plugins.entries = {
+		...plugins.entries,
+		"voice-call": {
+			...plugins.entries?.["voice-call"],
+			config: migration.config
+		}
 	};
-	plugins.entries = entries;
 	return {
 		config: {
 			...config,
@@ -129,7 +130,7 @@ var setup_api_default = definePluginEntry({
 	name: "Voice Call Setup",
 	description: "Lightweight Voice Call setup hooks",
 	register(api) {
-		api.registerConfigMigration((config) => migrateVoiceCallPluginConfig(config));
+		api.registerConfigMigration(migrateVoiceCallPluginConfig);
 	}
 });
 //#endregion

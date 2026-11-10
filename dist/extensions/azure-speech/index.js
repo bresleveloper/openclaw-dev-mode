@@ -1,5 +1,5 @@
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { t as buildAzureSpeechProvider } from "../../speech-provider-DDy23Uv5.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import { t as buildAzureSpeechProvider } from "../../speech-provider-5SUZIkoH.mjs";
 //#region extensions/azure-speech/index.ts
 var azure_speech_default = definePluginEntry({
 	id: "azure-speech",

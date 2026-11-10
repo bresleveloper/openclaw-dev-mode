@@ -1,16 +1,11 @@
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
 //#region extensions/bonjour/index.ts
-/**
-* Bonjour gateway-discovery plugin entry. It advertises the local gateway over
-* mDNS and lazily loads the ciao-based advertiser.
-*/
 function formatBonjourInstanceName(displayName) {
 	const trimmed = displayName.trim();
 	if (!trimmed) return "OpenClaw";
 	if (/openclaw/i.test(trimmed)) return trimmed;
 	return `${trimmed} (OpenClaw)`;
 }
-/** Plugin entry for Bonjour/mDNS gateway discovery. */
 var bonjour_default = definePluginEntry({
 	id: "bonjour",
 	name: "Bonjour Gateway Discovery",
@@ -19,8 +14,8 @@ var bonjour_default = definePluginEntry({
 		api.registerGatewayDiscoveryService({
 			id: "bonjour",
 			advertise: async (ctx) => {
-				const [{ startGatewayBonjourAdvertiser }, { registerUncaughtExceptionHandler, registerUnhandledRejectionHandler }] = await Promise.all([import("../../advertiser-C574HlKP.mjs"), import("../../plugin-sdk/runtime.js")]);
-				return await startGatewayBonjourAdvertiser({
+				const [{ startGatewayBonjourAdvertiser }, { registerUncaughtExceptionHandler, registerUnhandledRejectionHandler }] = await Promise.all([import("../../advertiser-C86ADcfa.mjs"), import("../../plugin-sdk/runtime.js")]);
+				return startGatewayBonjourAdvertiser({
 					instanceName: formatBonjourInstanceName(ctx.machineDisplayName),
 					gatewayPort: ctx.gatewayPort,
 					gatewayTlsEnabled: ctx.gatewayTlsEnabled,

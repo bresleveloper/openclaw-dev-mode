@@ -1,8 +1,6 @@
-import { n as OpenClawConfig } from "../../types.openclaw-C-OasKBU.js";
-import { C as ChannelOutboundAdapter, S as ChannelPlugin, T as MessageReceipt, w as ChannelMessageSendTextContext } from "../../net-CNd-dg0-.js";
-import "../../node-list-types-BtJ_nH3c.js";
-import "../../config-contracts-C9WIRZbi.js";
-import { a as ReefTransportClient, c as ReefAccount, d as ReefKeys, f as RelayFriend, i as ReefProtocolCompatibilityError, l as ReefDependencies, m as GuardAdapter, n as ReefFriendManager, o as WebSocketLike, p as ReefChannelConfig, r as ReefInboxConnection, s as InboxEntry, t as ReefMessageFlow, u as ReefIngressMessage } from "../../flow-tKggAzpf.js";
+import { M as OpenClawConfig } from "../../types-D7I_F5Ux.js";
+import { NE as ChannelPlugin, aO as ChannelMessageSendTextContext, cD as ChannelOutboundAdapter, cO as MessageReceipt } from "../../config-contracts-CY87ANNp.js";
+import { a as ReefTransportClient, c as ReefAccount, d as ReefKeys, f as RelayFriend, i as ReefProtocolCompatibilityError, l as ReefDependencies, m as GuardAdapter, n as ReefFriendManager, o as WebSocketLike, p as ReefChannelConfig, r as ReefInboxConnection, s as InboxEntry, t as ReefMessageFlow, u as ReefIngressMessage } from "../../flow-BGnvCpn_.js";
 //#region extensions/reef/src/channel.d.ts
 export declare const reefPlugin: ChannelPlugin<ReefAccount, unknown, unknown, 2>;
 //#endregion

@@ -11,7 +11,6 @@ import type {
 } from "../../runtime.js";
 import { withEnvAsync } from "../../test-utils/env.js";
 import type { TempHomeEnv } from "../../test-utils/temp-home.js";
-import { VERSION } from "../../version.js";
 import type { updateFinalizeCommand as UpdateFinalizeCommand } from "./update-command-finalize.js";
 import type { updateCommand as UpdateCommand } from "./update-command.js";
 
@@ -34,11 +33,6 @@ export const recoveryVerificationStep = (
   exitCode: failureFacts ? 1 : 0,
   ...(failureFacts ? { failureFacts } : {}),
 });
-export const recoveryVersionMismatch = {
-  check: "versionMatch",
-  code: "version-mismatch",
-  message: `Expected Gateway version ${VERSION}; observed 1.0.0.`,
-};
 export function registerForegroundFailureRecoveryTests({
   setupUpdatedRootRefresh,
   spawn,
@@ -87,26 +81,28 @@ export function registerForegroundFailureRecoveryTests({
 
       expect(defaultRuntime.exit).not.toHaveBeenCalled();
       expect(spawnCall()?.[2]?.env?.OPENCLAW_UPDATE_RUN_HANDOFF).toBe(handoff);
-      expect(lastWriteJsonCall()).toMatchObject({
+      // The foreground failure precedes any service stop, so recovery only observes.
+      const result = lastWriteJsonCall() as { verification?: unknown } | undefined;
+      expect(result?.verification).toEqual({});
+      expect(result).toMatchObject({
         status: "error",
         reason: "post-core-update-failed",
         recovery: { serviceRestartSafe: false },
-        verification: {
-          runningVersion: VERSION,
-          versionMatch: true,
-          readyz: true,
-          settled: true,
-        },
         steps: [
-          recoveryVerificationStep(undefined, root),
+          expect.objectContaining({ name: "updater-runtime-retention", exitCode: 0 }),
           {
-            name: "update",
+            name: "post-update verification",
             command: "openclaw update",
             cwd: root,
             durationMs: 0,
-            exitCode: null,
-            failureFacts: [{ check: "update", code: "update-failed" }],
+            exitCode,
+            stderrTail: undefined,
+            failureFacts: [
+              { check: "runtime", code: "post-core-update-failed" },
+              { check: "update", code: "update-failed" },
+            ],
           },
+          expect.objectContaining({ name: "gateway recovery observation", exitCode: 0 }),
         ],
       });
       expect(updateNpmInstalledPlugins).not.toHaveBeenCalled();

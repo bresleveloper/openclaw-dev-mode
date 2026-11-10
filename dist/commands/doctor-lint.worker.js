@@ -1,11 +1,11 @@
-import { r as defaultRuntime } from "../runtime-DlO3PTAd.mjs";
-import { r as runCliDisposer, t as closeCliResources } from "../runtime-cleanup-CiSdbQbb.mjs";
-import { r as runCliWithExitFinalization } from "../one-shot-exit-Bd4757D_.mjs";
-import { t as enableConsoleCapture } from "../console-BnFs8ZzT.mjs";
-import { Jn as string, Lt as boolean, Nt as array, qn as strictObject, xn as literal } from "../schemas-BOYIvvln.mjs";
-import { i as resolveUpdateRehearsalRoot } from "../update-rehearsal-paths-DTVdt0cq.mjs";
-import { a as withCliCommandCleanup, o as withCliProcessScope } from "../runtime-cleanup-scope-Dno3Ssrr.mjs";
-import { a as withConsoleLogsRoutedToStderrForJson } from "../json-output-mode-DhC0xNZP.mjs";
+import { r as defaultRuntime } from "../runtime-BazLsT0s.mjs";
+import { t as enableConsoleCapture } from "../console-CML7QnOp.mjs";
+import { Jn as string, Lt as boolean, Nt as array, Pn as number, qn as strictObject, xn as literal } from "../schemas-BOYIvvln.mjs";
+import { i as resolveUpdateRehearsalRoot } from "../update-rehearsal-paths-CRhoE25Z.mjs";
+import { a as withCliCommandCleanup, o as withCliProcessScope } from "../runtime-cleanup-scope-Dv2f28xK.mjs";
+import { r as runCliDisposer, t as closeCliResources } from "../runtime-cleanup-DQlcWeTy.mjs";
+import { i as runCliWithExitFinalization } from "../one-shot-exit-DmuNrGrj.mjs";
+import { a as withConsoleLogsRoutedToStderrForJson } from "../json-output-mode-CjwEBwVY.mjs";
 import { t as scrubDoctorErrorMessage } from "../doctor-error-message-CBAGGfGW.mjs";
 //#region src/commands/doctor-lint-options.ts
 const DoctorLintCliOptionsSchema = strictObject({
@@ -17,6 +17,11 @@ const DoctorLintCliOptionsSchema = strictObject({
 	deep: boolean().optional(),
 	includeAllChecks: boolean().optional(),
 	updateReadiness: literal("post-plugin").optional()
+});
+/** Private CLI→worker stdin handoff: the later worker shares the CLI's validation-command budget anchor. */
+const DoctorLintWorkerInputSchema = strictObject({
+	options: DoctorLintCliOptionsSchema,
+	commandStartedAtMs: number().int().optional()
 });
 //#endregion
 //#region src/commands/doctor-lint.worker.ts
@@ -30,14 +35,14 @@ async function runDoctorLintWorker() {
 		if (bytes > 1048576) throw new Error("Doctor lint worker input exceeded its limit.");
 		chunks.push(buffer);
 	}
-	const opts = DoctorLintCliOptionsSchema.parse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-	if (opts.json !== true) throw new Error("Doctor lint worker requires JSON output.");
+	const { options, commandStartedAtMs } = DoctorLintWorkerInputSchema.parse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+	if (options.json !== true) throw new Error("Doctor lint worker requires JSON output.");
 	enableConsoleCapture();
 	await withCliProcessScope(() => withCliCommandCleanup(false, async (cleanup) => {
 		let exitCode;
 		try {
-			const { runDoctorLintCliInProcess } = await import("../doctor-lint-runner-D2ljUFfc.mjs");
-			exitCode = await runDoctorLintCliInProcess(defaultRuntime, opts, true);
+			const { runDoctorLintCliInProcess } = await import("../doctor-lint-runner-CrgYvHwq.mjs");
+			exitCode = await runDoctorLintCliInProcess(defaultRuntime, options, { commandStartedAtMs });
 		} finally {
 			await closeCliResources(cleanup);
 			const resources = cleanup?.pluginResources;

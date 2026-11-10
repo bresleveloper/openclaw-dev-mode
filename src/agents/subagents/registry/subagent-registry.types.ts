@@ -182,6 +182,10 @@ export type SubagentRunRecord = Omit<SubagentRunReadRecord, "execution" | "colle
   /** Completion-producing row retirement deferred until requesterTurnRunId settles. */
   retireAfterRequesterTurn?: boolean;
   requesterOrigin?: DeliveryContext;
+  /** Private original principal; never an outward route or an executable grant. */
+  operatorRecoverySource?: import("../../../gateway/operator-run-recovery-source.js").RestartRecoveryOperatorSource;
+  /** Missing evidence must not regain ambient system authority after a restart. */
+  completionAuthorityRequired?: true;
   /** Durable source locator for transport-neutral progress presentation. */
   progressOrigin?: SubagentProgressOrigin;
   requesterDisplayKey: string;
@@ -226,12 +230,8 @@ export type SubagentRunRecord = Omit<SubagentRunReadRecord, "execution" | "colle
   retainAttachmentsOnKeep?: boolean;
   /** Spawner plus ancestor sessions authorized to wait, frozen when the collector is registered. */
   swarmWaitOwnerSessionKeys?: string[];
-  /** Stable scheduler slot identity across gateway-assigned run id replacements. */
-  schedulerSlotId?: string;
   /** Exact host-reserved Gateway request identity for the current collector turn. */
   swarmLaunchIdempotencyKey?: string;
-  /** Replay-safe host bridge identity used to recover a collector after restart. */
-  swarmLaunchReplayKey?: string;
   /** Canonical collector request hash paired with a host-reserved launch identity. */
   swarmLaunchRequestFingerprint?: string;
   /** True only between host reservation and accepted Gateway dispatch. */

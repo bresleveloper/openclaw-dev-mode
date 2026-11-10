@@ -1,4 +1,4 @@
-import { f as openclaw_plugin_default, s as KILOCODE_DEFAULT_MODEL_REF } from "./.setup/provider-models-CplaZ4OM.mjs";
+import { f as openclaw_plugin_default, s as KILOCODE_DEFAULT_MODEL_REF } from "./.setup/provider-models-0P0ezPsI.mjs";
 import { buildKilocodeProvider, buildKilocodeProviderWithDiscovery } from "./provider-catalog.js";
 import { applyKilocodeConfig } from "./onboard.js";
 import { wrapKilocodeProviderStream } from "./stream.js";

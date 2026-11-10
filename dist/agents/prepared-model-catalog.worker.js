@@ -1,48 +1,54 @@
-import { t as AsyncWorkScope } from "../async-work-scope-BYeX3gh6.mjs";
+import { t as AsyncWorkScope } from "../async-work-scope-BH2yUdBz.mjs";
 import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
-import { t as _usingCtx } from "../usingCtx-DwOBYOJf.mjs";
-import { n as normalizeAgentId } from "../agent-id-D1-Q6vR4.mjs";
 import { r as normalizeProviderId } from "../provider-id-D1VImdKk.mjs";
-import { A as registerResolvedAgentDir, M as unregisterResolvedAgentDir, j as resolveRegisteredAgentIdForDir } from "../agent-scope-config-CDYpzA0r.mjs";
-import "../session-key-C09ow4h0.mjs";
-import { t as freezeJsonSnapshot } from "../immutable-data-MyNs7ITg.mjs";
-import { p as restoreConfigResolutionFacts, r as copyConfigResolutionFacts } from "../resolution-facts-HH1cnmIY.mjs";
-import { u as normalizePluginsConfig } from "../config-state-DY_WJYue.mjs";
-import { m as restorePluginMetadataSnapshot } from "../plugin-metadata-snapshot-6weqkLDz.mjs";
-import { D as setRuntimeConfigSnapshot } from "../runtime-snapshot-DYptB0Cf.mjs";
-import { o as nativeReferenceProgress, s as withPluginSourceCaptureDirectory } from "../plugin-generation-artifact-CHASLMSu.mjs";
-import { n as withPluginRuntimeGenerationScope } from "../generation-scope-BNE7YdYW.mjs";
-import { n as isManifestPluginAvailableForControlPlane } from "../manifest-contract-eligibility-CJLBUUHI.mjs";
-import { t as createModelCatalogIdentityKeyResolver } from "../openai-model-routes-CVmOODN3.mjs";
-import { d as withRemoteModelCatalogSnapshot } from "../remote-overlay-C3A-3o4_.mjs";
-import { g as mergeRuntimeExternalProfileReferences } from "../persisted-BVyWmvfF.mjs";
-import { T as listExternalCliSyncProviderIds } from "../store-SwwRUDrm.mjs";
-import { b as resolveAuthStorePathForDisplay } from "../profiles-Dk53jI-3.mjs";
-import { C as replaceRuntimeAuthProfileStoreSnapshots } from "../runtime-snapshots-CSLjByUx.mjs";
-import { d as preserveResolvedSecretBackedCredentials } from "../runtime-snapshot-owner-Dm2mqUH2.mjs";
-import { t as manifestPluginResolvesRuntimeModelCatalogAugment } from "../providers-DQUFJKZx.mjs";
-import { l as loadAuthProfileStoreWithoutExternalProfiles } from "../store-runtime-Qx0DZ2Si.mjs";
-import { r as planRuntimePluginDiscovery } from "../provider-discovery-BkPgLJBP.mjs";
-import { W as restorePreparedSyntheticAuthFacts } from "../provider-runtime-Ck_Cecr1.mjs";
-import { i as resolveRuntimeSyntheticAuthProviderRefs } from "../synthetic-auth.runtime-B8WINApd.mjs";
-import { I as resolveAmbientAgentCredentialsForDiscovery, L as resolveAgentCredentialMapFromStore, R as resolveUsableAgentCredentialModes, c as ownPreparedPluginGeneration, m as PreparedModelRuntimeBuildResources, p as retainPreparedPluginRegistry } from "../prepared-model-runtime.plugin-generation-i7pfklM1.mjs";
-import { i as AuthStorage } from "../model-registry-DKSOyLSb.mjs";
-import { n as modelCatalogRouteVariantKey, r as modelCatalogRowToEntry } from "../model-catalog-entry-BfooR5F2.mjs";
-import { t as createPreparedModelCatalogProviderNormalizer } from "../model-catalog-provider-normalizer-ByP944Cg.mjs";
-import { c as withClawInstallSchemaVersionFacts } from "../provenance-runtime-read-DLNIVZio.mjs";
-import { a as fingerprintPreparedModelCatalogPluginContext, i as fingerprintPreparedModelCatalogGeneration, o as fingerprintPreparedModelWorkerRequest, t as PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS } from "../prepared-model-catalog-worker-B-zIZ-R7.mjs";
-import { t as captureProviderCatalogExpiries } from "../provider-catalog-expiry-BajE8fJo.mjs";
-import { i as resolveImplicitProviderDiscoveryScope, t as prepareImplicitProviderStaticCatalog } from "../models-config.providers.implicit-BnJHM4x8.mjs";
-import { l as scopeSyntheticAuthProviderRefs, p as prepareOwnedPluginLoadContext } from "../prepared-model-runtime.facts-Uvb82TTa.mjs";
-import { n as prepareModelCatalogAuthLabels } from "../model-catalog-auth-labels-DHCJ-sP2.mjs";
-import { n as serveWorkerTasks } from "../worker-task-server-BC_7U18u.mjs";
-import { n as overlayExternalAuthProfiles } from "../external-auth-runtime-8KiuxODj.mjs";
+import { t as freezeJsonSnapshot } from "../immutable-data-DqJSDH8t.mjs";
+import { n as normalizeAgentId } from "../agent-id-D1-Q6vR4.mjs";
+import { t as _usingCtx } from "../usingCtx-BhiZp_rS.mjs";
+import { O as setRuntimeConfigSnapshot } from "../runtime-snapshot-BBYDJbw9.mjs";
+import { u as withRemoteModelCatalogSnapshot } from "../remote-overlay-ClWDV070.mjs";
+import { b as normalizePluginsConfigWithResolverCore } from "../config-state-DkDfCu7E.mjs";
+import { p as restoreConfigResolutionFacts, r as copyConfigResolutionFacts } from "../resolution-facts-D_pto3MV.mjs";
+import "../session-key-CSDERtm3.mjs";
+import { M as resolveRegisteredAgentIdForDir, N as unregisterResolvedAgentDir, j as registerResolvedAgentDir } from "../agent-scope-config-fjA2T9Gz.mjs";
+import { m as restorePluginMetadataSnapshot } from "../plugin-metadata-snapshot-DET-4y9k.mjs";
+import { h as withWorkerAuthProfileWrites, i as captureAuthProfileCredentialCommits } from "../user-model-account-authority-DFFjC5J5.mjs";
+import { u as mergeRuntimeExternalProfileReferences } from "../persisted-DbIYEoQ3.mjs";
+import { i as noteCommittedSharedAuthStoreOwnership } from "../path-resolve-21Orzn6B.mjs";
+import { O as replaceRuntimeAuthProfileStoreSnapshotsAsync, W as preserveResolvedSecretBackedCredentials } from "../runtime-snapshots-HRosak4u.mjs";
+import { A as withPluginSourceCaptureDirectory, l as nativeReferenceProgress } from "../plugin-generation-source-lookup-CdHM-XG_.mjs";
+import { n as withPluginRuntimeGenerationScope } from "../generation-scope-CwTBwQp1.mjs";
+import { n as isManifestPluginAvailableForControlPlane } from "../manifest-contract-eligibility-BO9Yzg8f.mjs";
+import { t as createModelCatalogIdentityKeyResolver } from "../openai-model-routes-BJEokkWC.mjs";
+import { n as getPluginRegistryInspectionResources } from "../registry-inspection-resources-COvkPmap.mjs";
+import { n as modelCatalogRouteVariantKey, r as modelCatalogRowToEntry } from "../model-catalog-entry-BWd5zbsm.mjs";
+import { t as createPreparedModelCatalogProviderNormalizer } from "../model-catalog-provider-normalizer-C4C-simP.mjs";
+import "../store-BPXZsh12.mjs";
+import { r as listExternalCliSyncProviderIds } from "../external-cli-sync-Bmw7gpgm.mjs";
+import { t as manifestPluginResolvesRuntimeModelCatalogAugment } from "../providers-3h1HIigh.mjs";
+import { g as loadAuthProfileStoreWithoutExternalProfilesAsync } from "../store-runtime-CwqGD12G.mjs";
+import { c as resolveAuthStorePathForDisplay } from "../oauth-refresh-fence-eL04wGfj.mjs";
+import { n as PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS } from "../model-catalog-timeouts-CWTmGWX-.mjs";
+import { r as planRuntimePluginDiscovery } from "../provider-discovery-VU-K7aKK.mjs";
+import { U as restorePreparedSyntheticAuthFacts } from "../provider-runtime-DZ8luukj.mjs";
+import { i as resolveRuntimeSyntheticAuthProviderRefs, t as listManifestSyntheticAuthProviderRefs } from "../synthetic-auth.runtime-bSBw_Wwj.mjs";
+import { c as PreparedModelRuntimeBuildResources, h as resolveUsableAgentCredentialModes, m as resolveAgentCredentialMapFromStore, n as ownPreparedPluginGeneration, p as resolveAmbientAgentCredentialsForDiscovery, s as retainPreparedPluginRegistry } from "../prepared-model-runtime.plugin-lifetime-Ck5dh_-n.mjs";
+import { t as AuthStorage } from "../auth-storage-DHC97REI.mjs";
+import { s as withClawInstallSchemaVersionFacts } from "../provenance-runtime-read-CG_KY8mE.mjs";
+import { n as withHandedOffCodexClientVersion } from "../codex-client-version-handoff.internal-vuk-sgi8.mjs";
+import { a as scopeSyntheticAuthProviderRefs } from "../prepared-model-runtime.synthetic-auth-DP743ZrF.mjs";
+import { n as fingerprintPreparedModelCatalogPluginContext, r as fingerprintPreparedModelWorkerRequest, t as fingerprintPreparedModelCatalogGeneration } from "../prepared-model-catalog-fingerprints-CRgbrGfC.mjs";
+import { n as prepareModelCatalogAuthLabels } from "../model-catalog-auth-labels-BDvpEt70.mjs";
+import { t as captureProviderCatalogExpiries } from "../provider-catalog-expiry-DuDh5VRN.mjs";
+import { i as resolveImplicitProviderDiscoveryScope, t as prepareImplicitProviderStaticCatalog } from "../models-config.providers.implicit-B8ZOw1Dx.mjs";
+import { t as prepareOwnedPluginLoadContext } from "../prepared-model-runtime.plugin-context-B8bOw2w5.mjs";
+import { n as serveWorkerTasks } from "../worker-task-server-sMsYUF1K.mjs";
+import { n as overlayExternalAuthProfiles } from "../external-auth-runtime-CBrZBOFR.mjs";
 import { parentPort, workerData } from "node:worker_threads";
 //#region src/agents/prepared-model-catalog.worker.ts
 /** Worker-thread entrypoint for complete model-catalog discovery. */
-function refreshAuthStore(params) {
+async function refreshAuthStore(params) {
 	const durable = preserveResolvedSecretBackedCredentials({
-		next: loadAuthProfileStoreWithoutExternalProfiles(params.agentDir, {
+		next: await loadAuthProfileStoreWithoutExternalProfilesAsync(params.agentDir, {
 			allowKeychainPrompt: false,
 			...params.inheritedAuthDir ? { inheritedAuthDir: params.inheritedAuthDir } : {}
 		}),
@@ -75,9 +81,8 @@ function restoreWorkerConfig(value) {
 async function prepareWorkerGeneration(value, previous, pluginIds) {
 	try {
 		var _usingCtx$1 = _usingCtx();
-		const { prepareConfiguredModelFacts } = await import("../prepared-model-runtime.facts-CnDyEyeO.mjs");
 		const metadata = previous?.pluginGeneration.pluginMetadataSnapshot ?? restorePluginMetadataSnapshot(value.pluginMetadataSnapshot);
-		const normalizedConfig = normalizePluginsConfig(value.input.config.plugins);
+		const normalizedConfig = normalizePluginsConfigWithResolverCore(value.input.config.plugins, metadata.normalizePluginId);
 		const basePluginIds = pluginIds ?? metadata.plugins.filter((plugin) => manifestPluginResolvesRuntimeModelCatalogAugment(plugin) && isManifestPluginAvailableForControlPlane({
 			snapshot: metadata,
 			plugin,
@@ -95,7 +100,7 @@ async function prepareWorkerGeneration(value, previous, pluginIds) {
 		}, () => {});
 		prepareOwnedPluginLoadContext(value.input, value.input.env, pluginRegistry, metadata, value.preferBuiltPluginArtifacts);
 		const pluginGeneration = Object.freeze({
-			...previous?.pluginGeneration ?? prepareConfiguredModelFacts(value.input.config, metadata),
+			...previous?.pluginGeneration,
 			remoteCatalog: value.remoteCatalog,
 			pluginMetadataSnapshot: metadata,
 			pluginRegistry,
@@ -124,6 +129,7 @@ async function runCatalogRequest(value, request, work, prepareGeneration, beginD
 	let prepared;
 	let acquiredGeneration;
 	try {
+		if (value.sharedAuthStoreOwnership) noteCommittedSharedAuthStoreOwnership(value.sharedAuthStoreOwnership, value.input.env);
 		if (directoryOwner) {
 			registeredDirectoryOwner = registerResolvedAgentDir(directoryOwner);
 			if (resolveRegisteredAgentIdForDir(directoryOwner.agentDir, directoryOwner.env) !== normalizeAgentId(directoryOwner.agentId)) throw new Error(`Conflicting registered agent owners for ${directoryOwner.agentDir}`);
@@ -155,11 +161,15 @@ async function runCatalogRequest(value, request, work, prepareGeneration, beginD
 			config: value.input.config,
 			env: value.input.env,
 			authoritativeSyntheticAuthProviderRefs: pluginGenerationScope.metadataSnapshot.owners.cliBackends.keys(),
-			syntheticAuthProviderRefs: scopeSyntheticAuthProviderRefs([.../* @__PURE__ */ new Set([...resolveRuntimeSyntheticAuthProviderRefs(), ...request.syntheticAuth.map(({ providerRef }) => providerRef)])], providerIds),
+			syntheticAuthProviderRefs: scopeSyntheticAuthProviderRefs([.../* @__PURE__ */ new Set([
+				...listManifestSyntheticAuthProviderRefs(pluginGenerationScope.metadataSnapshot.index),
+				...resolveRuntimeSyntheticAuthProviderRefs(),
+				...request.syntheticAuth.map(({ providerRef }) => providerRef)
+			])], providerIds),
 			...value.input.workspaceDir ? { workspaceDir: value.input.workspaceDir } : {}
 		}));
 		if (request.kind === "auth-refresh") await beginDiscovery();
-		const authStore = refreshAuthStore({
+		const authStore = await refreshAuthStore({
 			agentDir: value.input.agentDir,
 			inheritedAuthDir: value.input.inheritedAuthDir,
 			authStore: value.authStore,
@@ -169,7 +179,7 @@ async function runCatalogRequest(value, request, work, prepareGeneration, beginD
 			providerIds: request.providerIds ?? listExternalCliSyncProviderIds(),
 			pluginGeneration: prepared.pluginGeneration
 		});
-		if (request.kind === "catalog") replaceRuntimeAuthProfileStoreSnapshots([{
+		if (request.kind === "catalog") await replaceRuntimeAuthProfileStoreSnapshotsAsync([{
 			agentDir: value.input.agentDir,
 			store: authStore
 		}]);
@@ -185,8 +195,8 @@ async function runCatalogRequest(value, request, work, prepareGeneration, beginD
 			credentials,
 			authModes: resolveUsableAgentCredentialModes(credentials)
 		};
-		const { prepareAgentCatalogSource } = await import("../prepared-model-runtime.scoped-catalog-BBqJMJDM.mjs");
-		const { prepareFullCatalogFacts } = await import("../prepared-model-runtime.full-catalog-Cb4cLhkY.mjs");
+		const { prepareAgentCatalogSource } = await import("../prepared-model-runtime.scoped-catalog-7EEsh-LF.mjs");
+		const { prepareFullCatalogFacts } = await import("../prepared-model-runtime.full-catalog-D9A8FFQi.mjs");
 		const startupProviderIds = new Set(value.providerIds.map(normalizeProviderId));
 		const exactAgentFacts = {
 			...value.catalogFacts,
@@ -245,7 +255,7 @@ async function runCatalogRequest(value, request, work, prepareGeneration, beginD
 			authStore,
 			providerDiscoveryProviderIds: request.providerIds,
 			providerDiscoveryTimeoutMs: PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS
-		}));
+		}), { refresh: request.refresh });
 		const facts = await prepareFullCatalogFacts(exactAgentFacts, catalogGeneration, "live", source, {
 			includeNative: false,
 			providerIds: request.providerIds
@@ -255,7 +265,7 @@ async function runCatalogRequest(value, request, work, prepareGeneration, beginD
 			...credentials
 		};
 		const runtimeModels = /* @__PURE__ */ new Map();
-		const catalogModels = withPluginRuntimeGenerationScope(pluginGenerationScope, () => facts.templateModelRegistry.getAll());
+		const { catalogModels } = facts;
 		const hookRows = withPluginRuntimeGenerationScope(pluginGenerationScope, () => {
 			const normalizeProvider = createPreparedModelCatalogProviderNormalizer(pluginMetadataSnapshot, value.input.config, value.input.env);
 			const keyOf = createModelCatalogIdentityKeyResolver();
@@ -321,11 +331,11 @@ async function runCatalogRequest(value, request, work, prepareGeneration, beginD
 		work.beginClose();
 		await work.runWhenIdle(() => void 0);
 		if (acquiredGeneration) {
+			const successor = getPluginRegistryInspectionResources(acquiredGeneration.pluginGeneration.pluginRegistry);
+			if (!successor) throw new Error("Catalog scope growth has no inspection resource owner");
+			successor.adoptRetainedRegistrations(prepared.pluginGeneration.pluginRegistry);
 			const releasePrevious = prepared.release;
-			prepared.pluginGeneration = acquiredGeneration.pluginGeneration;
-			prepared.pluginIds = acquiredGeneration.pluginIds;
-			prepared.staticProviderIds = acquiredGeneration.staticProviderIds;
-			prepared.release = acquiredGeneration.release;
+			Object.assign(prepared, acquiredGeneration);
 			acquiredGeneration = void 0;
 			await releasePrevious();
 		}
@@ -346,8 +356,11 @@ async function runCatalogRequest(value, request, work, prepareGeneration, beginD
 		}
 	}
 }
+function isStringArray(value) {
+	return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
 function isWorkerRequest(value) {
-	return isRecord(value) && Array.isArray(value.syntheticAuth) && isRecord(value.clawInstallSchemaVersions) && typeof value.clawInstallSchemaVersions.path === "string" && isRecord(value.clawInstallSchemaVersions.snapshot) && (value.kind === "catalog" && (value.providerIds === void 0 || Array.isArray(value.providerIds) && value.providerIds.every((id) => typeof id === "string")) || value.kind === "auth-refresh" && Array.isArray(value.providerIds) && value.providerIds.every((providerId) => typeof providerId === "string") && (value.profileIds === void 0 || Array.isArray(value.profileIds) && value.profileIds.every((profileId) => typeof profileId === "string")));
+	return isRecord(value) && Array.isArray(value.syntheticAuth) && isRecord(value.clawInstallSchemaVersions) && typeof value.clawInstallSchemaVersions.path === "string" && isRecord(value.clawInstallSchemaVersions.snapshot) && (value.codexClientVersion === void 0 || typeof value.codexClientVersion === "string") && (value.kind === "catalog" && (value.refresh === void 0 || typeof value.refresh === "boolean") && (value.providerIds === void 0 || isStringArray(value.providerIds)) || value.kind === "auth-refresh" && isStringArray(value.providerIds) && (value.profileIds === void 0 || isStringArray(value.profileIds)));
 }
 if (parentPort) {
 	const data = workerData;
@@ -357,58 +370,62 @@ if (parentPort) {
 		if (!isRecord(value) || !isWorkerRequest(request)) throw new Error("invalid prepared model catalog worker request");
 		let reportAfter = 0;
 		let reportedPlugin;
-		let reportedActive;
 		const reportProgress = (notification) => {
 			const progress = notification;
 			const now = performance.now();
-			if (now >= reportAfter || progress.pluginId !== reportedPlugin || progress.active !== reportedActive) {
+			if (now >= reportAfter || progress.pluginId !== reportedPlugin) {
 				reportAfter = now + 1e3;
 				reportedPlugin = progress.pluginId;
-				reportedActive = progress.active;
 				channel?.notify(progress);
 			}
 		};
 		nativeReferenceProgress.subscribe(reportProgress);
 		const stopProgress = () => nativeReferenceProgress.unsubscribe(reportProgress);
 		return withRemoteModelCatalogSnapshot(freezeJsonSnapshot(value.remoteCatalog), () => withPluginSourceCaptureDirectory(data.sourceCaptureDirectory, async () => {
-			const workspaceDir = value.pluginMetadataSnapshot.workspaceDir ?? value.input.workspaceDir;
-			let previous = contexts.get(workspaceDir);
-			const fingerprint = fingerprintPreparedModelCatalogPluginContext(value);
-			let attempted;
-			let replacing = false;
-			try {
-				const work = new AsyncWorkScope();
-				const result = await withClawInstallSchemaVersionFacts(request.clawInstallSchemaVersions, () => work.run(() => runCatalogRequest(value, request, work, async () => {
-					if (previous?.fingerprint === fingerprint) return previous.prepared;
-					replacing = true;
-					return attempted = await prepareWorkerGeneration(value);
-				}, async () => {
-					stopProgress();
-					const response = await channel?.request(null);
-					response?.consumed();
-					if (response && response.input !== true) throw new Error("prepared model catalog request retired before discovery");
-				})));
-				if (attempted && result.status === "ok") {
-					contexts.set(workspaceDir, {
-						fingerprint,
-						prepared: attempted
-					});
-					attempted = void 0;
-					replacing = false;
-					await previous?.prepared.release();
-					previous = void 0;
-				}
-				return result;
-			} finally {
+			const { result: outcome, receipts: authCredentials } = await captureAuthProfileCredentialCommits(async () => {
+				const workspaceDir = value.pluginMetadataSnapshot.workspaceDir ?? value.input.workspaceDir;
+				let previous = contexts.get(workspaceDir);
+				const fingerprint = fingerprintPreparedModelCatalogPluginContext(value);
+				let attempted;
+				let replacing = false;
 				try {
-					if (replacing) {
-						contexts.delete(workspaceDir);
+					const work = new AsyncWorkScope();
+					const result = await withWorkerAuthProfileWrites(value.input.env, work, () => withClawInstallSchemaVersionFacts(request.clawInstallSchemaVersions, () => withHandedOffCodexClientVersion(request.codexClientVersion, () => work.run(() => runCatalogRequest(value, request, work, async () => {
+						if (previous?.fingerprint === fingerprint) return previous.prepared;
+						replacing = true;
+						return attempted = await prepareWorkerGeneration(value);
+					}, async () => {
+						stopProgress();
+						const response = await channel?.request(null);
+						response?.consumed();
+						if (response && response.input !== true) throw new Error("prepared model catalog request retired before discovery");
+					})))));
+					if (attempted && result.status === "ok") {
+						contexts.set(workspaceDir, {
+							fingerprint,
+							prepared: attempted
+						});
+						attempted = void 0;
+						replacing = false;
 						await previous?.prepared.release();
+						previous = void 0;
 					}
+					return result;
 				} finally {
-					await attempted?.release();
+					try {
+						if (replacing) {
+							contexts.delete(workspaceDir);
+							await previous?.prepared.release();
+						}
+					} finally {
+						await attempted?.release();
+					}
 				}
-			}
+			});
+			return {
+				...outcome,
+				authCredentials
+			};
 		}, data.sourceCaptureManagedRoot)).finally(stopProgress);
 	});
 }

@@ -1,19 +1,20 @@
-import { o as resolveUserPath } from "../../home-dir-Dc6nN6HB.mjs";
+import { o as resolveUserPath } from "../../home-dir-CtsdYvX3.mjs";
 import { c as isRecord, i as asOptionalObjectRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { w as root } from "../../fs-safe-BUXBSN-4.mjs";
 import { n as normalizeAgentId } from "../../agent-id-D1-Q6vR4.mjs";
-import { a as reclaimDefinitelyStaleFileLock } from "../../file-lock-CkzOvhYo.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../routing-CEr1aXk1.mjs";
-import "../../runtime-doctor-migrations-4UZBewWQ.mjs";
-import { n as legacyStateFileExists } from "../../doctor-state-migration-fs-Ch3NmmKk.mjs";
-import "../../memory-core-host-engine-fs-Can1vT0D.mjs";
-import { c as SHORT_TERM_META_NAMESPACE, f as configureMemoryCoreDreamingState, g as normalizeMemoryCoreWorkspaceKey, i as DREAMING_SESSION_INGESTION_SEEN_NAMESPACE, l as SHORT_TERM_PHASE_SIGNAL_NAMESPACE, r as DREAMING_SESSION_INGESTION_FILES_NAMESPACE, t as DREAMING_DAILY_INGESTION_NAMESPACE, u as SHORT_TERM_RECALL_NAMESPACE, v as readMemoryCoreWorkspaceEntries } from "../../dreaming-state-BHlTqX1G.mjs";
-import { n as MANAGED_DREAMING_DECLARATION_KEY, t as classifyDreamingCronJob } from "../../dreaming-cron-classifier-BE1wMvoX.mjs";
-import path from "node:path";
-import fs from "node:fs/promises";
-import { isDeepStrictEqual } from "node:util";
+import { w as root } from "../../fs-safe-6Z4UiMS4.mjs";
+import { a as reclaimDefinitelyStaleFileLock } from "../../file-lock-BmWJVvRa.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../runtime-doctor-migrations-BuGkvNDu.mjs";
+import { n as legacyStateFileExists } from "../../doctor-state-migration-fs-B4m35WiR.mjs";
+import "../../routing-Dl7FngGa.mjs";
+import "../../memory-core-host-engine-fs-DP0bFWD3.mjs";
+import { c as SHORT_TERM_META_NAMESPACE, f as configureMemoryCoreDreamingState, g as normalizeMemoryCoreWorkspaceKey, i as DREAMING_SESSION_INGESTION_SEEN_NAMESPACE, l as SHORT_TERM_PHASE_SIGNAL_NAMESPACE, r as DREAMING_SESSION_INGESTION_FILES_NAMESPACE, t as DREAMING_DAILY_INGESTION_NAMESPACE, u as SHORT_TERM_RECALL_NAMESPACE, v as readMemoryCoreWorkspaceEntries } from "../../dreaming-state-D1mfF5St.mjs";
+import { n as MANAGED_DREAMING_DECLARATION_KEY, t as classifyDreamingCronJob } from "../../dreaming-cron-classifier-DF0hZAQ0.mjs";
+import { t as readDoctorAgentEntries } from "../../doctor-agent-config-BdQb9tJb.mjs";
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { walkDirectory } from "@openclaw/fs-safe/walk";
 //#region extensions/memory-core/src/migration/doctor-dreaming-cron.ts
 async function planDreamingCronRepair(inventory, config) {
@@ -225,7 +226,7 @@ async function unsupportedDreamingSources(params) {
 				namespace,
 				workspaceDir
 			})))).some((rows) => rows.length > 0)) continue;
-			warnings.push(`Memory Core ${source.label}: upgrades from pre-July-2026 dreaming JSON are no longer migrated (${source.filePath}). No canonical SQLite state was found; an empty ingestion store cannot be distinguished from unmigrated state. Restore a backup produced by a July 2026 or newer release, or back up and move this retired file aside after verifying the SQLite state, then rerun openclaw doctor --fix. The file was left unchanged.`);
+			warnings.push(`Memory Core ${source.label}: upgrades from pre-July-2026 dreaming JSON are no longer migrated (${source.filePath}). No current SQLite state was found; an empty ingestion store cannot be distinguished from unmigrated state. Restore a backup produced by a July 2026 or newer release, or back up and move this retired file aside after verifying the SQLite state, then rerun openclaw doctor --fix. The file was left unchanged.`);
 		}
 	}
 	return warnings;
@@ -290,19 +291,11 @@ async function collectLegacyMemoryHostEventSources(config, env) {
 					continue;
 				}
 				const claim = claimPattern.exec(entry);
-				if (claim) {
-					candidates.push({
-						entry,
-						storage: "claim",
-						generation: BigInt(claim[1] ?? "1")
-					});
-					continue;
-				}
-				const archive = archivePattern.exec(entry);
-				if (archive) candidates.push({
+				const match = claim ?? archivePattern.exec(entry);
+				if (match) candidates.push({
 					entry,
-					storage: "archive",
-					generation: BigInt(archive[1] ?? "1")
+					storage: claim ? "claim" : "archive",
+					generation: BigInt(match[1] ?? "1")
 				});
 			}
 			candidates.sort((left, right) => {
@@ -331,12 +324,12 @@ async function collectLegacyMemoryHostEventSources(config, env) {
 		} catch (error) {
 			const code = error.code;
 			if (code === "ENOENT" || code === "ENOTDIR" || code === "not-found") continue;
-			if (!seenWorkspaces.has(canonicalWorkspaceDir)) seenWorkspaces.add(canonicalWorkspaceDir);
+			seenWorkspaces.add(canonicalWorkspaceDir);
 			sources.push({
 				kind: "rejected",
 				workspaceDir: canonicalWorkspaceDir,
 				filePath,
-				reason: `Skipped unsafe Memory Core host event source ${filePath}: ${String(error)}. Check permissions and use regular files and directories inside the workspace, then rerun openclaw doctor --fix. For shared notes, use canonical paths in memory.search.extraPaths; this does not migrate legacy events.`
+				reason: `Skipped unsafe Memory Core host event source ${filePath}: ${String(error)}. Check permissions and use regular files and directories inside the workspace, then rerun openclaw doctor --fix. For shared notes, use resolved paths in memory.search.extraPaths; this does not migrate legacy events.`
 			});
 		}
 	}
@@ -374,39 +367,38 @@ const MAX_MEMORY_HOST_EVENT_CURSORS = 1e3;
 const MAX_MEMORY_HOST_EVENT_MIGRATION_CHECKPOINTS = 1e4;
 const MAX_LEGACY_MEMORY_HOST_EVENT_VALUE_BYTES = 65536;
 const LEGACY_MEMORY_HOST_SEQUENCE_BASE = Number.MIN_SAFE_INTEGER;
+function openMemoryHostCheckpointStore(context) {
+	return context.openPluginStateKeyedStore({
+		namespace: MEMORY_HOST_EVENT_MIGRATION_CHECKPOINTS_NAMESPACE,
+		maxEntries: MAX_MEMORY_HOST_EVENT_MIGRATION_CHECKPOINTS,
+		overflowPolicy: "reject-new"
+	});
+}
 function memoryHostMigrationCheckpointKey(source) {
 	if (!source.generationKey) throw new Error(`Missing Memory Core host event archive generation for ${source.filePath}`);
 	return `${memoryHostWorkspacePrefix(source.workspaceDir)}:archive:${source.generationKey}`;
-}
-function memoryHostMigrationSnapshot(raw, recordCount, sequenceBase) {
-	return {
-		kind: "migration-checkpoint",
-		contentHash: crypto.createHash("sha256").update(raw).digest("hex"),
-		recordCount,
-		sequenceBase,
-		size: Buffer.byteLength(raw, "utf8")
-	};
 }
 function isMemoryHostMigrationCheckpoint(value) {
 	return value?.kind === "migration-checkpoint" && typeof value.contentHash === "string" && Number.isSafeInteger(value.recordCount) && value.recordCount >= 0 && Number.isSafeInteger(value.sequenceBase) && Number.isSafeInteger(value.size) && value.size >= 0;
 }
 async function memoryHostEventSourceNeedsMigration(params) {
 	if (params.source.storage !== "archive") return true;
-	const checkpoint = await params.context.openPluginStateKeyedStore({
-		namespace: MEMORY_HOST_EVENT_MIGRATION_CHECKPOINTS_NAMESPACE,
-		maxEntries: MAX_MEMORY_HOST_EVENT_MIGRATION_CHECKPOINTS,
-		overflowPolicy: "reject-new"
-	}).lookup(memoryHostMigrationCheckpointKey(params.source));
+	const checkpoint = await openMemoryHostCheckpointStore(params.context).lookup(memoryHostMigrationCheckpointKey(params.source));
 	if (!isMemoryHostMigrationCheckpoint(checkpoint)) return true;
 	const raw = await params.source.root.readText(params.source.relativePath);
 	return Buffer.byteLength(raw, "utf8") !== checkpoint.size || crypto.createHash("sha256").update(raw).digest("hex") !== checkpoint.contentHash;
 }
+async function moveLegacyMemoryHostEventFile(source, target) {
+	const { statRegularFileSync } = await import("../../plugin-sdk/file-access-runtime.js");
+	return source.root.move(source.relativePath, target, { assertBeforeMutation: () => {
+		if (statRegularFileSync(source.filePath).missing) throw new Error("Memory Core host event file no longer exists");
+	} });
+}
 async function finalizeLegacyMemoryHostEventSource(params) {
-	if (params.source.storage === "archive") return true;
 	const archivedRelativePath = params.source.archiveRelativePath;
 	if (!archivedRelativePath) throw new Error(`Missing Memory Core host event archive path for ${params.source.filePath}`);
 	try {
-		await params.source.root.move(params.source.relativePath, archivedRelativePath);
+		await moveLegacyMemoryHostEventFile(params.source, archivedRelativePath);
 		params.changes.push(`Archived Memory Core host events legacy source -> ${path.join(params.source.workspaceDir, archivedRelativePath)}`);
 		return true;
 	} catch (error) {
@@ -418,7 +410,7 @@ async function restoreClaimedMemoryHostEventSource(params) {
 	try {
 		if (!await params.source.root.exists(params.source.relativePath)) return;
 		if (!await params.source.root.exists(params.activeRelativePath)) {
-			await params.source.root.move(params.source.relativePath, params.activeRelativePath);
+			await moveLegacyMemoryHostEventFile(params.source, params.activeRelativePath);
 			return;
 		}
 		params.warnings.push(`Left claimed Memory Core host events at ${params.source.filePath} because an old writer recreated the active source`);
@@ -427,14 +419,17 @@ async function restoreClaimedMemoryHostEventSource(params) {
 	}
 }
 async function migrateLegacyMemoryHostEventSource(params) {
+	const blocked = (warning) => {
+		params.warnings.push(warning);
+		return "blocked";
+	};
 	const { normalizeMemoryHostEventRecordForStorage, resolveMemoryHostEventLogPath } = await import("../../plugin-sdk/memory-host-events.js");
 	const activeRelativePath = path.relative(params.source.workspaceDir, resolveMemoryHostEventLogPath(params.source.workspaceDir));
 	let source = params.source;
-	let restoreNewClaim = false;
 	let claimFinalized = source.storage === "archive";
 	if (source.storage === "active") {
 		const generation = await resolveMemoryHostEventArchivePath(source);
-		await source.root.move(source.relativePath, generation.claimRelativePath);
+		await moveLegacyMemoryHostEventFile(source, generation.claimRelativePath);
 		source = {
 			...source,
 			filePath: path.join(source.workspaceDir, generation.claimRelativePath),
@@ -443,7 +438,6 @@ async function migrateLegacyMemoryHostEventSource(params) {
 			archiveRelativePath: generation.archiveRelativePath,
 			generationKey: generation.generationKey
 		};
-		restoreNewClaim = true;
 	}
 	try {
 		if (!source.generationKey) throw new Error(`Missing Memory Core host event generation for ${source.filePath}`);
@@ -487,15 +481,8 @@ async function migrateLegacyMemoryHostEventSource(params) {
 				value
 			});
 		}
-		if (params.warnings.length > warningStart) {
-			params.warnings.push("Left Memory Core host events legacy source in place because invalid rows still require repair");
-			return "blocked";
-		}
-		const checkpointStore = params.context.openPluginStateKeyedStore({
-			namespace: MEMORY_HOST_EVENT_MIGRATION_CHECKPOINTS_NAMESPACE,
-			maxEntries: MAX_MEMORY_HOST_EVENT_MIGRATION_CHECKPOINTS,
-			overflowPolicy: "reject-new"
-		});
+		if (params.warnings.length > warningStart) return blocked("Left Memory Core host events legacy source in place because invalid rows still require repair");
+		const checkpointStore = openMemoryHostCheckpointStore(params.context);
 		const checkpointKey = memoryHostMigrationCheckpointKey(source);
 		const checkpointValue = await checkpointStore.lookup(checkpointKey);
 		const previousCheckpoint = isMemoryHostMigrationCheckpoint(checkpointValue) ? checkpointValue : void 0;
@@ -517,8 +504,8 @@ async function migrateLegacyMemoryHostEventSource(params) {
 		const existingKeys = new Set(existingEntries.map((entry) => entry.key));
 		const latestLegacySequence = existingEntries.reduce((latest, entry) => entry.value.sequence < 0 ? Math.max(latest, entry.value.sequence) : latest, LEGACY_MEMORY_HOST_SEQUENCE_BASE);
 		const legacyKeyPrefix = `${prefix}:event:0:s:`;
-		const existingByIdentity = new Map(existingEntries.flatMap((entry) => {
-			if (!entry.key.startsWith(legacyKeyPrefix) || entry.value.sequence >= 0) return [];
+		const existingLegacyEntries = existingEntries.filter((entry) => entry.key.startsWith(legacyKeyPrefix) && !(entry.value.sequence >= 0));
+		const existingByIdentity = new Map(existingLegacyEntries.flatMap((entry) => {
 			const parts = entry.key.split(":");
 			return parts.length === 8 ? [[`${parts[5]}:${parts[6]}:${parts[7]}`, entry]] : [];
 		}));
@@ -527,34 +514,21 @@ async function migrateLegacyMemoryHostEventSource(params) {
 			const existing = existingByIdentity.get(identity);
 			return existing ? [existing.value.sequence - (record.ordinal + 1)] : [];
 		})[0];
-		const laterGenerationExists = existingEntries.some((entry) => {
-			if (!entry.key.startsWith(legacyKeyPrefix) || entry.value.sequence >= 0) return false;
+		const laterGenerationExists = existingLegacyEntries.some((entry) => {
 			const generationKey = entry.key.split(":")[5];
 			return generationKey !== void 0 && generationKey > source.generationKey;
 		});
-		if (source.storage === "archive" && !previousCheckpoint && existingSourceBase === void 0 && laterGenerationExists) {
-			params.warnings.push(`Skipped Memory Core host event recovery because ${source.filePath} has no durable checkpoint and later generations are already imported; left the archive in place`);
-			return "blocked";
-		}
+		if (source.storage === "archive" && !previousCheckpoint && existingSourceBase === void 0 && laterGenerationExists) return blocked(`Skipped Memory Core host event recovery because ${source.filePath} has no durable checkpoint and later generations are already imported; left the archive in place`);
 		const sourceSequenceBase = previousCheckpoint?.sequenceBase ?? existingSourceBase ?? latestLegacySequence;
 		let nextSequence = latestLegacySequence;
 		const sequencedRecords = candidateRecords.map((record) => {
 			const ordinalKey = record.ordinal.toString().padStart(16, "0");
 			const identity = `${source.generationKey}:${ordinalKey}:${record.digest}`;
 			const existing = existingByIdentity.get(identity);
-			if (existing) return {
-				...record,
-				key: existing.key,
-				value: {
-					...record.value,
-					sequence: existing.value.sequence
-				}
-			};
-			const sequence = previousCheckpoint ? nextSequence += 1 : sourceSequenceBase + record.ordinal + 1;
+			const sequence = existing ? existing.value.sequence : previousCheckpoint ? nextSequence += 1 : sourceSequenceBase + record.ordinal + 1;
 			const sequenceKey = (sequence - LEGACY_MEMORY_HOST_SEQUENCE_BASE).toString().padStart(16, "0");
 			return {
-				...record,
-				key: `${legacyKeyPrefix}${sequenceKey}:${identity}`,
+				key: existing ? existing.key : `${legacyKeyPrefix}${sequenceKey}:${identity}`,
 				value: {
 					...record.value,
 					sequence
@@ -562,26 +536,17 @@ async function migrateLegacyMemoryHostEventSource(params) {
 			};
 		});
 		const sourceKeys = new Set(sequencedRecords.map((record) => record.key));
-		if (sequencedRecords.some((record) => !Number.isSafeInteger(record.value.sequence) || record.value.sequence >= 0)) {
-			params.warnings.push("Skipped Memory Core host event migration because legacy sequence capacity is exhausted; left legacy source in place");
-			return "blocked";
-		}
+		if (sequencedRecords.some((record) => !Number.isSafeInteger(record.value.sequence) || record.value.sequence >= 0)) return blocked("Skipped Memory Core host event migration because legacy sequence capacity is exhausted; left legacy source in place");
 		const nativeCount = existingEntries.filter((entry) => entry.value.sequence >= 0).length;
 		const legacyRetentionLimit = Math.max(0, MAX_MEMORY_HOST_EVENTS - nativeCount);
-		const combinedLegacy = [...existingEntries.filter((entry) => entry.value.sequence < 0 && !sourceKeys.has(entry.key)).map((entry) => ({
+		const combinedLegacy = [...existingEntries.filter((entry) => entry.value.sequence < 0 && !sourceKeys.has(entry.key)), ...sequencedRecords].map((entry) => ({
 			key: entry.key,
 			sequence: entry.value.sequence
-		})), ...sequencedRecords.map((record) => ({
-			key: record.key,
-			sequence: record.value.sequence
-		}))].toSorted((left, right) => left.sequence - right.sequence || left.key.localeCompare(right.key));
+		})).toSorted((left, right) => left.sequence - right.sequence || left.key.localeCompare(right.key));
 		const desiredLegacyKeys = new Set(legacyRetentionLimit === 0 ? [] : combinedLegacy.slice(-legacyRetentionLimit).map((record) => record.key));
 		let retainedRecords = sequencedRecords.filter((record) => desiredLegacyKeys.has(record.key));
 		const capacity = params.context.getPluginStateCapacity?.();
-		if (!capacity) {
-			params.warnings.push("Skipped Memory Core host event migration because plugin-wide SQLite capacity is unavailable; left legacy source in place");
-			return "blocked";
-		}
+		if (!capacity) return blocked("Skipped Memory Core host event migration because plugin-wide SQLite capacity is unavailable; left legacy source in place");
 		const pluginRemainingCapacity = Math.max(0, capacity.maxEntries - capacity.liveEntries);
 		const cursorStore = params.context.openPluginStateKeyedStore({
 			namespace: MEMORY_HOST_EVENT_CURSORS_NAMESPACE,
@@ -590,24 +555,12 @@ async function migrateLegacyMemoryHostEventSource(params) {
 		const cursorKey = `${prefix}:cursor`;
 		const existingCursor = await cursorStore.lookup(cursorKey);
 		const cursorCapacity = candidateRecords.length > 0 && existingCursor?.kind !== "cursor" ? 1 : 0;
-		if (cursorCapacity > pluginRemainingCapacity) {
-			params.warnings.push("Skipped Memory Core host event migration because SQLite plugin state has no room for its workspace cursor; left legacy source in place");
-			return "blocked";
-		}
+		if (cursorCapacity > pluginRemainingCapacity) return blocked("Skipped Memory Core host event migration because SQLite plugin state has no room for its workspace cursor; left legacy source in place");
 		const checkpointCapacity = checkpointValue ? 0 : 1;
-		if (checkpointCapacity > 0 && (checkpointStore.count ? await checkpointStore.count() : (await checkpointStore.entries()).length) >= MAX_MEMORY_HOST_EVENT_MIGRATION_CHECKPOINTS) {
-			params.warnings.push("Skipped Memory Core host event migration because durable raw-archive checkpoint capacity is exhausted; left legacy source in place");
-			return "blocked";
-		}
-		if (cursorCapacity + checkpointCapacity > pluginRemainingCapacity) {
-			params.warnings.push("Skipped Memory Core host event migration because SQLite plugin state has no room for its raw-archive checkpoint; left legacy source in place");
-			return "blocked";
-		}
+		if (checkpointCapacity > 0 && (checkpointStore.count ? await checkpointStore.count() : (await checkpointStore.entries()).length) >= MAX_MEMORY_HOST_EVENT_MIGRATION_CHECKPOINTS) return blocked("Skipped Memory Core host event migration because durable raw-archive checkpoint capacity is exhausted; left legacy source in place");
+		if (cursorCapacity + checkpointCapacity > pluginRemainingCapacity) return blocked("Skipped Memory Core host event migration because SQLite plugin state has no room for its raw-archive checkpoint; left legacy source in place");
 		const importEntries = params.context.importPluginStateEntries;
-		if (candidateRecords.length > 0 && !importEntries) {
-			params.warnings.push("Skipped Memory Core host event migration because retention-aware SQLite import is unavailable; left legacy source in place");
-			return "blocked";
-		}
+		if (candidateRecords.length > 0 && !importEntries) return blocked("Skipped Memory Core host event migration because retention-aware SQLite import is unavailable; left legacy source in place");
 		let retainedKeys = new Set(retainedRecords.map((record) => record.key));
 		let missing = retainedRecords.filter((record) => !existingKeys.has(record.key));
 		let replaceableLegacyRows = existingEntries.filter((entry) => entry.value.sequence < 0 && !retainedKeys.has(entry.key)).length;
@@ -621,20 +574,14 @@ async function migrateLegacyMemoryHostEventSource(params) {
 			replaceableLegacyRows = existingEntries.filter((entry) => entry.value.sequence < 0 && !retainedKeys.has(entry.key)).length;
 		}
 		const availableEventCapacity = pluginRemainingCapacity - reservedCapacity + replaceableLegacyRows;
-		if (missing.length > availableEventCapacity) {
-			params.warnings.push(`Skipped Memory Core host event migration because SQLite plugin state has room for ${availableEventCapacity} of ${missing.length} missing rows after reserving its cursor and raw-archive checkpoint; left legacy source in place`);
-			return "blocked";
-		}
+		if (missing.length > availableEventCapacity) return blocked(`Skipped Memory Core host event migration because SQLite plugin state has room for ${availableEventCapacity} of ${missing.length} missing rows after reserving its cursor and raw-archive checkpoint; left legacy source in place`);
 		if (cursorCapacity > 0) {
 			const lastSequence = existingEntries.reduce((maximum, entry) => Number.isSafeInteger(entry.value.sequence) ? Math.max(maximum, entry.value.sequence) : maximum, 0);
 			await cursorStore.register(cursorKey, {
 				kind: "cursor",
 				lastSequence
 			});
-			if ((await cursorStore.lookup(cursorKey))?.kind !== "cursor") {
-				params.warnings.push("Skipped Memory Core host event migration because its workspace cursor could not be verified; left legacy source in place");
-				return "blocked";
-			}
+			if ((await cursorStore.lookup(cursorKey))?.kind !== "cursor") return blocked("Skipped Memory Core host event migration because its workspace cursor could not be verified; left legacy source in place");
 		}
 		importEntries?.({
 			namespace: MEMORY_HOST_EVENTS_NAMESPACE,
@@ -646,10 +593,7 @@ async function migrateLegacyMemoryHostEventSource(params) {
 		})));
 		const importedKeys = new Set((await store.entries()).map((entry) => entry.key));
 		const missingKey = retainedRecords.find((record) => !importedKeys.has(record.key))?.key;
-		if (missingKey) {
-			params.warnings.push(`Skipped archiving Memory Core host events because SQLite verification missed ${missingKey}`);
-			return "blocked";
-		}
+		if (missingKey) return blocked(`Skipped archiving Memory Core host events because SQLite verification missed ${missingKey}`);
 		if (source.storage === "archive") {
 			if (missing.length > 0) params.changes.push(`Recovered ${missing.length} later Memory Core host event row(s) from ${source.filePath}`);
 		} else {
@@ -664,17 +608,20 @@ async function migrateLegacyMemoryHostEventSource(params) {
 				return "blocked";
 			}
 		}
-		const checkpoint = memoryHostMigrationSnapshot(raw, records.length, sourceSequenceBase);
+		const checkpoint = {
+			kind: "migration-checkpoint",
+			contentHash: crypto.createHash("sha256").update(raw).digest("hex"),
+			recordCount: records.length,
+			sequenceBase: sourceSequenceBase,
+			size: Buffer.byteLength(raw, "utf8")
+		};
 		await checkpointStore.register(checkpointKey, checkpoint);
 		const registeredCheckpoint = await checkpointStore.lookup(checkpointKey);
-		if (!isMemoryHostMigrationCheckpoint(registeredCheckpoint) || registeredCheckpoint.contentHash !== checkpoint.contentHash || registeredCheckpoint.recordCount !== checkpoint.recordCount || registeredCheckpoint.sequenceBase !== checkpoint.sequenceBase || registeredCheckpoint.size !== checkpoint.size) {
-			params.warnings.push(`Failed verifying Memory Core host event raw-archive checkpoint for ${source.filePath}`);
-			return "blocked";
-		}
+		if (!isMemoryHostMigrationCheckpoint(registeredCheckpoint) || registeredCheckpoint.contentHash !== checkpoint.contentHash || registeredCheckpoint.recordCount !== checkpoint.recordCount || registeredCheckpoint.sequenceBase !== checkpoint.sequenceBase || registeredCheckpoint.size !== checkpoint.size) return blocked(`Failed verifying Memory Core host event raw-archive checkpoint for ${source.filePath}`);
 		if (source.storage !== "archive" && await source.root.exists(activeRelativePath)) params.warnings.push("An old writer recreated the Memory Core host event source; rerun openclaw doctor --fix to import the retained rows");
 		return "completed";
 	} finally {
-		if (restoreNewClaim && !claimFinalized) await restoreClaimedMemoryHostEventSource({
+		if (params.source.storage === "active" && !claimFinalized) await restoreClaimedMemoryHostEventSource({
 			source,
 			activeRelativePath,
 			warnings: params.warnings
@@ -711,14 +658,12 @@ const hostEventsStateMigration = {
 		return resources;
 	},
 	async detectLegacyState(params) {
-		const sources = await collectLegacyMemoryHostEventSources(params.config, params.env);
-		const pending = [];
-		for (const source of sources) if (source.kind === "rejected" || await memoryHostEventSourceNeedsMigration({
+		const preview = [];
+		for (const source of await collectLegacyMemoryHostEventSources(params.config, params.env)) if (source.kind === "rejected" || await memoryHostEventSourceNeedsMigration({
 			source,
 			context: params.context
-		})) pending.push(source);
-		if (pending.length === 0) return null;
-		return { preview: pending.map((source) => source.kind === "ready" ? `- Memory Core host events: ${source.filePath} -> SQLite plugin state (${MEMORY_HOST_EVENTS_NAMESPACE})` : `- ${source.reason}`) };
+		})) preview.push(source.kind === "ready" ? `- Memory Core host events: ${source.filePath} -> SQLite plugin state (${MEMORY_HOST_EVENTS_NAMESPACE})` : `- ${source.reason}`);
+		return preview.length > 0 ? { preview } : null;
 	},
 	async migrateLegacyState(params) {
 		const changes = [];
@@ -761,32 +706,30 @@ const LEGACY_MEMORY_SIDECAR_SUFFIXES = [
 	"-shm",
 	"-journal"
 ];
-async function existingLegacySidecarPaths(basePath) {
-	return (await Promise.all(LEGACY_MEMORY_SIDECAR_SUFFIXES.map(async (suffix) => {
-		const filePath = `${basePath}${suffix}`;
-		return await legacyStateFileExists(filePath) ? filePath : null;
-	}))).filter((filePath) => filePath !== null);
+async function existingPaths(candidates) {
+	return (await Promise.all(candidates.map(async (filePath) => await legacyStateFileExists(filePath) ? filePath : null))).filter((filePath) => filePath !== null);
+}
+function existingLegacySidecarPaths(basePath) {
+	return existingPaths(LEGACY_MEMORY_SIDECAR_SUFFIXES.map((suffix) => `${basePath}${suffix}`));
 }
 function formatLegacyVectorRows(count) {
 	return count === void 0 ? "legacy vector rows" : `${count} vector row(s)`;
 }
 function resolveConfiguredAgentIds(config) {
-	const agents = asOptionalObjectRecord(asOptionalObjectRecord(config)?.agents);
-	const entries = asOptionalObjectRecord(agents?.entries);
-	const listedIds = (Object.prototype.propertyIsEnumerable.call(agents ?? {}, "list") && Array.isArray(agents?.list) ? agents.list : []).flatMap((entry) => {
-		const id = asOptionalObjectRecord(entry)?.id;
+	const { keyed, listed } = readDoctorAgentEntries(config);
+	const listedIds = listed.flatMap((value) => {
+		const id = asOptionalObjectRecord(value)?.id;
 		return typeof id === "string" ? [id] : [];
 	});
-	const ids = new Set([...Object.keys(entries ?? {}), ...listedIds].map(normalizeAgentId));
+	const ids = new Set([...Object.keys(keyed ?? {}), ...listedIds].map(normalizeAgentId));
 	return ids.size > 0 ? [...ids] : [normalizeAgentId(void 0)];
 }
 function readAgentMemorySearch(config, agentId) {
-	const agents = asOptionalObjectRecord(asOptionalObjectRecord(config)?.agents);
-	const keyedEntries = asOptionalObjectRecord(agents?.entries);
-	const keyedEntry = keyedEntries ? Object.entries(keyedEntries).find(([id]) => normalizeAgentId(id) === agentId)?.[1] : void 0;
+	const { keyed, listed } = readDoctorAgentEntries(config);
+	const keyedEntry = Object.entries(keyed ?? {}).find(([id]) => normalizeAgentId(id) === agentId)?.[1];
 	const keyedSearch = asOptionalObjectRecord(asOptionalObjectRecord(asOptionalObjectRecord(keyedEntry)?.memory)?.search);
 	if (keyedSearch) return keyedSearch;
-	const entry = (Object.prototype.propertyIsEnumerable.call(agents ?? {}, "list") && Array.isArray(agents?.list) ? agents.list : []).map(asOptionalObjectRecord).find((candidate) => normalizeAgentId(typeof candidate?.id === "string" ? candidate.id : void 0) === agentId);
+	const entry = listed.map(asOptionalObjectRecord).find((candidate) => normalizeAgentId(typeof candidate?.id === "string" ? candidate.id : void 0) === agentId);
 	return asOptionalObjectRecord(asOptionalObjectRecord(entry?.memory)?.search);
 }
 function readMemorySearchLayers(config, agentId) {
@@ -816,7 +759,7 @@ function readMemorySearchMigrationOptions(config, agentId) {
 	const extensionPath = nestedOption("vector", "extensionPath");
 	return {
 		ftsTokenizer: tokenizer === "unicode61" || tokenizer === "trigram" ? tokenizer : void 0,
-		vectorEnabled: !(typeof provider === "string" && provider.trim() === "none") && (typeof enabled === "boolean" ? enabled : true),
+		vectorEnabled: !(typeof provider === "string" && provider.trim() === "none") && enabled !== false,
 		vectorExtensionPath: typeof extensionPath === "string" && extensionPath.trim() ? extensionPath.trim() : void 0
 	};
 }
@@ -892,10 +835,7 @@ async function collectLegacyMemorySidecarSources(params) {
 async function archiveLegacyMemorySidecar(params) {
 	const existingSources = await existingLegacySidecarPaths(params.source.legacyPath);
 	if (existingSources.length === 0) return;
-	const existingArchives = (await Promise.all(existingSources.map(async (sourcePath) => {
-		const archivedPath = `${sourcePath}.migrated`;
-		return await legacyStateFileExists(archivedPath) ? archivedPath : null;
-	}))).filter((filePath) => filePath !== null);
+	const existingArchives = await existingPaths(existingSources.map((sourcePath) => `${sourcePath}.migrated`));
 	if (existingArchives.length > 0) {
 		params.warnings.push(`Left migrated Memory Core legacy memory index sidecar in place because ${existingArchives[0]} already exists`);
 		return;
@@ -981,10 +921,10 @@ async function migrateLegacyMemorySidecarSource(params) {
 		}
 		if (removedAll) {
 			params.changes.push(`Removed empty Memory Core legacy memory index sidecar placeholder: ${params.source.legacyPath}`);
-			return { archiveReady: false };
+			return false;
 		}
 	}
-	const { importLegacyMemorySidecarIndex, LegacyMemoryDerivedRowsConflictError } = await import("../../doctor-memory-sidecar-import-BHhCGtbx.mjs");
+	const { importLegacyMemorySidecarIndex, LegacyMemoryDerivedRowsConflictError } = await import("../../doctor-memory-sidecar-import-CJNqyc1K.mjs");
 	const { ensureMemoryIndexSchema, loadSqliteVecExtension } = await import("../../plugin-sdk/memory-core-host-engine-schema.js");
 	const { ensureOpenClawAgentDatabaseSchema, openNodeSqliteDatabase } = await import("../../plugin-sdk/sqlite-runtime.js");
 	await fs.mkdir(path.dirname(params.source.agentDatabasePath), { recursive: true });
@@ -1024,21 +964,17 @@ async function migrateLegacyMemorySidecarSource(params) {
 			});
 		} catch (err) {
 			if (err instanceof LegacyMemoryDerivedRowsConflictError) {
-				params.changes.push(`Resolved Memory Core legacy memory index conflict for agent ${params.source.agentId} by keeping canonical per-agent SQLite rows`);
-				return { archiveReady: true };
+				params.changes.push(`Resolved Memory Core legacy memory index conflict for agent ${params.source.agentId} by keeping existing per-agent SQLite rows`);
+				return true;
 			}
 			await preserveLegacyMemorySidecarRetryPath(params);
 			params.warnings.push(`Skipped Memory Core legacy memory index import for agent ${params.source.agentId} because legacy rows could not be imported: ${String(err)}`);
-			return { archiveReady: false };
-		}
-		if (result.reason === "legacy-schema-missing") {
-			await preserveLegacyMemorySidecarRetryPath(params);
-			params.warnings.push(`Skipped Memory Core legacy memory index import for agent ${params.source.agentId} because the sidecar schema is not a legacy memory index`);
-			return { archiveReady: false };
+			return false;
 		}
 		if (!result.imported) {
 			await preserveLegacyMemorySidecarRetryPath(params);
-			return { archiveReady: false };
+			if (result.reason === "legacy-schema-missing") params.warnings.push(`Skipped Memory Core legacy memory index import for agent ${params.source.agentId} because the sidecar schema is not a legacy memory index`);
+			return false;
 		}
 		ensureMemoryIndexSchema({
 			db,
@@ -1051,9 +987,9 @@ async function migrateLegacyMemorySidecarSource(params) {
 			await preserveLegacyMemorySidecarRetryPath(params);
 			const vectorReason = loadedVector.ok ? "legacy vector table could not be validated" : loadedVector.error ?? "unknown sqlite-vec load error";
 			params.warnings.push(`Left Memory Core legacy memory index sidecar in place for agent ${params.source.agentId} because ${formatLegacyVectorRows(result.vectorEntries)} still require sqlite-vec: ${vectorReason}`);
-			return { archiveReady: false };
+			return false;
 		}
-		return { archiveReady: true };
+		return true;
 	} finally {
 		db.close();
 	}
@@ -1100,14 +1036,14 @@ const memorySidecarStateMigration = {
 		for (const sources of groups.values()) {
 			let archiveReady = true;
 			for (const source of sources) try {
-				const result = await migrateLegacyMemorySidecarSource({
+				const sourceArchiveReady = await migrateLegacyMemorySidecarSource({
 					source,
 					config: params.config,
 					env: params.env,
 					changes,
 					warnings
 				});
-				archiveReady &&= result.archiveReady;
+				archiveReady &&= sourceArchiveReady;
 			} catch (err) {
 				archiveReady = false;
 				await preserveLegacyMemorySidecarRetryPath({
@@ -1125,7 +1061,8 @@ const memorySidecarStateMigration = {
 		}
 		return {
 			changes,
-			warnings
+			warnings,
+			...warnings.length > 0 ? { warningDisposition: "recoverable" } : {}
 		};
 	}
 };
@@ -1151,6 +1088,41 @@ async function collectRetiredQmdWorkspaceHomes(stateDir) {
 	for (const entry of entries) if ((await fs.readdir(entry.path).catch(() => void 0))?.length === 0) homes.push(entry.path);
 	return homes.toSorted((left, right) => left.localeCompare(right));
 }
+function createQmdRetirementMigration(kind) {
+	const workspace = kind === "workspace";
+	const collect = workspace ? collectRetiredQmdWorkspaceHomes : collectRetiredQmdFileLocks;
+	return {
+		id: workspace ? "memory-core-qmd-workspace-retired" : "memory-core-qmd-file-locks-to-sqlite-leases",
+		label: workspace ? "Memory Core retired QMD workspaces" : "Memory Core retired QMD file locks",
+		...workspace ? { doctorOnly: true } : {},
+		collectBackupResources: () => [],
+		async detectLegacyState(params) {
+			const paths = await collect(params.stateDir);
+			return paths.length > 0 ? { preview: paths.map((filePath) => workspace ? `- Empty retired Memory Core QMD workspace: ${filePath} -> remove empty directory` : `- Retired Memory Core QMD file lock: ${filePath} -> remove only if definitely stale (coordination now uses SQLite leases)`) } : null;
+		},
+		async migrateLegacyState(params) {
+			const changes = [];
+			const warnings = [];
+			for (const filePath of await collect(params.stateDir)) try {
+				if (workspace) {
+					await fs.rmdir(filePath);
+					changes.push(`Removed empty retired Memory Core QMD workspace: ${filePath}`);
+				} else {
+					const result = await reclaimDefinitelyStaleFileLock(filePath);
+					if (result === "removed") changes.push(`Removed retired Memory Core QMD file lock: ${filePath}`);
+					else if (result === "retained") warnings.push(`Retained retired Memory Core QMD file lock because its owner is live or ambiguous: ${filePath}`);
+				}
+			} catch (err) {
+				warnings.push(workspace ? `Skipped retired Memory Core QMD workspace cleanup. Run openclaw doctor --fix to retry. ${filePath}: ${String(err)}` : `Failed removing retired Memory Core QMD file lock ${filePath}: ${String(err)}`);
+			}
+			return {
+				changes,
+				warnings,
+				...workspace && warnings.length > 0 ? { warningDisposition: "recoverable" } : {}
+			};
+		}
+	};
+}
 //#endregion
 //#region extensions/memory-core/doctor-contract-api.ts
 const stateMigrations = [
@@ -1158,55 +1130,8 @@ const stateMigrations = [
 	dreamingStateMigration,
 	dreamingCronMigration,
 	memorySidecarStateMigration,
-	{
-		id: "memory-core-qmd-workspace-retired",
-		label: "Memory Core retired QMD workspaces",
-		doctorOnly: true,
-		async detectLegacyState(params) {
-			const homes = await collectRetiredQmdWorkspaceHomes(params.stateDir);
-			if (homes.length === 0) return null;
-			return { preview: homes.map((home) => `- Empty retired Memory Core QMD workspace: ${home} -> remove empty directory`) };
-		},
-		async migrateLegacyState(params) {
-			const changes = [];
-			const warnings = [];
-			for (const home of await collectRetiredQmdWorkspaceHomes(params.stateDir)) try {
-				await fs.rmdir(home);
-				changes.push(`Removed empty retired Memory Core QMD workspace: ${home}`);
-			} catch (err) {
-				warnings.push(`Skipped retired Memory Core QMD workspace cleanup. Run openclaw doctor --fix to retry. ${home}: ${String(err)}`);
-			}
-			return {
-				changes,
-				warnings,
-				...warnings.length > 0 ? { warningDisposition: "recoverable" } : {}
-			};
-		}
-	},
-	{
-		id: "memory-core-qmd-file-locks-to-sqlite-leases",
-		label: "Memory Core retired QMD file locks",
-		async detectLegacyState(params) {
-			const lockPaths = await collectRetiredQmdFileLocks(params.stateDir);
-			if (lockPaths.length === 0) return null;
-			return { preview: lockPaths.map((lockPath) => `- Retired Memory Core QMD file lock: ${lockPath} -> remove only if definitely stale (coordination now uses SQLite leases)`) };
-		},
-		async migrateLegacyState(params) {
-			const changes = [];
-			const warnings = [];
-			for (const lockPath of await collectRetiredQmdFileLocks(params.stateDir)) try {
-				const result = await reclaimDefinitelyStaleFileLock(lockPath);
-				if (result === "removed") changes.push(`Removed retired Memory Core QMD file lock: ${lockPath}`);
-				else if (result === "retained") warnings.push(`Retained retired Memory Core QMD file lock because its owner is live or ambiguous: ${lockPath}`);
-			} catch (err) {
-				warnings.push(`Failed removing retired Memory Core QMD file lock ${lockPath}: ${String(err)}`);
-			}
-			return {
-				changes,
-				warnings
-			};
-		}
-	}
+	createQmdRetirementMigration("workspace"),
+	createQmdRetirementMigration("locks")
 ];
 //#endregion
 export { stateMigrations };

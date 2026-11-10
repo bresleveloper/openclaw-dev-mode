@@ -1,12 +1,21 @@
-import { n as OpenClawPluginApi, zt as EmbeddingProvider } from "../../agent-harness-runtime-Du4B564s.js";
-import { X as OpenClawConfig, j as SsrFPolicy } from "../../runtime-types-LI_BBveH.js";
-import "../../ssrf-runtime-DBBZ0Uv6.js";
-import { a as createConfiguredOllamaStreamFn, c as resolveOllamaBaseUrlForRun, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, i as convertToOllamaMessages, l as createConfiguredOllamaCompatStreamWrapper, m as DEFAULT_OLLAMA_EMBEDDING_MODEL, n as buildAssistantMessage, o as createOllamaStreamFn, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, s as parseNdjsonStream, t as OLLAMA_NATIVE_BASE_URL, u as isOllamaCompatProvider } from "../../stream-api-Y8IfSq32.js";
+import { M as OpenClawConfig } from "../../types-D7I_F5Ux.js";
+import { Gm as RemoteEmbeddingClient, Xh as EmbeddingProvider } from "../../config-contracts-CY87ANNp.js";
+import "../../provider-auth-ehEGHUKK.js";
+import "../../memory-core-host-engine-embeddings-BSewlUJd.js";
+import { a as createOllamaStreamFn, c as convertToOllamaMessages, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, i as createConfiguredOllamaStreamFn, l as createConfiguredOllamaCompatStreamWrapper, m as DEFAULT_OLLAMA_EMBEDDING_MODEL, n as buildAssistantMessage, o as resolveOllamaBaseUrlForRun, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, s as parseNdjsonStream, t as OLLAMA_NATIVE_BASE_URL, u as isOllamaCompatProvider } from "../../stream-api-B8t_Olz6.js";
 declare namespace embedding_provider_runtime_d_exports {
   export { DEFAULT_OLLAMA_EMBEDDING_MODEL, OllamaEmbeddingClient, OllamaEmbeddingProvider, createOllamaEmbeddingProvider$1 as createOllamaEmbeddingProvider };
 }
 type OllamaEmbeddingProvider = EmbeddingProvider;
-type MemoryCoreAcquireLocalService = OpenClawPluginApi["runtime"]["llm"]["acquireLocalService"];
+type MemoryCoreAcquireLocalService = (target: {
+  providerId: string;
+  baseUrl: string;
+  headers?: HeadersInit;
+  /** Reports managed-companion readiness waits; request work stays outside. */
+  onReadinessWait?: (waiting: boolean) => void;
+}, signal?: AbortSignal | null) => Promise<{
+  release: () => void;
+} | undefined>;
 type OllamaEmbeddingOptions = {
   config: OpenClawConfig;
   agentDir?: string;
@@ -23,11 +32,7 @@ type OllamaEmbeddingOptions = {
   taskType?: unknown;
   acquireLocalService?: MemoryCoreAcquireLocalService;
 };
-type OllamaEmbeddingClient = {
-  baseUrl: string;
-  headers: Record<string, string>;
-  ssrfPolicy?: SsrFPolicy;
-  model: string;
+type OllamaEmbeddingClient = Omit<RemoteEmbeddingClient, "fetchImpl"> & {
   outputDimensionality?: number;
   localServiceTarget?: Parameters<MemoryCoreAcquireLocalService>[0];
   acquireLocalService?: MemoryCoreAcquireLocalService;

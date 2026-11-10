@@ -122,12 +122,7 @@ function isChannelRulesObject(val: unknown): val is NonNullable<TlonSettingsStor
   if (!val || typeof val !== "object" || Array.isArray(val)) {
     return false;
   }
-  for (const [, rule] of Object.entries(val)) {
-    if (!rule || typeof rule !== "object") {
-      return false;
-    }
-  }
-  return true;
+  return Object.values(val).every((rule) => rule && typeof rule === "object");
 }
 
 function parsePendingApprovals(value: unknown): PendingApproval[] | undefined {
@@ -216,7 +211,7 @@ export function createSettingsManager(api: UrbitSSEClient, logger?: SettingsLogg
         const allData = raw as { all?: Record<string, Record<string, unknown>> };
         const deskData = allData?.all?.[SETTINGS_DESK];
         current = parseSettingsResponse(deskData ?? {});
-        logger?.log?.(`[settings] Loaded: ${JSON.stringify(current)}`);
+        logger?.log?.("[settings] Loaded");
         return current;
       } catch (err) {
         // Settings desk may not exist yet - that's fine, use defaults
@@ -236,7 +231,7 @@ export function createSettingsManager(api: UrbitSSEClient, logger?: SettingsLogg
             return;
           }
 
-          logger?.log?.(`[settings] Update: ${update.key} = ${JSON.stringify(update.value)}`);
+          logger?.log?.(`[settings] Update: ${update.key}`);
           current = applySettingsUpdate(current, update.key, update.value);
           try {
             onChange(current);

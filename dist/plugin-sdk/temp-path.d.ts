@@ -1,4 +1,4 @@
-import { a as withTempWorkspace, i as tempWorkspace, n as CompatibleTempWorkspace } from "../fs-safe-compat-CPHV0ZYv.js";
+import { a as withTempWorkspace, i as tempWorkspace, n as CompatibleTempWorkspace } from "../fs-safe-compat-KXx6Knwa.js";
 import { t as resolvePreferredOpenClawTmpDir } from "../tmp-openclaw-dir-CZvFGQqf.js";
 import { sanitizeTempFileName } from "@openclaw/fs-safe/advanced";
 import { TempWorkspaceOptions, TempWorkspaceSync, tempWorkspaceSync, withTempWorkspaceSync } from "@openclaw/fs-safe/temp";

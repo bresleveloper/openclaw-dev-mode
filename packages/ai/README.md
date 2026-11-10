@@ -17,6 +17,13 @@ available from the package root and focused subpaths such as
 `@openclaw/ai/event-stream`, `@openclaw/ai/transports`, and
 `@openclaw/ai/validation`. No second OpenClaw runtime package is required.
 
+The Node package bundles the reachable OpenAI and `ws` runtime code to reduce
+startup module-file loading. Their licenses ship in `dist/openai.LICENSE` and
+`dist/ws.LICENSE`. Other provider SDKs and TypeBox retain their existing external
+dependency identities.
+OpenAI types resolve through the declared `openai` dependency, preserving its
+namespace aliases without flattening them into the bundled declarations.
+
 Provider ids, credentials, model catalogs, retries, and failover remain
 application concerns. OpenClaw supplies those policies around this package.
 Host policy (request fetch guarding, secret redaction, strict-tool defaults,
@@ -25,6 +32,23 @@ provider plugin hooks, and diagnostics logging) can be injected with
 runtime-local policy can use `createNodeLlmRuntime`; it preserves that host across
 provider work without replacing the process default. `createLlmRuntime` continues
 to use the process-default host.
+
+OpenAI HTTP adapters report rejected response status and headers through
+`onResponse` before consuming the error body. Successful streaming responses
+invoke the callback before the first event. Retry and failover policy remains
+with the application.
+
+Hosts that attach request state to async contexts should supply
+`runInDetachedAsyncContext` from a context-free root initialized before requests
+start. Retained HTTP continuation timers use it at creation so completed caller
+state can be collected while the response remains reusable for 90 minutes.
+The default host runs the callback directly, including in browsers.
+
+Tool-call stream producers expose cumulative argument text as `partialJson` on
+the active content block while emitting `toolcall_delta`. This transient buffer
+supports input progress; completed tool calls retain only parsed `arguments`.
+It is the live block, not a per-event snapshot: a consumer that lags behind the
+producer reads the latest value, or none once the call has finished.
 
 The explicit `@openclaw/ai/internal/anthropic`, `google-model-family`, `openai`,
 `openai-completions-compat`, `openai-responses-payload-policy`, `retry-after`, `runtime`, `shared`, and

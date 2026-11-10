@@ -4,7 +4,6 @@ import { makeZeroUsageSnapshot } from "../agents/usage.js";
 import { resolveSessionWorkStartError } from "../config/sessions/lifecycle.js";
 import { resolveSessionStorePathCore } from "../config/sessions/paths.js";
 import {
-  loadSessionEntryReadOnly,
   persistSessionTranscriptTurn,
   type SessionTranscriptTurnPersistOptions,
 } from "../config/sessions/session-accessor.js";
@@ -12,19 +11,16 @@ import {
   readTranscriptEventId,
   readTranscriptEventMessage,
 } from "../config/sessions/session-accessor.sqlite-read.js";
+import { readSessionEntryReadOnlyInWorker } from "../config/sessions/session-entry-read-runtime.js";
 import { findTranscriptEvent } from "../config/sessions/session-transcript-match.js";
 import type { SessionTranscriptAssistantMessage } from "../config/sessions/transcript.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
-import { racePromiseWithAbortSignal } from "../infra/abort-signal.js";
 import { ASSISTANT_DISPLAY_CONTENT_FIELD } from "../shared/assistant-display-content.js";
 import {
   OPENCLAW_TRANSCRIPT_ARTIFACT_API,
   OPENCLAW_TRANSCRIPT_ARTIFACT_PROVIDER,
 } from "../shared/transcript-only-openclaw-assistant.js";
-import {
-  getSessionWorkAdmissionRelease,
-  runExclusiveSessionLifecycleMutation,
-} from "./session-lifecycle-admission.js";
+import { runExclusiveSessionLifecycleMutation } from "./session-lifecycle-admission.js";
 
 // Background completions are durable conversation output, so this identity
 // must stay outside the transcript-only delivery-mirror model set.
@@ -40,7 +36,7 @@ type BackgroundSessionResultProvenance = {
   runId: string;
 };
 
-/** Serializes a background assistant result behind active work on its target conversation. */
+/** Appends a background result without waiting for the target conversation's active turn. */
 export async function commitBackgroundResultToSession(params: {
   agentId: string;
   sessionKey: string;
@@ -80,15 +76,9 @@ export async function commitBackgroundResultToSession(params: {
     scope: storePath,
     identities,
     signal: params.signal,
-    prepare: async () => {
-      const released = getSessionWorkAdmissionRelease({ scope: storePath, identities });
-      if (released) {
-        await racePromiseWithAbortSignal(released, params.signal);
-      }
-    },
     run: async () => {
       params.assertCurrent?.();
-      const current = loadSessionEntryReadOnly({
+      const current = await readSessionEntryReadOnlyInWorker({
         agentId: params.agentId,
         sessionKey,
         storePath,

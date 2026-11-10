@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-pJ55EvmP.mjs";function noteDoctorMigrationResult(e,{prefix:n=``,changesTitle:r=`Doctor changes`}={}){for(let i of[`changes`,`notices`,`warnings`]){let a=e[i];a?.length&&t(a.map(e=>`${n}${e}`).join(`
+`),i===`changes`?r:`Doctor ${i}`)}}var r=e((()=>{n()}));export{noteDoctorMigrationResult as n,r as t};

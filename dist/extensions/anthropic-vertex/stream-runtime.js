@@ -9,10 +9,6 @@ import { resolveAnthropicThinkingEffort } from "openclaw/plugin-sdk/provider-str
 import { copyProviderAcceptanceObserver } from "openclaw/plugin-sdk/provider-transport-runtime";
 import { EnvHttpProxyAgent, fetch } from "undici";
 //#region extensions/anthropic-vertex/stream-runtime.ts
-/**
-* Anthropic Vertex stream runtime. It constructs Vertex SDK clients and adapts
-* OpenClaw stream options for the shared Anthropic Messages transport.
-*/
 const GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
 let googleAuthDispatcher;
 const googleAuthFetch = (input, init) => {
@@ -112,7 +108,6 @@ function resolveAnthropicVertexSdkBaseUrl(baseUrl) {
 	}
 	return trimmed;
 }
-/** Create an Anthropic Vertex stream function from model metadata and env. */
 function createAnthropicVertexStreamFnForModel(model, env = process.env, deps) {
 	return createAnthropicVertexStreamFn(resolveAnthropicVertexProjectId(env), resolveAnthropicVertexClientRegion({
 		baseUrl: model.baseUrl,

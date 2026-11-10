@@ -2,11 +2,35 @@ import { isIPv4 } from "node:net";
 import { LiveModelCatalogHttpError, runLiveProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { coerceSecretRef } from "openclaw/plugin-sdk/secret-input-runtime";
 import { fetchWithSsrFGuard, isLoopbackHost } from "openclaw/plugin-sdk/ssrf-runtime";
-import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { normalizeOptionalString, normalizeUniqueTrimmedStringList } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { normalizeProviderId } from "openclaw/plugin-sdk/provider-model-metadata";
 import { createHash } from "node:crypto";
+import { pruneMapToMaxSize } from "openclaw/plugin-sdk/collection-runtime";
 import { toErrorObject } from "openclaw/plugin-sdk/error-runtime";
 import { readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
-import { isCloudModelRef } from "openclaw/plugin-sdk/provider-model-shared";
+import { isCloudModelRef, resolveDefaultModelMaxTokens } from "openclaw/plugin-sdk/provider-model-shared";
+//#region packages/model-catalog-core/src/model-catalog-refs.ts
+function parseModelSourceSuffix(modelRef) {
+	const sourceSeparator = modelRef.lastIndexOf(":");
+	if (sourceSeparator < 0) return;
+	const source = modelRef.slice(sourceSeparator + 1);
+	if (source === "cloud" || source === "local") return {
+		base: modelRef.slice(0, sourceSeparator),
+		source
+	};
+	if (!source.includes("/") && source.endsWith("-cloud")) return {
+		base: modelRef.slice(0, -6),
+		source: "cloud"
+	};
+}
+/** Recognizes one unambiguous hosted source suffix on a bare or qualified model ref. */
+function isCloudModelRef$1(modelRef) {
+	const normalized = modelRef?.trim().toLowerCase();
+	if (!normalized) return false;
+	const source = parseModelSourceSuffix(normalized);
+	return source?.source === "cloud" && parseModelSourceSuffix(source.base) === void 0;
+}
+//#endregion
 //#region extensions/ollama/src/defaults.ts
 const OLLAMA_DEFAULT_BASE_URL = "http://127.0.0.1:11434";
 const OLLAMA_DEFAULT_API_KEY = "ollama-local";
@@ -23,6 +47,7 @@ const OLLAMA_CLOUD_DEFAULT_MODELS = [
 	{
 		id: "minimax-m2.7",
 		contextWindow: 196608,
+		maxTokens: 131072,
 		capabilities: [
 			"completion",
 			"thinking",
@@ -32,6 +57,7 @@ const OLLAMA_CLOUD_DEFAULT_MODELS = [
 	{
 		id: "minimax-m3",
 		contextWindow: 524288,
+		maxTokens: 131072,
 		capabilities: [
 			"completion",
 			"thinking",
@@ -42,6 +68,7 @@ const OLLAMA_CLOUD_DEFAULT_MODELS = [
 	{
 		id: "kimi-k3",
 		contextWindow: 1048576,
+		maxTokens: 1048576,
 		capabilities: [
 			"completion",
 			"thinking",
@@ -50,17 +77,9 @@ const OLLAMA_CLOUD_DEFAULT_MODELS = [
 		]
 	},
 	{
-		id: "glm-5.1",
-		contextWindow: 202752,
-		capabilities: [
-			"completion",
-			"thinking",
-			"tools"
-		]
-	},
-	{
 		id: "glm-5.2",
 		contextWindow: 1e6,
+		maxTokens: 131072,
 		capabilities: [
 			"completion",
 			"thinking",
@@ -72,14 +91,49 @@ const OLLAMA_CLOUD_DEFAULT_MODELS = [
 function normalizeOllamaCloudModelId(modelId) {
 	return modelId.trim().toLowerCase().replace(/(?::cloud|-cloud)$/, "");
 }
+function resolveOllamaCloudDefaultModel(modelId) {
+	const normalized = normalizeOllamaCloudModelId(modelId);
+	return OLLAMA_CLOUD_DEFAULT_MODELS.find((model) => model.id === normalized);
+}
+/**
+* Hosted Ollama output budget. Local models return undefined and take the shared
+* context-sized default, which keeps prompt room inside the local num_ctx.
+*/
+function resolveOllamaOutputBudget(params) {
+	return params.remote || isCloudModelRef$1(params.modelId) ? resolveOllamaCloudDefaultModel(params.modelId)?.maxTokens ?? params.contextWindow ?? 128e3 : void 0;
+}
+const OLLAMA_DEFAULT_CONTEXT_WINDOW = 128e3;
 const OLLAMA_LOCAL_CONTEXT_TOKENS = 32768;
-const OLLAMA_DEFAULT_MAX_TOKENS = 8192;
 const OLLAMA_DEFAULT_COST = {
 	input: 0,
 	output: 0,
 	cacheRead: 0,
 	cacheWrite: 0
 };
+//#endregion
+//#region extensions/ollama/src/model-id.ts
+const OLLAMA_PROVIDER_ID$1 = "ollama";
+function normalizeOllamaWireModelId(modelId, providerId) {
+	const trimmed = modelId.trim();
+	if (!trimmed) return trimmed;
+	for (const candidate of normalizeUniqueTrimmedStringList([
+		providerId,
+		normalizeProviderId(providerId ?? ""),
+		OLLAMA_PROVIDER_ID$1
+	])) {
+		const prefix = `${candidate}/`;
+		if (trimmed.startsWith(prefix)) return trimmed.slice(prefix.length);
+	}
+	return trimmed;
+}
+function getOllamaLatestDedupeKey(name) {
+	const normalized = name.trim().toLowerCase();
+	return normalized.endsWith(":latest") ? normalized.slice(0, -7) : normalized;
+}
+function findAvailableOllamaModelName(modelName, availableModelNames) {
+	const wantedKey = getOllamaLatestDedupeKey(modelName);
+	for (const available of availableModelNames) if (getOllamaLatestDedupeKey(available) === wantedKey) return available;
+}
 //#endregion
 //#region extensions/ollama/src/provider-base-url.ts
 function readProviderBaseUrl(provider) {
@@ -90,6 +144,44 @@ function readProviderBaseUrl(provider) {
 }
 //#endregion
 //#region extensions/ollama/src/model-reasoning.ts
+const OLLAMA_THINKING_EFFORTS = [
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max"
+];
+function readOllamaThinkingMapValue(value) {
+	return value === "false" ? false : value === "true" ? true : OLLAMA_THINKING_EFFORTS.find((effort) => effort === value);
+}
+/** Prepare native wire values once, inside the discovery/cache lifecycle. */
+async function buildOllamaThinkingLevelMap(modelId, thinking) {
+	if (!thinking || typeof thinking !== "object" || !("values" in thinking) || !Array.isArray(thinking.values)) return;
+	const values = thinking.values;
+	const levels = ["off", ...OLLAMA_THINKING_EFFORTS];
+	const nativeMap = Object.fromEntries(levels.map((level) => [level, level === "off" ? values.includes(false) ? "false" : null : values.includes(level) ? level : level === "low" && values.includes(true) ? "true" : null]));
+	if (!Object.values(nativeMap).some((value) => value !== null)) return;
+	const { clampThinkingLevel } = await import("openclaw/plugin-sdk/llm");
+	const model = {
+		id: modelId,
+		name: modelId,
+		provider: "ollama",
+		api: "ollama",
+		baseUrl: "",
+		reasoning: true,
+		input: ["text"],
+		cost: OLLAMA_DEFAULT_COST,
+		contextWindow: OLLAMA_DEFAULT_CONTEXT_WINDOW,
+		maxTokens: OLLAMA_DEFAULT_CONTEXT_WINDOW,
+		thinkingLevelMap: nativeMap
+	};
+	return {
+		...Object.fromEntries(levels.map((level) => [level, nativeMap[clampThinkingLevel(model, level)]])),
+		minimal: nativeMap.minimal,
+		xhigh: nativeMap.xhigh
+	};
+}
 const OLLAMA_CLOUD_FULL_THINKING_EFFORT_MODEL_IDS = /* @__PURE__ */ new Set([
 	"deepseek-v4-flash",
 	"deepseek-v4-pro",
@@ -109,7 +201,6 @@ const OLLAMA_CONTEXT_ENRICH_LIMIT = 200;
 const OLLAMA_SHOW_TIMEOUT_MS = 3e3;
 const OLLAMA_TAGS_TIMEOUT_MS = 5e3;
 const MAX_OLLAMA_DISCOVERY_PROBES = 800;
-const MAX_OLLAMA_SHOW_CACHE_ENTRIES = 256;
 const ollamaModelShowInfoCache = /* @__PURE__ */ new Map();
 const OLLAMA_ALWAYS_BLOCKED_HOSTNAMES = /* @__PURE__ */ new Set(["metadata.google.internal"]);
 function buildOllamaBaseUrlSsrFPolicy(baseUrl) {
@@ -151,14 +242,11 @@ function buildOllamaModelShowCacheKey(apiBase, model, apiKey) {
 	return `${resolveOllamaApiBase(apiBase)}|${model.name}|${version}|${authScope}`;
 }
 function setOllamaModelShowCacheEntry(key, value) {
-	if (ollamaModelShowInfoCache.size >= MAX_OLLAMA_SHOW_CACHE_ENTRIES) {
-		const oldestKey = ollamaModelShowInfoCache.keys().next().value;
-		if (typeof oldestKey === "string") ollamaModelShowInfoCache.delete(oldestKey);
-	}
+	pruneMapToMaxSize(ollamaModelShowInfoCache, 255);
 	ollamaModelShowInfoCache.set(key, value);
 }
 function hasCachedOllamaModelShowInfo(info) {
-	return typeof info.contextWindow === "number" || (info.capabilities?.length ?? 0) > 0;
+	return typeof info.contextWindow === "number" || (info.capabilities?.length ?? 0) > 0 || info.thinkingLevelMap !== void 0;
 }
 function parseOllamaNumCtxParameter(parameters) {
 	if (typeof parameters !== "string" || !parameters.trim()) return;
@@ -209,9 +297,11 @@ async function readOllamaModelShowInfo(apiBase, modelName, opts) {
 		const paramCtx = parseOllamaNumCtxParameter(data.parameters);
 		if (paramCtx !== void 0 && (contextWindow === void 0 || paramCtx > contextWindow)) contextWindow = paramCtx;
 		const capabilities = Array.isArray(data.capabilities) ? data.capabilities.filter((capability) => typeof capability === "string") : void 0;
+		const thinkingLevelMap = await buildOllamaThinkingLevelMap(modelName, data.thinking);
 		return {
 			contextWindow,
-			capabilities
+			capabilities,
+			...thinkingLevelMap ? { thinkingLevelMap } : {}
 		};
 	} finally {
 		await release();
@@ -239,11 +329,10 @@ async function queryOllamaModelShowInfoCached(apiBase, model, opts) {
 	return await pending;
 }
 async function enrichOllamaModelsWithContext(apiBase, models, opts) {
-	const concurrency = Math.max(1, Math.floor(opts?.concurrency ?? OLLAMA_SHOW_CONCURRENCY));
 	const enriched = [];
-	for (let index = 0; index < models.length; index += concurrency) {
+	for (let index = 0; index < models.length; index += OLLAMA_SHOW_CONCURRENCY) {
 		throwIfOllamaRequestAborted(opts?.signal);
-		const probes = models.slice(index, index + concurrency).map(async (model) => {
+		const probes = models.slice(index, index + OLLAMA_SHOW_CONCURRENCY).map(async (model) => {
 			const showInfo = await queryOllamaModelShowInfoCached(apiBase, model, opts);
 			return mergeOllamaModelShowInfo(model, showInfo);
 		});
@@ -280,27 +369,24 @@ function isOllamaEmbeddingOnlyModel(model) {
 function isOllamaRemoteModel(model) {
 	return Boolean(model.remote_host?.trim() || model.remote_model?.trim()) || isOllamaCloudModel(model.name);
 }
-/**
-* Cloud models are referenced both bare (`kimi-k3`) and suffixed (`kimi-k3:cloud`).
-* Both spellings must reach the same known context window, or a suffixed ref silently
-* falls back to the generic default whenever live inspection is unavailable.
-*/
-function resolveOllamaCloudDefaultModel(modelId) {
-	const normalized = normalizeOllamaCloudModelId(modelId);
-	return OLLAMA_CLOUD_DEFAULT_MODELS.find((model) => model.id === normalized);
-}
 function isReasoningModelHeuristic(modelId) {
 	return /r1|reasoning|think|reason/i.test(modelId);
 }
 function buildOllamaModelDefinition(modelId, contextWindow, capabilities, opts) {
+	const resolvedContext = contextWindow ?? resolveOllamaCloudDefaultModel(modelId)?.contextWindow ?? 128e3;
 	return {
 		id: modelId,
 		name: modelId,
-		reasoning: supportsOllamaCloudFullThinkingEffort(modelId) || (capabilities === void 0 ? isReasoningModelHeuristic(modelId) : capabilities.includes("thinking")),
+		reasoning: opts?.thinkingLevelMap ? Object.values(opts.thinkingLevelMap).some((value) => Boolean(readOllamaThinkingMapValue(value))) : supportsOllamaCloudFullThinkingEffort(modelId) || (capabilities === void 0 ? isReasoningModelHeuristic(modelId) : capabilities.includes("thinking")),
 		input: capabilities?.includes("vision") ? ["text", "image"] : ["text"],
 		cost: OLLAMA_DEFAULT_COST,
-		contextWindow: contextWindow ?? resolveOllamaCloudDefaultModel(modelId)?.contextWindow ?? 128e3,
-		maxTokens: OLLAMA_DEFAULT_MAX_TOKENS,
+		contextWindow: resolvedContext,
+		maxTokens: resolveOllamaOutputBudget({
+			modelId,
+			contextWindow: resolvedContext,
+			remote: opts?.remote
+		}) ?? resolveDefaultModelMaxTokens(Math.min(resolvedContext, 32768)),
+		...opts?.thinkingLevelMap ? { thinkingLevelMap: opts.thinkingLevelMap } : {},
 		compat: {
 			supportsTools: capabilities?.includes("tools") ?? opts?.showInspectionFailed !== true,
 			supportsUsageInStreaming: true,
@@ -331,9 +417,7 @@ async function fetchOllamaModelRows(params) {
 			timeoutMs: Math.min(params.opts?.timeoutMs ?? OLLAMA_TAGS_TIMEOUT_MS, OLLAMA_TAGS_TIMEOUT_MS),
 			...params.opts?.signal ? { signal: params.opts.signal } : {},
 			policy: buildOllamaBaseUrlSsrFPolicy(apiBase),
-			auditContext,
-			...params.deps?.fetchImpl ? { fetchImpl: params.deps.fetchImpl } : {},
-			...params.deps?.lookupFn ? { lookupFn: params.deps.lookupFn } : {}
+			auditContext
 		});
 		try {
 			if (!response.ok) {
@@ -362,12 +446,11 @@ async function fetchOllamaModelRows(params) {
 		};
 	}
 }
-async function fetchOllamaModels(baseUrl, opts, deps) {
+async function fetchOllamaModels(baseUrl, opts) {
 	const result = await fetchOllamaModelRows({
 		baseUrl,
 		endpoint: "tags",
-		opts,
-		deps
+		opts
 	});
 	return {
 		reachable: result.reachable,
@@ -379,15 +462,20 @@ async function buildOllamaProvider(configuredBaseUrl, opts) {
 	const auth = opts?.apiKey ? { apiKey: opts.apiKey } : void 0;
 	const { reachable, models } = await fetchOllamaModels(apiBase, opts);
 	if (!reachable && !opts?.quiet) console.warn(`Ollama could not be reached at ${apiBase}.`);
+	if (reachable) opts?.onListedModels?.(models.map((model) => model.name));
 	return {
 		baseUrl: apiBase,
 		api: "ollama",
-		models: (await enrichOllamaCompletionModels(apiBase, models, auth)).map((model) => buildOllamaModelDefinition(model.name, model.contextWindow, model.capabilities, { showInspectionFailed: model.showInspectionFailed }))
+		models: (await enrichOllamaCompletionModels(apiBase, models, auth)).map((model) => buildOllamaModelDefinition(model.name, model.contextWindow, model.capabilities, {
+			...model,
+			remote: isHostedOllamaCloud(apiBase) || Boolean(model.remote_host || model.remote_model)
+		}))
 	};
 }
 //#endregion
 //#region extensions/ollama/src/discovery-shared.ts
 const OLLAMA_PROVIDER_ID = "ollama";
+const getUnlistedOllamaConfiguredModelIds = (catalog, configuredModels) => configuredModels.filter((model) => model.provider === "ollama" && (!model.baseUrl || resolveOllamaApiBase(model.baseUrl) === resolveOllamaApiBase(catalog.baseUrl)) && !findAvailableOllamaModelName(normalizeOllamaWireModelId(model.modelId), catalog.modelIds)).map((model) => model.modelId);
 function readOllamaStringValue(value) {
 	if (typeof value === "string") return normalizeOptionalString(value);
 	if (value && typeof value === "object" && "value" in value) return normalizeOptionalString(value.value);
@@ -497,10 +585,9 @@ async function resolveOllamaDiscoveryResult(params) {
 	const hasExplicitModels = Array.isArray(explicit?.models) && explicit.models.length > 0;
 	const hasMeaningfulExplicitConfig = hasMeaningfulExplicitOllamaConfig(explicit);
 	const hasRemoteOllamaApiProvider = hasExplicitRemoteOllamaApiProvider(params.ctx.config.models?.providers);
-	const discoveryEnabled = params.pluginConfig.discovery?.enabled;
-	if (!hasExplicitModels && discoveryEnabled === false) return null;
 	const configuredBaseUrl = readProviderBaseUrl(explicit);
-	if (!hasExplicitModels && configuredBaseUrl && isHostedOllamaCloud(configuredBaseUrl)) return null;
+	const skipDiscovery = params.pluginConfig.discovery?.enabled === false || Boolean(configuredBaseUrl && isHostedOllamaCloud(configuredBaseUrl));
+	if (skipDiscovery && !hasExplicitModels) return null;
 	const resolvedOllamaAuth = params.ctx.resolveProviderApiKey(OLLAMA_PROVIDER_ID);
 	const ollamaKey = resolvedOllamaAuth.apiKey;
 	const hasOllamaDiscoveryOptIn = typeof ollamaKey === "string" && ollamaKey.trim().length > 0;
@@ -512,7 +599,7 @@ async function resolveOllamaDiscoveryResult(params) {
 	});
 	if (!auth) return null;
 	const { apiKey, discoveryApiKey } = auth;
-	if (hasExplicitModels && explicit) {
+	if (skipDiscovery && explicit) {
 		const discoveredBaseUrl = resolveOllamaApiBase(configuredBaseUrl);
 		const api = explicit.api ?? "ollama";
 		return { provider: {
@@ -533,21 +620,48 @@ async function resolveOllamaDiscoveryResult(params) {
 		providerId: OLLAMA_PROVIDER_ID,
 		profileId: resolvedOllamaAuth.profileId,
 		run: async () => {
+			let modelIds;
 			const provider = await params.buildProvider(configuredBaseUrl, {
+				onListedModels: (names) => {
+					modelIds = names;
+				},
 				discoveryMode: "strict",
 				...discoveryApiKey ? { apiKey: discoveryApiKey } : {}
 			});
 			const api = explicit?.api ?? provider.api;
-			return { provider: {
-				...provider,
-				baseUrl: resolveOllamaRuntimeBaseUrl({
+			const configuredModels = new Map(explicit?.models?.map((model) => [model.id, model]));
+			return {
+				...modelIds ? { outcomes: [{
+					provider: OLLAMA_PROVIDER_ID,
+					profileId: resolvedOllamaAuth.profileId,
+					status: "ready",
+					modelIdCatalog: {
+						baseUrl: resolveOllamaApiBase(configuredBaseUrl),
+						modelIds
+					}
+				}] } : {},
+				provider: {
+					...provider,
+					models: provider.models.flatMap((model) => {
+						const configured = configuredModels.get(model.id);
+						if (configured) {
+							const sameEndpoint = !configured.baseUrl || resolveOllamaApiBase(configured.baseUrl) === resolveOllamaApiBase(provider.baseUrl);
+							return (configured.api ?? api) === "ollama" && sameEndpoint && configured.thinkingLevelMap === void 0 && model.thinkingLevelMap ? [{
+								...configured,
+								thinkingLevelMap: model.thinkingLevelMap
+							}] : [];
+						}
+						return [api !== "ollama" && model.thinkingLevelMap ? Object.assign({}, model, { thinkingLevelMap: void 0 }) : model];
+					}),
+					baseUrl: resolveOllamaRuntimeBaseUrl({
+						api,
+						configuredBaseUrl,
+						discoveredBaseUrl: provider.baseUrl
+					}),
 					api,
-					configuredBaseUrl,
-					discoveredBaseUrl: provider.baseUrl
-				}),
-				api,
-				...apiKey ? { apiKey } : {}
-			} };
+					...apiKey ? { apiKey } : {}
+				}
+			};
 		}
 	});
 }
@@ -579,7 +693,8 @@ const ollamaProviderDiscovery = {
 	},
 	catalog: {
 		order: "late",
-		run: runOllamaDiscovery
+		run: runOllamaDiscovery,
+		getUnlistedConfiguredModelIds: getUnlistedOllamaConfiguredModelIds
 	}
 };
 //#endregion

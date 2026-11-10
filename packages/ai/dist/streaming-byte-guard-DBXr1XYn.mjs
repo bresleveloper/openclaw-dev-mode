@@ -1,0 +1,60 @@
+//#region packages/ai/src/utils/streaming-byte-guard.ts
+function createSseByteGuard(reader, opts) {
+	if (!Number.isFinite(opts.maxBytes) || opts.maxBytes < 0) throw new RangeError(`maxBytes must be a non-negative finite number: ${opts.maxBytes}`);
+	const onOverflow = opts.onOverflow ?? ((params) => /* @__PURE__ */ new Error(`SSE stream exceeds ${params.maxBytes} bytes (received ${params.size})`));
+	let total = 0;
+	let overflowedFlag = false;
+	let cancelledFlag = false;
+	const cancelReaderBestEffort = (reason) => {
+		reader.cancel(reason).catch(() => void 0);
+	};
+	return {
+		read: async () => {
+			if (overflowedFlag || cancelledFlag) return {
+				done: true,
+				value: void 0
+			};
+			const result = await reader.read();
+			if (result.done) return result;
+			const chunkLen = result.value?.byteLength ?? 0;
+			const next = total + chunkLen;
+			if (next > opts.maxBytes) {
+				overflowedFlag = true;
+				cancelledFlag = true;
+				const err = onOverflow({
+					size: next,
+					maxBytes: opts.maxBytes
+				});
+				cancelReaderBestEffort(err);
+				throw err;
+			}
+			total = next;
+			return result;
+		},
+		cancel: async (reason) => {
+			if (overflowedFlag) return;
+			cancelledFlag = true;
+			cancelReaderBestEffort(reason);
+		},
+		totalBytes: () => total,
+		overflowed: () => overflowedFlag,
+		cancelled: () => cancelledFlag
+	};
+}
+/** Lazily bound an SDK response while preserving upstream cancellation. */
+function boundResponseBody(response, options) {
+	if (!response.body || typeof response.body.getReader !== "function") return response;
+	const guard = createSseByteGuard(response.body.getReader(), options);
+	return new Response(new ReadableStream({
+		async pull(controller) {
+			const { done, value } = await guard.read();
+			if (done) controller.close();
+			else controller.enqueue(value);
+		},
+		async cancel(reason) {
+			await guard.cancel(reason);
+		}
+	}), response);
+}
+//#endregion
+export { createSseByteGuard as n, boundResponseBody as t };

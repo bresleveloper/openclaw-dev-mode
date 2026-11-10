@@ -1,7 +1,7 @@
-import { CODEX_NATIVE_TOOL_REQUIREMENTS } from "./native-tool-policy.js";
+import { CODEX_NATIVE_TOOL_REQUIREMENTS, CODEX_TOOL_POLICY_SAFE_DENY_NAMES } from "./native-tool-policy.js";
 import { n as readCodexRuntimeModelId } from "./.setup/model-runtime-BdqzOMkU.mjs";
-import { m as sessionBindingIdentity } from "./.setup/session-binding-record-BZB8RgcF.mjs";
-import { t as codexBuildSymbol } from "./.setup/build-state-BgEYwu09.mjs";
+import { g as sessionBindingIdentity } from "./.setup/session-binding-record-BXXjih0v.mjs";
+import { t as codexBuildSymbol } from "./.setup/build-state-L_MglvnW.mjs";
 import { resolvePluginConfigObject } from "openclaw/plugin-sdk/plugin-config-runtime";
 import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/codex/harness.ts
@@ -17,24 +17,6 @@ function requireCodexCompactionCapabilities(params) {
 	};
 }
 const SHARED_CODEX_APP_SERVER_CLIENT_DISPOSER = codexBuildSymbol("openclaw.codexAppServerClientDisposer");
-const CODEX_TOOL_POLICY_SAFE_DENY_NAMES = [
-	"web_fetch",
-	"x_search",
-	"memory_search",
-	"memory_get",
-	"dashboard",
-	"canvas",
-	"show_widget",
-	"message",
-	"heartbeat_respond",
-	"automations",
-	"gateway",
-	"skill_workshop",
-	"image_generate",
-	"music_generate",
-	"video_generate",
-	"tts"
-];
 const CODEX_APP_SERVER_CONTEXT_ENGINE_HOST_CAPABILITIES = [
 	"bootstrap",
 	"assemble-before-prompt",
@@ -62,6 +44,18 @@ function createCodexAppServerAgentHarness(options) {
 	let disposed = false;
 	const resolveAttemptPluginConfig = (config) => resolvePluginConfigObject(config, "codex") ?? options.resolvePluginConfig?.() ?? options.pluginConfig;
 	const resolveIsolatedCompletionRuntime = ({ authorizationOwner }) => authorizationOwner === "host" ? "openclaw" : "self";
+	const assertOwnershipCurrent = (params) => {
+		params.assertCurrent();
+		if (disposed) throw new Error("Codex agent harness is disposed");
+	};
+	const projectOwnership = (binding) => binding?.preserveNativeModel === true ? {
+		model: "native",
+		auth: binding.connectionScope === "supervision" ? "native" : "host",
+		...binding.model?.trim() && binding.modelProvider ? { modelRef: {
+			provider: binding.modelProvider,
+			model: binding.model
+		} } : {}
+	} : void 0;
 	return {
 		id: harnessRuntimeId,
 		label: options?.label ?? "Codex agent harness",
@@ -83,11 +77,7 @@ function createCodexAppServerAgentHarness(options) {
 		authBootstrap: "harness",
 		resolveIsolatedCompletionRuntime,
 		resolveSessionRuntimeOwnership: (params) => {
-			const assertCurrent = () => {
-				params.assertCurrent();
-				if (disposed) throw new Error("Codex agent harness is disposed");
-			};
-			assertCurrent();
+			assertOwnershipCurrent(params);
 			const identity = sessionBindingIdentity(params);
 			let binding = options.bindingStore.read(identity);
 			if (!binding) {
@@ -97,21 +87,31 @@ function createCodexAppServerAgentHarness(options) {
 					sessionId: previousSessionId
 				}) : void 0;
 			}
+			assertOwnershipCurrent(params);
+			return projectOwnership(binding);
+		},
+		resolveSessionRuntimeOwnershipAsync: async (params) => {
+			const assertCurrent = () => assertOwnershipCurrent(params);
 			assertCurrent();
-			return binding?.preserveNativeModel === true ? {
-				model: "native",
-				auth: binding.connectionScope === "supervision" ? "native" : "host",
-				...binding.model?.trim() && binding.modelProvider ? { modelRef: {
-					provider: binding.modelProvider,
-					model: binding.model
-				} } : {}
-			} : void 0;
+			const identity = sessionBindingIdentity(params);
+			let binding = await options.bindingStore.readAsync(identity);
+			assertCurrent();
+			if (!binding) {
+				const previousSessionId = await params.readPreviousSessionId();
+				assertCurrent();
+				binding = previousSessionId ? await options.bindingStore.readAsync({
+					...identity,
+					sessionId: previousSessionId
+				}) : void 0;
+			}
+			assertCurrent();
+			return projectOwnership(binding);
 		},
 		...sessionCatalogControlFactory && sessionRuntime ? { sessionForkV2: {
 			executionEnvironment: "host-only",
 			upstreamKinds: ["codex-app-server"],
 			fork: async (params) => {
-				const { forkCodexUpstreamSession } = await import("./.setup/upstream-session-fork-2CF_zpEC.mjs");
+				const { forkCodexUpstreamSession } = await import("./.setup/upstream-session-fork-B8MQXwie.mjs");
 				return await forkCodexUpstreamSession(params, {
 					bindingStore: options.bindingStore,
 					controlFactory: sessionCatalogControlFactory,
@@ -122,32 +122,32 @@ function createCodexAppServerAgentHarness(options) {
 			}
 		} } : {},
 		authBinding: { fingerprint: async (params) => {
-			const { fingerprintCodexAppServerAuthBinding } = await import("./.setup/auth-binding-BoMwpuPN.mjs").then((n) => n.t);
+			const { fingerprintCodexAppServerAuthBinding } = await import("./.setup/auth-binding-Dwwmv8gT.mjs").then((n) => n.t);
 			return fingerprintCodexAppServerAuthBinding(params);
 		} },
 		runtimeArtifact: { validate: async (binding) => {
-			const { validateCodexAppServerRuntimeArtifact } = await import("./.setup/runtime-artifact-CUTOOnKw.mjs");
-			const { isCodexConfiguredConnectionArtifact } = await import("./.setup/runtime-artifact-connection-CADz3_BY.mjs");
+			const { validateCodexAppServerRuntimeArtifact } = await import("./.setup/runtime-artifact-B6LOecKe.mjs");
+			const { isCodexConfiguredConnectionArtifact } = await import("./.setup/runtime-artifact-connection-BP6H4X99.mjs");
 			if (!isCodexConfiguredConnectionArtifact(binding.id)) return validateCodexAppServerRuntimeArtifact(binding);
-			const { resolveCodexAppServerRuntimeOptions } = await import("./.setup/config-0Gxk3_eq.mjs").then((n) => n.t);
+			const { resolveCodexAppServerRuntimeOptions } = await import("./.setup/config-DEC5R1wk.mjs").then((n) => n.t);
 			return validateCodexAppServerRuntimeArtifact(binding, void 0, resolveCodexAppServerRuntimeOptions({ pluginConfig: resolveAttemptPluginConfig(options.resolveConfig?.()) }).start);
 		} },
 		fetchUsageSnapshot: async (ctx) => {
-			const { fetchCodexAppServerUsageSnapshot } = await import("./.setup/usage-CTmT_mBl.mjs");
+			const { fetchCodexAppServerUsageSnapshot } = await import("./.setup/usage-DXMEub3R.mjs");
 			return await fetchCodexAppServerUsageSnapshot(ctx, { pluginConfig: options?.resolvePluginConfig?.() ?? options?.pluginConfig });
 		},
 		loadModelCatalog: async (params) => {
-			const { createCodexAppServerModelCatalog } = await import("./.setup/model-catalog-ghcKIhtW.mjs");
+			const { createCodexAppServerModelCatalog } = await import("./.setup/model-catalog-DI9Qf4Kj.mjs");
 			if (disposed) return { entries: [] };
 			modelCatalog ??= createCodexAppServerModelCatalog(harnessRuntimeId);
-			return { entries: await modelCatalog.load(params, resolveAttemptPluginConfig(params.config)) };
+			return await modelCatalog.load(params, resolveAttemptPluginConfig(params.config));
 		},
 		readModelCatalogReadiness: (params) => modelCatalog?.read(params, resolveAttemptPluginConfig(params.config)),
 		filterModelServiceTiers: ({ config, serviceTiers }) => {
 			return asOptionalRecord(asOptionalRecord(resolveAttemptPluginConfig(config))?.appServer)?.enableUltrafast === false ? serviceTiers.filter((tier) => tier !== "ultrafast") : serviceTiers;
 		},
 		acquireMcpAppRuntime: async (params) => {
-			const { acquireCodexMcpAppRuntime } = await import("./.setup/effective-mcp-catalog-BV4S0LoQ.mjs");
+			const { acquireCodexMcpAppRuntime } = await import("./.setup/effective-mcp-catalog-BUlrNEEX.mjs");
 			if (disposed) return;
 			params.assertCurrent();
 			return await acquireCodexMcpAppRuntime(params, {
@@ -156,15 +156,16 @@ function createCodexAppServerAgentHarness(options) {
 			});
 		},
 		loadMcpToolCatalog: async (params) => {
-			const { loadCodexEffectiveMcpCatalog } = await import("./.setup/effective-mcp-catalog-BV4S0LoQ.mjs");
+			const { loadCodexEffectiveMcpCatalog } = await import("./.setup/effective-mcp-catalog-BUlrNEEX.mjs");
 			return await loadCodexEffectiveMcpCatalog(params, { bindingStore: options.bindingStore });
 		},
 		supports: (ctx) => {
-			const provider = ctx.provider.trim().toLowerCase();
-			if (!providerIds.has(provider)) return {
+			const unsupported = (reason) => ({
 				supported: false,
-				reason: `provider is not one of: ${[...providerIds].toSorted().join(", ")}`
-			};
+				reason
+			});
+			const provider = ctx.provider.trim().toLowerCase();
+			if (!providerIds.has(provider)) return unsupported(`provider is not one of: ${[...providerIds].toSorted().join(", ")}`);
 			if (ctx.modelProvider?.requestTransportOverrides === "present") return {
 				supported: false,
 				reason: "Codex cannot reproduce authored request transport overrides",
@@ -174,24 +175,12 @@ function createCodexAppServerAgentHarness(options) {
 			const runtimePolicy = ctx.modelProvider?.runtimePolicy;
 			const nativeAccountOwnsUnobservedModel = provider === "openai" && ctx.requestedRuntime === "codex" && Boolean(ctx.modelId?.trim()) && (preparedAuth === void 0 || preparedAuth.source === "harness") && preparedAuth?.mode === void 0 && preparedAuth?.requirement === void 0 && ctx.modelProvider?.api === void 0 && ctx.modelProvider?.baseUrl === void 0 && ctx.modelProvider?.azureApiVersion === void 0 && ctx.modelProvider?.request === void 0;
 			if (runtimePolicy) {
-				if (!runtimePolicy.compatibleIds.some((id) => id.trim().toLowerCase() === normalizedHarnessRuntimeId)) return {
-					supported: false,
-					reason: "Codex cannot reproduce the prepared provider route"
-				};
-			} else if (ctx.modelProvider && provider !== "codex" && !nativeAccountOwnsUnobservedModel) return {
-				supported: false,
-				reason: "provider route compatibility with Codex is not declared"
-			};
+				if (!runtimePolicy.compatibleIds.some((id) => id.trim().toLowerCase() === normalizedHarnessRuntimeId)) return unsupported("Codex cannot reproduce the prepared provider route");
+			} else if (ctx.modelProvider && provider !== "codex" && !nativeAccountOwnsUnobservedModel) return unsupported("provider route compatibility with Codex is not declared");
 			if (preparedAuth?.requirement === "subscription") {
-				if (!(preparedAuth.source === "profile" && (preparedAuth.mode === "oauth" || preparedAuth.mode === "token"))) return {
-					supported: false,
-					reason: "Codex subscription auth requires a prepared OAuth or token profile"
-				};
+				if (!(preparedAuth.source === "profile" && (preparedAuth.mode === "oauth" || preparedAuth.mode === "token"))) return unsupported("Codex subscription auth requires a prepared OAuth or token profile");
 			} else if (preparedAuth?.requirement === "api-key") {
-				if (!(preparedAuth.source !== "none" && preparedAuth.source !== "harness" && (preparedAuth.mode === "api-key" || preparedAuth.mode === "api_key"))) return {
-					supported: false,
-					reason: "Codex Platform auth requires a prepared API key"
-				};
+				if (!(preparedAuth.source !== "none" && preparedAuth.source !== "harness" && (preparedAuth.mode === "api-key" || preparedAuth.mode === "api_key"))) return unsupported("Codex Platform auth requires a prepared API key");
 			}
 			return {
 				supported: true,
@@ -199,9 +188,9 @@ function createCodexAppServerAgentHarness(options) {
 			};
 		},
 		runAttempt: async (params) => {
-			const { runCodexAppServerAttempt } = await import("./.setup/run-attempt-BW9kt8Xq.mjs");
-			const { planCodexCyberEscalation, readCodexCyberAttemptVerdict, recordCodexCyberTargetUnavailable, reserveCodexCyberProbe, resolveCodexCyberFailoverConfig } = await import("./.setup/cyber-failover-Bb1J6hS1.mjs");
-			const { emitCodexCyberNotice } = await import("./.setup/cyber-failover-notice-XR03ef31.mjs");
+			const { runCodexAppServerAttempt } = await import("./.setup/run-attempt-CN7-Wpfu.mjs");
+			const { planCodexCyberEscalation, readCodexCyberAttemptVerdict, recordCodexCyberTargetUnavailable, reserveCodexCyberProbe, resolveCodexCyberFailoverConfig } = await import("./.setup/cyber-failover-D4dgNfFf.mjs");
+			const { emitCodexCyberNotice } = await import("./.setup/cyber-failover-notice-ljgGGL0s.mjs");
 			const pluginConfig = resolveAttemptPluginConfig(params.config);
 			const attemptModel = readCodexRuntimeModelId(params.model, params.modelId);
 			const runAttemptOnModel = (model, isRetry = false) => runCodexAppServerAttempt(isRetry ? {
@@ -265,7 +254,7 @@ function createCodexAppServerAgentHarness(options) {
 				const { runHostPreparedIsolatedCompletion } = await import("openclaw/plugin-sdk/simple-completion-runtime");
 				return runHostPreparedIsolatedCompletion(params);
 			}
-			const { runCodexIsolatedCompletion } = await import("./.setup/isolated-completion-1vQHZQD6.mjs");
+			const { runCodexIsolatedCompletion } = await import("./.setup/isolated-completion-C6TvlJQ9.mjs");
 			return runCodexIsolatedCompletion(params, { pluginConfig: options?.resolvePluginConfig?.() ?? options?.pluginConfig });
 		},
 		runIsolatedCompletion: async (params) => {
@@ -281,11 +270,11 @@ function createCodexAppServerAgentHarness(options) {
 			});
 		},
 		finalizeSettledTurn: async (params) => {
-			const { runCodexSettledTurnFinalization } = await import("./.setup/settled-turn-finalizer-OMuecKlw.mjs");
+			const { runCodexSettledTurnFinalization } = await import("./.setup/settled-turn-finalizer-jOI6Xq0I.mjs");
 			return runCodexSettledTurnFinalization(params, { pluginConfig: options?.resolvePluginConfig?.() ?? options?.pluginConfig });
 		},
 		runSideQuestion: async (params) => {
-			const { runCodexAppServerSideQuestion } = await import("./.setup/side-question-CucMj367.mjs");
+			const { runCodexAppServerSideQuestion } = await import("./.setup/side-question-B4gN847M.mjs");
 			return runCodexAppServerSideQuestion(params, {
 				bindingStore: options.bindingStore,
 				pluginConfig: options?.resolvePluginConfig?.() ?? options?.pluginConfig,
@@ -296,25 +285,30 @@ function createCodexAppServerAgentHarness(options) {
 		},
 		compact: async (params) => {
 			const admittedParams = requireCodexCompactionCapabilities(params);
-			const { maybeCompactCodexAppServerSession } = await import("./.setup/compact-B04KwAt_.mjs");
+			const { maybeCompactCodexAppServerSession } = await import("./.setup/compact-DqKcJU2l.mjs");
 			return maybeCompactCodexAppServerSession(admittedParams, {
 				bindingStore: options.bindingStore,
 				pluginConfig: options?.resolvePluginConfig?.() ?? options?.pluginConfig
 			});
 		},
+		withDescendantCancellation: async (params, run) => {
+			const { withCodexSessionDescendantCancellation } = await import("./.setup/session-cancellation-C2QcnYxi.mjs");
+			params.assertCurrent();
+			return withCodexSessionDescendantCancellation(options.bindingStore, params, run);
+		},
 		withSessionDeletion: async (params, run) => {
-			const { withCodexAppServerSessionDeletion } = await import("./.setup/session-retirement-BkxJRdmt.mjs");
+			const { withCodexAppServerSessionDeletion } = await import("./.setup/session-retirement-BN1K4I7O.mjs");
 			params.assertCurrent();
 			return withCodexAppServerSessionDeletion(options.bindingStore, params, run);
 		},
 		withSessionContextReset: async (params, run) => {
-			const { withCodexAppServerSessionContextReset } = await import("./.setup/session-retirement-BkxJRdmt.mjs");
+			const { withCodexAppServerSessionContextReset } = await import("./.setup/session-retirement-BN1K4I7O.mjs");
 			params.assertCurrent();
 			return withCodexAppServerSessionContextReset(options.bindingStore, params, run);
 		},
 		reset: async (params) => {
 			if (params.sessionId && params.reason !== "deleted") {
-				const [{ reclaimCurrentCodexSessionGeneration }, { retireCodexAppServerSessionGeneration }] = await Promise.all([import("./.setup/session-binding-Ce7BqiPN.mjs").then((n) => n.i), import("./.setup/session-retirement-BkxJRdmt.mjs")]);
+				const [{ reclaimCurrentCodexSessionGeneration }, { retireCodexAppServerSessionGeneration }] = await Promise.all([import("./.setup/session-binding-2ihjGcI_.mjs").then((n) => n.a), import("./.setup/session-retirement-BN1K4I7O.mjs")]);
 				const identity = sessionBindingIdentity({
 					agentId: params.agentId,
 					sessionId: params.sessionId,
@@ -347,7 +341,7 @@ function createCodexAppServerAgentHarness(options) {
 function createCodexAppServerNativeCompaction(options) {
 	return async (params) => {
 		const admittedParams = requireCodexCompactionCapabilities(params);
-		const { maybeCompactCodexAppServerSession } = await import("./.setup/compact-B04KwAt_.mjs");
+		const { maybeCompactCodexAppServerSession } = await import("./.setup/compact-DqKcJU2l.mjs");
 		return maybeCompactCodexAppServerSession(admittedParams, {
 			bindingStore: options.bindingStore,
 			pluginConfig: options.resolvePluginConfig?.() ?? options.pluginConfig,

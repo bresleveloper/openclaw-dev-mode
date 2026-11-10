@@ -1,3 +1,3 @@
 import { i as setMatrixRuntime } from "./.setup/runtime-1kn1P6io.mjs";
-import { t as createMatrixThreadBindingManager } from "./.setup/thread-bindings-DveHVZqN.mjs";
+import { t as createMatrixThreadBindingManager } from "./.setup/thread-bindings-pNgPVdof.mjs";
 export { createMatrixThreadBindingManager, setMatrixRuntime };

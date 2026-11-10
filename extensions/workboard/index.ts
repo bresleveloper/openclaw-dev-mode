@@ -6,7 +6,6 @@ import { registerWorkboardCommand } from "./src/command.js";
 import {
   createWorkboardLifecycleService,
   readWorkboardLifecycleSessions,
-  syncWorkboardAgentEnded,
   syncWorkboardSubagentEnded,
 } from "./src/lifecycle-sync.js";
 import { createWorkboardSessionsBoardService } from "./src/sessions-board.js";
@@ -26,8 +25,40 @@ export default definePluginEntry({
   name: "Workboard",
   description: "Dashboard workboard for agent-owned issues and sessions.",
   register(api) {
+    api.registerCli(
+      async ({ program }) => {
+        const { registerWorkboardCli } = await import("./src/cli.js");
+        registerWorkboardCli({
+          program,
+          withStore: async (action) => {
+            const cliStore = WorkboardStore.openSqlite(
+              resolveWorkboardSqliteWorkerModuleUrl(api.runtimeSource),
+              api.config,
+            );
+            try {
+              return await action(cliStore);
+            } finally {
+              await cliStore.close();
+            }
+          },
+        });
+      },
+      {
+        descriptors: [
+          {
+            name: "workboard",
+            description: "Manage Workboard cards and worker dispatch",
+            hasSubcommands: true,
+          },
+        ],
+      },
+    );
+    if (api.registrationMode === "cli-metadata") {
+      return;
+    }
     const store = WorkboardStore.openSqlite(
       resolveWorkboardSqliteWorkerModuleUrl(api.runtimeSource),
+      api.config,
     );
     const resourceServices: Array<{ stop(): void | Promise<void> }> = [];
     registerWorkboardStoreLifecycle(api, store, async () => {
@@ -49,6 +80,7 @@ export default definePluginEntry({
       worktrees: api.runtime.worktrees,
       readSessions: async (options) =>
         await readWorkboardLifecycleSessions(api.runtime.gateway, options),
+      onMatched: automationNudge.nudge,
     });
     resourceServices.push(lifecycleSync);
     api.session.controls.registerControlUiDescriptor({
@@ -60,30 +92,23 @@ export default definePluginEntry({
       group: "control",
       requiredScopes: ["operator.read"],
     });
-    api.session.controls.registerControlUiDescriptor({
-      surface: "widget",
-      id: "board",
-      label: "Workboard board",
-      requiredScopes: ["operator.read"],
-    });
-    api.session.controls.registerControlUiDescriptor({
-      surface: "widget",
-      id: "card",
-      label: "Workboard card",
-      requiredScopes: ["operator.write"],
-    });
-    api.session.controls.registerControlUiDescriptor({
-      surface: "widget",
-      id: "mini",
-      label: "Workboard summary",
-      requiredScopes: ["operator.read"],
-    });
+    for (const [id, label, scope] of [
+      ["board", "Workboard board", "operator.read"],
+      ["card", "Workboard card", "operator.write"],
+      ["mini", "Workboard summary", "operator.read"],
+    ] as const) {
+      api.session.controls.registerControlUiDescriptor({
+        surface: "widget",
+        id,
+        label,
+        requiredScopes: [scope],
+      });
+    }
     registerWorkboardGatewayMethods({ api, store, sessionsBoard });
     registerWorkboardCommand({ api, store });
-    api.registerService(changeEvents);
-    api.registerService(automationNudge);
-    api.registerService(sessionsBoard);
-    api.registerService(lifecycleSync);
+    for (const service of [changeEvents, automationNudge, sessionsBoard, lifecycleSync]) {
+      api.registerService(service);
+    }
     api.on("gateway_start", (_event, context) => lifecycleSync.onGatewayStart(context.abortSignal));
     api.on("gateway_stop", () => lifecycleSync.onGatewayStop());
     api.on("subagent_ended", (event) =>
@@ -96,31 +121,7 @@ export default definePluginEntry({
         });
       }),
     );
-    api.on("agent_end", (event, context) =>
-      store.runOperation(async () => {
-        await syncWorkboardAgentEnded({
-          store,
-          event,
-          context,
-          onMatched: automationNudge.nudge,
-        });
-      }),
-    );
-    api.registerCli(
-      async ({ program }) => {
-        const { registerWorkboardCli } = await import("./src/cli.js");
-        registerWorkboardCli({ program, store });
-      },
-      {
-        descriptors: [
-          {
-            name: "workboard",
-            description: "Manage Workboard cards and worker dispatch",
-            hasSubcommands: true,
-          },
-        ],
-      },
-    );
+    api.on("agent_end", (event, context) => lifecycleSync.onAgentEnd(event, context));
     api.registerTool(
       (context) =>
         guardWorkboardToolsForWorkspaceAccess(

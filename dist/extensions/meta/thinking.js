@@ -1,4 +1,4 @@
-import { n as META_MODEL_CATALOG } from "./.setup/provider-catalog-BNTlqvTm.mjs";
+import { n as META_MODEL_CATALOG } from "./.setup/provider-catalog-Drud68bm.mjs";
 //#region extensions/meta/thinking.ts
 const META_REASONING_MODELS = new Map(META_MODEL_CATALOG.filter((model) => model.reasoning).map((model) => [model.id.toLowerCase(), model]));
 const META_THINKING_PROFILE = {

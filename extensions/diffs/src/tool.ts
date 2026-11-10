@@ -12,7 +12,6 @@ import {
 import { textResult } from "openclaw/plugin-sdk/tool-results";
 import { Type } from "typebox";
 import type { Static } from "typebox";
-import type { DiffScreenshotter } from "./browser.runtime.js";
 import { resolveDiffImageRenderOptions } from "./config.js";
 import { DiffRenderInputError, renderDiffDocument } from "./render.js";
 import type { DiffArtifactStore } from "./store.js";
@@ -120,7 +119,6 @@ export function createDiffsTool(params: {
   defaults: DiffToolDefaults;
   viewerBaseUrl?: string;
   languagePackAvailable?: boolean;
-  screenshotter?: DiffScreenshotter;
   context?: OpenClawPluginToolContext;
 }): AnyAgentTool {
   return {
@@ -219,9 +217,9 @@ export function createDiffsTool(params: {
       }
 
       try {
-        const screenshotter =
-          params.screenshotter ??
-          new (await loadDiffsBrowserRuntime()).PlaywrightDiffScreenshotter({ config });
+        const screenshotter = new (await loadDiffsBrowserRuntime()).PlaywrightDiffScreenshotter({
+          config,
+        });
         const html = requireRenderedHtml(rendered.imageHtml, "image");
         const artifactFile = await params.store.createStandaloneFileArtifact({
           format: image.format,
@@ -327,11 +325,11 @@ function buildArtifactContext(
 }
 
 function normalizeDiffInput(params: DiffsToolParams): DiffInput {
-  const patch = params.patch?.trim();
+  const patch = params.patch;
   const before = params.before;
   const after = params.after;
 
-  if (patch) {
+  if (patch?.trim()) {
     assertMaxBytes(patch, "patch", MAX_PATCH_BYTES);
     if (before !== undefined || after !== undefined) {
       throw new PluginToolInputError("Provide either patch or before/after input, not both.");

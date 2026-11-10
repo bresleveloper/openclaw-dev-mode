@@ -1,10 +1,10 @@
 import { isFireworksKimiModelId } from "./model-id.js";
-import { c as isFireworksCatalogModelId, i as FIREWORKS_DEFAULT_MODEL_ID, l as openclaw_plugin_default, n as FIREWORKS_DEFAULT_CONTEXT_WINDOW, r as FIREWORKS_DEFAULT_MAX_TOKENS, t as FIREWORKS_BASE_URL } from "./.setup/provider-catalog-qSLq0DTq.mjs";
+import { c as isFireworksCatalogModelId, i as FIREWORKS_DEFAULT_MODEL_ID, l as isFireworksNativeModel, n as FIREWORKS_DEFAULT_CONTEXT_WINDOW, r as FIREWORKS_DEFAULT_MAX_TOKENS, t as FIREWORKS_BASE_URL, u as openclaw_plugin_default } from "./.setup/provider-catalog-D1IIkEc_.mjs";
 import { applyFireworksConfig } from "./onboard.js";
 import { wrapFireworksProviderStream } from "./stream.js";
 import { resolveFireworksThinkingProfile } from "./thinking-policy.js";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
-import { buildProviderReplayFamilyHooks, resolveFamilyForwardCompatModel } from "openclaw/plugin-sdk/provider-model-shared";
+import { applyModelCompatPatch, buildProviderReplayFamilyHooks, resolveFamilyForwardCompatModel } from "openclaw/plugin-sdk/provider-model-shared";
 //#region extensions/fireworks/index.ts
 const PROVIDER_ID = "fireworks";
 function isFireworksGlmModelId(modelId) {
@@ -53,6 +53,10 @@ var fireworks_default = defineSingleProviderPluginEntry({
 			liveModelDiscovery: true
 		},
 		...buildProviderReplayFamilyHooks({ family: "openai-compatible" }),
+		normalizeResolvedModel: ({ model }) => isFireworksNativeModel(model) ? applyModelCompatPatch(model, {
+			supportsPromptCacheKey: model.compat?.supportsPromptCacheKey ?? true,
+			supportsLongCacheRetention: model.compat?.supportsLongCacheRetention ?? false
+		}) : model,
 		wrapStreamFn: wrapFireworksProviderStream,
 		resolveThinkingProfile: ({ modelId }) => resolveFireworksThinkingProfile(modelId),
 		resolveDynamicModel: resolveFireworksDynamicModel,

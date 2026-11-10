@@ -1,2 +1,2 @@
-import { t as createDiagnosticsOtelService } from "./.setup/runtime-api-C7192_s0.mjs";
+import { t as createDiagnosticsOtelService } from "./.setup/runtime-api-DmS74mVU.mjs";
 export { createDiagnosticsOtelService };

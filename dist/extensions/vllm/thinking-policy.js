@@ -1,2 +1,2 @@
-import { n as resolveThinkingProfile, r as resolveVllmQwenThinkingFormatFromCompat, t as isVllmNemotronThinkingModel } from "../../thinking-policy-CGihQkAh.mjs";
-export { isVllmNemotronThinkingModel, resolveThinkingProfile, resolveVllmQwenThinkingFormatFromCompat };
+import { i as resolveVllmQwenThinkingFormatFromCompat, n as resolveThinkingProfile, r as resolveVllmEffortProfile, t as isVllmNemotronThinkingModel } from "../../thinking-policy-C8CEl-sL.mjs";
+export { isVllmNemotronThinkingModel, resolveThinkingProfile, resolveVllmEffortProfile, resolveVllmQwenThinkingFormatFromCompat };

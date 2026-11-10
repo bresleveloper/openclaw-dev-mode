@@ -1,9 +1,9 @@
-import { Y as AgentModelEntryConfig, r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { a as ConfigWriteOptions, i as readConfigFileSnapshotForWrite, s as ConfigWriteAfterWrite } from "../io-CwO8iq4h.js";
-import { n as RuntimeEnv } from "../runtime-DlqUc5_p.js";
-import { n as mutateConfigFile, r as replaceConfigFile } from "../config-Dpca5-xX.js";
-import "../defaults-D0SAbcb2.js";
-import { t as ProviderModelRef } from "../model-catalog-refs-Phyl1k6H.js";
+import { Li as AgentModelEntryConfig, M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { C as ProviderModelRef } from "../model-selection-DoE_lu2k.js";
+import { n as RuntimeEnv } from "../runtime-M_jncu14.js";
+import "../plugin-metadata-snapshot-C_ou8VB5.js";
+import { c as readConfigFileSnapshotForWrite, l as ConfigWriteOptions, n as mutateConfigFile, r as replaceConfigFile, u as ConfigWriteAfterWrite } from "../config-S5Zm-Svf.js";
+import "../model-input-Dw6jSbg2.js";
 //#region src/config/logging.d.ts
 type LogConfigUpdatedOptions = {
   path?: string;
@@ -16,6 +16,7 @@ export declare function logConfigUpdated(runtime: RuntimeEnv, opts?: LogConfigUp
 //#region src/commands/models/shared.d.ts
 type UpdateConfigContext = {
   runtimeConfig: OpenClawConfig;
+  providerRegistryAvailable?: boolean;
   canonicalModelKeys?: ReadonlyMap<string, string | undefined>;
   restoreSourceEntry: (from: string, to: string, entry: AgentModelEntryConfig) => AgentModelEntryConfig;
 };

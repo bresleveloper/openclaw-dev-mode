@@ -2,18 +2,6 @@
 
 Keep existing insertion anchors when extending these patches: pnpm 12 can apply a zero-context, zero-length insertion one line early. After regeneration and installation, verify installed files against the patch's target blob hashes before testing.
 
-`@openclaw/proxyline@0.3.12` has an approved public export of its existing
-`ProxylineNodeProxyAgent` class. The shared Node adapter uses that dual-protocol
-agent to retain per-request `NO_PROXY` routing even when every configured proxy
-route is invalid. The patch changes only the package entrypoint and regenerated
-entrypoint declarations; proxy behavior and the package version are unchanged.
-The root package bundles the dependency so npm installations retain the export.
-Its pinned Undici peer is bundled too: npm infers that bundled peers are already
-present and otherwise skips installing Undici, even though the root requires it.
-Remove this patch, its registration, and both bundle entries when an upstream release
-exports the standalone agent and passes `extensions/whatsapp/src/session.media-upload.test.ts`
-and `src/infra/net/node-proxy-agent.test.ts` without the patch.
-
 `@awesome.me/webawesome@3.13.0` retains its approved dropdown, submenu, select, tooltip, and animation lifecycle repairs. The dropdown initializes focus after its popup becomes usable, before joining animation cleanup or completion, and preserves a newer composed focus target during popup rendering. Freshly mounted open menus also join the popup's initial anchor resolution before focusing; already anchored menus retain their existing visibility and native occlusion across reopen. Initial-focus handlers can close or disconnect the menu; the existing transition owner fences those reentrant paths before starting an animation. Opening completion never resets a newer item, submenu, or outside focus. Both published distributions carry the same owner. The tooltip trigger handler uses upstream's `containsComposedNode` helper to retain the 3.13 fix for hover across Shadow DOM slots; the port also preserves upstream overflow-tag size and pill styling.
 
 Remove the dropdown focus hunk when an upstream release passes `ui/src/e2e/chat-attachment-focus.e2e.test.ts`, the unchanged platform attachment menu suite, and both `web-awesome-dropdown*.browser.test.ts` lifecycle suites without a consumer animation wait. These tests use real CSS animation boundaries, native keyboard input, and the actual browser filechooser; mobile identities are emulated, not native OS-picker certification. Retain the other patch owners until their respective regressions pass upstream.
@@ -41,30 +29,34 @@ Remove the noVNC patch, its registration, and its exact-version guard exception 
 
 Remove the Matrix patch, its registration, and its exact-version guard exception when an upstream release passes `node scripts/run-vitest.mjs extensions/matrix/src/matrix/client/file-sync-store.sdk.test.ts` and the full Matrix QA catalog, including the original DM SAS-to-QR sequence. The regression exercises the real SQLite sync store, SDK cache hydration, and crypto event wiring; it observes crypto input rather than substituting for native verification proof.
 
-`vitest@5.0.1` has one approved exact-version pnpm patch. Vitest 5 bundles the
+`vitest@5.0.5` has one approved exact-version pnpm patch. Vitest 5 bundles the
 runner, and `@vitest/runner@5.0.0` is not published, so no standalone runner
 dependency or patch remains. The published package integrity is
-`sha512-iA95lQbKEkvrtTkdAgnWbXfbipWiiWe/hDl2P5tMi6WFwD76G0NxXAGp/M9EOcYupeGJRr6wppMc7CoA41TQjg==`.
+`sha512-cPODOMF8YnkiiYtDdHo6n4wWmBrOBBbOIYH2d33M4l3CdNn72h+qMmO6uXffUN6A5AZFXNND/d+krS9mgkXRfg==`.
 The patch SHA-256 is
-`90ba2969491e095cc2e92a4d38256dfcf64f85078ec29e1762b9429a00b35901`
-and it changes exactly these eight published files:
+`c7225d77fb8a242bd88070b9787737119caea3ba29fdccb38419b9fe4c196e92`
+and it changes exactly these nine published files:
 
 | Target | Published SHA-256 | Patched SHA-256 |
 | --- | --- | --- |
-| `dist/chunks/cac.fSuRXrAx.js` | `0290aaa6677cb20fb472b7d101e66b879e982d3799e9eb69ae84652cb8ecacd4` | `36e72e47372bc2c77fdaa9725675644db84ce6f34f86ceb8422b2ac7f9c7ec39` |
-| `dist/chunks/index.D4dXTzh9.js` | `70e7ab020f7f03ae96797ad10b46549cd2edb61e4a4d975ba08d10fe41a0bb9e` | `e45d5d5babb300e099fb955b2af65aea5604db6019d9f0bc1b397a323466b063` |
-| `dist/chunks/index.DzobfTyw.js` | `26c9c3d31efea8bb6e5f6f495db89968ba820a26c0676341f3682ec5377d584d` | `a41a0c84d88ab4aaddf92eb7b11234fc4c72bae7386b63c91898e692e1a81a95` |
-| `dist/chunks/index.m3L2HgmY.js` | `f56631635acaf90deb3b99e037afd8a2431ef685781ae3aa1109bb33d1d02702` | `5c0b1653ddd88eff204dccc35289f66eca06ec43878a6ec73bfc601c3e66be71` |
-| `dist/chunks/init-forks.DgHqDQHC.js` | `7e424d9f059e2343698c78c082469198e05cc8b189484dbdd6b5236b21f9b443` | `2f0f61b0e41cbb3d44bfaff0ddb903c047b175c1e0494bd08f95cfd7b9b2848f` |
-| `dist/chunks/plugin.d.CN87HSxv.d.ts` | `a93d72194894d0eb54e7c43bd41167195dcf6a17800ce18fcee1716e1905dda5` | `2491673a5b9de8255f53dd7e573763d35776e1ff42e0096f98ba31b431fd55e8` |
-| `dist/chunks/run.C5UmxDPh.js` | `890fef0254ad442f55902adc9a7d0e639bb9ba5a78ef4fc53a30f10f1aa9f77c` | `6412031b0068dbe300b7af1ba27056be77c914d067cee69b3dc396b7da8df8cd` |
-| `dist/node.d.ts` | `09b5ab06e7b242132974144474b24a0fddde568e0fb20d69215d156d78ac0d7f` | `7ffe96f8dd9ffcdf5f3d67e56c02f509a516072cd523c9dcef596ada77afd06f` |
+| `dist/chunks/cac.CLrZKo1g.js` | `cbe6e023d5b1e5c8de648da0d43242e660d88676b172a022d2b95f22a88b78c0` | `5c429f733a64ee9a0de35db6fe15f5ee10d03ae784f664faf0afe940896ad7fb` |
+| `dist/chunks/cli-api.De07GUeT.js` | `8b75d08fd468ac1428ef5562e43883e2cf1953c8953a7eab95da17b30ed97945` | `39173bec8f75564cd8db538593973cdf101a8321fd2a9c26d9d5edfa6ac3af53` |
+| `dist/chunks/index.1TqnEahn.js` | `4e311af8b4db378a5c3d4e768b5210b0779d2ae0d0ec05f81a72378dbaf25412` | `17c97be7f0b926e164c7d36273677964379959884024a74e72c0b2fed07d3baa` |
+| `dist/chunks/index.CK-t0WMg.js` | `4712d1e9acaefca5d215c21f53007eeae30904768d45a10cd1fd09c01c6fd46e` | `605c675633a59166e5ca9b04108f4b34ca9f3cf2e3cc41a292f8277ec64aaa99` |
+| `dist/chunks/index.aTZaPVhf.js` | `381472b0170386acbc3f7d05b68ef05b3da53dcaa1058d2750d138648cd2933a` | `9fed49edda9cac115628ff4203ca307200ff721786925654044fbe4076be5ad9` |
+| `dist/chunks/init-forks.CRxIPOJR.js` | `ef3f4026f3bc661f0542e379186637000cd2e6721e78733a4d5b5e9d3de46a64` | `03632dcb32e05236d984c58f2c8aed1a3eac7cb945594e9e0bd8bb32b2a18316` |
+| `dist/chunks/plugin.d.C8mmycim.d.ts` | `e1eae7448953ae3951958097b083af35b50f3adc39f0a922baa14de48324ac2f` | `59aed92bfefac4243398514cd6b274dab1ddc8841ed834d63eef6ff29d625bb7` |
+| `dist/chunks/run.BPv-BBRv.js` | `6353810fdd2b6370386dfb80ec4d1415b2a12d83e00f3ebee83cc0304d6e4c6b` | `0d1eb0c41c32a0e3040d108efc634fc405b1a2c437ca3414a284d84929c59199` |
+| `dist/node.d.ts` | `3cbd85d6dc3f7c97d2ced382172f12a115d46352af8d2a71fec05f9b185baf90` | `0b5cd4c6333b41b11f948f96c1b56809beb07d256ac1b24eab644a197dd033ec` |
 
-Vitest 5.0.1 writes replacement cache metadata upstream; the patch uses that
+Vitest 5.0.5 writes replacement cache metadata upstream; the patch uses that
 `writeMetadata` owner and retains the remaining generation and invalidation
-repairs. The patch owns these temporary invariants and removal gates:
+repairs. The split runtime keeps cache integrity initialization with upstream
+`VitestCache._load()`, moved before reporter imports so persisted reporter transforms
+share the checked generation. The patch does not reintroduce the retired `_fsCache` owner.
+The patch owns these temporary invariants and removal gates:
 
-- **Mock resolution (`index.D4dXTzh9.js`):** module fetches join the mocker's
+- **Mock resolution (`index.CK-t0WMg.js`):** module fetches join the mocker's
   serialized resolution before reading its registry, even after the pending-id
   queue is emptied by an in-flight pass. Resolution drains ids queued during a
   pass; failed callers retain their errors without poisoning later callers.
@@ -72,20 +64,20 @@ repairs. The patch owns these temporary invariants and removal gates:
   stock Vitest passes `test/scripts/vitest-mock-resolution.test.ts` and the
   original cold Gateway CI group containing
   `authenticated-request-dispatch.lifetime.test.ts`.
-- **CLI validation (`cac.fSuRXrAx.js`):** public `parseCLI` validates unknown
+- **CLI validation (`cac.CLrZKo1g.js`):** public `parseCLI` validates unknown
   options, required values, and required arguments without executing a command.
   Help/version and `allowUnknownOptions` retain native semantics. Remove this
   hunk when stock Vitest passes the native validation cases in
   `test/scripts/run-vitest-profile.test.ts` and
   `test/scripts/vitest-report-owner.test.ts`.
-- **Filesystem cache generations (`index.DzobfTyw.js`):** persistence remains
+- **Filesystem cache generations (`cli-api.De07GUeT.js`, `index.1TqnEahn.js`):** persistence remains
   disabled until lockfile integrity completes; generation participates in cache
   keys; lock transitions rewrite metadata and reset retained roots, keys, and
   transform temporary markers; invalidation covers the root and selected
-  projects. Remove these hunks when stock Vitest passes the four cache-generation
+  projects. Remove these hunks when stock Vitest passes the five cache-generation
   and invalidation regressions in `test/vitest-performance-config.test.ts`.
-- **Graceful fork shutdown (`index.DzobfTyw.js`,
-  `init-forks.DgHqDQHC.js`, `plugin.d.CN87HSxv.d.ts`, `dist/node.d.ts`):**
+- **Graceful fork shutdown (`index.1TqnEahn.js`,
+  `init-forks.CRxIPOJR.js`, `plugin.d.C8mmycim.d.ts`, `dist/node.d.ts`):**
   built-in fork workers flush a `willExit` response, exit explicitly, and are
   joined before run completion. Deadline and abnormal-exit paths still fail and
   terminate the worker; custom transports remain parent-owned unless they opt
@@ -93,8 +85,8 @@ repairs. The patch owns these temporary invariants and removal gates:
   `test/scripts/vitest-fork-shutdown.test.ts`,
   `test/scripts/run-vitest-state-cleanup.test.ts`, and
   `test/scripts/run-vitest-profile.test.ts`.
-- **File-backed report projects (`index.DzobfTyw.js`,
-  `plugin.d.CN87HSxv.d.ts`):** a Vitest-owned
+- **File-backed report projects (`index.1TqnEahn.js`,
+  `plugin.d.C8mmycim.d.ts`):** a Vitest-owned
   `{ config, root?, namePrefix? }` descriptor loads its config exactly once,
   keeps the file-owned root when omitted, preserves the explicit root when
   supplied, and derives its final name after Vite hooks. A replayed prefix
@@ -104,12 +96,12 @@ repairs. The patch owns these temporary invariants and removal gates:
   `test/scripts/vitest-report-owner.test.ts` without pre-resolving configs or
   injecting captured names and `test/vitest-ui-package-config.test.ts` without
   losing omitted or explicit project roots.
-- **Trailing task updates (`run.C5UmxDPh.js`):** the bundled runner accepts the
+- **Trailing task updates (`run.BPv-BBRv.js`):** the bundled runner accepts the
   exact batching deadline and clears a consumed timer before re-entering the
   throttle, so an early callback can rearm without losing the trailing update.
   Remove this hunk when stock Vitest passes
   `test/scripts/vitest-runner-task-updates.test.ts`.
-- **Fake timer heap order (`index.m3L2HgmY.js`):** refresh removes a timer from
+- **Fake timer heap order (`index.aTZaPVhf.js`):** refresh removes a timer from
   the heap before mutating its ordering key, then reinserts it. Remove this hunk
   when stock Vitest passes `test/scripts/vitest-fake-timers.test.ts` and
   `extensions/telegram/src/probe.response-body-timeout.test.ts`.
@@ -136,3 +128,79 @@ The plugin package owner bundles patched runtime dependencies so installed
 WhatsApp plugins retain the adapter. Remove this patch and its registration
 when an upstream Baileys version accepts the current decoder and passes the
 same voice-note regression.
+
+## Zod 3.25.76 early collection bounds
+
+zod@3.25.76.patch is a local Zod-3 adaptation of the early upper-size rejection
+behavior in Colin McDonnell's upstream Zod commit
+a0ebf970f2d752e5f58527cd2942ff48be4f46bd (colinhacks/zod#6652).
+It is not an upstream Zod-3 release, a cherry-pick, or an A2UI/Zod-4 migration.
+The implementation changes three branches in each of src/v3/types.ts,
+v3/types.js, and v3/types.cjs: oversized array max/exact length and set max
+return the existing aborted result before visiting elements. Set exact size
+already delegates to max/min. No declaration, export, A2UI source, license or
+Zod-4 implementation is replaced.
+
+This mitigates collection traversal only where an upper bound is declared.
+A2UI 0.12's catalog JSON-schema loader translates maxItems into such a bound;
+0.11's loader does not, so its integration regression instead exercises a
+custom bounded function schema through the public Catalog invoker. This does
+not add protocol-wide message limits or protect unbounded arrays.
+
+An oversized collection now aborts instead of returning dirty: element and
+outer refinements do not run, and a failing union may report invalid_union
+instead of the dirty branch's too_big. Valid transforms, preprocessing,
+lower-bound failures and wrong-type rejection are covered by regressions.
+The exact-version patch also affects other consumers resolving Zod 3.25.76,
+including zod-to-json-schema; the separate parser embedded in Discord's SDK
+and the package's v4 subpath are not changed. No global advisory clearance is
+claimed. Keep source attribution and original copyright notices intact.
+
+Run node --test test/scripts/a2ui-zod-bounds.regression.mjs and the native
+node scripts/run-vitest.mjs run test/scripts/a2ui-zod-bounds.test.ts.
+
+The package-patch guard registers only zod@3.25.76 at
+patches/zod@3.25.76.patch. Other versions, paths and package-local patch
+registrations remain rejected; no guard or blanket exception is disabled.
+Remove this registration and patch when a maintained upstream release retains
+Zod 3 public contracts and passes the same baseline/fixed Catalog regressions,
+public declaration checks and Canvas bundle checks. Independent full-context
+review and required hosted checks still gate readiness.
+
+Patch SHA-256: 2f14d2000a3645bf519c1a1cc4848a71d55185327a9a976a4f033e7d507b727d
+
+`@discord/embedded-app-sdk@2.5.0` vendors Zod 3 in both `output/lib/zod/lib/index.mjs`
+and `index.cjs`; changing the separately installed Zod package does not repair
+the browser SDK. This patch is a local Zod-3 adaptation of the early upper-size
+guard in Colin McDonnell's upstream Zod commit
+`a0ebf970f2d752e5f58527cd2942ff48be4f46bd`
+([colinhacks/zod#6652](https://github.com/colinhacks/zod/pull/6652)), referenced by
+[GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
+It is not a cherry-pick, a Zod version upgrade, or a claim that all installed
+Zod copies are fixed. Only the bundled array `.max()` / oversized `.length()`
+and set `.max()` / oversized `.size()` branches change: return the existing
+invalid result before iterating elements or invoking outer refinements.
+The bundled Zod-3 map API has no upper-size constraint. Valid values, lower
+limits, individual bound messages, enum fallback handling, declarations, and
+exports stay on the existing API. Early rejection intentionally omits element
+and refinement issues; unions may report an `invalid_union` wrapper rather than
+the previous direct bound issue.
+
+As checked on 2026-10-29, the maintained SDK stable release is still 2.5.0 and
+3.0.0-beta.3 still depends on Zod 3. Upstream's Zod-4 migration
+([discord/embedded-app-sdk#318](https://github.com/discord/embedded-app-sdk/pull/318),
+authored by `renovate-bot`, head `81e49dfa871e935641d9b9591ed789e837dc89e1`)
+is open, not an available compatible stable fix. This six-branch adapter avoids
+replacing the entire embedded parser and changing the public schema major.
+Remove the patch and its exact-version registration when a published SDK
+passes `test/scripts/discord-sdk-zod.test.ts` without it, including the
+production browser build. Keep the root dependency-advisory disposition
+separate; this patch deliberately does not suppress audit findings.
+
+The patch SHA-256 is
+`016b529034315344702f9c7ac79ce5538b0934cf55381229946597b54343fdfd`.
+
+| Target | Published SHA-256 | Patched SHA-256 |
+| --- | --- | --- |
+| `output/lib/zod/lib/index.mjs` | `3030e5b032805870bb4a8674e36fd916885552832e52c6a0f2465a929ecec231` | `c520fe1f39ce21e24425fdfc49ab7905e23a2be049450eb549649ef87faabe75` |
+| `output/lib/zod/lib/index.cjs` | `feb2389d716ac303c1e7df76df1d7c4c4d7fb35d5aef3456d43718b68cf46aa1` | `a7ad12c2c2f0cf5b5435d7b4232f4c78adc19812ec9c4ddada333518e06cd92a` |

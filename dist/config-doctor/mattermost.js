@@ -1,4 +1,4 @@
-import { a as defineChannelAliasMigration } from "./runtime-doctor-migrations-BhouWAUC.js";
+import { a as defineChannelAliasMigration } from "./runtime-doctor-migrations-Bq3PkBbD.js";
 //#region extensions/mattermost/src/doctor-contract.ts
 const { legacyConfigRules, normalizeChannelConfig: normalizeCompatibilityConfig } = defineChannelAliasMigration({
 	channelId: "mattermost",

@@ -1,4 +1,3 @@
-/** launchctl state parsing, inspection, and bootstrap primitives. */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -45,6 +44,7 @@ import {
 import type { GatewayServiceRuntime } from "./service-runtime.js";
 import type {
   GatewayServiceCommandConfig,
+  GatewayServiceControlArgs,
   GatewayServiceEnv,
   GatewayServiceEnvArgs,
   GatewayServiceReadOptions,
@@ -248,7 +248,7 @@ export async function readLaunchAgentProgramArguments(
     ...resolveLaunchAgentEnvironmentReadOptions(env, label),
     ...options,
   });
-  if (!command && options?.requireEffective) {
+  if (!command && options?.requireEffective && !options.allowMissingDefinition) {
     // A removed plist can leave its job registered; only launchd can prove absence.
     const timeoutMs =
       options.timeoutMs && options.timeoutMs > 0 ? Math.min(options.timeoutMs, 5_000) : 5_000;
@@ -330,6 +330,8 @@ export async function bootstrapLaunchAgentOrThrow(params: {
   preserveAutoStart?: boolean;
   preservedEnabled?: boolean;
   assertCurrent?: () => void;
+  beforeEffect?: () => void;
+  deadline?: GatewayServiceControlArgs["deadline"];
   // Opt-in for callers that just issued `bootout` on this label. Only those can
   // race a pending teardown, so start/install/recovery paths keep failing fast
   // on an unrelated EIO instead of waiting out the teardown deadline.
@@ -340,7 +342,7 @@ export async function bootstrapLaunchAgentOrThrow(params: {
     const label = params.serviceTarget.slice(params.domain.length + 1);
     let enabled = params.preservedEnabled;
     if (enabled === undefined) {
-      const state = await execLaunchctl(["print-disabled", params.domain]);
+      const state = await execLaunchctl(["print-disabled", params.domain], params.deadline);
       if (state.code !== 0) {
         throw new Error(`launchctl print-disabled failed: ${formatLaunchctlResultDetail(state)}`);
       }
@@ -348,7 +350,11 @@ export async function bootstrapLaunchAgentOrThrow(params: {
     }
     params.assertCurrent?.();
     if (!enabled) {
-      const enable = await execLaunchctl(["enable", params.serviceTarget]);
+      const enable = await execLaunchctl(
+        ["enable", params.serviceTarget],
+        params.deadline,
+        params.beforeEffect,
+      );
       if (enable.code !== 0) {
         throw new Error(`launchctl enable failed: ${formatLaunchctlResultDetail(enable)}`);
       }
@@ -363,7 +369,7 @@ export async function bootstrapLaunchAgentOrThrow(params: {
     if (!enabled) {
       try {
         params.assertCurrent?.();
-        const disable = await execLaunchctl(["disable", params.serviceTarget]);
+        const disable = await execLaunchctl(["disable", params.serviceTarget], params.deadline);
         if (disable.code !== 0) {
           throw new Error(
             `LaunchAgent disabled policy could not be restored: ${formatLaunchctlResultDetail(disable)}`,
@@ -392,7 +398,11 @@ export async function bootstrapLaunchAgentOrThrow(params: {
   // paths must clear it before asking launchd to load the job again.
   if (!params.skipEnable) {
     params.assertCurrent?.();
-    const enable = await execLaunchctl(["enable", params.serviceTarget]);
+    const enable = await execLaunchctl(
+      ["enable", params.serviceTarget],
+      params.deadline,
+      params.beforeEffect,
+    );
     if (enable.code === 0) {
       params.onMutation?.("enable");
     }
@@ -400,7 +410,11 @@ export async function bootstrapLaunchAgentOrThrow(params: {
   const teardownDeadline = Date.now() + LAUNCH_AGENT_BOOTSTRAP_TEARDOWN_TIMEOUT_MS;
   for (;;) {
     params.assertCurrent?.();
-    const boot = await execLaunchctl(["bootstrap", params.domain, params.plistPath]);
+    const boot = await execLaunchctl(
+      ["bootstrap", params.domain, params.plistPath],
+      params.deadline,
+      params.beforeEffect,
+    );
     if (boot.code === 0) {
       params.onMutation?.("bootstrap");
       return "bootstrapped";
@@ -417,7 +431,10 @@ export async function bootstrapLaunchAgentOrThrow(params: {
       );
     }
     if (boot.termination === "exit" && isLaunchctlOperationAlreadyInProgress(detail)) {
-      const state = await probeLaunchAgentState(params.serviceTarget);
+      const state = await probeLaunchAgentState(
+        params.serviceTarget,
+        params.deadline?.remainingMs(),
+      );
       if (state.state === "running" || state.state === "stopped") {
         params.onMutation?.("bootstrap");
         return "already-loaded";
@@ -431,7 +448,14 @@ export async function bootstrapLaunchAgentOrThrow(params: {
     ) {
       throw new Error(`launchctl bootstrap failed: ${detail}`, { cause: boot });
     }
-    await sleep(Math.min(LAUNCH_AGENT_BOOTSTRAP_TEARDOWN_POLL_MS, remainingMs));
+    await sleep(
+      Math.min(
+        LAUNCH_AGENT_BOOTSTRAP_TEARDOWN_POLL_MS,
+        remainingMs,
+        params.deadline?.remainingMs() ?? Infinity,
+      ),
+      params.deadline?.signal,
+    );
   }
 }
 type LaunchctlPrintInfo = {

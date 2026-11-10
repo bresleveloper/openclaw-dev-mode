@@ -1,2 +1,0 @@
-import { a as isExpectedGatewayListeners, i as isDualStackLoopbackGatewayListeners, n as classifyPortListener, o as isSameProcessSpecificIpv4WithLoopbackListeners, r as formatPortDiagnostics, t as buildPortHints } from "./ports-format-B_qarAEO.mjs";
-export { buildPortHints, classifyPortListener, formatPortDiagnostics, isDualStackLoopbackGatewayListeners, isExpectedGatewayListeners, isSameProcessSpecificIpv4WithLoopbackListeners };

@@ -1,70 +1,34 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
-import { r as resolveOpenClawPackageRootSync } from "../../openclaw-root-CBoxhfke.mjs";
-import { n as createLazyPromise } from "../../lazy-promise-DGqyc4Y4.mjs";
+import { r as resolveOpenClawPackageRootSync } from "../../openclaw-root-CPodxfi3.mjs";
 import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
-import { w as root } from "../../fs-safe-BUXBSN-4.mjs";
-import { _ as redactSensitiveText } from "../../redact-DJ8j6ADa.mjs";
-import { r as resolveStateDir } from "../../state-dir-BHJORNly.mjs";
-import "../../paths-DGIwWbpu.mjs";
-import { t as PROCESS_NODE_VERSION_CHECK } from "../../node-version-DdJ6cN09.mjs";
+import { r as resolveStateDir } from "../../state-dir-C8s3cOPX.mjs";
+import "../../paths-orClZ-2Z.mjs";
 import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-DR7bHNl9.mjs";
-import { t as VERSION } from "../../version-BJGPJZu6.mjs";
-import { i as runCommandWithTimeout } from "../../exec-DJvyCA0D.mjs";
+import { t as VERSION } from "../../version-jg_14gWz.mjs";
+import { i as SUPPORTED_NODE_VERSION_RANGE, n as PROCESS_NODE_VERSION_CHECK } from "../../node-version-BfT-yCVT.mjs";
+import { t as FsSafeError, w as root } from "../../fs-safe-6Z4UiMS4.mjs";
+import { n as createLazyPromise } from "../../lazy-promise-DGqyc4Y4.mjs";
+import { t as _usingCtx } from "../../usingCtx-BhiZp_rS.mjs";
 import { t as resolveNpmJsonEntries } from "../../npm-json-output-Z3qrSjbB.mjs";
-import { r as isExactSemverVersion } from "../../npm-registry-spec-Dw2vyAJw.mjs";
-import { c as sha256File } from "../../directory-durability-CqSvP1tc.mjs";
-import { t as _usingCtx } from "../../usingCtx-DwOBYOJf.mjs";
-import { pc as validateWorkerAdmissionHandshake } from "../../src-l2dWvEsN.mjs";
-import "../../worker-admission-CNeLWzVQ.mjs";
-import { i as WORKER_BUNDLE_MANIFEST_VERSION, n as WORKER_BUNDLE_CHUNK_PATH_PATTERN, o as compareWorkerBundlePaths, s as hashWorkerBundleManifest, t as WORKER_BUNDLE_ARTIFACT_PATHS } from "../../worker-bundle-hash-drgRPFuP.mjs";
-import { t as DEFAULT_WORKER_BUNDLE_ARCHIVE_LIMITS } from "../../worker-bundle-limits-CF239rpc.mjs";
-import { n as readWorkerBundleArchiveManifest } from "../../worker-bundle-archive-wzW8sYwP.mjs";
-import { t as resolveSecretRefString } from "../../resolve-DDYPuZjk.mjs";
-import { r as normalizeScpRemotePath } from "../../scp-host-DbBwyscY.mjs";
-import { a as workerSshOptions, i as workerSshCommandOptions, o as workerSshRemoteCommand, r as runWorkerSshCandidates, t as prepareWorkerSsh } from "../../ssh-C8PSYwfX.mjs";
+import { r as isExactSemverVersion } from "../../npm-registry-spec-B_IER0ZB.mjs";
+import { Nc as validateWorkerAdmissionHandshake } from "../../src-pLJQA6J5.mjs";
+import { c as sha256File } from "../../directory-durability-B2RKADOj.mjs";
+import "../../worker-admission-DKoRQV__.mjs";
+import { t as runTasksWithConcurrency } from "../../run-with-concurrency-Dtu208ef.mjs";
+import { i as runCommandWithTimeout } from "../../exec-Bf6uhUA7.mjs";
 import { i as bundleTransferTimeoutMs } from "../../bootstrap-timeouts-CDaMuZ4A.mjs";
+import { t as DEFAULT_WORKER_BUNDLE_ARCHIVE_LIMITS } from "../../worker-bundle-limits-CF239rpc.mjs";
+import { i as WORKER_BUNDLE_MANIFEST_VERSION, n as WORKER_BUNDLE_CHUNK_PATH_PATTERN, o as compareWorkerBundlePaths, s as hashWorkerBundleManifest, t as WORKER_BUNDLE_ARTIFACT_PATHS } from "../../worker-bundle-hash-BynEVGqT.mjs";
+import { r as normalizeScpRemotePath } from "../../scp-host-DoRal-Os.mjs";
+import { a as workerSshCommandOptions, r as runWorkerSshCandidates, s as workerSshOptions, t as prepareWorkerSsh } from "../../ssh-BYwhpB2R.mjs";
+import { t as resolveSecretRefString } from "../../resolve-D1-YVpS6.mjs";
+import { n as readWorkerBundleArchiveManifest } from "../../worker-bundle-archive-CrciIVDQ.mjs";
+import { i as runSshScript, n as isSuccess, r as matchesCommandFailure, t as commandFailure } from "../../bootstrap-command-BybE-3lE.mjs";
 import { createReadStream } from "node:fs";
-import path from "node:path";
-import fs$1 from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
+import fs$1 from "node:fs/promises";
+import path from "node:path";
 import * as tar from "tar";
-//#region src/gateway/worker-environments/bootstrap-command.ts
-function commandFailure(phase, result) {
-	const output = truncateUtf16Safe(redactSensitiveText(result.stderr.trim() || result.stdout.trim(), { mode: "tools" }).replace(/\s+/gu, " "), 512);
-	const status = result.termination === "exit" ? `exit ${result.code ?? "unknown"}` : result.termination;
-	return /* @__PURE__ */ new Error(`Worker bootstrap ${phase} failed (${status})${output ? `: ${output}` : ""}`);
-}
-function isSuccess(result) {
-	return result.termination === "exit" && result.code === 0;
-}
-function matchesCommandFailure(result, code, marker) {
-	return result.code === code || result.stderr.includes(marker) || result.stdout.includes(marker);
-}
-async function runSshScript(params) {
-	return await params.runCommand([
-		"ssh",
-		...workerSshOptions(params.prepared, { forwarding: "disabled" }),
-		"-a",
-		"-x",
-		"-T",
-		"-p",
-		String(params.port ?? params.prepared.port),
-		"--",
-		params.prepared.sshTarget,
-		workerSshRemoteCommand([
-			"sh",
-			"-s",
-			"--",
-			...params.scriptArgs
-		])
-	], workerSshCommandOptions({
-		input: params.script,
-		timeoutMs: params.timeoutMs,
-		signal: params.signal
-	}));
-}
-//#endregion
 //#region src/gateway/worker-environments/bootstrap.ts
 const BOOTSTRAP_ROOT = ".openclaw-worker";
 const BOOTSTRAP_RECEIPT = "bootstrap-receipt.json";
@@ -80,13 +44,19 @@ const BOOTSTRAP_OUTPUT_TAG = "OPENCLAW_WORKER_BOOTSTRAP_V1";
 const BUNDLE_HASH_PATTERN = /^[a-f0-9]{64}$/u;
 const NPM_INTEGRITY_PATTERN = /^sha512-[A-Za-z0-9+/]{86}==$/u;
 const NODE_RUNTIME_CHECK_JS = String.raw`const parse = (value) => /^(\d+)\.(\d+)\.(\d+)$/.exec(value)?.slice(1).map(Number); const atLeast = (version, floor) => version[0] > floor[0] || (version[0] === floor[0] && (version[1] > floor[1] || (version[1] === floor[1] && version[2] >= floor[2])));
-const nodeSafe = ${PROCESS_NODE_VERSION_CHECK};
-if (!nodeSafe) process.exit(1);
-try { const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(":memory:");
-  const sqlite = parse(String(db.prepare("SELECT sqlite_version() AS version").get()?.version ?? ""));
-  db.close(); if (!sqlite) process.exit(1);
-  const sqliteSafe = atLeast(sqlite, [3, 51, 3]) || (sqlite[0] === 3 && ((sqlite[1] === 50 && sqlite[2] >= 7) || (sqlite[1] === 44 && sqlite[2] >= 6)));
-  process.exit(sqliteSafe ? 0 : 1); } catch { process.exit(1); }`;
+function checkRuntime() {
+  const nodeSafe = ${PROCESS_NODE_VERSION_CHECK};
+  if (!nodeSafe) return 1;
+  const { DatabaseSync } = require("node:sqlite");
+  const db = new DatabaseSync(":memory:");
+  try {
+    const sqlite = parse(String(db.prepare("SELECT sqlite_version() AS version").get()?.version ?? ""));
+    if (!sqlite) return 1;
+    const sqliteSafe = atLeast(sqlite, [3, 51, 3]) || (sqlite[0] === 3 && ((sqlite[1] === 50 && sqlite[2] >= 7) || (sqlite[1] === 44 && sqlite[2] >= 6)));
+    return sqliteSafe ? 0 : 1;
+  } finally { db.close(); }
+}
+try { process.exitCode = checkRuntime(); } catch { process.exitCode = 1; }`;
 const RECEIPT_MATCH_JS = String.raw`const fs = require("node:fs");
 try {
   const actual = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
@@ -98,25 +68,24 @@ try {
     Array.isArray(expected.protocolFeatures) &&
     actual.protocolFeatures.length === expected.protocolFeatures.length &&
     actual.protocolFeatures.every((feature, index) => feature === expected.protocolFeatures[index]);
-  process.exit(
+  process.exitCode =
     shapeMatches &&
       actual.bundleHash === expected.bundleHash &&
       actual.openclawVersion === expected.openclawVersion &&
       featuresMatch
       ? 0
-      : 1,
-  );
+      : 1;
 } catch {
-  process.exit(1);
+  process.exitCode = 1;
 }`;
 const VERIFY_ARCHIVE_JS = String.raw`const crypto = require("node:crypto");
 const fs = require("node:fs");
 try {
   const npm = process.argv[3] === "npm";
   const actual = (npm ? "sha512-" : "") + crypto.createHash(npm ? "sha512" : "sha256").update(fs.readFileSync(process.argv[1])).digest(npm ? "base64" : "hex");
-  process.exit(actual === process.argv[2] ? 0 : 1);
+  process.exitCode = actual === process.argv[2] ? 0 : 1;
 } catch {
-  process.exit(1);
+  process.exitCode = 1;
 }`;
 const READ_NPM_PACK_FILENAME_JS = String.raw`const fs = require("node:fs");
 const path = require("node:path");
@@ -124,11 +93,11 @@ try {
   const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
   const filename = Array.isArray(value) && value.length === 1 ? value[0]?.filename : undefined;
   if (typeof filename !== "string" || !filename || path.basename(filename) !== filename) {
-    process.exit(1);
+    throw new Error("invalid npm pack filename");
   }
   process.stdout.write(filename);
 } catch {
-  process.exit(1);
+  process.exitCode = 1;
 }`;
 const WORKER_ARTIFACT_PATHS_JS = `const artifactPaths = ${JSON.stringify(WORKER_BUNDLE_ARTIFACT_PATHS)};
 const chunkPathPattern = ${WORKER_BUNDLE_CHUNK_PATH_PATTERN.toString()};`;
@@ -193,10 +162,10 @@ try {
   for (const entry of entries) {
     hash.update(entry.path + separator + entry.mode.toString(8) + separator + entry.size + separator + entry.sha256 + separator);
   }
-  process.exit(hash.digest("hex") === expected ? 0 : 1);
+  process.exitCode = hash.digest("hex") === expected ? 0 : 1;
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
+  process.exitCode = 1;
 }`;
 const ENSURE_PRIVATE_DIRECTORY_SH = String.raw`ensure_private_directory() {
   directory=$1
@@ -535,7 +504,7 @@ function parseTaggedOutput(stdout) {
 }
 function parsePreflight(result, expected, expectedUploadFilename) {
 	if (matchesCommandFailure(result, NODE_MISSING_EXIT_CODE, NODE_MISSING_MARKER)) throw new Error("Worker bootstrap requires Node.js on the leased host; install Node in the provider setup phase and retry");
-	if (matchesCommandFailure(result, NODE_UNSUPPORTED_EXIT_CODE, NODE_UNSUPPORTED_MARKER)) throw new Error("Worker bootstrap requires Node 24.16.0+ or 26.1.0+ with WAL-reset-safe SQLite on the leased host; install a supported Node runtime in the provider setup phase and retry");
+	if (matchesCommandFailure(result, NODE_UNSUPPORTED_EXIT_CODE, NODE_UNSUPPORTED_MARKER)) throw new Error(`Worker bootstrap requires Node ${SUPPORTED_NODE_VERSION_RANGE.replace(" || ", ", or ")} with WAL-reset-safe SQLite on the leased host; install a supported Node runtime in the provider setup phase and retry`);
 	if (!isSuccess(result)) throw commandFailure("preflight", result);
 	const output = parseTaggedOutput(result.stdout);
 	if (output?.action === "current") return {
@@ -650,58 +619,44 @@ async function bootstrapWorker(request, dependencies) {
 }
 //#endregion
 //#region src/gateway/worker-environments/bundle-staging.ts
+const WORKER_BUNDLE_STAGING_CONCURRENCY = 16;
 async function stageWorkerDeployArtifact(params) {
 	const relativeSourcePath = `dist/worker/${params.artifactPath}`;
-	const sourcePath = path.join(params.sourceRoot, relativeSourcePath);
-	let expectedRealPath;
-	try {
-		expectedRealPath = await fs$1.realpath(sourcePath);
-	} catch (error) {
+	const { buffer } = await params.source.read(relativeSourcePath, {
+		symlinks: "reject",
+		hardlinks: "allow"
+	}).catch((error) => {
+		if (error instanceof FsSafeError && error.category === "policy") throw new Error(`Unsafe worker deploy artifact: ${relativeSourcePath}`, { cause: error });
 		throw new Error(`OpenClaw worker deploy artifact is missing; build the running package at ${params.sourceRoot}`, { cause: error });
-	}
-	const expectedPath = path.resolve(params.sourceRoot, relativeSourcePath);
-	if (expectedRealPath !== expectedPath) throw new Error(`Unsafe worker deploy artifact: ${relativeSourcePath}`);
-	const initialStats = await fs$1.lstat(sourcePath);
-	if (initialStats.isSymbolicLink() || !initialStats.isFile()) throw new Error(`Unsafe worker deploy artifact: ${relativeSourcePath}`);
-	await params.staging.copyIn(params.artifactPath, {
-		root: params.source,
-		relativePath: sourcePath
-	}, {
-		overwrite: false,
-		sourceHardlinks: "allow",
-		mode: 448,
-		maxBytes: Infinity,
-		durable: false,
-		clone: "never"
 	});
-	const opened = await params.staging.open(params.artifactPath);
-	try {
-		const { bytes, digest } = await sha256File(opened.handle, { maxBytes: opened.stat.size });
-		if (bytes !== opened.stat.size) throw new Error(`Worker deploy artifact changed while packaging: ${relativeSourcePath}`);
-		return {
-			path: params.artifactPath,
-			mode: 448,
-			size: bytes,
-			sha256: digest
-		};
-	} finally {
-		await opened.handle.close();
-	}
+	await fs$1.writeFile(path.join(params.stagingRoot, params.artifactPath), buffer, {
+		flag: "wx",
+		mode: 448
+	});
+	return {
+		path: params.artifactPath,
+		mode: 448,
+		size: buffer.byteLength,
+		sha256: createHash("sha256").update(buffer).digest("hex")
+	};
 }
 async function collectWorkerBundleManifest(sourceRoot, stagingRoot) {
 	const [source, artifacts] = await Promise.all([root(sourceRoot, { maxBytes: Infinity }), fs$1.readdir(path.join(sourceRoot, "dist/worker"))]).catch((error) => {
 		throw new Error(`OpenClaw worker deploy artifact is missing; build the running package at ${sourceRoot}`, { cause: error });
 	});
-	const staging = await root(stagingRoot, { maxBytes: Infinity });
-	const manifest = [];
 	const chunks = artifacts.filter((name) => WORKER_BUNDLE_CHUNK_PATH_PATTERN.test(name));
-	for (const artifactPath of [...WORKER_BUNDLE_ARTIFACT_PATHS, ...chunks]) manifest.push(await stageWorkerDeployArtifact({
-		sourceRoot,
-		source,
-		staging,
-		artifactPath
-	}));
-	return manifest.toSorted((left, right) => compareWorkerBundlePaths(left.path, right.path));
+	const { results, hasError, firstError } = await runTasksWithConcurrency({
+		tasks: [...WORKER_BUNDLE_ARTIFACT_PATHS, ...chunks].map((artifactPath) => () => stageWorkerDeployArtifact({
+			sourceRoot,
+			source,
+			stagingRoot,
+			artifactPath
+		})),
+		limit: WORKER_BUNDLE_STAGING_CONCURRENCY,
+		errorMode: "stop"
+	});
+	if (hasError) throw firstError;
+	return results.toSorted((left, right) => compareWorkerBundlePaths(left.path, right.path));
 }
 //#endregion
 //#region src/gateway/worker-environments/bundle.ts
@@ -750,7 +705,7 @@ function parseNpmPackageIdentity(value) {
 }
 async function runNpmProofCommand(params) {
 	try {
-		const result = await params.runCommand(params.argv, {
+		const result = await runCommandWithTimeout(params.argv, {
 			cwd: params.cwd,
 			timeoutMs: NPM_RELEASE_PROOF_TIMEOUT_MS,
 			env: {
@@ -770,7 +725,6 @@ async function hashNpmTarballIntegrity(tarballPath) {
 	return `sha512-${hash.digest("base64")}`;
 }
 async function verifyPublishedNpmRelease(params) {
-	const runCommand = params.runCommand ?? runCommandWithTimeout;
 	const temporaryRoot = await fs$1.mkdtemp(path.join(resolvePreferredOpenClawTmpDir(), "openclaw-worker-npm-proof-"));
 	try {
 		const published = parseNpmPackageIdentity(resolveNpmJsonEntries(await runNpmProofCommand({
@@ -785,8 +739,7 @@ async function verifyPublishedNpmRelease(params) {
 				`--registry=${OPENCLAW_NPM_REGISTRY}`
 			],
 			cwd: temporaryRoot,
-			failureMessage: `OpenClaw ${params.version} is not published; use the worker bundle install`,
-			runCommand
+			failureMessage: `OpenClaw ${params.version} is not published; use the worker bundle install`
 		}))[0]);
 		if (published?.name !== "openclaw" || published.version !== params.version || !NPM_SHA512_INTEGRITY_PATTERN.test(published.integrity)) throw new Error(`Cannot verify exact public npm release openclaw@${params.version}; use the worker bundle install`);
 		const packedValue = await runNpmProofCommand({
@@ -801,8 +754,7 @@ async function verifyPublishedNpmRelease(params) {
 				`--registry=${OPENCLAW_NPM_REGISTRY}`
 			],
 			cwd: temporaryRoot,
-			failureMessage: "Unable to verify the installed OpenClaw package; use the worker bundle install",
-			runCommand
+			failureMessage: "Unable to verify the installed OpenClaw package; use the worker bundle install"
 		});
 		const packed = parseNpmPackageIdentity(resolveNpmJsonEntries(packedValue)[0]);
 		if (!packed?.filename || path.basename(packed.filename) !== packed.filename) throw new Error("npm pack returned incomplete worker package metadata");
@@ -894,24 +846,22 @@ async function pruneWorkerBundleCache(params) {
 		if (error.code !== "ENOENT") params.onError?.(error);
 		return;
 	}
-	if (!entries.some((entry) => {
-		const bundleHash = BUNDLE_TARBALL_NAME_PATTERN.exec(entry.name)?.[1];
-		return bundleHash !== void 0 && bundleHash !== params.currentBundleHash || BUNDLE_STAGING_NAME_PATTERN.test(entry.name) || BUNDLE_TEMP_NAME_PATTERN.test(entry.name);
-	})) return;
-	const retained = new Set([params.currentBundleHash, ...params.readRetainedBundleHashes()].filter((hash) => /^[a-f0-9]{64}$/u.test(hash)));
-	for (const entry of entries.toSorted((left, right) => compareWorkerBundlePaths(left.name, right.name))) {
-		const tarball = BUNDLE_TARBALL_NAME_PATTERN.exec(entry.name);
-		const removableTarball = tarball && !retained.has(tarball[1]);
-		const removableStaging = BUNDLE_STAGING_NAME_PATTERN.test(entry.name);
-		const removableTemp = BUNDLE_TEMP_NAME_PATTERN.test(entry.name);
-		if (!removableTarball && !removableStaging && !removableTemp) continue;
+	const candidates = entries.map(({ name }) => ({
+		name,
+		bundleHash: BUNDLE_TARBALL_NAME_PATTERN.exec(name)?.[1],
+		staging: BUNDLE_STAGING_NAME_PATTERN.test(name)
+	})).filter(({ name, bundleHash, staging }) => bundleHash !== void 0 && bundleHash !== params.currentBundleHash || staging || BUNDLE_TEMP_NAME_PATTERN.test(name));
+	if (candidates.length === 0) return;
+	const retained = new Set([params.currentBundleHash, ...await params.readRetainedBundleHashes()].filter((hash) => /^[a-f0-9]{64}$/u.test(hash)));
+	for (const entry of candidates.toSorted((left, right) => compareWorkerBundlePaths(left.name, right.name))) {
+		if (entry.bundleHash !== void 0 && retained.has(entry.bundleHash)) continue;
 		const target = path.join(params.cacheDir, entry.name);
 		try {
 			const stats = await fs$1.lstat(target);
 			if (stats.isSymbolicLink()) continue;
-			if (removableStaging ? !stats.isDirectory() : !stats.isFile()) continue;
+			if (entry.staging ? !stats.isDirectory() : !stats.isFile()) continue;
 			await fs$1.rm(target, {
-				recursive: removableStaging,
+				recursive: entry.staging,
 				force: true
 			});
 		} catch (error) {

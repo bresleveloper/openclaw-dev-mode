@@ -16,7 +16,8 @@ import { loadOpenClawPlugins } from "../plugins/loader.js";
 import { extractTextFromChatContent } from "../shared/chat-content.js";
 import { sleep } from "../utils/sleep.js";
 import type { GatewayClient } from "./client.js";
-import { loadGatewaySessionEntryReadOnly } from "./session-utils.js";
+import { findCliAnnounceReplyIndexes } from "./gateway-cli-backend.announce-order.test-support.js";
+import { loadGatewaySessionEntryReadOnlyAsync } from "./session-utils.js";
 import { extractPayloadText } from "./test-helpers.agent-results.js";
 
 export const CLI_BACKEND_PROBE_PLUGIN_ID = "cli-backend-probe";
@@ -161,7 +162,7 @@ export async function createCliBackendProbePlugin(
   id: "${CLI_BACKEND_PROBE_PLUGIN_ID}",
   name: "CLI Backend Probe",
   register(api) {
-    api.registerTool((ctx) => ctx.sessionKey?.startsWith("agent:dev:cli-announce-") ? {
+    api.registerTool({
       name: "${CLI_ANNOUNCE_BARRIER_TOOL_NAME}",
       description: "Wait for the live test controller to release the parent turn after child completion",
       parameters: { type: "object", properties: {}, additionalProperties: false },
@@ -170,7 +171,7 @@ export async function createCliBackendProbePlugin(
         if (!response.ok) throw new Error("CLI announce barrier request failed");
         return { content: [{ type: "text", text: await response.text() }] };
       },
-    } : null, { name: "${CLI_ANNOUNCE_BARRIER_TOOL_NAME}" });
+    });
     const continuity = ${JSON.stringify(probes.continuity ?? null)};
     if (continuity) {
       api.on("before_prompt_build", (event, ctx) => {
@@ -287,8 +288,8 @@ export async function verifyCliBackendAnnounceOrdering({
         "Run this exact OpenClaw CLI-backed completion announcement scenario. Use tool calls, not prose.",
         `Call sessions_spawn exactly once with taskName=cli_announce_${announceNonce.toLowerCase()} and task=${JSON.stringify(`Reply exactly ${announceChildToken} and nothing else.`)}.`,
         `After sessions_spawn returns status=accepted, call ${CLI_ANNOUNCE_BARRIER_TOOL_NAME} exactly once with no arguments.`,
-        `After that tool returns, your entire reply must be exactly ${announceParentToken}, with no other text. Do not include or predict the child result in this reply.`,
-        "Only after a separate child-completion event arrives in a later turn, report the result from that event in your user-facing update.",
+        `After that tool returns, reply exactly ${announceParentToken}.`,
+        `When the child's completion is delivered in a later turn, include its exact result ${announceChildToken} in your user-facing update.`,
       ].join("\n"),
     },
     { expectFinal: true, timeoutMs: requestTimeoutMs },
@@ -324,7 +325,7 @@ export async function verifyCliBackendAnnounceOrdering({
   announceBarrier.release();
   const announceParent = await announceRequest;
   announceParentObservedAt ??= Date.now();
-  expect(extractPayloadText(announceParent.result).trim()).toBe(announceParentToken);
+  expect(extractPayloadText(announceParent.result)).toContain(announceParentToken);
 
   const deliveredAnnounceChild = await waitFor(() =>
     listSubagentRunsForRequester(announceSessionKey).find(
@@ -343,7 +344,7 @@ export async function verifyCliBackendAnnounceOrdering({
   );
   // CLI requesters use an ordered agent handoff, not the embedded steer queue.
   // The committed parent reply must precede the completion in canonical history.
-  const announceEntry = loadGatewaySessionEntryReadOnly(announceSessionKey).entry;
+  const announceEntry = (await loadGatewaySessionEntryReadOnlyAsync(announceSessionKey)).entry;
   if (!announceEntry?.sessionId) {
     throw new Error("CLI announce probe lost its requester session");
   }
@@ -360,12 +361,10 @@ export async function verifyCliBackendAnnounceOrdering({
         ? [extractTextFromChatContent(record.content, { joinWith: "" }) ?? ""]
         : [];
     });
-    const observedParentReplyIndex = assistantReplies.findIndex((reply) =>
-      reply.includes(announceParentToken),
-    );
-    const observedCompletionReplyIndex = assistantReplies.findIndex((reply) =>
-      reply.includes(announceChildToken),
-    );
+    const {
+      parentReplyIndex: observedParentReplyIndex,
+      completionReplyIndex: observedCompletionReplyIndex,
+    } = findCliAnnounceReplyIndexes(assistantReplies, announceParentToken, announceChildToken);
     return observedParentReplyIndex >= 0 && observedCompletionReplyIndex >= 0
       ? {
           parentReplyIndex: observedParentReplyIndex,

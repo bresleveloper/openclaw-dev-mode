@@ -1,10 +1,9 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { n as RuntimeEnv } from "../runtime-DlqUc5_p.js";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { R as DiagnosticMemoryUsage, a as DiagnosticLivenessWarningReason, c as DiagnosticSessionState, r as DiagnosticEventPayload, s as DiagnosticSessionActiveWorkKind } from "../diagnostic-events-CMrJXSRl.js";
+import { n as RuntimeEnv } from "../runtime-M_jncu14.js";
 import { n as createSubsystemLogger } from "../subsystem-RmDRaRJV.js";
-import { a as DiagnosticLivenessWarningReason, c as DiagnosticSessionState, r as DiagnosticEventPayload, s as DiagnosticSessionActiveWorkKind, x as DiagnosticMemoryUsage } from "../diagnostic-events-BAgdO5A_.js";
-import { n as GatewayScheduler } from "../diagnostic-run-activity-DVihHbMm.js";
-import { n as redactSensitiveText, r as redactToolPayloadText, t as redactSensitiveFieldValue } from "../redact-yd_kvHoh.js";
-import { n as getChildLogger, o as LoggerSettings, t as LoggerResolvedSettings } from "../logger-BA_EE7GE.js";
+import { a as GatewayScheduler, n as redactSensitiveText, r as redactToolPayloadText, t as redactSensitiveFieldValue } from "../diagnostic-run-activity-hzzl6lha.js";
+import { n as getChildLogger, o as LoggerSettings, t as LoggerResolvedSettings } from "../logger-B5J5_m3z.js";
 //#region src/logging/diagnostic-liveness.d.ts
 type DiagnosticLivenessSample = {
   reasons: DiagnosticLivenessWarningReason[];
@@ -25,9 +24,6 @@ type DiagnosticMemoryThresholds = {
   rssCriticalBytes?: number;
   heapUsedWarningBytes?: number;
   heapUsedCriticalBytes?: number;
-  rssGrowthWarningBytes?: number;
-  rssGrowthCriticalBytes?: number;
-  growthWindowMs?: number;
   pressureRepeatMs?: number;
 };
 declare function emitDiagnosticMemorySample(options?: {
@@ -42,6 +38,11 @@ declare function emitDiagnosticMemorySample(options?: {
   emitSample?: boolean;
 }): DiagnosticMemoryUsage;
 type EmitDiagnosticMemorySample = (options?: NonNullable<Parameters<typeof emitDiagnosticMemorySample>[0]> & {
+  thresholds?: DiagnosticMemoryThresholds & {
+    rssGrowthWarningBytes?: number;
+    rssGrowthCriticalBytes?: number;
+    growthWindowMs?: number;
+  };
   writeCriticalBundle?: boolean;
   stateDir?: string;
   sessionStorePaths?: string[];
@@ -49,7 +50,7 @@ type EmitDiagnosticMemorySample = (options?: NonNullable<Parameters<typeof emitD
 }) => ReturnType<typeof emitDiagnosticMemorySample>;
 //#endregion
 //#region src/logging/diagnostic-session-recovery.d.ts
-type DiagnosticSessionRecoverySkipReason = "active_embedded_run" | "active_reply_work" | "human_input_wait" | "runtime_owned_wait" | "deferred_maintenance_wait" | "terminal_outcome_committed" | "global_lane_wait" | "active_lane_task" | "already_in_flight" | "missing_session_ref" | "stale_session_state";
+type DiagnosticSessionRecoverySkipReason = "active_embedded_run" | "model_attempt_recovery" | "active_reply_work" | "human_input_wait" | "runtime_owned_wait" | "deferred_maintenance_wait" | "terminal_outcome_committed" | "global_lane_wait" | "active_lane_task" | "already_in_flight" | "missing_session_ref" | "stale_session_state";
 type StuckSessionRecoveryRequest = {
   sessionId?: string;
   sessionKey?: string;

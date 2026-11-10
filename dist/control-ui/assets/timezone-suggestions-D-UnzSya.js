@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Ea as t,Sa as n,ja as r}from"./ui-CFzBFVbW.js";function i(e,n=Intl.DateTimeFormat().resolvedOptions().timeZone,i=Intl.supportedValuesOf(`timeZone`)){return r([n,`UTC`,...e,...t(i)])}function a(){return(a=e((()=>{n()})))()}export{i as n,a as t};
+//# sourceMappingURL=timezone-suggestions-D-UnzSya.js.map

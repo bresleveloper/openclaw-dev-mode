@@ -264,11 +264,6 @@ export async function settleInboundWork() {
 type InboundWorkTracker = { pending: number };
 const inboundWorkTrackers = new Set<InboundWorkTracker>();
 let inboundIdle: { promise: Promise<void>; release: () => void } | undefined;
-type CallbackInvocationTracker = {
-  count: number;
-  waiters: Array<{ target: number; release: () => void }>;
-};
-let callbackInvocationTrackers = new WeakMap<InboxOnMessage, CallbackInvocationTracker>();
 
 function hasPendingInboundWork(): boolean {
   for (const tracker of inboundWorkTrackers) {
@@ -321,16 +316,13 @@ export function resetWebInboundDedupeForTests() {
 }
 
 export async function waitForMessageCalls(onMessage: ReturnType<typeof vi.fn>, count: number) {
-  const tracker = callbackInvocationTrackers.get(onMessage as InboxOnMessage);
-  if (!tracker) {
-    throw new Error("waitForMessageCalls requires a callback passed to startInboxMonitor");
-  }
-  if (tracker.count < count) {
-    await new Promise<void>((release) => {
-      tracker.waiters.push({ target: count, release });
-    });
-  }
-  expect(onMessage).toHaveBeenCalledTimes(count);
+  await vi.waitFor(
+    () => {
+      expect(onMessage).toHaveBeenCalledTimes(count);
+    },
+    // Channel-suite workers can be saturated under no-isolate CI runs.
+    { timeout: 5_000, interval: 5 },
+  );
 }
 
 export async function startInboxMonitor(
@@ -348,28 +340,11 @@ export async function startInboxMonitor(
     authDir: getAuthDir(),
     ...extraOptions,
   };
-  const callerOnMessage = merged.onMessage;
-  const callbackTracker: CallbackInvocationTracker = { count: 0, waiters: [] };
-  callbackInvocationTrackers.set(callerOnMessage, callbackTracker);
   const tracker: InboundWorkTracker = { pending: 0 };
   inboundWorkTrackers.add(tracker);
   const callerOnPendingWorkChanged = merged.onPendingWorkChanged;
   const listener = await monitorWebInbox({
     ...merged,
-    onMessage: ((...args: Parameters<InboxOnMessage>) => {
-      const result = callerOnMessage(...args);
-      callbackTracker.count += 1;
-      const ready = callbackTracker.waiters.filter(
-        (waiter) => callbackTracker.count >= waiter.target,
-      );
-      callbackTracker.waiters = callbackTracker.waiters.filter(
-        (waiter) => callbackTracker.count < waiter.target,
-      );
-      for (const waiter of ready) {
-        waiter.release();
-      }
-      return result;
-    }) as InboxOnMessage,
     onPendingWorkChanged: (pendingWorkCount: number, at?: number) => {
       publishInboundPendingWork(tracker, pendingWorkCount);
       callerOnPendingWorkChanged?.(pendingWorkCount, at);
@@ -436,7 +411,6 @@ export function installWebMonitorInboxUnitTestHooks() {
     vi.clearAllMocks();
     inboundWorkTrackers.clear();
     inboundIdle = undefined;
-    callbackInvocationTrackers = new WeakMap();
     channelActivityMocks.recordChannelActivity.mockClear();
     pluginRuntimeMocks.reset();
     setWhatsAppRuntime({
@@ -444,6 +418,7 @@ export function installWebMonitorInboxUnitTestHooks() {
       state: {
         resolveStateDir: pluginRuntimeMocks.stateDir,
         openKeyedStore: pluginRuntimeMocks.openKeyedStore,
+        openKeyedStoreV2: pluginRuntimeMocks.openKeyedStore,
         openChannelIngressQueue: (
           options?: Omit<Parameters<typeof createChannelIngressQueueForTests>[0], "channelId">,
         ) => createChannelIngressQueueForTests({ ...options, channelId: "whatsapp" }),

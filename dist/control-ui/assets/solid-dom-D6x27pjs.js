@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Ko as t,Zo as n,fs as r}from"./ui-CFzBFVbW.js";function i(e){let n;return t(e,e=>{n&&n.value!==e&&(n.value=e)}),t=>{n=t;let i=r(e);t.value!==i&&(t.value=i)}}function a(e){let n;return t(e,e=>{n&&(n.innerHTML=e)}),t=>{n=t,t.innerHTML=r(e)}}function o(){return(o=e((()=>{n()})))()}export{i as n,a as r,o as t};
+//# sourceMappingURL=solid-dom-D6x27pjs.js.map

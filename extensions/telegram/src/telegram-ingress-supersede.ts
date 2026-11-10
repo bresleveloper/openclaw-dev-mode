@@ -7,12 +7,23 @@ import {
   normalizeCommandBody,
 } from "openclaw/plugin-sdk/command-auth-native";
 import { isAbortRequestText } from "openclaw/plugin-sdk/command-primitives-runtime";
+import { asOptionalObjectRecord, readStringField } from "openclaw/plugin-sdk/string-coerce-runtime";
 import type { TelegramSpooledUpdatePayload } from "./telegram-ingress-spool.payload.js";
 import {
   isTelegramAmbientSpooledUpdate,
   isTelegramSpooledUpdateSenderAuthorized,
   type TelegramSupersedeAuthContext,
 } from "./telegram-ingress-supersede-auth.js";
+
+function* telegramUpdateMessages(update: unknown) {
+  const root = asOptionalObjectRecord(update);
+  for (const key of ["message", "edited_message", "channel_post", "edited_channel_post"] as const) {
+    const message = asOptionalObjectRecord(root?.[key]);
+    if (message) {
+      yield message;
+    }
+  }
+}
 
 function isTelegramSessionResetCommand(rawText: string, botUsername?: string): boolean {
   const alias = maybeResolveTextAlias(
@@ -22,31 +33,14 @@ function isTelegramSessionResetCommand(rawText: string, botUsername?: string): b
 }
 
 function extractUpdateText(update: unknown): string {
-  if (!update || typeof update !== "object") {
-    return "";
-  }
-  const root = update as Record<string, unknown>;
-  for (const key of ["message", "edited_message", "channel_post", "edited_channel_post"] as const) {
-    const msg = root[key];
-    if (msg && typeof msg === "object") {
-      const text = (msg as { text?: unknown; caption?: unknown }).text;
-      if (typeof text === "string") {
-        return text;
-      }
-      const caption = (msg as { caption?: unknown }).caption;
-      if (typeof caption === "string") {
-        return caption;
-      }
+  const root = asOptionalObjectRecord(update);
+  for (const msg of telegramUpdateMessages(root)) {
+    const text = readStringField(msg, "text") ?? readStringField(msg, "caption");
+    if (text !== undefined) {
+      return text;
     }
   }
-  const callback = root.callback_query;
-  if (callback && typeof callback === "object") {
-    const data = (callback as { data?: unknown }).data;
-    if (typeof data === "string") {
-      return data;
-    }
-  }
-  return "";
+  return readStringField(asOptionalObjectRecord(root?.callback_query), "data") ?? "";
 }
 
 /**

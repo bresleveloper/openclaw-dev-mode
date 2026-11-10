@@ -1,5 +1,6 @@
 import { createDeferredCore } from "../shared/deferred.js";
 import { runQueuedStoreWrite, type StoreWriterQueue } from "../shared/store-writer-queue.js";
+import { runWithSqliteDatabaseAdmissionTurn } from "./sqlite-database-admission-turn.js";
 import type {
   SqliteWorkerInputPreparation,
   SqliteWorkerInputRetention,
@@ -9,9 +10,9 @@ import { SqliteWorkerError } from "./sqlite-worker-contract.js";
 /** Retained inputs share the broker budget before they become queued jobs. */
 export class SqliteWorkerInputAdmission {
   private bytes = 0;
-  private inputPreparationGeneration = {};
   private readonly inputPreparations = new Set<Promise<void>>();
   private readonly openQueue = new Map<string, StoreWriterQueue>();
+  private readonly opens = new Set<Promise<unknown>>();
 
   constructor(
     private readonly owner: {
@@ -38,7 +39,12 @@ export class SqliteWorkerInputAdmission {
     };
   }
 
-  open<T>(bytes: number, dispatch: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  open<T>(
+    bytes: number,
+    databasePath: string,
+    dispatch: () => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T> {
     if (
       bytes > this.owner.maxMessageBytes ||
       this.owner.queuedBytes() + this.bytes + bytes > this.owner.maxQueuedBytes
@@ -48,22 +54,34 @@ export class SqliteWorkerInputAdmission {
       );
     }
     const release = this.retain(bytes);
-    // Physical-file identity must be published before admitting another open alias.
-    return runQueuedStoreWrite({
-      queues: this.openQueue,
-      storePath: "sqlite-open",
-      label: "SQLite worker open",
-      fn: dispatch,
+    // Wait for a cold database's admission turn before the shared open FIFO. The
+    // turn owner opens its own worker inside that turn, so a FIFO holder waiting
+    // on the same turn would block that open and deadlock both.
+    const opened = runWithSqliteDatabaseAdmissionTurn(
+      [databasePath],
+      () =>
+        // Physical-file identity must be published before admitting another open alias.
+        runQueuedStoreWrite({
+          queues: this.openQueue,
+          storePath: "sqlite-open",
+          label: "SQLite worker open",
+          fn: dispatch,
+          signal,
+        }),
+      [],
       signal,
-    }).finally(release);
+    ).finally(release);
+    this.opens.add(opened);
+    const settled = () => this.opens.delete(opened);
+    void opened.then(settled, settled);
+    return opened;
   }
 
-  joinOpens(): Promise<void> {
-    return this.openQueue.get("sqlite-open")?.drainPromise ?? Promise.resolve();
-  }
-
-  invalidatePreparations(): void {
-    this.inputPreparationGeneration = {};
+  /** Joins every accepted open, including those still waiting for their turn. */
+  async joinOpens(): Promise<void> {
+    while (this.opens.size) {
+      await Promise.allSettled(this.opens);
+    }
   }
 
   async joinPreparations(): Promise<void> {
@@ -87,25 +105,18 @@ export class SqliteWorkerInputAdmission {
     if (this.owner.queuedBytes() + this.bytes + bytes > this.owner.maxQueuedBytes) {
       throw new SqliteWorkerError("SQLite worker input preparation capacity reached", "overloaded");
     }
-    const generation = this.inputPreparationGeneration;
     this.bytes += bytes;
     const settled = createDeferredCore();
     this.inputPreparations.add(settled.promise);
-    let released = false;
     let handedOff = false;
     const release = () => {
-      if (!released) {
-        released = true;
+      if (this.inputPreparations.delete(settled.promise)) {
         this.bytes -= bytes;
-        this.inputPreparations.delete(settled.promise);
         settled.resolve();
       }
     };
     const assertCurrent = () => {
-      if (
-        !handedOff &&
-        (released || this.owner.isClosing() || generation !== this.inputPreparationGeneration)
-      ) {
+      if (!handedOff && (!this.inputPreparations.has(settled.promise) || this.owner.isClosing())) {
         throw new SqliteWorkerError("SQLite worker input preparation is closed", "closed");
       }
     };
@@ -113,7 +124,7 @@ export class SqliteWorkerInputAdmission {
       assertCurrent,
       handoff: (dispatch) => {
         try {
-          if (released) {
+          if (!this.inputPreparations.has(settled.promise)) {
             throw new SqliteWorkerError("SQLite worker input preparation is closed", "closed");
           }
           assertCurrent();

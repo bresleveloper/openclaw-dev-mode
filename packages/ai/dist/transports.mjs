@@ -1,24 +1,26 @@
-import { w as supportsClaudeAdaptiveThinking } from "./src-VWy9E7DZ.mjs";
+import { w as supportsClaudeAdaptiveThinking } from "./src-CyA0zJnt.mjs";
 import { o as isRecord } from "./record-coerce-CNDovvft.mjs";
-import { n as normalizeLowercaseStringOrEmpty } from "./string-coerce-CtgOVOSv.mjs";
-import { T as usesClaudeStreamingRefusalContract, _ as buildAnthropicClaudeCodeIdentity, a as resolveAiTransportHeaderSentinels, b as prepareClaudeNoPrefillRequestContext, r as getAiTransportHost } from "./host-u3o8XiAp.mjs";
-import { i as OPENAI_RESPONSES_APIS } from "./openai-responses-contracts-BKu8O7l4.mjs";
-import { a as redactDiagnosticText, o as truncateUtf16Safe } from "./provider-error-DQBE1bUQ.mjs";
-import { a as resolveModelSseDebugMode, i as resolveModelPayloadDebugMode, n as formatModelTransportDebugUrl, r as emitModelTransportDebug, t as formatModelTransportDebugBaseUrl, v as toErrorObject } from "./diagnostics-Caj-4RBA.mjs";
-import { a as MALFORMED_STREAMING_FRAGMENT_ERROR_MESSAGE, c as readResponseTextSnippet, s as isCodeModeModelVisibleToolName, u as resolveModelHeaderSentinels } from "./text-signature-CbqxIB8B.mjs";
-import { a as resolveOpenAIPromptCacheKeySupport, i as resolveOpenAICompletionsCompat, n as isNativeOpenAIEndpoint, o as usesNativeOpenAICodexResponsesBackend, r as isOpenAICodexResponsesModel, t as detectOpenAICompletionsCompat } from "./openai-completions-compat-GMN8A0fm.mjs";
-import { t as buildGuardedModelFetch } from "./host-policy-BwhNNGQR.mjs";
-import { A as buildAnthropicSystemBlocks, C as isAnthropicReplayRejection, D as applyAnthropicEphemeralCacheControlMarkers, E as applyAnthropicContextManagementToRequest, F as resolveAnthropicEphemeralCacheControl, I as resolveAnthropicPayloadPolicy, J as usesFoundryBearerAuth, K as isAnthropicOAuthApiKey, L as resolveAnthropicRequestBetaHeader, M as isDirectAnthropicModel, N as logAnthropicContextEdits, O as applyAnthropicPayloadPolicyToParams, P as resolveAnthropicCacheOptions, R as resolveAnthropicServerCompactionPlan, T as suppressAnthropicCompaction, d as resolveAnthropicTransportOptions, j as isAnthropicServerToolClearingEnabled, k as applyAnthropicRequestCacheControl, l as buildAnthropicRequest, q as omitFoundryBearerCredentialHeaders, t as consumeAnthropicStream, u as prepareAnthropicRequest, w as resolveNewestAnthropicCompaction, z as supportsAnthropicServerSideFallback } from "./anthropic-stream-reducer-Djl4yqrc.mjs";
-import { C as parseJsonObjectPreservingUnsafeIntegers, S as withProviderResponseHook, T as quoteUnsafeIntegerLiterals, _ as sanitizeNonEmptyTransportPayloadText, a as createEmptyTransportUsage, b as transportAbortError, c as failTransportStream, d as iterateModelStream, f as mergeTransportHeaders, g as parseTerminalToolCallArguments, h as notifyProviderStreamOpened, i as copyProviderAcceptanceObserver, j as createAbortError$1, l as finalizeTerminalToolCallArguments, m as notifyProviderHttpResponse, n as assignTransportErrorDetails, o as createModelStreamCooperativeScheduler, p as notifyProviderHttpMetadata, r as coerceTransportToolCallArguments, s as createWritableTransportEventStream, t as IncompleteToolCallError, u as finalizeTransportStream, v as sanitizeTransportPayloadText, w as parseJsonPreservingUnsafeIntegers, x as withProviderAcceptanceObserver, y as throwIfModelStreamAborted } from "./transport-stream-shared-CCR7hSW0.mjs";
-import { D as sortPromptCacheToolsByName } from "./simple-options-7QuSKriJ.mjs";
-import { At as parseOpenAICompletionsUsage, Ct as GEMINI_THOUGHT_SIGNATURE_VALIDATOR_SKIP, Dt as isOpenAICompletionsThinkingEnabled, Et as createResponseModelTracker, G as OPENAI_RESPONSES_CALL_ID_RE, I as resolveReplayableResponsesMessageId, J as normalizeOpenAIResponsesFunctionCallId, K as OPENAI_RESPONSES_FUNCTION_CALL_ITEM_ID_RE, Mt as readOpenAICompletionsReasoningBatch, Nt as resolveOpenAIClientBaseUrl, Ot as log, Pt as resolvePromptCacheKey, Tt as createOpenAIResponseHook, X as splitOpenAIFunctionCallPairing, Y as shouldNormalizeOpenAIResponsesToolCallId, _t as resolveOpenAIReasoningEffortMap, at as assertCodeModeResponsesToolSurface, ct as buildOpenAISdkRequestOptions, dt as getCompat, et as CompactionReplayRefreshRequiredError, ft as readCodeModePayloadToolName, j as resolveResponsesContextUsageBoundary, jt as readOpenAICompletionsContentDeltas, kt as measureUtf8AppendBytes, lt as enforceCodeModeResponsesToolSurface, mt as resolveOpenAIStrictToolFlagWithDiagnostics, nt as captureOpenAIResponsesCompaction, ot as buildOpenAIClientHeaders, pt as resolveCodeModeResponsesVisibleToolNames, q as OPENAI_RESPONSES_ID_MAX_LENGTH, rt as resolveNewestOpenAIResponsesCompactionReplay, st as buildOpenAISdkClientOptions, ut as filterCodeModePayloadTools, wt as createOpenAIProviderAcceptanceHook } from "./openai-responses-shared-BMx2NAS-.mjs";
-import { n as getEnvApiKey } from "./env-api-keys-CyX4VKGO.mjs";
+import { r as normalizeLowercaseStringOrEmpty } from "./string-coerce-Cj8sqWHx.mjs";
+import { T as usesClaudeStreamingRefusalContract, _ as buildAnthropicClaudeCodeIdentity, a as resolveAiTransportHeaderSentinels, b as prepareClaudeNoPrefillRequestContext, r as getAiTransportHost } from "./host-CWt55nnF.mjs";
+import { i as OPENAI_RESPONSES_APIS } from "./openai-responses-contracts-B5mGAbR6.mjs";
+import { o as redactDiagnosticText, s as truncateUtf16Safe } from "./provider-error-qtZD2inE.mjs";
+import { a as resolveModelPayloadDebugMode, i as emitModelTransportError, n as formatModelTransportDebugUrl, o as resolveModelSseDebugMode, r as emitModelTransportDebug, t as formatModelTransportDebugBaseUrl, x as toErrorObject } from "./diagnostics-v7oVEW59.mjs";
+import { i as readResponseTextSnippet, o as resolveModelHeaderSentinels, r as isCodeModeModelVisibleToolName, s as streamFragmentError, t as MALFORMED_STREAMING_FRAGMENT_ERROR_MESSAGE } from "./transport-utils-DwOpuTjL.mjs";
+import { a as resolveOpenAIPromptCacheKeySupport, i as resolveOpenAICompletionsCompat, n as isNativeOpenAIEndpoint, o as usesNativeOpenAICodexResponsesBackend, r as isOpenAICodexResponsesModel, t as detectOpenAICompletionsCompat } from "./openai-completions-compat-bNQXF1y9.mjs";
+import { t as buildGuardedModelFetch } from "./host-policy-Dm7PM6AD.mjs";
+import { A as resolveAnthropicCacheOptions, C as applyAnthropicEphemeralCacheControlMarkers, D as isAnthropicServerToolClearingEnabled, E as buildAnthropicSystemBlocks, F as supportsAnthropicServerSideFallback, H as isAnthropicOAuthApiKey, M as resolveAnthropicPayloadPolicy, N as resolveAnthropicRequestBetaHeader, O as isDirectAnthropicModel, P as resolveAnthropicServerCompactionPlan, S as applyAnthropicContextManagementToRequest, T as applyAnthropicRequestCacheControl, U as omitFoundryBearerCredentialHeaders, W as usesFoundryBearerAuth, b as resolveNewestAnthropicCompaction, f as resolveAnthropicTransportOptions, j as resolveAnthropicEphemeralCacheControl, k as logAnthropicContextEdits, l as buildAnthropicRequest, p as resolveCompletionTokenReservation, t as consumeAnthropicStream, u as prepareAnthropicRequest, w as applyAnthropicPayloadPolicyToParams, x as suppressAnthropicCompaction, y as isAnthropicReplayRejection } from "./anthropic-stream-reducer-yWDb5Cct.mjs";
+import { r as sortPromptCacheToolsByName } from "./prompt-cache-stability-D_MeCQFI.mjs";
+import { C as parseJsonObjectPreservingUnsafeIntegers, S as withProviderResponseHook, T as quoteUnsafeIntegerLiterals, _ as sanitizeNonEmptyTransportPayloadText, a as createEmptyTransportUsage, b as transportAbortError, c as failTransportStream, d as iterateModelStream, f as mergeTransportHeaders, g as parseTerminalToolCallArguments, h as notifyProviderStreamOpened, i as copyProviderAcceptanceObserver, j as createAbortError$1, l as finalizeTerminalToolCallArguments, m as notifyProviderHttpResponse, n as assignTransportErrorDetails, o as createModelStreamCooperativeScheduler, p as notifyProviderHttpMetadata, r as coerceTransportToolCallArguments, s as createWritableTransportEventStream, t as IncompleteToolCallError, u as finalizeTransportStream, v as sanitizeTransportPayloadText, w as parseJsonPreservingUnsafeIntegers, x as withProviderAcceptanceObserver, y as throwIfModelStreamAborted } from "./transport-stream-shared-lhgkTOz3.mjs";
+import { n as getEnvApiKey } from "./env-api-keys-Xd8dm_aV.mjs";
 import { t as createDeferredEventBuffer } from "./deferred-event-buffer-DAvyP7qA.mjs";
-import { t as createAssistantOutput } from "./assistant-output-D5762GPH.mjs";
+import { t as createAssistantOutput } from "./assistant-output-BnQm3fov.mjs";
 import { n as resolveOpencodeSessionHeaders } from "./session-affinity-DA4WHv1h.mjs";
-import { a as requestPreparedOpenAIResponsesCompaction, d as applyCompletionsAnthropicCacheControl, f as hasOpenAICompatibleConversationTurn, h as createDeepSeekTextFilter, i as createOpenAIResponsesTransportStreamFn, l as flattenCompletionMessagesToStringContent, m as resolveMaxTokensParam, p as canonicalizeMaxTokensParam, r as createAzureOpenAIResponsesTransportStreamFn, s as buildOpenAICompletionsParams, t as createOpenAICompletionsTransportStreamFn, u as stripCompletionMessagesToRoleContent } from "./openai-completions-transport-QYABn8Uz.mjs";
-import { a as googleFlashSupportsMinimalThinking, i as consumeGoogleGenerateContentStream, n as projectGoogleMessages, r as requiresGoogleToolCallId, t as convertGoogleTools } from "./google-messages-l7wgIF5I.mjs";
-import { a as applyOpenAIResponsesPayloadPolicy, c as resolveOpenAIResponsesServerCompactionPlan, i as sanitizeResponsesImagePayload, o as resolveOpenAIResponsesCompactEndpointPlan, s as resolveOpenAIResponsesPayloadPolicy } from "./openai-responses-compaction-window-tA4QkU0o.mjs";
+import { c as flattenCompletionMessagesToStringContent, d as hasOpenAICompatibleConversationTurn, f as canonicalizeMaxTokensParam, i as createOpenAIResponsesTransportStreamFn, l as stripCompletionMessagesToRoleContent, m as createDeepSeekTextFilter, o as buildOpenAICompletionsParams, p as resolveMaxTokensParam, r as createAzureOpenAIResponsesTransportStreamFn, t as createOpenAICompletionsTransportStreamFn, u as applyCompletionsAnthropicCacheControl } from "./openai-completions-transport-CXMmOM4R.mjs";
+import { a as googleFlashSupportsMinimalThinking, i as consumeGoogleGenerateContentStream, n as projectGoogleMessages, r as requiresGoogleToolCallId, t as convertGoogleTools } from "./google-messages-DQMgG5yG.mjs";
+import { At as isOpenAICompletionsThinkingEnabled, Dt as createOpenAIResponseHook, Et as createOpenAIProviderAcceptanceHook, Ft as readOpenAICompletionsReasoningBatch, It as resolveOpenAIClientBaseUrl, J as OPENAI_RESPONSES_FUNCTION_CALL_ITEM_ID_RE, L as normalizeOpenAIResponsesReasoningReplayItem, Lt as resolvePromptCacheKey, M as resolveResponsesContextUsageBoundary, Mt as measureUtf8AppendBytes, Nt as parseOpenAICompletionsUsage, Ot as createResponseModelTracker, Pt as readOpenAICompletionsContentDeltas, Q as splitOpenAIFunctionCallPairing, R as resolveReplayableResponsesMessageId, Rt as withOpenAIErrorResponseHook, Tt as GEMINI_THOUGHT_SIGNATURE_VALIDATOR_SKIP, X as normalizeOpenAIResponsesFunctionCallId, Y as OPENAI_RESPONSES_ID_MAX_LENGTH, Z as shouldNormalizeOpenAIResponsesToolCallId, at as resolveNewestOpenAIResponsesCompactionReplay, ct as buildOpenAIClientHeaders, dt as enforceCodeModeResponsesToolSurface, ft as filterCodeModePayloadTools, gt as resolveOpenAIStrictToolFlagWithDiagnostics, ht as resolveCodeModeResponsesVisibleToolNames, it as captureOpenAIResponsesCompaction, jt as log, kt as detachPartialSnapshot, lt as buildOpenAISdkClientOptions, mt as readCodeModePayloadToolName, nt as CompactionReplayRefreshRequiredError, pt as getCompat, q as OPENAI_RESPONSES_CALL_ID_RE, st as assertCodeModeResponsesToolSurface, ut as buildOpenAISdkRequestOptions, yt as resolveOpenAIReasoningEffortMap } from "./openai-responses-shared-XoSAyCHj.mjs";
+import { c as applyOpenAIResponsesPayloadPolicy, d as resolveOpenAIResponsesPayloadPolicy, f as resolveOpenAIResponsesRequestContextTokens, l as normalizeOpenAIServiceTier, p as resolveOpenAIResponsesServerCompactionPlan, s as sanitizeResponsesImagePayload, u as resolveOpenAIResponsesCompactEndpointPlan } from "./openai-responses-endpoint-CfKR6N5f.mjs";
+import { c as requestPreparedOpenAIResponsesCompaction } from "./openai-responses-request-lifecycle-B-urkkjk.mjs";
+import { n as createGoogleVideoPlaceholder, r as materializeGoogleVideoSlots, t as GOOGLE_VIDEO_SLOT_OMISSION } from "./google-video-slots-D8tPH8wX.mjs";
 import { randomUUID } from "node:crypto";
 //#region packages/ai/src/transports/anthropic-transport-stream.ts
 const ANTHROPIC_MESSAGES_ERROR_BODY_MAX_BYTES = 8192;
@@ -86,8 +88,7 @@ function parseAnthropicSseEventData(data) {
 	try {
 		return JSON.parse(data);
 	} catch (error) {
-		if (error instanceof SyntaxError) throw new Error(MALFORMED_STREAMING_FRAGMENT_ERROR_MESSAGE, { cause: error });
-		throw error;
+		throw streamFragmentError(error);
 	}
 }
 function assertAnthropicSsePendingBufferWithinLimit(pendingChars) {
@@ -130,28 +131,6 @@ async function* parseAnthropicSseBody(body, signal) {
 		reader.releaseLock();
 	}
 }
-function createAnthropicMessageRequest(params) {
-	const url = resolveAnthropicMessagesUrl(params.baseURL);
-	return async (body, options) => {
-		const headers = new Headers(mergeTransportHeaders({
-			"content-type": "application/json",
-			"anthropic-version": "2023-06-01",
-			...params.apiKey ? { "x-api-key": params.apiKey } : {},
-			...params.authToken ? { authorization: `Bearer ${params.authToken}` } : {}
-		}, params.defaultHeaders));
-		for (const [name, value] of Object.entries(options?.headers ?? {})) headers.set(name, value);
-		const response = await params.fetch(url, {
-			method: "POST",
-			headers,
-			body: JSON.stringify(body),
-			signal: options?.signal
-		});
-		return {
-			response,
-			stream: response.body ? parseAnthropicSseBody(response.body, options?.signal) : []
-		};
-	};
-}
 async function readAnthropicMessagesErrorBody(response) {
 	try {
 		const text = await readResponseTextSnippet(response, {
@@ -177,61 +156,62 @@ function createAnthropicTransportClient(params) {
 	const needsInterleavedBeta = (options?.interleavedThinking ?? true) && !supportsClaudeAdaptiveThinking(model);
 	const fetch = isKimiAnthropicProvider(model.provider) && options?.thinkingEnabled === true ? buildGuardedModelFetch(model, void 0, { sanitizeSse: false }) : buildGuardedModelFetch(model);
 	const copilot = model.provider === "github-copilot";
-	if (copilot || usesFoundryBearerAuth(resolveModelHeaderSentinels(model))) {
-		const betaFeatures = needsInterleavedBeta ? ["interleaved-thinking-2025-05-14"] : [];
-		return {
-			request: createAnthropicMessageRequest({
-				apiKey: null,
-				authToken: apiKey,
-				baseURL: model.baseUrl,
-				defaultHeaders: mergeTransportHeaders({
-					accept: "application/json",
-					"anthropic-dangerous-direct-browser-access": "true",
-					...betaFeatures.length > 0 ? { "anthropic-beta": betaFeatures.join(",") } : {}
-				}, copilot ? model.headers : omitFoundryBearerCredentialHeaders(model.headers), copilot ? getAiTransportHost().buildCopilotDynamicHeaders(context.messages) : void 0, optionHeaders),
-				fetch
-			}),
-			isOAuthToken: false
-		};
-	}
-	const betaFeatures = ["fine-grained-tool-streaming-2025-05-14"];
-	if (needsInterleavedBeta) betaFeatures.push("interleaved-thinking-2025-05-14");
-	if (isAnthropicOAuthApiKey(apiKey)) {
-		const betaHeader = buildAnthropicBetaHeader(model, betaFeatures, { oauth: true });
-		const identity = buildAnthropicClaudeCodeIdentity(betaHeader, model.headers, optionHeaders);
-		return {
-			request: createAnthropicMessageRequest({
-				apiKey: null,
-				authToken: apiKey,
-				baseURL: model.baseUrl,
-				defaultHeaders: identity.headers,
-				fetch
-			}),
-			isOAuthToken: true,
-			claudeCodeVersion: identity.version
-		};
-	}
-	const betaHeader = buildAnthropicBetaHeader(model, betaFeatures, { oauth: false });
-	const defaultHeaders = mergeTransportHeaders({
+	const bearerAuth = copilot || usesFoundryBearerAuth(resolveModelHeaderSentinels(model));
+	const isOAuthToken = !bearerAuth && isAnthropicOAuthApiKey(apiKey);
+	let defaultHeaders;
+	let claudeCodeVersion;
+	let directApiKeyBetaHeader;
+	if (bearerAuth) defaultHeaders = mergeTransportHeaders({
 		accept: "application/json",
 		"anthropic-dangerous-direct-browser-access": "true",
-		...betaHeader ? { "anthropic-beta": betaHeader } : {},
-		...options?.sessionId && options.cacheRetention !== "none" && model.compat?.sendSessionAffinityHeaders === true ? { "x-session-affinity": options.sessionId } : {}
-	}, model.headers, optionHeaders, getAiTransportHost().resolveProviderRequestHeaders({
-		provider: model.provider,
-		api: model.api,
-		baseUrl: model.baseUrl,
-		model
-	}));
+		...needsInterleavedBeta ? { "anthropic-beta": "interleaved-thinking-2025-05-14" } : {}
+	}, copilot ? model.headers : omitFoundryBearerCredentialHeaders(model.headers), copilot ? getAiTransportHost().buildCopilotDynamicHeaders(context.messages) : void 0, optionHeaders);
+	else {
+		const betaFeatures = ["fine-grained-tool-streaming-2025-05-14"];
+		if (needsInterleavedBeta) betaFeatures.push("interleaved-thinking-2025-05-14");
+		const betaHeader = buildAnthropicBetaHeader(model, betaFeatures, { oauth: isOAuthToken });
+		if (isOAuthToken) {
+			const identity = buildAnthropicClaudeCodeIdentity(betaHeader, model.headers, optionHeaders);
+			defaultHeaders = identity.headers;
+			claudeCodeVersion = identity.version;
+		} else {
+			defaultHeaders = mergeTransportHeaders({
+				accept: "application/json",
+				"anthropic-dangerous-direct-browser-access": "true",
+				...betaHeader ? { "anthropic-beta": betaHeader } : {},
+				...options?.sessionId && options.cacheRetention !== "none" && model.compat?.sendSessionAffinityHeaders === true ? { "x-session-affinity": options.sessionId } : {}
+			}, model.headers, optionHeaders, getAiTransportHost().resolveProviderRequestHeaders({
+				provider: model.provider,
+				api: model.api,
+				baseUrl: model.baseUrl,
+				model
+			}));
+			directApiKeyBetaHeader = isDirectAnthropicModel(model) ? new Headers(defaultHeaders).get("anthropic-beta") ?? "" : void 0;
+		}
+	}
+	const url = resolveAnthropicMessagesUrl(model.baseUrl);
 	return {
-		request: createAnthropicMessageRequest({
-			apiKey,
-			baseURL: model.baseUrl,
-			defaultHeaders,
-			fetch
-		}),
-		isOAuthToken: false,
-		directApiKeyBetaHeader: isDirectAnthropicModel(model) ? new Headers(defaultHeaders).get("anthropic-beta") ?? "" : void 0
+		isOAuthToken,
+		claudeCodeVersion,
+		directApiKeyBetaHeader,
+		async request(body, requestOptions) {
+			const headers = new Headers(mergeTransportHeaders({
+				"content-type": "application/json",
+				"anthropic-version": "2023-06-01",
+				...bearerAuth || isOAuthToken ? { authorization: `Bearer ${apiKey}` } : { "x-api-key": apiKey }
+			}, defaultHeaders));
+			for (const [name, value] of Object.entries(requestOptions?.headers ?? {})) headers.set(name, value);
+			const response = await fetch(url, {
+				method: "POST",
+				headers,
+				body: JSON.stringify(body),
+				signal: requestOptions?.signal
+			});
+			return {
+				response,
+				stream: response.body ? parseAnthropicSseBody(response.body, requestOptions?.signal) : []
+			};
+		}
 	};
 }
 /** Create the stream function used by Anthropic Messages transport models. */
@@ -320,6 +300,10 @@ function isCompactionReplayCheckpoint(replay) {
 	const type = replay && typeof replay === "object" ? replay.type : void 0;
 	return type === "anthropic-compaction" || type === "openai-responses-compaction" || type === "openai-responses-retained-compaction";
 }
+/** Strip prefix-bound checkpoint state from an in-place message rewrite. */
+function stripCompactionReplayCheckpointInPlace(message) {
+	if (isCompactionReplayCheckpoint(message.providerReplay)) delete message.providerReplay;
+}
 /** Strip prefix-bound checkpoints after local history rewrites. */
 function stripCompactionReplayCheckpoint(message) {
 	if (!isCompactionReplayCheckpoint(message.providerReplay)) return message;
@@ -400,12 +384,12 @@ function estimateResponsesContent(content, estimate, text) {
 		return tokens + estimate.json(block);
 	}, 0);
 }
-function estimateResponsesInput(input, estimate) {
+function estimateResponsesInput(input, estimate, compactionOutputTokens) {
 	return input.reduce((tokens, entry) => {
 		if (!isRecord(entry)) return tokens + estimate.json(entry);
 		if (entry.type === "compaction" && typeof entry.encrypted_content === "string") {
 			const { encrypted_content, ...metadata } = entry;
-			return tokens + estimate.text(encrypted_content) + estimate.json(metadata);
+			return tokens + (compactionOutputTokens ?? estimate.text(encrypted_content)) + estimate.json(metadata);
 		}
 		if (entry.type === "message") {
 			const { content, ...metadata } = entry;
@@ -426,7 +410,7 @@ function resolveCompactionReplayPressure(messages, model, identity, estimate, sy
 	const ownerIndex = messages.findIndex((message) => message === checkpoint.owner);
 	const owner = messages[ownerIndex];
 	if (!owner) return;
-	const prefixTokens = checkpoint.family === "anthropic" ? estimate.text(checkpoint.summary) : checkpoint.mode === "complete-window" ? estimateResponsesInput(checkpoint.output, estimate) : estimate.text(checkpoint.item.encrypted_content);
+	const prefixTokens = checkpoint.family === "anthropic" ? estimate.text(checkpoint.summary) : checkpoint.mode === "complete-window" ? estimateResponsesInput(checkpoint.output, estimate, checkpoint.outputTokens) : estimate.text(checkpoint.item.encrypted_content);
 	const measuredBoundary = checkpoint.family === "responses" ? resolveResponsesContextUsageBoundary(messages, model, identity, systemPrompt) : void 0;
 	if (measuredBoundary) return {
 		messages: [],
@@ -454,10 +438,6 @@ function resolveCompactionReplayPressure(messages, model, identity, estimate, sy
 		}, ...tail],
 		prefixTokens
 	};
-}
-/** Strip prefix-bound checkpoint state from an in-place message rewrite. */
-function stripCompactionReplayCheckpointInPlace(message) {
-	if (isCompactionReplayCheckpoint(message.providerReplay)) delete message.providerReplay;
 }
 /** Preserve the covered prefix and reindex checkpoints after known content removals. */
 function replaceCompactionReplayOwnerContent(message, content) {
@@ -489,14 +469,6 @@ function replaceCompactionReplayOwnerContent(message, content) {
 }
 //#endregion
 //#region packages/ai/src/transports/provider-transport-stream.ts
-const SUPPORTED_TRANSPORT_APIS = /* @__PURE__ */ new Set([
-	"openai-responses",
-	"openai-chatgpt-responses",
-	"openai-completions",
-	"azure-openai-responses",
-	"anthropic-messages",
-	"google-generative-ai"
-]);
 const SIMPLE_TRANSPORT_API_ALIAS = {
 	"openai-completions": "openclaw-openai-completions-transport",
 	"anthropic-messages": "openclaw-anthropic-messages-transport",
@@ -523,16 +495,16 @@ function createProviderOwnedGoogleTransportStreamFn(model, ctx) {
 		headers: resolveOpencodeSessionHeaders(requestModel, options)
 	}) : void 0;
 }
+const TRANSPORT_STREAM_FACTORIES = /* @__PURE__ */ new Map([
+	["openai-responses", createOpenAIResponsesTransportStreamFn],
+	["openai-chatgpt-responses", createOpenAIResponsesTransportStreamFn],
+	["openai-completions", createOpenAICompletionsTransportStreamFn],
+	["azure-openai-responses", createAzureOpenAIResponsesTransportStreamFn],
+	["anthropic-messages", createAnthropicMessagesTransportStreamFn],
+	["google-generative-ai", createProviderOwnedGoogleTransportStreamFn]
+]);
 function createSupportedTransportStreamFn(model, ctx) {
-	switch (model.api) {
-		case "openai-responses":
-		case "openai-chatgpt-responses": return createOpenAIResponsesTransportStreamFn();
-		case "openai-completions": return createOpenAICompletionsTransportStreamFn();
-		case "azure-openai-responses": return createAzureOpenAIResponsesTransportStreamFn();
-		case "anthropic-messages": return createAnthropicMessagesTransportStreamFn();
-		case "google-generative-ai": return createProviderOwnedGoogleTransportStreamFn(model, ctx);
-		default: return;
-	}
+	return TRANSPORT_STREAM_FACTORIES.get(model.api)?.(model, ctx);
 }
 /** Maps public model APIs to the internal transport API id used by simple runtime dispatch. */
 function resolveTransportAwareSimpleApi(api) {
@@ -545,8 +517,9 @@ function resolveTransportAwareSimpleApi(api) {
 /** Creates a managed transport stream only when request overrides require it. */
 function createTransportAwareStreamFnForModel(model, ctx) {
 	if (!getAiTransportHost().requiresManagedTransport(model)) return;
-	if (!SUPPORTED_TRANSPORT_APIS.has(model.api)) throw new Error(`Model-provider request.proxy/request.tls/localService is not yet supported for api "${model.api}"`);
-	const streamFn = createSupportedTransportStreamFn(model, ctx);
+	const createStream = TRANSPORT_STREAM_FACTORIES.get(model.api);
+	if (!createStream) throw new Error(`Model-provider request.proxy/request.tls/localService is not yet supported for api "${model.api}"`);
+	const streamFn = createStream(model, ctx);
 	if (!streamFn) throw new Error(`Managed transport stream is unavailable for api "${model.api}"`);
 	return streamFn;
 }
@@ -630,7 +603,7 @@ function resolveProviderStreamApi(model) {
 	];
 	return `${PROVIDER_STREAM_API_PREFIX}${parts.map((part) => encodeURIComponent(part)).join(":")}`;
 }
-function applyProviderSimpleCompletionWrapper(registry, model, cfg, hookSourceApi = model.api, auth, agentId) {
+function applyProviderSimpleCompletionWrapper(registry, model, cfg, hookSourceApi, auth, agentId) {
 	if (model.api.startsWith(PROVIDER_SIMPLE_COMPLETION_API_PREFIX)) return model;
 	const sourceProvider = registry.getApiProvider(model.api);
 	if (!sourceProvider) return model;
@@ -726,4 +699,4 @@ function prepareModelForSimpleCompletion(params) {
 	return wrap(model);
 }
 //#endregion
-export { CompactionReplayRefreshRequiredError, GEMINI_THOUGHT_SIGNATURE_VALIDATOR_SKIP, IncompleteToolCallError, MALFORMED_STREAMING_FRAGMENT_ERROR_MESSAGE, OPENAI_RESPONSES_CALL_ID_RE, OPENAI_RESPONSES_FUNCTION_CALL_ITEM_ID_RE, OPENAI_RESPONSES_ID_MAX_LENGTH, applyAnthropicContextManagementToRequest, applyAnthropicEphemeralCacheControlMarkers, applyAnthropicPayloadPolicyToParams, applyAnthropicRequestCacheControl, applyCompletionsAnthropicCacheControl, applyOpenAIResponsesPayloadPolicy, assertCodeModeResponsesToolSurface, assignTransportErrorDetails, buildAnthropicSystemBlocks, buildOpenAIClientHeaders, buildOpenAICompletionsParams, buildOpenAISdkClientOptions, buildOpenAISdkRequestOptions, createTransportAwareStreamFnForModel as buildTransportAwareSimpleStreamFn, createTransportAwareStreamFnForModel, canonicalizeMaxTokensParam, captureOpenAIResponsesCompaction, coerceTransportToolCallArguments, consumeGoogleGenerateContentStream, convertGoogleTools, copyProviderAcceptanceObserver, createAnthropicMessagesTransportStreamFn, createAzureOpenAIResponsesTransportStreamFn, createSupportedTransportStreamFn as createBoundaryAwareStreamFnForModel, createSupportedTransportStreamFn as createOpenClawTransportStreamFnForModel, createDeepSeekTextFilter, createEmptyTransportUsage, createModelStreamCooperativeScheduler, createOpenAICompletionsTransportStreamFn, createOpenAIProviderAcceptanceHook, createOpenAIResponseHook, createOpenAIResponsesTransportStreamFn, createResponseModelTracker, createWritableTransportEventStream, detectOpenAICompletionsCompat, emitModelTransportDebug, enforceCodeModeResponsesToolSurface, failTransportStream, filterCodeModePayloadTools, finalizeTerminalToolCallArguments, finalizeTransportStream, flattenCompletionMessagesToStringContent, formatModelTransportDebugBaseUrl, formatModelTransportDebugUrl, getCompat, googleFlashSupportsMinimalThinking, hasOpenAICompatibleConversationTurn, isAnthropicServerToolClearingEnabled, isCodeModeModelVisibleToolName, isCompactionReplayCheckpoint, isDirectAnthropicModel, isNativeOpenAIEndpoint, isOpenAICodexResponsesModel, isOpenAICompletionsThinkingEnabled, iterateModelStream, log, logAnthropicContextEdits, measureUtf8AppendBytes, mergeTransportHeaders, normalizeCodexResponsesBaseUrlForOpenAISdk, normalizeOpenAIResponsesFunctionCallId, notifyProviderHttpMetadata, notifyProviderHttpResponse, notifyProviderStreamOpened, parseJsonObjectPreservingUnsafeIntegers, parseJsonPreservingUnsafeIntegers, parseOpenAICompletionsUsage, parseTerminalToolCallArguments, prepareHeadersForSimpleCompletion, prepareModelForSimpleCompletion, prepareTransportAwareSimpleModel, preserveCompactionReplayWindow, projectGoogleMessages, quoteUnsafeIntegerLiterals, readCodeModePayloadToolName, readOpenAICompletionsContentDeltas, readOpenAICompletionsReasoningBatch, replaceCompactionReplayOwnerContent, requestPreparedOpenAIResponsesCompaction, requiresCompactionReplayRefresh, requiresGoogleToolCallId, resolveAnthropicCacheOptions, resolveAnthropicEphemeralCacheControl, resolveAnthropicMessagesUrl, resolveAnthropicPayloadPolicy, resolveAnthropicRequestBetaHeader, resolveAnthropicServerCompactionPlan, resolveCodeModeResponsesVisibleToolNames, resolveCompactionReplayEligibility, resolveCompactionReplayPressure, resolveMaxTokensParam, resolveModelPayloadDebugMode, resolveModelSseDebugMode, resolveOpenAIClientBaseUrl, resolveOpenAICompletionsCompat, resolveOpenAIPromptCacheKeySupport, resolveOpenAIReasoningEffortMap, resolveOpenAIResponsesCompactEndpointPlan, resolveOpenAIResponsesPayloadPolicy, resolveOpenAIResponsesServerCompactionPlan, resolveOpenAIStrictToolFlagWithDiagnostics, resolvePromptCacheKey, resolveReplayableResponsesMessageId, resolveTransportAwareSimpleApi, sanitizeNonEmptyTransportPayloadText, sanitizeResponsesImagePayload, sanitizeTransportPayloadText, shouldNormalizeOpenAIResponsesToolCallId, sortPromptCacheToolsByName as sortTransportToolsByName, splitOpenAIFunctionCallPairing, stripCompactionReplayCheckpoint, stripCompactionReplayCheckpointInPlace, stripCompletionMessagesToRoleContent, supportsAnthropicServerSideFallback, throwIfModelStreamAborted, transportAbortError, usesNativeOpenAICodexResponsesBackend, withProviderAcceptanceObserver, withProviderResponseHook };
+export { CompactionReplayRefreshRequiredError, GEMINI_THOUGHT_SIGNATURE_VALIDATOR_SKIP, GOOGLE_VIDEO_SLOT_OMISSION, IncompleteToolCallError, MALFORMED_STREAMING_FRAGMENT_ERROR_MESSAGE, OPENAI_RESPONSES_CALL_ID_RE, OPENAI_RESPONSES_FUNCTION_CALL_ITEM_ID_RE, OPENAI_RESPONSES_ID_MAX_LENGTH, applyAnthropicContextManagementToRequest, applyAnthropicEphemeralCacheControlMarkers, applyAnthropicPayloadPolicyToParams, applyAnthropicRequestCacheControl, applyCompletionsAnthropicCacheControl, applyOpenAIResponsesPayloadPolicy, assertCodeModeResponsesToolSurface, assignTransportErrorDetails, buildAnthropicSystemBlocks, buildOpenAIClientHeaders, buildOpenAICompletionsParams, buildOpenAISdkClientOptions, buildOpenAISdkRequestOptions, createTransportAwareStreamFnForModel as buildTransportAwareSimpleStreamFn, createTransportAwareStreamFnForModel, canonicalizeMaxTokensParam, captureOpenAIResponsesCompaction, coerceTransportToolCallArguments, consumeGoogleGenerateContentStream, convertGoogleTools, copyProviderAcceptanceObserver, createAnthropicMessagesTransportStreamFn, createAzureOpenAIResponsesTransportStreamFn, createSupportedTransportStreamFn as createBoundaryAwareStreamFnForModel, createSupportedTransportStreamFn as createOpenClawTransportStreamFnForModel, createDeepSeekTextFilter, createEmptyTransportUsage, createGoogleVideoPlaceholder, createModelStreamCooperativeScheduler, createOpenAICompletionsTransportStreamFn, createOpenAIProviderAcceptanceHook, createOpenAIResponseHook, createOpenAIResponsesTransportStreamFn, createResponseModelTracker, createWritableTransportEventStream, detachPartialSnapshot, detectOpenAICompletionsCompat, emitModelTransportDebug, emitModelTransportError, enforceCodeModeResponsesToolSurface, failTransportStream, filterCodeModePayloadTools, finalizeTerminalToolCallArguments, finalizeTransportStream, flattenCompletionMessagesToStringContent, formatModelTransportDebugBaseUrl, formatModelTransportDebugUrl, getCompat, googleFlashSupportsMinimalThinking, hasOpenAICompatibleConversationTurn, isAnthropicServerToolClearingEnabled, isCodeModeModelVisibleToolName, isCompactionReplayCheckpoint, isDirectAnthropicModel, isNativeOpenAIEndpoint, isOpenAICodexResponsesModel, isOpenAICompletionsThinkingEnabled, iterateModelStream, log, logAnthropicContextEdits, materializeGoogleVideoSlots, measureUtf8AppendBytes, mergeTransportHeaders, normalizeCodexResponsesBaseUrlForOpenAISdk, normalizeOpenAIResponsesFunctionCallId, normalizeOpenAIResponsesReasoningReplayItem, normalizeOpenAIServiceTier, notifyProviderHttpMetadata, notifyProviderHttpResponse, notifyProviderStreamOpened, parseJsonObjectPreservingUnsafeIntegers, parseJsonPreservingUnsafeIntegers, parseOpenAICompletionsUsage, parseTerminalToolCallArguments, prepareHeadersForSimpleCompletion, prepareModelForSimpleCompletion, prepareTransportAwareSimpleModel, preserveCompactionReplayWindow, projectGoogleMessages, quoteUnsafeIntegerLiterals, readCodeModePayloadToolName, readOpenAICompletionsContentDeltas, readOpenAICompletionsReasoningBatch, replaceCompactionReplayOwnerContent, requestPreparedOpenAIResponsesCompaction, requiresCompactionReplayRefresh, requiresGoogleToolCallId, resolveAnthropicCacheOptions, resolveAnthropicEphemeralCacheControl, resolveAnthropicMessagesUrl, resolveAnthropicPayloadPolicy, resolveAnthropicRequestBetaHeader, resolveAnthropicServerCompactionPlan, resolveCodeModeResponsesVisibleToolNames, resolveCompactionReplayEligibility, resolveCompactionReplayPressure, resolveCompletionTokenReservation, resolveMaxTokensParam, resolveModelPayloadDebugMode, resolveModelSseDebugMode, resolveOpenAIClientBaseUrl, resolveOpenAICompletionsCompat, resolveOpenAIPromptCacheKeySupport, resolveOpenAIReasoningEffortMap, resolveOpenAIResponsesCompactEndpointPlan, resolveOpenAIResponsesPayloadPolicy, resolveOpenAIResponsesRequestContextTokens, resolveOpenAIResponsesServerCompactionPlan, resolveOpenAIStrictToolFlagWithDiagnostics, resolvePromptCacheKey, resolveReplayableResponsesMessageId, resolveTransportAwareSimpleApi, sanitizeNonEmptyTransportPayloadText, sanitizeResponsesImagePayload, sanitizeTransportPayloadText, shouldNormalizeOpenAIResponsesToolCallId, sortPromptCacheToolsByName as sortTransportToolsByName, splitOpenAIFunctionCallPairing, stripCompactionReplayCheckpoint, stripCompactionReplayCheckpointInPlace, stripCompletionMessagesToRoleContent, supportsAnthropicServerSideFallback, throwIfModelStreamAborted, transportAbortError, usesNativeOpenAICodexResponsesBackend, withOpenAIErrorResponseHook, withProviderAcceptanceObserver, withProviderResponseHook };

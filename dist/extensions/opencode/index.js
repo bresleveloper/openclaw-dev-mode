@@ -1,6 +1,6 @@
 import { opencodeMediaUnderstandingProvider } from "./media-understanding-provider.js";
 import { OPENCODE_ZEN_DEFAULT_MODEL_REF, applyOpencodeZenProviderConfig } from "./onboard.js";
-import { a as prepareOpencodeZenModel, c as openclaw_plugin_default, i as normalizeOpencodeZenBaseUrl, n as buildStaticOpencodeZenProviderConfig, o as resolveOpencodeZenModel, r as listOpencodeZenModelCatalogEntries, s as resolveOpencodeZenStarterModel, t as buildOpencodeZenLiveProviderConfig } from "./.setup/provider-catalog-pNTuuSYH.mjs";
+import { a as prepareOpencodeZenModel, c as openclaw_plugin_default, i as normalizeOpencodeZenBaseUrl, n as buildStaticOpencodeZenProviderConfig, o as resolveOpencodeZenModel, r as listOpencodeZenModelCatalogEntries, s as resolveOpencodeZenStarterModel, t as buildOpencodeZenLiveProviderConfig } from "./.setup/provider-catalog-XEhgAiH9.mjs";
 import { resolveThinkingProfile } from "./provider-policy-api.js";
 import { registerOpenCodeSessionCatalog } from "./session-catalog-plugin.js";
 import { wrapOpencodeProviderStream } from "./stream.js";
@@ -8,7 +8,6 @@ import { runLiveProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-liv
 import { resolveFirstProviderCatalogAuth } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildProviderReplayFamilyHooks, matchesExactOrPrefix } from "openclaw/plugin-sdk/provider-model-shared";
-import { createOpenAICompatibleCompletionsThinkingOffWrapper } from "openclaw/plugin-sdk/provider-stream-shared";
 import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/opencode/index.ts
 const PROVIDER_ID = "opencode";
@@ -105,16 +104,8 @@ var opencode_default = defineSingleProviderPluginEntry({
 		...buildProviderReplayFamilyHooks({ family: "passthrough-gemini" }),
 		isModernModelRef: ({ modelId }) => isModernOpencodeModel(modelId),
 		resolveThinkingProfile,
-		wrapStreamFn: (ctx) => {
-			if (!ctx.streamFn) return;
-			const baseStreamFn = ctx.streamFn;
-			const thinkingOff = createOpenAICompatibleCompletionsThinkingOffWrapper(baseStreamFn, ctx.thinkingLevel);
-			const thinkingStreamFn = (model, context, options) => model.provider === PROVIDER_ID && model.id === "kimi-k3" ? thinkingOff(model, context, options) : baseStreamFn(model, context, options);
-			return wrapOpencodeProviderStream({
-				...ctx,
-				streamFn: thinkingStreamFn
-			});
-		}
+		classifyFailoverReason: ({ status, errorType, code, errorMessage }) => status === 403 && (errorType === "FreeTierError" || code === "FreeTierError" || /\bFreeTierError\b|OpenCode's free tier can only be used from within OpenCode/.test(errorMessage)) ? "model_not_found" : void 0,
+		wrapStreamFn: wrapOpencodeProviderStream
 	},
 	register(api) {
 		api.registerMediaUnderstandingProvider(opencodeMediaUnderstandingProvider);

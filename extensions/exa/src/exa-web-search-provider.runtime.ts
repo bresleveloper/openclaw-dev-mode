@@ -1,5 +1,10 @@
+import { createHash } from "node:crypto";
 import { parseStrictPositiveInteger } from "openclaw/plugin-sdk/number-runtime";
-import { ProviderHttpError, readResponseTextLimited } from "openclaw/plugin-sdk/provider-http";
+import {
+  ProviderHttpError,
+  readProviderResponseErrorText,
+  redactProviderResponseErrorText,
+} from "openclaw/plugin-sdk/provider-http";
 import {
   buildSearchCacheKey,
   DEFAULT_SEARCH_COUNT,
@@ -63,17 +68,7 @@ type ExaContentsArgs = {
   summary?: ExaSummaryContentsOption;
 };
 
-type ExaSearchResult = {
-  title?: unknown;
-  url?: unknown;
-  publishedDate?: unknown;
-  highlights?: unknown;
-  highlightScores?: unknown;
-  summary?: unknown;
-  text?: unknown;
-};
-
-async function readExaSearchResults(response: Response): Promise<ExaSearchResult[]> {
+async function readExaSearchResults(response: Response) {
   const bytes = await readResponseWithLimit(response, EXA_SEARCH_JSON_MAX_BYTES, {
     onOverflow: ({ maxBytes: maxBytesLocal }) =>
       new Error(`Exa API response exceeds ${maxBytesLocal} bytes`),
@@ -99,10 +94,10 @@ function resolveExaApiKey(exa?: ExaConfig): string | undefined {
   );
 }
 
-function invalidBaseUrlPayload(value: string) {
+function invalidBaseUrlPayload() {
   return {
     error: "invalid_base_url",
-    message: `plugins.entries.exa.config.webSearch.baseUrl must be a valid http(s) URL. Got: ${value}`,
+    message: "plugins.entries.exa.config.webSearch.baseUrl must be a valid http(s) URL.",
     docs: "https://docs.openclaw.ai/tools/exa-search",
   };
 }
@@ -116,17 +111,17 @@ function resolveExaSearchEndpoint(
   }
 
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(configured) && !/^https?:\/\//i.test(configured)) {
-    return invalidBaseUrlPayload(configured);
+    return invalidBaseUrlPayload();
   }
   const candidate = /^https?:\/\//i.test(configured) ? configured : `https://${configured}`;
   let parsed: URL;
   try {
     parsed = new URL(candidate);
   } catch {
-    return invalidBaseUrlPayload(configured);
+    return invalidBaseUrlPayload();
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return invalidBaseUrlPayload(configured);
+    return invalidBaseUrlPayload();
   }
 
   const pathname = parsed.pathname.replace(/\/+$/, "");
@@ -329,6 +324,7 @@ export async function executeExaWebSearchProviderTool(
   );
   const cacheKey = buildSearchCacheKey([
     "exa",
+    createHash("sha256").update(apiKey).digest("hex"),
     endpoint,
     type,
     query,
@@ -362,6 +358,12 @@ export async function executeExaWebSearchProviderTool(
     body.endPublishedDate = dateBefore;
   }
 
+  const headers = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "x-api-key": apiKey,
+    "x-exa-integration": "openclaw",
+  };
   const results = await withTrustedWebSearchEndpoint(
     {
       url: endpoint,
@@ -369,21 +371,24 @@ export async function executeExaWebSearchProviderTool(
       signal,
       init: {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "x-exa-integration": "openclaw",
-        },
+        headers,
         body: JSON.stringify(body),
       },
     },
     async (res) => {
       if (!res.ok) {
-        const detail = await readResponseTextLimited(res, EXA_ERROR_BODY_LIMIT_BYTES);
-        throw new ProviderHttpError(`Exa API error (${res.status}): ${detail || res.statusText}`, {
-          status: res.status,
-        });
+        const detail = await readProviderResponseErrorText(
+          res,
+          EXA_ERROR_BODY_LIMIT_BYTES,
+          headers,
+          signal,
+        );
+        throw new ProviderHttpError(
+          `Exa API error (${res.status}): ${detail || redactProviderResponseErrorText(res.statusText, headers)}`,
+          {
+            status: res.status,
+          },
+        );
       }
       return (await readExaSearchResults(res)).slice(0, resolvedCount);
     },

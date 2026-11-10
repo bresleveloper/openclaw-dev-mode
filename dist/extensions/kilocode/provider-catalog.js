@@ -1,4 +1,4 @@
-import { d as discoverKilocodeModels, f as openclaw_plugin_default, t as KILOCODE_BASE_URL } from "./.setup/provider-models-CplaZ4OM.mjs";
+import { d as discoverKilocodeModels, f as openclaw_plugin_default, t as KILOCODE_BASE_URL } from "./.setup/provider-models-0P0ezPsI.mjs";
 import { buildManifestModelProviderConfig } from "openclaw/plugin-sdk/provider-catalog-shared";
 //#region extensions/kilocode/provider-catalog.ts
 function buildKilocodeProvider() {

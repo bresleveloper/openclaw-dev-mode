@@ -187,7 +187,8 @@ export function createDiscordMessageDispatcher(
               await ingress.settle();
               return;
             }
-            messageRunQueue.enqueue({ context: ctx, ingressSettlement: ingress });
+            // Adoption releases the input lane; completion retains dispatch ownership.
+            await messageRunQueue.enqueue({ context: ctx, ingressSettlement: ingress });
           } catch (error) {
             if (abortSignal?.aborted) {
               await ingress.cancel();
@@ -262,10 +263,7 @@ export function createDiscordMessageDispatcher(
         pendingDebounceEntries.add(entry);
       }
       await debouncer.enqueue(entry);
-      if (options?.turnAdoptionLifecycle) {
-        return { kind: "deferred" };
-      }
-      return { kind: "completed" };
+      return { kind: options?.turnAdoptionLifecycle ? "deferred" : "completed" };
     } catch (err) {
       params.runtime.error(danger(`handler failed: ${String(err)}`));
       if (options?.turnAdoptionLifecycle) {
@@ -292,8 +290,8 @@ export function createDiscordMessageDispatcher(
     }
     pendingDebounceEntries.clear();
     await Promise.allSettled(pendingCancellationSettlements);
-    await debouncer.drain();
     await messageRunQueue.deactivate();
+    await debouncer.drain();
   };
 
   return handler;

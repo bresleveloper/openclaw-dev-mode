@@ -12,11 +12,11 @@ function inferEdgeExtension(outputFormat) {
 	if (normalized.includes("wav") || normalized.includes("riff") || normalized.includes("pcm")) return ".wav";
 	return ".mp3";
 }
-async function edgeTTS(params, ttsOverride) {
+async function edgeTTS(params) {
 	const { text, outputPath, config, timeoutMs } = params;
 	if (text.trim().length === 0) throw new Error("Microsoft TTS text cannot be empty");
 	const { writeExternalFileWithinRoot } = await import("openclaw/plugin-sdk/security-runtime");
-	const tts = ttsOverride ?? new (await (import("node-edge-tts"))).EdgeTTS({
+	const tts = new (await (import("node-edge-tts"))).EdgeTTS({
 		voice: config.voice,
 		lang: config.lang,
 		outputFormat: config.outputFormat,
@@ -108,7 +108,6 @@ const DEFAULT_CHINESE_EDGE_LANG = "zh-CN";
 async function listMicrosoftVoices(timeoutMs = DEFAULT_MICROSOFT_VOICE_LIST_TIMEOUT_MS) {
 	const { assertOkOrThrowProviderError, readProviderJsonResponse } = await import("openclaw/plugin-sdk/provider-http");
 	const proxyCaptureSdk = await import("openclaw/plugin-sdk/proxy-capture");
-	const captureHost = proxyCaptureSdk;
 	const { fetchWithSsrFGuard, ssrfPolicyFromHttpBaseUrlAllowedHostname } = await import("openclaw/plugin-sdk/ssrf-runtime");
 	const url = `https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken=${TRUSTED_CLIENT_TOKEN}`;
 	const headers = buildMicrosoftVoiceHeaders();
@@ -120,7 +119,7 @@ async function listMicrosoftVoices(timeoutMs = DEFAULT_MICROSOFT_VOICE_LIST_TIME
 		timeoutMs
 	});
 	try {
-		if (!proxyCaptureSdk.isDebugProxyGlobalFetchPatchInstalled()) captureHost.captureHttpExchangeAsync?.({
+		if (!proxyCaptureSdk.isDebugProxyGlobalFetchPatchInstalled()) proxyCaptureSdk.captureHttpExchangeAsync({
 			url,
 			method: "GET",
 			requestHeaders: headers,
@@ -155,6 +154,7 @@ async function listMicrosoftVoices(timeoutMs = DEFAULT_MICROSOFT_VOICE_LIST_TIME
 	}
 }
 function buildMicrosoftSpeechProvider() {
+	const isConfigured = ({ providerConfig }) => readMicrosoftProviderConfig(providerConfig).enabled;
 	return {
 		id: "microsoft",
 		label: "Microsoft",
@@ -184,7 +184,8 @@ function buildMicrosoftSpeechProvider() {
 		listVoices: async (req) => {
 			return await listMicrosoftVoices(readMicrosoftProviderConfig(req.providerConfig ?? {}).timeoutMs ?? req.timeoutMs);
 		},
-		isConfigured: ({ providerConfig }) => readMicrosoftProviderConfig(providerConfig).enabled,
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		synthesize: async (req) => {
 			const config = readMicrosoftProviderConfig(req.providerConfig);
 			const { isVoiceMessageCompatibleAudio } = await import("openclaw/plugin-sdk/media-runtime");

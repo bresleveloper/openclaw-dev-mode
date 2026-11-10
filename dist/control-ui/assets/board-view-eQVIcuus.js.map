@@ -1,0 +1,1 @@
+{"version":3,"file":"board-view-eQVIcuus.js","names":["__esmMin","init_board_view$1","BoardView","init_board_view"],"sources":["../../../ui/src/components/board/board-view.ts"],"sourcesContent":["export { BoardView, type BoardViewProps } from \"./board-view.tsx\";\n"],"mappings":""}

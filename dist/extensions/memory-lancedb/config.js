@@ -1,7 +1,7 @@
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { join } from "node:path";
 import { parseFiniteNumber, resolveOptionalIntegerOption } from "openclaw/plugin-sdk/number-runtime";
-import { homedir } from "node:os";
+import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 //#region extensions/memory-lancedb/config.ts
 const MEMORY_CATEGORIES = [
 	"preference",
@@ -13,7 +13,9 @@ const MEMORY_CATEGORIES = [
 const DEFAULT_MODEL = "text-embedding-3-small";
 const DEFAULT_CAPTURE_MAX_CHARS = 500;
 const DEFAULT_RECALL_MAX_CHARS = 1e3;
-const DEFAULT_DB_PATH = join(homedir(), ".openclaw", "memory", "lancedb");
+function resolveDefaultDbPath(stateDir = resolveStateDir()) {
+	return join(stateDir, "memory", "lancedb");
+}
 const EMBEDDING_DIMENSIONS = {
 	"text-embedding-3-small": 1536,
 	"text-embedding-3-large": 3072
@@ -47,9 +49,9 @@ function resolveEmbeddingModel(embedding, dimensions) {
 	if (dimensions === void 0) vectorDimsForModel(model);
 	return model;
 }
-function resolveBoundedIntegerConfig(params) {
-	const resolved = resolveOptionalIntegerOption(params.value) ?? params.fallback;
-	if (resolved < params.min || resolved > params.max) throw new Error(`${params.label} must be between ${params.min} and ${params.max}`);
+function resolveTextLimit(value, fallback, label) {
+	const resolved = resolveOptionalIntegerOption(value) ?? fallback;
+	if (resolved < 100 || resolved > 1e4) throw new Error(`${label} must be between 100 and 10000`);
 	return resolved;
 }
 function resolveEmbeddingDimensions(embedding) {
@@ -80,20 +82,8 @@ const memoryConfigSchema = { parse(value) {
 	const model = resolveEmbeddingModel(embedding, dimensions);
 	const provider = typeof embedding.provider === "string" ? embedding.provider.trim() : "openai";
 	if (!provider) throw new Error("embedding.provider must not be empty");
-	const captureMaxChars = resolveBoundedIntegerConfig({
-		value: cfg.captureMaxChars,
-		fallback: 500,
-		min: 100,
-		max: 1e4,
-		label: "captureMaxChars"
-	});
-	const recallMaxChars = resolveBoundedIntegerConfig({
-		value: cfg.recallMaxChars,
-		fallback: DEFAULT_RECALL_MAX_CHARS,
-		min: 100,
-		max: 1e4,
-		label: "recallMaxChars"
-	});
+	const captureMaxChars = resolveTextLimit(cfg.captureMaxChars, 500, "captureMaxChars");
+	const recallMaxChars = resolveTextLimit(cfg.recallMaxChars, DEFAULT_RECALL_MAX_CHARS, "recallMaxChars");
 	let customTriggers;
 	if (cfg.customTriggers !== void 0) {
 		if (!Array.isArray(cfg.customTriggers)) throw new Error("customTriggers must be an array of strings");
@@ -127,7 +117,7 @@ const memoryConfigSchema = { parse(value) {
 			dimensions
 		},
 		dreaming,
-		dbPath: typeof cfg.dbPath === "string" ? cfg.dbPath : DEFAULT_DB_PATH,
+		dbPath: typeof cfg.dbPath === "string" ? cfg.dbPath : resolveDefaultDbPath(),
 		autoCapture: cfg.autoCapture === true,
 		autoRecall: cfg.autoRecall !== false,
 		captureMaxChars,
@@ -137,4 +127,4 @@ const memoryConfigSchema = { parse(value) {
 	};
 } };
 //#endregion
-export { DEFAULT_CAPTURE_MAX_CHARS, DEFAULT_RECALL_MAX_CHARS, MEMORY_CATEGORIES, memoryConfigSchema, resolveEnvVars, vectorDimsForModel };
+export { DEFAULT_CAPTURE_MAX_CHARS, DEFAULT_RECALL_MAX_CHARS, MEMORY_CATEGORIES, memoryConfigSchema, resolveDefaultDbPath, resolveEnvVars, vectorDimsForModel };

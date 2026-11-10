@@ -1,8 +1,7 @@
-import { n as createWindowsJobBindings } from "../service-child-windows-job-native-DZ9lDQG9.mjs";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { WindowsJob } from "@openclaw/proc-safe/windows-job";
 //#region scripts/lib/direct-run.mjs
 /**
 * Return whether a direct-run path points at the current module path.
@@ -47,14 +46,13 @@ const fail = (error, type = "error") => {
 };
 if (isDirectRunUrl(process.argv[1], import.meta.url)) try {
 	if (!name || !process.connected) throw new Error("Windows command Job handoff is missing");
-	const koffi = createRequire(import.meta.url)("koffi");
-	const api = createWindowsJobBindings(koffi);
-	api.assertLayouts();
-	const job = api.requireHandle(api.OpenJobObjectW(1, 0, name), "OpenJobObjectW(tooling)");
-	const assignmentError = api.AssignProcessToJobObject(job, api.GetCurrentProcess()) ? void 0 : api.lastError("AssignProcessToJobObject(tooling launcher)");
-	const closed = api.CloseHandle(job);
-	if (assignmentError) throw assignmentError;
-	if (!closed) throw api.lastError("CloseHandle(launcher Job copy)");
+	const job = WindowsJob.open(name);
+	if (!job) throw new Error("Windows command Job owner is gone");
+	try {
+		job.assignCurrentProcess();
+	} finally {
+		job.close();
+	}
 	process.once("message", (launch) => {
 		try {
 			const child = spawn(launch.command, launch.args, {

@@ -133,6 +133,7 @@ openclaw plugins disable <plugin-id>
 Toggles a plugin's config entry without touching installed files. Some
 bundled plugins (bundled model/speech providers, the bundled browser plugin)
 are enabled by default; others require `enable` after install.
+Repeating an already-applied enable or disable choice leaves the config file unchanged.
 
 ## Capability consent
 
@@ -247,7 +248,7 @@ openclaw plugins install --link ./my-plugin
 Bare package specs install from npm, unless the name matches a bundled or
 official plugin id, in which case OpenClaw uses
 that local/official copy instead. Use `clawhub:`, `npm:`, `git:`, or
-`npm-pack:` for deterministic source selection. OpenClaw's bundled and official
+`npm-pack:` to select the source explicitly. OpenClaw's bundled and official
 catalog packages are trusted alongside ClawHub packages. New arbitrary npm,
 git, local path/archive, `npm-pack:`, or marketplace sources require
 `--force` in noninteractive installs after you review
@@ -332,6 +333,11 @@ already-installed local TypeScript plugin, use `reload` with its plugin ID.
 Installing new local, npm, Git, or archive sources still uses the CLI workflow
 above.
 
+When the current turn uses the plugin being reloaded, use `reloadAndResume`.
+It checks administrator authority before yielding, finishes turn cleanup, then
+reloads and resumes the same conversation with the result. Permission revocation
+still stops the reload; do not repeat a completed mutation.
+
 In the embedded agent runtime, an applied change refreshes tools before the next
 model request after running code programs have settled. A parked program may need
 further model steps to wait for completion; completed actions and accepted steering
@@ -372,7 +378,7 @@ and memory/context slot selections reconciled before the new package/index
 state commits; retained/new children and unrelated plugins are preserved.
 
 If OpenClaw cannot prove exactly one package owner and a complete child list,
-update and uninstall fail closed without changing package files, config, or the
+update and uninstall are rejected without changing package files, config, or the
 installed index. Run `openclaw plugins registry --refresh`, inspect
 `openclaw plugins doctor`, and use `openclaw doctor --fix` for repairable legacy
 index state. If the ambiguity remains, reinstall the package before retrying.
@@ -382,7 +388,7 @@ exact version pins and explicit tags, including trusted official OpenClaw
 plugin records, because older automatic pins cannot be distinguished from an
 operator's intentional pin. When a newer default-line release exists,
 OpenClaw reports it and prints the explicit command that replaces the pin.
-Floating official records still follow the canonical channel resolver, which
+Floating official records still follow the shared channel resolver, which
 uses both `update.channel` and the installed core version.
 
 For an exact-pinned ClawHub record, deliberately return to the default release

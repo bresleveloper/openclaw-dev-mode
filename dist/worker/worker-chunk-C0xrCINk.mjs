@@ -1,0 +1,1 @@
+import{a as e,i as t,n,o as r,r as i,t as a}from"./worker-chunk-tvwfKa7k.mjs";e();export{a as DEFAULT_UNDICI_STREAM_TIMEOUT_MS,n as ensureGlobalUndiciDispatcherStreamTimeouts,i as ensureGlobalUndiciEnvProxyDispatcher,t as forceResetGlobalDispatcher,r as resetGlobalUndiciStreamTimeoutsForTests};

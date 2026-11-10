@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t,r as n,t as r}from"./worker-chunk-BdOlFEfO.mjs";e((()=>{r()}))();export{n as resolveBundledWebFetchProvidersFromPublicArtifacts,t as resolveBundledWebSearchProvidersFromPublicArtifacts};

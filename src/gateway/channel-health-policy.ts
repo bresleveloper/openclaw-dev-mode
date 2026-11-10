@@ -4,8 +4,63 @@ import {
   resolveNonNegativeIntegerOption,
 } from "@openclaw/normalization-core/number-coercion";
 import type { ChannelAccountSnapshot, ChannelId } from "../channels/plugins/types.public.js";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { normalizeOptionalAccountId } from "../routing/account-id.js";
+import { resolveChannelAccountEntry } from "../routing/account-lookup.js";
+import { normalizeAccountId } from "../routing/session-key.js";
 
 type ChannelHealthSnapshot = Omit<ChannelAccountSnapshot, "accountId">;
+
+type HealthMonitorConfig = {
+  healthMonitor?: {
+    enabled?: boolean;
+  };
+};
+
+type ChannelHealthMonitorConfig = HealthMonitorConfig & {
+  accounts?: Record<string, HealthMonitorConfig>;
+};
+
+function resolveAccountHealthMonitorOverride(
+  channelConfig: ChannelHealthMonitorConfig | undefined,
+  channelId: ChannelId,
+  accountId: string,
+): boolean | undefined {
+  if (!channelConfig?.accounts) {
+    return undefined;
+  }
+  const direct = resolveChannelAccountEntry(channelConfig.accounts, accountId, channelId);
+  if (typeof direct?.healthMonitor?.enabled === "boolean") {
+    return direct.healthMonitor.enabled;
+  }
+  const normalizedAccountId = normalizeOptionalAccountId(accountId);
+  if (!normalizedAccountId) {
+    return undefined;
+  }
+  const match = resolveChannelAccountEntry(
+    channelConfig.accounts,
+    normalizedAccountId,
+    channelId,
+    normalizeAccountId,
+  );
+  if (typeof match?.healthMonitor?.enabled !== "boolean") {
+    return undefined;
+  }
+  return match.healthMonitor.enabled;
+}
+
+export function resolveChannelHealthMonitorEnabled(
+  cfg: OpenClawConfig,
+  channelId: ChannelId,
+  accountId: string,
+): boolean {
+  // SAFETY: Open-world plugin fields are optional; enabled values are checked as booleans.
+  const channelConfig = cfg.channels?.[channelId] as ChannelHealthMonitorConfig | undefined;
+  const accountOverride = resolveAccountHealthMonitorOverride(channelConfig, channelId, accountId);
+  const channelOverride = channelConfig?.healthMonitor?.enabled;
+
+  return accountOverride ?? (typeof channelOverride === "boolean" ? channelOverride : true);
+}
 
 type ChannelHealthEvaluationReason =
   | "healthy"
@@ -71,11 +126,14 @@ export function evaluateChannelHealth(
   snapshot: ChannelHealthSnapshot,
   policy: ChannelHealthPolicy,
 ): ChannelHealthEvaluation {
-  if (snapshot.enabled === false || snapshot.configured === false || snapshot.linked === false) {
+  if (snapshot.enabled === false || snapshot.configured === false) {
     return { healthy: true, reason: "unmanaged" };
   }
   if (!snapshot.running && snapshot.terminalDisconnect) {
     return { healthy: false, reason: "terminal-disconnect" };
+  }
+  if (snapshot.lifecycle === "blocked") {
+    return { healthy: false, reason: "blocked" };
   }
   // Transport liveness and inbound admission are independent failure domains: a
   // channel can hold a healthy socket and still admit nothing. This outranks the
@@ -86,8 +144,10 @@ export function evaluateChannelHealth(
   if (snapshot.ingressUnavailable === true) {
     return { healthy: false, reason: "ingress-unavailable" };
   }
-  if (snapshot.lifecycle === "blocked") {
-    return { healthy: false, reason: "blocked" };
+  // Ordinary unlinked accounts need no recovery, but losing linkage cannot hide
+  // an already recorded failure (for example, a terminal session logout).
+  if (snapshot.linked === false) {
+    return { healthy: true, reason: "unmanaged" };
   }
   const lastStartAt = asFiniteNumber(snapshot.lastStartAt) ?? null;
   const currentLifecycleStarted =

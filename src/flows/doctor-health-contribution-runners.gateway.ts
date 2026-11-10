@@ -7,6 +7,7 @@ import { runWriteConfigHealth } from "./doctor-health-contribution-runners.confi
 import type { DoctorHealthFlowContext } from "./doctor-health-contribution-types.js";
 import { resolveDoctorMode } from "./doctor-health-contribution-utils.js";
 import { recordDoctorHealthWarnings } from "./doctor-health-contribution.js";
+import { resolveDoctorWorkspaceSuggestionScopes } from "./doctor-workspace-suggestion-scopes.js";
 
 export async function runCommandOwnerHealth(ctx: DoctorHealthFlowContext): Promise<void> {
   const { noteCommandOwnerHealth } = await import("../commands/doctor-command-owner.js");
@@ -56,11 +57,7 @@ export async function runGatewayServicesHealth(ctx: DoctorHealthFlowContext): Pr
     maybeResolveDuelingSystemdGatewayScopes,
     maybeScanExtraGatewayServices,
   } = await import("../commands/doctor-gateway-services.js");
-  const {
-    noteMacLaunchAgentOverrides,
-    noteMacLaunchctlGatewayEnvOverrides,
-    noteMacStaleOpenClawUpdateLaunchdJobs,
-  } = await import("../commands/doctor-platform-notes.js");
+  const { noteMacGatewayPlatformWarnings } = await import("../commands/doctor-platform-notes.js");
   await maybeScanExtraGatewayServices(ctx.options, ctx.runtime, ctx.prompter);
   await maybeResolveDuelingSystemdGatewayScopes(ctx.runtime, ctx.prompter);
   ctx.cfg = await maybeRepairGatewayServiceConfig(
@@ -73,9 +70,7 @@ export async function runGatewayServicesHealth(ctx: DoctorHealthFlowContext): Pr
       writeConfig: (nextConfig) => writeDoctorGatewayConfig(ctx, nextConfig),
     },
   );
-  await noteMacLaunchAgentOverrides();
-  await noteMacStaleOpenClawUpdateLaunchdJobs();
-  await noteMacLaunchctlGatewayEnvOverrides(ctx.cfg);
+  await noteMacGatewayPlatformWarnings(ctx.cfg);
 }
 
 export async function runHostDesktopHealth(ctx: DoctorHealthFlowContext): Promise<void> {
@@ -111,6 +106,20 @@ export async function runWebFetchProxyHealth(ctx: DoctorHealthFlowContext): Prom
   }
   const { noteWebFetchProxyDiagnostic } = await import("../commands/doctor-web-fetch-proxy.js");
   await noteWebFetchProxyDiagnostic({ cfg: ctx.cfg, env: ctx.env ?? process.env });
+}
+
+export async function runBundleLspEnvHealth(ctx: DoctorHealthFlowContext): Promise<void> {
+  const { noteBundleLspEnvPassthrough } = await import("../commands/doctor-bundle-lsp-env.js");
+  await noteBundleLspEnvPassthrough({
+    cfg: ctx.cfg,
+    workspaceDirs: resolveDoctorWorkspaceSuggestionScopes(ctx.cfg).map(
+      (scope) => scope.workspaceDir,
+    ),
+    env: ctx.env ?? process.env,
+    ...(ctx.runWithPluginMetadataSnapshot
+      ? { runWithPluginMetadataSnapshot: ctx.runWithPluginMetadataSnapshot }
+      : {}),
+  });
 }
 
 export async function runGitHubProjectHealth(ctx: DoctorHealthFlowContext): Promise<void> {

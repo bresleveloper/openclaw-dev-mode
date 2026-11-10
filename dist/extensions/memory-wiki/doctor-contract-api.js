@@ -1,11 +1,11 @@
 import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { t as FsSafeError, w as root } from "../../fs-safe-BUXBSN-4.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../security-runtime-CpTHQYW2.mjs";
-import { a as resolveMemoryWikiConfig, i as resolveMemoryWikiAgentConfig, o as resolveMemoryWikiConfiguredAgentIds } from "../../config-BATWLWdx.mjs";
-import { F as walkMemoryWikiDirectory, d as createMemoryWikiSourceSyncStateStore, i as createMemoryWikiImportRunStateStore, s as resolveMemoryWikiImportRunsDir } from "../../import-runs-state-DGOSREgh.mjs";
-import path from "node:path";
+import { t as FsSafeError, w as root } from "../../fs-safe-6Z4UiMS4.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../security-runtime-6domDoE8.mjs";
+import { a as resolveMemoryWikiConfig, i as resolveMemoryWikiAgentConfig, o as resolveMemoryWikiConfiguredAgentIds } from "../../config-B1rNG_-d.mjs";
+import { a as resolveMemoryWikiImportRunsDir, c as createMemoryWikiSourceSyncStateStore, m as walkMemoryWikiDirectory, r as createMemoryWikiImportRunStateStore } from "../../import-runs-state-SYz8z6TJ.mjs";
 import fs from "node:fs/promises";
+import path from "node:path";
 //#region extensions/memory-wiki/doctor-contract-api.ts
 const LEGACY_MEMORY_WIKI_COMPILED_CACHE_PATHS = [".openclaw-wiki/cache/agent-digest.json", ".openclaw-wiki/cache/claims.jsonl"];
 function resolveHomeDir(env) {
@@ -50,7 +50,7 @@ function resolveConfiguredVaultRoots(params) {
 	}).vault.path);
 }
 function unsupportedJsonWarning(filePath, emptySourceSync = false) {
-	return `Memory Wiki: upgrades from pre-July-2026 JSON state are no longer migrated (${filePath}). ${emptySourceSync ? "No canonical SQLite source-sync state was found; an empty store cannot be distinguished from unmigrated state. " : "No canonical SQLite import-run record was found. "}Restore a backup produced by a July 2026 or newer release, or back up and move this retired file aside after verifying the SQLite state, then rerun openclaw doctor --fix. The file was left unchanged.`;
+	return `Memory Wiki: upgrades from pre-July-2026 JSON state are no longer migrated (${filePath}). ${emptySourceSync ? "No current SQLite source-sync state was found; an empty store cannot be distinguished from unmigrated state. " : "No current SQLite import-run record was found. "}Restore a backup produced by a July 2026 or newer release, or back up and move this retired file aside after verifying the SQLite state, then rerun openclaw doctor --fix. The file was left unchanged.`;
 }
 async function unsupportedSourceSyncFiles(params) {
 	const warnings = [];

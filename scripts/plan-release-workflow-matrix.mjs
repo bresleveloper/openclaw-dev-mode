@@ -1,4 +1,3 @@
-// Plans release workflow matrix entries from profile and suite inputs.
 import { isDirectRunUrl } from "./lib/direct-run.mjs";
 import { parseLaneSelection } from "./lib/docker-e2e-plan.mts";
 import { allReleasePathLanes } from "./lib/docker-e2e-scenarios.mts";
@@ -8,6 +7,8 @@ import { planTargetedDockerLaneGroups } from "./plan-targeted-docker-lane-groups
 
 export const RELEASE_PACKAGE_ACCEPTANCE_LANES =
   "release-typed-onboarding doctor-switch update-channel-switch skill-install update-corrupt-plugin upgrade-survivor update-first-hop-compat published-upgrade-survivor root-managed-vps-upgrade update-restart-auth plugins-offline plugin-update plugin-binding-command-escape";
+const QUALIFIED_PACKAGE_SMOKE_LANES =
+  "npm-onboard-channel-agent published-upgrade-survivor plugins-offline plugin-update";
 
 const DOCKER_E2E_CHUNKS = [
   {
@@ -19,14 +20,13 @@ const DOCKER_E2E_CHUNKS = [
   {
     chunk_id: "package-update-openai",
     label: "package/update OpenAI",
-    // Four weight-3 npm lanes serialize at limit 5: 105m + tool/setup/upload margin.
-    timeout_minutes: 135,
+    timeout_minutes: 60,
     profiles: "beta minimum stable full",
   },
   {
     chunk_id: "package-update-restart-auth",
     label: "package/update restart auth",
-    // The admitted lane has a 62m budget; retain setup and upload headroom.
+    // 62-minute lane plus runner setup and artifact upload, matching targeted jobs.
     timeout_minutes: 75,
     profiles: "beta minimum stable full",
   },
@@ -39,11 +39,7 @@ const DOCKER_E2E_CHUNKS = [
   {
     chunk_id: "package-update-migrations",
     label: "package/update migrations",
-    // Full candidates run four published-upgrade-survivor baselines plus
-    // update-channel-switch; all are weight-3 npm lanes, so they serialize at limit 5.
-    // Hosted passes measured 766-911s and 484-1632s per lane: 15m + 4 x 28m + 10m
-    // setup/artifacts = 137m, round to 150m. At 60m, 3 of 6 full candidates cancelled.
-    timeout_minutes: 150,
+    timeout_minutes: 60,
     profiles: "beta minimum stable full",
   },
   {
@@ -58,54 +54,12 @@ const DOCKER_E2E_CHUNKS = [
     timeout_minutes: 60,
     profiles: "stable full",
   },
-  {
-    chunk_id: "plugins-runtime-install-a",
-    label: "plugins/runtime install A",
+  ...["a", "b", "c", "d", "e", "f", "g", "h"].map((shard) => ({
+    chunk_id: `plugins-runtime-install-${shard}`,
+    label: `plugins/runtime install ${shard.toUpperCase()}`,
     timeout_minutes: 60,
     profiles: "stable full",
-  },
-  {
-    chunk_id: "plugins-runtime-install-b",
-    label: "plugins/runtime install B",
-    timeout_minutes: 60,
-    profiles: "stable full",
-  },
-  {
-    chunk_id: "plugins-runtime-install-c",
-    label: "plugins/runtime install C",
-    timeout_minutes: 60,
-    profiles: "stable full",
-  },
-  {
-    chunk_id: "plugins-runtime-install-d",
-    label: "plugins/runtime install D",
-    timeout_minutes: 60,
-    profiles: "stable full",
-  },
-  {
-    chunk_id: "plugins-runtime-install-e",
-    label: "plugins/runtime install E",
-    timeout_minutes: 60,
-    profiles: "stable full",
-  },
-  {
-    chunk_id: "plugins-runtime-install-f",
-    label: "plugins/runtime install F",
-    timeout_minutes: 60,
-    profiles: "stable full",
-  },
-  {
-    chunk_id: "plugins-runtime-install-g",
-    label: "plugins/runtime install G",
-    timeout_minutes: 60,
-    profiles: "stable full",
-  },
-  {
-    chunk_id: "plugins-runtime-install-h",
-    label: "plugins/runtime install H",
-    timeout_minutes: 60,
-    profiles: "stable full",
-  },
+  })),
 ];
 
 const LIVE_MODEL_PROVIDERS = [
@@ -233,10 +187,8 @@ const LIVE_DOCKER_SUITES = [
     suite_id: "live-gateway-advisory-docker-opencode-openrouter",
     suite_group: "live-gateway-advisory-docker",
     label: "Docker live gateway OpenCode/OpenRouter",
-    // High-signal selection picks opencode-go/deepseek-v4-flash, a Global-region route the
-    // release workspace rejects with 400. Pin refs proven reachable by the native lanes.
     command:
-      'OPENCLAW_LIVE_GATEWAY_PROVIDERS=opencode-go,openrouter OPENCLAW_LIVE_GATEWAY_MODELS=opencode-go/glm-5.3,openrouter/minimax/minimax-m2.7 OPENCLAW_LIVE_GATEWAY_MAX_MODELS=2 OPENCLAW_LIVE_GATEWAY_STEP_TIMEOUT_MS=90000 OPENCLAW_LIVE_GATEWAY_MODEL_TIMEOUT_MS=180000 OPENCLAW_LIVE_DOCKER_REPO_ROOT="$GITHUB_WORKSPACE" timeout --foreground --kill-after=30s 35m bash .release-harness/scripts/test-live-gateway-models-docker.sh',
+      'OPENCLAW_LIVE_GATEWAY_PROVIDERS=opencode-go,openrouter OPENCLAW_LIVE_GATEWAY_MAX_MODELS=2 OPENCLAW_LIVE_GATEWAY_STEP_TIMEOUT_MS=90000 OPENCLAW_LIVE_GATEWAY_MODEL_TIMEOUT_MS=180000 OPENCLAW_LIVE_DOCKER_REPO_ROOT="$GITHUB_WORKSPACE" timeout --foreground --kill-after=30s 35m bash .release-harness/scripts/test-live-gateway-models-docker.sh',
     timeout_minutes: 40,
     profile_env_only: false,
     profiles: "full",
@@ -349,7 +301,7 @@ export function createReleaseCheckSelection(options = {}) {
   const group = options.rerunGroup ?? "all";
   let groups;
   if (group === "all") {
-    groups = ["install-smoke", "cross-os", "package", "qa-parity"];
+    groups = ["install-smoke", "cross-os", "windows-node", "package", "qa-parity"];
     if (isEnabled(options.runReleaseSoak)) {
       groups.push("live-e2e");
     }
@@ -359,7 +311,16 @@ export function createReleaseCheckSelection(options = {}) {
   } else if (group === "qa") {
     groups = ["qa-parity", "qa-live"];
   } else if (
-    ["install-smoke", "cross-os", "live-e2e", "package", "qa-parity", "qa-live"].includes(group)
+    [
+      "install-smoke",
+      "cross-os",
+      "windows-node",
+      "live-e2e",
+      "package",
+      "qualified-package",
+      "qa-parity",
+      "qa-live",
+    ].includes(group)
   ) {
     groups = [group];
   } else {
@@ -372,17 +333,24 @@ export function createReleaseCheckSelection(options = {}) {
     release_check_groups_json: JSON.stringify(groups),
     install_smoke_scheduled: independent && selected("install-smoke"),
     cross_os_scheduled: candidate && selected("cross-os"),
+    windows_node_scheduled: candidate && selected("windows-node"),
     live_e2e_scheduled: independent && selected("live-e2e"),
-    package_acceptance_scheduled: candidate && selected("package"),
+    package_acceptance_scheduled:
+      candidate && (selected("package") || selected("qualified-package")),
     qa_parity_scheduled: independent && selected("qa-parity"),
     qa_live_scheduled: independent && selected("qa-live"),
     docker_required: candidate && selected("live-e2e") && isBlank(options.repoLiveSuiteFilter),
   };
   return {
     ...result,
-    package_acceptance_lanes: RELEASE_PACKAGE_ACCEPTANCE_LANES,
+    package_acceptance_lanes: selected("qualified-package")
+      ? QUALIFIED_PACKAGE_SMOKE_LANES
+      : RELEASE_PACKAGE_ACCEPTANCE_LANES,
     package_required:
-      result.cross_os_scheduled || result.package_acceptance_scheduled || result.docker_required,
+      result.cross_os_scheduled ||
+      result.windows_node_scheduled ||
+      result.package_acceptance_scheduled ||
+      result.docker_required,
   };
 }
 
@@ -537,9 +505,6 @@ function planProfileMatrix(entries, profile, enabled, disabledReason, labelForEn
   };
 }
 
-/**
- * Creates the Docker E2E/live model matrix plan for a release profile.
- */
 export function createReleaseWorkflowMatrixPlan(options = {}) {
   const releaseProfile = options.releaseProfile ?? "stable";
   if (!["beta", "minimum", "stable", "full"].includes(releaseProfile)) {

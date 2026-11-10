@@ -3,7 +3,6 @@ import {
   isHostScopedAgentToolActive,
   materializeRequesterScopedMcpToolsForHarnessRun,
   resolveAgentDir,
-  runAgentCleanupStep,
   supportsModelTools,
   type EmbeddedRunAttemptParams,
   type ExecApprovalDecision,
@@ -13,7 +12,9 @@ import {
   formatMcpCodexApprovalRemedy,
   materializeStaticMcpToolsForHarnessRun,
 } from "openclaw/plugin-sdk/codex-mcp-projection";
+import { isIncognitoSessionKey } from "openclaw/plugin-sdk/session-key-runtime";
 import { formatStageTimings } from "openclaw/plugin-sdk/time-runtime";
+import type { CodexComputerContextEpoch } from "./computer-context.js";
 import { resolveCodexPluginsPolicy, shouldAutoApproveCodexAppServerApprovals } from "./config.js";
 import {
   buildDynamicTools,
@@ -33,12 +34,15 @@ import {
   selectInactiveCodexHeartbeatResponseTool,
 } from "./heartbeat-tool-fallback.js";
 import { buildCodexHookRequester } from "./hook-requester.js";
-import { hasCodexNativeToolCatalog, loadCodexNativeToolCatalog } from "./native-tool-catalog.js";
+import type { NativePendingChild } from "./native-subagent-monitor-types.js";
+import {
+  hasCodexNativeToolCatalog,
+  loadCodexAttemptNativeToolCatalog,
+} from "./native-tool-catalog.js";
 import { CodexCompactionPlanState } from "./plan-compaction-state.js";
 import { requestPluginApprovalOutcome } from "./plugin-approval-roundtrip.js";
-import type { CodexDynamicToolSpec } from "./protocol.js";
 import { isCodexResponsesOAuth } from "./responses-oauth.js";
-import { emitCodexAppServerEvent } from "./run-attempt-lifecycle.js";
+import { emitCodexAppServerEvent, runCodexCleanupStep } from "./run-attempt-lifecycle.js";
 import type { CodexAttemptRuntime } from "./run-attempt-runtime.js";
 import { resolveCodexDynamicToolDirectNames } from "./run-attempt-tools.js";
 import {
@@ -46,7 +50,7 @@ import {
   captureScheduledCodexAppAuthority,
   resolveScheduledCodexAppCreatorCaptureDecision,
 } from "./scheduled-app-authority.js";
-import { releaseLeasedSharedCodexAppServerClient } from "./shared-client.js";
+import { releaseCodexProbeClient } from "./shared-client.js";
 
 export async function prepareCodexAttemptTools(runtime: CodexAttemptRuntime) {
   const {
@@ -147,11 +151,7 @@ export async function prepareCodexAttemptTools(runtime: CodexAttemptRuntime) {
       : {}),
     ...(onCodexToolOutcome ? { onToolOutcome: onCodexToolOutcome } : {}),
   };
-  const computerContextEpoch: {
-    value: number;
-    frameToolCallId?: string;
-    frameImageIdentity?: string;
-  } = { value: 0 };
+  const computerContextEpoch: CodexComputerContextEpoch = { value: 0 };
   const runCleanups: Array<(reason: string) => Promise<void>> = [];
   const cronCreatorToolAllowlist: Array<string | { name: string; pluginId?: string }> = [];
   const cronCreatorToolAllowlistCaptureRef: {
@@ -203,8 +203,11 @@ export async function prepareCodexAttemptTools(runtime: CodexAttemptRuntime) {
   >;
   let creatorAuthorityPromise: ReturnType<CreatorAuthorityResolver> | undefined;
   let resolveCreatorAuthorityImpl: CreatorAuthorityResolver | undefined;
-  const runtimeYieldCompletionClaim: { current?: () => boolean } = {};
+  const runtimeYieldCompletionClaim: {
+    current?: () => boolean | { pendingChildren: NativePendingChild[] };
+  } = {};
   const commonToolParams = {
+    nativeExecutionPolicy: runtime.nativeExecutionPolicy,
     // Both catalogs describe one attempt; a later attempt discovers fresh connections.
     nodeExecAvailability: {},
     params: dynamicToolParams,
@@ -265,68 +268,50 @@ export async function prepareCodexAttemptTools(runtime: CodexAttemptRuntime) {
         }
       : {}),
   };
-  let nativeSpecs: CodexDynamicToolSpec[] | undefined;
-  if (hasCodexNativeToolCatalog(mutable.startupBinding)) {
-    runAbortController.signal.throwIfAborted();
-    connection.assertCurrent();
-    const client = await connection.attemptClientFactory({
-      assertCurrent: connection.assertLegacyCurrent,
-      startOptions: connection.appServer.start,
-      authProfileId: connection.startupClientAuthProfileId,
-      agentDir,
-      config: params.config,
-      timeoutMs: connection.appServer.requestTimeoutMs,
-    });
-    try {
-      nativeSpecs = await loadCodexNativeToolCatalog({
-        client,
-        authority: connection.authority,
-        binding: mutable.startupBinding,
-        appServer: connection.appServer,
+  const nativeSpecs = await loadCodexAttemptNativeToolCatalog({
+    binding: mutable.startupBinding,
+    ephemeral: isIncognitoSessionKey(params.sessionKey),
+    authority: connection.authority,
+    appServer: connection.appServer,
+    agentDir,
+    signal: runAbortController.signal,
+    acquireClient: () =>
+      connection.attemptClientFactory({
+        assertCurrent: connection.assertLegacyCurrent,
+        startOptions: connection.appServer.start,
+        authProfileId: connection.startupClientAuthProfileId,
         agentDir,
-        assertCurrent: () => {
-          runAbortController.signal.throwIfAborted();
-          connection.assertCurrent();
-        },
-      });
-    } finally {
-      releaseLeasedSharedCodexAppServerClient(client);
-    }
-  }
+        config: params.config,
+        timeoutMs: connection.appServer.requestTimeoutMs,
+      }),
+    releaseClient: (client) => releaseCodexProbeClient(client, connection.attemptClientFactory),
+    assertCurrent: () => {
+      runAbortController.signal.throwIfAborted();
+      connection.assertCurrent();
+    },
+  });
   let requireExplicitMessageTarget: boolean | undefined;
   let configuredMcp: Awaited<ReturnType<typeof materializeStaticMcpToolsForHarnessRun>> | undefined;
   let scopedMcpTools: Awaited<ReturnType<typeof materializeRequesterScopedMcpToolsForHarnessRun>>;
   let toolDisposal: Promise<void> | undefined;
   const disposeTools = (reason: string): Promise<void> =>
     (toolDisposal ??= (async () => {
-      await runAgentCleanupStep({
-        runId: params.runId,
-        sessionId: params.sessionId,
-        step: "codex-dynamic-tool-cleanup",
-        log: embeddedAgentLog,
-        cleanup: async () => {
-          const settled = await Promise.allSettled(
-            runCleanups.splice(0).map(async (cleanup) => await cleanup(reason)),
-          );
-          const errors = settled.flatMap((result) =>
-            result.status === "rejected" ? [result.reason] : [],
-          );
-          if (params.oneShotCliRun && errors.length) {
-            throw new AggregateError(errors, "Codex tool cleanup failed");
-          }
-        },
+      await runCodexCleanupStep(params, "codex-dynamic-tool-cleanup", async () => {
+        const settled = await Promise.allSettled(
+          runCleanups.splice(0).map(async (cleanup) => await cleanup(reason)),
+        );
+        const errors = settled.flatMap((result) =>
+          result.status === "rejected" ? [result.reason] : [],
+        );
+        if (params.oneShotCliRun && errors.length) {
+          throw new AggregateError(errors, "Codex tool cleanup failed");
+        }
       });
       for (const [step, materialized] of [
         ["codex-scoped-mcp-dispose", scopedMcpTools],
         ["codex-configured-mcp-dispose", configuredMcp],
       ] as const) {
-        await runAgentCleanupStep({
-          runId: params.runId,
-          sessionId: params.sessionId,
-          step,
-          log: embeddedAgentLog,
-          cleanup: async () => materialized?.dispose(),
-        });
+        await runCodexCleanupStep(params, step, async () => materialized?.dispose());
       }
     })());
   try {
@@ -554,10 +539,13 @@ export async function prepareCodexAttemptTools(runtime: CodexAttemptRuntime) {
             cwd: effectiveCwd ?? effectiveWorkspace,
           });
     const toolBridge = createCodexDynamicToolBridge({
+      assertCurrentAsync: runtime.nativeExecutionPolicy.assertCurrent,
       tools: toolsWithScopedMcp,
       registeredTools: registeredWithScopedMcp,
       registeredFallbackTools,
       registeredSpecs: nativeSpecs,
+      requireExactRegisteredDefinitions:
+        nativeSpecs !== undefined && !hasCodexNativeToolCatalog(mutable.startupBinding),
       signal: runAbortController.signal,
       computerContextEpoch,
       functionToolsOnly: isCodexResponsesOAuth(connection.startupPreparedAuth),

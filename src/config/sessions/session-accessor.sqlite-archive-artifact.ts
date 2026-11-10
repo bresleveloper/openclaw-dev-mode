@@ -71,12 +71,10 @@ export function resolveRegisteredSqliteTranscriptArchiveName(params: {
   );
 }
 
-function findMatchingSqliteTranscriptArchive(params: {
-  archiveDirectory: string;
-  content: string;
-  reason: SessionArchiveReason;
-  sessionId: string;
-}): string | null {
+function findMatchingSqliteTranscriptArchive(
+  params: Parameters<typeof writeTranscriptArchive>[0],
+  expectedBytes: number,
+): string | null {
   let entries: string[];
   try {
     entries = fs.readdirSync(params.archiveDirectory);
@@ -95,10 +93,10 @@ function findMatchingSqliteTranscriptArchive(params: {
       if (!stat.isFile()) {
         continue;
       }
-      if (!compressed && stat.size !== Buffer.byteLength(params.content, "utf8")) {
+      if (!compressed && stat.size !== expectedBytes) {
         continue;
       }
-      if (readSessionArchiveContentSync(archivePath) === params.content) {
+      if (readSessionArchiveContentSync(archivePath, expectedBytes) === params.content) {
         return archivePath;
       }
     } catch {
@@ -116,12 +114,13 @@ export function writeTranscriptArchive(params: {
   sessionId: string;
 }): string {
   fs.mkdirSync(params.archiveDirectory, { recursive: true });
-  const existing = findMatchingSqliteTranscriptArchive(params);
+  const expectedBytes = Buffer.byteLength(params.content, "utf8");
+  const existing = findMatchingSqliteTranscriptArchive(params, expectedBytes);
   if (existing) {
     return existing;
   }
-  // Archives are the long-lived cold tier; compress when the runtime can so
-  // keep-forever retention stays cheap. Plain JSONL is the Bun/older fallback.
+  // Publication verification has the original byte count, so even highly
+  // compressed transcripts retain bounded readback without losing compression.
   const encoded = encodeSessionArchiveContent(params.content);
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const archivePath = `${resolveSqliteTranscriptArchivePath({
@@ -142,7 +141,7 @@ export function writeTranscriptArchive(params: {
       // Full readback is bounded by the same single-generation content held by
       // this Worker (Node string limits cap both); a partial
       // or corrupt archive must fail here, before any rows are reclaimed.
-      if (readSessionArchiveContentSync(archivePath) !== params.content) {
+      if (readSessionArchiveContentSync(archivePath, expectedBytes) !== params.content) {
         fs.rmSync(archivePath, { force: true });
         throw new Error(`SQLite transcript archive verification failed for ${params.sessionId}`);
       }
@@ -163,10 +162,15 @@ export function writeTranscriptArchive(params: {
 function writeDurableFileExclusive(filePath: string, content: Buffer): void {
   const fd = fs.openSync(filePath, "wx", 0o600);
   try {
-    fs.writeFileSync(fd, content);
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
+    try {
+      fs.writeFileSync(fd, content);
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch (error) {
+    fs.rmSync(filePath, { force: true });
+    throw error;
   }
 }
 

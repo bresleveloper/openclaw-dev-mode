@@ -66,6 +66,7 @@ function parseDirectiveToken(ctx) {
 	} : { handled: true };
 }
 function buildGradiumSpeechProvider() {
+	const isConfigured = ({ providerConfig }) => isGradiumProviderConfigured(providerConfig);
 	return {
 		id: "gradium",
 		label: "Gradium",
@@ -77,7 +78,8 @@ function buildGradiumSpeechProvider() {
 			id: v.id,
 			name: v.name
 		})),
-		isConfigured: ({ providerConfig }) => isGradiumProviderConfigured(providerConfig),
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		synthesize: async (req) => {
 			const wantsVoiceNote = req.target === "voice-note";
 			const outputFormat = wantsVoiceNote ? "opus" : "wav";

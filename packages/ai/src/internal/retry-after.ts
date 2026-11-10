@@ -6,11 +6,6 @@ const HTTP_DATE_MONTH_INDEX = new Map(
 const HTTP_DATE_SHORT_WEEKDAY_INDEX = new Map(
   ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((weekday, index) => [weekday, index]),
 );
-const HTTP_DATE_LONG_WEEKDAY_INDEX = new Map(
-  ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(
-    (weekday, index) => [weekday, index],
-  ),
-);
 
 const IMF_FIXDATE_RE =
   /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{2}):(\d{2}):(\d{2}) GMT$/;
@@ -45,6 +40,7 @@ function ownDataValue(value: unknown, key: string): unknown {
 export function parseRetryAfterHeadersSeconds(
   headers: unknown,
   nowMs = Date.now(),
+  status?: number,
 ): number | undefined {
   if (!headers || typeof headers !== "object") {
     return undefined;
@@ -52,20 +48,31 @@ export function parseRetryAfterHeadersSeconds(
   try {
     let entries: Array<[string, unknown]>;
     try {
-      entries = ["retry-after", "retry-after-ms"].map<[string, unknown]>((key) => [
-        key,
-        Headers.prototype.get.call(headers, key),
-      ]);
+      entries = [
+        "retry-after",
+        "retry-after-ms",
+        "x-ratelimit-remaining-tokens",
+        "x-ratelimit-reset-tokens",
+        "x-ratelimit-remaining-requests",
+        "x-ratelimit-reset-requests",
+        "x-ratelimit-remaining-project-tokens",
+        "x-ratelimit-reset-project-tokens",
+      ].map<[string, unknown]>((key) => [key, Headers.prototype.get.call(headers, key)]);
     } catch {
       entries = Object.getOwnPropertyNames(headers).flatMap<[string, unknown]>((key) => {
         const name = key.toLowerCase();
-        return name === "retry-after" || name === "retry-after-ms"
+        return name === "retry-after" ||
+          name === "retry-after-ms" ||
+          /^x-ratelimit-(?:remaining|reset)-(?:tokens|requests|project-tokens)$/.test(name)
           ? [[name, ownDataValue(headers, key)]]
           : [];
       });
     }
     let floor: number | undefined;
     for (const [key, value] of entries) {
+      if (key.startsWith("x-ratelimit-")) {
+        continue;
+      }
       const text =
         typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
       const milliseconds = key === "retry-after-ms";
@@ -87,10 +94,48 @@ export function parseRetryAfterHeadersSeconds(
         floor = Math.max(floor ?? 0, seconds);
       }
     }
+    // Reset headers describe a full quota refill, not a wait for every request.
+    // Only a rejected request with an exhausted matching bucket establishes a floor.
+    if (status === 429) {
+      const values = new Map(entries);
+      for (const dimension of ["tokens", "requests", "project-tokens"]) {
+        const remaining = values.get(`x-ratelimit-remaining-${dimension}`);
+        const numericRemaining =
+          typeof remaining === "number"
+            ? remaining
+            : typeof remaining === "string" && /^-?\d+(?:\.\d+)?$/.test(remaining.trim())
+              ? Number(remaining)
+              : Number.NaN;
+        if (!Number.isFinite(numericRemaining) || numericRemaining > 0) {
+          continue;
+        }
+        const reset = values.get(`x-ratelimit-reset-${dimension}`);
+        const seconds = typeof reset === "string" ? parseQuotaResetSeconds(reset) : undefined;
+        if (seconds !== undefined) {
+          floor = Math.max(floor ?? 0, seconds);
+        }
+      }
+    }
     return floor;
   } catch {
     return undefined;
   }
+}
+
+function parseQuotaResetSeconds(value: string): number | undefined {
+  if (!/^(?:\d+(?:\.\d+)?(?:ms|s|m|h))+$/.test(value)) {
+    return undefined;
+  }
+  const scales: Record<string, number> = { ms: 0.001, s: 1, m: 60, h: 3600 };
+  let seconds = 0;
+  for (const match of value.matchAll(/(\d+(?:\.\d+)?)(ms|s|m|h)/g)) {
+    const scale = scales[match[2] ?? ""];
+    if (scale === undefined) {
+      return undefined;
+    }
+    seconds += Number(match[1]) * scale;
+  }
+  return Number.isFinite(seconds) && seconds <= Number.MAX_SAFE_INTEGER ? seconds : Infinity;
 }
 
 /** SDK errors carry native response headers separately from their error body. */
@@ -99,15 +144,150 @@ export function parseRetryAfterErrorSeconds(
   nowMs = Date.now(),
 ): number | undefined {
   try {
-    const direct = parseRetryAfterHeadersSeconds(ownDataValue(error, "headers"), nowMs);
-    const response = parseRetryAfterHeadersSeconds(
-      ownDataValue(ownDataValue(error, "response"), "headers"),
+    const status = ownDataValue(error, "status") ?? ownDataValue(error, "statusCode");
+    const response = ownDataValue(error, "response");
+    const responseStatus = ownDataValue(response, "status") ?? ownDataValue(response, "statusCode");
+    const direct = parseRetryAfterHeadersSeconds(
+      ownDataValue(error, "headers"),
       nowMs,
+      typeof status === "number" ? status : undefined,
     );
-    return direct === undefined && response === undefined
+    const responseSeconds = parseRetryAfterHeadersSeconds(
+      ownDataValue(response, "headers"),
+      nowMs,
+      typeof responseStatus === "number"
+        ? responseStatus
+        : typeof status === "number"
+          ? status
+          : undefined,
+    );
+    return direct === undefined && responseSeconds === undefined
       ? undefined
-      : Math.max(direct ?? 0, response ?? 0);
+      : Math.max(direct ?? 0, responseSeconds ?? 0);
   } catch {
+    return undefined;
+  }
+}
+
+function maxDefined(...values: Array<number | undefined>): number | undefined {
+  let floor: number | undefined;
+  for (const value of values) {
+    if (value !== undefined) {
+      floor = Math.max(floor ?? 0, value);
+    }
+  }
+  return floor;
+}
+
+/** Provider prose such as "Please try again in 6s", "retry in 32s" or "Retry-After: 7". */
+export const RETRY_AFTER_TEXT_RE =
+  /\b(?:retry[- ]after\b\s*:?\s*(?:in\b\s*)?|(?:please\s+)?(?:try again|retry) in\s+)([^\r\n;]+)/i;
+
+const RETRY_TEXT_NUMBER_RE = /^(\d+(?:\.\d+)?|Infinity)\s*([a-z]+)?\b/i;
+const MS_PER_SECOND = 1000;
+const RETRY_TEXT_UNIT_MS = new Map<string, number>(
+  (
+    [
+      ["milliseconds millisecond msecs msec ms", 1],
+      ["seconds second secs sec s", MS_PER_SECOND],
+      ["minutes minute mins min m", 60 * MS_PER_SECOND],
+      ["hours hour hrs hr h", 60 * 60 * MS_PER_SECOND],
+      ["days day d", 24 * 60 * 60 * MS_PER_SECOND],
+    ] as const
+  ).flatMap(([aliases, milliseconds]) =>
+    aliases.split(" ").map((alias) => [alias, milliseconds] as const),
+  ),
+);
+
+/** Seconds named by a captured retry-text value: a number with an optional time unit, or an HTTP-date. */
+export function parseRetryAfterTextSeconds(
+  valueText: string,
+  nowMs = Date.now(),
+): number | undefined {
+  const secondsMatch = RETRY_TEXT_NUMBER_RE.exec(valueText);
+  if (secondsMatch?.[1]) {
+    const value = /^infinity$/i.test(secondsMatch[1]) ? Infinity : Number(secondsMatch[1]);
+    if (Number.isNaN(value) || value < 0) {
+      return undefined;
+    }
+    const unitMilliseconds = RETRY_TEXT_UNIT_MS.get(secondsMatch[2]?.toLowerCase() ?? "s");
+    if (unitMilliseconds === undefined) {
+      return undefined;
+    }
+    return unitMilliseconds === 1
+      ? value / MS_PER_SECOND
+      : value * (unitMilliseconds / MS_PER_SECOND);
+  }
+  const retryAtMs = parseRetryAfterHttpDateMs(valueText, nowMs);
+  return retryAtMs === undefined ? undefined : Math.max(0, (retryAtMs - nowMs) / MS_PER_SECOND);
+}
+
+// Only google.rpc.RetryInfo defines retryDelay; protobuf Duration JSON is decimal seconds.
+const GOOGLE_RETRY_DELAY_TEXT_RE = /"retryDelay"\s*:\s*"(\d+(?:\.\d{1,9})?)s"/g;
+const GOOGLE_RETRY_DELAY_VALUE_RE = /^(\d+(?:\.\d{1,9})?)s$/;
+const GOOGLE_RETRY_INFO_TYPE = "type.googleapis.com/google.rpc.RetryInfo";
+const MAX_GOOGLE_ERROR_DETAILS = 16;
+
+function googleRetryDelayTextSeconds(text: string): number | undefined {
+  let floor: number | undefined;
+  for (const match of text.matchAll(GOOGLE_RETRY_DELAY_TEXT_RE)) {
+    floor = maxDefined(floor, Number(match[1]));
+  }
+  return floor;
+}
+
+function googleStatusRetryDelaySeconds(status: unknown): number | undefined {
+  if (typeof status === "string") {
+    return googleRetryDelayTextSeconds(status);
+  }
+  const details = ownDataValue(status, "details");
+  if (!Array.isArray(details)) {
+    return undefined;
+  }
+  let floor: number | undefined;
+  for (let index = 0; index < Math.min(details.length, MAX_GOOGLE_ERROR_DETAILS); index += 1) {
+    const detail = ownDataValue(details, String(index));
+    if (ownDataValue(detail, "@type") !== GOOGLE_RETRY_INFO_TYPE) {
+      continue;
+    }
+    const delay = ownDataValue(detail, "retryDelay");
+    const match = typeof delay === "string" ? GOOGLE_RETRY_DELAY_VALUE_RE.exec(delay) : null;
+    floor = maxDefined(floor, match?.[1] ? Number(match[1]) : undefined);
+  }
+  return floor;
+}
+
+/**
+ * Reads google.rpc.RetryInfo delays from raw error text or a google.rpc.Status-shaped body
+ * in any key order, with a fixed number of descriptor reads and no getters. Pass the
+ * untruncated body: Gemini puts RetryInfo after its QuotaFailure details.
+ */
+export function parseGoogleRetryDelaySeconds(value: unknown): number | undefined {
+  try {
+    if (typeof value === "string") {
+      return googleRetryDelayTextSeconds(value);
+    }
+    const response = ownDataValue(value, "response");
+    const candidates = [
+      value,
+      ownDataValue(value, "error"),
+      ownDataValue(value, "message"),
+      ownDataValue(value, "errorBody"),
+      ownDataValue(value, "body"),
+      ownDataValue(response, "body"),
+      ownDataValue(response, "data"),
+    ];
+    return maxDefined(
+      ...candidates.flatMap((candidate) => [
+        googleStatusRetryDelaySeconds(candidate),
+        // google.rpc.Status is usually wrapped as { error: Status }.
+        typeof candidate === "string"
+          ? undefined
+          : googleStatusRetryDelaySeconds(ownDataValue(candidate, "error")),
+      ]),
+    );
+  } catch {
+    // Hostile proxies and exotic objects carry no trusted timing.
     return undefined;
   }
 }
@@ -122,36 +302,34 @@ export function parseHttpDateInstant(
   value: string,
   nowMs = Date.now(),
 ): HttpDateInstant | undefined {
-  const imfFixdate = IMF_FIXDATE_RE.exec(value);
-  if (imfFixdate) {
-    return parseHttpDateComponents({
-      weekday: HTTP_DATE_SHORT_WEEKDAY_INDEX.get(imfFixdate[1] ?? ""),
-      year: Number.parseInt(imfFixdate[4] ?? "", 10),
-      month: HTTP_DATE_MONTH_INDEX.get(imfFixdate[3] ?? ""),
-      day: Number.parseInt(imfFixdate[2] ?? "", 10),
-      hours: Number.parseInt(imfFixdate[5] ?? "", 10),
-      minutes: Number.parseInt(imfFixdate[6] ?? "", 10),
-      seconds: Number.parseInt(imfFixdate[7] ?? "", 10),
-    });
+  let fields: readonly (string | undefined)[] | undefined = (
+    IMF_FIXDATE_RE.exec(value) ?? OBSOLETE_RFC850_DATE_RE.exec(value)
+  )?.slice(1);
+  if (!fields) {
+    const asctimeDate = OBSOLETE_ASCTIME_DATE_RE.exec(value);
+    if (!asctimeDate) {
+      return undefined;
+    }
+    const [, weekday, month, day, hours, minutes, seconds, year] = asctimeDate;
+    fields = [weekday, day, month, year, hours, minutes, seconds];
   }
-
-  const rfc850Date = OBSOLETE_RFC850_DATE_RE.exec(value);
-  if (rfc850Date) {
+  const [weekday, day, month, year, hours, minutes, seconds] = fields;
+  const components: HttpDateComponents = {
+    weekday: HTTP_DATE_SHORT_WEEKDAY_INDEX.get((weekday ?? "").slice(0, 3)),
+    year: Number.parseInt(year ?? "", 10),
+    month: HTTP_DATE_MONTH_INDEX.get(month ?? ""),
+    day: Number.parseInt(day ?? "", 10),
+    hours: Number.parseInt(hours ?? "", 10),
+    minutes: Number.parseInt(minutes ?? "", 10),
+    seconds: Number.parseInt(seconds ?? "", 10),
+  };
+  if (year?.length === 2) {
     const now = new Date(nowMs);
     if (Number.isNaN(now.getTime())) {
       return undefined;
     }
-    const shortYear = Number.parseInt(rfc850Date[4] ?? "", 10);
-    const candidateYear = Math.floor(now.getUTCFullYear() / 100) * 100 + shortYear;
-    const components = {
-      weekday: HTTP_DATE_LONG_WEEKDAY_INDEX.get(rfc850Date[1] ?? ""),
-      month: HTTP_DATE_MONTH_INDEX.get(rfc850Date[3] ?? ""),
-      day: Number.parseInt(rfc850Date[2] ?? "", 10),
-      hours: Number.parseInt(rfc850Date[5] ?? "", 10),
-      minutes: Number.parseInt(rfc850Date[6] ?? "", 10),
-      seconds: Number.parseInt(rfc850Date[7] ?? "", 10),
-    };
-    const candidate = parseHttpDateCalendarMs({ year: candidateYear, ...components });
+    components.year += Math.floor(now.getUTCFullYear() / 100) * 100;
+    const candidate = parseHttpDateCalendarMs(components);
     if (candidate === undefined) {
       return undefined;
     }
@@ -166,24 +344,11 @@ export function parseHttpDateInstant(
       now.getUTCSeconds(),
       now.getUTCMilliseconds(),
     );
-    const resolvedYear = candidate > fiftyYearsFromNow ? candidateYear - 100 : candidateYear;
-    return parseHttpDateComponents({ year: resolvedYear, ...components });
+    if (candidate > fiftyYearsFromNow) {
+      components.year -= 100;
+    }
   }
-
-  const asctimeDate = OBSOLETE_ASCTIME_DATE_RE.exec(value);
-  if (asctimeDate) {
-    return parseHttpDateComponents({
-      weekday: HTTP_DATE_SHORT_WEEKDAY_INDEX.get(asctimeDate[1] ?? ""),
-      year: Number.parseInt(asctimeDate[7] ?? "", 10),
-      month: HTTP_DATE_MONTH_INDEX.get(asctimeDate[2] ?? ""),
-      day: Number.parseInt((asctimeDate[3] ?? "").trim(), 10),
-      hours: Number.parseInt(asctimeDate[4] ?? "", 10),
-      minutes: Number.parseInt(asctimeDate[5] ?? "", 10),
-      seconds: Number.parseInt(asctimeDate[6] ?? "", 10),
-    });
-  }
-
-  return undefined;
+  return parseHttpDateComponents(components);
 }
 
 function parseHttpDateComponents(components: HttpDateComponents): HttpDateInstant | undefined {

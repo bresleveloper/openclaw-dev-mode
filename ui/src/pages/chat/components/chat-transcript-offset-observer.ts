@@ -14,43 +14,29 @@ import type { ChatTranscriptPendingScrollOffset } from "./chat-transcript-sessio
 
 type TranscriptScrollRenderState = { atEnd: boolean; touchActive: boolean };
 
-type TranscriptOffsetState = {
-  pendingScrollOffset: ChatTranscriptPendingScrollOffset | null;
+/** State shared by native input observation and transcript commands. */
+export class TranscriptOffsetState {
+  pendingScrollOffset: ChatTranscriptPendingScrollOffset | null = null;
   scrollCommand:
-    | { behavior: ScrollBehavior; target: "end" }
-    | { behavior: ScrollBehavior; target: "index" }
+    | { behavior: ScrollBehavior; target: "end" | "index" }
     | { behavior: ScrollBehavior; target: "message"; messageId: string }
-    | null;
-  touching: boolean;
-  touchScrolling: boolean;
-  readonly touchActive: boolean;
-  renderedScrollState: TranscriptScrollRenderState;
-  renderState(atEnd: boolean): TranscriptScrollRenderState;
-  maintenanceScrollOffset: number | null;
-  pendingInteractionAnchor: ChatTranscriptInteractionAnchor | null;
-  syncNativeOffset: (() => void) | null;
-  recordProgrammaticScroll: ((before: number, after: number, maintenance: boolean) => void) | null;
-};
+    | null = null;
+  touching = false;
+  touchScrolling = false;
+  renderedScrollState = { atEnd: false, touchActive: false };
+  maintenanceScrollOffset: number | null = null;
+  pendingInteractionAnchor: ChatTranscriptInteractionAnchor | null = null;
+  syncNativeOffset: (() => void) | null = null;
+  recordProgrammaticScroll: ((before: number, after: number, maintenance: boolean) => void) | null =
+    null;
 
-/** Create the state shared by native input observation and transcript commands. */
-export function createTranscriptOffsetState(): TranscriptOffsetState {
-  return {
-    pendingScrollOffset: null,
-    scrollCommand: null,
-    touching: false,
-    touchScrolling: false,
-    get touchActive() {
-      return this.touching || this.touchScrolling;
-    },
-    renderedScrollState: { atEnd: false, touchActive: false },
-    renderState(atEnd) {
-      return { atEnd, touchActive: this.touchActive };
-    },
-    maintenanceScrollOffset: null,
-    pendingInteractionAnchor: null,
-    syncNativeOffset: null,
-    recordProgrammaticScroll: null,
-  };
+  get touchActive(): boolean {
+    return this.touching || this.touchScrolling;
+  }
+
+  renderState(atEnd: boolean): TranscriptScrollRenderState {
+    return { atEnd, touchActive: this.touchActive };
+  }
 }
 
 export function isTranscriptMaintenanceScroll(
@@ -108,24 +94,6 @@ export function scrollTranscriptToEnd(
   }
 }
 
-export function retargetTranscriptEndAfterRows(
-  state: TranscriptOffsetState,
-  instance: Virtualizer<HTMLDivElement, HTMLElement>,
-  canFollow: boolean,
-  follow: (behavior: ScrollBehavior) => void,
-): boolean {
-  if (!canFollow || state.pendingScrollOffset || state.touchActive) {
-    return false;
-  }
-  const behavior = state.scrollCommand?.target === "end" ? state.scrollCommand.behavior : "auto";
-  follow(behavior);
-  const max = maxTranscriptScrollOffset(instance.scrollElement);
-  if (max !== null) {
-    instance.scrollToOffset(max, { behavior });
-  }
-  return true;
-}
-
 export function scrollTranscriptOffset(
   state: TranscriptOffsetState,
   offset: number,
@@ -177,7 +145,7 @@ export function observeTranscriptOffset(
   const publishInput = (event: Event) => {
     publish({ type: "input", event, touching: owner.state.touching });
   };
-  const recordProgrammaticScroll = (before: number, after: number, maintenance: boolean) => {
+  const recordProgrammaticScroll = (before: number, after: number) => {
     const delta = before - nativeOffset;
     nativeOffset = after;
     publish({
@@ -187,11 +155,9 @@ export function observeTranscriptOffset(
       touching: owner.state.touching,
       programmatic: owner.isProgrammaticScroll(),
     });
-    // Measurement and clamped retries can run during an outstanding end command.
-    // Keep their provenance after publishing any preceding native input.
-    if (!maintenance && (owner.state.scrollCommand || owner.state.pendingScrollOffset)) {
-      owner.state.maintenanceScrollOffset = null;
-    } else if (before !== after) {
+    // Commands can move upward as rows retire. Keep the actual write's
+    // provenance until its native event arrives, even after command retirement.
+    if (before !== after) {
       owner.state.maintenanceScrollOffset = after;
       maintenanceRevision += 1;
     }
@@ -202,7 +168,7 @@ export function observeTranscriptOffset(
     if (maintenance && before !== after) {
       owner.onLayoutCorrection(before, after);
     }
-    recordProgrammaticScroll(before, after, maintenance);
+    recordProgrammaticScroll(before, after);
   };
   owner.state.recordProgrammaticScroll = recordVirtualizerScroll;
   const stopCorrections = element
@@ -216,7 +182,7 @@ export function observeTranscriptOffset(
         }
         if (observation.type === "resize" && observation.scrollCorrection) {
           const { before, after } = observation.scrollCorrection;
-          recordProgrammaticScroll(before, after, true);
+          recordProgrammaticScroll(before, after);
         }
       })
     : undefined;

@@ -1,8 +1,3 @@
-/**
- * Shared model catalog row types.
- * Used by discovery, browsing, visibility, and provider-auth code so renderers
- * and filters agree on stable model metadata.
- */
 import type {
   ModelCatalogContextWindowOption,
   ModelCatalogStatus,
@@ -11,10 +6,8 @@ import type { ModelApi, ModelCompatConfig, ModelMediaInputConfig } from "../conf
 import type { ThinkingLevelMap } from "../llm/types.js";
 import type { ProviderCatalogOutcome } from "../plugins/provider-catalog-outcome.js";
 
-/** Input modalities a catalog entry can advertise. */
 export type ModelInputType = "text" | "image" | "audio" | "video" | "document";
 
-/** Normalized model metadata exposed by the agent model catalog. */
 export type ModelCatalogEntry = {
   /** Native catalog owner, not a physical provider route or transferable readiness fact. */
   nativeRuntime?: string;
@@ -31,6 +24,8 @@ export type ModelCatalogEntry = {
   contextWindows?: ModelCatalogContextWindowOption[];
   contextWindowDefault?: string;
   contextTokens?: number;
+  /** Visible failed-acquisition starter; sizing comes from current static or accepted owner facts. */
+  contextCapacitySource?: "unaccepted-starter";
   /** Provider-declared unknown-model estimate; not an authored or curated static limit. */
   contextWindowSource?: "synthetic";
   reasoning?: boolean;

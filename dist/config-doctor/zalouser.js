@@ -1,4 +1,4 @@
-import { S as normalizeChannelConfigEntries, b as hasLegacyAccountStreamingAliases, n as defineKeyMoveMigration } from "./runtime-doctor-migrations-BhouWAUC.js";
+import { E as normalizeChannelConfigEntries, n as defineKeyMoveMigration, w as hasLegacyAccountStreamingAliases } from "./runtime-doctor-migrations-Bq3PkBbD.js";
 //#region extensions/zalouser/src/doctor-contract.ts
 const groupAllowMigration = defineKeyMoveMigration({
 	scope: ["groups", "*"],

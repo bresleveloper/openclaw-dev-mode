@@ -1,0 +1,243 @@
+import { o as resolveUserPath } from "./home-dir-CtsdYvX3.mjs";
+import { r as resolveProfileStateDir } from "./profile-utils-Bt5nN5dt.mjs";
+import { t as resolveIdentityPathViaExistingAncestorSync } from "./boundary-path-CAv_plX7.mjs";
+import { n as resolveNewStateDir, r as resolveStateDir, t as resolveLegacyStateDirs } from "./state-dir-C8s3cOPX.mjs";
+import "./paths-orClZ-2Z.mjs";
+import { r as withArtifactPreservingStateReads } from "./artifact-preserving-state-reads-CSUBkGbZ.mjs";
+import "./openclaw-state-db-readonly-DPndG9sn.mjs";
+import { t as clearPluginMetadataLifecycleCaches } from "./plugin-metadata-lifecycle-C2eV0eNq.mjs";
+import { i as resolveLegacyInstalledPluginIndexStorePath, t as legacyInstalledPluginIndexUnsupportedMessage } from "./installed-plugin-index-store-path-SeqhMDBO.mjs";
+import { r as inspectPersistedInstalledPluginIndexInstallRecordsSync } from "./installed-plugin-index-record-state-Cr6YHbHB.mjs";
+import { p as readCurrentConfigForResolution } from "./io.runtime-Ds5uC0Bf.mjs";
+import { t as resolveLegacyProfileMigrationExceptions } from "./state-migrations.profile-scope-CNlcfERb.mjs";
+import { n as assertNoRetiredStateFiles } from "./state-migrations.retired-files-C6dUPU8_.mjs";
+import { r as listReferencedLegacyOAuthSidecarPaths, t as assertNoRetiredOAuthSidecarsBeforeConfigRecovery } from "./doctor-auth-legacy-paths-BW9Ya4su.mjs";
+import { n as migrationFileExists } from "./state-migrations.fs-CIv9i5nQ.mjs";
+import { t as listRetiredDeliveryQueueFiles } from "./state-migrations.retired-delivery-files-CGN2dsnS.mjs";
+import { t as assertNoRetiredRuntimeStateFiles } from "./state-migrations.retired-runtime-files-CwmWdny1.mjs";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { probePathCaseInsensitiveSync, resolvePathPrefixSync, retainEntryForPublication } from "@openclaw/fs-safe/advanced";
+//#region src/infra/state-migrations.state-dir.ts
+let autoMigrateStateDirChecked = false;
+function resetAutoMigrateLegacyStateDirForTest() {
+	autoMigrateStateDirChecked = false;
+}
+function lstatIfPresent(filePath) {
+	try {
+		return fs.lstatSync(filePath);
+	} catch (error) {
+		if (error.code === "ENOENT") return null;
+		throw error;
+	}
+}
+function resolveProfileWorkspaceIdentity(workspace) {
+	try {
+		const resolved = resolvePathPrefixSync(workspace);
+		const canonicalPath = path.join(resolved.existingPath, ...resolved.unresolvedSegments);
+		if (resolved.unresolvedSegments.length > 0 && probePathCaseInsensitiveSync(canonicalPath, { allowTemporaryProbe: false }) === true) return path.join(resolved.existingPath, ...resolved.unresolvedSegments.map((segment) => segment.replace(/[A-Z]/g, (character) => character.toLowerCase())));
+		return canonicalPath;
+	} catch {
+		return resolveIdentityPathViaExistingAncestorSync(workspace);
+	}
+}
+function resolveConfiguredProfileWorkspace(params) {
+	const agents = params.config?.agents;
+	const workspaces = [
+		agents?.defaults?.workspace,
+		...Object.values(agents?.entries ?? {}).map((entry) => entry.workspace),
+		...(agents?.list ?? []).map((entry) => entry.workspace)
+	].flatMap((workspace) => workspace?.trim() ? [resolveProfileWorkspaceIdentity(resolveUserPath(workspace, params.env, params.homedir))] : []);
+	if (workspaces.length === 0) return;
+	return [params.source, params.target].find((workspace) => workspaces.includes(resolveProfileWorkspaceIdentity(workspace)));
+}
+function resolveLegacyProfileWorkspaceMigrationPaths(params) {
+	const env = params.env ?? process.env;
+	const homedir = params.homedir ?? os.homedir;
+	const { profileWorkspace: source } = resolveLegacyProfileMigrationExceptions({
+		env,
+		homedir
+	});
+	if (!source) return;
+	const paths = {
+		source,
+		target: path.join(resolveProfileStateDir(env.OPENCLAW_PROFILE ?? "default", env, homedir), "workspace")
+	};
+	return resolveConfiguredProfileWorkspace({
+		...params,
+		...paths
+	}) ? void 0 : paths;
+}
+function resolvePendingLegacyProfileWorkspaceMigrationPaths(params) {
+	const paths = resolveLegacyProfileWorkspaceMigrationPaths(params);
+	return paths && lstatIfPresent(paths.source) ? paths : void 0;
+}
+function migrateLegacyProfileWorkspace(params) {
+	const paths = resolveLegacyProfileWorkspaceMigrationPaths({
+		env: params.env,
+		homedir: params.homedir
+	});
+	if (!paths) return {
+		changes: [],
+		warnings: []
+	};
+	try {
+		const legacyDir = paths.source;
+		const targetDir = paths.target;
+		const legacyStat = lstatIfPresent(legacyDir);
+		if (!legacyStat) return {
+			changes: [],
+			warnings: []
+		};
+		const configured = resolveConfiguredProfileWorkspace({
+			...params,
+			...paths
+		});
+		if (configured) {
+			const other = configured === legacyDir ? targetDir : legacyDir;
+			return {
+				changes: [],
+				warnings: [],
+				...lstatIfPresent(other) ? { notices: [`Profile workspace: keeping configured workspace at ${configured}; existing workspace at ${other} was left unchanged.`] } : {}
+			};
+		}
+		if (!legacyStat.isDirectory() && !legacyStat.isSymbolicLink()) return {
+			changes: [],
+			warnings: [`Profile workspace migration skipped: legacy path is not a directory (${legacyDir}).`]
+		};
+		if (lstatIfPresent(targetDir)) return {
+			changes: [],
+			warnings: [`Profile workspace migration skipped: target already exists (${targetDir}). Kept legacy workspace at ${legacyDir}; merge manually.`]
+		};
+		fs.mkdirSync(path.dirname(targetDir), { recursive: true });
+		fs.renameSync(legacyDir, targetDir);
+		return {
+			changes: [`Profile workspace: ${legacyDir} → ${targetDir}`],
+			warnings: []
+		};
+	} catch (error) {
+		return {
+			changes: [],
+			warnings: [`Profile workspace migration failed: ${String(error)}`]
+		};
+	}
+}
+/** Default relocation names remain useful for locating retained pre-migration evidence. */
+function resolveLegacyStateDirMigrationCandidates(params) {
+	const env = params.env ?? process.env;
+	if (env.OPENCLAW_STATE_DIR?.trim() || env.OPENCLAW_HOME?.trim() || env.OPENCLAW_CONFIG_PATH?.trim()) return [];
+	const homedir = params.homedir ?? os.homedir;
+	const target = resolveNewStateDir(homedir);
+	return resolveLegacyStateDirs(homedir).map((source) => ({
+		source,
+		target
+	}));
+}
+function resolvePendingLegacyStateDirMigrationPaths(params) {
+	return resolveLegacyStateDirMigrationCandidates(params).find(({ source, target }) => lstatIfPresent(source) && !lstatIfPresent(target));
+}
+function resolveLegacyStateConfigPath(stateDir) {
+	const canonical = path.join(stateDir, "openclaw.json");
+	return fs.existsSync(canonical) ? canonical : path.join(stateDir, "clawdbot.json");
+}
+function renameLegacyPath(source, target, kind) {
+	try {
+		const parentPath = fs.realpathSync(path.dirname(source));
+		const parent = {
+			path: parentPath,
+			identity: fs.statSync(parentPath, { bigint: true })
+		};
+		const result = retainEntryForPublication({
+			source: {
+				parent,
+				basename: path.basename(source),
+				expected: {
+					...fs.lstatSync(source, { bigint: true }),
+					kind
+				}
+			},
+			destination: {
+				parent,
+				basename: path.basename(target)
+			},
+			assertBeforeMutation: () => {}
+		}).publish();
+		if (result.transition !== "committed" || result.verification !== "verified" || result.resources !== "closed" || result.issues.length > 0) throw new AggregateError(result.issues.map((issue) => issue.cause), "Legacy rename did not complete cleanly.");
+	} catch (cause) {
+		throw new Error(`Could not complete legacy rename ${source} → ${target}; stop OpenClaw and inspect both paths before retrying Doctor.`, { cause });
+	}
+}
+/** Reserve the once-only migration while its caller transfers maintenance custody. */
+function prepareLegacyStateDirMigration(params) {
+	if (autoMigrateStateDirChecked) return;
+	const result = migrateLegacyStateDirRoot(params);
+	autoMigrateStateDirChecked = true;
+	return {
+		stateDir: resolveStateDir(params.env ?? process.env, params.homedir ?? os.homedir),
+		result
+	};
+}
+async function autoMigrateLegacyStateDir(params) {
+	const prepared = prepareLegacyStateDirMigration(params);
+	return prepared ? prepared.result : {
+		migrated: false,
+		skipped: true,
+		changes: [],
+		warnings: []
+	};
+}
+function migrateLegacyStateDirRoot(params) {
+	const env = params.env ?? process.env;
+	const paths = resolveLegacyStateDirMigrationCandidates(params).find(({ source }) => lstatIfPresent(source));
+	const changes = [];
+	const warnings = [];
+	const result = () => ({
+		migrated: changes.length > 0,
+		skipped: !paths,
+		changes,
+		warnings
+	});
+	if (!paths) return result();
+	const { source, target } = paths;
+	if (lstatIfPresent(target)) {
+		warnings.push(`Both ${source} and ${target} exist; leave them unchanged and move the legacy data manually before rerunning Doctor.`);
+		return result();
+	}
+	if (!lstatIfPresent(source)?.isDirectory()) {
+		warnings.push(`Legacy state path is not a directory: ${source}; move it manually before rerunning Doctor.`);
+		return result();
+	}
+	assertNoRetiredRuntimeStateFiles(source, env, params.homedir);
+	const configPath = resolveLegacyStateConfigPath(source);
+	assertNoRetiredStateFiles("JSON delivery queues", listRetiredDeliveryQueueFiles(source));
+	assertNoRetiredOAuthSidecarsBeforeConfigRecovery({
+		env,
+		configPath,
+		stateDir: source
+	});
+	const { config: inspectionConfig, env: inspectionEnv } = readCurrentConfigForResolution({
+		env,
+		configPath
+	});
+	assertNoRetiredStateFiles("OAuth credential sidecars", listReferencedLegacyOAuthSidecarPaths(inspectionEnv, inspectionConfig, source));
+	const legacyIndexPath = resolveLegacyInstalledPluginIndexStorePath({ stateDir: source });
+	const pluginInstallWarning = migrationFileExists(legacyIndexPath) ? legacyInstalledPluginIndexUnsupportedMessage(legacyIndexPath) : withArtifactPreservingStateReads(() => inspectPersistedInstalledPluginIndexInstallRecordsSync({ stateDir: source }).status === "invalid" ? `State dir migration skipped because persisted plugin install records in ${source} are invalid` : null);
+	if (pluginInstallWarning) {
+		warnings.push(pluginInstallWarning);
+		return result();
+	}
+	renameLegacyPath(source, target, "directory");
+	clearPluginMetadataLifecycleCaches();
+	changes.push(`State dir: ${source} → ${target}`);
+	return result();
+}
+function renameLegacyConfigFile(stateDir) {
+	const source = path.join(stateDir, "clawdbot.json");
+	const target = path.join(stateDir, "openclaw.json");
+	if (!lstatIfPresent(source) || lstatIfPresent(target) || lstatIfPresent(path.join(path.dirname(stateDir), ".clawdbot"))) return [];
+	renameLegacyPath(source, target, "file");
+	return [`Config: ${source} → ${target}`];
+}
+//#endregion
+export { resetAutoMigrateLegacyStateDirForTest as a, resolveLegacyStateDirMigrationCandidates as c, renameLegacyConfigFile as i, resolvePendingLegacyProfileWorkspaceMigrationPaths as l, migrateLegacyProfileWorkspace as n, resolveLegacyProfileWorkspaceMigrationPaths as o, prepareLegacyStateDirMigration as r, resolveLegacyStateConfigPath as s, autoMigrateLegacyStateDir as t, resolvePendingLegacyStateDirMigrationPaths as u };

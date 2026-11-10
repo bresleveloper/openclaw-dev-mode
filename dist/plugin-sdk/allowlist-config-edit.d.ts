@@ -1,7 +1,5 @@
-import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
-import { t as ChannelId } from "../channel-id.types-CM2F8b5e.js";
-import { t as ChannelAllowlistAdapter } from "../types.adapters-Bo2TMZGx.js";
-import "../types.public-DpLTXZT0.js";
+import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
+import { UE as ChannelAllowlistAdapter, wA as ChannelId } from "../config-contracts-CY87ANNp.js";
 //#region src/plugin-sdk/allowlist-config-edit.d.ts
 type AllowlistConfigPaths = {
   readPaths: string[][];

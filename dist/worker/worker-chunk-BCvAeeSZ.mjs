@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-IQf3eJtA.mjs";var t,n;function init_session_watch_cursor_provenance(){return(init_session_watch_cursor_provenance=e((()=>{t=`explicit`,n=`ambient-group`})))()}export{t as n,init_session_watch_cursor_provenance as r,n as t};

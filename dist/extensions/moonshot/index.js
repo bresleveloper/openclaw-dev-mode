@@ -1,10 +1,10 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-DX_vVKdi.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-ByEFwJ6V.mjs";
 import { isMoonshotAlwaysThinkingModelId, isMoonshotK3NativeVideoRoute, resolveThinkingProfile } from "./provider-policy-api.js";
 import { MOONSHOT_DEFAULT_MODEL_REF, buildMoonshotProvider } from "./provider-catalog.js";
 import { moonshotMediaUnderstandingProvider } from "./media-understanding-provider.js";
 import { wrapMoonshotStream } from "./native-video.js";
 import { applyMoonshotConfig, applyMoonshotConfigCn } from "./onboard.js";
-import { t as createKimiWebSearchProvider } from "./.setup/kimi-web-search-provider-u4LLc55G.mjs";
+import { t as createKimiWebSearchProvider } from "./.setup/kimi-web-search-provider-DCbJoku0.mjs";
 import { createProviderApiKeyAuthMethod } from "openclaw/plugin-sdk/provider-auth-api-key";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildOpenAICompatibleReplayPolicy } from "openclaw/plugin-sdk/provider-model-shared";

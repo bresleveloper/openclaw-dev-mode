@@ -19,6 +19,7 @@ export function startFixtureAttempt(
   fixture: { root: string; pluginConfig: CodexPluginConfig },
   attemptClientFactory = getLeasedSharedCodexAppServerClient,
   signal = new AbortController().signal,
+  attemptParams: Partial<EmbeddedRunAttemptParams> = {},
 ) {
   const agentDir = path.join(fixture.root, "agent");
   const workspaceDir = path.join(fixture.root, "workspace");
@@ -36,8 +37,11 @@ export function startFixtureAttempt(
     appServer: resolveCodexAppServerRuntimeOptions({ pluginConfig: fixture.pluginConfig }),
     pluginConfig: fixture.pluginConfig,
     computerUseConfig: resolveCodexComputerUseConfig({ pluginConfig: fixture.pluginConfig }),
-    startupAuthProfileId: undefined,
-    startupAuthBindingFingerprint: undefined,
+    clientOptions: {
+      authProfileId: undefined,
+      authBindingFingerprint: undefined,
+      authRequirement: undefined,
+    },
     startupAuthAccountCacheKey: undefined,
     startupEnvApiKeyCacheKey: undefined,
     agentDir,
@@ -62,6 +66,7 @@ export function startFixtureAttempt(
         authStorage: {} as never,
         authProfileStore: { version: 1, profiles: {} },
         modelRegistry: {} as never,
+        ...attemptParams,
       }) as EmbeddedRunAttemptParams,
     sessionAgentId: "agent-1",
     effectiveWorkspace: workspaceDir,
@@ -69,7 +74,6 @@ export function startFixtureAttempt(
     dynamicTools: [],
     webSearchAllowed: false,
     developerInstructions: undefined,
-    finalConfigPatch: undefined,
     bundleMcpThreadConfig,
     nativeToolSurfaceEnabled: true,
     nativeProviderWebSearchSupport: "supported",

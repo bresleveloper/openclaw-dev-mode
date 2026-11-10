@@ -1,0 +1,1 @@
+import{i as e,t}from"./worker-chunk-BVWRYJtu.mjs";t();export{e as retireSandboxDependencyTemplate};

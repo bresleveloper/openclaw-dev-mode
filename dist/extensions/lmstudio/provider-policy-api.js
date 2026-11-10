@@ -1,4 +1,4 @@
-import { i as normalizeLmstudioTransportReasoningCompat } from "../../model-reasoning-BBtIgenw.mjs";
+import { i as normalizeLmstudioTransportReasoningCompat } from "../../model-reasoning-B_cbOKva.mjs";
 //#region extensions/lmstudio/provider-policy-api.ts
 /** LM Studio serves operator-hosted inference, including networked model hosts. */
 function resolveToolSearchMode() {

@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-BKI-L2O4.mjs";e();export{t as applyProviderRenames};

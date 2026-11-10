@@ -178,7 +178,8 @@ export async function runPreparedTsgoCommand(
     console.error(
       `[tsgo] no completion after ${command.timeoutMs}ms; killed the tsgo process tree. Raise OPENCLAW_TSGO_TIMEOUT_MS for intentionally longer builds, or unset it to disable the watchdog.`,
     );
-    return 1;
+    // CI collectors stop admitting work for watchdog exit 124.
+    return 124;
   }
 }
 

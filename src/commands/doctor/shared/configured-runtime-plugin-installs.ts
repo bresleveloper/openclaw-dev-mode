@@ -5,15 +5,12 @@ import {
 } from "../../../agents/harness-runtimes.js";
 import type { OpenClawConfig } from "../../../config/types.openclaw.js";
 
-function acpxRuntimeIsConfigured(cfg: OpenClawConfig): boolean {
+export function acpxRuntimeIsConfigured(cfg: OpenClawConfig): boolean {
   const acp = asOptionalRecord(cfg.acp);
   const backend = typeof acp?.backend === "string" ? acp.backend.trim().toLowerCase() : "";
-  return (
-    (backend === "acpx" ||
-      acp?.enabled === true ||
-      asOptionalRecord(acp?.dispatch)?.enabled === true) &&
-    (!backend || backend === "acpx")
-  );
+  return backend
+    ? backend === "acpx"
+    : acp?.enabled === true || asOptionalRecord(acp?.dispatch)?.enabled === true;
 }
 
 /** Collect runtime ids without loading plugin metadata during startup planning. */

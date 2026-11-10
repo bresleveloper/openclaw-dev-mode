@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { createAgentToolResultMiddlewareRunner } from "../agents/harness/tool-result-middleware.js";
+import { createDeferredCore } from "../shared/deferred.js";
 import { withEnv } from "../test-utils/env.js";
 import { createHookRunner } from "./hooks.js";
 import { loadInstalledPluginIndex } from "./installed-plugin-index.js";
@@ -1327,25 +1328,19 @@ ${channelPluginSource({
   });
 
   it.each([
-    { successor: "removed", preserved: true },
-    { successor: "replaced", replaced: true, preserved: false },
-    { successor: "removed while Gateway B is live and active", gatewayB: true, preserved: true },
+    { successor: "replaced", replaced: true },
     {
-      successor: "removed and Gateway A is closing while Gateway B is live and active",
-      gatewayB: true,
+      successor: "removed and its Gateway is closing",
       closeGatewayA: true,
-      preserved: false,
     },
     {
       // A published build shares this process state but never links its registries.
       successor: "removed from a registry a published build left unlinked",
       unlinked: true,
-      gatewayB: true,
-      preserved: false,
     },
   ])(
-    "keeps a run's tool result only when its middleware plugin was $successor",
-    async ({ successor, replaced, gatewayB, closeGatewayA, unlinked, preserved }) => {
+    "rejects retired middleware when its plugin was $successor",
+    async ({ successor, replaced, closeGatewayA, unlinked }) => {
       useNoBundledPlugins();
       const pluginId = `tool-result-middleware-${successor}`;
       const plugin = writePlugin({
@@ -1388,34 +1383,16 @@ ${channelPluginSource({
       }
       setActivePluginRegistry(next);
       gatewayA?.publish(next);
-      if (gatewayB) {
-        // Gateway B becomes the process-active projection without this plugin.
-        const other = createEmptyPluginRegistry();
-        setActivePluginRegistry(other);
-        createPluginRegistryOwner(other);
-      }
       if (closeGatewayA) {
         await gatewayA?.close();
       }
       await instance.dispose();
-      // Callable and cyclic details survive only on the untouched no-middleware path.
+      // A retired callback cannot run against the later result.
       const details: Record<string, unknown> = { format: () => "exit 0" };
       details.self = details;
       const raw = { content: [{ type: "text" as const, text: "exit 0" }], details };
       const result = await runner.applyToolResultMiddleware({ ...event, result: raw });
-      if (preserved) {
-        // The removed plugin no longer post-processes: same result as no middleware.
-        expect(result).toBe(raw);
-        expect(
-          await createAgentToolResultMiddlewareRunner(
-            { runtime: "openclaw" },
-            [],
-          ).applyToolResultMiddleware({ ...event, result: raw }),
-        ).toBe(raw);
-      } else {
-        // A replacement, a closing owner or no owner link: the stale handler fails closed.
-        expect(result.details).toEqual({ status: "error", middlewareError: true });
-      }
+      expect(result.details).toEqual({ status: "error", middlewareError: true });
     },
   );
 
@@ -1424,7 +1401,7 @@ ${channelPluginSource({
     const plugin = writePlugin({
       id: "tool-result-middleware-no-timeout",
       filename: "tool-result-middleware-no-timeout.cjs",
-      registration: `api.registerAgentToolResultMiddleware(() => new Promise(() => {}), {
+      registration: `api.registerAgentToolResultMiddleware(({ args }) => args.pending, {
         runtimes: ["openclaw"],
       });`,
     });
@@ -1440,15 +1417,22 @@ ${channelPluginSource({
       throw new Error("expected tool-result middleware registration");
     }
 
+    const record = registry.plugins.find((entry) => entry.id === plugin.id);
+    const instance = record && getPluginInstance(record);
+    if (!instance) {
+      throw new Error("expected a loaded plugin instance");
+    }
+    const pending = createDeferredCore();
+    let run: Promise<unknown> | undefined;
     vi.useFakeTimers();
     try {
       let settled = false;
-      void Promise.resolve(
+      run = Promise.resolve(
         middleware.handler(
           {
             toolCallId: "call-1",
             toolName: "exec",
-            args: {},
+            args: { pending: pending.promise },
             result: { content: [{ type: "text", text: "raw" }], details: {} },
           },
           { runtime: "openclaw" },
@@ -1462,6 +1446,12 @@ ${channelPluginSource({
       expect(settled).toBe(false);
     } finally {
       vi.useRealTimers();
+      pending.resolve();
+      try {
+        await run;
+      } finally {
+        await instance.waitForIdle(new AbortController().signal);
+      }
     }
   });
 
@@ -1470,7 +1460,7 @@ ${channelPluginSource({
     const plugin = writePlugin({
       id: "after-tool-call-option-timeout",
       filename: "after-tool-call-option-timeout.cjs",
-      registration: `api.on("after_tool_call", () => new Promise(() => {}), { timeoutMs: 30 });`,
+      registration: `api.on("after_tool_call", ({ params }) => params.pending, { timeoutMs: 30 });`,
     });
     const registry = loadRegistryFromSinglePlugin({
       plugin,
@@ -1479,9 +1469,19 @@ ${channelPluginSource({
     const logger = { debug: vi.fn(), error: vi.fn(), warn: vi.fn() };
     const runner = createHookRunner(registry, { logger });
 
+    const record = registry.plugins.find((entry) => entry.id === plugin.id);
+    const instance = record && getPluginInstance(record);
+    if (!instance) {
+      throw new Error("expected a loaded plugin instance");
+    }
+    const pending = createDeferredCore();
+    let run: Promise<unknown> | undefined;
     vi.useFakeTimers();
     try {
-      const run = runner.runAfterToolCall({ toolName: "exec", params: {} }, { toolName: "exec" });
+      run = runner.runAfterToolCall(
+        { toolName: "exec", params: { pending: pending.promise } },
+        { toolName: "exec" },
+      );
       await vi.advanceTimersByTimeAsync(30);
 
       await expect(run).resolves.toBeUndefined();
@@ -1490,6 +1490,12 @@ ${channelPluginSource({
       );
     } finally {
       vi.useRealTimers();
+      pending.resolve();
+      try {
+        await run;
+      } finally {
+        await instance.waitForIdle(new AbortController().signal);
+      }
     }
   });
 

@@ -102,6 +102,11 @@ export function stubHealthyGateway() {
   );
 }
 
+/** The last canary check; verified temporary-copy removal is recorded after it. */
+export function canaryOutcomeStep(steps: UpdateStepResult[]) {
+  return steps.findLast((step) => !(step.name.endsWith("-cleanup") && step.exitCode === 0));
+}
+
 export function renderSteps(steps: UpdateStepResult[]) {
   const log = vi.spyOn(defaultRuntime, "log").mockImplementation(() => {});
   const presentation = createUpdateProgress(true);
@@ -153,7 +158,7 @@ export function registerCanarySnapshotCapacityTests({
       expect(report.markdown).toContain(
         "Fix candidate-snapshot-failed then run `openclaw update` again.",
       );
-      const failed = result.steps.at(-1);
+      const failed = canaryOutcomeStep(result.steps);
       expect(failed).toMatchObject({
         name: "candidate-state-snapshot",
         exitCode: 1,

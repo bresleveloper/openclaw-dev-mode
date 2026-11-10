@@ -3,7 +3,7 @@ import { isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-co
 import { assertOkOrThrowHttpError, createProviderOperationDeadline, createProviderOperationTimeoutResolver, pollProviderOperationJson, postJsonRequest, readProviderJsonObjectResponse, resolveProviderHttpRequestConfig, sanitizeConfiguredModelProviderRequest } from "openclaw/plugin-sdk/provider-http";
 import { toImageDataUrl } from "openclaw/plugin-sdk/image-generation";
 import { downloadGeneratedVideoAsset, resolveClosestSize, resolveGeneratedMediaMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
-import { isProviderApiKeyConfigured } from "openclaw/plugin-sdk/provider-auth";
+import { isProviderApiKeyConfiguredAsync } from "openclaw/plugin-sdk/provider-auth";
 import { resolveApiKeyForProvider } from "openclaw/plugin-sdk/provider-auth-runtime";
 //#region extensions/zai/video-generation-provider.ts
 const DEFAULT_MODEL = "cogvideox-3";
@@ -96,7 +96,7 @@ function buildZaiVideoGenerationProvider() {
 		defaultModel: DEFAULT_MODEL,
 		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
 		models: [DEFAULT_MODEL],
-		isConfigured: (ctx) => isProviderApiKeyConfigured({
+		isConfiguredAsync: (ctx) => isProviderApiKeyConfiguredAsync({
 			provider: "zai",
 			...ctx
 		}),

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-Dl6OKOjH.mjs";async function getProcSafeNativeStatus(e){let{readProcSafeNativeStatus:t}=await import(`./worker-chunk-BsYeiqJD.mjs`);return t(e)}e((()=>{t()}))();export{n as ProcSafeError,getProcSafeNativeStatus};

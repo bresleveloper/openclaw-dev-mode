@@ -1,2 +1,2 @@
-import { t as createFeishuThreadBindingManager } from "./.setup/thread-bindings--wJ9fHq5.mjs";
+import { t as createFeishuThreadBindingManager } from "./.setup/thread-bindings-BxKmOara.mjs";
 export { createFeishuThreadBindingManager };

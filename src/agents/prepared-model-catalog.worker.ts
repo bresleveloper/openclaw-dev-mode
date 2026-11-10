@@ -11,7 +11,8 @@ import { setRuntimeConfigSnapshot } from "../config/runtime-snapshot.js";
 import { serveWorkerTasks } from "../infra/worker-task-server.js";
 import type { Model } from "../llm/types.js";
 import { withRemoteModelCatalogSnapshot } from "../model-catalog/remote-overlay.js";
-import { normalizePluginsConfig } from "../plugins/config-state.js";
+import { withHandedOffCodexClientVersion } from "../plugin-sdk/codex-client-version-handoff.internal.js";
+import { normalizePluginsConfigWithResolverCore } from "../plugins/config-normalization-shared.js";
 import { isManifestPluginAvailableForControlPlane } from "../plugins/manifest-contract-eligibility.js";
 import { restorePluginMetadataSnapshot } from "../plugins/plugin-metadata-snapshot.js";
 import {
@@ -23,11 +24,17 @@ import { captureProviderCatalogExpiries } from "../plugins/provider-catalog-expi
 import { planRuntimePluginDiscovery } from "../plugins/provider-discovery.js";
 import { restorePreparedSyntheticAuthFacts } from "../plugins/provider-synthetic-auth.js";
 import { manifestPluginResolvesRuntimeModelCatalogAugment } from "../plugins/providers.js";
+import { getPluginRegistryInspectionResources } from "../plugins/registry-inspection-resources.js";
+import type { PluginRegistry } from "../plugins/registry-types.js";
 import { withPluginRuntimeGenerationScope } from "../plugins/runtime/generation-scope.js";
-import { resolveRuntimeSyntheticAuthProviderRefs } from "../plugins/synthetic-auth.runtime.js";
+import {
+  listManifestSyntheticAuthProviderRefs,
+  resolveRuntimeSyntheticAuthProviderRefs,
+} from "../plugins/synthetic-auth.runtime.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 import { AsyncWorkScope } from "../shared/async-work-scope.js";
 import { freezeJsonSnapshot } from "../shared/immutable-data.js";
+import { captureAuthProfileCredentialCommits } from "../state/user-model-account-authority.js";
 import {
   resolveAgentCredentialMapFromStore,
   resolveUsableAgentCredentialModes,
@@ -40,29 +47,31 @@ import {
 } from "./agent-dir-registry.js";
 import { overlayExternalAuthProfiles } from "./auth-profiles/external-auth-runtime.js";
 import { listExternalCliSyncProviderIds } from "./auth-profiles/external-cli-sync.js";
+import { noteCommittedSharedAuthStoreOwnership } from "./auth-profiles/path-resolve.js";
 import { resolveAuthStorePathForDisplay } from "./auth-profiles/paths.js";
 import { mergeRuntimeExternalProfileReferences } from "./auth-profiles/runtime-external-profile-references.js";
-import { replaceRuntimeAuthProfileStoreSnapshots } from "./auth-profiles/runtime-snapshots.js";
-import { loadAuthProfileStoreWithoutExternalProfiles } from "./auth-profiles/store-runtime.js";
+import { withWorkerAuthProfileWrites } from "./auth-profiles/runtime-scope.js";
+import { replaceRuntimeAuthProfileStoreSnapshotsAsync } from "./auth-profiles/runtime-snapshots.js";
+import { loadAuthProfileStoreWithoutExternalProfilesAsync } from "./auth-profiles/store-runtime.js";
 import { preserveResolvedSecretBackedCredentials } from "./auth-profiles/store.js";
 import { prepareModelCatalogAuthLabels } from "./model-catalog-auth-labels.js";
 import { modelCatalogRouteVariantKey, modelCatalogRowToEntry } from "./model-catalog-entry.js";
 import { createPreparedModelCatalogProviderNormalizer } from "./model-catalog-provider-normalizer.js";
+import { PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS } from "./model-catalog-timeouts.js";
 import { resolveImplicitProviderDiscoveryScope } from "./models-config.providers.discovery-scope.js";
 import { prepareImplicitProviderStaticCatalog } from "./models-config.providers.implicit.js";
 import { createModelCatalogIdentityKeyResolver } from "./openai-model-routes.js";
 import {
-  PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS,
   fingerprintPreparedModelCatalogGeneration,
   fingerprintPreparedModelCatalogPluginContext,
   fingerprintPreparedModelWorkerRequest,
-} from "./prepared-model-catalog-worker.js";
+} from "./prepared-model-catalog-fingerprints.js";
 import type { PreparedModelCatalogWorkerData } from "./prepared-model-catalog-worker.pool.js";
 import type {
   PreparedModelCatalogWorkerInput,
   PreparedModelCatalogWorkerTask,
+  PreparedModelWorkerOutcome,
   PreparedModelWorkerRequest,
-  PreparedModelWorkerResult,
 } from "./prepared-model-catalog-worker.types.js";
 import { prepareOwnedPluginLoadContext } from "./prepared-model-runtime.plugin-context.js";
 import {
@@ -75,13 +84,16 @@ import type { PreparedModelRuntimePluginGeneration } from "./prepared-model-runt
 import { AuthStorage } from "./sessions/auth-storage.js";
 
 type WorkerGeneration = {
-  pluginGeneration: PreparedModelRuntimePluginGeneration;
+  pluginGeneration: Omit<
+    PreparedModelRuntimePluginGeneration,
+    "inlineProviderModels" | "configuredCatalogEntries"
+  > & { pluginRegistry: PluginRegistry };
   pluginIds: ReadonlySet<string>;
   staticProviderIds: ReadonlySet<string>;
   release: () => void | Promise<void>;
 };
 
-function refreshAuthStore(params: {
+async function refreshAuthStore(params: {
   agentDir: string;
   inheritedAuthDir?: string;
   authStore: PreparedModelCatalogWorkerInput["authStore"];
@@ -89,10 +101,13 @@ function refreshAuthStore(params: {
   env: NodeJS.ProcessEnv;
   profileIds?: readonly string[];
   providerIds?: readonly string[];
-  pluginGeneration: PreparedModelRuntimePluginGeneration;
+  pluginGeneration: Pick<
+    PreparedModelRuntimePluginGeneration,
+    "pluginMetadataSnapshot" | "pluginRegistry"
+  >;
 }) {
   const durable = preserveResolvedSecretBackedCredentials({
-    next: loadAuthProfileStoreWithoutExternalProfiles(params.agentDir, {
+    next: await loadAuthProfileStoreWithoutExternalProfilesAsync(params.agentDir, {
       allowKeychainPrompt: false,
       ...(params.inheritedAuthDir ? { inheritedAuthDir: params.inheritedAuthDir } : {}),
     }),
@@ -146,7 +161,6 @@ async function prepareWorkerGeneration(
   previous?: WorkerGeneration,
   pluginIds?: readonly string[],
 ): Promise<WorkerGeneration> {
-  const { prepareConfiguredModelFacts } = await import("./prepared-model-runtime.facts.js");
   // Rediscovery under agent workspaces or runtime activation overlays loses the owner's
   // metadata generation. Its source/built artifact selection must survive reconstruction too.
   const metadata =
@@ -154,7 +168,10 @@ async function prepareWorkerGeneration(
     restorePluginMetadataSnapshot(value.pluginMetadataSnapshot);
   // The parent owns native harness observations; this worker owns provider catalog hooks.
   // An empty eligible set stays empty instead of reopening unscoped plugin discovery.
-  const normalizedConfig = normalizePluginsConfig(value.input.config.plugins);
+  const normalizedConfig = normalizePluginsConfigWithResolverCore(
+    value.input.config.plugins,
+    metadata.normalizePluginId,
+  );
   const basePluginIds =
     pluginIds ??
     metadata.plugins
@@ -191,7 +208,9 @@ async function prepareWorkerGeneration(
     value.preferBuiltPluginArtifacts,
   );
   const pluginGeneration = Object.freeze({
-    ...(previous?.pluginGeneration ?? prepareConfiguredModelFacts(value.input.config, metadata)),
+    // Configured model facts arrive with each request; retaining host-only projections here
+    // duplicates those rows for every workspace without contributing to discovery.
+    ...previous?.pluginGeneration,
     remoteCatalog: value.remoteCatalog,
     pluginMetadataSnapshot: metadata,
     pluginRegistry,
@@ -212,7 +231,7 @@ async function runCatalogRequest(
   work: AsyncWorkScope,
   prepareGeneration: () => Promise<WorkerGeneration>,
   beginDiscovery: () => Promise<void>,
-): Promise<PreparedModelWorkerResult> {
+): Promise<PreparedModelWorkerOutcome> {
   const directoryOwner = value.input.agentId
     ? { agentId: value.input.agentId, agentDir: value.input.agentDir, env: value.input.env }
     : undefined;
@@ -220,6 +239,9 @@ async function runCatalogRequest(
   let prepared: WorkerGeneration | undefined;
   let acquiredGeneration: WorkerGeneration | undefined;
   try {
+    if (value.sharedAuthStoreOwnership) {
+      noteCommittedSharedAuthStoreOwnership(value.sharedAuthStoreOwnership, value.input.env);
+    }
     if (directoryOwner) {
       registeredDirectoryOwner = registerResolvedAgentDir(directoryOwner);
       if (
@@ -277,6 +299,9 @@ async function runCatalogRequest(
           syntheticAuthProviderRefs: scopeSyntheticAuthProviderRefs(
             [
               ...new Set([
+                ...listManifestSyntheticAuthProviderRefs(
+                  pluginGenerationScope.metadataSnapshot.index,
+                ),
                 ...resolveRuntimeSyntheticAuthProviderRefs(),
                 ...request.syntheticAuth.map(({ providerRef }) => providerRef),
               ]),
@@ -291,7 +316,7 @@ async function runCatalogRequest(
     }
     // Full discovery is one point-in-time operation: refresh first, then let every provider hook
     // and the returned availability projection consume the same exact store.
-    const authStore = refreshAuthStore({
+    const authStore = await refreshAuthStore({
       agentDir: value.input.agentDir,
       inheritedAuthDir: value.input.inheritedAuthDir,
       authStore: value.authStore,
@@ -304,7 +329,7 @@ async function runCatalogRequest(
       pluginGeneration: prepared.pluginGeneration,
     });
     if (request.kind === "catalog") {
-      replaceRuntimeAuthProfileStoreSnapshots([
+      await replaceRuntimeAuthProfileStoreSnapshotsAsync([
         { agentDir: value.input.agentDir, store: authStore },
       ]);
     }
@@ -406,12 +431,14 @@ async function runCatalogRequest(
       value: source,
       providerExpiries,
       providerModels,
-    } = await captureProviderCatalogExpiries(() =>
-      prepareAgentCatalogSource(exactAgentFacts, catalogGeneration, "live", false, {
-        authStore,
-        providerDiscoveryProviderIds: request.providerIds,
-        providerDiscoveryTimeoutMs: PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS,
-      }),
+    } = await captureProviderCatalogExpiries(
+      () =>
+        prepareAgentCatalogSource(exactAgentFacts, catalogGeneration, "live", false, {
+          authStore,
+          providerDiscoveryProviderIds: request.providerIds,
+          providerDiscoveryTimeoutMs: PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS,
+        }),
+      { refresh: request.refresh },
     );
     const facts = await prepareFullCatalogFacts(
       exactAgentFacts,
@@ -438,10 +465,7 @@ async function runCatalogRequest(
       ...credentials,
     };
     const runtimeModels = new Map<string, Model[]>();
-    // Lazy normalization must keep provider hooks on the selected catalog generation.
-    const catalogModels = withPluginRuntimeGenerationScope(pluginGenerationScope, () =>
-      facts.templateModelRegistry.getAll(),
-    );
+    const { catalogModels } = facts;
     const hookRows = withPluginRuntimeGenerationScope(pluginGenerationScope, () => {
       const normalizeProvider = createPreparedModelCatalogProviderNormalizer(
         pluginMetadataSnapshot,
@@ -489,7 +513,7 @@ async function runCatalogRequest(
       ...(facts.modelCatalog.staticEntries ?? []).map((entry) => entry.provider),
       ...Object.values(authStore.profiles).map((profile) => profile.provider),
     ];
-    const result: PreparedModelWorkerResult = {
+    const result: PreparedModelWorkerOutcome = {
       status: "ok",
       kind: "catalog",
       generationFingerprint,
@@ -519,11 +543,15 @@ async function runCatalogRequest(
     work.beginClose();
     await work.runWhenIdle(() => undefined);
     if (acquiredGeneration) {
+      const successor = getPluginRegistryInspectionResources(
+        acquiredGeneration.pluginGeneration.pluginRegistry,
+      );
+      if (!successor) {
+        throw new Error("Catalog scope growth has no inspection resource owner");
+      }
+      successor.adoptRetainedRegistrations(prepared.pluginGeneration.pluginRegistry);
       const releasePrevious = prepared.release;
-      prepared.pluginGeneration = acquiredGeneration.pluginGeneration;
-      prepared.pluginIds = acquiredGeneration.pluginIds;
-      prepared.staticProviderIds = acquiredGeneration.staticProviderIds;
-      prepared.release = acquiredGeneration.release;
+      Object.assign(prepared, acquiredGeneration);
       acquiredGeneration = undefined;
       await releasePrevious();
     }
@@ -550,6 +578,10 @@ async function runCatalogRequest(
   }
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
 function isWorkerRequest(value: unknown): value is PreparedModelWorkerRequest {
   return (
     isRecord(value) &&
@@ -557,16 +589,13 @@ function isWorkerRequest(value: unknown): value is PreparedModelWorkerRequest {
     isRecord(value.clawInstallSchemaVersions) &&
     typeof value.clawInstallSchemaVersions.path === "string" &&
     isRecord(value.clawInstallSchemaVersions.snapshot) &&
+    (value.codexClientVersion === undefined || typeof value.codexClientVersion === "string") &&
     ((value.kind === "catalog" &&
-      (value.providerIds === undefined ||
-        (Array.isArray(value.providerIds) &&
-          value.providerIds.every((id) => typeof id === "string")))) ||
+      (value.refresh === undefined || typeof value.refresh === "boolean") &&
+      (value.providerIds === undefined || isStringArray(value.providerIds))) ||
       (value.kind === "auth-refresh" &&
-        Array.isArray(value.providerIds) &&
-        value.providerIds.every((providerId) => typeof providerId === "string") &&
-        (value.profileIds === undefined ||
-          (Array.isArray(value.profileIds) &&
-            value.profileIds.every((profileId) => typeof profileId === "string")))))
+        isStringArray(value.providerIds) &&
+        (value.profileIds === undefined || isStringArray(value.profileIds))))
   );
 }
 
@@ -586,19 +615,13 @@ if (parentPort) {
     }
     let reportAfter = 0;
     let reportedPlugin: string | undefined;
-    let reportedActive: boolean | undefined;
     const reportProgress = (notification: unknown) => {
       // SAFETY: The native-reference owner publishes this internal diagnostic payload.
       const progress = notification as NativeReferenceProgress;
       const now = performance.now();
-      if (
-        now >= reportAfter ||
-        progress.pluginId !== reportedPlugin ||
-        progress.active !== reportedActive
-      ) {
+      if (now >= reportAfter || progress.pluginId !== reportedPlugin) {
         reportAfter = now + 1_000;
         reportedPlugin = progress.pluginId;
-        reportedActive = progress.active;
         channel?.notify(progress);
       }
     };
@@ -608,65 +631,74 @@ if (parentPort) {
       withPluginSourceCaptureDirectory(
         data.sourceCaptureDirectory,
         async () => {
-          const workspaceDir =
-            value.pluginMetadataSnapshot.workspaceDir ?? value.input.workspaceDir;
-          let previous = contexts.get(workspaceDir);
-          const fingerprint = fingerprintPreparedModelCatalogPluginContext(value);
-          let attempted: WorkerGeneration | undefined;
-          let replacing = false;
-          try {
-            const work = new AsyncWorkScope();
-            const result = await withClawInstallSchemaVersionFacts(
-              request.clawInstallSchemaVersions,
-              () =>
-                work.run(() =>
-                  runCatalogRequest(
-                    value,
-                    request,
-                    work,
-                    async () => {
-                      if (previous?.fingerprint === fingerprint) {
-                        return previous.prepared;
-                      }
-                      replacing = true;
-                      return (attempted = await prepareWorkerGeneration(value));
-                    },
-                    async () => {
-                      // Admission can outlast a refresh on slow filesystems; only completed
-                      // generation preparation starts the provider-discovery deadline.
-                      stopProgress();
-                      const response = await channel?.request(null);
-                      response?.consumed();
-                      if (response && response.input !== true) {
-                        throw new Error("prepared model catalog request retired before discovery");
-                      }
-                    },
+          const { result: outcome, receipts: authCredentials } =
+            await captureAuthProfileCredentialCommits(async () => {
+              const workspaceDir =
+                value.pluginMetadataSnapshot.workspaceDir ?? value.input.workspaceDir;
+              let previous = contexts.get(workspaceDir);
+              const fingerprint = fingerprintPreparedModelCatalogPluginContext(value);
+              let attempted: WorkerGeneration | undefined;
+              let replacing = false;
+              try {
+                const work = new AsyncWorkScope();
+                const result = await withWorkerAuthProfileWrites(value.input.env, work, () =>
+                  withClawInstallSchemaVersionFacts(request.clawInstallSchemaVersions, () =>
+                    // Never select a Codex binary here; report the parent's decision.
+                    withHandedOffCodexClientVersion(request.codexClientVersion, () =>
+                      work.run(() =>
+                        runCatalogRequest(
+                          value,
+                          request,
+                          work,
+                          async () => {
+                            if (previous?.fingerprint === fingerprint) {
+                              return previous.prepared;
+                            }
+                            replacing = true;
+                            return (attempted = await prepareWorkerGeneration(value));
+                          },
+                          async () => {
+                            // Admission can outlast a refresh on slow filesystems; only completed
+                            // generation preparation starts the provider-discovery deadline.
+                            stopProgress();
+                            const response = await channel?.request(null);
+                            response?.consumed();
+                            if (response && response.input !== true) {
+                              throw new Error(
+                                "prepared model catalog request retired before discovery",
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-            );
-            if (attempted && result.status === "ok") {
-              contexts.set(workspaceDir, { fingerprint, prepared: attempted });
-              attempted = undefined;
-              replacing = false;
-              // Acquire the replacement before releasing shared source registrations.
-              await previous?.prepared.release();
-              // Registry custody can retain this request's async context until retirement.
-              // Drop the settled predecessor instead of retaining its callbacks through that scope.
-              previous = undefined;
-            }
-            return result;
-          } finally {
-            try {
-              if (replacing) {
-                // Registration can replace module-level API handles before a refresh fails.
-                // Re-register the requested config next time instead of reusing that context.
-                contexts.delete(workspaceDir);
-                await previous?.prepared.release();
+                );
+                if (attempted && result.status === "ok") {
+                  contexts.set(workspaceDir, { fingerprint, prepared: attempted });
+                  attempted = undefined;
+                  replacing = false;
+                  // Acquire the replacement before releasing shared source registrations.
+                  await previous?.prepared.release();
+                  // Registry custody can retain this request's async context until retirement.
+                  // Drop the settled predecessor instead of retaining its callbacks through that scope.
+                  previous = undefined;
+                }
+                return result;
+              } finally {
+                try {
+                  if (replacing) {
+                    // Registration can replace module-level API handles before a refresh fails.
+                    // Re-register the requested config next time instead of reusing that context.
+                    contexts.delete(workspaceDir);
+                    await previous?.prepared.release();
+                  }
+                } finally {
+                  await attempted?.release();
+                }
               }
-            } finally {
-              await attempted?.release();
-            }
-          }
+            });
+          return { ...outcome, authCredentials };
         },
         data.sourceCaptureManagedRoot,
       ),

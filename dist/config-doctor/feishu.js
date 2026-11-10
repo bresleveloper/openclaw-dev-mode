@@ -1,12 +1,13 @@
-import { D as normalizeOptionalString, E as normalizeOptionalLowercaseString, S as normalizeChannelConfigEntries, T as normalizeLowercaseStringOrEmpty, a as defineChannelAliasMigration, b as hasLegacyAccountStreamingAliases, d as normalizeAccountId, j as isRecord, k as asNullableRecord, n as defineKeyMoveMigration, r as defineStrayPluginEntryConfigMigration, v as isBlockedObjectKey, w as normalizeUniqueStringEntries } from "./runtime-doctor-migrations-BhouWAUC.js";
-import { t as createLegacyWebhookListenerDoctorContract } from "./legacy-webhook-listener-migration-Bu-ybctG.js";
-import { a as ENV_SECRET_REF_ID_RE, o as SECRET_PROVIDER_ALIAS_PATTERN, t as hasConfiguredSecretInput } from "./types.secrets-pt3cVWr4.js";
-import { o as createAccountListHelpers, s as hasConfiguredAccountValue } from "./account-core-bZmYRKLc.js";
-import "./account-resolution-1w7yhOTy.js";
+import { A as normalizeLowercaseStringOrEmpty, E as normalizeChannelConfigEntries, L as isRecord, M as normalizeOptionalString, O as normalizeUniqueStringEntries, P as asNullableRecord, a as defineChannelAliasMigration, d as normalizeAccountId, j as normalizeOptionalLowercaseString, n as defineKeyMoveMigration, r as defineStrayPluginEntryConfigMigration, w as hasLegacyAccountStreamingAliases, x as isBlockedObjectKey } from "./runtime-doctor-migrations-Bq3PkBbD.js";
+import { t as createLegacyWebhookListenerDoctorContract } from "./legacy-webhook-listener-migration-S3H2cekT.js";
+import { a as ENV_SECRET_REF_ID_RE, o as SECRET_PROVIDER_ALIAS_PATTERN, t as hasConfiguredSecretInput } from "./types.secrets-DtpmAEmy.js";
+import { g as hasConfiguredAccountValue, h as createAccountListHelpers } from "./account-core-D92inL1O.js";
+import "./account-resolution-BI6LnSdz.js";
 import { _ as toJSONSchema, c as number, d as record, f as strictObject, g as unknown, h as union, i as boolean, l as object, m as tuple, n as _null, p as string, r as array, s as literal, t as _enum, u as preprocess } from "./schemas-C5K39dqU.js";
-import { n as sensitive, r as SecretInputSchema, t as buildSecretInputSchema } from "./secret-input-DnlqG81c.js";
-import "./string-coerce-runtime-CM4JCyJk.js";
-import "./ansi-twpzQrRE.js";
+import { n as sensitive, r as SecretInputSchema, t as buildSecretInputSchema } from "./secret-input-Bnx2VFPc.js";
+import "./string-coerce-runtime-D5jaFnkP.js";
+import "./ansi-DJ8PVuDO.js";
+import { t as LruCache } from "./lru-cache-C7y8brGK.js";
 import path from "node:path";
 import net from "node:net";
 import { domainToASCII } from "node:url";
@@ -115,7 +116,6 @@ function roundSafeDurationMs(raw, value) {
 	if (!Number.isSafeInteger(ms)) throw invalidDuration(raw);
 	return ms;
 }
-/** Parse a non-negative duration into milliseconds, supporting single and composite units. */
 function parseDurationMs(raw, opts) {
 	const trimmed = normalizeLowercaseStringOrEmpty(raw);
 	if (!trimmed) throw invalidDuration(raw, "empty");
@@ -131,7 +131,7 @@ function parseDurationMs(raw, opts) {
 		totalMs += parseDurationToken(raw, valueRaw, unitRaw);
 		consumed += full.length;
 	}
-	if (consumed !== trimmed.length || consumed === 0) throw invalidDuration(raw);
+	if (consumed !== trimmed.length) throw invalidDuration(raw);
 	return roundSafeDurationMs(raw, totalMs);
 }
 //#endregion
@@ -236,18 +236,11 @@ const AgentModelRuntimeEntrySchema = strictObject({
 	streaming: boolean().optional()
 });
 const AgentModelMapSchema = record(string(), AgentModelRuntimeEntrySchema).superRefine((models, ctx) => {
-	for (const [ref, entry] of Object.entries(models)) {
-		if (entry.pickerRuntimes !== void 0 && (ref.includes("*") || !parseProviderModelRef(ref))) ctx.addIssue({
-			code: ZodIssueCode.custom,
-			path: [ref, "pickerRuntimes"],
-			message: "Picker runtimes require an exact provider/model entry."
-		});
-		if (entry.codeMode !== void 0 && (ref.includes("*") || !parseProviderModelRef(ref))) ctx.addIssue({
-			code: ZodIssueCode.custom,
-			path: [ref, "codeMode"],
-			message: "Code Mode requires an exact provider/model entry; wildcard and bare model keys are not supported."
-		});
-	}
+	for (const [ref, entry] of Object.entries(models)) for (const [key, message] of [["pickerRuntimes", "Picker runtimes require an exact provider/model entry."], ["codeMode", "Code Mode requires an exact provider/model entry; wildcard and bare model keys are not supported."]]) if (entry[key] !== void 0 && (ref.includes("*") || !parseProviderModelRef(ref))) ctx.addIssue({
+		code: ZodIssueCode.custom,
+		path: [ref, key],
+		message
+	});
 });
 const AgentModelPolicySchema = strictObject({ 
 /** Model refs allowed for session/run overrides. Empty or omitted allows any model. */
@@ -266,7 +259,6 @@ const AgentRuntimeSchema = union([strictObject({ type: literal("embedded") }), s
 	type: literal("acp"),
 	acp: AgentRuntimeAcpSchema
 })]).optional();
-const AgentEntryEmbeddedAgentConfigSchema = strictObject({ executionContract: union([literal("default"), literal("strict-agentic")]).optional() }).optional();
 const AgentEntryBaseSchema = strictObject({
 	id: string(),
 	name: string().optional(),
@@ -308,11 +300,12 @@ const AgentEntryBaseSchema = strictObject({
 	subagents: strictObject({
 		delegationMode: _enum(["suggest", "prefer"]).optional(),
 		allowAgents: array(string()).optional(),
+		delegateToolsTo: array(string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/)).optional(),
 		model: AgentModelSchema.optional(),
 		thinking: string().optional(),
 		requireAgentId: boolean().optional()
 	}).optional(),
-	embeddedAgent: AgentEntryEmbeddedAgentConfigSchema,
+	embeddedAgent: strictObject({ executionContract: union([literal("default"), literal("strict-agentic")]).optional() }).optional(),
 	params: record(string(), unknown()).optional(),
 	runtime: AgentRuntimeSchema
 });
@@ -496,8 +489,7 @@ function createAllowDenyChannelRulesSchema() {
 }
 //#endregion
 //#region src/config/zod-schema.messages.ts
-const VisibleRepliesValueSchema = _enum(["automatic", "message_tool"]);
-const VisibleRepliesSchema = union([VisibleRepliesValueSchema, boolean()]).overwrite((value) => {
+const VisibleRepliesSchema = union([_enum(["automatic", "message_tool"]), boolean()]).overwrite((value) => {
 	if (value === true) return "automatic";
 	if (value === false) return "message_tool";
 	return value;
@@ -520,32 +512,20 @@ const QueueModeSchema = union([
 	literal("collect"),
 	literal("interrupt")
 ]);
-const QueueDropSchema = union([
-	literal("old"),
-	literal("new"),
-	literal("summarize")
-]);
-const QueueModeBySurfaceSchema = strictObject({
-	whatsapp: QueueModeSchema.optional(),
-	telegram: QueueModeSchema.optional(),
-	discord: QueueModeSchema.optional(),
-	irc: QueueModeSchema.optional(),
-	googlechat: QueueModeSchema.optional(),
-	slack: QueueModeSchema.optional(),
-	mattermost: QueueModeSchema.optional(),
-	signal: QueueModeSchema.optional(),
-	imessage: QueueModeSchema.optional(),
-	msteams: QueueModeSchema.optional(),
-	webchat: QueueModeSchema.optional(),
-	matrix: QueueModeSchema.optional()
-}).optional();
+const QueueModeBySurfaceSchema = record(string(), QueueModeSchema).optional();
 const DebounceMsBySurfaceSchema = record(string(), number().int().nonnegative()).optional();
 const QueueSchema = strictObject({
 	mode: QueueModeSchema.optional(),
+	allowCollaborativeSteering: boolean().optional(),
+	collaborativeSteeringFallback: _enum(["queue", "reject"]).optional(),
 	byChannel: QueueModeBySurfaceSchema,
 	debounceMsByChannel: DebounceMsBySurfaceSchema,
 	cap: number().int().positive().optional(),
-	drop: QueueDropSchema.optional()
+	drop: union([
+		literal("old"),
+		literal("new"),
+		literal("summarize")
+	]).optional()
 }).optional();
 const InboundDebounceSchema = strictObject({
 	debounceMs: number().int().nonnegative().optional(),
@@ -581,14 +561,13 @@ strictObject({
 	]).optional(),
 	statusReactions: strictObject({ enabled: boolean().optional() }).optional()
 }).optional();
-const BroadcastStrategySchema = _enum(["parallel", "sequential"]);
 const BroadcastGroupSchema = strictObject({
 	agents: array(string()).max(16),
 	mentionGating: boolean().optional(),
 	maxRounds: number().int().min(1).max(4).optional(),
 	maxTurns: number().int().min(1).max(32).optional()
 });
-object({ strategy: BroadcastStrategySchema.optional() }).catchall(union([array(string()), BroadcastGroupSchema])).superRefine((broadcast, ctx) => {
+object({ strategy: _enum(["parallel", "sequential"]).optional() }).catchall(union([array(string()), BroadcastGroupSchema])).superRefine((broadcast, ctx) => {
 	for (const [peerId, entry] of Object.entries(broadcast)) {
 		if (typeof entry !== "object") continue;
 		const qualified = /^[a-z][a-z0-9_-]*:.+$/i.test(peerId);
@@ -686,6 +665,8 @@ const ModelCompatSchema = strictObject({
 	supportedReasoningEfforts: array(string().min(1)).optional(),
 	/** Per-level reasoning effort overrides, e.g. map "off" to "low" for models that cannot disable thinking. */
 	reasoningEffortMap: record(string().min(1), string().min(1)).optional(),
+	/** Thinking level a new session starts at. When set, this row owns the thinking profile. */
+	defaultThinkingLevel: string().min(1).optional(),
 	/** Which field to use for max tokens. Default: auto-detected from URL. */
 	maxTokensField: union([literal("max_completion_tokens"), literal("max_tokens")]).optional(),
 	/** Reasoning/thinking payload dialect for provider-compatible APIs. */
@@ -808,7 +789,6 @@ const EgressProxyExactHostSchema = string().trim().min(1).superRefine((host, ctx
 		});
 	}
 });
-/** Schema for one configured env/file/exec/store secret provider entry. */
 const SecretProviderSchema = union([
 	SecretsEnvProviderSchema,
 	SecretsFileProviderSchema,
@@ -897,7 +877,6 @@ const ThinkingLevelMapSchema = strictObject({
 const ModelDefinitionSchema = strictObject({
 	/** Provider-facing model id. */
 	id: string().min(1),
-	/** Human-readable display name. */
 	name: string().min(1),
 	/** Optional API adapter override for this model. */
 	api: ModelApiSchema.optional(),
@@ -944,6 +923,8 @@ const ModelDefinitionSchema = strictObject({
 	compat: ModelCompatSchema,
 	/** Media input limits used by routing and preflight compression. */
 	mediaInput: ModelMediaInputSchema.optional(),
+	/** Custom authored rows may accept endpoint-selected response ids; official policy still wins. */
+	responseModelEquivalent: boolean().optional(),
 	/** Metadata source marker for models added by CLI/catalog tooling. */
 	metadataSource: literal("models-add").optional()
 });
@@ -952,13 +933,11 @@ const ModelProviderLocalServiceSchema = strictObject({
 	command: string().min(1),
 	/** Arguments passed without shell expansion. */
 	args: array(string()).optional(),
-	/** Working directory for the local service process. */
 	cwd: string().min(1).optional(),
 	/** Environment variables added to the service process. */
 	env: record(string(), string().register(sensitive)).optional(),
 	/** Optional health endpoint polled before the provider is considered ready. */
 	healthUrl: string().min(1).optional(),
-	/** Startup readiness timeout in milliseconds. */
 	readyTimeoutMs: number().int().positive().optional(),
 	/** Idle timeout in milliseconds before stopping the local service. */
 	idleStopMs: number().int().nonnegative().optional()
@@ -978,7 +957,6 @@ const ModelProviderSchema = strictObject({
 	api: ModelApiSchema.optional(),
 	/** Provider-level default max output tokens. */
 	maxTokens: number().positive().optional(),
-	/** Provider request timeout in seconds. */
 	timeoutSeconds: number().int().positive().optional(),
 	/** Optional provider deployment/API region used by provider plugins that expose regional endpoints. */
 	region: string().min(1).optional(),
@@ -1029,7 +1007,6 @@ strictObject({
 	/** Merge provider config with bundled catalogs or replace bundled catalogs entirely. */
 	mode: union([literal("merge"), literal("replace")]).optional(),
 	providers: ModelProvidersSchema.optional(),
-	/** Hosted model catalog refresh settings. */
 	catalogRefresh: ModelCatalogRefreshConfigSchema
 }).optional();
 const IdentitySchema = strictObject({
@@ -1091,13 +1068,12 @@ const BlockStreamingChunkSchema = strictObject({
 		literal("sentence")
 	]).optional()
 });
-const MarkdownTableModeSchema = _enum([
+const MarkdownConfigSchema$1 = strictObject({ tables: _enum([
 	"off",
 	"bullets",
 	"code",
 	"block"
-]);
-const MarkdownConfigSchema$1 = strictObject({ tables: MarkdownTableModeSchema.optional() }).optional();
+]).optional() }).optional();
 const TtsProviderSchema = string().min(1);
 const TtsModeSchema = _enum(["final", "all"]);
 const TtsAutoSchema = _enum([
@@ -1165,7 +1141,6 @@ const MediaUnderstandingAttachmentsSchema = strictObject({
 	mode: union([literal("first"), literal("all")]).optional(),
 	/** Max number of attachments to process (default: 1). */
 	maxAttachments: number().int().positive().optional(),
-	/** Attachment ordering preference. */
 	prefer: union([
 		literal("first"),
 		literal("last"),
@@ -1173,17 +1148,11 @@ const MediaUnderstandingAttachmentsSchema = strictObject({
 		literal("url")
 	]).optional()
 }).optional();
-const MediaUnderstandingCapabilitiesSchema = array(union([
-	literal("image"),
-	literal("audio"),
-	literal("video")
-])).optional();
-const ProviderOptionValueSchema = union([
+const ProviderOptionsSchema = record(string(), record(string(), union([
 	string(),
 	number(),
 	boolean()
-]);
-const ProviderOptionsSchema = record(string(), record(string(), ProviderOptionValueSchema)).optional();
+]))).optional();
 const MediaUnderstandingRuntimeFields = {
 	/** Default prompt; model entries can override it. */
 	prompt: string().optional(),
@@ -1206,7 +1175,11 @@ const MediaUnderstandingModelSchema = strictObject({
 	/** Model id for provider-based understanding. */
 	model: string().optional(),
 	/** Optional capability tags for shared model lists. */
-	capabilities: MediaUnderstandingCapabilitiesSchema,
+	capabilities: array(union([
+		literal("image"),
+		literal("audio"),
+		literal("video")
+	])).optional(),
 	/** Use a CLI command instead of provider API. */
 	type: union([literal("provider"), literal("cli")]).optional(),
 	/** CLI binary (required when type=cli). */
@@ -1215,7 +1188,6 @@ const MediaUnderstandingModelSchema = strictObject({
 	args: array(string()).optional(),
 	/** Optional max output characters for this model entry. */
 	maxChars: number().int().positive().optional(),
-	/** Optional max bytes for this model entry. */
 	maxBytes: number().int().positive().optional(),
 	...MediaUnderstandingRuntimeFields,
 	/** Auth profile id to use for this provider. */
@@ -1235,7 +1207,6 @@ const ToolsMediaCapabilitySchema = strictObject({
 	/** Default max output characters. */
 	maxChars: number().int().positive().optional(),
 	...MediaUnderstandingRuntimeFields,
-	/** Attachment selection policy. */
 	attachments: MediaUnderstandingAttachmentsSchema
 }).optional();
 const ToolsMediaAudioSchema = ToolsMediaCapabilitySchema.unwrap().extend({
@@ -1438,15 +1409,18 @@ const SandboxDockerSchema = strictObject({
 		path: ["network"],
 		message: "Sandbox security: network mode \"container:*\" is blocked by default. Use a custom bridge network, or set dangerouslyAllowContainerNamespaceJoin=true only when you fully trust this runtime."
 	});
-	if (normalizeLowercaseStringOrEmpty(data.seccompProfile ?? "") === "unconfined") ctx.addIssue({
+	for (const [key, profile, replacement] of [[
+		"seccompProfile",
+		"seccomp",
+		"a custom seccomp profile file"
+	], [
+		"apparmorProfile",
+		"AppArmor",
+		"a named AppArmor profile"
+	]]) if (normalizeLowercaseStringOrEmpty(data[key] ?? "") === "unconfined") ctx.addIssue({
 		code: ZodIssueCode.custom,
-		path: ["seccompProfile"],
-		message: "Sandbox security: seccomp profile \"unconfined\" is blocked. Use a custom seccomp profile file or omit this setting."
-	});
-	if (normalizeLowercaseStringOrEmpty(data.apparmorProfile ?? "") === "unconfined") ctx.addIssue({
-		code: ZodIssueCode.custom,
-		path: ["apparmorProfile"],
-		message: "Sandbox security: AppArmor profile \"unconfined\" is blocked. Use a named AppArmor profile or omit this setting."
+		path: [key],
+		message: `Sandbox security: ${profile} profile "unconfined" is blocked. Use ${replacement} or omit this setting.`
 	});
 }).optional();
 const SandboxBrowserSchema = object({
@@ -1539,9 +1513,7 @@ const ToolPolicyBaseSchema = strictObject({
 	/** Exact tool names denied after allow expansion; deny wins. */
 	deny: array(string()).optional()
 });
-const ToolPolicySchema$1 = ToolPolicyBaseSchema.superRefine((value, ctx) => {
-	addAllowAlsoAllowConflictIssue(value, ctx, "tools policy cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)");
-}).optional();
+const ToolPolicySchema$1 = ToolPolicyBaseSchema.superRefine(createAllowAlsoAllowConflictValidator("tools policy cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)")).optional();
 const ToolPolicyBySenderSchema = record(string(), ToolPolicySchema$1).optional();
 const TrimmedOptionalConfigStringSchema = string().transform(normalizeOptionalString).optional();
 const CodexAllowedDomainsSchema = array(string()).transform((values) => {
@@ -1606,15 +1578,12 @@ const ToolsWebFetchSchema = strictObject({
 	enabled: boolean().optional(),
 	/** Web fetch fallback provider id. */
 	provider: string().optional(),
-	/** Max characters to return from fetched content. */
 	maxChars: number().int().positive().optional(),
 	/** Hard cap for maxChars (tool or config), defaults to 20000. */
 	maxCharsCap: number().int().positive().optional(),
 	/** Max download size before truncation, defaults to 750000 bytes. */
 	maxResponseBytes: number().int().positive().optional(),
-	/** Timeout in seconds for fetch requests. */
 	timeoutSeconds: number().int().positive().optional(),
-	/** Cache TTL in minutes for fetched content. */
 	cacheTtlMinutes: number().nonnegative().optional(),
 	/** Maximum number of redirects to follow (default: 3). */
 	maxRedirects: number().int().nonnegative().optional(),
@@ -1630,7 +1599,6 @@ const ToolsWebFetchSchema = strictObject({
 	readability: boolean().optional(),
 	/** Route web_fetch through a trusted HTTP(S) env proxy and let the proxy resolve DNS. Enable only when that proxy enforces outbound policy. */
 	useTrustedEnvProxy: boolean().optional(),
-	/** SSRF policy configuration for web_fetch. */
 	ssrfPolicy: SsrFPolicyConfigSchema.optional()
 }).optional();
 const ToolsWebSchema = strictObject({
@@ -1643,15 +1611,15 @@ const ToolProfileSchema = union([
 	literal("messaging"),
 	literal("full")
 ]).optional();
-function addAllowAlsoAllowConflictIssue(value, ctx, message) {
-	if (value.allow && value.allow.length > 0 && value.alsoAllow && value.alsoAllow.length > 0) ctx.addIssue({
-		code: ZodIssueCode.custom,
-		message
-	});
+function createAllowAlsoAllowConflictValidator(message) {
+	return (value, ctx) => {
+		if (value.allow && value.allow.length > 0 && value.alsoAllow && value.alsoAllow.length > 0) ctx.addIssue({
+			code: ZodIssueCode.custom,
+			message
+		});
+	};
 }
-const ToolPolicyWithProfileSchema = ToolPolicyBaseSchema.extend({ profile: ToolProfileSchema }).superRefine((value, ctx) => {
-	addAllowAlsoAllowConflictIssue(value, ctx, "tools.byProvider policy cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)");
-});
+const ToolPolicyWithProfileSchema = ToolPolicyBaseSchema.extend({ profile: ToolProfileSchema }).superRefine(createAllowAlsoAllowConflictValidator("tools.byProvider policy cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)"));
 const ElevatedAllowFromSchema = record(string(), array(union([string(), number()]))).optional();
 const ToolExecApplyPatchSchema = strictObject({
 	/** Enable apply_patch for OpenAI models (default: true; set false to disable). */
@@ -1723,13 +1691,11 @@ const ToolExecBaseShape = {
 	grantExpiryDays: number().int().min(1).max(3650).optional(),
 	/** Extra explicit directories trusted for safeBins path checks (never derived from PATH). */
 	safeBinTrustedDirs: array(string()).optional(),
-	/** Optional custom safe-bin profiles for entries in tools.exec.safeBins. */
 	safeBinProfiles: record(string(), ToolExecSafeBinProfileSchema).optional(),
 	/** Model-backed reviewer used by tools.exec.mode=auto before falling back to human approval. */
 	reviewer: strictObject({
 		/** Optional reviewer model override (provider/model or agent model config). */
 		model: AgentModelSchema.optional(),
-		/** Optional reasoning effort for model-backed approval reviews. */
 		thinking: _enum([
 			"minimal",
 			"low",
@@ -1758,7 +1724,6 @@ const ToolExecBaseShape = {
 	* Default false to reduce context noise.
 	*/
 	notifyOnExitEmptySuccess: boolean().optional(),
-	/** apply_patch subtool configuration. */
 	applyPatch: ToolExecApplyPatchSchema
 };
 function addExecPolicyModeConflictIssue(value, ctx) {
@@ -1831,7 +1796,6 @@ const SwarmSchema = union([boolean(), strictObject({
 	maxChildrenPerGroup: number().int().positive().optional(),
 	/** Maximum lifetime collector spawns per swarm group. */
 	maxTotalPerGroup: number().int().positive().optional(),
-	/** Maximum agents_wait timeout in seconds. */
 	waitTimeoutSecondsMax: number().int().positive().optional(),
 	/** Default child agent id when sessions_spawn omits agentId. */
 	defaultAgentId: string().optional()
@@ -1904,7 +1868,6 @@ const MessageToolConfigSchema = strictObject({
 		allowWithinProvider: boolean().optional(),
 		/** Allow sends across different providers (default: true). */
 		allowAcrossProviders: boolean().optional(),
-		/** Cross-context marker configuration. */
 		marker: strictObject({
 			/** Enable origin markers for cross-context sends (default: true). */
 			enabled: boolean().optional(),
@@ -1940,7 +1903,6 @@ const AgentToolsSchema = strictObject({
 	swarm: SwarmSchema,
 	/** Per-agent elevated exec gate (can only further restrict global tools.elevated). */
 	elevated: ElevatedToolsSchema,
-	/** Exec tool defaults for this agent. */
 	exec: ToolExecSchema,
 	/** Complete per-agent GitHub CLI identity and Git author override. */
 	github: GitHubToolIdentitySchema.unwrap().extend({ 
@@ -1948,14 +1910,14 @@ const AgentToolsSchema = strictObject({
 allowInSandbox: boolean().optional() }).optional(),
 	/** Filesystem tool path guards. */
 	fs: ToolFsSchema,
-	/** Runtime loop detection for repetitive/ stuck tool-call patterns. */
 	loopDetection: ToolLoopDetectionSchema,
-	/** Message tool configuration for this agent. */
+	/** Explicit outbound destinations; does not grant session reads or bypass global/sandbox policy. */
+	agentToAgent: strictObject({ 
+	/** Agent ids or * globs for sessions_send. Omitted inherits visibility; [] denies cross-agent sends. */
+send: array(string()).optional() }).optional(),
 	message: MessageToolConfigSchema,
 	sandbox: NestedToolPolicySchema
-}).superRefine((value, ctx) => {
-	addAllowAlsoAllowConflictIssue(value, ctx, "agent tools cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)");
-}).optional();
+}).superRefine(createAllowAlsoAllowConflictValidator("agent tools cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)")).optional();
 AgentEntryBaseSchema.extend({
 	memory: strictObject({ search: MemorySearchSchema }).optional(),
 	humanDelay: HumanDelaySchema.optional(),
@@ -1982,19 +1944,22 @@ strictObject({
 	*
 	* Default: "all" (all sessions on the Gateway, with cross-agent access scoped by agentToAgent).
 	*/
-	sessions: strictObject({ 
-	/**
-	* - "self": only the current session
-	* - "tree": current session + sessions spawned by this session
-	* - "agent": any session belonging to the current agent id (can include other users)
-	* - "all": any session (default; cross-agent access is governed by tools.agentToAgent)
-	*/
-visibility: _enum([
-		"self",
-		"tree",
-		"agent",
-		"all"
-	]).optional() }).optional(),
+	sessions: strictObject({
+		/**
+		* - "self": only the current session
+		* - "tree": current session + sessions spawned by this session
+		* - "agent": any session belonging to the current agent id (can include other users)
+		* - "all": any session (default; cross-agent access is governed by tools.agentToAgent)
+		*/
+		visibility: _enum([
+			"self",
+			"tree",
+			"agent",
+			"all"
+		]).optional(),
+		/** Allow sessions_send to target thread/topic sessions (default: false). */
+		allowThreadTargets: boolean().optional()
+	}).optional(),
 	loopDetection: ToolLoopDetectionSchema,
 	/** Compact large OpenClaw, MCP, and client tool catalogs behind search/call tools. */
 	toolSearch: ToolSearchSchema,
@@ -2002,7 +1967,6 @@ visibility: _enum([
 	codeMode: CodeModeSchema,
 	/** Collector-mode subagents and wait controls. */
 	swarm: SwarmSchema,
-	/** Message tool configuration. */
 	message: MessageToolConfigSchema,
 	agentToAgent: strictObject({
 		/** Default: true. False blocks ordinary cross-agent session tool access; requester-owned native subagent and ACP child sessions remain reachable under tree/all visibility. */
@@ -2015,16 +1979,13 @@ visibility: _enum([
 	}).optional(),
 	/** Elevated exec permissions for the host machine. */
 	elevated: ElevatedToolsSchema,
-	/** Exec tool defaults. */
 	exec: ToolExecSchema,
 	fs: ToolFsSchema,
 	/** Sub-agent tool policy defaults (deny wins; progress_card is always denied). */
 	subagents: NestedToolPolicySchema,
 	/** Sandbox tool policy defaults (deny wins). */
 	sandbox: NestedToolPolicySchema,
-	/** sessions_spawn tool configuration. */
 	sessions_spawn: strictObject({ attachments: strictObject({
-		/** Enable inline attachments for sessions_spawn. */
 		enabled: boolean().optional(),
 		maxTotalBytes: number().optional(),
 		maxFiles: number().optional(),
@@ -2033,71 +1994,11 @@ visibility: _enum([
 	}).optional() }).optional(),
 	/** Unified progress_card status tool for parent sessions; enabled by default. False opts out. */
 	updatePlan: boolean().optional()
-}).superRefine((value, ctx) => {
-	addAllowAlsoAllowConflictIssue(value, ctx, "tools cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)");
-}).optional();
-//#endregion
-//#region src/infra/lru-cache.ts
-/** Process-local LRU storage; callers own freshness and lifecycle. */
-var LruCache = class {
-	#maxEntries;
-	#maxBytes;
-	#sizeOf;
-	#entries = /* @__PURE__ */ new Map();
-	#bytes = 0;
-	constructor(maxEntries, options) {
-		this.#maxEntries = Number.isFinite(maxEntries) && maxEntries > 0 ? Math.max(1, Math.floor(maxEntries)) : 1;
-		this.#maxBytes = options?.maxBytes ?? Number.POSITIVE_INFINITY;
-		this.#sizeOf = options?.sizeOf;
-	}
-	get size() {
-		return this.#entries.size;
-	}
-	clear() {
-		this.#entries.clear();
-		this.#bytes = 0;
-	}
-	keys() {
-		return this.#entries.keys();
-	}
-	delete(cacheKey) {
-		if (!this.#entries.has(cacheKey)) return false;
-		this.#bytes -= this.#sizeOf?.(this.#entries.get(cacheKey)) ?? 0;
-		return this.#entries.delete(cacheKey);
-	}
-	deleteValue(value) {
-		for (const [key, entry] of this.#entries) if (entry === value) this.delete(key);
-	}
-	/** Reads without promoting a value whose revalidation is still pending. */
-	peek(cacheKey) {
-		return this.#entries.get(cacheKey);
-	}
-	/** Returns a cached value and refreshes its recency when present. */
-	get(cacheKey) {
-		if (!this.#entries.has(cacheKey)) return;
-		const cached = this.#entries.get(cacheKey);
-		this.#entries.delete(cacheKey);
-		this.#entries.set(cacheKey, cached);
-		return cached;
-	}
-	/** Stores a value as the newest entry and evicts oldest entries past capacity. */
-	set(cacheKey, value) {
-		this.delete(cacheKey);
-		this.#entries.set(cacheKey, value);
-		this.#bytes += this.#sizeOf?.(value) ?? 0;
-		for (const key of this.#entries.keys()) {
-			if (this.#entries.size <= this.#maxEntries && this.#bytes <= this.#maxBytes) break;
-			this.delete(key);
-		}
-	}
-};
+}).superRefine(createAllowAlsoAllowConflictValidator("tools cannot set both allow and alsoAllow in the same scope (merge alsoAllow into allow, or remove allow and use profile + alsoAllow)")).optional();
 new LruCache(512);
 //#endregion
 //#region src/channels/plugins/config-schema.ts
-/** Shared allowlist entry shape for channel sender/user ids. */
-const AllowFromEntrySchema = union([string(), number()]);
-/** Optional allowlist array used by channel config schema builders. */
-const AllowFromListSchema = array(AllowFromEntrySchema).optional();
+const AllowFromListSchema = array(union([string(), number()])).optional();
 /** Canonical per-group/room channel policy shape. */
 const ChannelGroupEntrySchema = object({
 	requireMention: boolean().optional(),
@@ -2145,17 +2046,6 @@ function cloneRuntimeIssue(issue) {
 		...path ? { path } : {}
 	};
 }
-function safeParseRuntimeSchema(schema, value) {
-	const result = schema.safeParse(value);
-	if (result.success) return {
-		success: true,
-		data: result.data
-	};
-	return {
-		success: false,
-		issues: result.error.issues.map((issue) => cloneRuntimeIssue(issue))
-	};
-}
 /** Build a channel config schema from Zod, exporting JSON Schema when available. */
 function buildChannelConfigSchema(schema, options) {
 	return {
@@ -2168,7 +2058,16 @@ function buildChannelConfigSchema(schema, options) {
 			additionalProperties: true
 		},
 		...options?.uiHints ? { uiHints: options.uiHints } : {},
-		runtime: { safeParse: (value) => safeParseRuntimeSchema(schema, value) }
+		runtime: { safeParse(value) {
+			const result = schema.safeParse(value);
+			return result.success ? {
+				success: true,
+				data: result.data
+			} : {
+				success: false,
+				issues: result.error.issues.map(cloneRuntimeIssue)
+			};
+		} }
 	};
 }
 union([boolean(), literal("auto")]);
@@ -2303,14 +2202,10 @@ const DEFAULT_FEISHU_WEBHOOK_PATH = "/feishu/events";
 function normalizeFeishuWebhookPath(value) {
 	const configured = value?.trim();
 	if (!configured) return DEFAULT_FEISHU_WEBHOOK_PATH;
-	try {
-		const parsed = new URL(configured, "http://localhost");
-		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
-		const emptyQuery = !parsed.search && parsed.href.endsWith("?") && !configured.includes("#") ? "?" : "";
-		return `${parsed.pathname}${parsed.search}${emptyQuery}`;
-	} catch {
-		return null;
-	}
+	const parsed = URL.parse(configured, "http://localhost");
+	if (!parsed || parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+	const emptyQuery = !parsed.search && parsed.href.endsWith("?") && !configured.includes("#") ? "?" : "";
+	return `${parsed.pathname}${parsed.search}${emptyQuery}`;
 }
 //#endregion
 //#region extensions/feishu/src/config-schema.ts
@@ -2328,7 +2223,7 @@ const FeishuStickerSetsSchema = record(string().regex(canonicalTextPattern(128))
 const FeishuGroupPolicySchema = union([GroupPolicySchema, literal("allowall").transform(() => "open")]);
 const FeishuDomainSchema = union([_enum(["feishu", "lark"]), string().regex(/^[Hh][Tt][Tt][Pp][Ss]:\/\//).url()]);
 const FeishuConnectionModeSchema = _enum(["websocket", "webhook"]);
-const FeishuWebhookPathSchema = string().refine((value) => normalizeFeishuWebhookPath(value) === value, { message: "webhookPath must be a canonical HTTP request path; run \"openclaw doctor --fix\" to repair it" });
+const FeishuWebhookPathSchema = string().refine((value) => normalizeFeishuWebhookPath(value) === value, { message: "webhookPath must be a normalized HTTP request path; run \"openclaw doctor --fix\" to repair it" });
 const TtsOverrideSchema = object({
 	auto: _enum([
 		"off",
@@ -2392,9 +2287,6 @@ const DynamicAgentCreationSchema = object({
 	maxAgents: number().int().positive().optional()
 }).strict().optional();
 /**
-* Feishu tools configuration.
-* Controls which tool categories are enabled.
-*
 * Dependencies:
 * - wiki requires doc (wiki content is edited via doc tools)
 * - perm can work independently but is typically used with drive
@@ -2725,7 +2617,7 @@ const legacyConfigRules = [
 	feishuStrayEntryConfigMigration.legacyConfigRule,
 	{
 		path: ["channels", "feishu"],
-		message: "channels.feishu[.accounts.<id>].webhookPath must be a canonical HTTP request path; run \"openclaw doctor --fix\".",
+		message: "channels.feishu[.accounts.<id>].webhookPath must be a normalized HTTP request path; run \"openclaw doctor --fix\".",
 		match: (value) => {
 			const entry = asNullableRecord(value);
 			return hasLegacyWebhookPath(entry) || hasLegacyAccountStreamingAliases(entry?.accounts, hasLegacyWebhookPath);

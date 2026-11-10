@@ -3,6 +3,7 @@ import type { PluginInstallRecord } from "../config/types.plugins.js";
 import type { GatewayRequestHandler } from "../gateway/server-methods/types.js";
 import type { PluginCapabilityCatalogHostContext } from "./capability-catalog-context.types.js";
 import type { PluginCapabilityCatalog } from "./capability-catalog.types.js";
+import type { NormalizePluginId } from "./config-normalization-shared.js";
 import type { PluginDiscoveryResult } from "./discovery.js";
 import type { PluginManifestRegistry } from "./manifest-registry.js";
 import type { PluginModuleLoaderRecovery } from "./plugin-instance.types.js";
@@ -48,7 +49,7 @@ export type PluginLoadOptions = {
   pluginSdkResolution?: PluginSdkResolutionPreference;
   cache?: boolean;
   mode?: "full" | "validate" | "cli-metadata";
-  onlyPluginIds?: string[];
+  onlyPluginIds?: readonly string[];
   includeSetupOnlyChannelPlugins?: boolean;
   forceSetupOnlyChannelPlugins?: boolean;
   /** Select full runtime registration or the lightweight unconfigured-channel setup path. */
@@ -80,6 +81,8 @@ export type PluginLoadOptions = {
   expectedSourceDigests?: Readonly<Record<string, string>>;
   loadModules?: boolean;
   throwOnLoadError?: boolean;
+  /** Alias identity captured with the supplied metadata generation. */
+  normalizePluginId?: NormalizePluginId;
   manifestRegistry?: PluginManifestRegistry;
   discovery?: PluginDiscoveryResult;
 };

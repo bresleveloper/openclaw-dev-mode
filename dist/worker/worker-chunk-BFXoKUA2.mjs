@@ -1,0 +1,6 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-CgYMShFq.mjs";import{r}from"./worker-chunk-fvgN3Piw.mjs";import{a as i,o as a}from"./worker-chunk-DwjIa5PU.mjs";import{n as o,t as s}from"./worker-chunk-kjqMpegI.mjs";function stripSubagentTaskEnvelopeForDisplay(e){let t=e.match(c);if(!t)return e;let n=e.slice(t[0].length);return n.endsWith(l)?n.slice(0,-49):n}var c,l,u=e((()=>{c=/^\[Subagent Context\] You are running as a subagent \(depth \d+\/\d+\)\. Complete the current \[Subagent Task\]; inherited conversation is background context, not your assignment\.\n\n(?:\[Subagent Context\] This subagent session is persistent and remains available for thread follow-up messages\.\n\n)?\[Subagent Task\]\n\n/u,l=`
+
+Begin. Execute the assigned task to completion.`}));function stripMessageIdHints(e){if(!/\[message_id:/i.test(e))return e;let t=e.replace(/\r\n/g,`
+`),n=t.split(`
+`),i=0,o,s=n.filter(e=>{let n=e.search(/\[message_id:/i),s=n>=0&&d.test(e)&&!a(i+n,o??=r(t));return i+=e.length+1,!s});return s.length===n.length?e:s.join(`
+`)}var d,f=e((()=>{i(),d=/^\s*\[message_id:\s*[^\]]+\]\s*$/i}));function stripUserEnvelopeForDisplay(e){return stripSubagentTaskEnvelopeForDisplay(stripMessageIdHints(t(o(e))))}var p=e((()=>{n(),u(),f(),s()}));export{stripUserEnvelopeForDisplay as n,p as t};

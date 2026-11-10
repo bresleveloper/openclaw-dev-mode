@@ -51,6 +51,15 @@ function containsSharedMemory(value: unknown, seen: Set<object>): boolean {
     }
     return false;
   }
+  if (Array.isArray(value) || Object.getPrototypeOf(value) === Object.prototype) {
+    // This scanner only sees native clones: getter results are already data properties.
+    for (const key of Reflect.ownKeys(value)) {
+      if (containsSharedMemory(Reflect.get(value, key), seen)) {
+        return true;
+      }
+    }
+    return false;
+  }
   for (const key of Reflect.ownKeys(value)) {
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     if (descriptor && "value" in descriptor && containsSharedMemory(descriptor.value, seen)) {
@@ -62,10 +71,8 @@ function containsSharedMemory(value: unknown, seen: Set<object>): boolean {
 
 export function cloneHookIsolationValue<T>(hookName: PluginHookName, value: T): T {
   try {
-    if (containsSharedMemory(value, new Set<object>())) {
-      throw new TypeError("shared memory cannot be isolated");
-    }
     const cloned = structuredClone(value);
+    // Inspect exactly what crosses the boundary, including values produced by getters.
     if (containsSharedMemory(cloned, new Set<object>())) {
       throw new TypeError("shared memory cannot be isolated");
     }

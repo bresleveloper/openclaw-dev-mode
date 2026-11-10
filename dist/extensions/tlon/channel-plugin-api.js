@@ -1,2 +1,2 @@
-import { t as tlonPlugin } from "./.setup/channel-DO95GoFj.mjs";
+import { t as tlonPlugin } from "./.setup/channel-BtaSROL1.mjs";
 export { tlonPlugin };

@@ -23,9 +23,7 @@ export function scheduleAbsoluteDeadline(
   };
   checkDeadline();
   return () => {
-    if (timer !== undefined) {
-      clearTimeout(timer);
-    }
+    clearTimeout(timer);
   };
 }
 

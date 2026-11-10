@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import t from"node:fs";function isExistingLegacySessionStore(e){return!e.endsWith(`.sqlite`)&&t.existsSync(e)}var n=e((()=>{}));export{isExistingLegacySessionStore as n,n as t};

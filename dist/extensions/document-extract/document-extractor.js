@@ -1,11 +1,11 @@
-import { i as resolveRuntimeWorkerUrl } from "../../runtime-worker-url-DoBSDhBS.mjs";
-import { t as WorkerTaskPool } from "../../worker-task-pool-iI3pfrsK.mjs";
+import { i as resolveRuntimeWorkerUrl } from "../../runtime-worker-url-CvMrvFI1.mjs";
+import { t as WorkerTaskPool } from "../../worker-task-pool-D6ogd941.mjs";
 import { t as documentExtractorWorkerEntrypoint } from "../../document-extractor-worker-entrypoint-DcfMvI4N.mjs";
-import "../../process-runtime-CYiH_oPH.mjs";
+import "../../process-runtime-CG9_3L3N.mjs";
 //#region extensions/document-extract/document-extractor.ts
 const pool = new WorkerTaskPool({
 	workerUrl: resolveRuntimeWorkerUrl(documentExtractorWorkerEntrypoint),
-	maxWorkers: 1,
+	workerClass: "singleton",
 	sharedCompute: true
 });
 function createPdfDocumentExtractor() {

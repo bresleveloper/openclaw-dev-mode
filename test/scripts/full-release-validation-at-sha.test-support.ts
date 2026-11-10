@@ -40,9 +40,11 @@ export function createDispatchFixture(
     candidateOwned?: boolean;
     admissionAcceptedFailure?: boolean;
     admissionMovedRef?: boolean;
+    advanceMainBeforeAdmission?: number;
     admissionWrongRunSha?: boolean;
     admissionRevokedActor?: boolean;
     admissionFailedUpload?: boolean;
+    omitAdmissionWorkflowSha?: boolean;
     qualificationMovedRef?: boolean;
     advanceMainAfterAdmission?: boolean;
     stopAfterAccepted?: "admission" | "qualification";
@@ -95,6 +97,16 @@ export function createDispatchFixture(
     workflowSource?: string;
     targetSource?: Record<string, string>;
     omitPurpose?: boolean;
+    toolingLagFetchFailure?: boolean;
+    unreachableContributionRecord?: boolean;
+    activeConcurrencyRun?: boolean;
+    completedConcurrencyHistory?: number;
+    releaseNotes?: string;
+    candidateOpenPrHead?: boolean;
+    candidateWebFlowMerge?: boolean;
+    candidateSignature?: "valid" | "missing" | "invalid";
+    candidateAuthorityActor?: string;
+    candidateAuthorityRevoked?: boolean;
   } = {},
 ) {
   const root = mkdtempSync(join(tmpdir(), "openclaw-release-dispatch-"));
@@ -134,7 +146,7 @@ export function createDispatchFixture(
   writeFileSync(
     npmPath,
     `#!${testNodeExecPath}
-const fs = require("node:fs");
+import fs from "node:fs";
 const args = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(npmCallsPath)}, JSON.stringify(args) + "\\n");
 if (JSON.stringify(args) !== JSON.stringify(["view", "openclaw", "versions", "--json", "--silent", "--prefer-online"])) {
@@ -211,7 +223,8 @@ childProcess.execFileSync = (file, args, options) => {
   if (${JSON.stringify(options.stopBeforeDispatch ?? false)} && args?.some((arg) => arg.endsWith("/dispatches"))) {
     process.exit(77);
   }
-  if (args?.some((arg) => /\\/actions\\/workflows\\/17\\/runs$/.test(arg))) {
+  if (args?.some((arg) => /\\/actions\\/workflows\\/17\\/runs$/.test(arg)) &&
+      args.includes("per_page=20") && args.some((arg) => arg.startsWith("branch="))) {
     payloadEvent("reconcile", "");
   }
   if (args?.some((arg) => /\\/actions\\/artifacts\\/\\d+(?:\\/zip)?$/.test(arg))) {
@@ -307,10 +320,18 @@ module.exports = async () => {
   writeFileSync(
     gitPath,
     `#!${testNodeExecPath}
-const fs = require("node:fs");
-const { spawnSync } = require("node:child_process");
+import fs from "node:fs";
+import { spawnSync } from "node:child_process";
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.MOCK_GIT_CALLS, JSON.stringify(args) + "\\n");
+if (args[0] === "fetch" && args.includes("refs/heads/main:refs/remotes/origin/main") && ${JSON.stringify(options.toolingLagFetchFailure ?? false)}) {
+  const mainFetches = fs.readFileSync(process.env.MOCK_GIT_CALLS, "utf8").trim().split("\\n")
+    .filter((line) => line.includes("refs/heads/main:refs/remotes/origin/main"));
+  if (mainFetches.length > 1) {
+    console.error("fixture origin/main fetch failed");
+    process.exit(1);
+  }
+}
 if (args.includes("https://github.com/openclaw/openclaw.git")) {
   if (${JSON.stringify(options.bareShaFetchFailure ?? false)}) {
     console.error("fatal: remote error: upload-pack: not our ref " + args.at(-1));
@@ -331,7 +352,7 @@ process.exit(result.status ?? 1);
   writeFileSync(
     ghPath,
     `#!${testNodeExecPath}
-const fs = require("node:fs");
+import fs from "node:fs";
 fs.appendFileSync(process.env.MOCK_PATH_GH_CALLS, JSON.stringify(process.argv.slice(2)) + "\\n");
 console.error("PATH gh must not be used");
 process.exit(89);
@@ -343,8 +364,10 @@ process.exit(89);
   writeFileSync(
     selectedGhPath,
     `#!${testNodeExecPath}
-const fs = require("node:fs");
-const { spawnSync } = require("node:child_process");
+import fs from "node:fs";
+import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.MOCK_GH_CALLS, JSON.stringify(args) + "\\n");
 if (process.argv[1] === ${JSON.stringify(ghPath)}) {
@@ -395,9 +418,42 @@ if (args[0] === "api" && method === "GET" && !hasNoCache) {
 const admissionEndpoint = endpoint.includes("/actions/workflows/openclaw-release-prepare.yml") ||
   endpoint.endsWith("/actions/workflows/18/runs") || endpoint.includes("/actions/runs/321/") ||
   endpoint.includes("/actions/artifacts/9002") || endpoint.includes("/contents/") ||
-  endpoint.includes("/compare/") || endpoint.includes("/git/ref/") ||
-  endpoint === "repos/openclaw/openclaw/collaborators/release-operator/permission";
-if (${JSON.stringify(options.candidateOwned ?? false)} && args[0] === "api" && admissionEndpoint) {
+  endpoint.includes("/compare/") || endpoint.includes("/branches-where-head") ||
+  endpoint.includes("/git/ref/") ||
+  (endpoint.startsWith("repos/openclaw/openclaw/collaborators/") &&
+    endpoint.endsWith("/permission"));
+if (args[0] === "api" && args[1] === "graphql" && fields.has("oid")) {
+  const signature = ${JSON.stringify(options.candidateSignature ?? "valid")};
+  console.log(JSON.stringify({ data: { repository: { object: {
+    oid: fields.get("oid"),
+    signature: signature === "missing" ? null : {
+      isValid: signature === "valid",
+      state: signature === "valid" ? "VALID" : "INVALID",
+      signer: { login: ${JSON.stringify(options.candidateAuthorityActor ?? "release-operator")} },
+    },
+    associatedPullRequests: { nodes: ${JSON.stringify([
+      ...(options.candidateOpenPrHead
+        ? [
+            {
+              state: "OPEN",
+              headRefOid: targetSha,
+              headRepository: { nameWithOwner: "openclaw/openclaw" },
+            },
+          ]
+        : []),
+      ...(options.candidateWebFlowMerge
+        ? [
+            {
+              state: "MERGED",
+              baseRefName: "release/2026.8.1",
+              baseRepository: { nameWithOwner: "openclaw/openclaw" },
+              mergeCommit: { oid: targetSha },
+            },
+          ]
+        : []),
+    ])} },
+  } } } }));
+} else if (${JSON.stringify(options.candidateOwned ?? false)} && args[0] === "api" && admissionEndpoint) {
   import(${JSON.stringify(admissionFixturePath)}).then(({ respond }) => respond(args,
     ${JSON.stringify({ origin, checkout, publisherSha: workflowSha, targetSha, admissionCapturePath, admissionReceiptPath, options })})).catch((error) => {
       console.error(error.stack); process.exitCode = 1;
@@ -513,18 +569,41 @@ if (${JSON.stringify(options.candidateOwned ?? false)} && args[0] === "api" && a
     console.error(${JSON.stringify(options.inventoryError ?? "")});
     process.exit(1);
   }
+  const concurrencyInventory = fields.has("status");
+  const requestDirectory = require("node:path").join(process.cwd(), ".artifacts", "full-release-validation");
+  const requestFile = fs.existsSync(requestDirectory)
+    ? fs.readdirSync(requestDirectory).find((name) => name.endsWith(".json"))
+    : undefined;
+  const request = requestFile
+    ? JSON.parse(fs.readFileSync(require("node:path").join(requestDirectory, requestFile), "utf8"))
+    : null;
   const index = Number(fs.readFileSync(runDiscoveryIndexPath, "utf8"));
-  fs.writeFileSync(runDiscoveryIndexPath, String(index + 1));
-  const ids = ${JSON.stringify(options.duplicateOnSecondPage ?? false)} ? Array.from({ length: 21 }, (_, i) => 123 + i)
-    : ${JSON.stringify(options.duplicateRuns ?? false)} ? [123, 124] : [123];
-  const runs = index < ${JSON.stringify(options.runDiscoveryMisses ?? 0)} || !fs.existsSync(acceptedRunPath)
-    ? []
-    : ids.map((id) => runMetadata(id));
+  if (!concurrencyInventory) fs.writeFileSync(runDiscoveryIndexPath, String(index + 1));
+  const ids = ${JSON.stringify(options.duplicateOnSecondPage ?? false)}
+    ? Array.from({ length: 21 }, (_, i) => 123 + i)
+    : ${JSON.stringify(options.duplicateRuns ?? false)}
+      ? [123, 124]
+      : [123];
+  if (${JSON.stringify(options.completedConcurrencyHistory ?? 0)} > 0 && fields.get("per_page") === "100" && !fields.has("branch")) {
+    console.log(JSON.stringify({ total_count: ${JSON.stringify(options.completedConcurrencyHistory ?? 0)}, workflow_runs: [] }));
+    process.exit(0);
+  }
+  const activeConcurrencyRuns = ${JSON.stringify(options.activeConcurrencyRun ?? false)} &&
+    !fs.existsSync(acceptedRunPath) && concurrencyInventory && fields.get("status") === "in_progress"
+    ? [{ ...runMetadata(777, { conclusion: null, status: "in_progress" }), head_branch: request?.request?.workflowRef?.replace(/[0-9]{13}$/, "0000000000001") }]
+    : [];
+  const runs = activeConcurrencyRuns.length > 0
+    ? activeConcurrencyRuns
+    : index < ${JSON.stringify(options.runDiscoveryMisses ?? 0)} || !fs.existsSync(acceptedRunPath)
+      ? []
+      : ids.map((id) => runMetadata(id));
   const page = Number(fields.get("page") || "1");
   if (args.includes("--include")) {
     let headers = "HTTP/2.0 200 OK\\r\\nContent-Type: application/json\\r\\n";
     if (runs.length > page * 20 && !${JSON.stringify(options.incompletePagination ?? false)}) {
-      const query = new URLSearchParams({ page: String(page + 1), branch: fields.get("branch"), event: "workflow_dispatch", per_page: "20" });
+      const query = new URLSearchParams({ page: String(page + 1), event: "workflow_dispatch", per_page: "20" });
+      if (concurrencyInventory) query.set("status", fields.get("status"));
+      else query.set("branch", fields.get("branch"));
       headers += "Link: <https://api.github.com/repos/openclaw/openclaw/actions/workflows/17/runs?" + query + '>; rel="next"\\r\\n';
     }
     process.stdout.write(headers + "\\r\\n");
@@ -648,8 +727,9 @@ if (${JSON.stringify(options.candidateOwned ?? false)} && args[0] === "api" && a
           : []),
         ...(!recoveryOnly && options.candidateOwned
           ? [
-              "--admission-workflow-sha",
-              workflowSha,
+              ...(options.omitAdmissionWorkflowSha
+                ? []
+                : ["--admission-workflow-sha", workflowSha]),
               "-f",
               "provider=openai",
               "-f",
@@ -693,6 +773,7 @@ if (${JSON.stringify(options.candidateOwned ?? false)} && args[0] === "api" && a
             : "",
           MOCK_WORKFLOW_SHA: options.candidateOwned ? targetSha : workflowSha,
           MOCK_VERIFIER_SHA: workflowSha,
+          MOCK_ADVANCED_P_PATH: admissionCapturePath + ".advanced",
           GIT_AUTHOR_NAME: "Release Fixture",
           GIT_AUTHOR_EMAIL: "release-fixture@openclaw.invalid",
           GIT_COMMITTER_NAME: "Release Fixture",

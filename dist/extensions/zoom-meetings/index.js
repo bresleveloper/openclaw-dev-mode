@@ -505,9 +505,6 @@ const zoomMeetingPageScripts = MeetingPlatformAdapter.createPageScripts({
 });
 //#endregion
 //#region extensions/zoom-meetings/src/transports/zoom-meetings-platform-adapter.ts
-function zoomMeetingOrigin(meetingUrl) {
-	return normalizeZoomMeetingUrlForReuse(meetingUrl) ? "https://app.zoom.us" : void 0;
-}
 const ZOOM_MEETINGS_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 	id: "zoom-meetings",
 	displayName: "Zoom meetings",
@@ -549,7 +546,7 @@ const ZOOM_MEETINGS_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 		admissionReasons: ["zoom-passcode-required", "zoom-captcha-required"],
 		retryCaptions: true,
 		unavailableMessage: "Open the OpenClaw browser profile, finish the Zoom sign-in, admission, or permission prompt, then retry.",
-		origin: zoomMeetingOrigin,
+		origin: (meetingUrl) => normalizeZoomMeetingUrlForReuse(meetingUrl) ? "https://app.zoom.us" : void 0,
 		scripts: zoomMeetingPageScripts,
 		statusFields: (parsed) => ({ meetingEnded: typeof parsed.meetingEnded === "boolean" ? parsed.meetingEnded : void 0 })
 	})

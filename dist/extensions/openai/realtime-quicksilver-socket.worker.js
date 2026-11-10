@@ -1,6 +1,6 @@
-import { t as OpenAIQuicksilverSocketRuntime } from "../../realtime-quicksilver-socket.runtime--8Ys_4gC.mjs";
+import { t as WebSocket } from "../../websocket-runtime-jKgLhX3s.mjs";
+import { t as OpenAIQuicksilverSocketRuntime } from "../../realtime-quicksilver-socket.runtime-C3v1gV2_.mjs";
 import { parentPort, workerData } from "node:worker_threads";
-import WebSocket$1 from "ws";
 //#region extensions/openai/realtime-quicksilver-socket.worker.ts
 const port = parentPort;
 if (!port) throw new Error("GPT-Live socket runtime requires a worker thread");
@@ -9,9 +9,14 @@ function post(message) {
 	port.postMessage(message, []);
 }
 try {
-	const socket = new WebSocket$1(data.url, {
+	const agent = Object.keys(process.env).some((key) => /^(?:https?|all)_proxy$/i.test(key) && process.env[key]) ? (await import("../../plugin-sdk/fetch-runtime.js")).createNodeProxyAgent({
+		mode: "env",
+		targetUrl: data.url
+	}) : void 0;
+	const socket = new WebSocket(data.url, {
 		headers: data.options.headers,
-		maxPayload: data.options.maxPayload
+		maxPayload: data.options.maxPayload,
+		...agent ? { agent } : {}
 	});
 	let closeTimer;
 	const runtime = new OpenAIQuicksilverSocketRuntime(socket, data, post, () => {

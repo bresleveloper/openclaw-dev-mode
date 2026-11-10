@@ -1,6 +1,7 @@
 import type { GetPromptResult } from "@modelcontextprotocol/sdk/types.js";
 import { stableStringify } from "@openclaw/normalization-core";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
+import { createMcpStructuredContentMirrorMatcher } from "./mcp-structured-mirror.js";
 import type { AgentToolResult } from "./runtime/index.js";
 import { isToolResultError } from "./tool-result-error.js";
 import { toToolSearchJsonSafe } from "./tool-search-json.js";
@@ -109,23 +110,23 @@ function projectMcpCallToolResultContent(result: {
   const sourceContent = Array.isArray(result.content) ? result.content : [];
   if (isRecord(result.structuredContent)) {
     try {
-      let mirroredText: string | undefined;
-      const structuredJson = JSON.stringify(
-        JSON.parse(stableStringify(result.structuredContent)),
-        null,
-        2,
-      );
+      const isStructuredMirror = createMcpStructuredContentMirrorMatcher(result.structuredContent);
+      // Compact, key-sorted JSON: deterministic for prompt caching and loop digests, and
+      // indentation would only add tokens the model and the Tool Search envelope pay for.
+      const structuredJson = JSON.stringify(JSON.parse(stableStringify(result.structuredContent)));
       const structuredText = `structuredContent:\n${structuredJson}`;
       return {
         content: [
           { type: "text", text: structuredText },
           ...sourceContent
-            // Only the SDK's full pretty-JSON mirror is redundant; overlapping text can carry recovery guidance.
+            // Only a full mirror of structuredContent (or of its single wrapped value) is redundant;
+            // overlapping text can carry recovery guidance.
             .filter(
               (block) =>
                 !isRecord(block) ||
                 block.type !== "text" ||
-                block.text !== (mirroredText ??= JSON.stringify(result.structuredContent, null, 2)),
+                typeof block.text !== "string" ||
+                !isStructuredMirror(block.text),
             )
             .map(mcpContentBlockToAgentContent),
         ],

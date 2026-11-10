@@ -1,5 +1,6 @@
 import { isRuntimeToolAllowed } from "../../agents/tool-policy-match.js";
 import { formatSystemTurnPrompt } from "../../sessions/system-turn-prompt.js";
+import { SkillLibraryError } from "../../skills/skill-library-error.js";
 import type { SourceReplyDeliveryMode } from "../get-reply-options.types.js";
 import {
   getReplyPayloadMetadata,
@@ -65,10 +66,42 @@ export function resolveStrandedReplyRecovery(params: {
   }
   return {
     kind: "retry",
-    run: buildStrandedReplyRetryFollowupRun(params.base, {
-      finalText: params.finalText,
-      sourceReplyDeliveryMode: params.sourceReplyDeliveryMode,
-    }),
+    run: {
+      ...params.base,
+      prompt: buildStrandedReplyRetryPrompt(params.finalText),
+      summaryLine: STRANDED_REPLY_RETRY_MARKER,
+      strandedReplyRetry: true,
+      disableCollectBatching: true,
+      toolsAllow: isRuntimeToolAllowed("message", params.base.toolsAllow) ? ["message"] : [],
+      transcriptPrompt: undefined,
+      userTurnTranscriptRecorder: undefined,
+      currentInboundContext: undefined,
+      // Internally generated system turn: the client turn's lifecycle (gateway cancel
+      // identity) completes with the parent run. turnAdoptionLifecycle is one-shot
+      // WeakSet-tracked, so a shared object would be double-owned and free cancel
+      // while the retry still runs.
+      turnAdoptionLifecycle: undefined,
+      replyOperationRunStates: undefined,
+      run: {
+        ...params.base.run,
+        sourceReplyDeliveryMode: params.sourceReplyDeliveryMode,
+        suppressNextUserMessagePersistence: true,
+        // The source grant cannot authorize a replacement turn. Keep a personal-only
+        // expired grant so Workshop cannot fall back to wider workspace authoring.
+        skillLibraryAuthoring: params.base.run.skillLibraryAuthoring && {
+          target: "personal",
+          defaultTarget: "personal",
+          multipleProfiles: params.base.run.skillLibraryAuthoring.multipleProfiles,
+          bind: () => {},
+          invoke: async () => {
+            throw new SkillLibraryError(
+              "AUTHORITY_EXPIRED",
+              "Skill authoring is unavailable while retrying an undelivered reply. Send a fresh message requesting the change.",
+            );
+          },
+        },
+      },
+    },
   };
 }
 
@@ -80,36 +113,4 @@ function buildStrandedReplyRetryPrompt(finalText: string): string {
       `Please deliver this reply now by calling message(action=send). ` +
       `Do not add any extra commentary; just deliver the original reply.`,
   );
-}
-
-/** Build the one-shot recovery followup that re-prompts message(action=send). */
-function buildStrandedReplyRetryFollowupRun(
-  base: FollowupRun,
-  params: {
-    finalText: string;
-    sourceReplyDeliveryMode: SourceReplyDeliveryMode | undefined;
-  },
-): FollowupRun {
-  return {
-    ...base,
-    prompt: buildStrandedReplyRetryPrompt(params.finalText),
-    summaryLine: STRANDED_REPLY_RETRY_MARKER,
-    strandedReplyRetry: true,
-    disableCollectBatching: true,
-    toolsAllow: isRuntimeToolAllowed("message", base.toolsAllow) ? ["message"] : [],
-    transcriptPrompt: undefined,
-    userTurnTranscriptRecorder: undefined,
-    currentInboundContext: undefined,
-    // Internally generated system turn: the client turn's lifecycle (gateway cancel
-    // identity) completes with the parent run. turnAdoptionLifecycle is one-shot
-    // WeakSet-tracked, so a shared object would be double-owned and free cancel
-    // while the retry still runs.
-    turnAdoptionLifecycle: undefined,
-    replyOperationRunStates: undefined,
-    run: {
-      ...base.run,
-      sourceReplyDeliveryMode: params.sourceReplyDeliveryMode,
-      suppressNextUserMessagePersistence: true,
-    },
-  };
 }

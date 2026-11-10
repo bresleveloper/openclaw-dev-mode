@@ -25,7 +25,7 @@ function isUnsupportedModelResult(result) {
 async function probeZaiChatCompletions(params) {
 	const deadline = createProviderOperationDeadline({
 		timeoutMs: params.timeoutMs,
-		label: "Z.AI endpoint probe"
+		label: "Z.AI endpoint check"
 	});
 	const resolveTimeoutMs = createProviderOperationTimeoutResolver({
 		deadline,
@@ -57,12 +57,12 @@ async function probeZaiChatCompletions(params) {
 		let errorCode;
 		let errorMessage;
 		try {
-			const json = await readProviderJsonResponse(res, "Z.AI endpoint probe", {
+			const json = await readProviderJsonResponse(res, "Z.AI endpoint check", {
 				maxBytes: ZAI_DETECT_ERROR_BODY_MAX_BYTES,
 				timeoutMs: resolveTimeoutMs,
 				chunkTimeoutMs: 0,
-				onTimeout: ({ timeoutMs }) => /* @__PURE__ */ new Error(`Z.AI probe error body timed out after ${timeoutMs}ms`),
-				onOverflow: ({ maxBytes }) => /* @__PURE__ */ new Error(`Z.AI probe error body exceeded size limit (${maxBytes} bytes)`)
+				onTimeout: ({ timeoutMs }) => /* @__PURE__ */ new Error(`Z.AI check error body timed out after ${timeoutMs}ms`),
+				onOverflow: ({ maxBytes }) => /* @__PURE__ */ new Error(`Z.AI check error body exceeded size limit (${maxBytes} bytes)`)
 			});
 			const code = json?.error?.code ?? json?.code;
 			const msg = json?.error?.message ?? json?.msg ?? json?.message;

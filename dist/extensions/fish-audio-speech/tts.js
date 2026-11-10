@@ -4,6 +4,13 @@ const FISH_AUDIO_BASE_URL = "https://api.fish.audio";
 const FISH_AUDIO_VOICES_MAX_BYTES = 2097152;
 const FISH_AUDIO_VOICE_PAGE_SIZE = 100;
 const FISH_AUDIO_MAX_OWN_VOICE_PAGES = 20;
+const FISH_AUDIO_MODELS = [
+	"drama-3-preview",
+	"s2.1-pro-free",
+	"s2.1-pro",
+	"s2-pro",
+	"s1"
+];
 function normalizeFishAudioBaseUrl(value) {
 	const trimmed = value?.trim();
 	return trimmed ? trimmed.replace(/\/+$/u, "") : FISH_AUDIO_BASE_URL;
@@ -44,7 +51,7 @@ async function fishAudioTts(params) {
 	const { assertOkOrThrowProviderError, readProviderBinaryResponse } = await import("openclaw/plugin-sdk/provider-http");
 	const { response, release } = await requestFishAudioTts(params);
 	try {
-		await assertOkOrThrowProviderError(response, "Fish Audio TTS API error");
+		await assertOkOrThrowProviderError(response, "Fish Audio TTS API error", { requestHeaders: { Authorization: `Bearer ${params.apiKey}` } });
 		return await readProviderBinaryResponse(response, "Fish Audio TTS API error", "audio", { maxBytes: params.maxBytes });
 	} finally {
 		await release();
@@ -56,7 +63,7 @@ async function fishAudioTtsStream(params) {
 	const { response, release } = await requestFishAudioTts(params);
 	let handedOff = false;
 	try {
-		await assertOkOrThrowProviderError(response, "Fish Audio TTS API error");
+		await assertOkOrThrowProviderError(response, "Fish Audio TTS API error", { requestHeaders: { Authorization: `Bearer ${params.apiKey}` } });
 		assertProviderBinaryResponseContent(response, "Fish Audio TTS API error", "audio");
 		if (!response.body) throw new Error("Fish Audio TTS API response missing audio stream");
 		const bounded = createBoundedProviderBinaryStream(response.body, {
@@ -98,16 +105,20 @@ async function requestVoicePage(params) {
 	else url.searchParams.set("sort_by", "score");
 	const { assertOkOrThrowProviderError, readProviderJsonResponse } = await import("openclaw/plugin-sdk/provider-http");
 	const { fetchWithSsrFGuard, ssrfPolicyFromHttpBaseUrlAllowedHostname } = await import("openclaw/plugin-sdk/ssrf-runtime");
+	const requestHeaders = { Authorization: `Bearer ${params.apiKey}` };
 	const { response, release } = await fetchWithSsrFGuard({
 		url: url.toString(),
-		init: { headers: { Authorization: `Bearer ${params.apiKey}` } },
+		init: { headers: requestHeaders },
 		timeoutMs: params.timeoutMs,
 		policy: ssrfPolicyFromHttpBaseUrlAllowedHostname(params.baseUrl),
 		auditContext: "fish-audio.voices"
 	});
 	try {
-		await assertOkOrThrowProviderError(response, "Fish Audio voices API error");
-		return await readProviderJsonResponse(response, "Fish Audio voices", { maxBytes: FISH_AUDIO_VOICES_MAX_BYTES });
+		await assertOkOrThrowProviderError(response, "Fish Audio voices API error", { requestHeaders });
+		return await readProviderJsonResponse(response, "Fish Audio voices", {
+			maxBytes: FISH_AUDIO_VOICES_MAX_BYTES,
+			requestHeaders
+		});
 	} finally {
 		await release();
 	}
@@ -141,4 +152,4 @@ async function listFishAudioVoices(params) {
 	});
 }
 //#endregion
-export { fishAudioTts, fishAudioTtsStream, listFishAudioVoices, normalizeFishAudioBaseUrl };
+export { FISH_AUDIO_MODELS, fishAudioTts, fishAudioTtsStream, listFishAudioVoices, normalizeFishAudioBaseUrl };

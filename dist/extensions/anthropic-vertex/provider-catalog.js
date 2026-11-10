@@ -3,7 +3,6 @@ import { resolveAnthropicVertexBaseUrl, resolveAnthropicVertexClientRegion } fro
 import { modelCostsEqual, resolveClaudeFable5ModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity } from "openclaw/plugin-sdk/provider-model-shared";
 import { normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/anthropic-vertex/provider-catalog.ts
-/** Default Anthropic Vertex model used for implicit provider catalogs. */
 const ANTHROPIC_VERTEX_DEFAULT_MODEL_ID = "claude-sonnet-4-6";
 const ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW = 1e6;
 const ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS = 128e3;
@@ -199,7 +198,6 @@ function normalizeAnthropicVertexResolvedModel(modelId, model) {
 		...cost ? { cost } : {}
 	};
 }
-/** Build the implicit Anthropic Vertex provider config for the current env. */
 function buildAnthropicVertexProvider(params) {
 	const region = resolveAnthropicVertexRegion(params?.env);
 	return {

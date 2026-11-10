@@ -2,10 +2,18 @@ import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { extractErrorCode } from "@openclaw/normalization-core/error-coercion";
 import { isPidDefinitelyDead } from "../../shared/pid-alive.js";
+import { readDarwinProcessCensus } from "../darwin-process-inspection.js";
 
 export type ProcessCommand =
-  | { argv: string[]; serviceMarker?: string; uid?: number }
-  | { argvUnavailable: true; uid: number };
+  | {
+      argv: string[];
+      executable?: string;
+      serviceMarker?: string;
+      uid?: number;
+      owner?: "same" | "different" | "unknown";
+    }
+  | { argvUnavailable: true; uid: number; owner?: "same" | "different" | "unknown" }
+  | { argvUnavailable: true; uid?: never; owner: "different" };
 
 type GroupMember = {
   pid: number;
@@ -82,16 +90,20 @@ export function killOwnedProcessGroupMembers(): void {
   }
 }
 
-/** The caller supplies native command inspection; the standalone group worker stays dependency-free. */
+/** The caller supplies command inspection; group cleanup only reads native topology. */
 export function* readProcessGroupMembers(
   timeoutMs: number,
   commandInspection?: {
-    readDarwinCommand: (pid: number, uid: number) => ProcessCommand | undefined;
+    readDarwinCommand: (
+      pid: number,
+      owner: "same" | "different" | "unknown",
+    ) => ProcessCommand | undefined;
   },
 ): Generator<GroupMember> {
   const includeCommand = commandInspection !== undefined;
   if (process.platform === "linux") {
-    const deadline = Date.now() + timeoutMs;
+    const startedAt = Date.now();
+    const deadline = startedAt + timeoutMs;
     for (const name of readdirSync("/proc")) {
       if (Date.now() >= deadline) {
         throw new Error("Process group census exceeded its deadline");
@@ -135,8 +147,19 @@ export function* readProcessGroupMembers(
       // comm can contain spaces, newlines and parentheses; pgrp follows PPID
       // after its final closing parenthesis (Linux procfs stat fields 1..5).
       const match = /^(\d+) \([\s\S]*\) (\S) (\d+) (\d+)(?:\s|$)/.exec(stat);
-      if (!match || Number(match[1]) !== pid || Date.now() >= deadline) {
-        throw new Error("Process group census is unavailable");
+      if (!match) {
+        throw new Error(`Process group census is unavailable: malformed stat for PID ${pid}`);
+      }
+      if (Number(match[1]) !== pid) {
+        throw new Error(
+          `Process group census is unavailable: stat PID mismatch for PID ${pid} (stat PID=${Number(match[1])})`,
+        );
+      }
+      const now = Date.now();
+      if (now >= deadline) {
+        throw new Error(
+          `Process group census exceeded its deadline after reading PID ${pid} (elapsed=${now - startedAt}ms, budget=${timeoutMs}ms)`,
+        );
       }
       if (argv?.length === 0) {
         // Empty cmdline is normal for kernel threads, but cannot identify a live
@@ -171,19 +194,34 @@ export function* readProcessGroupMembers(
     }
     return;
   }
-  if (includeCommand && process.platform !== "darwin") {
+  if (process.platform === "darwin") {
+    for (const member of readDarwinProcessCensus(timeoutMs)) {
+      const command = includeCommand
+        ? member.state.startsWith("Z") || member.pid === 0
+          ? { argv: [] }
+          : commandInspection?.readDarwinCommand(member.pid, member.owner)
+        : undefined;
+      if (includeCommand && !command) {
+        continue;
+      }
+      yield {
+        pid: member.pid,
+        pgid: member.pgid,
+        state: member.state,
+        ...(command ? { command: { ppid: member.ppid, owner: member.owner, ...command } } : {}),
+      };
+    }
+    return;
+  }
+  if (includeCommand) {
     throw new Error(`Exact process command census is unavailable on ${process.platform}.`);
   }
   const deadline = Date.now() + timeoutMs;
-  const census = spawnSync(
-    "/bin/ps",
-    ["-A", "-o", includeCommand ? "pid=,pgid=,stat=,ppid=,uid=" : "pid=,pgid=,stat="],
-    {
-      encoding: "utf8",
-      timeout: timeoutMs,
-      maxBuffer: 4 * 1024 * 1024,
-    },
-  );
+  const census = spawnSync("/bin/ps", ["-A", "-o", "pid=,pgid=,stat="], {
+    encoding: "utf8",
+    timeout: timeoutMs,
+    maxBuffer: 4 * 1024 * 1024,
+  });
   if (census.error || census.status !== 0) {
     throw new Error("Process group census is unavailable");
   }
@@ -191,33 +229,13 @@ export function* readProcessGroupMembers(
     if (!line.trim()) {
       continue;
     }
-    const match = includeCommand
-      ? /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(-?\d+)\s*$/.exec(line)
-      : /^\s*(\d+)\s+(\d+)\s+(\S+)\s*$/.exec(line);
+    const match = /^\s*(\d+)\s+(\d+)\s+(\S+)\s*$/.exec(line);
     if (!match) {
       throw new Error("Process group census is unavailable");
     }
     const pid = Number(match[1]);
     if (pid !== census.pid) {
-      if (includeCommand && Date.now() >= deadline) {
-        throw new Error("Process group census exceeded its deadline");
-      }
-      const command = includeCommand
-        ? match[3]!.startsWith("Z") || pid === 0
-          ? { argv: [] }
-          : commandInspection?.readDarwinCommand(pid, Number(match[5]) >>> 0)
-        : undefined;
-      if (includeCommand && !command) {
-        continue;
-      }
-      yield {
-        pid,
-        pgid: Number(match[2]),
-        state: match[3]!,
-        ...(command
-          ? { command: { ppid: Number(match[4]), ...command, uid: Number(match[5]) >>> 0 } }
-          : {}),
-      };
+      yield { pid, pgid: Number(match[2]), state: match[3]! };
     }
   }
   if (includeCommand && Date.now() >= deadline) {

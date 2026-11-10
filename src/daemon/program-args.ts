@@ -1,4 +1,3 @@
-/** Builds runtime command arguments for gateway and node service installs. */
 import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -28,8 +27,7 @@ const canAccessEntrypoint = (candidate: string) =>
     () => false,
   );
 
-async function resolveCliEntrypointPathForService(): Promise<string> {
-  const argv1 = process.argv[1];
+async function resolveCliEntrypointPathForService(argv1 = process.argv[1]): Promise<string> {
   if (!argv1) {
     throw new Error("Unable to resolve CLI entrypoint path");
   }
@@ -154,6 +152,7 @@ export async function resolveOpenClawWrapperPath(
 }
 
 async function resolveCliProgramArguments(params: {
+  cliEntrypoint?: string;
   args: string[];
   dev?: boolean;
   runtime: GatewayDaemonRuntime;
@@ -168,7 +167,7 @@ async function resolveCliProgramArguments(params: {
   if (!params.runtimePath?.trim()) {
     throw new Error(
       params.runtime === "bun"
-        ? "No supported Bun runtime was selected for the daemon. Install Bun 1.4 or newer with WAL-reset-safe node:sqlite, then retry."
+        ? "No supported Bun runtime was selected for the daemon. Install Bun 1.4.4 or newer with WAL-reset-safe node:sqlite, then retry."
         : `No supported Node runtime was selected for the daemon. Install Node ${SUPPORTED_NODE_VERSIONS}, then retry.`,
     );
   }
@@ -187,7 +186,7 @@ async function resolveCliProgramArguments(params: {
     };
   }
 
-  const cliEntrypointPath = await resolveCliEntrypointPathForService();
+  const cliEntrypointPath = await resolveCliEntrypointPathForService(params.cliEntrypoint);
   return {
     programArguments: [
       runtimePath,
@@ -199,6 +198,8 @@ async function resolveCliProgramArguments(params: {
 }
 
 export async function resolveGatewayProgramArguments(params: {
+  /** Retained CLI entrypoint to plan for instead of this process's argv[1]. */
+  cliEntrypoint?: string;
   port: number;
   allowUnconfigured?: boolean;
   dev?: boolean;
@@ -212,11 +213,8 @@ export async function resolveGatewayProgramArguments(params: {
     gatewayArgs.push("--allow-unconfigured");
   }
   const result = await resolveCliProgramArguments({
+    ...params,
     args: gatewayArgs,
-    dev: params.dev,
-    runtime: params.runtime,
-    runtimePath: params.runtimePath,
-    wrapperPath: params.wrapperPath,
   });
   if (params.runtime === "node" && !params.wrapperPath?.trim()) {
     // Size only the managed Gateway, before Node loads its entrypoint. Keeping
@@ -227,6 +225,7 @@ export async function resolveGatewayProgramArguments(params: {
 }
 
 export async function resolveNodeProgramArguments(params: {
+  cliEntrypoint?: string;
   host: string;
   port: number;
   contextPath?: string;
@@ -270,11 +269,5 @@ export async function resolveNodeProgramArguments(params: {
   } else if (params.commands !== undefined) {
     args.push("--commands", params.commands.join(","));
   }
-  return resolveCliProgramArguments({
-    args,
-    dev: params.dev,
-    runtime: params.runtime,
-    runtimePath: params.runtimePath,
-    wrapperPath: params.wrapperPath,
-  });
+  return resolveCliProgramArguments({ ...params, args });
 }

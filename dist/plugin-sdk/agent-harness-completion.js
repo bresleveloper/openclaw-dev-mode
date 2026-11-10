@@ -1,22 +1,29 @@
-import { g as isFutureDateTimestampMs } from "../number-coercion-CuVhdCBs.mjs";
-import { a as resolveGlobalSingleton } from "../global-singleton-0m-JziJW.mjs";
-import { t as createSubsystemLogger } from "../subsystem-I-uqdx4f.mjs";
-import { a as getGatewayContextResolver, r as getCanonicalGatewayContextResolver } from "../gateway-context-binding-VqB7gkMe.mjs";
-import { a as getPluginRuntimeGatewayRequestScope, s as withPluginRuntimeGatewayContextResolver } from "../gateway-request-scope-BSmCVVpP.mjs";
-import { d as getAgentRunLifecycleGeneration, f as hasAgentRunContextExecutionOwner, l as getAgentRunContext } from "../agent-run-registry-BaxMDLZF.mjs";
-import { i as emitAgentEvent, l as getAgentEventLifecycleGeneration } from "../agent-events-GvNTkbe3.mjs";
-import { _ as retainGatewayRootWorkAdmissionContinuationScope } from "../gateway-work-admission-rc4ZgKq_.mjs";
-import { n as loadExactSessionEntry } from "../session-accessor.sqlite-exact-read-JW6IveXD.mjs";
-import { j as readSessionSubmittedInput } from "../session-accessor-CQ-g9yb2.mjs";
-import { a as hasRestartRecoveryTerminalRun, n as getRestartRecoveryTerminalDeliveryEvidence } from "../restart-recovery-state-IiHiWzPq.mjs";
-import { a as readAdmittedHarnessCompletionInput, c as withAgentHarnessCompletionAdmission, i as hasHarnessCompletionFinalReceipt, o as assertAgentHarnessCompletionScope, r as getOwedHarnessCompletionTask } from "../agent-harness-completion-recovery-DUkxTVTf.mjs";
+import { g as isFutureDateTimestampMs } from "../number-coercion-CkhMiRw8.mjs";
+import { a as resolveGlobalSingleton } from "../global-singleton-DrXvEBww.mjs";
+import { t as createDeferredCore } from "../deferred-D0La5CRk.mjs";
+import { t as formatErrorMessage } from "../errors-DPfGDWk1.mjs";
+import { c as withPluginRuntimeGatewayContextResolver, g as getGatewayContextResolver, m as getCanonicalGatewayContextResolver, o as getPluginRuntimeGatewayRequestScope, r as getInProcessGatewayRequestContext } from "../gateway-request-scope-1BXD1G3l.mjs";
+import { t as createSubsystemLogger } from "../subsystem-mStysHHC.mjs";
+import { f as getAgentRunLifecycleGeneration, p as hasAgentRunContextExecutionOwner, u as getAgentRunContext } from "../agent-run-registry-gmaPgO-n.mjs";
+import { a as emitAgentEvent, d as getAgentEventLifecycleGeneration } from "../agent-events-Bf3Js0D3.mjs";
+import { i as isIncognitoSessionKey } from "../incognito-session-key-BWpn88lo.mjs";
+import "../session-key-CSDERtm3.mjs";
+import { b as retainGatewayRootWorkAdmissionContinuationScope } from "../gateway-work-admission-FWbk4b3p.mjs";
+import { o as getGatewayToolCallerIdentity } from "../gateway-caller-context-Be176_GV.mjs";
+import { _ as getRestartRecoveryTerminalDeliveryEvidence, b as hasRestartRecoveryTerminalRun } from "../store-maintenance-BqMt1Twc.mjs";
+import { n as captureSessionActorStorageOwner, o as runWithSessionActorStorage, r as getSessionActorStorageBinding, s as withSessionActorStorage, t as acquireSessionActorStorage } from "../session-actor-storage-binding-oCtbPk00.mjs";
+import { n as readSessionEntriesFromStoreInWorker } from "../session-entry-read-runtime-CgqUrGct.mjs";
+import { D as readSessionSubmittedInput } from "../session-accessor-Czw4l8kI.mjs";
+import { i as rethrowIncognitoSessionError } from "../incognito-session-error-Dsi9IsoJ.mjs";
+import { a as readAdmittedHarnessCompletionInputAsync, c as withAgentHarnessCompletionAdmission, i as hasHarnessCompletionFinalReceipt, o as assertAgentHarnessCompletionScope, r as getOwedHarnessCompletionTask } from "../agent-harness-completion-recovery-C73KNckX.mjs";
 import { t as AGENT_INTERNAL_EVENT_TYPE_TASK_COMPLETION } from "../internal-event-contract-pF6FHp8g.mjs";
-import { o as captureOperatorToolGatewayContinuationContext } from "../server-plugin-in-process-dispatch-CakmmEh-.mjs";
-import { p as buildAnnounceIdempotencyKey } from "../subagent-requester-settle-identity-Blu5INx9.mjs";
-import { n as loadRequesterSessionEntry } from "../subagent-announce-delivery.runtime-BD5R4YaA.mjs";
-import { i as formatAgentInternalEventsForPrompt } from "../internal-events-BZWbNO1Z.mjs";
-import { d as resolveAnnounceOrigin, m as resolveSubagentCompletionOrigin } from "../subagent-announce-completion-delivery-CW6K0Kgi.mjs";
-import { n as isInternalAnnounceRequesterSession, t as deliverSubagentAnnouncement } from "../subagent-announce-delivery-D4JqpJsz.mjs";
+import { t as captureOperatorToolGatewayContinuationContext } from "../server-plugin-in-process-authority-CiYjs5MA.mjs";
+import "../server-plugin-in-process-dispatch-D8bA485y.mjs";
+import { m as buildAnnounceIdempotencyKey } from "../subagent-requester-settle-identity-BXTgIS3Y.mjs";
+import { c as withSubagentRequesterSource, i as loadRequesterSessionEntry, t as captureRequesterSessionEntryCurrent } from "../subagent-announce-delivery.runtime-BWQcgOP_.mjs";
+import { d as resolveAnnounceOrigin, m as resolveSubagentCompletionOrigin } from "../subagent-announce-completion-delivery-Bs9Ljx2e.mjs";
+import { i as formatAgentInternalEventsForPrompt } from "../internal-events-Crl175ti.mjs";
+import { n as isInternalAnnounceRequesterSession, t as deliverSubagentAnnouncement } from "../subagent-announce-delivery-C3AShlfK.mjs";
 import { isDeepStrictEqual } from "node:util";
 //#region src/agents/agent-harness-completion-custody.ts
 const owners = resolveGlobalSingleton(Symbol.for("openclaw.agentHarnessCompletionCustody.registry"), () => /* @__PURE__ */ new WeakMap());
@@ -30,19 +37,96 @@ function getCompletionOwner(custody, scope) {
 /** Retains admitted completion work for this exact physical requester lifecycle. */
 function captureAgentHarnessCompletionCustody(scope) {
 	assertAgentHarnessCompletionScope(scope);
-	const entry = loadRequesterSessionEntry(scope.requesterSessionKey, scope.requesterAgentId).entry;
-	const expected = {
-		sessionId: entry?.sessionId,
-		lifecycleRevision: entry?.lifecycleRevision
-	};
-	return captureAgentHarnessCompletionCustodyOwner(scope, () => {
-		const current = loadRequesterSessionEntry(scope.requesterSessionKey, scope.requesterAgentId).entry;
-		if (current?.sessionId !== expected.sessionId || current?.lifecycleRevision !== expected.lifecycleRevision) throw new Error("Harness completion requester lifecycle was replaced");
+	const context = getInProcessGatewayRequestContext(getGatewayToolCallerIdentity()?.gatewayContextResolver ?? getGatewayContextResolver(scope));
+	if (!context) return Promise.resolve(void 0);
+	const root = retainGatewayRootWorkAdmissionContinuationScope();
+	if (isIncognitoSessionKey(scope.requesterSessionKey)) {
+		let handedOff = false;
+		return context.trackExecution(async () => {
+			let acquired;
+			const releaseRequester = () => {
+				if (acquired) {
+					acquired.actor.release().catch((error) => {
+						context.logGateway.warn(`Harness completion requester release failed: ${formatErrorMessage(error)}`);
+					});
+					acquired = void 0;
+				}
+			};
+			try {
+				const memory = acquired = await acquireSessionActorStorage({
+					sessionKey: scope.requesterSessionKey,
+					agentId: scope.requesterAgentId
+				}, {
+					lifetime: {
+						assertCurrent() {},
+						assertReadable() {}
+					},
+					authority: {
+						assertCurrent() {},
+						authorize() {}
+					}
+				});
+				if (!memory) return;
+				const requester = memory;
+				const custody = await runWithSessionActorStorage(requester, () => captureAgentHarnessCompletionCustodyOwner(scope, () => {
+					if (!requester.actor.snapshot(requester.authority)?.entry) throw new Error("Harness completion requester was closed");
+				}, releaseRequester, root));
+				handedOff = custody !== void 0;
+				return custody;
+			} finally {
+				if (!handedOff) releaseRequester();
+			}
+		}).finally(() => {
+			if (!handedOff) root?.release();
+		});
+	}
+	const released = createDeferredCore();
+	const ready = createDeferredCore();
+	let handedOff = false;
+	let selectedRequester = false;
+	context.trackExecution(() => withSubagentRequesterSource(scope.requesterSessionKey, scope.requesterAgentId, async (isCurrent) => {
+		selectedRequester = isCurrent !== void 0;
+		const requesterCurrent = await captureRequesterSessionEntryCurrent(scope.requesterSessionKey, scope.requesterAgentId);
+		const { readCurrent } = requesterCurrent;
+		try {
+			const entry = readCurrent();
+			const expected = {
+				sessionId: entry?.sessionId,
+				lifecycleRevision: entry?.lifecycleRevision
+			};
+			if (isCurrent && !entry) return;
+			const custody = await captureAgentHarnessCompletionCustodyOwner(scope, () => {
+				const current = readCurrent();
+				if (current?.sessionId !== expected.sessionId || current?.lifecycleRevision !== expected.lifecycleRevision) throw new Error("Harness completion requester lifecycle was replaced");
+			}, () => {
+				requesterCurrent.release();
+				released.resolve();
+			}, root);
+			if (custody) {
+				handedOff = true;
+				ready.resolve(custody);
+				if (selectedRequester) await released.promise;
+			}
+		} finally {
+			if (!handedOff) requesterCurrent.release();
+		}
+	})).finally(() => {
+		if (!handedOff || selectedRequester) root?.release();
+	}).then(() => ready.resolve(void 0), (error) => {
+		ready.reject(error);
+		if (handedOff) context.logGateway.warn(`Harness completion requester settlement failed: ${formatErrorMessage(error)}`);
 	});
+	return ready.promise;
 }
 /** Capture during admission; assignment/recovery owners retain their own holds before yielding. */
-async function captureAgentHarnessCompletionCustodyOwner(scopeInput, assertRequesterCurrent) {
+async function captureAgentHarnessCompletionCustodyOwner(scopeInput, assertRequesterCurrent, releaseRequester, root) {
 	const scope = assertAgentHarnessCompletionScope(scopeInput);
+	const requesterTarget = {
+		sessionKey: scope.requesterSessionKey,
+		agentId: scope.requesterAgentId
+	};
+	const memory = getSessionActorStorageBinding(requesterTarget);
+	const runInRequester = (run) => memory ? runWithSessionActorStorage(memory, run) : run();
 	const resolver = getGatewayContextResolver(scope);
 	const capture = () => captureOperatorToolGatewayContinuationContext({
 		sessionKey: scope.requesterSessionKey,
@@ -50,7 +134,6 @@ async function captureAgentHarnessCompletionCustodyOwner(scopeInput, assertReque
 	});
 	const preparation = resolver ? withPluginRuntimeGatewayContextResolver(resolver, capture) : capture();
 	if (!preparation) return;
-	const root = retainGatewayRootWorkAdmissionContinuationScope();
 	const captured = await preparation.catch((error) => {
 		root?.release();
 		throw error;
@@ -91,19 +174,22 @@ async function captureAgentHarnessCompletionCustodyOwner(scopeInput, assertReque
 				if (lifetime.signal.aborted) return;
 				lifetime.abort(/* @__PURE__ */ new Error("Harness completion custody was released"));
 				settleExecution();
-				if (--references === 0) captured.release();
+				if (--references === 0) {
+					captured.release();
+					releaseRequester();
+				}
 			}
 		};
 		owners.set(custody, {
 			scope,
 			run(run) {
 				assertCurrent();
-				return !executionSettled && root ? root.runSync(() => captured.run(run)) : captured.run(run);
+				return !executionSettled && root ? root.runSync(() => captured.run(() => runInRequester(run))) : captured.run(() => runInRequester(run));
 			},
 			emit(run) {
 				assertCurrent();
 				if (executionSettled) throw new Error("Harness execution custody was settled");
-				captured.run(() => root ? root.runSync(run) : run());
+				captured.run(() => runInRequester(() => root ? root.runSync(run) : run()));
 			}
 		});
 		return custody;
@@ -155,12 +241,11 @@ const log = createSubsystemLogger("agents/harness-completion-recovery");
 function sameRequester(claim, entry) {
 	return claim.sessionId === entry.sessionId && claim.lifecycleRevision === entry.lifecycleRevision;
 }
-function readCurrent(target) {
-	const loaded = loadExactSessionEntry({
+async function readCurrent(target) {
+	return (await readSessionEntriesFromStoreInWorker({
 		...target,
-		readConsistency: "latest"
-	});
-	return loaded?.sessionKey === target.sessionKey ? loaded.entry : void 0;
+		sessionKeys: [target.sessionKey]
+	})).entries.find(({ sessionKey }) => sessionKey === target.sessionKey)?.entry;
 }
 /** Only current process owners can hold admission before its input is committed. */
 function hasLiveCompletionOwner(claim, runId) {
@@ -170,9 +255,53 @@ function hasLiveCompletionOwner(claim, runId) {
 	const context = getAgentRunContext(runId);
 	return hasAgentRunContextExecutionOwner(runId) && context?.sessionKey === claim.requesterSessionKey && context.sessionId === claim.sessionId && context.agentId === claim.requesterAgentId;
 }
+function classifyCompletionClaim(params, entry, claim) {
+	if (claim.sourceRunId !== params.sourceRunId || params.taskRunId !== void 0 && claim.taskRunId !== params.taskRunId || claim.requesterAgentId !== params.agentId || claim.requesterSessionKey !== params.sessionKey || !sameRequester(claim, entry)) return "blocked";
+	const receipt = getRestartRecoveryTerminalDeliveryEvidence(entry, params.sourceRunId);
+	if (isDeepStrictEqual(receipt?.harnessCompletion, claim) && receipt !== void 0 && hasHarnessCompletionFinalReceipt(receipt)) return "delivered";
+	if (!getOwedHarnessCompletionTask(claim, entry) || entry.mainRestartRecovery?.tombstone || entry.restartRecoveryDeliverySourceRunId !== claim.sourceRunId || entry.restartRecoveryHarnessCompletion?.taskId !== claim.taskId) return "blocked";
+}
 /** Reconcile before any steer/direct path, including when a restored native parent has no live owner. */
 async function reconcileHarnessCompletionDelivery(params) {
-	const entry = readCurrent(params);
+	const memory = captureSessionActorStorageOwner(params, {
+		assertCurrent() {},
+		authorize() {}
+	});
+	if (memory) return await withSessionActorStorage(params, {
+		lifetime: {
+			assertCurrent() {},
+			assertReadable() {}
+		},
+		authority: memory.authority
+	}, (binding) => reconcileMemoryHarnessCompletionDelivery(params, binding)) ?? "unowned";
+	return reconcileCurrentHarnessCompletionDelivery(params);
+}
+function reconcileMemoryHarnessCompletionDelivery(params, binding) {
+	try {
+		const snapshot = binding.actor.storage.readCurrent({
+			type: "session.completion.read",
+			input: {
+				sourceRunId: params.sourceRunId,
+				mode: "committed"
+			}
+		}, binding.authority);
+		const entry = snapshot.entry;
+		if (!entry) return "unowned";
+		const receipt = getRestartRecoveryTerminalDeliveryEvidence(entry, params.sourceRunId);
+		const claim = entry.restartRecoveryHarnessCompletion?.sourceRunId === params.sourceRunId ? entry.restartRecoveryHarnessCompletion : receipt?.harnessCompletion;
+		if (!claim) return entry.restartRecoveryDeliverySourceRunId === params.sourceRunId || hasRestartRecoveryTerminalRun(entry, params.sourceRunId) || snapshot.hasSubmittedInput ? "blocked" : "unowned";
+		const classified = classifyCompletionClaim(params, entry, claim);
+		if (classified) return classified;
+		const runId = entry.restartRecoveryDeliveryRunId;
+		return runId && hasLiveCompletionOwner(claim, runId) || snapshot.validInput ? "pending" : "blocked";
+	} catch (error) {
+		rethrowIncognitoSessionError(error);
+		log.warn(`Could not inspect harness completion custody for ${params.sessionKey}: ${String(error)}`);
+		return "blocked";
+	}
+}
+async function reconcileCurrentHarnessCompletionDelivery(params) {
+	const entry = await readCurrent(params);
 	if (!entry) return "unowned";
 	const receipt = getRestartRecoveryTerminalDeliveryEvidence(entry, params.sourceRunId);
 	const claim = entry.restartRecoveryHarnessCompletion?.sourceRunId === params.sourceRunId ? entry.restartRecoveryHarnessCompletion : receipt?.harnessCompletion;
@@ -182,23 +311,22 @@ async function reconcileHarnessCompletionDelivery(params) {
 			...params,
 			sessionId: entry.sessionId
 		}, `${params.sourceRunId}:user`);
-		const current = readCurrent(params);
+		const current = await readCurrent(params);
 		return !current || current.sessionId !== entry.sessionId || current.lifecycleRevision !== entry.lifecycleRevision || current.restartRecoveryDeliverySourceRunId === params.sourceRunId || current.restartRecoveryHarnessCompletion?.sourceRunId === params.sourceRunId || hasRestartRecoveryTerminalRun(current, params.sourceRunId) || getRestartRecoveryTerminalDeliveryEvidence(current, params.sourceRunId)?.harnessCompletion || submitted ? "blocked" : "unowned";
 	}
-	if (claim.sourceRunId !== params.sourceRunId || params.taskRunId !== void 0 && claim.taskRunId !== params.taskRunId || claim.requesterAgentId !== params.agentId || claim.requesterSessionKey !== params.sessionKey || !sameRequester(claim, entry)) return "blocked";
-	if (isDeepStrictEqual(receipt?.harnessCompletion, claim) && receipt !== void 0 && hasHarnessCompletionFinalReceipt(receipt)) return "delivered";
-	if (!getOwedHarnessCompletionTask(claim, entry)) return "blocked";
-	if (entry.status !== "running" || entry.mainRestartRecovery?.tombstone || entry.restartRecoveryDeliverySourceRunId !== claim.sourceRunId || entry.restartRecoveryHarnessCompletion?.taskId !== claim.taskId) return "blocked";
+	const classified = classifyCompletionClaim(params, entry, claim);
+	if (classified) return classified;
 	const operationalRunId = entry.restartRecoveryDeliveryRunId;
 	try {
 		if (operationalRunId && hasLiveCompletionOwner(claim, operationalRunId)) return "pending";
-		return readAdmittedHarnessCompletionInput({
+		return await readAdmittedHarnessCompletionInputAsync({
 			claim,
 			entry,
 			storePath: params.storePath,
 			operationalRunId
 		}) ? "pending" : "blocked";
 	} catch (error) {
+		rethrowIncognitoSessionError(error);
 		log.warn(`Could not inspect harness completion custody for ${params.sessionKey}: ${String(error)}`);
 		return "blocked";
 	}
@@ -207,6 +335,16 @@ async function reconcileHarnessCompletionDelivery(params) {
 //#region src/plugin-sdk/agent-harness-completion.ts
 /** Delivers a completed harness task result back to the requester or parent session. */
 async function deliverAgentHarnessCompletion(params) {
+	const scope = assertAgentHarnessCompletionScope(params.scope);
+	const run = () => withSubagentRequesterSource(scope.requesterSessionKey, scope.requesterAgentId, async (isCurrent) => isCurrent?.() === false ? {
+		delivered: false,
+		path: "none",
+		recoveryBlocked: true,
+		error: "completion requester locator is missing or replaced"
+	} : deliverAgentHarnessCompletionBound(params));
+	return params.completionCustody ? runWithAgentHarnessCompletionCustody(params.completionCustody, scope, run) : run();
+}
+async function deliverAgentHarnessCompletionBound(params) {
 	const scope = assertAgentHarnessCompletionScope(params.scope);
 	const completionCustody = params.completionCustody;
 	const signal = completionCustody ? AbortSignal.any([completionCustody.signal, ...params.signal ? [params.signal] : []]) : params.signal;
@@ -218,100 +356,114 @@ async function deliverAgentHarnessCompletion(params) {
 	const statusLabel = params.statusLabel?.trim() || params.status;
 	const eventStatus = params.status === "succeeded" ? "ok" : "error";
 	const expectedRequester = params.expectedRequester;
-	const requester = loadRequesterSessionEntry(requesterSessionKey, scope.requesterAgentId);
-	const requesterSessionId = requester.entry?.sessionId;
-	const requesterLifecycleRevision = requester.entry?.lifecycleRevision;
-	const isRequesterCurrent = () => {
-		if (completionCustody && !isAgentHarnessCompletionCustodyCurrent(completionCustody, scope)) return false;
-		const current = loadRequesterSessionEntry(requesterSessionKey, scope.requesterAgentId).entry;
-		return Boolean(requesterSessionId) && current?.sessionId === requesterSessionId && current?.lifecycleRevision === requesterLifecycleRevision && (!expectedRequester || current?.sessionId === expectedRequester.sessionId && current?.lifecycleRevision === expectedRequester.lifecycleRevision);
-	};
-	const isSourceSessionEffectsAllowed = () => !signal?.aborted && isRequesterCurrent() && params.isSourceSessionAdmissionAllowed();
-	const requesterIsSubagent = isInternalAnnounceRequesterSession(requesterSessionKey);
-	const directOrigin = requesterIsSubagent ? scope.requesterOrigin : resolveAnnounceOrigin(requester.entry, scope.requesterOrigin);
-	const completionDirectOrigin = requesterIsSubagent || !directOrigin ? directOrigin : await resolveSubagentCompletionOrigin({
-		childSessionKey,
-		requesterSessionKey,
-		requesterOrigin: directOrigin,
-		childRunId: childSessionKey,
-		spawnMode: "run",
-		expectsCompletionMessage: true
-	});
-	const internalEvents = [{
-		type: AGENT_INTERNAL_EVENT_TYPE_TASK_COMPLETION,
-		source: "subagent",
-		childSessionKey,
-		childSessionId,
-		announceType,
-		taskLabel,
-		status: eventStatus,
-		statusLabel,
-		result: params.result,
-		replyInstruction: params.replyInstruction?.trim() || "Use the completed harness task result to continue or wrap up the parent task. If this is a channel session, send the visible response with the message tool instead of only writing a transcript final answer."
-	}];
-	const prompt = formatAgentInternalEventsForPrompt(internalEvents);
-	const deliver = async () => {
-		if (!requesterSessionId || !isRequesterCurrent()) return {
-			delivered: false,
-			path: "none",
-			recoveryBlocked: true,
-			error: "completion requester locator is missing or replaced"
+	const requesterCurrent = await captureRequesterSessionEntryCurrent(requesterSessionKey, scope.requesterAgentId);
+	const { readCurrent: readRequesterCurrent } = requesterCurrent;
+	try {
+		const requester = await loadRequesterSessionEntry(requesterSessionKey, scope.requesterAgentId);
+		const requesterSessionId = requester.entry?.sessionId;
+		const requesterLifecycleRevision = requester.entry?.lifecycleRevision;
+		const isRequesterCurrent = (rejectRetiredCustody = false) => {
+			if (completionCustody && !isAgentHarnessCompletionCustodyCurrent(completionCustody, scope)) {
+				if (rejectRetiredCustody) throw new Error("Harness completion custody retired");
+				return false;
+			}
+			let current;
+			try {
+				current = readRequesterCurrent();
+			} catch {
+				return false;
+			}
+			return Boolean(requesterSessionId) && current?.sessionId === requesterSessionId && current?.lifecycleRevision === requesterLifecycleRevision && (!expectedRequester || current?.sessionId === expectedRequester.sessionId && current?.lifecycleRevision === expectedRequester.lifecycleRevision);
 		};
-		if (requester.agentId && requester.storePath) {
-			const custody = await reconcileHarnessCompletionDelivery({
-				agentId: requester.agentId,
-				storePath: requester.storePath,
-				sessionKey: requester.canonicalKey,
-				sourceRunId: buildAnnounceIdempotencyKey(params.announceId),
-				taskRunId: childSessionKey
-			});
-			if (!isRequesterCurrent()) return {
+		const isSourceSessionEffectsAllowed = () => !signal?.aborted && isRequesterCurrent() && params.isSourceSessionAdmissionAllowed();
+		const requesterIsSubagent = isInternalAnnounceRequesterSession(requesterSessionKey);
+		const directOrigin = requesterIsSubagent ? scope.requesterOrigin : resolveAnnounceOrigin(requester.entry, scope.requesterOrigin);
+		const completionDirectOrigin = requesterIsSubagent || !directOrigin ? directOrigin : await resolveSubagentCompletionOrigin({
+			childSessionKey,
+			requesterSessionKey,
+			requesterOrigin: directOrigin,
+			childRunId: childSessionKey,
+			spawnMode: "run",
+			expectsCompletionMessage: true
+		});
+		const internalEvents = [{
+			type: AGENT_INTERNAL_EVENT_TYPE_TASK_COMPLETION,
+			source: "subagent",
+			childSessionKey,
+			childSessionId,
+			announceType,
+			taskLabel,
+			status: eventStatus,
+			statusLabel,
+			result: params.result,
+			replyInstruction: params.replyInstruction?.trim() || "Use the completed harness task result to continue or wrap up the parent task. If this is a channel session, send the visible response with the message tool instead of only writing a transcript final answer."
+		}];
+		const prompt = formatAgentInternalEventsForPrompt(internalEvents);
+		const deliver = async () => {
+			if (!requesterSessionId || !isRequesterCurrent(true)) return {
 				delivered: false,
 				path: "none",
 				recoveryBlocked: true,
 				error: "completion requester locator is missing or replaced"
 			};
-			if (custody === "delivered") return {
-				delivered: true,
-				path: "direct"
-			};
-			if (custody !== "unowned") return {
-				delivered: false,
-				path: "none",
-				...custody === "pending" ? { recoveryPending: true } : { recoveryBlocked: true },
-				error: custody === "pending" ? "completion is owned by requester recovery" : "completion recovery receipt or owner is unresolved"
-			};
-		}
-		return await withAgentHarnessCompletionAdmission({
-			scope,
-			sourceSessionKey: childSessionKey,
-			sourceRunId: buildAnnounceIdempotencyKey(params.announceId),
-			requesterSessionId,
-			requesterLifecycleRevision,
-			isSourceCurrent: isSourceSessionEffectsAllowed
-		}, () => deliverSubagentAnnouncement({
-			requesterSessionKey,
-			requesterAgentId: scope.requesterAgentId,
-			isSourceSessionEffectsAllowed,
-			triggerMessage: prompt,
-			internalEvents,
-			requesterSessionOrigin: scope.requesterOrigin,
-			completionDirectOrigin: completionDirectOrigin ?? directOrigin,
-			directOrigin,
-			sourceSessionKey: childSessionKey,
-			sourceTool: "agent_harness_completion",
-			isSourceSessionAdmissionAllowed: isSourceSessionEffectsAllowed,
-			targetRequesterSessionKey: requesterSessionKey,
-			requesterIsSubagent,
-			expectsCompletionMessage: true,
-			bestEffortDeliver: true,
-			directIdempotencyKey: buildAnnounceIdempotencyKey(params.announceId),
-			signal
-		}));
-	};
-	const resolveGatewayContext = getGatewayContextResolver(scope);
-	const deliverInGateway = () => resolveGatewayContext ? withPluginRuntimeGatewayContextResolver(resolveGatewayContext, deliver) : deliver();
-	return completionCustody ? await runWithAgentHarnessCompletionCustody(completionCustody, scope, deliverInGateway) : await deliverInGateway();
+			if (requester.agentId && requester.storePath) {
+				const custody = await reconcileHarnessCompletionDelivery({
+					agentId: requester.agentId,
+					storePath: requester.storePath,
+					sessionKey: requester.canonicalKey,
+					sourceRunId: buildAnnounceIdempotencyKey(params.announceId),
+					taskRunId: childSessionKey
+				});
+				if (!isRequesterCurrent()) return {
+					delivered: false,
+					path: "none",
+					recoveryBlocked: true,
+					error: "completion requester locator is missing or replaced"
+				};
+				if (custody === "delivered") return {
+					delivered: true,
+					path: "direct"
+				};
+				if (custody !== "unowned") return {
+					delivered: false,
+					path: "none",
+					...custody === "pending" ? { recoveryPending: true } : { recoveryBlocked: true },
+					error: custody === "pending" ? "completion is owned by requester recovery" : "completion recovery receipt or owner is unresolved"
+				};
+			}
+			return await withAgentHarnessCompletionAdmission({
+				scope,
+				sourceSessionKey: childSessionKey,
+				sourceRunId: buildAnnounceIdempotencyKey(params.announceId),
+				requesterSessionId,
+				requesterLifecycleRevision,
+				isSourceCurrent: isSourceSessionEffectsAllowed
+			}, () => deliverSubagentAnnouncement({
+				requesterSessionKey,
+				requesterAgentId: scope.requesterAgentId,
+				isSourceSessionEffectsAllowed,
+				triggerMessage: prompt,
+				internalEvents,
+				requesterSessionOrigin: scope.requesterOrigin,
+				completionDirectOrigin: completionDirectOrigin ?? directOrigin,
+				directOrigin,
+				sourceSessionKey: childSessionKey,
+				sourceTool: "agent_harness_completion",
+				isSourceSessionAdmissionAllowed: isSourceSessionEffectsAllowed,
+				targetRequesterSessionKey: requesterSessionKey,
+				requesterIsSubagent,
+				expectsCompletionMessage: true,
+				bestEffortDeliver: true,
+				directIdempotencyKey: buildAnnounceIdempotencyKey(params.announceId),
+				signal
+			}));
+		};
+		const resolveGatewayContext = getGatewayContextResolver(scope);
+		const deliverInGateway = () => resolveGatewayContext ? withPluginRuntimeGatewayContextResolver(resolveGatewayContext, deliver) : deliver();
+		return await deliverInGateway();
+	} finally {
+		requesterCurrent.release();
+	}
 }
 /** Returns true when completion delivery reached a persistent direct or steered path. */
 function isDurableAgentHarnessCompletionDelivery(delivery) {

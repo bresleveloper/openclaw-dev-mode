@@ -1,7 +1,7 @@
-import { i as resolveRuntimeWorkerUrl, n as resolveRuntimeWorkerArgv } from "../../runtime-worker-url-DoBSDhBS.mjs";
-import { n as createCpuTrackedWorker } from "../../worker-cpu-DU6Cf6Aq.mjs";
-import "../../process-runtime-CYiH_oPH.mjs";
-import { a as OpenAIQuicksilverPendingAudio } from "../../realtime-quicksilver-audio-buffer-BQ7ahbkO.mjs";
+import { i as resolveRuntimeWorkerUrl, n as resolveRuntimeWorkerArgv } from "../../runtime-worker-url-CvMrvFI1.mjs";
+import { n as createCpuTrackedWorker } from "../../worker-cpu-c5lFIb1t.mjs";
+import "../../process-runtime-CG9_3L3N.mjs";
+import { a as OpenAIQuicksilverPendingAudio } from "../../realtime-quicksilver-audio-buffer-D3gKGDMC.mjs";
 import { t as QUICKSILVER_SOCKET_AUDIO_BATCH_BYTES } from "../../realtime-quicksilver-socket.shared-D8dEfKdA.mjs";
 import { EventEmitter } from "node:events";
 //#region extensions/openai/realtime-quicksilver-socket.ts

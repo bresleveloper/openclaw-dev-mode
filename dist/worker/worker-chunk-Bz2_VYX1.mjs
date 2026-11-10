@@ -1,0 +1,1 @@
+import{o as e,r as t}from"./worker-chunk-XOGAUsiB.mjs";t();export{e as resolvePluginVersionDriftTargets};

@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Ho as t,So as n,Zo as r,bo as i,fs as a}from"./ui-CFzBFVbW.js";function o(e){let n=a(()=>e.tag??`div`),r=i(()=>n);return t(r,{get class(){return e.class},get style(){return e.style},get onClick(){return e.onClick},get innerHTML(){return e.html}})}function s(){return(s=e((()=>{n(),r()})))()}export{s as n,o as t};
+//# sourceMappingURL=sanitized-html-BQ1jZpBS.js.map

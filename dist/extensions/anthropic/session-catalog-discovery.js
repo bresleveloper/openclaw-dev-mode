@@ -1,2 +1,2 @@
-import { t as listClaudeSessions } from "../../session-catalog-discovery-BL9sQhIa.mjs";
+import { t as listClaudeSessions } from "../../session-catalog-discovery-VZhiaUnf.mjs";
 export { listClaudeSessions };

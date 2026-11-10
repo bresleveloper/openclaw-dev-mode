@@ -1,13 +1,13 @@
-import "../index-D27wAoOr.mjs";
-import { $ as StopReason, Q as SimpleStreamOptions, d as Context, k as Model, tt as StreamFunction } from "../types-DvzmWW8J.mjs";
-import { C as supportsOpenAIReasoningEffort, S as resolveOpenAISupportedReasoningEfforts, _ as isOpenAIGpt6Model, a as BaseOpenAIStreamOptions, b as resolveOpenAIReasoningEffortForModel, c as OpenAICompletionsOptions, d as reasoningTagTextPolicy, f as OpenAIApiReasoningEffort, g as isOpenAIGpt56Model, h as isOpenAIGpt55Model, m as isOpenAIGpt54MiniModel, o as CodeModeToolSurfaceObservation, p as OpenAIReasoningEffort, u as codeModeToolSurfaceObserver, v as normalizeOpenAIReasoningEffort, w as supportsOpenAITemperature, x as resolveOpenAIReasoningEffortMapping, y as resolveOpenAIModelReasoningEfforts } from "../provider-options-CkieKvNJ.mjs";
-import { a as reconcileOpenAIResponsesToolChoice, i as reconcileOpenAICompletionsToolChoice, n as OpenAIToolProjection, r as projectOpenAITools, t as OpenAICompletionsToolChoice } from "../openai-tool-projection-793cE3QX.mjs";
-import "../types-UlNana-2.mjs";
-import { t as ResolvedOpenAICompletionsCompat } from "../openai-completions-compat-BgPg1BRs.mjs";
-import { a as ResponsesPromptObservation, c as responsesServiceTierObserver, d as OpenAIRequestReasoningEffort, o as ResponsesServiceTierObservation, s as responsesPromptObserver } from "../openai-responses-contracts-D5yVZBp-.mjs";
-import { n as clampOpenAIPromptCacheKey, r as resolveOpenAIPromptCacheParams, t as OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH } from "../openai-prompt-cache-CFviG_D4.mjs";
-import { a as resolveResponsesTerminalStopReason, i as readResponsesReasoningTokens, n as isResponsesOutputLimitToolCallError, r as mapResponsesTerminalUsage, t as ResponsesTerminalUsagePayload } from "../openai-responses-terminal-usage-CempLedn.mjs";
-import "../openai-responses-compaction-replay-BBNo098-.mjs";
+import "../index-DSprYWaz.mjs";
+import { $ as StopReason, Q as SimpleStreamOptions, d as Context, k as Model, tt as StreamFunction } from "../types-CVYzKrMl.mjs";
+import { A as supportsOpenAIReasoningEffort, C as isOpenAIGpt56Model, D as resolveOpenAIReasoningEffortForModel, E as resolveOpenAIModelReasoningEfforts, O as resolveOpenAIReasoningEffortMapping, S as isOpenAIGpt55Model, T as normalizeOpenAIReasoningEffort, _ as reconcileOpenAIResponsesToolChoice, a as BaseOpenAIStreamOptions, b as applyOpenAICompletionsToolReasoning, c as OpenAICompletionsOptions, f as reasoningTagTextPolicy, g as reconcileOpenAICompletionsToolChoice, h as projectOpenAITools, j as supportsOpenAITemperature, k as resolveOpenAISupportedReasoningEfforts, m as OpenAIToolProjection, o as CodeModeToolSurfaceObservation, p as OpenAICompletionsToolChoice, u as codeModeToolSurfaceObserver, v as OpenAIApiReasoningEffort, w as isOpenAIGpt6Model, x as isOpenAIGpt54MiniModel, y as OpenAIReasoningEffort } from "../provider-options-DAzsyi49.mjs";
+import "../types-CBJthzJX.mjs";
+import { t as ResolvedOpenAICompletionsCompat } from "../openai-completions-compat-CBvb2eld.mjs";
+import { c as responsesPromptObserver, f as OpenAIRequestReasoningEffort, l as responsesServiceTierObserver, o as ResponsesPromptObservation, s as ResponsesServiceTierObservation } from "../openai-responses-contracts-B1nkeLL6.mjs";
+import { n as clampOpenAIPromptCacheKey, r as resolveOpenAIPromptCacheParams, t as OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH } from "../openai-prompt-cache-DgjD-UL5.mjs";
+import { a as resolveResponsesTerminalStopReason, i as readResponsesReasoningTokens, n as isResponsesOutputLimitToolCallError, r as mapResponsesTerminalUsage, t as ResponsesTerminalUsagePayload } from "../openai-responses-terminal-usage-CpVjkqn-.mjs";
+import "../openai-responses-compaction-replay-_sUXtcwU.mjs";
+import { n as modelRequestBodyState, t as encodedModelRequestBodyStream } from "../model-request-body-BD5vy4rP.mjs";
 import { ResponseCreateParamsStreaming, ResponseInputItem } from "openai/resources/responses/responses.js";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 //#region packages/ai/src/providers/azure-deployment-map.d.ts
@@ -34,6 +34,7 @@ export declare function isOpenAICompatibleAzureResponsesBaseUrl(baseUrl: string)
 export declare function convertMessages(model: Model<"openai-completions">, context: Context, compat: ResolvedOpenAICompletionsCompat, options?: {
   cacheOptOutIndexes?: Set<number>;
   preserveSystemPromptCacheBoundary?: boolean;
+  supportsTools?: boolean;
 }): ChatCompletionMessageParam[];
 //#endregion
 //#region packages/ai/src/providers/openai-completions.d.ts
@@ -135,6 +136,11 @@ type ResponsesRequestLifecycle = {
   accepted(responseId: string, signal?: AbortSignal): Promise<void>;
   settle(): Promise<void>;
 };
+/** A full-input side request must neither consume nor replace a session's continuation. */
+export declare const independentResponsesRequest: {
+  set(options: object): void;
+  has(options: object | undefined): boolean;
+};
 /** Private transport carrier: serialized options cannot mint host authority. */
 export declare const responsesRequestLifecycle: {
   set(options: object, lifecycle: ResponsesRequestLifecycle): void;
@@ -147,19 +153,4 @@ export declare function bindResponsesInputMessage(source: Extract<Context["messa
   role: "user";
 }>): (input: unknown) => boolean;
 //#endregion
-//#region packages/ai/src/transports/model-request-body.d.ts
-type EncodedModelRequestBody = {
-  body: Uint8Array<ArrayBuffer>;
-  stream: boolean;
-};
-type ModelRequestBodyState = {
-  enabled?: boolean;
-  encode?: (payload: unknown) => Promise<EncodedModelRequestBody>;
-  onBytes?: (bytes: number) => void;
-};
-/** Call-local state survives option spreads; no payload is cached across requests. */
-export declare function modelRequestBodyState(options: object, inheritFrom?: object): ModelRequestBodyState;
-export declare function serializeModelRequestBody(payload: unknown): EncodedModelRequestBody;
-export declare function encodedModelRequestBodyStream(body: unknown): boolean | undefined;
-//#endregion
-export { type CodeModeToolSurfaceObservation, OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH, OpenAIApiReasoningEffort, type OpenAICompletionsOptions, type OpenAICompletionsToolChoice, OpenAIReasoningEffort, type OpenAIToolProjection, type ResponsesPromptObservation, type ResponsesServiceTierObservation, ResponsesTerminalUsagePayload, clampOpenAIPromptCacheKey, codeModeToolSurfaceObserver, isOpenAIGpt54MiniModel, isOpenAIGpt55Model, isOpenAIGpt56Model, isOpenAIGpt6Model, isResponsesOutputLimitToolCallError, mapResponsesTerminalUsage, normalizeOpenAIReasoningEffort, projectOpenAITools, readResponsesReasoningTokens, reasoningTagTextPolicy, reconcileOpenAICompletionsToolChoice, reconcileOpenAIResponsesToolChoice, resolveOpenAIModelReasoningEfforts, resolveOpenAIPromptCacheParams, resolveOpenAIReasoningEffortForModel, resolveOpenAIReasoningEffortMapping, resolveOpenAISupportedReasoningEfforts, resolveResponsesTerminalStopReason, responsesPromptObserver, responsesServiceTierObserver, supportsOpenAIReasoningEffort, supportsOpenAITemperature };
+export { type CodeModeToolSurfaceObservation, OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH, OpenAIApiReasoningEffort, type OpenAICompletionsOptions, type OpenAICompletionsToolChoice, OpenAIReasoningEffort, type OpenAIToolProjection, type ResponsesPromptObservation, type ResponsesServiceTierObservation, ResponsesTerminalUsagePayload, applyOpenAICompletionsToolReasoning, clampOpenAIPromptCacheKey, codeModeToolSurfaceObserver, encodedModelRequestBodyStream, isOpenAIGpt54MiniModel, isOpenAIGpt55Model, isOpenAIGpt56Model, isOpenAIGpt6Model, isResponsesOutputLimitToolCallError, mapResponsesTerminalUsage, modelRequestBodyState, normalizeOpenAIReasoningEffort, projectOpenAITools, readResponsesReasoningTokens, reasoningTagTextPolicy, reconcileOpenAICompletionsToolChoice, reconcileOpenAIResponsesToolChoice, resolveOpenAIModelReasoningEfforts, resolveOpenAIPromptCacheParams, resolveOpenAIReasoningEffortForModel, resolveOpenAIReasoningEffortMapping, resolveOpenAISupportedReasoningEfforts, resolveResponsesTerminalStopReason, responsesPromptObserver, responsesServiceTierObserver, supportsOpenAIReasoningEffort, supportsOpenAITemperature };

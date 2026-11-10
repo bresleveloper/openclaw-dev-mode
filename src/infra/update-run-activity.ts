@@ -59,7 +59,6 @@ function inspectCurrentUpdateRunContinuation(
   if (record.runId !== inheritedRunId?.trim() || hasUnrecordedUpdateRunDriver(record)) {
     return "not-continuation";
   }
-  let ancestry: ReturnType<typeof inspectSelfAndAncestorPidsSync> | undefined;
   let ownsDriver = false;
   for (const driver of recordedUpdateRunDrivers(record)) {
     const liveness = inspectUpdateRunDriver(driver);
@@ -71,9 +70,16 @@ function inspectCurrentUpdateRunContinuation(
     }
     const key = updateRunDriverKey(driver);
     if (!verifiedAncestorDrivers.has(key)) {
-      ancestry ??= inspectSelfAndAncestorPidsSync(undefined, { requireVerifiedParent: true });
+      // Containment ends at this driver; higher supervisors may be unreadable.
+      const ancestry = inspectSelfAndAncestorPidsSync(undefined, {
+        requireVerifiedParent: true,
+        throughPid: driver.pid,
+      });
+      if (!ancestry.complete) {
+        return "ancestry-unverified";
+      }
       if (!ancestry.pids.has(driver.pid)) {
-        return ancestry.complete ? "not-continuation" : "ancestry-unverified";
+        return "not-continuation";
       }
       verifiedAncestorDrivers.add(key);
     }
@@ -111,7 +117,7 @@ export function formatUpdateRunOwnership(record: UpdateRunRecord): string {
 export type UpdateRepairDriverAdmission =
   | { kind: "continuation"; run: UpdateRunRecord }
   | { kind: "recovery"; runs: UpdateRunRecord[] }
-  | { kind: "conflict"; message: string };
+  | { kind: "conflict"; reason: "ancestry-unverified" | "driver-conflict"; message: string };
 
 export function inspectUpdateRepairDriverAdmission(
   runs: UpdateRunRecord[],
@@ -126,6 +132,7 @@ export function inspectUpdateRepairDriverAdmission(
       // A captured continuation remains relevant after its driver terminalizes it.
       return {
         kind: "conflict",
+        reason: check === "ancestry-unverified" ? "ancestry-unverified" : "driver-conflict",
         message:
           check === "ancestry-unverified"
             ? formatUnverifiedUpdateRunAncestry(run)

@@ -1,6 +1,6 @@
 import { DEFAULT_VYDRA_BASE_URL, normalizeVydraBaseUrl } from "./defaults.js";
 import { asOptionalRecord, normalizeOptionalLowercaseString, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-import { resolveGeneratedMediaMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
+import { resolveGeneratedImageDownloadMaxBytes, resolveGeneratedMediaMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
 import { extensionForMime } from "openclaw/plugin-sdk/media-mime";
 import { resolveApiKeyForProvider } from "openclaw/plugin-sdk/provider-auth-runtime";
 import { assertOkOrThrowHttpError, createProviderOperationDeadline, createProviderOperationTimeoutError, createProviderOperationTimeoutResolver, fetchWithTimeoutGuarded, pollProviderOperationJson, postJsonRequest, readProviderBinaryResponse, readProviderJsonResponse, resolveProviderHttpRequestConfig, resolveProviderOperationTimeoutMs, sanitizeConfiguredModelProviderRequest } from "openclaw/plugin-sdk/provider-http";
@@ -204,7 +204,7 @@ async function runVydraGeneration(params) {
 				defaultTimeoutMs: DEFAULT_HTTP_TIMEOUT_MS
 			}) : params.timeoutMs,
 			fetchFn,
-			maxBytes: resolveGeneratedMediaMaxBytes(params.cfg, params.kind),
+			maxBytes: params.kind === "image" ? resolveGeneratedImageDownloadMaxBytes(params.cfg) : resolveGeneratedMediaMaxBytes(params.cfg, params.kind),
 			requestPolicy
 		});
 		const jobId = resolveVydraResponseJobId(completedPayload) ?? resolveVydraResponseJobId(submitted);

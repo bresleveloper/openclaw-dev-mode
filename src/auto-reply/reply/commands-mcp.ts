@@ -3,14 +3,12 @@ import {
   setConfiguredMcpServer,
   unsetConfiguredMcpServer,
 } from "../../agents/mcp-config-mutation.js";
-import { listConfiguredMcpServers } from "../../config/mcp-config.js";
-import { redactSensitiveArgv } from "../../config/redact-argv.js";
-import { REDACTED_SENTINEL, redactConfigObject } from "../../config/redact-snapshot.js";
-import { buildConfigSchemaCore } from "../../config/schema.js";
+import { listConfiguredMcpServers, redactMcpServersForDisplay } from "../../config/mcp-config.js";
 import type { ReplyPayload } from "../types.js";
 import {
   commandReply,
   defineAuthorizedTextCommand,
+  renderCommandJsonBlock,
   requireCommandFlagEnabled,
   requireGatewayClientScope,
 } from "./command-gates.js";
@@ -32,38 +30,6 @@ const MCP_SHOW_PRIVATE_ROUTE_REPLIES = {
   failed: MCP_SHOW_PRIVATE_ROUTE_UNAVAILABLE,
 };
 
-function renderJsonBlock(label: string, value: unknown): string {
-  return `${label}\n\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
-}
-
-function redactMcpServerArgsForDisplay(server: unknown): unknown {
-  if (!server || typeof server !== "object" || Array.isArray(server)) {
-    return server;
-  }
-  const record = server as Record<string, unknown>;
-  if (!Array.isArray(record.args) || !record.args.every((arg) => typeof arg === "string")) {
-    return server;
-  }
-  return {
-    ...record,
-    args: redactSensitiveArgv(record.args, REDACTED_SENTINEL),
-  };
-}
-
-/** Redact MCP server secrets before chat display. */
-function redactMcpServersForDisplay(servers: Record<string, unknown>): Record<string, unknown> {
-  const argvRedacted = Object.fromEntries(
-    Object.entries(servers).map(([name, server]) => [name, redactMcpServerArgsForDisplay(server)]),
-  );
-  const redactedRoot = redactConfigObject(
-    { mcp: { servers: argvRedacted } },
-    buildConfigSchemaCore().uiHints,
-  ) as {
-    mcp?: { servers?: Record<string, unknown> };
-  };
-  return redactedRoot.mcp?.servers ?? {};
-}
-
 async function buildMcpShowReply(name?: string): Promise<ReplyPayload> {
   const loaded = await listConfiguredMcpServers();
   if (!loaded.ok) {
@@ -78,14 +44,14 @@ async function buildMcpShowReply(name?: string): Promise<ReplyPayload> {
       [name]: server,
     })[name];
     return {
-      text: renderJsonBlock(`🔌 MCP server "${name}" (${loaded.path})`, redactedServer),
+      text: renderCommandJsonBlock(`🔌 MCP server "${name}" (${loaded.path})`, redactedServer),
     };
   }
   if (Object.keys(loaded.mcpServers).length === 0) {
     return { text: `🔌 No MCP servers configured in ${loaded.path}.` };
   }
   return {
-    text: renderJsonBlock(
+    text: renderCommandJsonBlock(
       `🔌 MCP servers (${loaded.path})`,
       redactMcpServersForDisplay(loaded.mcpServers),
     ),
@@ -129,10 +95,7 @@ export const handleMcpCommand: CommandHandler = defineAuthorizedTextCommand(
       if (params.isGroup) {
         return await deliverGroupMcpShowReplyPrivately(params, mcpCommand.name);
       }
-      return {
-        shouldContinue: false,
-        reply: await buildMcpShowReply(mcpCommand.name),
-      };
+      return commandReply(await buildMcpShowReply(mcpCommand.name));
     }
 
     const missingAdminScope = requireGatewayClientScope(params, {
@@ -144,24 +107,19 @@ export const handleMcpCommand: CommandHandler = defineAuthorizedTextCommand(
       return missingAdminScope;
     }
 
-    if (mcpCommand.action === "set") {
-      const result = await setConfiguredMcpServer({
-        name: mcpCommand.name,
-        server: mcpCommand.value,
-        assertCurrent: params.command.assertOwnerCurrent,
-      });
-      if (!result.ok) {
-        return commandReply(`⚠️ ${result.error}`);
-      }
-      return commandReply(`🔌 MCP server "${mcpCommand.name}" saved to ${result.path}.`);
-    }
-
-    const result = await unsetConfiguredMcpServer({
+    const mutation = {
       name: mcpCommand.name,
       assertCurrent: params.command.assertOwnerCurrent,
-    });
+    };
+    const result =
+      mcpCommand.action === "set"
+        ? await setConfiguredMcpServer({ ...mutation, server: mcpCommand.value })
+        : await unsetConfiguredMcpServer(mutation);
     if (!result.ok) {
       return commandReply(`⚠️ ${result.error}`);
+    }
+    if (mcpCommand.action === "set") {
+      return commandReply(`🔌 MCP server "${mcpCommand.name}" saved to ${result.path}.`);
     }
     if (!result.removed) {
       return commandReply(`🔌 No MCP server named "${mcpCommand.name}" in ${result.path}.`);

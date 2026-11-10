@@ -12,6 +12,22 @@ var modelCatalog = {
 		"baseUrl": "https://generativelanguage.googleapis.com/v1beta",
 		"models": [
 			{
+				"id": "gemini-4-argon",
+				"name": "Gemini 4 Argon",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536,
+				"thinkingLevelMap": { "minimal": null },
+				"compat": { "codeMode": "preferred" }
+			},
+			{
 				"id": "gemini-2.5-pro",
 				"name": "Gemini 2.5 Pro",
 				"reasoning": true,
@@ -86,6 +102,22 @@ var modelCatalog = {
 			{
 				"id": "gemini-3.7-flash",
 				"name": "Gemini 3.7 Flash",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536,
+				"thinkingLevelMap": { "minimal": null },
+				"compat": { "codeMode": "preferred" }
+			},
+			{
+				"id": "gemini-3.8-flash",
+				"name": "Gemini 3.8 Flash",
 				"reasoning": true,
 				"input": ["text", "image"],
 				"cost": {

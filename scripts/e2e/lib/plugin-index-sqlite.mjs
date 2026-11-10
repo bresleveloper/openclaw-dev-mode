@@ -18,20 +18,15 @@ const JSON_ARTIFACT_MAX_BYTES = readPositiveIntEnv(
 );
 
 function readJsonMaybe(file) {
-  let text;
   try {
-    text = readTextFileBounded(file, "plugin index JSON artifact", JSON_ARTIFACT_MAX_BYTES, {
+    const text = readTextFileBounded(file, "plugin index JSON artifact", JSON_ARTIFACT_MAX_BYTES, {
       tailBytes: ERROR_DETAIL_TAIL_BYTES,
     });
+    return JSON.parse(text);
   } catch (error) {
     if (error?.code === "ETOOBIG") {
       throw error;
     }
-    return {};
-  }
-  try {
-    return JSON.parse(text);
-  } catch {
     return {};
   }
 }
@@ -41,10 +36,7 @@ function textTooLargeError(message) {
 }
 
 function parseIndexJsonText(text, label) {
-  const bytes = Buffer.byteLength(text, "utf8");
-  if (bytes > JSON_ARTIFACT_MAX_BYTES) {
-    throw textTooLargeError(`${label} exceeded ${JSON_ARTIFACT_MAX_BYTES} bytes (${bytes} bytes)`);
-  }
+  assertIndexJsonByteLength(Buffer.byteLength(text, "utf8"), label);
   return JSON.parse(text);
 }
 
@@ -72,68 +64,87 @@ function tableExists(db, tableName) {
   );
 }
 
-function readCurrentSqlitePluginIndex(db) {
+function readBoundedIndexRow(db, table, keyColumn, key, jsonColumns, columns) {
+  if (!tableExists(db, table)) {
+    return undefined;
+  }
+  const source = `FROM ${table} WHERE ${keyColumn} = ?`;
+  const lengths = db
+    .prepare(
+      `SELECT ${jsonColumns.map((column) => `octet_length(${column}) AS ${column}_bytes`).join(", ")} ${source}`,
+    )
+    .get(key);
+  if (!lengths) {
+    return undefined;
+  }
+  for (const column of jsonColumns) {
+    assertIndexJsonByteLength(lengths[`${column}_bytes`], `plugin index ${column}`);
+  }
+  return db.prepare(`SELECT ${columns} ${source}`).get(key);
+}
+
+function readCurrentSqlitePluginIndex(db, options = {}) {
   if (!tableExists(db, "config_machine_state")) {
     return {};
   }
-  const lengths = db
-    .prepare(
-      `
-        SELECT octet_length(value_json) AS value_json_bytes
-          FROM config_machine_state
-         WHERE state_key = ?
-      `,
-    )
-    .get(STATE_KEY);
-  if (!lengths) {
-    return {};
-  }
-  assertIndexJsonByteLength(lengths.value_json_bytes, "plugin index value_json");
   const row = db
-    .prepare("SELECT value_json FROM config_machine_state WHERE state_key = ?")
+    .prepare(
+      `SELECT json_extract(value_json, '$.index.installRecords') AS install_records_json
+         FROM config_machine_state
+        WHERE state_key = ?`,
+    )
     .get(STATE_KEY);
   if (!row) {
     return {};
   }
-  const value = parseIndexJsonText(row.value_json, "plugin index value_json");
-  return value?.index && typeof value.index === "object" ? value.index : {};
+  const result = {
+    installRecords: row.install_records_json
+      ? parseIndexJsonText(row.install_records_json, "plugin index install_records_json")
+      : {},
+  };
+  if (options.includePlugins === false) {
+    return result;
+  }
+  const pluginIds = Array.isArray(options.pluginIds)
+    ? options.pluginIds.filter((value) => typeof value === "string" && value.length > 0)
+    : undefined;
+  const pluginsRow = pluginIds
+    ? pluginIds.length > 0
+      ? db
+          .prepare(
+            `SELECT json_group_array(plugin.value) AS plugins_json
+               FROM config_machine_state, json_each(value_json, '$.index.plugins') AS plugin
+              WHERE state_key = ?
+                AND json_extract(plugin.value, '$.pluginId') IN (${pluginIds.map(() => "?").join(", ")})`,
+          )
+          .get(STATE_KEY, ...pluginIds)
+      : { plugins_json: "[]" }
+    : db
+        .prepare(
+          `SELECT json_extract(value_json, '$.index.plugins') AS plugins_json
+             FROM config_machine_state
+            WHERE state_key = ?`,
+        )
+        .get(STATE_KEY);
+  return {
+    ...result,
+    plugins: pluginsRow?.plugins_json
+      ? parseIndexJsonText(pluginsRow.plugins_json, "plugin index plugins_json")
+      : [],
+  };
 }
 
 function readPreV13SqlitePluginIndex(db) {
-  if (!tableExists(db, "installed_plugin_index")) {
-    return {};
-  }
-  const lengths = db
-    .prepare(
-      `
-        SELECT octet_length(install_records_json) AS install_records_json_bytes,
-               octet_length(plugins_json) AS plugins_json_bytes,
-               octet_length(diagnostics_json) AS diagnostics_json_bytes
-          FROM installed_plugin_index
-         WHERE index_key = ?
-      `,
-    )
-    .get(PRE_V13_INDEX_KEY);
-  if (!lengths) {
-    return {};
-  }
-  assertIndexJsonByteLength(
-    lengths.install_records_json_bytes,
-    "plugin index install_records_json",
+  const row = readBoundedIndexRow(
+    db,
+    "installed_plugin_index",
+    "index_key",
+    PRE_V13_INDEX_KEY,
+    ["install_records_json", "plugins_json", "diagnostics_json"],
+    `version, warning, host_contract_version, compat_registry_version,
+     migration_version, policy_hash, generated_at_ms, refresh_reason,
+     install_records_json, plugins_json, diagnostics_json`,
   );
-  assertIndexJsonByteLength(lengths.plugins_json_bytes, "plugin index plugins_json");
-  assertIndexJsonByteLength(lengths.diagnostics_json_bytes, "plugin index diagnostics_json");
-  const row = db
-    .prepare(
-      `
-        SELECT version, warning, host_contract_version, compat_registry_version,
-               migration_version, policy_hash, generated_at_ms, refresh_reason,
-               install_records_json, plugins_json, diagnostics_json
-          FROM installed_plugin_index
-         WHERE index_key = ?
-      `,
-    )
-    .get(PRE_V13_INDEX_KEY);
   if (!row) {
     return {};
   }
@@ -155,7 +166,7 @@ function readPreV13SqlitePluginIndex(db) {
   };
 }
 
-function readSqlitePluginIndex(root = stateDir()) {
+function readSqlitePluginIndex(root = stateDir(), options = {}) {
   const dbPath = sqlitePath(root);
   if (!fs.existsSync(dbPath)) {
     return {};
@@ -167,12 +178,12 @@ function readSqlitePluginIndex(root = stateDir()) {
     // v13 retired the wide row. Versioned databases must never cross-read the
     // other schema; only unversioned E2E fixtures may probe current then legacy.
     if (schemaVersion >= 13) {
-      return readCurrentSqlitePluginIndex(db);
+      return readCurrentSqlitePluginIndex(db, options);
     }
     if (schemaVersion >= 1) {
       return readPreV13SqlitePluginIndex(db);
     }
-    const current = readCurrentSqlitePluginIndex(db);
+    const current = readCurrentSqlitePluginIndex(db, options);
     return current.installRecords ? current : readPreV13SqlitePluginIndex(db);
   } catch (error) {
     if (error?.code === "ETOOBIG") {
@@ -189,7 +200,7 @@ export function readPluginInstallIndex(options = {}) {
   // Failure diagnostics may inspect the persisted index without consulting config.
   const config =
     options.configPath === null ? {} : readJsonMaybe(options.configPath ?? configPath());
-  const sqliteIndex = readSqlitePluginIndex(root);
+  const sqliteIndex = readSqlitePluginIndex(root, options);
   if (sqliteIndex.installRecords) {
     return sqliteIndex;
   }
@@ -207,7 +218,7 @@ export function readPluginInstallIndex(options = {}) {
 }
 
 export function readPluginInstallRecords(options = {}) {
-  return readPluginInstallIndex(options).installRecords ?? {};
+  return readPluginInstallIndex({ ...options, includePlugins: false }).installRecords;
 }
 
 export function writePluginInstallIndexForE2E(index, options = {}) {

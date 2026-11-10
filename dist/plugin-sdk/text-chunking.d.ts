@@ -41,9 +41,6 @@ interface CodeRegion {
   start: number;
   end: number;
 }
-/** Finds CommonMark block-aware fenced, indented, and inline code regions. */
-export declare function findCodeRegions(text: string, options?: Parameters<typeof findMarkdownCodeRegions>[1]): ReturnType<typeof findMarkdownCodeRegions>;
-/** Returns true when a character offset falls inside one of the discovered code regions. */
 export declare function isInsideCode(pos: number, regions: CodeRegion[]): boolean;
 //#endregion
 //#region src/utils/directive-tags.d.ts
@@ -93,7 +90,7 @@ type HtmlTagToken = {
 export declare function tokenizeHtmlTags(html: string): Generator<HtmlTagToken>;
 //#endregion
 //#region packages/markdown-core/src/format-capabilities.d.ts
-type FormatConstruct = "bold" | "italic" | "underline" | "strikethrough" | "spoiler" | "codeInline" | "codeBlock" | "codeLanguage" | "linkLabel" | "heading" | "bulletList" | "orderedList" | "taskList" | "table" | "blockquote" | "image" | "mention";
+type FormatConstruct = keyof typeof NATIVE_FORMAT_CONSTRUCTS;
 type ConstructSupport = "native" | "fallback" | "strip";
 /** Static formatting capabilities declared by an outbound channel. */
 export type FormatCapabilityProfile = {
@@ -104,6 +101,25 @@ export type FormatCapabilityProfile = {
     unit: "chars" | "utf16" | "bytes";
     hardCap?: number;
   };
+};
+declare const NATIVE_FORMAT_CONSTRUCTS: {
+  readonly bold: "native";
+  readonly italic: "native";
+  readonly underline: "native";
+  readonly strikethrough: "native";
+  readonly spoiler: "native";
+  readonly codeInline: "native";
+  readonly codeBlock: "native";
+  readonly codeLanguage: "native";
+  readonly linkLabel: "native";
+  readonly heading: "native";
+  readonly bulletList: "native";
+  readonly orderedList: "native";
+  readonly taskList: "native";
+  readonly table: "native";
+  readonly blockquote: "native";
+  readonly image: "native";
+  readonly mention: "native";
 };
 type DefinedConstructs<Overrides extends Partial<FormatCapabilityProfile["constructs"]>> = { [Construct in FormatConstruct]: Construct extends keyof Overrides ? Overrides[Construct] : "native"; };
 type DefinedChunk<Chunk extends FormatCapabilityProfile["chunk"]> = Omit<FormatCapabilityProfile["chunk"], "unit"> & {
@@ -122,6 +138,42 @@ declare function defineFormatProfile<const Mechanism extends FormatCapabilityPro
 /** Runtime helpers for defining static channel formatting capabilities. */
 export declare const FormatCapabilityProfile: {
   define: typeof defineFormatProfile;
+};
+//#endregion
+//#region packages/markdown-core/src/assistant-transcript-headers.d.ts
+type AssistantTranscriptRole = "assistant" | "developer" | "system" | "user";
+type AssistantTranscriptRoleHeaderKind = "angle_role_header" | "role_timestamp_bracket" | "timestamp_role_colon";
+//#endregion
+//#region packages/markdown-core/src/ir-spans.d.ts
+/** A replacement in the original text's UTF-16 coordinates; equal bounds insert text. */
+type MarkdownTextEdit = {
+  start: number;
+  end: number;
+  text: string;
+};
+/** Apply disjoint edits; equal-position insertions keep caller order and shift their boundary. */
+export declare function applyMarkdownTextEdits(text: string, edits: readonly MarkdownTextEdit[]): {
+  text: string;
+  mapOffset: (offset: number) => number;
+};
+type MarkdownStyle = "bold" | "italic" | "underline" | "strikethrough" | "code" | "code_block" | "spoiler" | "blockquote" | "heading_1" | "heading_2" | "heading_3" | "heading_4" | "heading_5" | "heading_6";
+type MarkdownStyleSpan = {
+  start: number;
+  end: number;
+  style: MarkdownStyle;
+  language?: string;
+};
+type MarkdownLinkSpan = {
+  start: number;
+  end: number;
+  href: string;
+};
+type MarkdownAnnotationSpan = {
+  start: number;
+  end: number;
+  type: "assistant_transcript_role";
+  kind: AssistantTranscriptRoleHeaderKind;
+  role: AssistantTranscriptRole;
 };
 //#endregion
 //#region packages/markdown-core/src/ir-metadata.d.ts
@@ -146,31 +198,6 @@ type MarkdownListItemMarker = {
   depth?: number;
   start?: number;
   end?: number;
-};
-//#endregion
-//#region packages/markdown-core/src/assistant-transcript-headers.d.ts
-type AssistantTranscriptRole = "assistant" | "developer" | "system" | "user";
-type AssistantTranscriptRoleHeaderKind = "angle_role_header" | "role_timestamp_bracket" | "timestamp_role_colon";
-//#endregion
-//#region packages/markdown-core/src/ir-spans.d.ts
-type MarkdownStyle = "bold" | "italic" | "underline" | "strikethrough" | "code" | "code_block" | "spoiler" | "blockquote" | "heading_1" | "heading_2" | "heading_3" | "heading_4" | "heading_5" | "heading_6";
-type MarkdownStyleSpan = {
-  start: number;
-  end: number;
-  style: MarkdownStyle;
-  language?: string;
-};
-type MarkdownLinkSpan = {
-  start: number;
-  end: number;
-  href: string;
-};
-type MarkdownAnnotationSpan = {
-  start: number;
-  end: number;
-  type: "assistant_transcript_role";
-  kind: AssistantTranscriptRoleHeaderKind;
-  role: AssistantTranscriptRole;
 };
 //#endregion
 //#region packages/markdown-core/src/ir-slice.d.ts
@@ -240,22 +267,17 @@ export declare function markdownToIRWithMeta(markdown: string, options?: Markdow
 export declare function chunkMarkdownIR(ir: MarkdownIR, limit: number): MarkdownIR[];
 //#endregion
 //#region packages/markdown-core/src/render-aware-chunking.d.ts
-/** A rendered chunk paired with the Markdown IR slice that produced it. */
 type RenderedMarkdownChunk<TRendered> = {
   /** Rendered payload for this chunk after caller-specific escaping/link rewriting. */
   rendered: TRendered;
-  /** Source IR slice used to produce the rendered payload. */
   source: MarkdownIR;
 };
-/** Inputs for chunking Markdown IR against the final rendered payload size. */
 type RenderMarkdownIRChunksWithinLimitOptions<TRendered> = {
-  /** Parsed Markdown IR to split. */
   ir: MarkdownIR;
   /** Maximum measured size for each rendered chunk. */
   limit: number;
   /** Returns the size unit enforced by the target transport. */
   measureRendered: (rendered: TRendered) => number;
-  /** Renders a candidate IR slice for measuring and final output. */
   renderChunk: (ir: MarkdownIR) => TRendered;
   /** Re-annotate transcript-role headers promoted by a new message boundary. */
   assistantTranscriptRoleMessageBoundaries?: boolean;
@@ -286,14 +308,12 @@ export declare function renderMarkdownWithAttributedRanges<TStyle extends string
 };
 //#endregion
 //#region packages/markdown-core/src/render.d.ts
-/** Marker pair used to wrap a styled Markdown span in the target renderer. */
 type RenderStyleMarker = {
   open: string | ((span: MarkdownStyleSpan) => string);
   close: string;
 };
 /** Optional marker map; omitted styles are emitted as plain escaped text. */
 type RenderStyleMap = Partial<Record<MarkdownStyle, RenderStyleMarker>>;
-/** Marker pair used to render a semantic Markdown annotation. */
 type RenderAnnotationMarker = {
   open: string | ((span: MarkdownAnnotationSpan) => string);
   close: string;
@@ -309,7 +329,6 @@ type RenderLink = {
   close: string;
 };
 type MarkdownLinkOrigin = "authored" | "linkify";
-/** Renderer hooks for converting Markdown IR into a marker-based target format. */
 type RenderOptions = {
   styleMarkers: RenderStyleMap;
   annotationMarkers?: RenderAnnotationMap;
@@ -405,4 +424,4 @@ export declare function chunkTextForOutbound(text: string, limit: number, option
   formatting?: unknown;
 }): string[];
 //#endregion
-export { type AssistantVisibleTextSanitizerProfile, type AttributedRenderOptions, type ChunkTextRangesOptions, type CodeRegion, type InlineDirectiveParseResult, type MarkdownIR, type MarkdownLinkSpan, type MarkdownParseOptions, type MarkdownStyle, type MarkdownStyleSpan, type MarkdownTableCell, type MarkdownTableMeta, type ReasoningTagMode, type ReasoningTagTrim, type RenderLink, type RenderMarkdownIRChunksWithinLimitOptions, type RenderOptions, type RenderStyleMap, type RenderStyleMarker, type TextChunkRange, avoidTrailingHighSurrogateBreak, convertMarkdownTables };
+export { type AssistantVisibleTextSanitizerProfile, type AttributedRenderOptions, type ChunkTextRangesOptions, type CodeRegion, type InlineDirectiveParseResult, type MarkdownIR, type MarkdownLinkSpan, type MarkdownParseOptions, type MarkdownStyle, type MarkdownStyleSpan, type MarkdownTableCell, type MarkdownTableMeta, type MarkdownTextEdit, type ReasoningTagMode, type ReasoningTagTrim, type RenderLink, type RenderMarkdownIRChunksWithinLimitOptions, type RenderOptions, type RenderStyleMap, type RenderStyleMarker, type TextChunkRange, avoidTrailingHighSurrogateBreak, convertMarkdownTables, findMarkdownCodeRegions as findCodeRegions };

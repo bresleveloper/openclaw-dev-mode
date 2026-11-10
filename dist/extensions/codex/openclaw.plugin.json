@@ -37,6 +37,11 @@
         "id": "codex-native-task-assignments"
       },
       {
+        "id": "codex-native-assignment-repair",
+        "doctorOnly": true,
+        "phase": "after-session-repair"
+      },
+      {
         "id": "codex-app-server-orphaned-session-bindings",
         "doctorOnly": true,
         "phase": "after-session-repair"
@@ -551,6 +556,23 @@
           "remoteWorkspaceRoot": {
             "type": "string"
           },
+          "nativeHookRelay": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "url",
+              "credentialDirectory"
+            ],
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "credentialDirectory": {
+                "type": "string"
+              }
+            }
+          },
           "codeModeOnly": {
             "type": "boolean",
             "default": false
@@ -736,7 +758,7 @@
     },
     "sessionCatalog.homes": {
       "label": "Additional Codex Homes",
-      "help": "Existing local Codex home directories to include in native session discovery. String paths use the canonical directory basename as their label; object entries can override it with label. Paths are canonicalized and deduplicated. Requires appServer.transport=stdio and a Gateway restart.",
+      "help": "Existing local Codex home directories to include in native session discovery. String paths use the last directory name of the resolved path as their label; object entries can override it with label. Paths are resolved and duplicates are removed. Requires appServer.transport=stdio and a Gateway restart.",
       "advanced": true
     },
     "codexDynamicToolsLoading": {
@@ -784,7 +806,7 @@
     },
     "computerUse.liveTestTimeoutMs": {
       "label": "Live Test Timeout",
-      "help": "Maximum time for the Computer Use list_apps readiness probe before status and startup treat the live test as failed.",
+      "help": "Maximum time for the Computer Use list_apps readiness check before status and startup treat the live test as failed.",
       "advanced": true
     },
     "computerUse.toolCallTimeoutMs": {
@@ -794,7 +816,7 @@
     },
     "computerUse.healthCheckEnabled": {
       "label": "Periodic Health Checks",
-      "help": "When true, run periodic Computer Use live probes on the configured cadence.",
+      "help": "When true, run periodic Computer Use live checks on the configured cadence.",
       "advanced": true
     },
     "computerUse.healthCheckIntervalMinutes": {
@@ -809,7 +831,7 @@
     },
     "computerUse.strictReadiness": {
       "label": "Strict Readiness",
-      "help": "When true, a failed Computer Use live probe stops Codex-mode startup. The default false value preserves existing enabled setups by continuing with a warning.",
+      "help": "When true, a failed Computer Use live check stops Codex-mode startup. The default false value preserves existing enabled setups by continuing with a warning.",
       "advanced": true
     },
     "computerUse.autoRepair": {

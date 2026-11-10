@@ -7,7 +7,7 @@ import { createLazyRealtimeVoiceBridgeLifecycle } from "openclaw/plugin-sdk/real
 import { normalizeResolvedSecretInputString } from "openclaw/plugin-sdk/secret-input";
 import { retryAsync } from "openclaw/plugin-sdk/speech-provider";
 //#region extensions/google/realtime-voice-lazy.ts
-const loadGoogleRealtimeVoiceProvider = createLazyRuntimeSurface(() => import("./.setup/realtime-voice-provider-Idd2T347.mjs"), (mod) => mod.buildGoogleRealtimeVoiceProvider());
+const loadGoogleRealtimeVoiceProvider = createLazyRuntimeSurface(() => import("./.setup/realtime-voice-provider-U0MWuI60.mjs"), (mod) => mod.buildGoogleRealtimeVoiceProvider());
 function resolveGoogleRealtimeProviderConfig(rawConfig, cfg) {
 	const providers = asOptionalRecord(rawConfig.providers);
 	const raw = asOptionalRecord(providers?.google) ?? asOptionalRecord(rawConfig.google) ?? rawConfig;
@@ -127,10 +127,14 @@ function createLazyGoogleRealtimeVoiceBridge(req) {
 	};
 }
 function createLazyGoogleRealtimeVoiceProvider() {
+	const resolveConfig = ({ cfg, rawConfig }) => resolveGoogleRealtimeProviderConfig(rawConfig, cfg);
+	const isConfigured = ({ cfg, providerConfig }) => Boolean(normalizeOptionalString(providerConfig.apiKey) ?? normalizeOptionalString(cfg?.models?.providers?.google?.apiKey) ?? resolveGoogleEnvApiKey());
 	return {
 		...GOOGLE_REALTIME_VOICE_METADATA,
-		resolveConfig: ({ cfg, rawConfig }) => resolveGoogleRealtimeProviderConfig(rawConfig, cfg),
-		isConfigured: ({ cfg, providerConfig }) => Boolean(normalizeOptionalString(providerConfig.apiKey) ?? normalizeOptionalString(cfg?.models?.providers?.google?.apiKey) ?? resolveGoogleEnvApiKey()),
+		resolveConfig,
+		isConfigured,
+		resolveConfigAsync: async (context) => resolveConfig(context),
+		isConfiguredAsync: async (context) => isConfigured(context),
 		createBridge: createLazyGoogleRealtimeVoiceBridge,
 		createBrowserSession: async (req) => {
 			const provider = await loadGoogleRealtimeVoiceProvider();
@@ -538,6 +542,10 @@ async function synthesizeConfiguredGoogleTts(req) {
 	});
 }
 function buildGoogleSpeechProvider() {
+	const isConfigured = ({ cfg, providerConfig }) => Boolean(resolveGoogleTtsApiKey({
+		cfg,
+		providerConfig: readGoogleTtsProviderConfig(providerConfig)
+	}));
 	return {
 		id: "google",
 		label: "Google",
@@ -567,10 +575,8 @@ function buildGoogleSpeechProvider() {
 			id: voice,
 			name: voice
 		})),
-		isConfigured: ({ cfg, providerConfig }) => Boolean(resolveGoogleTtsApiKey({
-			cfg,
-			providerConfig: readGoogleTtsProviderConfig(providerConfig)
-		})),
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		prepareSynthesis: (ctx) => {
 			const config = readGoogleTtsProviderConfig(ctx.providerConfig);
 			const model = normalizeGoogleTtsModel(readGoogleTtsOverrides(ctx.providerOverrides).model ?? config.model);

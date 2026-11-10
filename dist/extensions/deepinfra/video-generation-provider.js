@@ -1,7 +1,7 @@
 import { DEEPINFRA_BASE_URL, DEEPINFRA_VIDEO_FALLBACK_MODELS, normalizeDeepInfraBaseUrl, normalizeDeepInfraModelRef } from "./media-models.js";
 import { buildDeepInfraVideoModelCapabilities, resolveDeepInfraVideoModelCapabilities } from "./surface-model-catalogs.js";
 import { asSafeIntegerInRange, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-import { isProviderApiKeyConfigured } from "openclaw/plugin-sdk/provider-auth";
+import { isProviderApiKeyConfiguredAsync } from "openclaw/plugin-sdk/provider-auth";
 import { resolveGeneratedMediaMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
 import { detectMime, extensionForMime, mediaKindFromMime, normalizeMimeType } from "openclaw/plugin-sdk/media-mime";
 import { canonicalizeBase64, estimateBase64DecodedBytes } from "openclaw/plugin-sdk/media-runtime";
@@ -94,7 +94,7 @@ function buildDeepInfraVideoGenerationProvider(options) {
 		defaultModel,
 		models: ids,
 		resolveModelCapabilities: resolveDeepInfraVideoModelCapabilities,
-		isConfigured: (ctx) => isProviderApiKeyConfigured({
+		isConfiguredAsync: (ctx) => isProviderApiKeyConfiguredAsync({
 			provider: "deepinfra",
 			...ctx
 		}),

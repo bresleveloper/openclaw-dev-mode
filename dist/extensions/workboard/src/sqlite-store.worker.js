@@ -1,13 +1,16 @@
-import { a as getNodeSqliteKysely, i as executeSqliteQueryTakeFirstSync, o as iterateSqliteQuerySync, r as executeSqliteQuerySync, t as compileSqliteQueryBindings, u as sqliteStringSet } from "../../../kysely-sync-K7ftY-g4.mjs";
-import { t as openNodeSqliteDatabase } from "../../../node-sqlite-XIcwmOrl.mjs";
-import { a as runSqliteImmediateTransactionSync, r as runSqliteDeferredTransactionSync } from "../../../sqlite-transaction-DsZ3X6nD.mjs";
-import { t as configureSqliteConnectionPragmas } from "../../../sqlite-wal-DUSYRhyv.mjs";
-import { t as migrateSqliteSchemaToStrict } from "../../../sqlite-strict-CYeSH78z.mjs";
-import "../../../sqlite-worker-runtime-BFi6Nryt.mjs";
-import "../../../plugin-state-runtime-CD-7t-B7.mjs";
-import { _ as createDefaultWorkboardSessionsBoardSpec, g as workboardCardSlotOwner, h as workboardCardConsumesOwnerSlot, t as encodeWorkboardSqliteFailure, v as normalizeWorkboardSessionsBoardSpec, y as patchWorkboardSessionsBoardSpec } from "../../../sqlite-store-errors-ClY8dC8v.mjs";
-import fs from "node:fs";
-import path from "node:path";
+import { c as isRecord } from "../../../record-coerce-TIsquoVR.mjs";
+import { a as executeSqliteQueryTakeFirstSync, d as sqliteStringSet, i as executeSqliteQuerySync, o as getNodeSqliteKysely, s as iterateSqliteQuerySync, t as compileSqliteQueryBindings } from "../../../kysely-sync-9fPQaMlh.mjs";
+import { a as runSqliteImmediateTransactionSync } from "../../../sqlite-transaction-CpDyZPQ0.mjs";
+import { f as requestSqliteWorkerOperationAdmission } from "../../../sqlite-worker-operation-admission-puNZKEvP.mjs";
+import { a as runEngineWorkerWrite, i as runEngineStoreReadSnapshot } from "../../../open-L_IbZFu2.mjs";
+import "../../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../../sqlite-worker-runtime-Da3qtgYL.mjs";
+import { t as normalizeSessionKeyForComparison } from "../../../session-key-comparison-DHDhHc25.mjs";
+import "../../../session-key-runtime-fFI27U8l.mjs";
+import "../../../database-engine-worker-runtime-LUHighaR.mjs";
+import { t as createWorkboardDatabase } from "../../../sqlite-store-schema-BlzFlT6H.mjs";
+import { G as workboardCardConsumesOwnerSlot, J as normalizeWorkboardSessionsBoardSpec, K as workboardCardSlotOwner, Y as patchWorkboardSessionsBoardSpec, g as normalizeLaunchState, q as createDefaultWorkboardSessionsBoardSpec, t as encodeWorkboardSqliteFailure } from "../../../sqlite-store-errors-BajGRUMO.mjs";
+import { t as definedFields } from "../../../record-fields-BHIzSIrv.mjs";
 //#region extensions/workboard/src/sqlite-store-records.ts
 function jsonValue(value) {
 	return value === void 0 ? null : JSON.stringify(value);
@@ -37,10 +40,6 @@ function requiredNumber(row, key) {
 }
 function optional(value) {
 	return Object.keys(value).length > 0 ? value : void 0;
-}
-function definedFields(fields) {
-	for (const key in fields) if (fields[key] === void 0) delete fields[key];
-	return fields;
 }
 function blobToBase64(value) {
 	if (value instanceof Uint8Array) return Buffer.from(value).toString("base64");
@@ -158,71 +157,63 @@ function readAttachment(row) {
 }
 function readMetadata(db, row, preloaded) {
 	const cardId = requiredString(row, "id");
-	const attempts = childRows(db, "workboard_card_attempts", cardId, preloaded).map((child) => {
-		return definedFields({
-			id: requiredString(child, "id"),
-			status: requiredString(child, "status"),
-			startedAt: requiredNumber(child, "started_at"),
-			endedAt: numberValue(child, "ended_at"),
-			engine: stringValue(child, "engine"),
-			mode: stringValue(child, "mode"),
-			model: stringValue(child, "model"),
-			sessionKey: stringValue(child, "session_key"),
-			runId: stringValue(child, "run_id"),
-			error: stringValue(child, "error")
-		});
-	});
-	const comments = childRows(db, "workboard_card_comments", cardId, preloaded).map((child) => {
-		return definedFields({
-			id: requiredString(child, "id"),
-			body: requiredString(child, "body"),
-			createdAt: requiredNumber(child, "created_at"),
-			updatedAt: numberValue(child, "updated_at")
-		});
-	});
-	const links = childRows(db, "workboard_card_links", cardId, preloaded).map((child) => {
-		return definedFields({
-			id: requiredString(child, "id"),
-			type: requiredString(child, "type"),
-			createdAt: requiredNumber(child, "created_at"),
-			targetCardId: stringValue(child, "target_card_id"),
-			title: stringValue(child, "title"),
-			url: stringValue(child, "url")
-		});
-	});
-	const proof = childRows(db, "workboard_card_proof", cardId, preloaded).map((child) => {
-		return definedFields({
-			id: requiredString(child, "id"),
-			status: requiredString(child, "status"),
-			createdAt: requiredNumber(child, "created_at"),
-			label: stringValue(child, "label"),
-			command: stringValue(child, "command"),
-			url: stringValue(child, "url"),
-			note: stringValue(child, "note")
-		});
-	});
-	const artifacts = childRows(db, "workboard_card_artifacts", cardId, preloaded).map((child) => {
-		return definedFields({
-			id: requiredString(child, "id"),
-			createdAt: requiredNumber(child, "created_at"),
-			label: stringValue(child, "label"),
-			url: stringValue(child, "url"),
-			path: stringValue(child, "path"),
-			mimeType: stringValue(child, "mime_type")
-		});
-	});
+	const readChildren = (table, decode) => {
+		const rows = childRows(db, table, cardId, preloaded).map((child) => definedFields(decode(child)));
+		return rows.length ? rows : void 0;
+	};
+	const attempts = readChildren("workboard_card_attempts", (child) => ({
+		id: requiredString(child, "id"),
+		status: requiredString(child, "status"),
+		startedAt: requiredNumber(child, "started_at"),
+		endedAt: numberValue(child, "ended_at"),
+		engine: stringValue(child, "engine"),
+		mode: stringValue(child, "mode"),
+		model: stringValue(child, "model"),
+		sessionKey: stringValue(child, "session_key"),
+		runId: stringValue(child, "run_id"),
+		error: stringValue(child, "error")
+	}));
+	const comments = readChildren("workboard_card_comments", (child) => ({
+		id: requiredString(child, "id"),
+		body: requiredString(child, "body"),
+		createdAt: requiredNumber(child, "created_at"),
+		updatedAt: numberValue(child, "updated_at")
+	}));
+	const links = readChildren("workboard_card_links", (child) => ({
+		id: requiredString(child, "id"),
+		type: requiredString(child, "type"),
+		createdAt: requiredNumber(child, "created_at"),
+		targetCardId: stringValue(child, "target_card_id"),
+		title: stringValue(child, "title"),
+		url: stringValue(child, "url")
+	}));
+	const proof = readChildren("workboard_card_proof", (child) => ({
+		id: requiredString(child, "id"),
+		status: requiredString(child, "status"),
+		createdAt: requiredNumber(child, "created_at"),
+		label: stringValue(child, "label"),
+		command: stringValue(child, "command"),
+		url: stringValue(child, "url"),
+		note: stringValue(child, "note")
+	}));
+	const artifacts = readChildren("workboard_card_artifacts", (child) => ({
+		id: requiredString(child, "id"),
+		createdAt: requiredNumber(child, "created_at"),
+		label: stringValue(child, "label"),
+		url: stringValue(child, "url"),
+		path: stringValue(child, "path"),
+		mimeType: stringValue(child, "mime_type")
+	}));
 	const attachments = childRows(db, "workboard_card_attachments", cardId, preloaded).map(readAttachment);
-	const workerLogs = childRows(db, "workboard_worker_logs", cardId, preloaded).map((child) => {
-		return definedFields({
-			id: requiredString(child, "id"),
-			createdAt: requiredNumber(child, "created_at"),
-			level: requiredString(child, "level"),
-			message: requiredString(child, "message"),
-			sessionKey: stringValue(child, "session_key"),
-			runId: stringValue(child, "run_id")
-		});
-	});
-	const diagnostics = childRows(db, "workboard_card_diagnostics", cardId, preloaded).map((child) => ({
+	const workerLogs = readChildren("workboard_worker_logs", (child) => ({
+		id: requiredString(child, "id"),
+		createdAt: requiredNumber(child, "created_at"),
+		level: requiredString(child, "level"),
+		message: requiredString(child, "message"),
+		sessionKey: stringValue(child, "session_key"),
+		runId: stringValue(child, "run_id")
+	}));
+	const diagnostics = readChildren("workboard_card_diagnostics", (child) => ({
 		kind: requiredString(child, "kind"),
 		severity: requiredString(child, "severity"),
 		title: requiredString(child, "title"),
@@ -232,29 +223,32 @@ function readMetadata(db, row, preloaded) {
 		count: requiredNumber(child, "count"),
 		actions: parseJson(child.actions_json) ?? []
 	}));
-	const notifications = childRows(db, "workboard_card_notifications", cardId, preloaded).map((child) => {
-		return definedFields({
-			id: requiredString(child, "id"),
-			kind: requiredString(child, "kind"),
-			createdAt: requiredNumber(child, "created_at"),
-			message: requiredString(child, "message"),
-			sequence: numberValue(child, "sequence"),
-			sessionKey: stringValue(child, "session_key"),
-			runId: stringValue(child, "run_id")
-		});
-	});
+	const notifications = readChildren("workboard_card_notifications", (child) => ({
+		id: requiredString(child, "id"),
+		kind: requiredString(child, "kind"),
+		createdAt: requiredNumber(child, "created_at"),
+		message: requiredString(child, "message"),
+		sequence: numberValue(child, "sequence"),
+		sessionKey: stringValue(child, "session_key"),
+		runId: stringValue(child, "run_id")
+	}));
 	const protocol = workerProtocolRow(db, cardId, preloaded);
 	const automation = parseJson(row.automation_json);
+	if (isRecord(automation)) {
+		const launch = normalizeLaunchState(automation.launch);
+		if (launch) automation.launch = launch;
+		else delete automation.launch;
+	}
 	const claim = parseJson(row.claim_json);
 	const stale = parseJson(row.stale_json);
 	return optional(definedFields({
-		attempts: attempts.length > 0 ? attempts : void 0,
-		comments: comments.length > 0 ? comments : void 0,
-		links: links.length > 0 ? links : void 0,
-		proof: proof.length > 0 ? proof : void 0,
-		artifacts: artifacts.length > 0 ? artifacts : void 0,
+		attempts,
+		comments,
+		links,
+		proof,
+		artifacts,
 		attachments: attachments.length > 0 ? attachments : void 0,
-		workerLogs: workerLogs.length > 0 ? workerLogs : void 0,
+		workerLogs,
 		workerProtocol: protocol ? definedFields({
 			state: requiredString(protocol, "state"),
 			updatedAt: requiredNumber(protocol, "updated_at"),
@@ -262,8 +256,8 @@ function readMetadata(db, row, preloaded) {
 		}) : void 0,
 		automation: automation || void 0,
 		claim: claim || void 0,
-		diagnostics: diagnostics.length > 0 ? diagnostics : void 0,
-		notifications: notifications.length > 0 ? notifications : void 0,
+		diagnostics,
+		notifications,
 		templateId: stringValue(row, "template_id"),
 		archivedAt: numberValue(row, "archived_at"),
 		stale: stale || void 0,
@@ -300,335 +294,33 @@ function readCard(db, row, preloaded) {
 	});
 }
 //#endregion
-//#region extensions/workboard/src/sqlite-store-schema.ts
-const SCHEMA_VERSION = 3;
-const WORKBOARD_SQLITE_BUSY_TIMEOUT_MS = 5e3;
-const WORKBOARD_SQLITE_DIR_MODE = 448;
-const WORKBOARD_SQLITE_FILE_MODE = 384;
-function tableColumns(db, tableName) {
-	return new Set(db.prepare(`PRAGMA table_info(${tableName})`).all().flatMap((row) => typeof row.name === "string" ? [row.name] : []));
-}
-function ensureColumn(db, tableName, columnName, definition) {
-	if (tableColumns(db, tableName).has(columnName)) return;
-	db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${definition}`);
-}
-const WORKBOARD_SCHEMA_SQL = `
-    CREATE TABLE IF NOT EXISTS workboard_schema_migrations (
-      id TEXT PRIMARY KEY,
-      applied_at INTEGER NOT NULL
-    ) STRICT;
-
-    CREATE TABLE IF NOT EXISTS workboard_boards (
-      id TEXT PRIMARY KEY,
-      name TEXT,
-      description TEXT,
-      icon TEXT,
-      color TEXT,
-      kind TEXT,
-      sessions_spec TEXT,
-      automation_job_id TEXT,
-      default_workspace_json TEXT,
-      orchestration_json TEXT,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL,
-      archived_at INTEGER
-    ) STRICT;
-
-    CREATE TABLE IF NOT EXISTS workboard_session_placements (
-      board_id TEXT NOT NULL REFERENCES workboard_boards(id) ON DELETE CASCADE,
-      session_key TEXT NOT NULL,
-      column_id TEXT NOT NULL,
-      source TEXT NOT NULL CHECK(source IN ('state', 'model', 'operator')),
-      reason TEXT NOT NULL,
-      facts_hash TEXT NOT NULL,
-      updated_at INTEGER NOT NULL,
-      PRIMARY KEY(board_id, session_key)
-    ) STRICT;
-
-    CREATE TABLE IF NOT EXISTS workboard_cards (
-      id TEXT PRIMARY KEY,
-      board_id TEXT NOT NULL,
-      title TEXT NOT NULL,
-      notes TEXT,
-      status TEXT NOT NULL,
-      priority TEXT NOT NULL,
-      agent_id TEXT,
-      session_key TEXT,
-      run_id TEXT,
-      task_id TEXT,
-      source_url TEXT,
-      position REAL NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL,
-      started_at INTEGER,
-      completed_at INTEGER,
-      execution_id TEXT,
-      execution_kind TEXT,
-      execution_engine TEXT,
-      execution_mode TEXT,
-      execution_status TEXT,
-      execution_model TEXT,
-      execution_session_key TEXT,
-      execution_run_id TEXT,
-      execution_started_at INTEGER,
-      execution_updated_at INTEGER,
-      automation_json TEXT,
-      claim_json TEXT,
-      template_id TEXT,
-      archived_at INTEGER,
-      stale_json TEXT,
-      lifecycle_status_source_updated_at INTEGER,
-      failure_count INTEGER
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS workboard_cards_board_status_idx
-      ON workboard_cards(board_id, status, position);
-    CREATE INDEX IF NOT EXISTS workboard_cards_session_idx
-      ON workboard_cards(session_key, run_id);
-
-    CREATE TABLE IF NOT EXISTS workboard_card_labels (
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      label TEXT NOT NULL,
-      PRIMARY KEY(card_id, ordinal)
-    ) STRICT;
-
-    CREATE TABLE IF NOT EXISTS workboard_card_events (
-      id TEXT PRIMARY KEY,
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      kind TEXT NOT NULL,
-      at INTEGER NOT NULL,
-      from_status TEXT,
-      to_status TEXT,
-      session_key TEXT,
-      run_id TEXT
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS workboard_card_events_card_idx
-      ON workboard_card_events(card_id, ordinal);
-
-    CREATE TABLE IF NOT EXISTS workboard_card_attempts (
-      id TEXT PRIMARY KEY,
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      status TEXT NOT NULL,
-      started_at INTEGER NOT NULL,
-      ended_at INTEGER,
-      engine TEXT,
-      mode TEXT,
-      model TEXT,
-      session_key TEXT,
-      run_id TEXT,
-      error TEXT
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS workboard_card_attempts_card_idx
-      ON workboard_card_attempts(card_id, ordinal);
-
-    CREATE TABLE IF NOT EXISTS workboard_card_comments (
-      id TEXT PRIMARY KEY,
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      body TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS workboard_card_comments_card_idx
-      ON workboard_card_comments(card_id, ordinal);
-
-    CREATE TABLE IF NOT EXISTS workboard_card_links (
-      id TEXT PRIMARY KEY,
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      type TEXT NOT NULL,
-      target_card_id TEXT,
-      title TEXT,
-      url TEXT,
-      created_at INTEGER NOT NULL
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS workboard_card_links_card_idx
-      ON workboard_card_links(card_id, ordinal);
-
-    CREATE TABLE IF NOT EXISTS workboard_card_proof (
-      id TEXT PRIMARY KEY,
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      status TEXT NOT NULL,
-      label TEXT,
-      command TEXT,
-      url TEXT,
-      note TEXT,
-      created_at INTEGER NOT NULL
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS workboard_card_proof_card_idx
-      ON workboard_card_proof(card_id, ordinal);
-
-    CREATE TABLE IF NOT EXISTS workboard_card_artifacts (
-      id TEXT PRIMARY KEY,
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      label TEXT,
-      url TEXT,
-      path TEXT,
-      mime_type TEXT,
-      created_at INTEGER NOT NULL
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS workboard_card_artifacts_card_idx
-      ON workboard_card_artifacts(card_id, ordinal);
-
-    CREATE TABLE IF NOT EXISTS workboard_card_diagnostics (
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      kind TEXT NOT NULL,
-      severity TEXT NOT NULL,
-      title TEXT NOT NULL,
-      detail TEXT NOT NULL,
-      first_seen_at INTEGER NOT NULL,
-      last_seen_at INTEGER NOT NULL,
-      count INTEGER NOT NULL,
-      actions_json TEXT NOT NULL,
-      PRIMARY KEY(card_id, ordinal)
-    ) STRICT;
-
-    CREATE TABLE IF NOT EXISTS workboard_card_notifications (
-      id TEXT PRIMARY KEY,
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      kind TEXT NOT NULL,
-      message TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      sequence INTEGER,
-      session_key TEXT,
-      run_id TEXT
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS workboard_card_notifications_card_idx
-      ON workboard_card_notifications(card_id, ordinal);
-
-    CREATE TABLE IF NOT EXISTS workboard_worker_logs (
-      id TEXT PRIMARY KEY,
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      level TEXT NOT NULL,
-      message TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      session_key TEXT,
-      run_id TEXT
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS workboard_worker_logs_card_idx
-      ON workboard_worker_logs(card_id, ordinal);
-
-    CREATE TABLE IF NOT EXISTS workboard_worker_protocol (
-      card_id TEXT PRIMARY KEY REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      state TEXT NOT NULL,
-      updated_at INTEGER NOT NULL,
-      detail TEXT
-    ) STRICT;
-
-    CREATE TABLE IF NOT EXISTS workboard_card_attachments (
-      id TEXT PRIMARY KEY,
-      card_id TEXT NOT NULL REFERENCES workboard_cards(id) ON DELETE CASCADE,
-      ordinal INTEGER NOT NULL,
-      file_name TEXT NOT NULL,
-      byte_size INTEGER NOT NULL,
-      mime_type TEXT,
-      note TEXT,
-      created_at INTEGER NOT NULL
-    ) STRICT;
-    CREATE INDEX IF NOT EXISTS workboard_card_attachments_card_idx
-      ON workboard_card_attachments(card_id, ordinal);
-
-    CREATE TABLE IF NOT EXISTS workboard_attachment_blobs (
-      attachment_id TEXT PRIMARY KEY,
-      content BLOB NOT NULL
-    ) STRICT;
-
-    CREATE TABLE IF NOT EXISTS workboard_notification_subscriptions (
-      id TEXT PRIMARY KEY,
-      board_id TEXT NOT NULL,
-      card_id TEXT,
-      session_key TEXT,
-      run_id TEXT,
-      target TEXT,
-      event_kinds_json TEXT,
-      last_event_at INTEGER,
-      last_event_id TEXT,
-      last_event_sequence INTEGER,
-      delivered_event_ids_json TEXT,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    ) STRICT;
-  `;
-function ensureWorkboardSchema(db) {
-	db.exec(WORKBOARD_SCHEMA_SQL);
-	ensureColumn(db, "workboard_boards", "automation_job_id", "automation_job_id TEXT");
-	ensureColumn(db, "workboard_boards", "kind", "kind TEXT");
-	ensureColumn(db, "workboard_boards", "sessions_spec", "sessions_spec TEXT");
-	const migrationId = `schema-${SCHEMA_VERSION}`;
-	if (!db.prepare("SELECT 1 AS found FROM workboard_schema_migrations WHERE id = ?").get(migrationId)) {
-		migrateSqliteSchemaToStrict(db, WORKBOARD_SCHEMA_SQL, { databaseLabel: "workboard database" });
-		db.prepare("INSERT OR IGNORE INTO workboard_schema_migrations (id, applied_at) VALUES (?, ?)").run(migrationId, Date.now());
-	}
-}
-function chmodIfExists(targetPath, mode) {
-	try {
-		fs.chmodSync(targetPath, mode);
-	} catch (err) {
-		if (err.code !== "ENOENT") throw err;
-	}
-}
-function hardenWorkboardDatabaseFiles(dbPath) {
-	fs.chmodSync(path.dirname(dbPath), WORKBOARD_SQLITE_DIR_MODE);
-	chmodIfExists(dbPath, WORKBOARD_SQLITE_FILE_MODE);
-	chmodIfExists(`${dbPath}-wal`, WORKBOARD_SQLITE_FILE_MODE);
-	chmodIfExists(`${dbPath}-shm`, WORKBOARD_SQLITE_FILE_MODE);
-	chmodIfExists(`${dbPath}-journal`, WORKBOARD_SQLITE_FILE_MODE);
-}
-function prepareWorkboardDatabasePath(dbPath) {
-	fs.mkdirSync(path.dirname(dbPath), {
-		recursive: true,
-		mode: WORKBOARD_SQLITE_DIR_MODE
-	});
-	chmodIfExists(path.dirname(dbPath), WORKBOARD_SQLITE_DIR_MODE);
-	if (!fs.existsSync(dbPath)) fs.closeSync(fs.openSync(dbPath, "a", WORKBOARD_SQLITE_FILE_MODE));
-}
-function createWorkboardDatabase(dbPath, retainClose) {
-	prepareWorkboardDatabasePath(dbPath);
-	const db = openNodeSqliteDatabase(dbPath);
-	let maintenance;
-	let maintenanceClosed = false;
-	let databaseClosed = false;
-	const close = () => {
-		if (!maintenanceClosed) {
-			maintenance?.close();
-			maintenanceClosed = true;
+//#region extensions/workboard/src/sqlite-store-session-links.ts
+const ASCII_KEY_CHARACTERS = Array.from({ length: 94 }, (_, index) => String.fromCharCode(33 + index)).join("");
+function readSessionLinkedCardIds(db, scope) {
+	const query = getNodeSqliteKysely(db);
+	const key = normalizeSessionKeyForComparison(scope.sessionKey);
+	const folded = key.toLowerCase();
+	const ascii = /^[\x20-\x7e]*$/.test(key);
+	const selected = /* @__PURE__ */ new Set();
+	let cards = query.selectFrom("workboard_cards").select([
+		"id",
+		"session_key",
+		"execution_id",
+		"execution_session_key"
+	]);
+	if (ascii) cards = cards.where((eb) => eb.or(["session_key", "execution_session_key"].flatMap((column) => [eb(eb.fn("lower", [eb.fn("trim", [column])]), "=", folded), eb(eb.fn("trim", [eb.ref(column), eb.val(ASCII_KEY_CHARACTERS)]), "!=", "")])));
+	if (scope.boardId !== void 0) cards = cards.where("board_id", "=", scope.boardId);
+	for (const row of iterateSqliteQuerySync(db, cards)) if ([stringValue(row, "session_key"), stringValue(row, "execution_id") ? stringValue(row, "execution_session_key") : void 0].some((candidate) => candidate && normalizeSessionKeyForComparison(candidate) === key)) selected.add(requiredString(row, "id"));
+	for (const table of ["workboard_card_attempts", "workboard_card_events"]) {
+		let links = query.selectFrom(table).select(["card_id", "session_key"]);
+		if (ascii) links = links.where((eb) => eb.or([eb(eb.fn("lower", [eb.fn("trim", ["session_key"])]), "=", folded), eb(eb.fn("trim", [eb.ref("session_key"), eb.val(ASCII_KEY_CHARACTERS)]), "!=", "")]));
+		if (scope.boardId !== void 0) links = links.where("card_id", "in", query.selectFrom("workboard_cards").select("id").where("board_id", "=", scope.boardId));
+		for (const row of iterateSqliteQuerySync(db, links)) {
+			const candidate = stringValue(row, "session_key");
+			if (candidate && normalizeSessionKeyForComparison(candidate) === key) selected.add(requiredString(row, "card_id"));
 		}
-		if (!databaseClosed) {
-			db.close();
-			databaseClosed = true;
-		}
-	};
-	try {
-		retainClose?.(close);
-		maintenance = configureSqliteConnectionPragmas(db, {
-			busyTimeoutMs: WORKBOARD_SQLITE_BUSY_TIMEOUT_MS,
-			checkpointIntervalMs: 0,
-			databaseLabel: "workboard database",
-			databasePath: dbPath,
-			foreignKeys: true,
-			synchronous: "NORMAL"
-		});
-		ensureWorkboardSchema(db);
-		hardenWorkboardDatabaseFiles(dbPath);
-		return {
-			db,
-			close
-		};
-	} catch (error) {
-		if (!retainClose) try {
-			maintenance?.close();
-		} finally {
-			db.close();
-		}
-		throw error;
 	}
+	return [...selected];
 }
 //#endregion
 //#region extensions/workboard/src/sqlite-store-sessions-board.ts
@@ -718,12 +410,11 @@ var WorkboardSqliteSessionsBoardStore = class {
 		});
 	}
 	writePlacement(boardId, placement, expectedSpec) {
-		const expected = JSON.stringify(normalizeWorkboardSessionsBoardSpec(expectedSpec));
+		const expected = JSON.stringify(expectedSpec);
 		return runSqliteImmediateTransactionSync(this.db, () => {
 			const board = this.get(boardId);
 			if (JSON.stringify(board.sessions) !== expected) return false;
 			if (!board.sessions.columns.some((column) => column.id === placement.columnId)) throw new Error(`Unknown sessions board column: ${placement.columnId}`);
-			if (!placement.sessionKey || placement.source !== "operator" || typeof placement.reason !== "string" || !Number.isSafeInteger(placement.updatedAt) || placement.updatedAt < 0) throw new Error("Invalid session pin.");
 			const query = getNodeSqliteKysely(this.db);
 			const current = executeSqliteQueryTakeFirstSync(this.db, query.selectFrom("workboard_session_placements").select("updated_at").where("board_id", "=", boardId).where("session_key", "=", placement.sessionKey));
 			if (current?.updated_at !== placement.expectedUpdatedAt) return false;
@@ -755,6 +446,13 @@ function bindNull(value) {
 	if (value === void 0 || value === null || typeof value === "string" || typeof value === "number" || typeof value === "bigint" || value instanceof Uint8Array) return value ?? null;
 	return JSON.stringify(value);
 }
+function prepareWorkboardUpsert(db, table, fields, preserved = []) {
+	const { compiled, bind } = compileSqliteQueryBindings((parameter) => getNodeSqliteKysely(db).insertInto(table).values(Object.fromEntries(Object.entries(fields).map(([key, read]) => [key, parameter(read)]))).onConflict((conflict) => conflict.column("id").doUpdateSet((eb) => Object.fromEntries(Object.keys(fields).filter((key) => key !== "id" && !preserved.includes(key)).map((key) => [key, eb.ref(`excluded.${key}`)])))));
+	const statement = db.prepare(compiled.sql);
+	return () => {
+		statement.run(...bind());
+	};
+}
 function insertChildren(db, table, cardId, entries, fields) {
 	const deletion = compileSqliteQueryBindings(() => getNodeSqliteKysely(db).deleteFrom(table).where("card_id", "=", cardId));
 	db.prepare(deletion.compiled.sql).run(...deletion.bind());
@@ -772,73 +470,40 @@ function insertCard(db, card) {
 	const execution = card.execution;
 	const metadata = card.metadata;
 	const query = getNodeSqliteKysely(db);
-	const parent = compileSqliteQueryBindings((p) => query.insertInto("workboard_cards").values({
-		id: p(() => card.id),
-		board_id: p(() => cardBoardId(card)),
-		title: p(() => card.title),
-		notes: p(() => bindNull(card.notes)),
-		status: p(() => card.status),
-		priority: p(() => card.priority),
-		agent_id: p(() => bindNull(card.agentId)),
-		session_key: p(() => bindNull(card.sessionKey)),
-		run_id: p(() => bindNull(card.runId)),
-		source_url: p(() => bindNull(card.sourceUrl)),
-		position: p(() => card.position),
-		created_at: p(() => card.createdAt),
-		updated_at: p(() => card.updatedAt),
-		started_at: p(() => bindNull(card.startedAt)),
-		completed_at: p(() => bindNull(card.completedAt)),
-		execution_id: p(() => bindNull(execution?.id)),
-		execution_kind: p(() => bindNull(execution?.kind)),
-		execution_engine: p(() => bindNull(execution?.engine)),
-		execution_mode: p(() => bindNull(execution?.mode)),
-		execution_status: p(() => bindNull(execution?.status)),
-		execution_model: p(() => bindNull(execution?.model)),
-		execution_session_key: p(() => bindNull(execution?.sessionKey)),
-		execution_run_id: p(() => bindNull(execution?.runId)),
-		execution_started_at: p(() => bindNull(execution?.startedAt)),
-		execution_updated_at: p(() => bindNull(execution?.updatedAt)),
-		automation_json: p(() => jsonValue(metadata?.automation)),
-		claim_json: p(() => jsonValue(metadata?.claim)),
-		template_id: p(() => bindNull(metadata?.templateId)),
-		archived_at: p(() => bindNull(metadata?.archivedAt)),
-		stale_json: p(() => jsonValue(metadata?.stale)),
-		lifecycle_status_source_updated_at: p(() => bindNull(metadata?.lifecycleStatusSourceUpdatedAt)),
-		failure_count: p(() => bindNull(metadata?.failureCount))
-	}).onConflict((conflict) => conflict.column("id").doUpdateSet((eb) => ({
-		board_id: eb.ref("excluded.board_id"),
-		title: eb.ref("excluded.title"),
-		notes: eb.ref("excluded.notes"),
-		status: eb.ref("excluded.status"),
-		priority: eb.ref("excluded.priority"),
-		agent_id: eb.ref("excluded.agent_id"),
-		session_key: eb.ref("excluded.session_key"),
-		run_id: eb.ref("excluded.run_id"),
-		source_url: eb.ref("excluded.source_url"),
-		position: eb.ref("excluded.position"),
-		created_at: eb.ref("excluded.created_at"),
-		updated_at: eb.ref("excluded.updated_at"),
-		started_at: eb.ref("excluded.started_at"),
-		completed_at: eb.ref("excluded.completed_at"),
-		execution_id: eb.ref("excluded.execution_id"),
-		execution_kind: eb.ref("excluded.execution_kind"),
-		execution_engine: eb.ref("excluded.execution_engine"),
-		execution_mode: eb.ref("excluded.execution_mode"),
-		execution_status: eb.ref("excluded.execution_status"),
-		execution_model: eb.ref("excluded.execution_model"),
-		execution_session_key: eb.ref("excluded.execution_session_key"),
-		execution_run_id: eb.ref("excluded.execution_run_id"),
-		execution_started_at: eb.ref("excluded.execution_started_at"),
-		execution_updated_at: eb.ref("excluded.execution_updated_at"),
-		automation_json: eb.ref("excluded.automation_json"),
-		claim_json: eb.ref("excluded.claim_json"),
-		template_id: eb.ref("excluded.template_id"),
-		archived_at: eb.ref("excluded.archived_at"),
-		stale_json: eb.ref("excluded.stale_json"),
-		lifecycle_status_source_updated_at: eb.ref("excluded.lifecycle_status_source_updated_at"),
-		failure_count: eb.ref("excluded.failure_count")
-	}))));
-	db.prepare(parent.compiled.sql).run(...parent.bind());
+	prepareWorkboardUpsert(db, "workboard_cards", {
+		id: () => card.id,
+		board_id: () => cardBoardId(card),
+		title: () => card.title,
+		notes: () => bindNull(card.notes),
+		status: () => card.status,
+		priority: () => card.priority,
+		agent_id: () => bindNull(card.agentId),
+		session_key: () => bindNull(card.sessionKey),
+		run_id: () => bindNull(card.runId),
+		source_url: () => bindNull(card.sourceUrl),
+		position: () => card.position,
+		created_at: () => card.createdAt,
+		updated_at: () => card.updatedAt,
+		started_at: () => bindNull(card.startedAt),
+		completed_at: () => bindNull(card.completedAt),
+		execution_id: () => bindNull(execution?.id),
+		execution_kind: () => bindNull(execution?.kind),
+		execution_engine: () => bindNull(execution?.engine),
+		execution_mode: () => bindNull(execution?.mode),
+		execution_status: () => bindNull(execution?.status),
+		execution_model: () => bindNull(execution?.model),
+		execution_session_key: () => bindNull(execution?.sessionKey),
+		execution_run_id: () => bindNull(execution?.runId),
+		execution_started_at: () => bindNull(execution?.startedAt),
+		execution_updated_at: () => bindNull(execution?.updatedAt),
+		automation_json: () => jsonValue(metadata?.automation),
+		claim_json: () => jsonValue(metadata?.claim),
+		template_id: () => bindNull(metadata?.templateId),
+		archived_at: () => bindNull(metadata?.archivedAt),
+		stale_json: () => jsonValue(metadata?.stale),
+		lifecycle_status_source_updated_at: () => bindNull(metadata?.lifecycleStatusSourceUpdatedAt),
+		failure_count: () => bindNull(metadata?.failureCount)
+	})();
 	insertChildren(db, "workboard_card_labels", card.id, card.labels, {
 		card_id: () => card.id,
 		label: (label) => label
@@ -954,6 +619,12 @@ function insertCard(db, card) {
 }
 //#endregion
 //#region extensions/workboard/src/sqlite-store-kernel.ts
+function keyedEntries(rows, read) {
+	return Array.from(rows, (row) => ({
+		key: requiredString(row, "id"),
+		value: read(row)
+	}));
+}
 var WorkboardSqliteCardStore = class {
 	constructor(db) {
 		this.db = db;
@@ -962,15 +633,10 @@ var WorkboardSqliteCardStore = class {
 		const current = executeSqliteQueryTakeFirstSync(this.db, getNodeSqliteKysely(this.db).selectFrom("workboard_cards").select("updated_at").where("id", "=", key));
 		return current !== void 0 && numberValue(current, "updated_at") === expectedUpdatedAt;
 	}
-	validatePayload(key, value) {
-		if (value.version !== 1 || value.card.id !== key) throw new Error("invalid workboard card payload");
-	}
-	register(key, value) {
-		this.validatePayload(key, value);
+	register(_key, value) {
 		runSqliteImmediateTransactionSync(this.db, () => insertCard(this.db, value.card));
 	}
 	registerIfAbsent(key, value) {
-		this.validatePayload(key, value);
 		return runSqliteImmediateTransactionSync(this.db, () => {
 			if (this.db.prepare("SELECT 1 FROM workboard_cards WHERE id = ?").get(key)) return false;
 			insertCard(this.db, value.card);
@@ -978,7 +644,6 @@ var WorkboardSqliteCardStore = class {
 		});
 	}
 	registerIfUpdatedAt(key, value, expectedUpdatedAt) {
-		this.validatePayload(key, value);
 		return runSqliteImmediateTransactionSync(this.db, () => {
 			if (!this.matchesUpdatedAt(key, expectedUpdatedAt)) return false;
 			insertCard(this.db, value.card);
@@ -986,11 +651,9 @@ var WorkboardSqliteCardStore = class {
 		});
 	}
 	claimIfOwnerAvailable(key, value, expectedUpdatedAt, ownerId, now) {
-		this.validatePayload(key, value);
 		return runSqliteImmediateTransactionSync(this.db, () => {
 			const query = getNodeSqliteKysely(this.db);
-			const current = executeSqliteQueryTakeFirstSync(this.db, query.selectFrom("workboard_cards").selectAll().where("id", "=", key).where("updated_at", "=", expectedUpdatedAt));
-			if (!current) return "conflict";
+			if (!executeSqliteQueryTakeFirstSync(this.db, query.selectFrom("workboard_cards").selectAll().where("id", "=", key).where("updated_at", "=", expectedUpdatedAt))) return "conflict";
 			const candidates = query.selectFrom("workboard_cards").select([
 				"status",
 				"agent_id",
@@ -1011,7 +674,6 @@ var WorkboardSqliteCardStore = class {
 				};
 				if (workboardCardConsumesOwnerSlot(card, now) && workboardCardSlotOwner(card) === ownerId) return "owner_busy";
 			}
-			readCard(this.db, current);
 			insertCard(this.db, value.card);
 			return "updated";
 		});
@@ -1050,7 +712,7 @@ var WorkboardSqliteCardStore = class {
 		return [.../* @__PURE__ */ new Set([...parents, ...recent])];
 	}
 	entries(scope) {
-		return scope?.kind === "worker-context" ? runSqliteDeferredTransactionSync(this.db, () => this.readEntries(scope)) : this.readEntries(scope);
+		return scope?.kind === "worker-context" || scope?.kind === "session-links" ? runEngineStoreReadSnapshot(this.db, () => this.readEntries(scope)) : this.readEntries(scope);
 	}
 	readEntries(scope) {
 		let query = getNodeSqliteKysely(this.db).selectFrom("workboard_cards").selectAll().orderBy("created_at", "asc").orderBy("id", "asc");
@@ -1060,7 +722,11 @@ var WorkboardSqliteCardStore = class {
 			eb("execution_id", "!=", ""),
 			eb("execution_session_key", "=", scope.sessionKey)
 		])]));
-		else if (scope?.kind === "worker-context") {
+		else if (scope?.kind === "session-links") {
+			const ids = readSessionLinkedCardIds(this.db, scope);
+			if (ids.length === 0) return [];
+			query = query.where("id", "in", sqliteStringSet(ids));
+		} else if (scope?.kind === "worker-context") {
 			const ids = this.workerContextCardIds(scope);
 			if (ids.length === 0) return [];
 			query = query.where("id", "in", sqliteStringSet(ids));
@@ -1156,35 +822,22 @@ var WorkboardSqliteBoardStore = class {
 		this.rowsQuery = getNodeSqliteKysely(db).selectFrom("workboard_boards").selectAll();
 	}
 	register(key, value) {
-		if (value.version !== 1 || value.board.id !== key) throw new Error("invalid workboard board payload");
 		const board = value.board;
-		const { compiled, bind } = compileSqliteQueryBindings((parameter) => getNodeSqliteKysely(this.db).insertInto("workboard_boards").values({
-			id: parameter(() => board.id),
-			name: parameter(() => bindNull(board.name)),
-			description: parameter(() => bindNull(board.description)),
-			icon: parameter(() => bindNull(board.icon)),
-			color: parameter(() => bindNull(board.color)),
-			kind: parameter(() => bindNull(board.kind)),
-			sessions_spec: parameter(() => board.kind === "sessions" ? jsonValue(normalizeWorkboardSessionsBoardSpec(board.sessions)) : null),
-			automation_job_id: parameter(() => bindNull(board.automationJobId)),
-			default_workspace_json: parameter(() => jsonValue(board.defaultWorkspace)),
-			orchestration_json: parameter(() => jsonValue(board.orchestration)),
-			created_at: parameter(() => board.createdAt),
-			updated_at: parameter(() => board.updatedAt),
-			archived_at: parameter(() => bindNull(board.archivedAt))
-		}).onConflict((conflict) => conflict.column("id").doUpdateSet((eb) => ({
-			name: eb.ref("excluded.name"),
-			description: eb.ref("excluded.description"),
-			icon: eb.ref("excluded.icon"),
-			color: eb.ref("excluded.color"),
-			automation_job_id: eb.ref("excluded.automation_job_id"),
-			default_workspace_json: eb.ref("excluded.default_workspace_json"),
-			orchestration_json: eb.ref("excluded.orchestration_json"),
-			created_at: eb.ref("excluded.created_at"),
-			updated_at: eb.ref("excluded.updated_at"),
-			archived_at: eb.ref("excluded.archived_at")
-		}))));
-		const statement = this.db.prepare(compiled.sql);
+		const write = prepareWorkboardUpsert(this.db, "workboard_boards", {
+			id: () => board.id,
+			name: () => bindNull(board.name),
+			description: () => bindNull(board.description),
+			icon: () => bindNull(board.icon),
+			color: () => bindNull(board.color),
+			kind: () => bindNull(board.kind),
+			sessions_spec: () => board.kind === "sessions" ? jsonValue(normalizeWorkboardSessionsBoardSpec(board.sessions)) : null,
+			automation_job_id: () => bindNull(board.automationJobId),
+			default_workspace_json: () => jsonValue(board.defaultWorkspace),
+			orchestration_json: () => jsonValue(board.orchestration),
+			created_at: () => board.createdAt,
+			updated_at: () => board.updatedAt,
+			archived_at: () => bindNull(board.archivedAt)
+		}, ["kind", "sessions_spec"]);
 		runSqliteImmediateTransactionSync(this.db, () => {
 			const existing = this.lookup(key)?.board;
 			if (existing && (existing.kind ?? "cards") !== (board.kind ?? "cards")) throw new Error("board kind cannot be changed after creation.");
@@ -1192,7 +845,7 @@ var WorkboardSqliteBoardStore = class {
 				const card = executeSqliteQueryTakeFirstSync(this.db, getNodeSqliteKysely(this.db).selectFrom("workboard_cards").select("id").where("board_id", "=", key).limit(1));
 				if (key === "default" || card) throw new Error("board kind cannot be changed after creation.");
 			}
-			statement.run(...bind());
+			write();
 		});
 	}
 	lookup(key) {
@@ -1203,10 +856,7 @@ var WorkboardSqliteBoardStore = class {
 		return (executeSqliteQuerySync(this.db, getNodeSqliteKysely(this.db).deleteFrom("workboard_boards").where("id", "=", key)).numAffectedRows ?? 0n) > 0n;
 	}
 	entries() {
-		return Array.from(iterateSqliteQuerySync(this.db, this.rowsQuery.orderBy("id", "asc")), (row) => ({
-			key: requiredString(row, "id"),
-			value: readBoard(row)
-		}));
+		return keyedEntries(iterateSqliteQuerySync(this.db, this.rowsQuery.orderBy("id", "asc")), readBoard);
 	}
 };
 function readSubscription(row) {
@@ -1236,38 +886,23 @@ var WorkboardSqliteSubscriptionStore = class {
 		this.db = db;
 		this.rowsQuery = getNodeSqliteKysely(db).selectFrom("workboard_notification_subscriptions").selectAll();
 	}
-	register(key, value) {
-		if (value.version !== 1 || value.subscription.id !== key) throw new Error("invalid workboard notification subscription payload");
+	register(_key, value) {
 		const subscription = value.subscription;
-		const { compiled, bind } = compileSqliteQueryBindings((parameter) => getNodeSqliteKysely(this.db).insertInto("workboard_notification_subscriptions").values({
-			id: parameter(() => subscription.id),
-			board_id: parameter(() => subscription.boardId),
-			card_id: parameter(() => bindNull(subscription.cardId)),
-			session_key: parameter(() => bindNull(subscription.sessionKey)),
-			run_id: parameter(() => bindNull(subscription.runId)),
-			target: parameter(() => bindNull(subscription.target)),
-			event_kinds_json: parameter(() => jsonValue(subscription.eventKinds)),
-			last_event_at: parameter(() => bindNull(subscription.lastEventAt)),
-			last_event_id: parameter(() => bindNull(subscription.lastEventId)),
-			last_event_sequence: parameter(() => bindNull(subscription.lastEventSequence)),
-			delivered_event_ids_json: parameter(() => jsonValue(subscription.deliveredEventIds)),
-			created_at: parameter(() => subscription.createdAt),
-			updated_at: parameter(() => subscription.updatedAt)
-		}).onConflict((conflict) => conflict.column("id").doUpdateSet((eb) => ({
-			board_id: eb.ref("excluded.board_id"),
-			card_id: eb.ref("excluded.card_id"),
-			session_key: eb.ref("excluded.session_key"),
-			run_id: eb.ref("excluded.run_id"),
-			target: eb.ref("excluded.target"),
-			event_kinds_json: eb.ref("excluded.event_kinds_json"),
-			last_event_at: eb.ref("excluded.last_event_at"),
-			last_event_id: eb.ref("excluded.last_event_id"),
-			last_event_sequence: eb.ref("excluded.last_event_sequence"),
-			delivered_event_ids_json: eb.ref("excluded.delivered_event_ids_json"),
-			created_at: eb.ref("excluded.created_at"),
-			updated_at: eb.ref("excluded.updated_at")
-		}))));
-		this.db.prepare(compiled.sql).run(...bind());
+		prepareWorkboardUpsert(this.db, "workboard_notification_subscriptions", {
+			id: () => subscription.id,
+			board_id: () => subscription.boardId,
+			card_id: () => bindNull(subscription.cardId),
+			session_key: () => bindNull(subscription.sessionKey),
+			run_id: () => bindNull(subscription.runId),
+			target: () => bindNull(subscription.target),
+			event_kinds_json: () => jsonValue(subscription.eventKinds),
+			last_event_at: () => bindNull(subscription.lastEventAt),
+			last_event_id: () => bindNull(subscription.lastEventId),
+			last_event_sequence: () => bindNull(subscription.lastEventSequence),
+			delivered_event_ids_json: () => jsonValue(subscription.deliveredEventIds),
+			created_at: () => subscription.createdAt,
+			updated_at: () => subscription.updatedAt
+		})();
 	}
 	lookup(key) {
 		const row = executeSqliteQueryTakeFirstSync(this.db, this.rowsQuery.where("id", "=", key));
@@ -1280,10 +915,7 @@ var WorkboardSqliteSubscriptionStore = class {
 		let query = this.rowsQuery;
 		if (options.boardId) query = query.where("board_id", "=", options.boardId);
 		if (options.cardId) query = query.where("card_id", "=", options.cardId);
-		return Array.from(iterateSqliteQuerySync(this.db, query.orderBy("created_at", "asc").orderBy("id", "asc")), (row) => ({
-			key: requiredString(row, "id"),
-			value: readSubscription(row)
-		}));
+		return keyedEntries(iterateSqliteQuerySync(this.db, query.orderBy("created_at", "asc").orderBy("id", "asc")), readSubscription);
 	}
 };
 function readPersistedAttachment(row) {
@@ -1298,8 +930,7 @@ var WorkboardSqliteAttachmentStore = class {
 		this.db = db;
 		this.rowsQuery = getNodeSqliteKysely(db).selectFrom("workboard_card_attachments as a").innerJoin("workboard_attachment_blobs as b", "b.attachment_id", "a.id").selectAll("a").select("b.content");
 	}
-	register(key, value) {
-		if (value.version !== 1 || value.attachment.id !== key) throw new Error("invalid workboard attachment payload");
+	register(_key, value) {
 		const attachment = value.attachment;
 		this.db.prepare(`
           INSERT INTO workboard_attachment_blobs (attachment_id, content)
@@ -1318,14 +949,11 @@ var WorkboardSqliteAttachmentStore = class {
 		}).changes > 0;
 	}
 	entries() {
-		return Array.from(iterateSqliteQuerySync(this.db, this.rowsQuery.orderBy("a.created_at", "asc").orderBy("a.id", "asc")), (row) => ({
-			key: requiredString(row, "id"),
-			value: readPersistedAttachment(row)
-		}));
+		return keyedEntries(iterateSqliteQuerySync(this.db, this.rowsQuery.orderBy("a.created_at", "asc").orderBy("a.id", "asc")), readPersistedAttachment);
 	}
 };
-function createWorkboardSqliteKernel(dbPath, retainClose) {
-	const { db, close } = createWorkboardDatabase(dbPath, retainClose);
+function createWorkboardSqliteKernel(dbPath, retainClose, postgresInput) {
+	const { db, close } = createWorkboardDatabase(dbPath, retainClose, postgresInput);
 	const boards = new WorkboardSqliteBoardStore(db);
 	return {
 		cards: new WorkboardSqliteCardStore(db),
@@ -1333,108 +961,81 @@ function createWorkboardSqliteKernel(dbPath, retainClose) {
 		sessionsBoard: new WorkboardSqliteSessionsBoardStore(db, boards),
 		subscriptions: new WorkboardSqliteSubscriptionStore(db),
 		attachments: new WorkboardSqliteAttachmentStore(db),
-		dataVersion: () => requiredNumber(db.prepare("PRAGMA data_version").get(), "data_version"),
-		close
+		close,
+		withWriteTransaction: (operation, options) => runSqliteImmediateTransactionSync(db, operation, options)
 	};
 }
 //#endregion
 //#region extensions/workboard/src/sqlite-store.worker.ts
-function createSqliteWorkerBackend(_input, context) {
-	const initial = createWorkboardSqliteKernel(context.databasePath);
-	const connections = /* @__PURE__ */ new Map();
-	connections.set(0, {
-		kernel: initial,
-		close: initial.close
-	});
-	let nextConnection = 0;
+function createSqliteWorkerBackend(input, context) {
+	const kernel = createWorkboardSqliteKernel(context.databasePath, void 0, input);
+	const operations = {
+		"cards.register": kernel.cards.register.bind(kernel.cards),
+		"cards.registerIfAbsent": kernel.cards.registerIfAbsent.bind(kernel.cards),
+		"cards.registerIfUpdatedAt": kernel.cards.registerIfUpdatedAt.bind(kernel.cards),
+		"cards.claimIfOwnerAvailable": kernel.cards.claimIfOwnerAvailable.bind(kernel.cards),
+		"cards.deleteIfUpdatedAt": kernel.cards.deleteIfUpdatedAt.bind(kernel.cards),
+		"cards.lookup": kernel.cards.lookup.bind(kernel.cards),
+		"cards.delete": kernel.cards.delete.bind(kernel.cards),
+		"cards.entries": kernel.cards.entries.bind(kernel.cards),
+		"cards.listCardStatuses": kernel.cards.listCardStatuses.bind(kernel.cards),
+		"cards.listBoardAggregates": kernel.cards.listBoardAggregates.bind(kernel.cards),
+		"cards.listStatsAggregates": kernel.cards.listStatsAggregates.bind(kernel.cards),
+		"cards.hasCards": kernel.cards.hasCards.bind(kernel.cards),
+		"boards.register": kernel.boards.register.bind(kernel.boards),
+		"boards.lookup": kernel.boards.lookup.bind(kernel.boards),
+		"boards.delete": kernel.boards.delete.bind(kernel.boards),
+		"boards.entries": kernel.boards.entries.bind(kernel.boards),
+		"sessionsBoard.get": kernel.sessionsBoard.get.bind(kernel.sessionsBoard),
+		"sessionsBoard.update": kernel.sessionsBoard.update.bind(kernel.sessionsBoard),
+		"sessionsBoard.listPlacements": kernel.sessionsBoard.listPlacements.bind(kernel.sessionsBoard),
+		"sessionsBoard.repairPlacements": kernel.sessionsBoard.repairPlacements.bind(kernel.sessionsBoard),
+		"sessionsBoard.writePlacement": kernel.sessionsBoard.writePlacement.bind(kernel.sessionsBoard),
+		"subscriptions.register": kernel.subscriptions.register.bind(kernel.subscriptions),
+		"subscriptions.lookup": kernel.subscriptions.lookup.bind(kernel.subscriptions),
+		"subscriptions.delete": kernel.subscriptions.delete.bind(kernel.subscriptions),
+		"subscriptions.entries": kernel.subscriptions.entries.bind(kernel.subscriptions),
+		"attachments.register": kernel.attachments.register.bind(kernel.attachments),
+		"attachments.lookup": kernel.attachments.lookup.bind(kernel.attachments),
+		"attachments.delete": kernel.attachments.delete.bind(kernel.attachments),
+		"attachments.entries": kernel.attachments.entries.bind(kernel.attachments)
+	};
 	function execute(command) {
-		const connection = connections.get(command.input.connection);
-		if (!connection) throw new Error("Workboard SQLite connection is closed.");
-		if (command.type === "connection.close") {
-			connection.close();
-			connections.delete(command.input.connection);
-			return;
-		}
-		const kernel = connection.kernel;
-		if (!kernel) throw new Error("Workboard SQLite connection initialization failed.");
-		switch (command.type) {
-			case "dataVersion": return kernel.dataVersion();
-			case "cards.register": return kernel.cards.register(...command.input.args);
-			case "cards.registerIfAbsent": return kernel.cards.registerIfAbsent(...command.input.args);
-			case "cards.registerIfUpdatedAt": return kernel.cards.registerIfUpdatedAt(...command.input.args);
-			case "cards.claimIfOwnerAvailable": return kernel.cards.claimIfOwnerAvailable(...command.input.args);
-			case "cards.deleteIfUpdatedAt": return kernel.cards.deleteIfUpdatedAt(...command.input.args);
-			case "cards.lookup": return kernel.cards.lookup(...command.input.args);
-			case "cards.delete": return kernel.cards.delete(...command.input.args);
-			case "cards.entries": return kernel.cards.entries(...command.input.args);
-			case "cards.listCardStatuses": return kernel.cards.listCardStatuses(...command.input.args);
-			case "cards.listBoardAggregates": return kernel.cards.listBoardAggregates(...command.input.args);
-			case "cards.listStatsAggregates": return kernel.cards.listStatsAggregates(...command.input.args);
-			case "cards.hasCards": return kernel.cards.hasCards(...command.input.args);
-			case "boards.register": return kernel.boards.register(...command.input.args);
-			case "boards.lookup": return kernel.boards.lookup(...command.input.args);
-			case "boards.delete": return kernel.boards.delete(...command.input.args);
-			case "boards.entries": return kernel.boards.entries(...command.input.args);
-			case "sessionsBoard.get": return kernel.sessionsBoard.get(...command.input.args);
-			case "sessionsBoard.update": return kernel.sessionsBoard.update(...command.input.args);
-			case "sessionsBoard.listPlacements": return kernel.sessionsBoard.listPlacements(...command.input.args);
-			case "sessionsBoard.repairPlacements": return kernel.sessionsBoard.repairPlacements(...command.input.args);
-			case "sessionsBoard.writePlacement": return kernel.sessionsBoard.writePlacement(...command.input.args);
-			case "subscriptions.register": return kernel.subscriptions.register(...command.input.args);
-			case "subscriptions.lookup": return kernel.subscriptions.lookup(...command.input.args);
-			case "subscriptions.delete": return kernel.subscriptions.delete(...command.input.args);
-			case "subscriptions.entries": return kernel.subscriptions.entries(...command.input.args);
-			case "attachments.register": return kernel.attachments.register(...command.input.args);
-			case "attachments.lookup": return kernel.attachments.lookup(...command.input.args);
-			case "attachments.delete": return kernel.attachments.delete(...command.input.args);
-			case "attachments.entries": return kernel.attachments.entries(...command.input.args);
-		}
+		return operations[command.type](...command.input.args);
 	}
 	return {
 		execute(command) {
-			if (command.type === "connection.open") {
-				const connection = ++nextConnection;
-				try {
-					const unclaimed = connections.get(0);
-					connections.delete(0);
-					const kernel = unclaimed?.kernel ?? createWorkboardSqliteKernel(context.databasePath, (close) => {
-						connections.set(connection, { close });
-					});
-					connections.set(connection, {
-						kernel,
-						close: kernel.close
-					});
-					return {
-						ok: true,
-						value: {
-							connection,
-							dataVersion: kernel.dataVersion()
-						}
-					};
-				} catch (error) {
-					const owned = connections.get(connection);
-					if (owned) try {
-						owned.close();
-						connections.delete(connection);
-					} catch {
-						return {
-							ok: false,
-							failure: {
-								...encodeWorkboardSqliteFailure(error),
-								cleanupConnection: connection
-							}
-						};
-					}
-					return {
-						ok: false,
-						failure: encodeWorkboardSqliteFailure(error)
-					};
-				}
-			}
 			try {
 				return {
 					ok: true,
-					value: execute(command)
+					value: ![
+						"cards.lookup",
+						"cards.entries",
+						"cards.listCardStatuses",
+						"cards.listBoardAggregates",
+						"cards.listStatsAggregates",
+						"cards.hasCards",
+						"boards.lookup",
+						"boards.entries",
+						"sessionsBoard.get",
+						"sessionsBoard.listPlacements",
+						"subscriptions.lookup",
+						"subscriptions.entries",
+						"attachments.lookup",
+						"attachments.entries"
+					].includes(command.type) ? runEngineWorkerWrite(input, () => execute(command), (operation) => {
+						requestSqliteWorkerOperationAdmission({
+							stage: "transaction",
+							facts: void 0
+						});
+						return kernel.withWriteTransaction(operation, { withCommit(commit) {
+							requestSqliteWorkerOperationAdmission({
+								stage: "commit",
+								facts: void 0
+							});
+							commit();
+						} });
+					}) : execute(command)
 				};
 			} catch (error) {
 				return {
@@ -1443,16 +1044,7 @@ function createSqliteWorkerBackend(_input, context) {
 				};
 			}
 		},
-		close() {
-			const failures = [];
-			for (const [id, kernel] of connections) try {
-				kernel.close();
-				connections.delete(id);
-			} catch (error) {
-				failures.push(error);
-			}
-			if (failures.length) throw new AggregateError(failures, "Workboard SQLite cleanup failed");
-		}
+		close: kernel.close
 	};
 }
 //#endregion

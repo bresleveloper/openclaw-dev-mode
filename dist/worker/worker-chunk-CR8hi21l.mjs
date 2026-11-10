@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var GatewayOperatorRecoveryOwnershipError,t=e((()=>{GatewayOperatorRecoveryOwnershipError=class extends Error{constructor(e=`Restart recovery operator source no longer owns this input.`,t){super(e,t),this.name=`GatewayOperatorRecoveryOwnershipError`}}}));export{t as n,GatewayOperatorRecoveryOwnershipError as t};

@@ -89,6 +89,15 @@ export function hasSamePreparedModelCatalogAuth(
   );
 }
 
+export type ModelServiceTierObservation = {
+  modelId: string;
+  runtimeId: string;
+  api: string;
+  baseUrl: string;
+  requestedTier: string;
+  responseTier?: string;
+};
+
 /** Selected-account inventory belongs to the prepared generation, not an RPC projector. */
 export type PreparedAccountCatalogAccess = {
   reconcileAuth: (
@@ -96,17 +105,17 @@ export type PreparedAccountCatalogAccess = {
     includesProvider: (provider: string) => boolean,
     profileIds?: readonly string[],
   ) => void;
-  readServiceTiers: (params: {
+  readServiceTierObservation: (params: {
     identityKey: string;
     modelId: string;
     runtimeId: string;
     api: string;
     baseUrl: string;
-  }) => readonly string[] | undefined;
+  }) => Pick<ModelServiceTierObservation, "requestedTier" | "responseTier"> | undefined;
   prepareServiceTierObserver: (params: {
     selectedCredential: SelectedModelCredential;
     credential?: AuthProfileCredential;
-  }) => (observation: NonNullable<ProviderCatalogOutcome["modelServiceTiers"]>[number]) => boolean;
+  }) => (observation: ModelServiceTierObservation) => boolean;
   acquire: (params: {
     profileId: string;
     credential: AuthProfileCredential;
@@ -119,6 +128,7 @@ export type PreparedAccountCatalogAccess = {
 /** Private auth facts owned by an immutable prepared model generation. */
 type RuntimeAuthBinding = {
   store?: AuthProfileStore;
+  readUsage?: (store: AuthProfileStore) => AuthProfileStore;
   labels?: ModelCatalogAuthLabels;
   materializations?: readonly RuntimeAuthMaterialization[];
   load?: (scope: PreparedModelRuntimeAuthScope) => Promise<PreparedModelRuntimeAuth>;
@@ -138,7 +148,8 @@ export function bindPreparedModelRuntimeAuth(snapshot: object, binding: RuntimeA
 }
 
 export function getPreparedModelRuntimeAuthStore(snapshot: object): AuthProfileStore | undefined {
-  return runtimeAuth.get(snapshot)?.store;
+  const binding = runtimeAuth.get(snapshot);
+  return binding?.store ? (binding.readUsage?.(binding.store) ?? binding.store) : undefined;
 }
 
 export function getPreparedModelRuntimeAuthLabels(snapshot: object): ModelCatalogAuthLabels {
@@ -185,7 +196,7 @@ export async function loadPreparedModelRuntimeAuth(
   if (load) {
     return await load(scope);
   }
-  const authStore = binding?.store;
+  const authStore = getPreparedModelRuntimeAuthStore(snapshot);
   return authStore ? { authStore, authModes: snapshot.authModes ?? {} } : undefined;
 }
 

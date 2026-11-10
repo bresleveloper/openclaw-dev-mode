@@ -1,5 +1,5 @@
 import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
 //#region extensions/device-pair/pair-command-auth.ts
 const COMMAND_OWNER_PAIRING_SCOPES = ["operator.pairing"];
 const PAIRING_SCOPE = "operator.pairing";

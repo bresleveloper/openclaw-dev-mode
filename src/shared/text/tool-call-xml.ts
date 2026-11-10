@@ -1,21 +1,26 @@
-// Tool-call XML parsing and its incremental stream filter.
 import { expectDefined } from "@openclaw/normalization-core";
-import { normalizeLowercaseStringOrEmpty } from "@openclaw/normalization-core/string-coerce";
 import {
   consumeLineBreak,
   skipHorizontalWhitespace,
   skipWhitespace,
 } from "../../../packages/tool-call-repair/src/grammar.js";
-import { findCodeRegions, isInsideCode } from "./code-regions.js";
+import {
+  advanceProtectionScanState,
+  createProtectionScanState,
+} from "../../../packages/tool-call-repair/src/protection-fast-path.js";
+import {
+  canReuseMarkdownOwnership,
+  findCodeOwnership,
+  findCodeRegions,
+  isInsideCode,
+  isInsideSettledBlockCode,
+} from "./code-regions.js";
+import { isGlmArgPayload } from "./glm-arg-key-payload.js";
 import { createConditionalTextProjector, type TextFilter } from "./text-projection.js";
+import { createQuotedStringScanner, parseXmlTagAt, type ParsedToolCallTag } from "./xml-tag-at.js";
 
-/**
- * Strip XML-style tool call tags that models sometimes emit as plain text.
- * This stateful pass hides content from an opening tag through the matching
- * closing tag, or to end-of-string if the stream was truncated mid-tag.
- */
 const TOOL_CALL_QUICK_RE =
-  /<\s*\/?\s*(?:antml:)?(?:tool_call|tool_result|function_calls?|function_response|function|tool_calls|invoke|parameter)\b/i;
+  /<\s*(?:\/\s*)?(?:(?:antml|mm):)?(?:tool_call|tool_result|function_calls?|function_response|function|tool_calls|invoke|parameter)\b/i;
 const TOOL_CALL_TAG_NAMES = new Set([
   "tool_call",
   "tool_result",
@@ -24,24 +29,35 @@ const TOOL_CALL_TAG_NAMES = new Set([
   "function_response",
   "function",
   "tool_calls",
+  "invoke",
   "antml:invoke",
   "antml:parameter",
+  "antml:function_calls",
+  "mm:tool_call",
+  "mm:function_calls",
+  "mm:invoke",
+  "mm:parameter",
 ]);
-const TOOL_CALL_JSON_PAYLOAD_START_RE =
-  /^(?:\s+[A-Za-z_:][-A-Za-z0-9_:.]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))*\s*(?:\r?\n\s*)?[[{]/;
+const TOOL_CALL_PREFIX_NAMES = [...TOOL_CALL_TAG_NAMES, "parameter", "parameters", "arguments"];
+const ATTRIBUTE_NAME = "[A-Za-z_:][-A-Za-z0-9_:.]*";
+const ATTRIBUTE_VALUE = String.raw`(?:"[^"]*"|'[^']*'|[^\s"'=<>\x60]+)`;
+const ATTRIBUTES = String.raw`(?:\s+${ATTRIBUTE_NAME}\s*=\s*${ATTRIBUTE_VALUE})*`;
+const TOOL_CALL_JSON_PAYLOAD_START_RE = new RegExp(String.raw`^${ATTRIBUTES}\s*[[{]`);
+// The same attribute grammar, with its final name/value allowed to be incomplete.
+const TOOL_CALL_JSON_PAYLOAD_PREFIX_RE = new RegExp(
+  String.raw`^${ATTRIBUTES}(?:\s+${ATTRIBUTE_NAME}(?:\s*=(?:\s*(?:"[^"]*|'[^']*|[^\s"'=<>\x60]+))?)?)?\s*$`,
+);
 const TOOL_CALL_XML_PAYLOAD_START_RE =
-  /^\s*(?:\r?\n\s*)?<(?:antml:)?(?:function_call|tool_call|function|invoke|parameters?|arguments?)\b/i;
+  /^\s*(?:\r?\n\s*)?<(?:antml:|mm:)?(?:function_call|tool_call|function|invoke|parameters?|arguments?)\b/i;
 const NESTED_JSON_TOOL_CALL_PAYLOAD_START_RE = /^\s*(?:\r?\n\s*)?<(?:function_call|tool_call)\b/i;
 
-const TOOL_CALL_PREFIX_NAMES = [
-  ...TOOL_CALL_TAG_NAMES,
-  "invoke",
-  "parameter",
-  "parameters",
-  "arguments",
-];
-
 type ToolCallPayloadKind = "json" | "xml" | null;
+type ToolCallXmlProjection = {
+  appendSafe: boolean;
+  // With no code markers, only the delimiter boundary is needed for the next append.
+  parameterText?: string;
+  parameterOwnership?: ReturnType<typeof findCodeOwnership>;
+};
 
 function isToolCallTagPrefix(text: string, start: number): boolean {
   if (start < 0) {
@@ -55,79 +71,22 @@ function isToolCallTagPrefix(text: string, start: number): boolean {
   return TOOL_CALL_PREFIX_NAMES.some((candidate) => candidate.startsWith(name));
 }
 
-function createQuotedStringScanner(text: string, start: number): (end: number) => boolean {
-  let quoteChar: "'" | '"' | null = null;
-  let isEscaped = false;
-  // Candidate closing tags share one monotonic scan through their payload.
-  let cursor = start;
-  return (end) => {
-    for (; cursor < end; cursor += 1) {
-      const char = text[cursor];
-      if (quoteChar === null) {
-        if (char === '"' || char === "'") {
-          quoteChar = char;
-        }
-      } else if (isEscaped) {
-        isEscaped = false;
-      } else if (char === "\\") {
-        isEscaped = true;
-      } else if (char === quoteChar) {
-        quoteChar = null;
-      }
-    }
-    return quoteChar !== null;
-  };
-}
-
-interface ParsedToolCallTag {
-  contentStart: number;
-  end: number;
-  isClose: boolean;
-  isSelfClosing: boolean;
-  tagName: string;
-  isTruncated: boolean;
-}
-
-// Match only the tag head; quote-aware scanning owns the close boundary.
-const XML_TAG_HEAD_RE = /<\s*(?:(\/)\s*)?([A-Za-z_:][A-Za-z0-9_.:-]*)(?=$|[\s/>])/y;
-
-function parseXmlTagAt(text: string, start: number): ParsedToolCallTag | null {
-  XML_TAG_HEAD_RE.lastIndex = start;
-  const match = XML_TAG_HEAD_RE.exec(text);
-  if (!match) {
-    return null;
-  }
-  const contentStart = XML_TAG_HEAD_RE.lastIndex;
-  const isClose = match[1] === "/";
-  const closeIndex = findTagCloseIndex(text, contentStart);
-  const isTruncated = closeIndex === -1;
-  return {
-    contentStart,
-    end: isTruncated ? text.length : closeIndex + 1,
-    isClose,
-    isSelfClosing: !isTruncated && !isClose && /\/\s*$/.test(text.slice(contentStart, closeIndex)),
-    tagName: normalizeLowercaseStringOrEmpty(match[2]),
-    isTruncated,
-  };
-}
-
-function findTagCloseIndex(text: string, start: number): number {
-  const isInsideQuote = createQuotedStringScanner(text, start);
-  for (let idx = start; idx < text.length; idx += 1) {
-    const char = text[idx];
-    if ((char === "<" || char === ">") && !isInsideQuote(idx)) {
-      return char === ">" ? idx : -1;
-    }
-  }
-  return -1;
-}
-
-function detectToolCallPayloadKind(text: string, start: number): ToolCallPayloadKind {
+function detectToolCallPayloadKind(
+  text: string,
+  start: number,
+  streaming = false,
+): ToolCallPayloadKind {
   const rest = text.slice(start);
   if (TOOL_CALL_JSON_PAYLOAD_START_RE.test(rest)) {
     return "json";
   }
-  if (TOOL_CALL_XML_PAYLOAD_START_RE.test(rest)) {
+  if (
+    TOOL_CALL_XML_PAYLOAD_START_RE.test(rest) ||
+    (streaming && isToolCallTagPrefix(text, skipWhitespace(text, start)))
+  ) {
+    return "xml";
+  }
+  if (isGlmArgPayload(rest, streaming)) {
     return "xml";
   }
   return null;
@@ -155,11 +114,11 @@ function isLikelyStandaloneFunctionToolCall(
   tagStart: number,
   tag: ParsedToolCallTag,
 ): boolean {
-  if (tag.tagName !== "function" || tag.isClose || tag.isSelfClosing || tag.isTruncated) {
+  if (tag.isClose || tag.isSelfClosing || tag.isTruncated) {
     return false;
   }
 
-  if (!/\bname\s*=/.test(text.slice(tag.contentStart, tag.end))) {
+  if (tag.tagName === "function" && !/\bname\s*=/.test(text.slice(tag.contentStart, tag.end))) {
     return false;
   }
 
@@ -221,7 +180,11 @@ function parseToolCallTagAt(text: string, start: number): ParsedToolCallTag | nu
   return tag && TOOL_CALL_TAG_NAMES.has(tag.tagName) ? tag : null;
 }
 
-function scanXmlTags(text: string, codeRegions: ReturnType<typeof findCodeRegions>) {
+function scanXmlTags(
+  text: string,
+  codeRegions: ReturnType<typeof findCodeRegions>,
+  projection?: ToolCallXmlProjection,
+) {
   type Tag = ParsedToolCallTag & { start: number; hasMatchingClose: boolean };
   const tags: Tag[] = [];
   const openTags = new Map<string, Tag[]>();
@@ -231,6 +194,9 @@ function scanXmlTags(text: string, codeRegions: ReturnType<typeof findCodeRegion
     }
     const parsed = parseXmlTagAt(text, start);
     if (!parsed || parsed.isTruncated) {
+      if (projection && (parsed?.isTruncated || isToolCallTagPrefix(text, start))) {
+        projection.appendSafe = false;
+      }
       continue;
     }
     const tag: Tag = { ...parsed, start, hasMatchingClose: false };
@@ -281,17 +247,26 @@ function isLineEndAfter(text: string, end: number): boolean {
   return cursor >= text.length || text[cursor] === "\n" || text[cursor] === "\r";
 }
 
-function unwrapStandaloneParameterTags(text: string): string {
+function unwrapStandaloneParameterTags(text: string, projection?: ToolCallXmlProjection): string {
   if (!/<\s*\/?\s*parameter\b/i.test(text)) {
+    if (projection && isToolCallTagPrefix(text, text.lastIndexOf("<"))) {
+      projection.appendSafe = false;
+    }
     return text;
   }
 
-  const codeRegions = findCodeRegions(text);
+  const ownership = projection && /[`~\t]| {4}/u.test(text) ? findCodeOwnership(text) : undefined;
+  const codeRegions = projection ? (ownership?.regions ?? []) : findCodeRegions(text);
+  if (projection) {
+    // XML removal can create Markdown syntax absent from the original source.
+    projection.parameterText = ownership ? text : text.slice(-4);
+    projection.parameterOwnership = ownership;
+  }
   const openTags: Array<{ name: string; unwrap: boolean; trimBoundaryLineBreaks: boolean }> = [];
   let result = "";
   let lastIndex = 0;
 
-  for (const tag of scanXmlTags(text, codeRegions)) {
+  for (const tag of scanXmlTags(text, codeRegions, projection)) {
     const idx = tag.start;
 
     if (tag.isClose) {
@@ -299,6 +274,9 @@ function unwrapStandaloneParameterTags(text: string): string {
       if (openIndex !== -1) {
         const opening = expectDefined(openTags[openIndex], "open tags entry at open index");
         if (opening.unwrap) {
+          if (projection && skipHorizontalWhitespace(text, tag.end) === text.length) {
+            projection.appendSafe = false;
+          }
           const contentEnd =
             opening.trimBoundaryLineBreaks &&
             isLineStartAt(text, idx) &&
@@ -340,20 +318,35 @@ type StripToolCallXmlOptions = {
 };
 
 export function stripToolCallXmlTags(input: string, options: StripToolCallXmlOptions = {}): string {
-  return stripToolCallXmlTagsInternal(input, options);
+  return stripToolCallXmlTagsInternal(input, options, false);
 }
 
 function stripToolCallXmlTagsInternal(
-  input: string,
+  text: string,
   options: StripToolCallXmlOptions,
+  streaming: boolean,
   resolveCodeRegions = findCodeRegions,
+  projection?: ToolCallXmlProjection,
 ): string {
-  const text = input;
-  if (!text || !TOOL_CALL_QUICK_RE.test(text)) {
+  if (
+    !text ||
+    (!TOOL_CALL_QUICK_RE.test(text) &&
+      !(streaming && isToolCallTagPrefix(text, text.lastIndexOf("<"))))
+  ) {
+    if (projection && isToolCallTagPrefix(text, text.lastIndexOf("<"))) {
+      projection.appendSafe = false;
+    }
     return text;
   }
-
   const codeRegions = resolveCodeRegions(text);
+  // A lone transport opener is scaffolding unless Markdown owns it as code.
+  if (/^\s*<tool_call>\s*$/i.test(text) && !isInsideCode(text.indexOf("<"), codeRegions)) {
+    if (projection) {
+      projection.appendSafe = false;
+    }
+    return "";
+  }
+
   let result = "";
   let lastIndex = 0;
   let isInsidePayloadQuote: ((end: number) => boolean) | undefined;
@@ -371,6 +364,19 @@ function stripToolCallXmlTagsInternal(
     }
 
     const tag = parseToolCallTagAt(text, idx);
+    if (projection && (tag?.isTruncated || isToolCallTagPrefix(text, idx))) {
+      projection.appendSafe = false;
+    }
+    if (
+      streaming &&
+      toolCallBlockTagName === null &&
+      ((tag?.isTruncated && !tag.isClose) || isToolCallTagPrefix(text, idx))
+    ) {
+      if (projection) {
+        projection.appendSafe = false;
+      }
+      return unwrapStandaloneParameterTags(result + text.slice(lastIndex, idx), projection);
+    }
     if (!tag) {
       continue;
     }
@@ -402,7 +408,7 @@ function stripToolCallXmlTagsInternal(
       }
       const payloadStart = tag.isTruncated ? tag.contentStart : tag.end;
       const isPluralToolCallWrapper =
-        tag.tagName === "function_calls" || tag.tagName === "tool_calls";
+        tag.tagName.endsWith("function_calls") || tag.tagName === "tool_calls";
       const matchingCloseStart = isPluralToolCallWrapper
         ? findMatchingToolCallCloseIndex(text, tag.end, tag.tagName)
         : -1;
@@ -415,18 +421,22 @@ function stripToolCallXmlTagsInternal(
         findAdjacentOpeningToolCallTag(text, matchingCloseTag.end, "function_response") !== null;
       const shouldDetectXmlPayload =
         tag.tagName === "tool_call" ||
+        tag.tagName === "mm:tool_call" ||
         tag.tagName === "function" ||
-        tag.tagName === "antml:invoke" ||
-        ((options.stripFunctionCallsXmlPayloads === true ||
+        tag.tagName.endsWith("invoke") ||
+        ((tag.tagName.includes(":") ||
+          isLineStartAt(text, idx) ||
+          options.stripFunctionCallsXmlPayloads === true ||
           shouldStripPluralWrapperBeforeResponse) &&
           isPluralToolCallWrapper);
       const payloadKind = shouldDetectXmlPayload
-        ? detectToolCallPayloadKind(text, payloadStart)
+        ? detectToolCallPayloadKind(text, payloadStart, streaming)
         : TOOL_CALL_JSON_PAYLOAD_START_RE.test(text.slice(payloadStart))
           ? "json"
           : null;
       const shouldStripStandaloneFunction =
-        tag.tagName !== "function" || isLikelyStandaloneFunctionToolCall(text, idx, tag);
+        (tag.tagName !== "function" && tag.tagName !== "invoke") ||
+        isLikelyStandaloneFunctionToolCall(text, idx, tag);
       const functionResponseCloseStart =
         tag.tagName === "function_response"
           ? findMatchingToolCallCloseIndex(text, tag.end, tag.tagName)
@@ -451,6 +461,9 @@ function stripToolCallXmlTagsInternal(
           break;
         }
       } else {
+        if (projection && TOOL_CALL_JSON_PAYLOAD_PREFIX_RE.test(text.slice(payloadStart))) {
+          projection.appendSafe = false;
+        }
         const preserveEnd = tag.isTruncated ? tag.contentStart : tag.end;
         result += text.slice(idx, preserveEnd);
         if (!tag.isTruncated) {
@@ -475,69 +488,154 @@ function stripToolCallXmlTagsInternal(
     idx = Math.max(idx, tag.end - 1);
   }
 
+  if (projection && toolCallBlockTagName !== null) {
+    projection.appendSafe = false;
+  }
   if (toolCallBlockTagName === null) {
     result += text.slice(lastIndex);
   } else if (toolCallBlockTagName === "function") {
     result += text.slice(toolCallBlockStart);
   }
 
-  return unwrapStandaloneParameterTags(result);
+  return unwrapStandaloneParameterTags(result, projection);
 }
 
-export function toolCallXmlTextFilter(options: StripToolCallXmlOptions = {}): TextFilter {
+export function toolCallXmlTextFilter(
+  options: StripToolCallXmlOptions = {},
+  streaming = false,
+): TextFilter {
   return {
-    transform: (text) => stripToolCallXmlTagsInternal(text, options),
+    transform: (text) => stripToolCallXmlTagsInternal(text, options, streaming),
     create: () => {
       let scannedThrough = 0;
       let active = false;
       let codeRegions: ReturnType<typeof findCodeRegions> | undefined;
-      return createConditionalTextProjector(
-        (text) => {
-          const regions = codeRegions;
-          codeRegions = undefined;
-          return stripToolCallXmlTagsInternal(
-            text,
-            options,
-            () => regions ?? findCodeRegions(text),
-          );
-        },
-        ({ text, delta }) => {
-          if (active) {
-            return true;
-          }
-          const appended = delta ?? text;
-          if (scannedThrough === text.length - appended.length && !appended.includes("<")) {
-            scannedThrough = text.length;
-            return false;
-          }
-          for (let start = text.indexOf("<", scannedThrough); start !== -1;) {
+      const protectionScan = createProtectionScanState();
+      let heldPrefix: number | undefined;
+      let source = "";
+      let sourceTail = "";
+      let output = "";
+      let ownership: ReturnType<typeof findCodeOwnership> | undefined;
+      let projection: ToolCallXmlProjection = { appendSafe: false };
+      const transform = (text: string) => {
+        codeRegions = undefined;
+        projection = { appendSafe: false };
+        if (heldPrefix !== undefined) {
+          return text.slice(0, heldPrefix);
+        }
+        ownership = /[`~\t]| {4}/u.test(text) ? findCodeOwnership(text) : undefined;
+        sourceTail = text.slice(-4);
+        projection.appendSafe = true;
+        return stripToolCallXmlTagsInternal(
+          text,
+          options,
+          streaming,
+          () => ownership?.regions ?? [],
+          projection,
+        );
+      };
+      const project = createConditionalTextProjector(transform, ({ text, delta }) => {
+        heldPrefix = undefined;
+        const appended = delta ?? text;
+        advanceProtectionScanState(protectionScan, appended);
+        if (scannedThrough === text.length - appended.length && !appended.includes("<")) {
+          scannedThrough = text.length;
+          return false;
+        }
+        let deferredStart: number | undefined;
+        for (let start = text.indexOf("<", scannedThrough); start !== -1;) {
+          const next = text.indexOf("<", start + 1);
+          const candidate = text.slice(start, next === -1 ? text.length : next);
+          // Markdown ownership can only matter for a candidate that could begin a
+          // tool-call tag; ordinary markup must not re-parse the whole reply.
+          const quickCandidate = TOOL_CALL_QUICK_RE.test(candidate);
+          const prefixCandidate = isToolCallTagPrefix(candidate, 0);
+          if (quickCandidate || prefixCandidate) {
+            const onCurrentLine = candidate.length <= protectionScan.partialLine.length;
+            if (next === -1 && onCurrentLine && prefixCandidate && !quickCandidate) {
+              // Only the unfinished candidate line can be classified from the carried tail.
+              const completed = { ...protectionScan };
+              advanceProtectionScanState(completed, "\n");
+              if (!completed.paragraphAmbiguous && !completed.structuralUnknown) {
+                if (completed.fenceChar) {
+                  deferredStart = start;
+                  start = next;
+                  continue;
+                }
+                if (streaming) {
+                  heldPrefix = start;
+                  scannedThrough = start;
+                  return true;
+                }
+              }
+            }
             codeRegions ??= findCodeRegions(text);
-            // Appends cannot revoke block code after its opening line is complete.
-            // Inline code can still change ownership through tables and references.
-            const protectedBlock = codeRegions.some(
-              (region) =>
-                region.block &&
-                region.start <= start &&
-                start < region.end &&
-                /[\r\n]/.test(text.slice(region.start, start)),
-            );
-            const next = text.indexOf("<", start + 1);
-            const candidate = text.slice(start, next === -1 ? text.length : next);
-            if (!protectedBlock && TOOL_CALL_QUICK_RE.test(candidate)) {
+            const protectedBlock = isInsideSettledBlockCode(start, text, codeRegions);
+            if (!protectedBlock && quickCandidate) {
               active = true;
               return true;
             }
-            if (!protectedBlock && isToolCallTagPrefix(candidate, 0)) {
+            if (!protectedBlock && prefixCandidate) {
               scannedThrough = start;
               return true;
             }
-            start = next;
           }
-          scannedThrough = text.length;
-          codeRegions = undefined;
-          return false;
-        },
-      );
+          start = next;
+        }
+        scannedThrough = deferredStart ?? text.length;
+        codeRegions = undefined;
+        return false;
+      });
+      return (input) => {
+        if (!active) {
+          const result = project(input);
+          source = input.text;
+          output = result.text;
+          return result;
+        }
+        const delta = input.delta;
+        const parameterText = projection.parameterText;
+        if (
+          delta !== null &&
+          projection.appendSafe &&
+          !delta.includes("<") &&
+          // With no code markers in the source, only their append boundary can create code.
+          canReuseMarkdownOwnership(
+            ownership ? source : sourceTail,
+            ownership ? input.text : sourceTail + delta,
+            ownership,
+          ) &&
+          (parameterText === undefined ||
+            canReuseMarkdownOwnership(
+              parameterText,
+              parameterText + delta,
+              projection.parameterOwnership,
+            ))
+        ) {
+          if (parameterText !== undefined) {
+            const next = parameterText + delta;
+            projection.parameterText = projection.parameterOwnership ? next : next.slice(-4);
+          }
+          source = input.text;
+          sourceTail = (sourceTail + delta).slice(-4);
+          output += delta;
+          return { text: output, delta };
+        }
+        // Refresh the canonical result when XML or Markdown can revise earlier text.
+        const previous = output;
+        heldPrefix = undefined;
+        output = transform(input.text);
+        source = input.text;
+        return {
+          text: output,
+          delta:
+            delta === null
+              ? null
+              : output.startsWith(previous)
+                ? output.slice(previous.length)
+                : null,
+        };
+      };
     },
   };
 }

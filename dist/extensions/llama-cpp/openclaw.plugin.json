@@ -4,10 +4,11 @@
     "models"
   ],
   "name": "llama.cpp Provider",
-  "description": "Managed and external llama.cpp servers for GGUF chat and embeddings.",
+  "description": "Managed and external llama.cpp servers for GGUF chat, embeddings and local images.",
   "activation": {
     "onStartup": false
   },
+  "providerCatalogEntry": "./provider-discovery.js",
   "enabledByDefault": true,
   "autoEnableWhenConfiguredProviders": [
     "llama-cpp"
@@ -58,6 +59,10 @@
       "provider": "llama-cpp",
       "method": "local",
       "choiceId": "llama-cpp",
+      "optionKey": "llamaCppEmbeddingOnly",
+      "cliFlag": "--llama-cpp-embedding-only",
+      "cliOption": "--llama-cpp-embedding-only",
+      "cliDescription": "Consent to managed llama.cpp embedding-only model and runtime downloads (non-interactive)",
       "appGuidedDiscovery": true,
       "appGuidedActionLabel": "Set up model",
       "choiceLabel": "Managed local server",
@@ -86,6 +91,12 @@
   "contracts": {
     "embeddingProviders": [
       "local"
+    ],
+    "mediaUnderstandingProviders": [
+      "llama-cpp"
+    ],
+    "tools": [
+      "local_image"
     ]
   },
   "configSchema": {

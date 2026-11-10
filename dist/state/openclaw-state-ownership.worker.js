@@ -1,5 +1,6 @@
-import { t as encodeOpenClawStateWorkerError } from "../openclaw-state-worker-error-Cmtk9G4_.mjs";
-import { o as inspectOpenClawStateOwnershipInProcess } from "../openclaw-state-ownership-BDcUGGMF.mjs";
+import { i as routeLogsToStderr } from "../console-CML7QnOp.mjs";
+import { t as encodeOpenClawStateWorkerError } from "../openclaw-state-worker-error-B93Lf_P2.mjs";
+import { o as inspectOpenClawStateOwnershipInProcess } from "../openclaw-state-ownership-SRnMuR_a.mjs";
 //#region src/state/openclaw-state-ownership.worker.ts
 function inspect(databasePath) {
 	try {
@@ -18,6 +19,7 @@ function inspect(databasePath) {
 		};
 	}
 }
+routeLogsToStderr();
 process.stdout.write(JSON.stringify(inspect(process.argv[2])));
 //#endregion
 export {};

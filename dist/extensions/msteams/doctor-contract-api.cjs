@@ -1,6 +1,7 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const require_rolldown_runtime = require("./.setup/rolldown-runtime-BloeesfJ.cjs");
-const require_token_config = require("./.setup/token-config-DOt3XwVa.cjs");
+const require_token_config = require("./.setup/token-config-bEpua_Q7.cjs");
+const require_delegated_state = require("./.setup/delegated-state-Bv5cWuec.cjs");
 const require_doctor_backup_resources = require("./doctor-backup-resources.cjs");
 let openclaw_plugin_sdk_string_coerce_runtime = require("openclaw/plugin-sdk/string-coerce-runtime");
 let openclaw_plugin_sdk_error_runtime = require("openclaw/plugin-sdk/error-runtime");
@@ -264,11 +265,11 @@ const stateMigrations = [
 	{
 		id: "msteams-delegated-token-json-to-plugin-state",
 		label: "Microsoft Teams delegated OAuth token",
-		collectBackupResources: ({ stateDir }) => require_doctor_backup_resources.stateFileBackupResources(stateDir, require_token_config.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME),
+		collectBackupResources: ({ stateDir }) => require_doctor_backup_resources.stateFileBackupResources(stateDir, require_delegated_state.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME),
 		async detectLegacyState(params) {
-			const filePath = node_path.default.join(params.stateDir, require_token_config.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME);
+			const filePath = node_path.default.join(params.stateDir, require_delegated_state.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME);
 			try {
-				return (await node_fs_promises.default.stat(filePath)).isFile() ? { preview: [`- ${MSTEAMS_PLUGIN_ID} delegated OAuth token -> plugin state (${require_token_config.MSTEAMS_DELEGATED_TOKEN_NAMESPACE})`] } : null;
+				return (await node_fs_promises.default.stat(filePath)).isFile() ? { preview: [`- ${MSTEAMS_PLUGIN_ID} delegated OAuth token -> plugin state (${require_delegated_state.MSTEAMS_DELEGATED_TOKEN_NAMESPACE})`] } : null;
 			} catch {
 				return null;
 			}
@@ -276,10 +277,10 @@ const stateMigrations = [
 		async migrateLegacyState(params) {
 			const changes = [];
 			const warnings = [];
-			const filePath = node_path.default.join(params.stateDir, require_token_config.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME);
+			const filePath = node_path.default.join(params.stateDir, require_delegated_state.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME);
 			let token;
 			try {
-				token = require_token_config.normalizeMSTeamsDelegatedTokens(JSON.parse(await node_fs_promises.default.readFile(filePath, "utf8")));
+				token = require_delegated_state.normalizeMSTeamsDelegatedTokens(JSON.parse((0, runtime_doctor_migrations_exports.decodeUtf8Input)(await node_fs_promises.default.readFile(filePath), "Legacy Teams delegated token")));
 			} catch (error) {
 				if (error.code === "ENOENT") return {
 					changes,
@@ -288,7 +289,8 @@ const stateMigrations = [
 				warnings.push(`Failed reading ${MSTEAMS_PLUGIN_ID} delegated OAuth token legacy source; left it in place`);
 				return {
 					changes,
-					warnings
+					warnings,
+					...error instanceof runtime_doctor_migrations_exports.Utf8InputError ? { warningDisposition: "recoverable" } : {}
 				};
 			}
 			if (!token) {
@@ -299,11 +301,11 @@ const stateMigrations = [
 				};
 			}
 			const store = params.context.openPluginStateKeyedStore({
-				namespace: require_token_config.MSTEAMS_DELEGATED_TOKEN_NAMESPACE,
+				namespace: require_delegated_state.MSTEAMS_DELEGATED_TOKEN_NAMESPACE,
 				maxEntries: 1,
 				overflowPolicy: "reject-new"
 			});
-			const existing = await store.lookup(require_token_config.MSTEAMS_DELEGATED_TOKEN_KEY);
+			const existing = await store.lookup(require_delegated_state.MSTEAMS_DELEGATED_TOKEN_KEY);
 			if (existing && JSON.stringify(existing) !== JSON.stringify(token)) {
 				warnings.push(`Kept existing ${MSTEAMS_PLUGIN_ID} delegated OAuth token in plugin state; left differing legacy source in place`);
 				return {
@@ -312,7 +314,7 @@ const stateMigrations = [
 				};
 			}
 			if (!existing) try {
-				await store.registerIfAbsent(require_token_config.MSTEAMS_DELEGATED_TOKEN_KEY, token);
+				await store.registerIfAbsent(require_delegated_state.MSTEAMS_DELEGATED_TOKEN_KEY, token);
 			} catch (error) {
 				warnings.push(`Failed importing ${MSTEAMS_PLUGIN_ID} delegated OAuth token: ${String(error)}; left legacy source in place`);
 				return {
@@ -320,7 +322,7 @@ const stateMigrations = [
 					warnings
 				};
 			}
-			const persisted = require_token_config.normalizeMSTeamsDelegatedTokens(await store.lookup(require_token_config.MSTEAMS_DELEGATED_TOKEN_KEY));
+			const persisted = require_delegated_state.normalizeMSTeamsDelegatedTokens(await store.lookup(require_delegated_state.MSTEAMS_DELEGATED_TOKEN_KEY));
 			if (!persisted || JSON.stringify(persisted) !== JSON.stringify(token)) {
 				warnings.push(`Failed verifying ${MSTEAMS_PLUGIN_ID} delegated OAuth token in plugin state; left legacy source in place`);
 				return {

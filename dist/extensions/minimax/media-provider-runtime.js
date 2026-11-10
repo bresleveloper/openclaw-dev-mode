@@ -1,2 +1,2 @@
-import { a as resolveMinimaxMediaBaseUrl, i as normalizeMinimaxHexAudio, n as assertMinimaxBaseResp, r as fetchMinimaxResponse, t as DEFAULT_MINIMAX_MEDIA_BASE_URL } from "../../media-provider-runtime-3IuGITmK.mjs";
-export { DEFAULT_MINIMAX_MEDIA_BASE_URL, assertMinimaxBaseResp, fetchMinimaxResponse, normalizeMinimaxHexAudio, resolveMinimaxMediaBaseUrl };
+import { i as resolveMinimaxMediaRequestConfig, n as fetchMinimaxResponse, r as normalizeMinimaxHexAudio, t as assertMinimaxBaseResp } from "../../media-provider-runtime-DyOG3XQb.mjs";
+export { assertMinimaxBaseResp, fetchMinimaxResponse, normalizeMinimaxHexAudio, resolveMinimaxMediaRequestConfig };

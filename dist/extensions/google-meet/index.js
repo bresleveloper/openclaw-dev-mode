@@ -1,7 +1,7 @@
 import { t as GOOGLE_MEET_CLI_DESCRIPTOR } from "./.setup/cli-output-mode-BwH_6tH8.mjs";
 import { n as GOOGLE_MEET_NODE_COMMAND } from "./.setup/google-meet-platform-constants-CnRfrYX7.mjs";
 import { r as resolveGoogleMeetConfig } from "./.setup/config-BXGAMntj.mjs";
-import { a as formatGoogleMeetGatewayError, c as loadGoogleMeetCreateModule, d as normalizeMode, f as normalizeTransport, g as shouldJoinCreatedMeet, h as sendGoogleMeetGatewayError, i as createLazyGoogleMeetNodeInvokePolicy, l as loadGoogleMeetNodeHostModule, m as resolveMeetingInput, n as callGoogleMeetGatewayFromTool, o as keepTrustedToolAgentId, p as readGoogleMeetParticipationParams, r as createGoogleMeetRuntimeAccessor, s as loadGoogleMeetCliModule, t as assertGoogleMeetAgentToolActionSupported, u as loadGoogleMeetPluginHelpers } from "./.setup/plugin-registration-BP83dqMw.mjs";
+import { a as formatGoogleMeetGatewayError, c as loadGoogleMeetCreateModule, d as normalizeMode, f as normalizeTransport, g as shouldJoinCreatedMeet, h as sendGoogleMeetGatewayError, i as createLazyGoogleMeetNodeInvokePolicy, l as loadGoogleMeetNodeHostModule, m as resolveMeetingInput, n as callGoogleMeetGatewayFromTool, o as keepTrustedToolAgentId, p as readGoogleMeetParticipationParams, r as createGoogleMeetRuntimeAccessor, s as loadGoogleMeetCliModule, t as assertGoogleMeetAgentToolActionSupported, u as loadGoogleMeetPluginHelpers } from "./.setup/plugin-registration-1Oc4T1Bj.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { asNonArrayRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
@@ -84,7 +84,7 @@ const GoogleMeetToolSchema = Type.Object({
 		minimum: 0
 	})),
 	message: Type.Optional(Type.String({ description: "Realtime instructions to speak now" })),
-	timeoutMs: optionalPositiveIntegerSchema({ description: "Probe timeout in milliseconds" }),
+	timeoutMs: optionalPositiveIntegerSchema({ description: "Check timeout in milliseconds" }),
 	meeting: Type.Optional(Type.String({ description: "Meet URL, meeting code, or spaces/{id}" })),
 	today: Type.Optional(Type.Boolean({ description: "For latest, artifacts, or attendance, find a Meet link on today's calendar." })),
 	event: Type.Optional(Type.String({ description: "For latest, artifacts, or attendance, find a matching Calendar event." })),
@@ -108,6 +108,12 @@ const GoogleMeetToolSchema = Type.Object({
 });
 //#endregion
 //#region extensions/google-meet/index.ts
+var InvalidGoogleMeetRequest = class extends Error {};
+function requireSessionId(params) {
+	const sessionId = normalizeOptionalString(params?.sessionId);
+	if (!sessionId) throw new InvalidGoogleMeetRequest("sessionId required");
+	return sessionId;
+}
 var google_meet_default = definePluginEntry({
 	id: "google-meet",
 	name: "Google Meet",
@@ -122,9 +128,9 @@ var google_meet_default = definePluginEntry({
 		const registerGatewayMethod = (method, handler) => {
 			api.registerGatewayMethod(method, async (options) => {
 				try {
-					await handler(options);
+					options.respond(true, await handler(options));
 				} catch (err) {
-					sendGoogleMeetGatewayError(options.respond, err);
+					sendGoogleMeetGatewayError(options.respond, err, err instanceof InvalidGoogleMeetRequest ? "INVALID_REQUEST" : "UNAVAILABLE");
 				}
 			});
 		};
@@ -179,131 +185,106 @@ var google_meet_default = definePluginEntry({
 				return helpers.fetchResolvedGoogleMeetAttendance(await helpers.resolveArtifactQueryFromParams(config, raw));
 			}
 		};
-		const transcriptSourceRuntime = async () => (await ensureRuntime()).transcriptSourceRuntime();
 		api.registerTranscriptSourceProvider({
 			id: "google-meet",
 			aliases: ["googlemeet", "meet"],
 			name: "Google Meet",
 			sourceKinds: ["live-caption"],
-			start: async (request) => await (await transcriptSourceRuntime()).startTranscriptSource(request),
-			stop: async (request) => await (await transcriptSourceRuntime()).stopTranscriptSource(request)
+			start: async (request) => await (await ensureRuntime()).startTranscriptSource(request),
+			stop: async (request) => await (await ensureRuntime()).stopTranscriptSource(request)
 		});
 		registerGatewayMethod("googlemeet.join", async (options) => {
-			const runtime = await ensureRuntime();
-			options.respond(true, await runtime.join(resolveTrustedJoinParams(options)));
+			return (await ensureRuntime()).join(resolveTrustedJoinParams(options));
 		});
-		registerGatewayMethod("googlemeet.create", async ({ params, client, respond }) => {
+		registerGatewayMethod("googlemeet.create", async ({ params, client }) => {
 			const raw = keepTrustedToolAgentId(asNonArrayRecord(params), client);
 			const create = await loadGoogleMeetCreateModule();
-			respond(true, shouldJoinCreatedMeet(raw) ? await create.createAndJoinMeetFromParams({
+			return shouldJoinCreatedMeet(raw) ? create.createAndJoinMeetFromParams({
 				config,
 				runtime: api.runtime,
 				raw,
 				ensureRuntime
-			}) : await create.createMeetFromParams({
+			}) : create.createMeetFromParams({
 				config,
 				runtime: api.runtime,
 				raw
-			}));
+			});
 		});
-		registerGatewayMethod("googlemeet.status", async ({ params, respond }) => {
-			respond(true, await (await ensureRuntime()).status(normalizeOptionalString(params?.sessionId)));
+		registerGatewayMethod("googlemeet.status", async ({ params }) => {
+			return (await ensureRuntime()).status(normalizeOptionalString(params?.sessionId));
 		});
-		registerGatewayMethod("googlemeet.transcript", async ({ params, respond }) => {
-			const sessionId = normalizeOptionalString(params?.sessionId);
-			if (!sessionId) {
-				sendGoogleMeetGatewayError(respond, /* @__PURE__ */ new Error("sessionId required"), "INVALID_REQUEST");
-				return;
-			}
+		registerGatewayMethod("googlemeet.transcript", async ({ params }) => {
+			const sessionId = requireSessionId(params);
 			const sinceIndex = params?.sinceIndex;
-			if (sinceIndex !== void 0 && (typeof sinceIndex !== "number" || !Number.isSafeInteger(sinceIndex) || sinceIndex < 0)) {
-				sendGoogleMeetGatewayError(respond, /* @__PURE__ */ new Error("sinceIndex must be a non-negative safe integer"), "INVALID_REQUEST");
-				return;
-			}
-			respond(true, await (await ensureRuntime()).transcript(sessionId, sinceIndex === void 0 ? {} : { sinceIndex }));
+			if (sinceIndex !== void 0 && (typeof sinceIndex !== "number" || !Number.isSafeInteger(sinceIndex) || sinceIndex < 0)) throw new InvalidGoogleMeetRequest("sinceIndex must be a non-negative safe integer");
+			return (await ensureRuntime()).transcript(sessionId, sinceIndex === void 0 ? {} : { sinceIndex });
 		});
-		registerGatewayMethod("googlemeet.participationContext", async ({ params, respond }) => {
-			const sessionId = normalizeOptionalString(params?.sessionId);
-			if (!sessionId) {
-				sendGoogleMeetGatewayError(respond, /* @__PURE__ */ new Error("sessionId required"), "INVALID_REQUEST");
-				return;
-			}
-			respond(true, (await ensureRuntime()).participationContext(sessionId));
+		registerGatewayMethod("googlemeet.participationContext", async ({ params }) => {
+			const sessionId = requireSessionId(params);
+			return (await ensureRuntime()).participationContext(sessionId);
 		});
-		registerGatewayMethod("googlemeet.participate", async ({ params, respond }) => {
+		registerGatewayMethod("googlemeet.participate", async ({ params }) => {
 			let parsed;
 			try {
 				parsed = readGoogleMeetParticipationParams(asNonArrayRecord(params));
 			} catch (err) {
-				sendGoogleMeetGatewayError(respond, err, "INVALID_REQUEST");
-				return;
+				throw new InvalidGoogleMeetRequest(formatGoogleMeetGatewayError(err).error);
 			}
-			respond(true, await (await ensureRuntime()).participate(parsed.sessionId, parsed.request));
+			return (await ensureRuntime()).participate(parsed.sessionId, parsed.request);
 		});
-		registerGatewayMethod("googlemeet.recoverCurrentTab", async ({ params, respond }) => {
-			respond(true, await (await ensureRuntime()).recoverCurrentTab({
+		registerGatewayMethod("googlemeet.recoverCurrentTab", async ({ params }) => {
+			return (await ensureRuntime()).recoverCurrentTab({
 				url: normalizeOptionalString(params?.url),
 				transport: normalizeTransport(params?.transport)
-			}));
+			});
 		});
-		registerGatewayMethod("googlemeet.setup", async ({ params, respond }) => {
-			respond(true, await (await ensureRuntime()).setupStatus({
+		registerGatewayMethod("googlemeet.setup", async ({ params }) => {
+			return (await ensureRuntime()).setupStatus({
 				transport: normalizeTransport(params?.transport),
 				mode: normalizeMode(params?.mode),
 				dialInNumber: normalizeOptionalString(params?.dialInNumber)
-			}));
+			});
 		});
 		for (const [method, action] of [
 			["googlemeet.latest", "latest"],
 			["googlemeet.calendarEvents", "calendar_events"],
 			["googlemeet.artifacts", "artifacts"],
 			["googlemeet.attendance", "attendance"]
-		]) registerGatewayMethod(method, async ({ params, respond }) => {
-			respond(true, await queryActions[action](asNonArrayRecord(params)));
+		]) registerGatewayMethod(method, ({ params }) => queryActions[action](asNonArrayRecord(params)));
+		registerGatewayMethod("googlemeet.export", async ({ params }) => {
+			return (await loadGoogleMeetPluginHelpers()).exportGoogleMeetBundleFromParams(config, asNonArrayRecord(params));
 		});
-		registerGatewayMethod("googlemeet.export", async ({ params, respond }) => {
-			respond(true, await (await loadGoogleMeetPluginHelpers()).exportGoogleMeetBundleFromParams(config, asNonArrayRecord(params)));
+		registerGatewayMethod("googlemeet.leave", async ({ params }) => {
+			const sessionId = requireSessionId(params);
+			return (await ensureRuntime()).leave(sessionId);
 		});
-		registerGatewayMethod("googlemeet.leave", async ({ params, respond }) => {
-			const sessionId = normalizeOptionalString(params?.sessionId);
-			if (!sessionId) {
-				sendGoogleMeetGatewayError(respond, /* @__PURE__ */ new Error("sessionId required"), "INVALID_REQUEST");
-				return;
-			}
-			respond(true, await (await ensureRuntime()).leave(sessionId));
-		});
-		registerGatewayMethod("googlemeet.endActiveConference", async ({ params, respond }) => {
+		registerGatewayMethod("googlemeet.endActiveConference", async ({ params }) => {
 			const raw = asNonArrayRecord(params);
 			const helpers = await loadGoogleMeetPluginHelpers();
 			const token = await helpers.resolveGoogleMeetTokenFromParams(config, raw);
-			respond(true, await helpers.endGoogleMeetActiveConference({
+			return helpers.endGoogleMeetActiveConference({
 				accessToken: token.accessToken,
 				meeting: resolveMeetingInput(config, raw.meeting)
-			}));
+			});
 		});
-		registerGatewayMethod("googlemeet.speak", async ({ params, respond }) => {
-			const sessionId = normalizeOptionalString(params?.sessionId);
-			if (!sessionId) {
-				sendGoogleMeetGatewayError(respond, /* @__PURE__ */ new Error("sessionId required"), "INVALID_REQUEST");
-				return;
-			}
-			respond(true, await (await ensureRuntime()).speak(sessionId, normalizeOptionalString(params?.message)));
+		registerGatewayMethod("googlemeet.speak", async ({ params }) => {
+			const sessionId = requireSessionId(params);
+			return (await ensureRuntime()).speak(sessionId, normalizeOptionalString(params?.message));
 		});
 		registerGatewayMethod("googlemeet.testSpeech", async (options) => {
-			const runtime = await ensureRuntime();
-			options.respond(true, await runtime.testSpeech(resolveTrustedJoinParams(options)));
+			return (await ensureRuntime()).testSpeech(resolveTrustedJoinParams(options));
 		});
-		registerGatewayMethod("googlemeet.testListen", async ({ params, client, respond }) => {
+		registerGatewayMethod("googlemeet.testListen", async ({ params, client }) => {
 			const trustedParams = keepTrustedToolAgentId(asNonArrayRecord(params), client);
 			const runtime = await ensureRuntime();
 			const { readPositiveIntegerParam } = await import("openclaw/plugin-sdk/param-readers");
-			respond(true, await runtime.testListen({
+			return runtime.testListen({
 				url: resolveMeetingInput(config, trustedParams.url),
 				transport: normalizeTransport(trustedParams.transport),
 				mode: normalizeMode(trustedParams.mode),
 				agentId: normalizeOptionalString(trustedParams.agentId),
 				timeoutMs: readPositiveIntegerParam(trustedParams, "timeoutMs")
-			}));
+			});
 		});
 		api.registerTool((toolContext) => ({
 			name: "google_meet",
@@ -329,25 +310,19 @@ var google_meet_default = definePluginEntry({
 						config,
 						raw
 					});
+					let routeRequester = false;
 					switch (raw.action) {
 						case "join":
 						case "create":
 						case "test_speech":
-						case "test_listen": return jsonResult(await callGoogleMeetGatewayFromTool({
-							config,
-							action: raw.action,
-							raw: rawWithRequester,
-							runtime: useTrustedRuntime ? api.runtime : void 0
-						}));
+						case "test_listen":
+							routeRequester = true;
+							break;
 						case "status":
 						case "transcript":
 						case "recover_current_tab":
 						case "setup_status":
-						case "end_active_conference": return jsonResult(await callGoogleMeetGatewayFromTool({
-							config,
-							action: raw.action,
-							raw
-						}));
+						case "end_active_conference": break;
 						case "resolve_space": {
 							const { token: _token, ...result } = await (await loadGoogleMeetPluginHelpers()).resolveSpaceFromParams(config, raw);
 							return jsonResult(result);
@@ -372,22 +347,20 @@ var google_meet_default = definePluginEntry({
 						}
 						case "participate":
 							readGoogleMeetParticipationParams(raw);
-							return jsonResult(await callGoogleMeetGatewayFromTool({
-								config,
-								action: raw.action,
-								raw
-							}));
+							break;
 						case "participation_context":
 						case "leave":
 						case "speak":
 							if (!normalizeOptionalString(raw.sessionId)) throw new Error("sessionId required");
-							return jsonResult(await callGoogleMeetGatewayFromTool({
-								config,
-								action: raw.action,
-								raw
-							}));
+							break;
 						default: throw new Error("unknown google_meet action");
 					}
+					return jsonResult(await callGoogleMeetGatewayFromTool({
+						config,
+						action: raw.action,
+						raw: routeRequester ? rawWithRequester : raw,
+						runtime: routeRequester && useTrustedRuntime ? api.runtime : void 0
+					}));
 				} catch (err) {
 					return jsonResult(formatGoogleMeetGatewayError(err));
 				}

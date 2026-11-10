@@ -3,6 +3,7 @@ import { createSubsystemLogger } from "openclaw/plugin-sdk/core";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { isFutureDateTimestampMs, resolveExpiresAtMsFromDurationMs } from "openclaw/plugin-sdk/number-runtime";
 import { readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
+import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
 import { normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/amazon-bedrock-mantle/discovery.ts
 /**
@@ -56,10 +57,6 @@ const MANTLE_SUPPORTED_REGIONS = [
 function mantleEndpoint(region) {
 	return `https://bedrock-mantle.${region}.api.aws`;
 }
-async function loadMantleBearerTokenProviderFactory() {
-	const { getTokenProvider } = await import("@aws/bedrock-token-generator");
-	return getTokenProvider;
-}
 /**
 * Resolve a bearer token for Mantle authentication.
 *
@@ -74,8 +71,6 @@ function resolveMantleBearerToken(env = process.env) {
 const iamTokenCache = /* @__PURE__ */ new Map();
 /** Last emitted IAM token failure per region, retained until token generation succeeds. */
 const iamTokenFailureDetailByRegion = /* @__PURE__ */ new Map();
-/** Success epoch per region; failures spanning a recovery cannot restore stale diagnostics. */
-const iamTokenSuccessEpochByRegion = /* @__PURE__ */ new Map();
 const IAM_TOKEN_TTL_MS = 72e5;
 function resolveMantleRegion(env) {
 	return normalizeOptionalString(env.AWS_REGION) ?? normalizeOptionalString(env.AWS_DEFAULT_REGION) ?? "us-east-1";
@@ -92,12 +87,12 @@ function getCachedIamTokenEntry(region, now = Date.now()) {
 * Returns undefined if the package is not installed or credentials are unavailable.
 */
 async function generateBearerTokenFromIam(params) {
-	const now = params.now?.() ?? Date.now();
+	const now = Date.now();
 	const cached = getCachedIamTokenEntry(params.region, now);
 	if (cached) return cached.token;
-	const successEpoch = iamTokenSuccessEpochByRegion.get(params.region) ?? 0;
 	try {
-		const token = await (params.tokenProviderFactory ?? await loadMantleBearerTokenProviderFactory())({
+		const { getTokenProvider } = await import("@aws/bedrock-token-generator");
+		const token = await getTokenProvider({
 			region: params.region,
 			expiresInSeconds: 7200
 		})();
@@ -106,11 +101,9 @@ async function generateBearerTokenFromIam(params) {
 			token,
 			expiresAt
 		});
-		iamTokenSuccessEpochByRegion.set(params.region, (iamTokenSuccessEpochByRegion.get(params.region) ?? 0) + 1);
 		iamTokenFailureDetailByRegion.delete(params.region);
 		return token;
 	} catch (error) {
-		if (successEpoch !== (iamTokenSuccessEpochByRegion.get(params.region) ?? 0)) return;
 		if (log.isEnabled("debug")) {
 			const errorMessage = formatErrorMessage(error);
 			if (iamTokenFailureDetailByRegion.get(params.region) !== errorMessage) {
@@ -124,30 +117,17 @@ async function generateBearerTokenFromIam(params) {
 		return;
 	}
 }
-/**
-* Read a cached IAM bearer token for the given region (sync, no generation).
-*
-* Returns the token if it exists and has not expired, undefined otherwise.
-* Used by Mantle runtime auth and tests to inspect the current cache.
-*/
-function getCachedIamToken(region) {
-	return getCachedIamTokenEntry(region)?.token;
-}
 /** Resolve the actual runtime bearer token for Mantle, generating IAM tokens when needed. */
 async function resolveMantleRuntimeBearerToken(params) {
 	if (params.apiKey !== "__amazon_bedrock_mantle_iam__") return { apiKey: params.apiKey };
-	const now = params.now?.() ?? Date.now();
+	const now = Date.now();
 	const region = resolveMantleRegion(params.env ?? process.env);
 	const cached = getCachedIamTokenEntry(region, now);
 	if (cached) return {
 		apiKey: cached.token,
 		expiresAt: cached.expiresAt
 	};
-	const token = await generateBearerTokenFromIam({
-		region,
-		now: params.now,
-		tokenProviderFactory: params.tokenProviderFactory
-	});
+	const token = await generateBearerTokenFromIam({ region });
 	if (!token) return;
 	const refreshed = getCachedIamTokenEntry(region, now);
 	const expiresAt = refreshed?.expiresAt ?? resolveExpiresAtMsFromDurationMs(IAM_TOKEN_TTL_MS, { nowMs: now });
@@ -191,39 +171,52 @@ const discoveryCache = /* @__PURE__ */ new Map();
 * Public calls retain advisory results; strict catalog calls propagate acquisition failures.
 */
 async function discoverMantleModels(params) {
-	const { region, bearerToken, fetchFn = fetch, now = Date.now } = params;
+	const { region, bearerToken } = params;
 	const cached = discoveryCache.get(region);
-	if (cached?.bearerToken === bearerToken && now() - cached.fetchedAt < DEFAULT_REFRESH_INTERVAL_SECONDS * 1e3) return cached.models;
+	if (cached?.bearerToken === bearerToken && Date.now() - cached.fetchedAt < DEFAULT_REFRESH_INTERVAL_SECONDS * 1e3) return cached.models;
 	if (cached?.bearerToken !== bearerToken) discoveryCache.delete(region);
 	const endpoint = `${mantleEndpoint(region)}/v1/models`;
 	try {
-		const response = await fetchFn(endpoint, {
-			method: "GET",
-			signal: AbortSignal.timeout(MANTLE_DISCOVERY_TIMEOUT_MS),
-			headers: {
-				Authorization: `Bearer ${bearerToken}`,
-				Accept: "application/json"
+		const { response, release } = await fetchWithSsrFGuard({
+			url: endpoint,
+			timeoutMs: MANTLE_DISCOVERY_TIMEOUT_MS,
+			requireHttps: true,
+			auditContext: "amazon-bedrock-mantle.discovery",
+			init: {
+				method: "GET",
+				headers: {
+					Authorization: `Bearer ${bearerToken}`,
+					Accept: "application/json"
+				}
 			}
 		});
-		if (!response.ok) {
-			await response.body?.cancel().catch(() => void 0);
-			throw new LiveModelCatalogHttpError("amazon-bedrock-mantle", response.status);
+		try {
+			if (!response.ok) throw new LiveModelCatalogHttpError("amazon-bedrock-mantle", response.status);
+			const models = (await readMantleModelDiscoveryJson(response)).data.filter((model) => model.id?.trim()).map((model) => {
+				const definition = {
+					id: model.id,
+					name: model.id,
+					reasoning: inferReasoningSupport(model.id),
+					input: ["text"],
+					cost: DEFAULT_COST,
+					contextWindow: DEFAULT_CONTEXT_WINDOW,
+					maxTokens: DEFAULT_MAX_TOKENS
+				};
+				if (/^openai\.gpt-\d/.test(model.id)) {
+					definition.api = "openai-responses";
+					definition.baseUrl = `${mantleEndpoint(region)}/openai/v1`;
+				}
+				return definition;
+			}).toSorted((left, right) => left.id.localeCompare(right.id));
+			discoveryCache.set(region, {
+				bearerToken,
+				models,
+				fetchedAt: Date.now()
+			});
+			return models;
+		} finally {
+			await release();
 		}
-		const models = (await readMantleModelDiscoveryJson(response)).data.filter((model) => model.id?.trim()).map((model) => ({
-			id: model.id,
-			name: model.id,
-			reasoning: inferReasoningSupport(model.id),
-			input: ["text"],
-			cost: DEFAULT_COST,
-			contextWindow: DEFAULT_CONTEXT_WINDOW,
-			maxTokens: DEFAULT_MAX_TOKENS
-		})).toSorted((left, right) => left.id.localeCompare(right.id));
-		discoveryCache.set(region, {
-			bearerToken,
-			models,
-			fetchedAt: now()
-		});
-		return models;
 	} catch (error) {
 		if (params.discoveryMode === "strict") throw error;
 		return cached?.bearerToken === bearerToken ? cached.models : [];
@@ -248,16 +241,12 @@ async function resolveImplicitMantleProvider(params) {
 		log.debug?.("Mantle not available in region", { region });
 		return null;
 	}
-	const bearerToken = explicitBearerToken ?? await generateBearerTokenFromIam({
-		region,
-		tokenProviderFactory: params.tokenProviderFactory
-	});
+	const bearerToken = explicitBearerToken ?? await generateBearerTokenFromIam({ region });
 	if (!bearerToken) return null;
 	const models = await discoverMantleModels({
 		region,
 		bearerToken,
-		discoveryMode: params.discoveryMode,
-		fetchFn: params.fetchFn
+		discoveryMode: params.discoveryMode
 	});
 	if (models.length === 0 && params.discoveryMode !== "strict") return null;
 	log.debug?.("Mantle provider resolved", {
@@ -362,4 +351,4 @@ async function resolveImplicitMantleProvider(params) {
 	};
 }
 //#endregion
-export { MANTLE_IAM_TOKEN_MARKER, discoverMantleModels, generateBearerTokenFromIam, getCachedIamToken, resolveImplicitMantleProvider, resolveMantleBearerToken, resolveMantleRuntimeBearerToken, resolveMantleSonnet5Cost };
+export { MANTLE_IAM_TOKEN_MARKER, discoverMantleModels, generateBearerTokenFromIam, resolveImplicitMantleProvider, resolveMantleBearerToken, resolveMantleRuntimeBearerToken, resolveMantleSonnet5Cost };

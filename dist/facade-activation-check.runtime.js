@@ -1,13 +1,13 @@
 import { t as parseJsonWithJson5Fallback } from "./parse-json-compat-BBtWoq5_.mjs";
-import { m as resolveConfigPath } from "./paths-DGIwWbpu.mjs";
-import { t as isPluginEnabledByDefaultForPlatform } from "./default-enablement-CEIbpabL.mjs";
-import { p as resolveEffectivePluginActivationState, r as createPluginActivationSource, u as normalizePluginsConfig } from "./config-state-DY_WJYue.mjs";
-import { u as resolvePluginMetadataSnapshot } from "./plugin-metadata-snapshot-6weqkLDz.mjs";
+import { m as resolveConfigPath } from "./paths-orClZ-2Z.mjs";
+import { o as getPluginRuntimeGatewayRequestScope } from "./gateway-request-scope-1BXD1G3l.mjs";
 import { n as getPluginRegistryState } from "./runtime-state-Cd-Ga9cg.mjs";
-import { a as getPluginRuntimeGatewayRequestScope } from "./gateway-request-scope-BSmCVVpP.mjs";
-import { l as getRuntimeConfigSourceSnapshot, o as getRuntimeConfigSnapshot } from "./runtime-snapshot-DYptB0Cf.mjs";
-import { c as resolveBundledMetadataManifestRecord, l as resolveRegistryPluginModuleLocationFromRecords } from "./facade-loader-B-X-HqBc.mjs";
-import { i as configMayNeedPluginAutoEnable, t as applyPluginAutoEnable } from "./plugin-auto-enable-A8cOwPsR.mjs";
+import { l as getRuntimeConfigSourceSnapshot, o as getRuntimeConfigSnapshot } from "./runtime-snapshot-BBYDJbw9.mjs";
+import { t as isPluginEnabledByDefaultForPlatform } from "./default-enablement-CEIbpabL.mjs";
+import { p as resolveEffectivePluginActivationState, r as createPluginActivationSource, u as normalizePluginsConfig } from "./config-state-DkDfCu7E.mjs";
+import { u as resolvePluginMetadataSnapshot } from "./plugin-metadata-snapshot-DET-4y9k.mjs";
+import { c as resolveBundledMetadataManifestRecord, l as resolveRegistryPluginModuleLocationFromRecords } from "./facade-loader-CcsJkVh8.mjs";
+import { i as configMayNeedPluginAutoEnable, t as applyPluginAutoEnable } from "./plugin-auto-enable-DYmyl_xH.mjs";
 import fs from "node:fs";
 import path from "node:path";
 //#endregion

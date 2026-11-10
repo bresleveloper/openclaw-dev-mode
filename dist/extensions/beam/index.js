@@ -1,24 +1,21 @@
 import { i as normalizeBoundedOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
-import { s as asFiniteNumber } from "../../number-coercion-CuVhdCBs.mjs";
+import { s as asFiniteNumber } from "../../number-coercion-CkhMiRw8.mjs";
 import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
-import { b as redactToolPayloadText } from "../../redact-DJ8j6ADa.mjs";
-import { i as clampNumber } from "../../utils-DgZn2dLu.mjs";
-import { y as resolveSessionAgentIdsStrict } from "../../agent-scope-CG17uXFn.mjs";
-import { a as getPluginRuntimeGatewayRequestScope } from "../../gateway-request-scope-BSmCVVpP.mjs";
-import { g as ssrfPolicyFromHttpBaseUrlAllowedOrigin } from "../../ssrf-v45DW-yR.mjs";
-import { i as fetchWithSsrFGuard, n as GuardedFetchRedirectError } from "../../fetch-guard-DI6biu8d.mjs";
-import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../text-utility-runtime-BDs7x8Fk.mjs";
-import "../../agent-scope-runtime-DMJYuX7c.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../ssrf-runtime-BzkFo_VJ.mjs";
-import "../../plugin-runtime-DJr2pk-j.mjs";
-import "../../logging-core-e269L3HU.mjs";
-import { n as buildControlUiCatalogSharePath, r as isControlUiCatalogShareId, t as listActiveSessionCatalogs } from "../../session-catalog-runtime-BtXiXE2b.mjs";
-import { n as resolveConfiguredSecretInputString } from "../../secret-input-runtime-BO-nQ7OX.mjs";
-import { s as createFixedWindowRateLimiter } from "../../webhook-ingress-CCN9w6L5.mjs";
-import { a as createWebhookInFlightLimiter, i as beginWebhookRequestPipelineOrReject, s as readJsonWebhookBodyOrReject } from "../../webhook-request-guards-o9Ex3xOU.mjs";
+import { i as clampNumber } from "../../utils-gjJ-tD2q.mjs";
+import { o as getPluginRuntimeGatewayRequestScope } from "../../gateway-request-scope-1BXD1G3l.mjs";
+import { v as resolveSessionAgentIdsStrict } from "../../agent-scope-DXrnO3F4.mjs";
+import { g as ssrfPolicyFromHttpBaseUrlAllowedOrigin } from "../../ssrf-K50Tjeok.mjs";
+import { i as fetchWithSsrFGuard, n as GuardedFetchRedirectError } from "../../fetch-guard-DRapCKeS.mjs";
+import "../../string-coerce-runtime-BbIJhy7G.mjs";
+import "../../text-utility-runtime-B9RB6Cg0.mjs";
+import "../../agent-scope-runtime-Dld1eD8B.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
+import "../../ssrf-runtime-z2wN0VZP.mjs";
+import "../../plugin-runtime-BaFUwWWh.mjs";
+import { n as buildControlUiCatalogSharePath, r as isControlUiCatalogShareId, t as listActiveSessionCatalogs } from "../../session-catalog-runtime-BUQ1pFfL.mjs";
+import { s as createFixedWindowRateLimiter } from "../../webhook-ingress-DFEVgBho.mjs";
+import { a as createWebhookInFlightLimiter, i as beginWebhookRequestPipelineOrReject, s as readJsonWebhookBodyOrReject } from "../../webhook-request-guards-BYZUECo_.mjs";
 import { createHash } from "node:crypto";
 //#region extensions/beam/src/types.ts
 const BEAM_HOST_ID = "gateway";
@@ -285,7 +282,7 @@ function parseBeamMirrorConfig(config) {
 	if (!Array.isArray(mirror.catalogs) || mirror.catalogs.length === 0 || !mirror.catalogs.every((id) => typeof id === "string" && id.trim().length > 0)) return `${MIRROR_CONFIG_PATH}.catalogs must explicitly list the catalog ids to mirror`;
 	return {
 		endpoint,
-		...mirror.token !== void 0 ? { token: mirror.token } : {},
+		token: mirror.token === void 0 ? void 0 : typeof mirror.token === "string" && mirror.token.trim() ? mirror.token.trim() : null,
 		catalogs: mirror.catalogs.map((id) => id.trim().toLowerCase()),
 		pollSeconds: clampNumber(asFiniteNumber(mirror.pollSeconds) ?? DEFAULT_POLL_SECONDS, 10, 3600),
 		activeWindowMinutes: clampNumber(asFiniteNumber(mirror.activeWindowMinutes) ?? DEFAULT_ACTIVE_WINDOW_MINUTES, 1, 10080)
@@ -297,8 +294,7 @@ function beamMirrorId(catalogId, hostId, threadId) {
 /**
 * Reduce newest-first catalog items to chronological Beam uploads. Only user/agent
 * message text crosses the wire; reasoning, tool calls, tool results, and raw
-* payloads collapse into compact counts. Redact credentials before clipping so
-* the character boundary cannot hide the suffix needed to recognize a secret.
+* payloads collapse into compact counts.
 */
 function buildBeamMirrorItems(items) {
 	const out = [];
@@ -323,9 +319,8 @@ function buildBeamMirrorItems(items) {
 		const text = item.text?.trim();
 		if ((item.type === "userMessage" || item.type === "agentMessage") && text) {
 			flush();
-			const redacted = redactToolPayloadText(text);
-			const clipped = truncateUtf16Safe(redacted, BEAM_MAX_ITEM_CHARS);
-			truncated ||= clipped.length < redacted.length;
+			const clipped = truncateUtf16Safe(text, BEAM_MAX_ITEM_CHARS);
+			truncated ||= clipped.length < text.length;
 			out.push({
 				type: item.type,
 				text: clipped
@@ -375,7 +370,6 @@ function mirrorCandidateKey(candidate) {
 	return `${candidate.catalogId}\0${candidate.hostId}\0${candidate.threadId}`;
 }
 function createBeamMirrorRunner(params) {
-	const env = params.env ?? process.env;
 	const now = params.now ?? Date.now;
 	const listCatalogs = params.listCatalogs ?? listActiveSessionCatalogs;
 	const tracked = /* @__PURE__ */ new Map();
@@ -416,8 +410,11 @@ function createBeamMirrorRunner(params) {
 			params.logger.warn(message);
 		}
 	};
-	const upload = async (token, payload) => {
+	const upload = async (payload) => {
 		if (signal.aborted || redirectBlocked) return false;
+		const current = parseBeamMirrorConfig(params.runtime.config.current());
+		if (!current || typeof current === "string" || current.token === null || current.endpoint !== endpoint) return false;
+		const token = current.token;
 		let guarded;
 		try {
 			guarded = await fetchWithSsrFGuard({
@@ -474,7 +471,7 @@ function createBeamMirrorRunner(params) {
 			version: 1,
 			beamId: beamMirrorId(candidate.catalogId, candidate.hostId, candidate.threadId),
 			source: candidate.catalogId,
-			title: truncateUtf16Safe(redactToolPayloadText(candidate.title), 160),
+			title: truncateUtf16Safe(candidate.title, 160),
 			updatedAt: new Date(candidate.recencyAt || now()).toISOString(),
 			completed,
 			...sourceModel ? { sourceModel } : {},
@@ -505,20 +502,9 @@ function createBeamMirrorRunner(params) {
 				warnThrottled(`beam mirror disabled: ${String(error)}`);
 				return;
 			}
-			let token;
-			if (mirror.token !== void 0) {
-				const resolved = await resolveConfiguredSecretInputString({
-					config,
-					env,
-					value: mirror.token,
-					path: MIRROR_TOKEN_PATH
-				});
-				signal.throwIfAborted();
-				if (!resolved.value) {
-					warnThrottled(`beam mirror token unresolved${resolved.unresolvedRefReason ? `: ${resolved.unresolvedRefReason}` : ""}`);
-					return;
-				}
-				token = resolved.value;
+			if (mirror.token === null) {
+				warnThrottled(`beam mirror paused: ${MIRROR_TOKEN_PATH} credential unavailable; restore it and run openclaw secrets reload`);
+				return;
 			}
 			const activeSinceMs = now() - mirror.activeWindowMinutes * 6e4;
 			const catalogs = listCatalogs().filter((catalog) => catalog.id !== "beam" && mirror.catalogs.includes(catalog.id));
@@ -568,7 +554,7 @@ function createBeamMirrorRunner(params) {
 					signal.throwIfAborted();
 					const fingerprint = mirrorFingerprint(payload);
 					if (tracked.get(key)?.fingerprint === fingerprint) continue;
-					const uploaded = await upload(token, payload);
+					const uploaded = await upload(payload);
 					signal.throwIfAborted();
 					if (uploaded) trackSuccessfulUpload(key, candidate, fingerprint);
 				} catch (error) {
@@ -595,7 +581,7 @@ function createBeamMirrorRunner(params) {
 				if (catalog) try {
 					const payload = await buildUpload(agentId, catalog, entry.candidate, true);
 					signal.throwIfAborted();
-					uploaded = await upload(token, payload);
+					uploaded = await upload(payload);
 					signal.throwIfAborted();
 				} catch {
 					signal.throwIfAborted();
@@ -631,7 +617,8 @@ function createBeamMirrorService(params) {
 				everyMs: mirror.pollSeconds * 1e3,
 				run: () => active.tick()
 			});
-			ctx.logger.info(`beam mirror active: ${mirror.catalogs.join(", ")} -> ${new URL(mirror.endpoint).origin}`);
+			if (mirror.token === null) ctx.logger.warn(`beam mirror paused: ${MIRROR_TOKEN_PATH} credential unavailable; restore it and run openclaw secrets reload`);
+			else ctx.logger.info(`beam mirror active: ${mirror.catalogs.join(", ")} -> ${new URL(mirror.endpoint).origin}`);
 		}
 	};
 }
@@ -671,9 +658,9 @@ function createBeamSessionCatalog(store) {
 		shareRoute: BEAM_SESSION_SHARE_ROUTE,
 		supportsProcessHomeIsolation: true,
 		async list(params) {
-			const search = params.search?.trim().toLowerCase();
+			const search = params.search?.trim().toLowerCase().normalize("NFC");
 			const shareId = search && isControlUiCatalogShareId(BEAM_SESSION_SHARE_ROUTE, search) ? search : void 0;
-			const sessions = (await store.list()).filter((session) => !search || (shareId ? session.beamId.startsWith(shareId) : `${session.title}\n${session.source}`.toLowerCase().includes(search))).toSorted((left, right) => right.receivedAt - left.receivedAt || left.beamId.localeCompare(right.beamId));
+			const sessions = (await store.list()).filter((session) => !search || (shareId ? session.beamId.startsWith(shareId) : `${session.title}\n${session.source}`.toLowerCase().normalize("NFC").includes(search))).toSorted((left, right) => right.receivedAt - left.receivedAt || left.beamId.localeCompare(right.beamId));
 			const offset = cursorOffset(params.cursors?.[BEAM_HOST_ID]);
 			const limit = boundedLimit(params.limitPerHost);
 			const page = sessions.slice(offset, offset + limit);

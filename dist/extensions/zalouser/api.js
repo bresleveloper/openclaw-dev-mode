@@ -1,15 +1,16 @@
-import { l as resolveZalouserAccountSync, n as createZalouserSetupWizardProxy, r as zalouserSetupAdapter } from "./.setup/shared-CRZ1TLNs.mjs";
-import { n as parseZalouserOutboundTarget, t as zalouserPlugin } from "./.setup/channel-6kcEXNAG.mjs";
+import { l as resolveZalouserAccountSync, n as createZalouserSetupWizardProxy, r as zalouserSetupAdapter } from "./.setup/shared-BrhVdA-C.mjs";
+import { n as parseZalouserOutboundTarget, t as zalouserPlugin } from "./.setup/channel-D90hoq2j.mjs";
 import { n as isZalouserMutableGroupEntry, t as collectZalouserSecurityAuditFindings } from "./.setup/security-audit-DrvGAayb.mjs";
-import { s as normalizeZalouserCredentialProfile } from "./.setup/session-state-B2n6XQX_.mjs";
-import { h as sendZaloLink, i as listZaloFriendsMatching, n as getZaloUserInfo, s as listZaloGroupsMatching, t as checkZaloAuthenticated } from "./.setup/zalo-js-Cmhsqtom.mjs";
-import { n as zalouserSetupWizard } from "./.setup/setup-surface-Dps1TyX-.mjs";
-import { t as zalouserSetupPlugin } from "./.setup/channel.setup-D-qRbybK.mjs";
-import { n as sendMessageZalouser, t as sendImageZalouser } from "./.setup/send-CimgPaVp.mjs";
+import { s as normalizeZalouserCredentialProfile } from "./.setup/session-state-fejZKa1r.mjs";
+import { h as sendZaloLink, i as listZaloFriendsMatching, n as getZaloUserInfo, s as listZaloGroupsMatching, t as checkZaloAuthenticated } from "./.setup/zalo-js-Bu9ojNUf.mjs";
+import { n as zalouserSetupWizard } from "./.setup/setup-surface-e3KfVOUQ.mjs";
+import { t as zalouserSetupPlugin } from "./.setup/channel.setup-BN3xjhBW.mjs";
+import { n as sendMessageZalouser, t as sendImageZalouser } from "./.setup/send-B24acSlE.mjs";
 import { resolveChannelMediaMaxBytes } from "openclaw/plugin-sdk/account-helpers";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { stringEnum } from "openclaw/plugin-sdk/channel-actions";
+import { isChannelPartialDeliveryError } from "openclaw/plugin-sdk/channel-inbound";
 import { Type } from "typebox";
 //#region extensions/zalouser/src/tool.ts
 const ACTIONS = [
@@ -68,47 +69,26 @@ function resolveZalouserSendTarget(params, context) {
 async function executeZalouserTool(params, signal, context) {
 	try {
 		switch (params.action) {
-			case "send": {
-				const target = resolveZalouserSendTarget(params, context);
-				if (!target.threadId || !params.message) throw new Error("threadId and message required for send action");
-				const result = await sendMessageZalouser(target.threadId, params.message, {
-					signal,
-					profile: params.profile,
-					isGroup: target.isGroup
-				});
-				if (!result.ok) throw new Error(result.error || "Failed to send message");
-				return jsonResult({
-					success: true,
-					messageId: result.messageId
-				});
-			}
-			case "image": {
-				const target = resolveZalouserSendTarget(params, context);
-				if (!target.threadId) throw new Error("threadId required for image action");
-				if (!params.url) throw new Error("url required for image action");
-				const result = await sendImageZalouser(target.threadId, params.url, {
-					signal,
-					profile: params.profile,
-					mediaMaxBytes: resolveToolMediaMaxBytes(params.profile, context),
-					caption: params.message,
-					isGroup: target.isGroup
-				});
-				if (!result.ok) throw new Error(result.error || "Failed to send image");
-				return jsonResult({
-					success: true,
-					messageId: result.messageId
-				});
-			}
+			case "send":
+			case "image":
 			case "link": {
 				const target = resolveZalouserSendTarget(params, context);
-				if (!target.threadId || !params.url) throw new Error("threadId and url required for link action");
-				const result = await sendZaloLink(target.threadId, params.url, {
+				const content = params.action === "send" ? params.message : params.url;
+				if (!target.threadId || !content) {
+					const required = params.action === "image" ? target.threadId ? "url" : "threadId" : params.action === "send" ? "threadId and message" : "threadId and url";
+					throw new Error(`${required} required for ${params.action} action`);
+				}
+				const result = await (params.action === "send" ? sendMessageZalouser : params.action === "image" ? sendImageZalouser : sendZaloLink)(target.threadId, content, {
 					signal,
 					profile: params.profile,
-					caption: params.message,
+					...params.action === "image" ? { mediaMaxBytes: resolveToolMediaMaxBytes(params.profile, context) } : {},
+					...params.action !== "send" ? { caption: params.message } : {},
 					isGroup: target.isGroup
 				});
-				if (!result.ok) throw new Error(result.error || "Failed to send link");
+				if (!result.ok) {
+					const kind = params.action === "send" ? "message" : params.action;
+					throw new Error(result.error || `Failed to send ${kind}`);
+				}
 				return jsonResult({
 					success: true,
 					messageId: result.messageId
@@ -138,7 +118,15 @@ async function executeZalouserTool(params, signal, context) {
 				throw new Error(`Unknown action: ${String(params.action)}. Valid actions: send, image, link, friends, groups, me, status`);
 		}
 	} catch (err) {
-		return jsonResult({ error: formatErrorMessage(err) });
+		return jsonResult({
+			error: formatErrorMessage(err),
+			...isChannelPartialDeliveryError(err) ? {
+				ok: false,
+				deliveryStatus: "partial_failed",
+				sentBeforeError: true,
+				result: err.deliveryResult
+			} : {}
+		});
 	}
 }
 function createZalouserTool(context) {

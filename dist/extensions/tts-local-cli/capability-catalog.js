@@ -1,6 +1,5 @@
 import { readdirSync } from "node:fs";
 import path from "node:path";
-import { truncateUtf16Safe } from "openclaw/plugin-sdk/speech-provider";
 import { asOptionalRecord, filterStringRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/tts-local-cli/speech-provider.ts
 const VALID_OUTPUT_FORMATS = [
@@ -205,7 +204,7 @@ async function synthesizeCli(req, target) {
 	const config = getConfig(req.providerConfig, req.timeoutMs);
 	if (!config) throw new Error("CLI TTS not configured");
 	const telephony = target === "telephony";
-	log.debug(`${telephony ? "synthesizeTelephony" : "synthesize"}: text=${truncateUtf16Safe(req.text, 50)}...`);
+	log.debug(`synthesize: target=${target}`);
 	return await withTempWorkspace({
 		rootDir: resolvePreferredOpenClawTmpDir(),
 		prefix: "openclaw-cli-tts-"
@@ -232,6 +231,7 @@ async function synthesizeCli(req, target) {
 	});
 }
 function buildCliSpeechProvider() {
+	const isConfigured = (ctx) => getConfig(ctx.providerConfig) !== null;
 	return {
 		id: "tts-local-cli",
 		aliases: ["cli"],
@@ -241,9 +241,8 @@ function buildCliSpeechProvider() {
 		resolveConfig(ctx) {
 			return resolveCliProviderConfig(ctx.rawConfig);
 		},
-		isConfigured(ctx) {
-			return getConfig(ctx.providerConfig) !== null;
-		},
+		isConfigured,
+		isConfiguredAsync: async (ctx) => isConfigured(ctx),
 		async synthesize(req) {
 			const result = await synthesizeCli(req, req.target === "voice-note" ? "voice-note" : "audio-file");
 			return {

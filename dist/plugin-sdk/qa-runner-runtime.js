@@ -1,7 +1,10 @@
-import { r as resolveOpenClawPackageRootSync } from "../openclaw-root-CBoxhfke.mjs";
-import { n as loadBundledPluginManifestRegistry } from "../manifest-registry-build-BTWjXT8m.mjs";
-import { t as loadPluginManifestRegistryCore } from "../manifest-registry-U3x0s0Ho.mjs";
-import { a as tryLoadActivatedBundledPluginPublicSurfaceModuleSync, r as loadBundledPluginPublicSurfaceModuleSync } from "../facade-runtime-B-yS8AQL.mjs";
+import { r as resolveOpenClawPackageRootSync } from "../openclaw-root-CPodxfi3.mjs";
+import { t as formatErrorMessage } from "../errors-DPfGDWk1.mjs";
+import { c as withPluginRuntimeGatewayContextResolver } from "../gateway-request-scope-1BXD1G3l.mjs";
+import { r as readOnlyWorkerScope } from "../sqlite-readonly-worker-context-DNk9aB7C.mjs";
+import { n as loadBundledPluginManifestRegistry } from "../manifest-registry-build-r3_ZeucU.mjs";
+import { t as loadPluginManifestRegistryCore } from "../manifest-registry-BqtrPPLI.mjs";
+import { a as tryLoadActivatedBundledPluginPublicSurfaceModuleSync, r as loadBundledPluginPublicSurfaceModuleSync } from "../facade-runtime-aXETij2D.mjs";
 import fs from "node:fs";
 import path from "node:path";
 //#region src/plugin-sdk/private-qa-bundled-env.ts
@@ -26,6 +29,10 @@ function resolvePrivateQaBundledPluginsEnv(env = process.env) {
 }
 //#endregion
 //#region src/plugin-sdk/qa-runner-runtime.ts
+/** Isolated fixture writes own fresh state and must not retain a prior scenario's authority. */
+function runQaFixtureWithoutRuntimeAuthority(operation) {
+	return readOnlyWorkerScope.exit(() => withPluginRuntimeGatewayContextResolver(void 0, operation, { inheritRequestScope: false }));
+}
 /** Memoize a lazy CLI runtime import so repeated command paths share one loaded module. */
 function createLazyCliRuntimeLoader(load) {
 	let promise = null;
@@ -73,8 +80,13 @@ function registerLiveTransportQaCli(params) {
 		if (params.credentialOptions.roleDescription) command.option("--credential-role <role>", params.credentialOptions.roleDescription);
 	}
 	command.action(async (opts) => {
-		if (command.getOptionValueSource("scenario") === "cli" && opts.scenario?.length === 0) throw new Error("--scenario must name at least one non-empty scenario id.");
-		await params.run(mapLiveTransportQaCommanderOptions(opts, params.normalizeInactiveSelectionOptions === true));
+		try {
+			if (command.getOptionValueSource("scenario") === "cli" && opts.scenario?.length === 0) throw new Error("--scenario must name at least one non-empty scenario id.");
+			await params.run(mapLiveTransportQaCommanderOptions(opts, params.normalizeInactiveSelectionOptions === true));
+		} catch (error) {
+			process.stderr.write(`${formatErrorMessage(error)}\n`);
+			process.exitCode = 1;
+		}
 	});
 }
 /** Build a Commander registration object for one live-transport QA command. */
@@ -122,7 +134,7 @@ function isQaRuntimeAvailable() {
 async function runLiveTransportQaSuiteCommand(params) {
 	return await loadQaRuntimeModule().runLiveTransportQaSuiteCommand(params);
 }
-function listDeclaredQaRunnerPlugins(env = resolvePrivateQaBundledPluginsEnv()) {
+function listDeclaredQaRunnerPlugins(env) {
 	return (env ? loadBundledPluginManifestRegistry({ env }) : loadPluginManifestRegistryCore()).plugins.filter((plugin) => Array.isArray(plugin.qaRunners) && plugin.qaRunners.length > 0).toSorted((left, right) => left.id.localeCompare(right.id) || left.rootDir.localeCompare(right.rootDir));
 }
 function indexRuntimeRegistrations(pluginId, surface) {
@@ -177,4 +189,4 @@ function listQaRunnerCliContributions() {
 	return [...contributions.values()];
 }
 //#endregion
-export { createLazyCliRuntimeLoader, createLiveTransportQaCliRegistration, isQaRuntimeAvailable, listQaRunnerCliContributions, loadQaRunnerBundledPluginTestApi, loadQaRuntimeModule, runLiveTransportQaSuiteCommand };
+export { createLazyCliRuntimeLoader, createLiveTransportQaCliRegistration, isQaRuntimeAvailable, listQaRunnerCliContributions, loadQaRunnerBundledPluginTestApi, loadQaRuntimeModule, runLiveTransportQaSuiteCommand, runQaFixtureWithoutRuntimeAuthority };

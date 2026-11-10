@@ -1,4 +1,3 @@
-// Generate Prompt Snapshots script supports OpenClaw repository automation.
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
@@ -160,8 +159,10 @@ async function writeSnapshotFiles(root: string, files: PromptSnapshotFile[]) {
 }
 
 async function formatSnapshotFiles(root: string, files: PromptSnapshotFile[]) {
+  // JSON snapshots already use canonical JSON.stringify bytes. Formatting them
+  // would depend on whether the temporary root inherits the repository ignores.
   const filePaths = files
-    .filter((file) => file.path.endsWith(".md") || file.path.endsWith(".json"))
+    .filter((file) => file.path.endsWith(".md"))
     .map((file) => path.resolve(root, file.path));
   if (filePaths.length === 0) {
     return;

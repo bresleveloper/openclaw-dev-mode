@@ -1,5 +1,4 @@
 import type { Command } from "commander";
-import { danger, defaultRuntime } from "openclaw/plugin-sdk/runtime-env";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import type { BrowserActRequest } from "../../browser/client-actions.types.js";
 import {
@@ -22,17 +21,20 @@ function parseBrowserMouseButtonOption(value: string): "left" | "right" | "middl
   });
 }
 
+function clickSuccessMessage(message: string) {
+  return ({ url }: { url?: string }) =>
+    `${message}${typeof url === "string" && url ? ` on ${url}` : ""}`;
+}
+
 export function registerBrowserElementCommands(
   browser: Command,
   parentOpts: (cmd: Command) => BrowserParentOpts,
 ) {
-  const parseRequiredNumber = (value: string, label: string): number | undefined => {
+  const parseRequiredNumber = (value: string, label: string): number => {
     const trimmed = value.trim();
     const parsed = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(trimmed) ? Number(trimmed) : Number.NaN;
     if (!Number.isFinite(parsed)) {
-      defaultRuntime.error(danger(`Invalid ${label}: must be a finite number`));
-      defaultRuntime.exit(1);
-      return undefined;
+      throw new Error(`Invalid ${label}: must be a finite number`);
     }
     return parsed;
   };
@@ -62,9 +64,6 @@ export function registerBrowserElementCommands(
     .option("--modifiers <list>", "Comma-separated modifiers (Shift,Alt,Meta)")
     .action(async (ref: string | undefined, opts, cmd) => {
       const refValue = requireRef(ref);
-      if (!refValue) {
-        return;
-      }
       const modifiers = opts.modifiers
         ? String(opts.modifiers)
             .split(",")
@@ -81,11 +80,7 @@ export function registerBrowserElementCommands(
           button: normalizeOptionalString(opts.button),
           modifiers,
         },
-        successMessage: (result) => {
-          const url = result.url;
-          const suffix = typeof url === "string" && url ? ` on ${url}` : "";
-          return `clicked ref ${refValue}${suffix}`;
-        },
+        successMessage: clickSuccessMessage(`clicked ref ${refValue}`),
       });
     });
 
@@ -103,9 +98,6 @@ export function registerBrowserElementCommands(
     .action(async (xRaw: string, yRaw: string, opts, cmd) => {
       const x = parseRequiredNumber(xRaw, "x");
       const y = parseRequiredNumber(yRaw, "y");
-      if (x === undefined || y === undefined) {
-        return;
-      }
       await runElementAction({
         cmd,
         body: {
@@ -117,11 +109,7 @@ export function registerBrowserElementCommands(
           button: normalizeOptionalString(opts.button),
           delayMs: opts.delayMs,
         },
-        successMessage: (result) => {
-          const url = result.url;
-          const suffix = typeof url === "string" && url ? ` on ${url}` : "";
-          return `clicked ${x},${y}${suffix}`;
-        },
+        successMessage: clickSuccessMessage(`clicked ${x},${y}`),
       });
     });
 
@@ -135,9 +123,6 @@ export function registerBrowserElementCommands(
     .option("--target-id <id>", BROWSER_TAB_REFERENCE_HELP)
     .action(async (ref: string | undefined, text: string, opts, cmd) => {
       const refValue = requireRef(ref);
-      if (!refValue) {
-        return;
-      }
       await runElementAction({
         cmd,
         body: {
@@ -152,31 +137,26 @@ export function registerBrowserElementCommands(
       });
     });
 
-  browser
-    .command("press")
-    .description("Press a key")
-    .argument("<key>", "Key to press (e.g. Enter)")
-    .option("--target-id <id>", BROWSER_TAB_REFERENCE_HELP)
-    .action(async (key: string, opts, cmd) => {
-      await runElementAction({
-        cmd,
-        body: { kind: "press", key, targetId: normalizeOptionalString(opts.targetId) },
-        successMessage: `pressed ${key}`,
+  for (const [kind, description, argument, argumentHelp, message] of [
+    ["press", "Press a key", "key", "Key to press (e.g. Enter)", "pressed"],
+    ["hover", "Hover an element by ai ref", "ref", "Ref id from snapshot", "hovered ref"],
+  ] as const) {
+    browser
+      .command(kind)
+      .description(description)
+      .argument(`<${argument}>`, argumentHelp)
+      .option("--target-id <id>", BROWSER_TAB_REFERENCE_HELP)
+      .action(async (value: string, opts, cmd) => {
+        await runElementAction({
+          cmd,
+          body: {
+            ...(kind === "press" ? { kind, key: value } : { kind, ref: value }),
+            targetId: normalizeOptionalString(opts.targetId),
+          },
+          successMessage: `${message} ${value}`,
+        });
       });
-    });
-
-  browser
-    .command("hover")
-    .description("Hover an element by ai ref")
-    .argument("<ref>", "Ref id from snapshot")
-    .option("--target-id <id>", BROWSER_TAB_REFERENCE_HELP)
-    .action(async (ref: string, opts, cmd) => {
-      await runElementAction({
-        cmd,
-        body: { kind: "hover", ref, targetId: normalizeOptionalString(opts.targetId) },
-        successMessage: `hovered ref ${ref}`,
-      });
-    });
+  }
 
   browser
     .command("scrollintoview")
@@ -188,9 +168,6 @@ export function registerBrowserElementCommands(
     )
     .action(async (ref: string | undefined, opts, cmd) => {
       const refValue = requireRef(ref);
-      if (!refValue) {
-        return;
-      }
       await runElementAction({
         cmd,
         body: {

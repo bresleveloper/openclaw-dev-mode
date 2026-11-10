@@ -1,0 +1,30 @@
+import fs from "node:fs";
+import fs$1 from "node:fs/promises";
+import path from "node:path";
+//#region src/agents/session-dirs.ts
+function mapAgentSessionDirs(agentsDir, entries, includeDirName) {
+	return entries.filter((entry) => entry.isDirectory() && (includeDirName?.(entry.name) ?? true)).map((entry) => path.join(agentsDir, entry.name, "sessions")).toSorted((a, b) => a.localeCompare(b));
+}
+function resolveAgentSessionDirsFromAgentsDirSync(agentsDir, includeDirName) {
+	let entries;
+	try {
+		entries = fs.readdirSync(agentsDir, { withFileTypes: true });
+	} catch (err) {
+		if (err.code === "ENOENT") return [];
+		throw err;
+	}
+	return mapAgentSessionDirs(agentsDir, entries, includeDirName);
+}
+async function resolveAgentSessionDirs(stateDir) {
+	const agentsDir = path.join(stateDir, "agents");
+	let entries;
+	try {
+		entries = await fs$1.readdir(agentsDir, { withFileTypes: true });
+	} catch (err) {
+		if (err.code === "ENOENT") return [];
+		throw err;
+	}
+	return mapAgentSessionDirs(agentsDir, entries);
+}
+//#endregion
+export { resolveAgentSessionDirsFromAgentsDirSync as n, resolveAgentSessionDirs as t };

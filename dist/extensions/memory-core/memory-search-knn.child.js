@@ -1,18 +1,17 @@
-import { r as ensureSqliteLibrarySelected } from "../../bun-sqlite-library-CBSPJxTD.mjs";
-import { s as supportsNodeSqliteExtensionLoading, t as openNodeSqliteDatabase } from "../../node-sqlite-XIcwmOrl.mjs";
-import { t as loadSqliteVecExtension } from "../../sqlite-vec-BcbJNyja.mjs";
-import "../../memory-core-host-engine-knn-DTjLOT03.mjs";
-import { n as runVectorKnnQuery, r as validateVectorKnnRequest } from "../../manager-search-knn-B-dpovcE.mjs";
+import { a as ensureSqliteLibrarySelected } from "../../bun-sqlite-library-CYR1RYZS.mjs";
+import { l as supportsNodeSqliteExtensionLoading, r as openNodeSqliteDatabase } from "../../node-sqlite-CYaq-2Hb.mjs";
+import { t as loadSqliteVecExtension } from "../../sqlite-vec-DjjFDiM4.mjs";
+import "../../memory-core-host-engine-knn--De7HW1q.mjs";
+import { n as runVectorKnnQuery } from "../../manager-search-knn-BcL6ZfNx.mjs";
 //#region extensions/memory-core/src/memory/manager-search-knn.child.ts
 const MAX_STDIN_BYTES = 1048576;
 const MAX_STDOUT_BYTES = 2097152;
 function isChildInput(value) {
 	if (!value || typeof value !== "object") return false;
 	const input = value;
-	return Number.isSafeInteger(input.id) && typeof input.databasePath === "string" && input.databasePath.length > 0 && (input.sqliteLibraryPath === void 0 || typeof input.sqliteLibraryPath === "string" && input.sqliteLibraryPath.trim().length > 0) && Boolean(input.request) && typeof input.request === "object";
+	return typeof input.databasePath === "string" && input.databasePath.length > 0 && (input.sqliteLibraryPath === void 0 || typeof input.sqliteLibraryPath === "string" && input.sqliteLibraryPath.trim().length > 0) && Boolean(input.request) && typeof input.request === "object";
 }
 async function run(input) {
-	validateVectorKnnRequest(input.request);
 	ensureSqliteLibrarySelected({ explicitPath: input.sqliteLibraryPath });
 	const extensionLoadingSupported = supportsNodeSqliteExtensionLoading();
 	const db = openNodeSqliteDatabase(input.databasePath, {
@@ -21,43 +20,23 @@ async function run(input) {
 	});
 	try {
 		db.exec("PRAGMA query_only = ON; PRAGMA busy_timeout = 5000");
-		if (!extensionLoadingSupported) return {
-			status: "ok",
-			value: {
-				rows: [],
-				fallbackScanRequired: true
-			}
-		};
-		if (!(await loadSqliteVecExtension({
-			db,
-			extensionPath: input.extensionPath
-		})).ok) return {
-			status: "ok",
-			value: {
-				rows: [],
-				fallbackScanRequired: true
-			}
-		};
+		if (extensionLoadingSupported) {
+			if ((await loadSqliteVecExtension({
+				db,
+				extensionPath: input.extensionPath
+			})).ok) return runVectorKnnQuery(db, input.request);
+		}
 		return {
-			status: "ok",
-			value: runVectorKnnQuery(db, input.request)
-		};
-	} catch (error) {
-		return {
-			status: "failed",
-			error: error instanceof Error ? error.message : String(error)
+			rows: [],
+			fallbackScanRequired: true
 		};
 	} finally {
 		db.close();
 	}
 }
-function writeResult(id, result) {
-	let payload = Buffer.from(JSON.stringify({
-		...result,
-		id
-	}), "utf8");
+function writeResult(result) {
+	let payload = Buffer.from(JSON.stringify(result), "utf8");
 	if (payload.byteLength > MAX_STDOUT_BYTES) payload = Buffer.from(JSON.stringify({
-		id,
 		status: "failed",
 		error: "memory vector KNN child result is too large"
 	}), "utf8");
@@ -77,9 +56,12 @@ for await (const chunk of process.stdin) {
 	inputBytes = 0;
 	if (!isChildInput(input)) throw new Error("invalid memory vector KNN child input");
 	try {
-		writeResult(input.id, await run(input));
+		writeResult({
+			status: "ok",
+			value: await run(input)
+		});
 	} catch (error) {
-		writeResult(input.id, {
+		writeResult({
 			status: "failed",
 			error: error instanceof Error ? error.message : String(error)
 		});

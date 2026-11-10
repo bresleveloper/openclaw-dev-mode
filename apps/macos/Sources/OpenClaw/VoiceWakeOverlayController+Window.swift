@@ -93,9 +93,7 @@ extension VoiceWakeOverlayController {
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.18
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            if let target {
-                window.animator().setFrame(target, display: true)
-            }
+            window.animator().setFrame(target, display: true)
             window.animator().alphaValue = 0
         } completionHandler: {
             Task { @MainActor in
@@ -126,11 +124,12 @@ extension VoiceWakeOverlayController {
         let used = layout.usedRect(for: container)
 
         let contentHeight = ceil(used.height + (textInset.height * 2))
-        let total = contentHeight + self.verticalPadding * 2
+        let errorHeight: CGFloat = self.model.sendError == nil ? 0 : 36
+        let total = contentHeight + self.verticalPadding * 2 + errorHeight
         return max(self.minHeight, min(total, self.maxHeight))
     }
 
-    func dismissTargetFrame(for frame: NSRect, reason: DismissReason, outcome: SendOutcome) -> NSRect? {
+    func dismissTargetFrame(for frame: NSRect, reason: DismissReason, outcome: SendOutcome) -> NSRect {
         switch (reason, outcome) {
         case (.empty, _):
             let scale: CGFloat = 0.95

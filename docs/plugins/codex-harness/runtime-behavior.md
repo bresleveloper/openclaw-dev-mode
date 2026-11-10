@@ -23,7 +23,7 @@ Codex's native `skills` namespace or install marketplace skills. See
 Codex dynamic tools default to `searchable` loading. OpenClaw normally does
 not expose dynamic tools that duplicate Codex-native workspace operations:
 `read`, `write`, `edit`, `apply_patch`, `exec`, `process`,
-`get_goal`, `create_goal`, `update_goal`, `tool_call`, `tool_describe`,
+`get_goal`, `create_goal`, `update_goal`, `dispatch_action`, `tool_describe`,
 and `tool_search`. Goal operations stay native to Codex,
 so OpenClaw does not project a second goal store into Codex turns. Most
 remaining OpenClaw integration tools, such as messaging, media, cron,
@@ -32,6 +32,8 @@ Codex tool search under the `openclaw` namespace, keeping the initial model
 context smaller. The restricted-turn shell fallback is the exception for
 `exec` and `process` when a finite allowlist disables native Code Mode;
 runtime allowlists and `codexDynamicToolsExclude` still apply.
+Strict [`agent exec`](/cli/agent#agent-exec) runs also use OpenClaw's tools so
+their process cleanup stays with the one-shot run owner.
 When native shell remains active and Gateway access is policy-eligible,
 OpenClaw instead publishes the distinct `gateway_exec` and `gateway_process`
 names so native shell and the OpenClaw-managed environment path cannot be
@@ -52,7 +54,7 @@ replaced by a selected managed provider. OpenClaw keeps Codex's standalone
 its user-defined `web` namespace. `tools.web.search.enabled: false`
 disables both paths, as do tool-disabled LLM-only runs. Codex treats
 `"cached"` as a preference and resolves it to live external access for
-unrestricted app-server turns. Automatic managed fallback fails closed when
+unrestricted app-server turns. Automatic managed fallback is blocked when
 native `allowedDomains` are set so the allowlist cannot be bypassed.
 Persistent effective search-policy changes rotate the bound Codex thread
 before the next turn; transient per-turn restrictions use a temporary
@@ -81,7 +83,7 @@ debugging the full tool payload.
 Long tool results have a collapsed preview in the Control UI. **Show full output**
 opens the saved result as plain text; copy and download use that text, not the
 preview. Reloading the conversation reads the same saved result. Inspection is
-subject to the Gateway's message-size limits and configured transcript redaction.
+subject to the Gateway's message-size limits. Tool-result text is not secret-masked.
 Tool-output inspection requests the supported maximum of 2,000,000 characters per
 text field; a result that remains capped is explicitly marked unavailable.
 A preview limit does not mean Codex truncated the model's input.
@@ -165,6 +167,16 @@ OpenClaw still bounds its own requests, dynamic tools, cancellation, and local
 settlement. See [Timeouts](/plugins/codex-harness-reference#timeouts) for those
 budgets, Stop and replay behavior, and Doctor migration of retired idle settings.
 
+If the app-server connection is lost before the turn completes, the conversation
+retains a visible failure outcome even when Codex already sent commentary or
+partial output. Reloading the Control UI or opening the conversation on another
+client preserves that outcome. The live error and saved notice both explain
+that the task may still be running and tell you to check the conversation before
+trying again. The original error remains in diagnostic details.
+Check any command's effects before retrying: a
+lost connection does not prove that its work stopped. A later turn can reconnect
+to the app-server normally.
+
 Failed app-server startup waits for child shutdown before returning its error.
 If startup times out or is canceled during process registration, cleanup joins
 that registration and closes any late child. Cleanup can extend beyond the
@@ -246,7 +258,7 @@ Because entitlement belongs to the authenticated workspace and the target model
 rather than to any one conversation, an unauthorized target is remembered once
 for every session under that workspace and cannot be displaced by session churn.
 A separate workspace that is entitled keeps escalating normally, and the record
-releases on its own once `cooloffMs` elapses. Only one probe runs at a time for a
+releases on its own once `cooloffMs` elapses. Only one check runs at a time for a
 given workspace and target, so sibling sessions refused at the same moment do not
 each pay the reconnect ladder before the first result lands.
 
@@ -261,6 +273,17 @@ When native interruption and subscription cleanup are confirmed, stopping one
 chat leaves other chats running on the shared client. A follow-up can resume the
 stopped thread without waiting for those chats to finish.
 
+Native child completion delivery stops permanently when its retry budget is
+exhausted or requester recovery blocks it. OpenClaw retires that child turn's
+pending assignment and follow-up receipt together, so later parent registrations
+and Gateway restarts do not restart delivery. A bounded system note in the parent
+transcript identifies the child, its status, and its result session key; a warning
+records retirement even if the transcript note cannot be written. Other pending
+turns of the same child remain independent. Parent subscription retention during
+ordinary completion retries is unchanged.
+
+If a chat’s previous client was retired while siblings still use it, the next turn waits for its exact thread to close or that process to exit. A passive read of that exact old client recovers a missed closure only when the matching thread is notLoaded; failed reads and still-loaded threads preserve the fence. Cancelling the waiting turn stops only its read and wait. Native resume still enforces its exclusive persistence writer lock.
+
 Managed local connections share a bounded inference relay. Up to 16 request
 preparations and uploads run at once, with another 16 waiting in arrival order.
 Responses keep streaming after their upload capacity is released, so a long
@@ -271,8 +294,14 @@ with room for 16 pending or closing admissions. It retains up to 64 usable
 WebSockets and reclaims the oldest completed idle connection when either
 transport needs room. Active responses and newly opened connections awaiting
 their first request are not evicted. HTTP connections close after each response;
-native WebSocket reuse remains intact. The separate limit of 64 admitted root
-contexts is unchanged; transport capacity is not a count of saved conversations.
+native WebSocket reuse remains intact. Separately, each inference relay admits at
+most 64 active root contexts. Additional turns wait in arrival order for a root
+to be released; cancellation removes a waiting turn, and relay shutdown rejects
+its waiters. Admission rechecks the turn and transport ownership before starting.
+Debug logs identify the root limit and waiting count. A completed, failed,
+aborted, or yielded turn releases its root; retained parent subscriptions and
+prepared context do not occupy active roots. Transport capacity is not a count
+of saved conversations.
 
 A new WebSocket waits before opening its upstream connection; admission and its
 handshake share a 10-second deadline. HTTP admission and queued WebSocket
@@ -310,6 +339,11 @@ does not reserve it against a subsequent native reload.
 
 ## Runtime boundaries
 
+Native provider throttling and overload retain their structured status whether
+Codex rejects turn startup or reports a failed turn. Both paths use OpenClaw's
+shared retry and failure guidance in channel chats and the Control UI. Temporary
+throttling does not inherit a subscription usage-limit reset cooldown.
+
 The Codex harness changes the low-level embedded agent executor only.
 
 - OpenClaw dynamic tools are supported. Codex asks OpenClaw to execute
@@ -335,3 +369,6 @@ The Codex harness changes the low-level embedded agent executor only.
 For hook layers, supported V1 surfaces, native permission handling, queue
 steering, Codex feedback upload mechanics, and compaction details, see
 [Codex harness runtime](/plugins/codex-harness-runtime).
+
+Temporary native capability, hook, and tool-catalog probes close and await their isolated
+app-server processes. Shared-client probes release only their borrowed lease.

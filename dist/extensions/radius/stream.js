@@ -56,6 +56,7 @@ function createEventConverter(partial) {
 				};
 			}
 			if (type === "error" && (reason === "error" || reason === "aborted")) {
+				for (const block of partial.content) if (block.type === "toolCall") delete block.partialJson;
 				partial.stopReason = reason;
 				partial.errorMessage = event.errorMessage === void 0 ? "Radius request failed" : string(event.errorMessage);
 				return {
@@ -83,16 +84,15 @@ function createEventConverter(partial) {
 				thinking: ""
 			});
 			else {
-				partial.content.push({
+				const toolCall = {
 					type: "toolCall",
 					id: string(event.id),
 					name: string(event.toolName),
-					arguments: {}
-				});
-				toolJson.set(contentIndex, {
-					json: "",
-					shouldPreview: createToolArgumentPreviewSchedule()
-				});
+					arguments: {},
+					partialJson: ""
+				};
+				partial.content.push(toolCall);
+				toolJson.set(contentIndex, createToolArgumentPreviewSchedule());
 			}
 			return {
 				type,
@@ -150,8 +150,9 @@ function createEventConverter(partial) {
 				const pending = toolJson.get(contentIndex);
 				if (block?.type !== "toolCall" || !pending) break;
 				const delta = string(event.delta);
-				pending.json += delta;
-				if (pending.shouldPreview(pending.json.length)) block.arguments = parseStreamingJson(pending.json);
+				const partialJson = (block.partialJson ?? "") + delta;
+				block.partialJson = partialJson;
+				if (pending(partialJson.length)) block.arguments = parseStreamingJson(partialJson);
 				return {
 					type,
 					contentIndex,
@@ -164,6 +165,7 @@ function createEventConverter(partial) {
 				const call = record(event.toolCall);
 				if (call.type !== "toolCall" || call.id !== block.id || call.name !== block.name) throw new Error("Radius terminal tool call does not match its start");
 				block.arguments = parseTerminalToolCallArguments(call.arguments);
+				delete block.partialJson;
 				if (call.thoughtSignature !== void 0) block.thoughtSignature = string(call.thoughtSignature);
 				toolJson.delete(contentIndex);
 				return {
@@ -270,6 +272,7 @@ function createRadiusStreamFn() {
 				}
 				throw new Error("Radius stream ended without a terminal event");
 			} catch (error) {
+				for (const block of partial.content) if (block.type === "toolCall") delete block.partialJson;
 				failTransportStream({
 					stream,
 					output: partial,

@@ -5,6 +5,7 @@ import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { resolveStateDir } from "../config/paths.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { isMissingPathError } from "../infra/errors.js";
+import { decodeUtf8Input } from "../infra/utf8-input.js";
 import { createPluginStateKeyedStore } from "../plugin-state/plugin-state-store.js";
 import { archiveLegacyStateSource } from "../plugins/doctor-state-migration-fs.js";
 import { resolveOpenClawStateSqlitePath } from "../state/openclaw-state-db.paths.js";
@@ -34,14 +35,6 @@ type RetiredArmState = {
   version?: unknown;
   addedToAllow?: unknown;
   removedFromDeny?: unknown;
-};
-
-type RetiredPhoneControlCleanupPlan = {
-  config: OpenClawConfig;
-  configChanges: string[];
-  cleanupPending: boolean;
-  cleanupSafe: boolean;
-  warnings: string[];
 };
 
 function resolveLegacyArmStatePath(env: NodeJS.ProcessEnv): string {
@@ -113,10 +106,10 @@ function isRetiredArmState(value: unknown): value is RetiredArmState {
 }
 
 function readStringArrayField(value: unknown, field: keyof RetiredArmState): string[] {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return [];
   }
-  const entries = (value as RetiredArmState)[field];
+  const entries = value[field];
   return Array.isArray(entries)
     ? entries.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "")
     : [];
@@ -131,33 +124,25 @@ function openRetiredArmStateStore(env: NodeJS.ProcessEnv) {
   });
 }
 
-async function readRetiredArmStates(env: NodeJS.ProcessEnv): Promise<{
-  states: unknown[];
-  cleanupPending: boolean;
-  cleanupSafe: boolean;
-  warnings: string[];
-}> {
+async function readRetiredArmStates(env: NodeJS.ProcessEnv) {
   const legacyPath = resolveLegacyArmStatePath(env);
   const databasePath = resolveOpenClawStateSqlitePath(env);
   const [legacyInspection, databaseInspection] = await Promise.all([
     inspectStatePath(legacyPath, "retired Phone Control lease state"),
     inspectStatePath(databasePath, "OpenClaw state database"),
   ]);
-  const warnings: string[] = [];
-  const inspectionUnsafe =
-    legacyInspection.status === "unsafe" || databaseInspection.status === "unsafe";
-  if (legacyInspection.status === "unsafe") {
-    warnings.push(legacyInspection.warning);
-  }
-  if (databaseInspection.status === "unsafe") {
-    warnings.push(databaseInspection.warning);
-  }
+  const warnings = [legacyInspection, databaseInspection].flatMap((inspection) =>
+    inspection.status === "unsafe" ? [inspection.warning] : [],
+  );
+  const inspectionUnsafe = warnings.length > 0;
 
   let legacyState: unknown;
   let legacyStateValid = false;
   if (legacyInspection.status === "file") {
     try {
-      legacyState = JSON.parse(await fs.readFile(legacyPath, "utf8")) as unknown;
+      legacyState = JSON.parse(
+        decodeUtf8Input(await fs.readFile(legacyPath), legacyPath),
+      ) as unknown;
       legacyStateValid = isRetiredArmState(legacyState);
       if (!legacyStateValid) {
         warnings.push(`Retired Phone Control lease state at ${legacyPath} is malformed.`);
@@ -251,12 +236,13 @@ function withCommandLists(
 export async function prepareRetiredPhoneControlCleanup(params: {
   cfg: OpenClawConfig;
   env?: NodeJS.ProcessEnv;
-}): Promise<RetiredPhoneControlCleanupPlan> {
+}) {
   const env = params.env ?? process.env;
   const residue = await readRetiredArmStates(env);
-  const unchanged: RetiredPhoneControlCleanupPlan = {
+  const configChanges: string[] = [];
+  const unchanged = {
     config: params.cfg,
-    configChanges: [],
+    configChanges,
     cleanupPending: residue.cleanupPending,
     cleanupSafe: residue.cleanupSafe,
     warnings: residue.warnings,
@@ -272,14 +258,11 @@ export async function prepareRetiredPhoneControlCleanup(params: {
   );
   const currentAllow = params.cfg.gateway?.nodes?.commands?.allow;
   const currentDeny = params.cfg.gateway?.nodes?.commands?.deny;
-  const reconstructedDeny = [...(currentDeny ?? [])];
-  const reconstructedDenySet = new Set(reconstructedDeny);
-  for (const command of leaseRemovedDenies) {
-    if (!reconstructedDenySet.has(command)) {
-      reconstructedDeny.push(command);
-      reconstructedDenySet.add(command);
-    }
-  }
+  const currentDenySet = new Set(currentDeny);
+  const reconstructedDeny = [
+    ...(currentDeny ?? []),
+    ...[...new Set(leaseRemovedDenies)].filter((command) => !currentDenySet.has(command)),
+  ];
   const removeSeededDeny = currentDeny !== undefined && isExactSeededDenyList(reconstructedDeny);
   // The lease journal snapshots persistentAllows through deny-wins policy before
   // activation, so commands in removedFromDeny are lease-only even if also allowed.
@@ -296,7 +279,6 @@ export async function prepareRetiredPhoneControlCleanup(params: {
     return unchanged;
   }
 
-  const configChanges: string[] = [];
   if (allowChanged) {
     configChanges.push("Removed stale Phone Control lease-only command allow entries.");
   }
@@ -312,7 +294,6 @@ export async function prepareRetiredPhoneControlCleanup(params: {
       allow: nextAllow,
       deny: nextDeny,
     }),
-    configChanges,
   };
 }
 

@@ -1,4 +1,5 @@
-import { _ as releaseDiscordAudioInput, b as serializeDiscordAudioError, c as createDiscordOpusEncodeStream, d as createRealtimePcmToDiscordConverter, f as decodeOpusStreamChunks, g as getDiscordAudioOutputStatus, i as enableDaveReceivePassthrough, l as createDiscordOpusPlaybackStream, m as DiscordAudioOutputStatus, n as analyzeVoiceReceiveError, o as recoverDaveZeroTransition, x as setDiscordAudioOutputStatus, y as retireDiscordAudioOutput } from "../../.setup/receive-recovery-DgkX7Qvi.mjs";
+import { _ as setDiscordAudioOutputStatus, a as recoverDaveZeroTransition, c as createDiscordOpusPlaybackStream, d as decodeOpusStreamChunks, g as serializeDiscordAudioError, m as getDiscordAudioOutputStatus, n as analyzeVoiceReceiveError, p as DiscordAudioOutputStatus, r as enableDaveReceivePassthrough, s as DiscordOpusEncodeStream, u as createRealtimePcmToDiscordConverter } from "../../.setup/receive-recovery-CKvaG2Hf.mjs";
+import { t as resolveDiscordOutputAudioDelta } from "../../.setup/output-activity-uBpMSX75.mjs";
 import { createRequire } from "node:module";
 import { parentPort, workerData } from "node:worker_threads";
 import { PassThrough, pipeline } from "node:stream";
@@ -99,7 +100,6 @@ var DiscordRealtimePlayer = class {
 //#region extensions/discord/src/voice/realtime-output.runtime.ts
 const logger = createSubsystemLogger("discord/voice");
 const DISCORD_RAW_PCM_FRAME_BYTES = 3840;
-const DISCORD_RAW_PCM_BYTES_PER_MS = 192;
 const DISCORD_REALTIME_OUTPUT_PREROLL_FRAMES = 25;
 const DISCORD_CONTINUOUS_PREROLL_FRAMES = 6;
 const DISCORD_CONTINUOUS_START_DEADLINE_MS = 120;
@@ -140,16 +140,9 @@ var DiscordRealtimeOutput = class {
 	}
 	append(sourcePcm, audible) {
 		if (!this.isAcceptingAudio()) return;
-		const previous = this.activity.snapshot();
-		const sinkBytes = Math.floor((previous.sourceAudioBytes + sourcePcm.length) / 2) * 8;
-		const audioMs = (sinkBytes - previous.sinkAudioBytes) / DISCORD_RAW_PCM_BYTES_PER_MS;
-		this.activity.markAudio({
-			audioMs,
-			sourceAudioBytes: sourcePcm.length,
-			sinkAudioBytes: sinkBytes - previous.sinkAudioBytes
-		});
+		this.activity.markAudio(resolveDiscordOutputAudioDelta(this.activity.snapshot(), sourcePcm.length));
 		if (audible) {
-			this.clearSilenceTimer();
+			this.clearTimer("silenceTimer");
 			this.silentSince = void 0;
 			this.lastAudiblePcmEndBytes = this.activity.snapshot().sinkAudioBytes;
 		}
@@ -166,13 +159,6 @@ var DiscordRealtimeOutput = class {
 			this.startupTimer.unref?.();
 		}
 	}
-	appendAdmitted(sourcePcm, audible) {
-		try {
-			this.append(sourcePcm, audible);
-		} finally {
-			releaseDiscordAudioInput(this.params.clock);
-		}
-	}
 	writeConverted(pcm) {
 		if (pcm.length === 0 || this.closed) return;
 		if (this.activity.snapshot().playbackStarted && !this.drainHandler) {
@@ -185,7 +171,7 @@ var DiscordRealtimeOutput = class {
 	finish(reason, playBuffered) {
 		if (this.closed) return;
 		this.publishRetiring();
-		this.clearSilenceTimer();
+		this.clearTimer("silenceTimer");
 		if (playBuffered) this.writeConverted(this.converter.flush());
 		this.activity.markStreamEnding();
 		const activity = this.activity.snapshot();
@@ -207,11 +193,10 @@ var DiscordRealtimeOutput = class {
 		const lostPlaybackMarks = playbackRetirement && this.playbackMarks.some((mark) => mark.endBytes > this.playedPcmBytes);
 		this.closed = true;
 		setDiscordAudioOutputStatus(this.params.clock, DiscordAudioOutputStatus.Closed);
-		this.clearSilenceTimer();
-		clearTimeout(this.startupTimer);
-		this.startupTimer = void 0;
+		this.clearTimer("silenceTimer");
+		this.clearTimer("startupTimer");
 		this.playbackMarks = [];
-		this.clearWatchdog();
+		this.clearTimer("watchdog");
 		const activity = this.activity.snapshot();
 		logger.info(`discord voice: realtime audio playback stopped reason=${reason} ${this.params.logContext} audioMs=${Math.floor(activity.audioMs)} elapsedMs=${this.activity.elapsedPlaybackMs()} chunks=${activity.chunks} discordBytes=${activity.sinkAudioBytes} realtimeBytes=${activity.sourceAudioBytes}`);
 		this.buffers = [];
@@ -236,8 +221,7 @@ var DiscordRealtimeOutput = class {
 	}
 	startPlayback() {
 		if (this.closed || this.ready) return;
-		clearTimeout(this.startupTimer);
-		this.startupTimer = void 0;
+		this.clearTimer("startupTimer");
 		if (this.bufferedBytes < DISCORD_RAW_PCM_FRAME_BYTES) this.writeConverted(this.converter.drain());
 		this.ready = true;
 		this.enqueuePlayback();
@@ -259,7 +243,11 @@ var DiscordRealtimeOutput = class {
 					if (!this.drainHandler) this.stream.end();
 				}
 			},
-			onRetiring: () => this.activity.snapshot().sinkAudioBytes <= this.playedPcmBytes && retireDiscordAudioOutput(this.params.clock),
+			onRetiring: () => {
+				if (this.activity.snapshot().sinkAudioBytes > this.playedPcmBytes) return false;
+				this.publishRetiring();
+				return true;
+			},
 			onIdle: () => this.close(this.failed ? "output-pipeline-error" : "player-idle"),
 			onError: this.params.onError
 		};
@@ -267,7 +255,7 @@ var DiscordRealtimeOutput = class {
 	}
 	createResource() {
 		const voiceSdk = loadDiscordVoiceSdk();
-		const opusStream = createDiscordOpusEncodeStream();
+		const opusStream = new DiscordOpusEncodeStream();
 		opusStream.once("error", () => {
 			this.failed = true;
 		});
@@ -328,13 +316,13 @@ var DiscordRealtimeOutput = class {
 		if (activity.sinkAudioBytes <= this.lastAudiblePcmEndBytes || this.silenceTimer) return;
 		this.silenceTimer = setTimeout(() => {
 			this.silenceTimer = void 0;
-			if (!this.closed && !this.activity.snapshot().streamEnding && !this.hasUnplayedAudibleAudio() && retireDiscordAudioOutput(this.params.clock)) this.finish("continuous-idle", true);
+			if (!this.closed && !this.activity.snapshot().streamEnding && !this.hasUnplayedAudibleAudio()) this.finish("continuous-idle", true);
 		}, Math.max(0, DISCORD_REALTIME_PLAYBACK_IDLE_MS - (performance.now() - this.silentSince)));
 		this.silenceTimer.unref?.();
 	}
-	clearSilenceTimer() {
-		clearTimeout(this.silenceTimer);
-		this.silenceTimer = void 0;
+	clearTimer(timer) {
+		clearTimeout(this[timer]);
+		this[timer] = void 0;
 	}
 	waitForDrain() {
 		if (this.drainHandler || this.closed) return;
@@ -343,9 +331,7 @@ var DiscordRealtimeOutput = class {
 			this.drainHandler = void 0;
 			if (this.closed) return;
 			let refreshWatchdog = this.activity.snapshot().streamEnding;
-			while (this.buffers.length > 0) {
-				const buffered = this.buffers.shift();
-				if (!buffered) break;
+			for (let buffered = this.buffers.shift(); buffered; buffered = this.buffers.shift()) {
 				this.bufferedBytes -= buffered.length;
 				const writable = this.stream.write(buffered);
 				if (refreshWatchdog) {
@@ -362,7 +348,7 @@ var DiscordRealtimeOutput = class {
 		this.stream.once("drain", this.drainHandler);
 	}
 	scheduleWatchdog(reason) {
-		this.clearWatchdog();
+		this.clearTimer("watchdog");
 		const timeoutMs = this.activity.playbackWatchdogDelayMs({
 			marginMs: DISCORD_REALTIME_OUTPUT_PLAYBACK_WATCHDOG_MARGIN_MS,
 			minMs: DISCORD_REALTIME_OUTPUT_PLAYBACK_WATCHDOG_MARGIN_MS
@@ -373,10 +359,6 @@ var DiscordRealtimeOutput = class {
 			logger.warn(`discord voice: realtime audio playback watchdog fired reason=${reason} ${this.params.logContext} audioMs=${Math.floor(this.activity.snapshot().audioMs)} elapsedMs=${this.activity.elapsedPlaybackMs()}`);
 			this.close("playback-watchdog");
 		}, timeoutMs);
-	}
-	clearWatchdog() {
-		clearTimeout(this.watchdog);
-		this.watchdog = void 0;
 	}
 };
 //#endregion
@@ -523,27 +505,8 @@ var DiscordAudioWorker = class {
 		this.onDestroyed = () => {
 			this.stop();
 		};
-		this.onSpeakingStart = (userId) => {
-			if (this.stopped) return;
-			for (const capture of this.captures.values()) if (capture.userId === userId) {
-				clearTimeout(capture.timer);
-				capture.timer = void 0;
-			}
-			this.post({
-				type: "speaking",
-				userId,
-				speaking: true
-			});
-		};
-		this.onSpeakingEnd = (userId) => {
-			if (this.stopped) return;
-			for (const [id, capture] of this.captures) if (capture.userId === userId) this.finalizeLater(id, capture);
-			this.post({
-				type: "speaking",
-				userId,
-				speaking: false
-			});
-		};
+		this.onSpeakingStart = (userId) => this.onSpeaking(userId, true);
+		this.onSpeakingEnd = (userId) => this.onSpeaking(userId, false);
 		this.player = options.realtime ? this.sdk.createAudioPlayer({ behaviors: { maxMissedFrames: DISCORD_REALTIME_PLAYBACK_IDLE_MS / 20 } }) : this.sdk.createAudioPlayer();
 		this.roomPlayer = new DiscordRealtimePlayer(this.player);
 		this.player.on("stateChange", (_old, state) => this.post({
@@ -711,7 +674,7 @@ var DiscordAudioWorker = class {
 				break;
 			}
 			case "output-audio":
-				this.outputs.get(command.id)?.appendAdmitted(Buffer.from(command.audio), command.audible);
+				this.outputs.get(command.id)?.append(Buffer.from(command.audio), command.audible);
 				break;
 			case "output-mark":
 				this.outputs.get(command.id)?.markPlayback(() => this.post({
@@ -748,17 +711,17 @@ var DiscordAudioWorker = class {
 				this.track(this.playFile(command.id, stream));
 				break;
 			}
-			case "stream-chunk":
+			case "stream-chunk": {
 				if (this.fileInput?.id !== command.id) break;
-				if (this.fileInput.stream.write(Buffer.from(command.audio))) this.post({
+				const writable = this.fileInput.stream.write(Buffer.from(command.audio));
+				const onDrain = () => this.post({
 					type: "stream-drain",
 					id: command.id
 				});
-				else this.fileInput.stream.once("drain", () => this.post({
-					type: "stream-drain",
-					id: command.id
-				}));
+				if (writable) onDrain();
+				else this.fileInput.stream.once("drain", onDrain);
 				break;
+			}
 			case "stream-end": if (this.fileInput?.id === command.id) this.fileInput.stream.end();
 		}
 	}
@@ -812,6 +775,21 @@ var DiscordAudioWorker = class {
 				level: "warn",
 				message
 			})
+		});
+	}
+	onSpeaking(userId, speaking) {
+		if (this.stopped) return;
+		for (const [id, capture] of this.captures) {
+			if (capture.userId !== userId) continue;
+			if (speaking) {
+				clearTimeout(capture.timer);
+				capture.timer = void 0;
+			} else this.finalizeLater(id, capture);
+		}
+		this.post({
+			type: "speaking",
+			userId,
+			speaking
 		});
 	}
 	stopCapture(capture) {

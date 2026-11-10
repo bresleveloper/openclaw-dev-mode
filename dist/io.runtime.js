@@ -1,9 +1,9 @@
 // Published updater config reads run in the candidate's dependency tree.
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-const target = new URL("./io.runtime-D9uDfKv8.mjs", import.meta.url).href;
+const target = new URL("./io.runtime-L28cu85n.mjs", import.meta.url).href;
 const root = fileURLToPath(new URL("../", import.meta.url));
-const worker = "\nconst fs = require(\"node:fs\");\n// Reserve stdout for the response; config diagnostics must not corrupt its frame.\nglobalThis.console = new (require(\"node:console\").Console)(process.stderr, process.stderr);\nprocess.stdout.write = process.stderr.write.bind(process.stderr);\nfunction send(result) {\n  const payload = JSON.stringify(result);\n  fs.writeFileSync(1, Buffer.byteLength(payload) + \"\\n\" + payload);\n}\n(async () => {\n  try {\n    const request = JSON.parse(fs.readFileSync(0, \"utf8\"));\n    const runtime = await import(request.target);\n    const logs = [];\n    const options = request.options ?? {};\n    if (request.captureLogs) options.logger = Object.fromEntries([\"debug\", \"info\", \"warn\", \"error\"].map(level => [level, (...args) => logs.push({ level, args })]));\n    const owner = request.factory ? runtime.createConfigIO(options) : runtime;\n    const value = await owner[request.operation](...request.args);\n    send({ ok: true, value, logs });\n  } catch (error) {\n    send({ ok: false, message: String(error), code: typeof error?.code === \"string\" ? error.code : undefined });\n    process.exitCode = 1;\n  }\n})().catch(() => { process.exitCode = 1; });\n";
+const worker = "\nconst fs = require(\"node:fs\");\n// Reserve stdout for the response; config diagnostics must not corrupt its frame.\nconst stdoutWrite = process.stdout.write.bind(process.stdout);\nglobalThis.console = new (require(\"node:console\").Console)(process.stderr, process.stderr);\nprocess.stdout.write = process.stderr.write.bind(process.stderr);\n// Opening process.stdout makes a pipe non-blocking, so a direct fd write can stop\n// partway. The stream queues the rest and flushes it before the natural exit; never\n// call process.exit here. Only one frame is written, so a failure cannot append another.\nlet sent = false;\nfunction send(result) {\n  const payload = JSON.stringify(result);\n  if (sent) return;\n  sent = true;\n  stdoutWrite(Buffer.byteLength(payload) + \"\\n\" + payload);\n}\n(async () => {\n  try {\n    const request = JSON.parse(fs.readFileSync(0, \"utf8\"));\n    const runtime = await import(request.target);\n    const logs = [];\n    const options = request.options ?? {};\n    if (request.captureLogs) options.logger = Object.fromEntries([\"debug\", \"info\", \"warn\", \"error\"].map(level => [level, (...args) => logs.push({ level, args })]));\n    const owner = request.factory ? runtime.createConfigIO(options) : runtime;\n    const value = await owner[request.operation](...request.args);\n    send({ ok: true, value, logs });\n  } catch (error) {\n    send({ ok: false, message: String(error), code: typeof error?.code === \"string\" ? error.code : undefined });\n    process.exitCode = 1;\n  }\n})().catch(() => { process.exitCode = 1; });\n";
 const updating = process.env.OPENCLAW_UPDATE_IN_PROGRESS === "1" && process.env.OPENCLAW_CONFIG_READ_CHILD !== "1";
 const runtime = updating ? undefined : await import(target);
 const spawnOptions = {
@@ -48,7 +48,7 @@ function finish(exit, output, logger) {
   if (exit.status === 0 && !exit.error && !exit.tooLarge && result?.ok === true) return result.value;
   const characters = Array.from(failureReason(result, exit).replace(/[\s\u0000-\u001f\u007f]+/g, " ").trim());
   const reason = characters.length > 500 ? characters.slice(0, 499).join("") + "…" : characters.join("");
-  const error = new Error("Candidate config read failed: " + reason + ". The existing service definition was left unchanged. Retry with the updated CLI.");
+  const error = new Error("Candidate config read failed: " + reason + ". The existing service definition was left unchanged. After the update finishes, run openclaw gateway install --force with the same --profile or --dev option as this update to refresh it.");
   error.code = "candidate-config-read-failed";
   console.warn("[update:warning:" + error.code + "] " + error.message);
   throw error;
@@ -112,12 +112,11 @@ const binding10 = select("readConfigFileSnapshotForWrite"); export { binding10 a
 const binding11 = select("readConfigFileSnapshotWithPluginMetadata"); export { binding11 as readConfigFileSnapshotWithPluginMetadata };
 const binding12 = select("readCurrentConfigForPolicyCheck"); export { binding12 as readCurrentConfigForPolicyCheck };
 const binding13 = select("readCurrentConfigForPolicyCheckAsync"); export { binding13 as readCurrentConfigForPolicyCheckAsync };
-const binding14 = select("readCurrentConfigForPolicyCheckWithMigrations"); export { binding14 as readCurrentConfigForPolicyCheckWithMigrations };
-const binding15 = select("readCurrentConfigForResolution"); export { binding15 as readCurrentConfigForResolution };
-const binding16 = select("readSourceConfigBestEffort"); export { binding16 as readSourceConfigBestEffort };
-const binding17 = select("readSourceConfigSnapshot"); export { binding17 as readSourceConfigSnapshot };
-const binding18 = select("readSourceConfigSnapshotForWrite"); export { binding18 as readSourceConfigSnapshotForWrite };
-const binding19 = select("recoverConfigFromJsonRootSuffix"); export { binding19 as recoverConfigFromJsonRootSuffix };
-const binding20 = select("recoverConfigFromLastKnownGood"); export { binding20 as recoverConfigFromLastKnownGood };
-const binding21 = select("registerConfigWriteListener"); export { binding21 as registerConfigWriteListener };
-const binding22 = select("writeConfigFile"); export { binding22 as writeConfigFile };
+const binding14 = select("readCurrentConfigForResolution"); export { binding14 as readCurrentConfigForResolution };
+const binding15 = select("readSourceConfigBestEffort"); export { binding15 as readSourceConfigBestEffort };
+const binding16 = select("readSourceConfigSnapshot"); export { binding16 as readSourceConfigSnapshot };
+const binding17 = select("readSourceConfigSnapshotForWrite"); export { binding17 as readSourceConfigSnapshotForWrite };
+const binding18 = select("recoverConfigFromJsonRootSuffix"); export { binding18 as recoverConfigFromJsonRootSuffix };
+const binding19 = select("recoverConfigFromLastKnownGood"); export { binding19 as recoverConfigFromLastKnownGood };
+const binding20 = select("registerConfigWriteListener"); export { binding20 as registerConfigWriteListener };
+const binding21 = select("writeConfigFile"); export { binding21 as writeConfigFile };

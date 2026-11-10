@@ -10,10 +10,15 @@ import {
 } from "../../agents/admitted-run-context.js";
 import { prepareCoreToolPolicy } from "../../agents/prepared-tool-surface.js";
 import { createToolSurfacePresentationForTest } from "../../agents/tool-surface-plan.test-support.js";
+import type { AnyAgentTool } from "../../agents/tools/common.js";
 import { createAvailablePortalTools } from "../../agents/tools/portal-tool.js";
 import { createSessionsSendTool } from "../../agents/tools/sessions-send-tool.js";
 import { createSessionsSpawnTool } from "../../agents/tools/sessions-spawn-tool.js";
 import type { ExecutionIdentityAdmissionToken } from "../../audit/execution-identity-admission.js";
+import {
+  clearRuntimeConfigSnapshot,
+  setRuntimeConfigSnapshot,
+} from "../../config/runtime-snapshot.js";
 import type { SessionEntry } from "../../config/sessions.js";
 import {
   claimAgentRunDelegatedAuthority,
@@ -207,6 +212,8 @@ type WorkerSessionToolTestOptions = {
   collectExecutionIdentity?: boolean;
   operatorProfileId?: string;
   operatorScopes?: readonly string[];
+  inheritedToolPolicySource?: "sender";
+  delegatedToolPolicyActive?: boolean;
 };
 
 async function createWorkerSessionToolTestFixture(
@@ -228,6 +235,8 @@ async function createWorkerSessionToolTestFixture(
     path.join(await fs.realpath(os.tmpdir()), "openclaw-worker-tools-"),
   );
   const database = openOpenClawStateDatabase({ env: { OPENCLAW_STATE_DIR: root } });
+  const cfg = {};
+  setRuntimeConfigSnapshot(cfg);
   const placements = createWorkerSessionPlacementStore({ database });
   await activate(SOURCE);
   await activate(TARGET);
@@ -261,7 +270,7 @@ async function createWorkerSessionToolTestFixture(
   };
   const scheduledAdmission = options.admissionSource
     ? prepareAgentRunAdmission({
-        cfg: {},
+        cfg,
         admissionSource: options.admissionSource,
         operationalRunInstance: sourceOperationalRun,
         assertSourceCurrent,
@@ -385,6 +394,8 @@ async function createWorkerSessionToolTestFixture(
     },
   );
   const executorParams: Parameters<typeof createWorkerSessionToolExecutor>[0] = {
+    inheritedToolPolicySource: options.inheritedToolPolicySource,
+    delegatedToolPolicyActive: options.delegatedToolPolicyActive,
     resolveGatewayContext,
     placements,
     dispatchChild,
@@ -449,6 +460,7 @@ async function createWorkerSessionToolTestFixture(
       "prepareTools" | "skillWorkshop"
     > & {
       identity?: WorkerConnectionIdentity;
+      inheritedPublicationToolRef?: { current?: AnyAgentTool };
     } = {},
   ) {
     const workerIdentity = runtimeOptions.identity ?? identity;
@@ -466,11 +478,14 @@ async function createWorkerSessionToolTestFixture(
       prepare: async () => ({
         policy: prepareCoreToolPolicy({}),
         presentation: createToolSurfacePresentationForTest(),
-        tools: createWorkerGatewayTools({
-          ...executorParams,
-          ...runtimeOptions,
-          identity: workerIdentity,
-        }).filter((tool) => placements.isWorkerTurnToolAuthorized(claim, tool.name)),
+        tools: (
+          await createWorkerGatewayTools({
+            ...executorParams,
+            ...runtimeOptions,
+            identity: workerIdentity,
+          })
+        ).filter((tool) => placements.isWorkerTurnToolAuthorized(claim, tool.name)),
+        inheritedPublicationTool: runtimeOptions.inheritedPublicationToolRef?.current,
       }),
     });
     bindWorkerTurnCapabilities(placements, claim, { toolSurface: runtime });
@@ -607,6 +622,7 @@ export function installWorkerSessionToolTestFixture(
   });
   afterEach(async () => {
     await fixture.dispose();
+    clearRuntimeConfigSnapshot();
   });
   return () => fixture;
 }

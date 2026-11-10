@@ -1,2 +1,2 @@
-import { t as buildOpenAIImageGenerationProvider } from "../../image-generation-provider-Dnv6lkDG.mjs";
+import { t as buildOpenAIImageGenerationProvider } from "../../image-generation-provider-BeMHvlfP.mjs";
 export { buildOpenAIImageGenerationProvider };

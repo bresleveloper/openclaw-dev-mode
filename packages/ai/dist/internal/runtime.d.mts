@@ -1,12 +1,11 @@
-import "../index-D27wAoOr.mjs";
-import { M as ModelThinkingLevel, Q as SimpleStreamOptions, U as ProviderStreamOptions, a as AssistantMessage, d as Context, k as Model, n as Api, nt as StreamOptions, pt as Usage, s as AssistantMessageEventStreamContract } from "../types-DvzmWW8J.mjs";
-import { i as getEventStreamCompletion } from "../event-stream-DrRM_90c.mjs";
-import { a as RegisteredApiProvider, t as ApiProvider } from "../api-registry-B3rC2qu3.mjs";
-import { m as getDefaultAiTransportHost } from "../host-DiPhRjrc.mjs";
-import "../types-UlNana-2.mjs";
-import { n as getEnvApiKey, t as findEnvKeys } from "../env-api-keys-BR0MUYYD.mjs";
-import { t as sanitizeSurrogates } from "../sanitize-unicode-CjDG6jJx.mjs";
-import { v as parseTerminalToolCallArguments } from "../transport-stream-shared-DW-7-qLR.mjs";
+import "../index-DSprYWaz.mjs";
+import { M as ModelThinkingLevel, Q as SimpleStreamOptions, U as ProviderStreamOptions, a as AssistantMessage, d as Context, k as Model, n as Api, nt as StreamOptions, pt as Usage, s as AssistantMessageEventStreamContract } from "../types-CVYzKrMl.mjs";
+import { i as getEventStreamCompletion } from "../event-stream-CzpE1g_o.mjs";
+import { a as RegisteredApiProvider, t as ApiProvider } from "../api-registry-gDt0faai.mjs";
+import { m as getDefaultAiTransportHost } from "../host-jJOffdlW.mjs";
+import "../types-CBJthzJX.mjs";
+import { n as isContextOverflow, t as sanitizeSurrogates } from "../sanitize-unicode-ZqVLLEKC.mjs";
+import { v as parseTerminalToolCallArguments } from "../transport-stream-shared-8ru8eX4s.mjs";
 //#region packages/ai/src/internal/default-runtime.d.ts
 export declare const defaultApiRegistry: {
   registerApiProvider: <TApi extends Api, TOptions extends StreamOptions>(provider: ApiProvider<TApi, TOptions>, sourceId?: string) => void;
@@ -36,7 +35,6 @@ declare const { getApiProvider, getApiProviders }: {
   unregisterApiProviders: (sourceId: string) => void;
   clearApiProviders: () => void;
 };
-export declare function clearApiProviders(): void;
 declare const { stream, complete, streamSimple, completeSimple }: {
   registry: {
     registerApiProvider: <TApi extends Api, TOptions extends StreamOptions>(provider: ApiProvider<TApi, TOptions>, sourceId?: string) => void;
@@ -51,6 +49,22 @@ declare const { stream, complete, streamSimple, completeSimple }: {
   completeSimple: <TApi extends Api>(model: Model<TApi>, context: Context, options?: SimpleStreamOptions) => Promise<AssistantMessage>;
   cleanupSessionResources: (sessionId?: string) => void;
 };
+//#endregion
+//#region packages/ai/src/env-api-keys.d.ts
+/**
+ * Find configured environment variables that can provide an API key for a provider.
+ *
+ * This only reports actual API key variables. It intentionally excludes ambient
+ * credential sources such as AWS profiles, AWS IAM credentials, and Google
+ * Application Default Credentials.
+ */
+export declare function findEnvKeys(provider: string): string[] | undefined;
+/**
+ * Get API key for provider from known environment variables, e.g. OPENAI_API_KEY.
+ *
+ * Will not return API keys for providers that require OAuth tokens.
+ */
+export declare function getEnvApiKey(provider: string): string | undefined;
 //#endregion
 //#region packages/ai/src/model-utils.d.ts
 /** Calculates and stores model cost fields from token usage and per-million pricing. */
@@ -73,8 +87,6 @@ export type SessionResourceCleanup = (sessionId?: string, owner?: SessionResourc
 export declare function getSessionResourceOwnerId(owner: SessionResourceOwner): number;
 /** Registers a session-resource cleanup hook and returns an unregister function. */
 export declare function registerSessionResourceCleanup(cleanup: SessionResourceCleanup): () => void;
-/** Registers metadata cleanup that runs only after every resource cleanup succeeds. */
-export declare function registerSessionResourceCleanupObserver(observer: SessionResourceCleanup): () => void;
 /** Runs all registered cleanup hooks, aggregating failures after every hook has run. */
 export declare function cleanupSessionResources(sessionId?: string, owner?: SessionResourceOwner): void;
 //#endregion
@@ -131,8 +143,8 @@ export type ToolArgumentPreviewSchedule = (accumulatedChars: number) => boolean;
 export declare function createToolArgumentPreviewSchedule(): ToolArgumentPreviewSchedule;
 //#endregion
 //#region packages/ai/src/utils/llm-request-activity.d.ts
-export declare function notifyLlmRequestActivity(signal: AbortSignal | undefined): void;
-export declare function onLlmRequestActivity(signal: AbortSignal, listener: () => void): () => void;
+export declare function notifyLlmRequestActivity(signal: AbortSignal | undefined, progress?: boolean): void;
+export declare function onLlmRequestActivity(signal: AbortSignal, listener: (progress: boolean) => void): () => void;
 //#endregion
 //#region packages/ai/src/utils/oauth/openai-chatgpt-jwt.d.ts
 declare const OPENAI_CODEX_AUTH_CLAIM = "https://api.openai.com/auth";
@@ -144,26 +156,6 @@ export type OpenAICodexJwtPayload = {
 };
 export declare function decodeOpenAICodexJwtPayload(token: string): OpenAICodexJwtPayload | null;
 export declare function resolveOpenAICodexAccountId(token: string): string | null;
-//#endregion
-//#region packages/ai/src/utils/overflow.d.ts
-declare const CONTEXT_OVERFLOW_PATTERN_SCOPES: {
-  readonly "assistant-error": RegExp[];
-  readonly "failover-explicit": RegExp[];
-  readonly "provider-fallback": RegExp[];
-  readonly "failover-hint": readonly [RegExp];
-  readonly "context-window-too-small": readonly [RegExp];
-  readonly "tpm-rate-limit-hint": readonly [RegExp];
-  readonly "rate-limit-hint": readonly [RegExp];
-};
-export type ContextOverflowMessageScope = keyof typeof CONTEXT_OVERFLOW_PATTERN_SCOPES;
-/** Match one canonical context-overflow wording scope without applying caller policy. */
-export declare function matchesContextOverflowMessage(errorMessage: string, scope: ContextOverflowMessageScope): boolean;
-/**
- * Match provider overflow errors, or infer overflow from reported context usage.
- * A context window enables silent-overflow detection; silent truncation without
- * a length stop remains undetectable because the original token count is unknown.
- */
-export declare function isContextOverflow(message: AssistantMessage, contextWindow?: number): boolean;
 //#endregion
 //#region packages/markdown-core/src/reasoning-tag-parser.d.ts
 type ReasoningTagTextDelta = {
@@ -179,7 +171,9 @@ interface ReasoningTagTextPartitioner {
   markStrict(): void;
   push(chunk: string): ReasoningTagTextDelta[];
   pushVisible(chunk: string): ReasoningTagTextDelta[];
-  flush(): ReasoningTagTextDelta[];
+  flush(options?: {
+    recoverUnclosed?: boolean;
+  }): ReasoningTagTextDelta[];
   hasPending(): boolean;
   /** Whether more input can change buffered Markdown or reasoning-tag ownership. */
   hasPendingSyntax(): boolean;
@@ -234,5 +228,7 @@ export type SseByteGuard = {
   cancelled(): boolean;
 };
 export declare function createSseByteGuard(reader: ReadableStreamDefaultReader<Uint8Array>, opts: ReadSseStreamWithLimitOptions): SseByteGuard;
+/** Lazily bound an SDK response while preserving upstream cancellation. */
+export declare function boundResponseBody(response: Response, options: ReadSseStreamWithLimitOptions): Response;
 //#endregion
-export { type ReasoningTagTextDelta, type ReasoningTagTextPartitioner, complete, completeSimple, findEnvKeys, getApiProvider, getApiProviders, getEnvApiKey, getEventStreamCompletion, parseTerminalToolCallArguments, sanitizeSurrogates, stream, streamSimple };
+export { type ReasoningTagTextDelta, type ReasoningTagTextPartitioner, complete, completeSimple, getApiProvider, getApiProviders, getEventStreamCompletion, isContextOverflow, parseTerminalToolCallArguments, sanitizeSurrogates, stream, streamSimple };

@@ -34,12 +34,8 @@ const GRADIUM_VOICES = [
 ];
 function normalizeGradiumBaseUrl(baseUrl) {
 	const raw = baseUrl?.trim() || DEFAULT_GRADIUM_BASE_URL;
-	let url;
-	try {
-		url = new URL(raw);
-	} catch {
-		throw new Error("Gradium baseUrl must be a valid https URL");
-	}
+	const url = URL.parse(raw);
+	if (!url) throw new Error("Gradium baseUrl must be a valid https URL");
 	url.username = "";
 	url.password = "";
 	url.search = "";

@@ -31,7 +31,8 @@ export async function withRetainedUpdateServiceAuthority<T>(
       "Retained native recovery requires Windows Job custody.",
     );
   }
-  const { run, root, signal } = params;
+  const { run, root } = params;
+  const signal = run.deadline?.signal ?? params.signal;
   const executor = run.executorFence;
   const assertCaller = params.assertCurrent;
   const assertCurrent = () => {
@@ -76,6 +77,7 @@ export async function withRetainedUpdateServiceAuthority<T>(
               // The parent fence is suspended. bind checks the same original A/B
               // owners internally, then binds both child rows before opening stdin.
               bind(pid);
+              nativeOptions.beforeInput?.(pid, command);
             },
             killProcessTree: true,
             requireProcessTreeExtinction: true,

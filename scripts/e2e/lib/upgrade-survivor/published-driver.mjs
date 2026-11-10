@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // One managed update across the published-driver/candidate boundary, with synthetic state only.
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -15,6 +16,8 @@ import {
   parseReleaseVersion,
 } from "../../../lib/release-version.mjs";
 import { stampFixtureVersion } from "../update-first-hop-package-fixtures.mjs";
+import { assertNoIncognitoArtifacts } from "./incognito-artifacts.mjs";
+import { provePublishedDriverScopedRestore } from "./published-driver-scoped-restore.mjs";
 import {
   assertPublishedDriverReclaimed,
   inspectPublishedDriverSqlite,
@@ -262,6 +265,21 @@ process.exitCode = await runCancelableCommand(async (signal) => {
 
     const port = await freePort();
     const token = "published-driver-synthetic-token";
+    const probe = async (name, version) => {
+      await run(name, "openclaw", [
+        "gateway",
+        "probe",
+        "--url",
+        `ws://127.0.0.1:${port}`,
+        "--token",
+        token,
+        "--json",
+      ]);
+      const target = output(name).targets.find((entry) => entry.url === `ws://127.0.0.1:${port}`);
+      assert.equal(target?.connect.ok, true);
+      assert.equal(target.server.version, version);
+      return target;
+    };
     const config = {
       gateway: {
         mode: "local",
@@ -305,20 +323,7 @@ process.exitCode = await runCancelableCommand(async (signal) => {
     await run("install-service", "openclaw", ["gateway", "install", "--force", "--json"]);
     await ready("before-ready", port);
     if (legacySqlite) {
-      await run("running-before", "openclaw", [
-        "gateway",
-        "probe",
-        "--url",
-        `ws://127.0.0.1:${port}`,
-        "--token",
-        token,
-        "--json",
-      ]);
-      const serving = output("running-before").targets.find(
-        (entry) => entry.url === `ws://127.0.0.1:${port}`,
-      );
-      assert.equal(serving?.connect.ok, true);
-      assert.equal(serving.server.version, driverVersion);
+      const serving = await probe("running-before", driverVersion);
       const buildComparable =
         typeof serving.server.buildId === "string" && typeof driverBuild.buildId === "string";
       if (buildComparable) {
@@ -337,6 +342,58 @@ process.exitCode = await runCancelableCommand(async (signal) => {
       env.OPENCLAW_UPGRADE_SURVIVOR_SYSTEMCTL_SHIM_PID_FILE,
       "utf8",
     );
+    const gateway = async (name, method, params) => {
+      await run(name, "openclaw", [
+        "gateway",
+        "call",
+        method,
+        "--url",
+        `ws://127.0.0.1:${port}`,
+        "--token",
+        token,
+        "--timeout",
+        "30000",
+        "--json",
+        "--params",
+        JSON.stringify(params),
+      ]);
+      return output(name);
+    };
+    const sessions = [];
+    for (const incognito of [false, true]) {
+      const kind = incognito ? "incognito" : "durable";
+      const marker = `published-driver-${kind}-${randomUUID()}`;
+      const created = await gateway(`${kind}-create`, "sessions.create", {
+        agentId: "main",
+        ...(incognito ? { incognito: true } : { key: "agent:main:update-cell" }),
+      });
+      assert(created.ok && created.key && created.sessionId);
+      assert.equal(created.runStarted, false, "Fixture unexpectedly started inference");
+      if (incognito) {
+        assert.equal(created.entry.incognito, true);
+      }
+      const params = { agentId: "main", sessionKey: created.key };
+      const injected = await gateway(`${kind}-inject`, "chat.inject", {
+        ...params,
+        message: marker,
+      });
+      assert(injected.ok && injected.messageId);
+      const history = await gateway(`${kind}-before`, "chat.history", { ...params, limit: 20 });
+      assert.equal(history.sessionId, created.sessionId);
+      assert(
+        JSON.stringify(history.messages).includes(marker),
+        `${kind} content missing before update`,
+      );
+      sessions.push({ kind, marker, params, sessionId: created.sessionId });
+    }
+    const inspectIncognito = (name) => {
+      const backups = fs
+        .readdirSync(path.dirname(packageRoot))
+        .filter((entry) => /^\.openclaw[.-]package-(?:backup|activation)-/u.test(entry))
+        .map((entry) => path.join(path.dirname(packageRoot), entry));
+      writeJson(name, assertNoIncognitoArtifacts([state, ...backups], sessions[1].marker));
+    };
+    inspectIncognito("incognito-artifacts-before");
     // Seed retained 2026.9.7 state after baseline setup: newer published Doctors
     // reject these sidecars, while candidate repair must carry them unchanged.
     const orphanSidecar = path.join(state, "credentials/auth-profiles", `${"e".repeat(32)}.json`);
@@ -418,20 +475,20 @@ process.exitCode = await runCancelableCommand(async (signal) => {
       "Update did not replace the managed service",
     );
     await ready("after-ready", port);
-    await run("running-version", "openclaw", [
-      "gateway",
-      "probe",
-      "--url",
-      `ws://127.0.0.1:${port}`,
-      "--token",
-      token,
-      "--json",
-    ]);
-    const target = output("running-version").targets.find(
-      (entry) => entry.url === `ws://127.0.0.1:${port}`,
-    );
-    assert.equal(target?.connect.ok, true);
-    assert.equal(target.server.version, build.version);
+    const target = await probe("running-version", build.version);
+    for (const session of sessions) {
+      const history = await gateway(`${session.kind}-after`, "chat.history", {
+        ...session.params,
+        limit: 20,
+      });
+      if (session.kind === "incognito") {
+        assert.deepEqual(history.messages, [], "Incognito content survived restart");
+      } else {
+        assert.equal(history.sessionId, session.sessionId);
+        assert(JSON.stringify(history.messages).includes(session.marker), "Durable content lost");
+      }
+    }
+    inspectIncognito("incognito-artifacts-after");
     if (sqliteBefore) {
       assert.equal(typeof build.buildId, "string", "Candidate build identity is missing");
       assert.equal(target.server.buildId, build.buildId);
@@ -461,6 +518,14 @@ process.exitCode = await runCancelableCommand(async (signal) => {
           .includes("Enabling incremental SQLite reclamation once:"),
         "Second maintenance repeated conversion",
       );
+    }
+    if (process.env.OPENCLAW_PUBLISHED_DRIVER_SCOPED_RESTORE === "1") {
+      await run("stop-before-scoped-restore", path.join(bin, "systemctl"), [
+        "--user",
+        "stop",
+        "openclaw-gateway.service",
+      ]);
+      await provePublishedDriverScopedRestore({ state, env, artifacts, run, writeJson });
     }
     writeJson("summary", {
       driverVersion,

@@ -1,12 +1,12 @@
 import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
-import { o as optionalPositiveIntegerSchema } from "../../typebox-X-jU33BZ.mjs";
-import "../../channel-actions-DF1kQl0D.mjs";
-import { t as defineToolPlugin } from "../../tool-plugin-Ctuy9aFl.mjs";
-import { t as llmTaskToolDefinition } from "../../llm-task-tool-definition-C8MMPIHF.mjs";
+import { o as optionalPositiveIntegerSchema } from "../../typebox-DhJiP5MZ.mjs";
+import "../../channel-actions-CaJbCkxs.mjs";
+import { t as defineToolPlugin } from "../../tool-plugin-57isMP90.mjs";
+import { t as llmTaskToolDefinition } from "../../llm-task-tool-definition-CMcAfH7a.mjs";
 import { Type } from "typebox";
 //#region extensions/llm-task/index.ts
 function createLazyLlmTaskTool(api) {
-	const loadTool = createLazyRuntimeModule(() => import("../../llm-task-tool-DTS8Sw0P.mjs").then(({ createLlmTaskTool }) => createLlmTaskTool(api)));
+	const loadTool = createLazyRuntimeModule(() => import("../../llm-task-tool-vv6cSakT.mjs").then(({ createLlmTaskTool }) => createLlmTaskTool(api)));
 	return {
 		...llmTaskToolDefinition,
 		execute: async (id, params, signal) => await (await loadTool()).execute(id, params, signal)

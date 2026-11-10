@@ -51,7 +51,7 @@ Single-user Gateways use their durable owner profile for account defaults, so th
 
 By default, approval request and resolution notifications are enabled, and every other attention category is opt-in. Quiet hours suppress matching sends rather than queueing stale alerts for later delivery.
 
-Selecting an attention notification opens its question, conversation, or automation run on the Gateway that produced it. **Agent finished** waits for completion. A parent waiting for child agents does not count as finished. Automation failures use **Scheduled task failures**, without also generating a **Background task failures** alert for the same run.
+Selecting an attention notification opens its question, conversation, or automation run on the Gateway that produced it. **Agent finished** waits for completion. A parent waiting for child agents does not count as finished. The device currently showing that conversation does not receive its **Agent finished** push; other subscribed devices still do. Hiding the conversation or opening another one restores normal notification delivery for that device. Automation failures use **Scheduled task failures**, without also generating a **Background task failures** alert for the same run.
 
 The detail levels are:
 
@@ -125,6 +125,22 @@ The Control UI waits up to 10 seconds for its service worker. If that times out 
 ### Web Push asks for a Doctor migration
 
 Run `openclaw doctor --fix` with the Gateway stopped. Web Push refuses to use the retired JSON stores until Doctor imports them into SQLite.
+
+### An enabled notification does not arrive
+
+Check the Gateway's `gateway/web-push` logs. Preparation failures include the
+category, stage (`subscriptions`, `sender`, or `authority`), error class, cause,
+and stack. Push-service failures include the subscription ID, endpoint host,
+HTTP status, response body, and whether the subscription will be pruned or
+retained. These diagnostics are written raw to local logs; review them before
+sharing.
+
+HTTP 404 and 410 responses remove the dead subscription unless a newer
+registration has replaced it. Re-enable notifications in that browser to
+subscribe again. Other failures retain the subscription. Failed events are not
+automatically retried; `retry=false` records that decision. A cleanup warning
+means removal failed, so the stale subscription may be attempted on the next
+event. Correct the reported storage problem before testing again.
 
 ### Tests arrive but approval requests do not
 

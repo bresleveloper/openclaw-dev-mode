@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function formatPluginCompatibilityNotice(e){return`${e.pluginId} ${e.message}`}var t=e((()=>{}));export{t as n,formatPluginCompatibilityNotice as t};
