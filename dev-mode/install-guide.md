@@ -54,7 +54,7 @@ Optional (recommended): `openclaw hooks enable session-memory < /dev/null` — s
 
 ## Updating
 
-One-shot with automatic rollback: `dev-mode/vps-deploy.sh` (usage in its header). By hand:
+Update by hand (there is no deploy script and no automatic rollback):
 
 ```bash
 cd /opt/openclaw-dev-mode && systemctl --user stop openclaw-gateway && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull --ff-only origin main && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && sh dev-mode/link-dist-plugin-deps.sh && ln -sfn /opt/openclaw-dev-mode node_modules/openclaw && node --import ./scripts/tsx.mjs dev-mode/migrate-agent-dbs.mts && systemctl --user start openclaw-gateway
