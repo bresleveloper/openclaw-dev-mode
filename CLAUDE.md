@@ -5,7 +5,7 @@
 - **Repo**: https://github.com/bresleveloper/openclaw-dev-mode
 - **Fork of**: https://github.com/openclaw/openclaw
 - **Fork point**: commit `029c47372` (V2026.3.2)
-- **Current base**: V2026.11.10 (upstream tag `6ea542fd97e`, cut 2026-11-24 23:06 UTC) on `main` (= `origin/main`): build `ca12fb63b3e`, ONE squashed commit on top of `f14460b5485`. Live on the VPS since 2026-11-25 11:41 UTC.
+- **Current base**: V2026.11.10 (upstream tag `6ea542fd97e`, cut 2026-11-24 23:06 UTC) on `main` (= `origin/main`): build `ca12fb63b3e`, ONE squashed commit on top of `f14460b5485`. Live on the VPS since 2026-11-25 11:41 UTC; since 18:57 UTC the VPS runs `f55eedbbf03` (that base plus the SEC-WA1 think-tag unwrap and FIX-12, dist rebuilt).
 - **Purpose**: one env flag (`OPENCLAW_DEV_MODE=1`) relaxes OpenClaw's security for a single-owner dev VPS, plus WhatsApp and Control UI conveniences. User-facing summary with reasons: `README.md`.
 
 ## Branches
@@ -252,7 +252,7 @@ extensions/whatsapp/src/dev-mode/   -- wa-history, reasoning (SEC-WA1), echo-gua
 
 ## Handoff 2026-11-25 (Windows PC)
 
-- **State**: VPS on 11.10 (build `ca12fb63b3e`, gateway up since 2026-11-25 11:41 UTC). Only `main` exists, locally and on GitHub; the fork has no tags. `README.md` has the 2026-11-25 changelog entry (Ariel's OK). Session notes (deploy log, the state upgrade's before/after table, the aborted greeting test): `dev-mode/my-archive/my.2026.11.25.md`.
+- **State**: VPS on 11.10 plus the reasoning fixes (`f55eedbbf03`, gateway up since 2026-11-25 18:57 UTC; same state schema as `ca12fb63b3e`, so reverting to it needs no state restore). Only `main` exists, locally and on GitHub; the fork has no tags. `README.md` has the 2026-11-25 changelog entry (Ariel's OK). Session notes (deploy log, the state upgrade's before/after table, the aborted greeting test): `dev-mode/my-archive/my.2026.11.25.md`.
 - **Backup + revert**: `/root/oc-backup-pre-11.10-20261125-113234` (full `~/.openclaw` copy); steps in "VPS Update Recipe" → Revert.
-- **Waiting for Ariel**: the greeting live test from his phone (`/new`, `/new hello`; his call, 2026-11-25: "not doing new"); FIX-11 in his own chat if he wants it (reload the probe from `dev-mode/fix-11-system-prompt-end.md`, he sends `FIX11-PING`); the next bugs, one at a time; the design work (`dev-mode/next-design.md`).
+- **Waiting for Ariel**: the greeting live test from his phone (`/new`, `/new hello`; his call, 2026-11-25: "not doing new"); FIX-11 in his own chat if he wants it (reload the probe from `dev-mode/fix-11-system-prompt-end.md`, he sends `FIX11-PING`); the live check of the SEC-WA1 unwrap and FIX-12, which needs natural kimi turns in his chat (the deploy's two probe turns got native thinking blocks, so neither path ran): 💭 bodies in `wa-history.db` keep their text, and kimi's text blocks no longer end in `</think>`; the next bugs, one at a time; the design work (`dev-mode/next-design.md`).
 - **Next deploy**: by hand per "VPS Update Recipe"; once it works, delete the upgrade branch and any safety tag ("Branches", `dev-mode/upgrade-playbook.md`).
