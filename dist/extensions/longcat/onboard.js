@@ -1,6 +1,6 @@
 import { LONGCAT_BASE_URL, LONGCAT_DEFAULT_MODEL_REF, LONGCAT_MODEL_CATALOG } from "./models.js";
 import { createModelCatalogPresetAppliers, createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/longcat/onboard.ts
+// extensions/longcat/onboard.ts
 const longCatPreset = {
 	primaryModelRef: LONGCAT_DEFAULT_MODEL_REF,
 	resolveParams: () => ({
@@ -16,5 +16,4 @@ const longCatPreset = {
 };
 const { applyConfig: applyLongCatConfig } = createModelCatalogPresetAppliers(longCatPreset);
 const { applyConfig: applyLongCatConnectionConfig } = createProviderConnectionPresetAppliers(longCatPreset);
-//#endregion
 export { applyLongCatConfig, applyLongCatConnectionConfig };

@@ -1,0 +1,3 @@
+import{f as writeJson}from"./json-files-BBQ_0Np0.mjs";import{b as untrackClawHubSkill}from"./clawhub-store-CWg8PkIu.mjs";import path from"node:path";import fs from"node:fs/promises";
+//!src/skills/lifecycle/source-install-metadata.ts
+async function recordSkillSourceInstall(e){await Promise.all([fs.rm(path.join(e.targetDir,`.clawhub`),{recursive:true,force:true}),fs.rm(path.join(e.targetDir,`.clawdhub`),{recursive:true,force:true})]);await writeJson(path.join(e.targetDir,`.openclaw`,`source-origin.json`),e.origin,{trailingNewline:true});await untrackClawHubSkill(e.workspaceDir,e.origin.slug)}export{recordSkillSourceInstall as t};

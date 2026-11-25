@@ -1,0 +1,1 @@
+import{hasNodeErrorCode as e,isNodeError as t}from"@openclaw/fs-safe/path";function isMissingPathError(t){return e(t,`ENOENT`)||e(t,`ENOTDIR`)||e(t,`not-found`)}function ignoreMissingPath(t){if(!e(t,`ENOENT`))throw t}export{isMissingPathError as i,ignoreMissingPath as n,t as r,e as t};

@@ -1,0 +1,3 @@
+import{t as formatCliCommand}from"./command-format-vlx1VIWT.mjs";import"./gateway-state-owner-t0mLzmiM.mjs";import{t as GatewayStateOwnerContentionError}from"./gateway-state-owner-errors-DL3-Cu-D.mjs";import{t as DoctorSqliteMaintenanceLockUnavailableError}from"./doctor-sqlite-maintenance-lock-XZjbIrW-.mjs";
+//!src/cli/update-cli/update-maintenance-error.ts
+function updateMaintenanceError(e){const t=`Stop the Gateway first (${formatCliCommand(`openclaw gateway stop --force`)}), then retry.`;return e instanceof GatewayStateOwnerContentionError||e instanceof DoctorSqliteMaintenanceLockUnavailableError?new Error(t,{cause:e}):e}export{updateMaintenanceError as t};

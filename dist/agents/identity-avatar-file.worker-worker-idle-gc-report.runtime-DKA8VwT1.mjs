@@ -1,0 +1,1 @@
+import{t as e}from"./identity-avatar-file.worker-subsystem-DYMKkqy3.mjs";const t=e(`worker/idle-gc`);function reportSlowIdleWorkerGc(e){t.warn(`slow idle worker garbage collection`,e)}export{reportSlowIdleWorkerGc};

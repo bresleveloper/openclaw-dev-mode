@@ -1,2 +1,1 @@
-import { n as createOpenAIQuicksilverBrowserSessionBroker, t as OPENAI_QUICKSILVER_OFFER_PATH } from "../../realtime-quicksilver-session-B6USqVXk.mjs";
-export { OPENAI_QUICKSILVER_OFFER_PATH, createOpenAIQuicksilverBrowserSessionBroker };
+import{n as createOpenAIQuicksilverBrowserSessionBroker,t as OPENAI_QUICKSILVER_OFFER_PATH}from"../../realtime-quicksilver-session-Cf6NQPdT.mjs";export{OPENAI_QUICKSILVER_OFFER_PATH,createOpenAIQuicksilverBrowserSessionBroker};

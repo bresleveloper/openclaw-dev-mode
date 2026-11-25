@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{i as t,l as n}from"./worker-chunk-EAEbv0hu.mjs";function isRunnerToolCallBlock(e){let n=t(e)?.type;return n===`toolCall`||n===`toolUse`||n===`functionCall`}var r=e((()=>{n()}));export{isRunnerToolCallBlock as n,r as t};

@@ -1,2 +1,1 @@
-import { detectZaiEndpoint } from "./detect.js";
-export { detectZaiEndpoint };
+export { detectZaiEndpoint } from "./detect.js";

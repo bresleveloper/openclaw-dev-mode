@@ -1,0 +1,2 @@
+//!packages/normalization-core/src/promise-like.ts
+function isPromiseLike(e){if(e===null||typeof e!==`object`&&typeof e!==`function`)return false;try{return typeof e.then===`function`}catch{return false}}export{isPromiseLike as t};

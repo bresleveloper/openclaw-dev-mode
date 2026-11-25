@@ -1,0 +1,2 @@
+//!src/flows/health-checks.ts
+const HEALTH_FINDING_SEVERITY_RANK={info:0,warning:1,error:2};function parseHealthFindingSeverity(e){if(e===`info`||e===`warning`||e===`error`)return e;return null}function healthFindingMeetsSeverity(e,t){return HEALTH_FINDING_SEVERITY_RANK[e.severity]>=HEALTH_FINDING_SEVERITY_RANK[t]}function isHealthCheckEnabledByDefault(e){return!(`defaultEnabled`in e&&e.defaultEnabled===false)}export{parseHealthFindingSeverity as i,healthFindingMeetsSeverity as n,isHealthCheckEnabledByDefault as r,HEALTH_FINDING_SEVERITY_RANK as t};

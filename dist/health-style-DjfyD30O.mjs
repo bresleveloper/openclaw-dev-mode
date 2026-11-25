@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";import{r as theme}from"./theme-DS2CtI9X.mjs";
+//!packages/terminal-core/src/health-style.ts
+const HEALTH_STATUS_COLORS=[[`failed`,`error`],[`degraded`,`warn`],[`ok`,`success`],[`linked`,`success`],[`configured`,`success`],[`not linked`,`warn`],[`not configured`,`muted`],[`unknown`,`warn`]];function styleHealthChannelLine(e,t){if(!t)return e;const n=e.indexOf(`:`);if(n===-1)return e;const r=e.slice(n+1).trimStart();const i=normalizeLowercaseStringOrEmpty(r.slice(0,14));for(const[t,a]of HEALTH_STATUS_COLORS)if(i.startsWith(t))return`${e.slice(0,n+1)} ${theme[a](r.slice(0,t.length))}${r.slice(t.length)}`;return e}export{styleHealthChannelLine as t};

@@ -1,0 +1,1 @@
+import{n as findDoctorLegacyConfigIssues,t as addDoctorLegacyIssues}from"./legacy-config-issues-aYNLJvqF.mjs";export{addDoctorLegacyIssues,findDoctorLegacyConfigIssues};

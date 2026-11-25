@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";var t,n=e((()=>{t=`Reply with the single word OK. Do not use tools.`}));export{n,t};

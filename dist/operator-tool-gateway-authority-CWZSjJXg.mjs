@@ -1,0 +1,3 @@
+import{AsyncLocalStorage}from"node:async_hooks";
+//!src/gateway/operator-tool-gateway-authority.ts
+const authority=new AsyncLocalStorage;function readOperatorToolGatewayAuthority(){return authority.getStore()}function runWithOperatorToolGatewayAuthority(e,t){return authority.run(e,t)}function runOutsideOperatorToolGatewayAuthority(e){return authority.exit(e)}export{runOutsideOperatorToolGatewayAuthority as n,runWithOperatorToolGatewayAuthority as r,readOperatorToolGatewayAuthority as t};

@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Visualizza tutti","files":"File","loading":"Caricamento degli output…","updating":"Aggiornamento degli output…","loadingDashboard":"Caricamento della dashboard…","emptyTitle":"Non ci sono ancora risultati.","emptyDescription":"I file e le dashboard di questa sessione vengono visualizzati qui."}};

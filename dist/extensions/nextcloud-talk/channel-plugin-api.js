@@ -1,2 +1,1 @@
-import { t as nextcloudTalkPlugin } from "./.setup/channel-AgVv-cc1.mjs";
-export { nextcloudTalkPlugin };
+export { t as nextcloudTalkPlugin } from "./.setup/channel-CgV-6pi2.mjs";

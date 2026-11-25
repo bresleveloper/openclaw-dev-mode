@@ -1,0 +1,3 @@
+import{r as ensureGlobalUndiciEnvProxyDispatcher}from"./undici-global-dispatcher-BdhYj376.mjs";import"./runtime-env-BYzJ9-9K.mjs";import{n as refreshOpenAICodexToken$1}from"./openai-chatgpt-oauth-flow.runtime.js";
+//!extensions/openai/openai-chatgpt-provider.runtime.ts
+async function refreshOpenAICodexToken(...e){ensureGlobalUndiciEnvProxyDispatcher();return await refreshOpenAICodexToken$1(...e)}export{refreshOpenAICodexToken as t};

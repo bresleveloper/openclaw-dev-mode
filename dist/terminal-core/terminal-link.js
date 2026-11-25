@@ -1,2 +1,1 @@
-import { t as formatTerminalLink } from "../terminal-link-DaVY8ivo.mjs";
-export { formatTerminalLink };
+import{t as formatTerminalLink}from"../terminal-link-DUWxmWMA.mjs";export{formatTerminalLink};

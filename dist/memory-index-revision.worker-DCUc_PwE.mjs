@@ -1,0 +1,3 @@
+import{i as executeSqliteQuerySync,s as getNodeSqliteKysely}from"./kysely-sync-Dl78faM1.mjs";import"./sqlite-worker-runtime-BA2r-dV0.mjs";
+//!extensions/memory-core/src/memory-index-revision.worker.ts
+function advanceMemoryIndexRevision(e){executeSqliteQuerySync(e,getNodeSqliteKysely(e).updateTable(`memory_index_state`).set(e=>({revision:e(`revision`,`+`,1)})).where(`id`,`=`,1))}export{advanceMemoryIndexRevision as t};

@@ -1,0 +1,4 @@
+import{o as writeRuntimeJson,r as defaultRuntime}from"./runtime-DIcLIHcp.mjs";import{n as sanitizeTerminalText}from"./safe-text-B_QTgn0s.mjs";import{s as redactSensitiveText}from"./redact-CUiSDpWK.mjs";
+//!src/cli/templates-cli-output.ts
+function emitTemplateFailure(e,t,n){if(e)writeRuntimeJson(defaultRuntime,n);else defaultRuntime.error(t);defaultRuntime.exit(1)}function formatTemplateDiagnostics(e){return e.map(e=>sanitizeTerminalText(`${e.level.toUpperCase()} ${e.code} ${e.path}: ${e.message}`)).join(`
+`)}function logTemplateAgentConfiguration(e){for(const t of e.diagnostics.filter(e=>e.level===`warning`))defaultRuntime.log(redactSensitiveText(`Notice: ${t.message}`))}export{formatTemplateDiagnostics as n,logTemplateAgentConfiguration as r,emitTemplateFailure as t};

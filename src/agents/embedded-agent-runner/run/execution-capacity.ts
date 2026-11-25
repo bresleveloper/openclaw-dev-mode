@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { CommandQueueEnqueueFn } from "../../../process/command-queue.types.js";
+import { AsyncContext } from "../../../shared/async-context.js";
 import { createDeferredCore } from "../../../shared/deferred.js";
 
 type CapacityWait = {
@@ -10,10 +11,10 @@ type CapacityWait = {
 
 type CapacityOwner = {
   active: boolean;
-  outside: <T>(operation: () => Promise<T>) => Promise<T>;
+  outside?: <T>(operation: () => Promise<T>) => Promise<T>;
 };
 
-const capacityOwner = new AsyncLocalStorage<CapacityOwner>();
+const capacityOwner = new AsyncContext<CapacityOwner>(Symbol("executionCapacityOwner"));
 
 /** Keep one task and its owners alive across separately admitted capacity tickets. */
 export async function withReleasableExecutionCapacity<T>(
@@ -54,9 +55,7 @@ export async function withReleasableExecutionCapacity<T>(
         suspended = createDeferredCore<CapacityWait>();
         owner.active = true;
         running ??= capacityOwner.run(owner, async () => task());
-        const resuming = pending;
-        pending = undefined;
-        resuming?.resume();
+        pending?.resume();
         return await Promise.race([
           running.then((value) => ({ kind: "complete" as const, value })),
           suspended.promise.then((wait) => ({ kind: "suspended" as const, wait })),
@@ -71,22 +70,23 @@ export async function withReleasableExecutionCapacity<T>(
     }
   } catch (error) {
     owner.active = false;
-    if (pending) {
-      pending.reject(error);
-      await running?.catch(() => {});
-    } else {
-      // An active queue timeout already revoked the task; an uncooperative
-      // operation must not prevent its queue failure from reaching the caller.
-      void running?.catch(() => {});
-    }
+    pending?.reject(error);
+    await running?.catch(() => {});
     throw error;
   } finally {
     owner.active = false;
+    // Scheduled request contexts can outlive the task captured by this callback.
+    owner.outside = undefined;
   }
 }
 
 /** Suspend only the designated wait; continuation and cleanup reacquire capacity. */
 export function outsideExecutionCapacity<T>(operation: () => Promise<T>): Promise<T> {
   const owner = capacityOwner.getStore();
-  return owner ? owner.outside(operation) : operation();
+  if (!owner) {
+    return operation();
+  }
+  return owner.outside
+    ? owner.outside(operation)
+    : Promise.reject(new Error("Execution capacity is not held"));
 }

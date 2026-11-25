@@ -1,0 +1,1 @@
+import{n as projectLegacyWorkboardWrite,t as normalizeLegacyWorkboardDatabaseConfig}from"./legacy-workboard-database-CbfCy8rF.mjs";export{normalizeLegacyWorkboardDatabaseConfig};

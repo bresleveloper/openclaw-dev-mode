@@ -1,0 +1,1 @@
+import{n as resolveDoctorUpdateBudget,t as admitDoctorUpdateInspection}from"./doctor-update-budget-Bfj8q6vd.mjs";export{resolveDoctorUpdateBudget};

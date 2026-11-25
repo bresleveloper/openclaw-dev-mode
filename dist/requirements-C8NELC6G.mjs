@@ -1,0 +1,2 @@
+//!src/shared/requirements.ts
+function normalizeOsRequirementPlatform(e){const t=e.trim().toLowerCase();return t===`macos`?`darwin`:t}function isOsRequirementSatisfied(e,t){if(e.length===0)return true;const n=new Set(e.map(normalizeOsRequirementPlatform));return t.some(e=>n.has(normalizeOsRequirementPlatform(e)))}export{isOsRequirementSatisfied as t};

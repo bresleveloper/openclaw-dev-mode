@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";function t(e){let t=e.split(`.`)[0]??e,n=t.lastIndexOf(`-`);return n>0?t.slice(0,n):t}function n(){return(n=e((()=>{})))()}export{n,t};
+//# sourceMappingURL=claw-name-Dq5hFb9H.js.map

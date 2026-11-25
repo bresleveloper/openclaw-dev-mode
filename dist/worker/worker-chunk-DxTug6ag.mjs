@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function resolveCommandContextText(e){return e.commandText.trim()}function hasExplicitCommandContextText(e){let t=resolveCommandContextText(e);return t.startsWith(`/`)||t.startsWith(`!`)}var t=e((()=>{}));export{t as n,resolveCommandContextText as r,hasExplicitCommandContextText as t};

@@ -1,0 +1,1 @@
+var SessionTranscriptReadFenceError=class extends Error{constructor(e){super(e),this.name=`SessionTranscriptReadFenceError`}};export{SessionTranscriptReadFenceError as t};

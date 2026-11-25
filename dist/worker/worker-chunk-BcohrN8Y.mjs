@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function parseToolsBySenderTypedKey(e){let n=e.trim(),r=n.toLowerCase();for(let e of t){let t=`${e}:`;if(r.startsWith(t))return{type:e,value:n.slice(t.length)}}}var t,n=e((()=>{t=[`channel`,`id`,`e164`,`username`,`name`]}));export{n,parseToolsBySenderTypedKey as r,t};

@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"すべて表示","files":"ファイル","loading":"出力を読み込み中…","updating":"出力を更新中…","loadingDashboard":"ダッシュボードを読み込み中…","emptyTitle":"出力はまだありません。","emptyDescription":"このセッションのファイルやダッシュボードがここに表示されます。"}};

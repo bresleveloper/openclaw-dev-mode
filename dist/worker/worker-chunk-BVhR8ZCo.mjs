@@ -1,0 +1,1 @@
+import{a as e,i as t,n,r,t as i}from"./worker-chunk-DFy5zZPl.mjs";i();export{n as isFrozenTemplateToolAllowPolicy,r as markFrozenTemplateToolAllowPolicy,t as prepareCapturedTemplateToolPolicyConsent,e as resolveTemplateToolPolicyConsent};

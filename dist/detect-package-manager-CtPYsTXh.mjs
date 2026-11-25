@@ -1,0 +1,1 @@
+import{n as resolveBunGlobalInstallOwner,t as detectPackageManager}from"./detect-package-manager-CkW71UP-.mjs";export{detectPackageManager};

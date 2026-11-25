@@ -1,0 +1,5 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/agents/subagents/spawn/subagent-task-name.ts
+const SUBAGENT_TASK_NAME_RE=/^[a-z][a-z0-9_-]{0,63}$/;const RESERVED_SUBAGENT_TASK_NAMES=/* @__PURE__ */ new Set([`all`,`last`]);function normalizeSubagentTaskName(e){const t=normalizeOptionalString(e);if(!t)return{};if(!SUBAGENT_TASK_NAME_RE.test(t))return{error:`Invalid taskName "${t}". Use 1-64 chars matching [a-z][a-z0-9_-]*.`};if(RESERVED_SUBAGENT_TASK_NAMES.has(t))return{error:`Invalid taskName "${t}". Reserved subagent targets cannot be used as taskName values.`};return{taskName:t}}
+//!src/agents/subagents/spawn/subagent-spawn.types.ts
+const SUBAGENT_SPAWN_MODES=[`run`,`session`];const SUBAGENT_SPAWN_CONTEXT_MODES=[`isolated`,`fork`];export{SUBAGENT_SPAWN_MODES as n,normalizeSubagentTaskName as r,SUBAGENT_SPAWN_CONTEXT_MODES as t};

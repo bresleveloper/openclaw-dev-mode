@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"कार्यस्थान के Skills","learned":"सीखे गए कौशल","builtIn":"अंतर्निहित Skills","installed":"इंस्टॉल किए गए Skills","extra":"अतिरिक्त Skills","other":"अन्य Skills"}};

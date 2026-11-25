@@ -1,0 +1,3 @@
+import{createHash}from"node:crypto";
+//!src/gateway/worker-environments/service-contract.ts
+function deriveEnvironmentIntent(e){const t=createHash(`sha256`).update(e).digest(`hex`);return{environmentId:`worker:${t.slice(0,32)}`,provisionOperationId:`provision:v2:${t}`}}var WorkerPlacementAdmissionTargetError=class extends Error{constructor(...e){super(...e);this.code=`invalid_state`}};export{deriveEnvironmentIntent as n,WorkerPlacementAdmissionTargetError as t};

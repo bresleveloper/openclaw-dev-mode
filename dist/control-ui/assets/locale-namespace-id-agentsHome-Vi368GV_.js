@@ -1,0 +1,1 @@
+export default {"agentsHome":{"pinnedAgents":"Agen yang disematkan","noAssistantMessage":"Belum ada balasan agen","viewSessions":"Sesi","deleteAgentConfirm":"Hapus {agent}?","deleteAgentDetails":"Ruang kerja, status agen, dan riwayat percakapannya dipindahkan ke Sampah. Akun kanalnya tetap dikonfigurasi.","agentOptions":"Opsi untuk {agent}","working":"Sedang bekerja"}};

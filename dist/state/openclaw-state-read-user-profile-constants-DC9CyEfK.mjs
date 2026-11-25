@@ -1,0 +1,1 @@
+const e=`gateway-owner`,t=`git.coauthor.enabled`;function isGitCoauthorCreditEnabled(e){return e===void 0||e===!0}export{t as n,isGitCoauthorCreditEnabled as r,e as t};

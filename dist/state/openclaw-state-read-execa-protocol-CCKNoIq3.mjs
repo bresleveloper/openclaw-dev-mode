@@ -1,0 +1,7 @@
+import{w as e}from"./openclaw-state-read-map-size-5HvZnNwy.mjs";import{stripVTControlCharacters as t}from"node:util";const n=new e(Symbol(`spawnBroker`)),r={startupDisabled:!1};function getSpawnBroker(){let e=n.getStore();return r.startupDisabled||e===null?void 0:e??r.host}const i=new TextDecoder,a=/* @__PURE__ */ new Map([[` `,` `],[`
+`,`
+`],[`\b`,`\\b`],[`\f`,`\\f`],[`\r`,`\\r`],[`	`,`\\t`]]);function renderOutput(e){let n=typeof e==`string`?e:i.decode(e);return n.endsWith(`
+`)&&(n=n.slice(0,n.endsWith(`\r
+`)?-2:-1)),t(n).replace(/[\p{Separator}\p{Other}]/gu,e=>{let t=a.get(e);if(t!==void 0)return t;let n=e.codePointAt(0),r=n.toString(16);return n<=65535?`\\u${r.padStart(4,`0`)}`:`\\U${r}`})}function decodeExecaMessage(e,t){return e.messageOutputs?[e.message,...e.messageOutputs.map(e=>renderOutput(t[e]))].join(`
+
+`):e.message}function restoreError(e,t){let n=Error(decodeExecaMessage(e,t),{cause:e.cause?restoreError(e.cause,t):void 0});return Object.assign(n,{name:e.name,code:e.code})}function restoreExecaResult(e){let{error:t,...n}=e,r={...n,stdout:n.stdout,stderr:n.stderr,shortMessage:n.shortMessage,code:n.code};if(t){let e=restoreError(t,r);return Object.assign(e,r,{cause:e.cause})}return{...r,cause:void 0}}export{getSpawnBroker as n,restoreExecaResult as t};

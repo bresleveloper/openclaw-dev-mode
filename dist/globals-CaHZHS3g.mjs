@@ -1,0 +1,3 @@
+import{t as isVerbose}from"./global-state-BYcIiONI.mjs";import{a as getLogger,c as isFileLogLevelEnabled}from"./logger-BDbUwie8.mjs";import{r as theme}from"./theme-DS2CtI9X.mjs";
+//!src/globals.ts
+function shouldLogVerbose(){return isVerbose()||isFileLogLevelEnabled(`debug`)}function logVerbose(e){if(!shouldLogVerbose())return;try{getLogger().debug({message:e},`verbose`)}catch{}if(!isVerbose())return;console.log(theme.muted(e))}const success=theme.success;const warn=theme.warn;const info=theme.info;const danger=theme.error;function isDevMode(){return process.env.OPENCLAW_DEV_MODE===`1`}export{shouldLogVerbose as a,logVerbose as i,info as n,success as o,isDevMode as r,warn as s,danger as t};

@@ -1,0 +1,3 @@
+import{i as truncateWithMarker,n as sliceUtf16Safe,r as truncateUtf16Safe}from"./utf16-slice-DA3Mllbx.mjs";
+//!src/shared/text-truncate.ts
+function truncateOptionalText(e,t){const n=e?.trim();return n?truncateUtf16Safe(n,t):void 0}function truncateUtf16WithEllipsis(e,t){if(e.length<=t)return e;if(t<=1)return truncateUtf16Safe(e,t);return truncateWithMarker(e,t,{marker:`…`,reserve:1,trimEnd:false})}function compactProgressText(e,t,n=Array.from(sliceUtf16Safe(e,0,(Math.max(0,t)+1)*2))){if(n.length<=t)return e;if(t<=1)return`…`;const r=n.slice(0,t).findLastIndex(e=>/\s/u.test(e));const i=r>Math.floor(t*.6)?r:t-1;return`${n.slice(0,i).join(``).trimEnd()}…`}export{truncateOptionalText as n,truncateUtf16WithEllipsis as r,compactProgressText as t};

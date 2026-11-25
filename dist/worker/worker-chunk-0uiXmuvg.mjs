@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,t as n}from"./worker-chunk-8o8-kshE.mjs";import{n as r,t as i}from"./worker-chunk-DytM-4lq.mjs";var a;e((()=>{n(),i(),a={resolvePluginWebFetchProviders:t,resolvePluginWebSearchProviders:r}}))();export{a as runtimeWebToolsFallbackProviders};

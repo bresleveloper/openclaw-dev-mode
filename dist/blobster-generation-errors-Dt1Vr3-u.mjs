@@ -1,0 +1,2 @@
+//!src/agents/blobster-generation-errors.ts
+var BlobsterGenerationAuthorityChangedError=class extends Error{constructor(){super(`Avatar generation access changed. Reconnect and try again.`);this.name=`BlobsterGenerationAuthorityChangedError`}};var BlobsterUnsupportedRuntimeError=class extends Error{constructor(){super(`The selected runtime cannot provide tool-free avatar generation.`);this.name=`BlobsterUnsupportedRuntimeError`}};export{BlobsterUnsupportedRuntimeError as n,BlobsterGenerationAuthorityChangedError as t};

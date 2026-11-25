@@ -1,0 +1,1 @@
+import{n as projectConfigOntoRuntimeSourceSnapshot,r as projectLegacyRuntimeConfigWrite,t as captureRuntimeConfig}from"./runtime-source-projection-mT9EuL7j.mjs";export{captureRuntimeConfig,projectConfigOntoRuntimeSourceSnapshot,projectLegacyRuntimeConfigWrite};

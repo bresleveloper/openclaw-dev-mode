@@ -1,2 +1,1 @@
-import { t as DiscordChannelConfigSchema } from "./.setup/config-schema-_uBILpQf.mjs";
-export { DiscordChannelConfigSchema };
+export { t as DiscordChannelConfigSchema } from "./.setup/config-schema-D3M1livr.mjs";

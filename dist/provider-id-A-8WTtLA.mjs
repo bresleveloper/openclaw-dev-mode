@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";
+//!packages/model-catalog-core/src/provider-id.ts
+function normalizeProviderId(e){return normalizeLowercaseStringOrEmpty(e)}function normalizeProviderIdForAuth(e){return normalizeProviderId(e)}function findNormalizedProviderValue(e,t){if(!e)return;const n=normalizeProviderId(t);for(const[t,r]of Object.entries(e))if(normalizeProviderId(t)===n)return r}function findNormalizedProviderKey(e,t){if(!e)return;const n=normalizeProviderId(t);return Object.keys(e).find(e=>normalizeProviderId(e)===n)}export{normalizeProviderIdForAuth as i,findNormalizedProviderValue as n,normalizeProviderId as r,findNormalizedProviderKey as t};

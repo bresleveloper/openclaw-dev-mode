@@ -1,0 +1,3 @@
+import{a as listLoadedChannelPlugins}from"./registry-loaded-C9YuqxCT.mjs";
+//!src/channels/plugins/lifecycle-startup.ts
+async function runChannelPluginStartupMaintenance(e){for(const t of listLoadedChannelPlugins()){const n=t.lifecycle?.runStartupMaintenance;if(!n)continue;try{await n(e)}catch(n){e.log.warn?.(`${e.logPrefix?.trim()||`gateway`}: ${t.id} startup maintenance failed; continuing: ${String(n)}`)}}}export{runChannelPluginStartupMaintenance as t};

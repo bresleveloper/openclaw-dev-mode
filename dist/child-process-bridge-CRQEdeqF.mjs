@@ -1,0 +1,3 @@
+import process from"node:process";
+//!src/process/child-process-bridge.ts
+const defaultSignals=process.platform===`win32`?[`SIGTERM`,`SIGINT`,`SIGBREAK`]:[`SIGTERM`,`SIGINT`,`SIGHUP`,`SIGQUIT`];function attachChildProcessBridge(e,t){const n=/* @__PURE__ */ new Map;let r=false;for(const i of defaultSignals){const listener=()=>{if(r)return;t?.(i);try{e.kill(i)}catch{}};try{process.on(i,listener);n.set(i,listener)}catch{}}const detach=()=>{for(const[e,t]of n)process.off(e,t);n.clear()};e.once(`exit`,()=>{r=true});e.once(`close`,detach);return{detach}}export{attachChildProcessBridge as t};

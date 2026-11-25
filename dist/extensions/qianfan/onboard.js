@@ -1,6 +1,6 @@
-import { n as QIANFAN_DEFAULT_MODEL_ID, r as buildQianfanProvider } from "./.setup/provider-catalog-BO8z61BO.mjs";
+import { n as QIANFAN_DEFAULT_MODEL_ID, r as buildQianfanProvider } from "./.setup/provider-catalog-DUJ3TrjP.mjs";
 import { createDefaultModelsConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/qianfan/onboard.ts
+// extensions/qianfan/onboard.ts
 const QIANFAN_DEFAULT_MODEL_REF = `qianfan/${QIANFAN_DEFAULT_MODEL_ID}`;
 const { applyConfig: applyQianfanConfig } = createDefaultModelsConnectionPresetAppliers({
 	primaryModelRef: QIANFAN_DEFAULT_MODEL_REF,
@@ -20,5 +20,4 @@ const { applyConfig: applyQianfanConfig } = createDefaultModelsConnectionPresetA
 		};
 	}
 });
-//#endregion
 export { QIANFAN_DEFAULT_MODEL_REF, applyQianfanConfig };

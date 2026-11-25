@@ -1,6 +1,6 @@
 import { fetchLiveProviderModelRows } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { asFiniteNumberInRange, asOptionalRecord, asPositiveSafeInteger, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/radius/catalog.ts
+// extensions/radius/catalog.ts
 const RADIUS_BASE_URL = "https://radius.pi.dev/v1";
 const THINKING_LEVELS = [
 	"off",
@@ -61,8 +61,7 @@ function readModel(value) {
 	const cost = readCost(row?.cost);
 	const contextWindow = asPositiveSafeInteger(row?.contextWindow);
 	const maxTokens = asPositiveSafeInteger(row?.maxTokens);
-	if (!row || !id || !name || !cost || !contextWindow || !maxTokens || row.enabled === false || typeof row.reasoning !== "boolean" || !Array.isArray(row.input) || row.input.length === 0 || row.input.some((input) => input !== "text" && input !== "image")) return;
-	const input = row.input.filter((item) => item === "text" || item === "image");
+	if (!row || !id || !name || !cost || !contextWindow || !maxTokens || row.enabled === false || typeof row.reasoning !== "boolean" || !Array.isArray(row.input) || row.input.length === 0 || !row.input.every((input) => input === "text" || input === "image")) return;
 	let thinkingLevelMap;
 	if (row.thinkingLevelMap !== void 0) {
 		const levels = asOptionalRecord(row.thinkingLevelMap);
@@ -80,7 +79,7 @@ function readModel(value) {
 		id,
 		name,
 		reasoning: row.reasoning,
-		input,
+		input: row.input,
 		cost,
 		contextWindow,
 		maxTokens,
@@ -107,5 +106,4 @@ async function fetchRadiusCatalog(apiKey, signal) {
 		models: config.models.map(readModel).filter((model) => model !== void 0)
 	};
 }
-//#endregion
 export { RADIUS_BASE_URL, fetchRadiusCatalog };

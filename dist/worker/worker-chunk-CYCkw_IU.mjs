@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,t as n}from"./worker-chunk-Lqe5oW9n.mjs";function collectGitHubUpgradeWarnings(e){return t({dirName:`github`,artifactCandidates:[`upgrade-api.js`]})?.collectGitHubUpgradeWarnings(e)??[]}e((()=>{n()}))();export{collectGitHubUpgradeWarnings};

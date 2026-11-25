@@ -1,0 +1,3 @@
+import{D as parseStrictPositiveInteger}from"./number-coercion-B3CfI447.mjs";import{InvalidArgumentError}from"commander";
+//!src/cli/program/helpers.ts
+function collectOption(e,t=[]){return[...t,e]}function parseStrictPositiveIntOption(e,t){const n=parseStrictPositiveInteger(e);if(n===void 0)throw new InvalidArgumentError(`${t} must be a positive integer.`);return n}export{parseStrictPositiveIntOption as n,collectOption as t};

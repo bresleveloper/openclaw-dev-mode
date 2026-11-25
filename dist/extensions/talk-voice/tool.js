@@ -1,33 +1,3 @@
-import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import { m as readToolStringParam } from "../../common-BofcG96e.mjs";
-import "../../string-coerce-runtime-BbIJhy7G.mjs";
-import { t as callGatewayTool } from "../../gateway-BC8tozR0.mjs";
-import "../../agent-harness-runtime-k_z2ig1L.mjs";
-import "../../param-readers-gVcVc5Er.mjs";
-//#region extensions/talk-voice/tool.ts
-async function executeTalkVoiceTool(sessionKey, ...toolArgs) {
-	const [, args, signal] = toolArgs;
-	const params = asOptionalRecord(args) ?? {};
-	const action = readToolStringParam(params, "action", { required: true });
-	let method;
-	let request;
-	switch (action) {
-		case "list":
-			method = "talk.voice.get";
-			request = {};
-			break;
-		case "set":
-			method = "talk.voice.set";
-			request = { voice: readToolStringParam(params, "voice", { required: true }) };
-			break;
-		default: throw new Error(`Unknown Talk voice action: ${action}`);
-	}
-	if (sessionKey) request.sessionKey = sessionKey;
-	return jsonResult(await callGatewayTool(method, { timeoutMs: 65e3 }, request, {
-		requireAgentRuntimeIdentity: true,
-		signal
-	}));
-}
-//#endregion
-export { executeTalkVoiceTool };
+import{a as asOptionalRecord}from"../../record-coerce-BTbqdJ3-.mjs";import{n as jsonResult}from"../../tool-results-BkLNMSCi.mjs";import{d as readToolStringParam}from"../../common-r0g1xtWs.mjs";import"../../string-coerce-runtime-BYDH9Quw.mjs";import{t as callGatewayTool}from"../../gateway-B0c0-37W.mjs";import"../../agent-harness-runtime-D25Z4kUv.mjs";import"../../param-readers-B2DQY4jV.mjs";
+//!extensions/talk-voice/tool.ts
+async function executeTalkVoiceTool(e,...t){const[,n,r]=t;const i=asOptionalRecord(n)??{};const a=readToolStringParam(i,`action`,{required:true});let o;let s;switch(a){case`list`:o=`talk.voice.get`;s={};break;case`set`:o=`talk.voice.set`;s={voice:readToolStringParam(i,`voice`,{required:true})};break;default:throw new Error(`Unknown Talk voice action: ${a}`)}if(e)s.sessionKey=e;return jsonResult(await callGatewayTool(o,{timeoutMs:65e3},s,{requireAgentRuntimeIdentity:true,signal:r}))}export{executeTalkVoiceTool};

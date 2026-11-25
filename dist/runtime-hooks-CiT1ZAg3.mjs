@@ -1,0 +1,2 @@
+//!src/cli/gateway-cli/runtime-hooks.ts
+let activeGatewayRunRuntimeHooks={};function getGatewayRunRuntimeHooks(){return activeGatewayRunRuntimeHooks}function installGatewayRunRuntimeHooks(e){const t=activeGatewayRunRuntimeHooks;activeGatewayRunRuntimeHooks=e;return()=>{if(activeGatewayRunRuntimeHooks===e)activeGatewayRunRuntimeHooks=t}}export{installGatewayRunRuntimeHooks as n,getGatewayRunRuntimeHooks as t};

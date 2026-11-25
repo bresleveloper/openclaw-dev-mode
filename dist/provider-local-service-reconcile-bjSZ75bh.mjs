@@ -1,0 +1,2 @@
+//!src/agents/provider-local-service-reconcile.ts
+const MODEL_PROVIDER_LOCAL_SERVICE_RECONCILER_SYMBOL=Symbol.for(`openclaw.modelProviderLocalServiceReconciler`);function attachModelProviderLocalServiceReconciler(e,t){return{...e,[MODEL_PROVIDER_LOCAL_SERVICE_RECONCILER_SYMBOL]:t}}function getModelProviderLocalServiceReconciler(e){return e[MODEL_PROVIDER_LOCAL_SERVICE_RECONCILER_SYMBOL]}export{getModelProviderLocalServiceReconciler as n,attachModelProviderLocalServiceReconciler as t};

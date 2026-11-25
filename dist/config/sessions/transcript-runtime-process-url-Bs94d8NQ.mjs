@@ -1,0 +1,1 @@
+import"./transcript-runtime-process-manifest-BNtrgdg-.mjs";import"./transcript-cli-invocation-9KSnD_FV.mjs";import{l as e,r as t}from"./transcript-runtime-worker-url-DfLxzRmS.mjs";import"node:path";import"node:url";const n=/* @__PURE__ */ new Map;function resolveRuntimeProcessEntrypointUrl(r){return n.get(r)??t(e[r])}export{resolveRuntimeProcessEntrypointUrl as t};

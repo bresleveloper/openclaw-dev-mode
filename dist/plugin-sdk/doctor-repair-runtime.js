@@ -1,4 +1,1 @@
-import { l as repairOpenClawStateDatabaseSchema, p as detectOpenClawStateDatabaseSchemaMigrations } from "../openclaw-state-db-BtDOU_3j.mjs";
-import { t as removePluginFromConfig } from "../uninstall-config-CAoQ6aje.mjs";
-import { n as formatPluginInstallPathIssue, t as detectPluginInstallPathIssue } from "../doctor-repair-runtime-Bg46hssa.mjs";
-export { detectOpenClawStateDatabaseSchemaMigrations, detectPluginInstallPathIssue, formatPluginInstallPathIssue, removePluginFromConfig, repairOpenClawStateDatabaseSchema };
+import{c as repairOpenClawStateDatabaseSchema,f as detectOpenClawStateDatabaseSchemaMigrations}from"../openclaw-state-db-C9cEGLQ4.mjs";import{t as removePluginFromConfig}from"../uninstall-config-BSROeBI-.mjs";import{n as formatPluginInstallPathIssue,t as detectPluginInstallPathIssue}from"../doctor-repair-runtime-DRWF3Qrr.mjs";import{t as inspectDoctorModelReferences}from"../model-reference-inventory-CIG7VED0.mjs";export{detectOpenClawStateDatabaseSchemaMigrations,detectPluginInstallPathIssue,formatPluginInstallPathIssue,inspectDoctorModelReferences,removePluginFromConfig,repairOpenClawStateDatabaseSchema};

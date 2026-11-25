@@ -1,0 +1,1 @@
+import{n as resolveGatewayDiscoveryEndpoint,t as discoverGatewayBeacons}from"./bonjour-discovery-F_ukUyab.mjs";export{discoverGatewayBeacons,resolveGatewayDiscoveryEndpoint};

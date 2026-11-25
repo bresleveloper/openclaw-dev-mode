@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"नए सत्र की सेटिंग","rememberSettings":"{shortcut} के लिए सेटिंग याद रखें","rememberSettingsNoShortcut":"इन सेटिंग्स को याद रखें","rememberUnavailable":"सेटिंग्स याद रखने के लिए फिर से कनेक्ट करें।","settingsSaveFailed":"सेटिंग सहेजी नहीं जा सकीं। फिर से कोशिश करें।"}};

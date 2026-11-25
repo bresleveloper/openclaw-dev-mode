@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"عرض الكل","files":"الملفات","loading":"جارٍ تحميل المخرجات…","updating":"جارٍ تحديث المخرجات…","loadingDashboard":"جارٍ تحميل لوحة المعلومات…","emptyTitle":"لا توجد مخرجات بعد.","emptyDescription":"تظهر هنا الملفات ولوحات المعلومات الخاصة بهذه الجلسة."}};

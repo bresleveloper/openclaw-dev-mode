@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/twitch/index.ts
+// extensions/twitch/index.ts
 var twitch_default = defineBundledChannelEntry({
 	id: "twitch",
 	name: "Twitch",
@@ -14,5 +14,4 @@ var twitch_default = defineBundledChannelEntry({
 		exportName: "setTwitchRuntime"
 	}
 });
-//#endregion
 export { twitch_default as default };

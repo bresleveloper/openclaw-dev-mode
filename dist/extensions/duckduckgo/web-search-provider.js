@@ -1,2 +1,1 @@
-import { t as createDuckDuckGoWebSearchProvider } from "./.setup/ddg-search-provider-C555DOZE.mjs";
-export { createDuckDuckGoWebSearchProvider };
+export { t as createDuckDuckGoWebSearchProvider } from "./.setup/ddg-search-provider-dPkRSeDL.mjs";

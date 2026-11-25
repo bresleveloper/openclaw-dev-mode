@@ -1,0 +1,2 @@
+//!src/gateway/worker-environments/retained-work-window.ts
+function isWorkerRetainedWindowOpen(e,t=Date.now()){const n=e?.retention;return!n||n.runtimeReady&&!n.operation&&n.observation?.state===`running`&&n.observation.computeExpiresAtMs>t}export{isWorkerRetainedWindowOpen as t};

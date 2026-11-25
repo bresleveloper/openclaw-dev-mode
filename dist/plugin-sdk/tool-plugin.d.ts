@@ -1,10 +1,12 @@
-import { ci as PluginManifestActivation } from "../types-D7I_F5Ux.js";
-import { h as JsonSchemaObject } from "../zod-schema.implicit-mentions-D1hpe8-m.js";
-import { It as OpenClawPluginApi, oC as definePluginEntry, pn as OpenClawPluginToolContext } from "../config-contracts-CY87ANNp.js";
-import { T as AgentToolUpdateCallback, n as AnyAgentTool } from "../common-CCG3ut4I.js";
-import "../manifest-registry-DcAsDGQ5.js";
-import { Static, TSchema } from "typebox";
-//#region src/plugin-sdk/tool-plugin.d.ts
+import { Gt as OpenClawPluginApi, Li as OpenClawPluginToolContext, YE as ToolArgumentValidationError, vb as definePluginEntry } from "../config-contracts-hzlacViZ.js";
+import { B as PluginManifestActivation } from "../types.openclaw-D8uW-XQA.js";
+import { _ as JsonSchemaObject } from "../zod-schema.implicit-mentions-C4-S3AOR.js";
+import "../manifest-registry-CNNq5Vj2.js";
+import { u as AgentToolUpdateCallback } from "../types-Bjy6vVru.js";
+import { n as AnyAgentTool } from "../common-SasPqPvU.js";
+import { Static, TSchema, Type } from "typebox";
+/** An explicitly open dictionary whose unknown-valued keys survive OpenAI compatibility normalization. */
+export declare function openRecord(description: string): Type.TRecord<"^.*$", Type.TUnknown>;
 /** Non-enumerable metadata symbol attached to entries created by `defineToolPlugin`. */
 export declare const toolPluginMetadataSymbol: unique symbol;
 /** Runtime context supplied to a concrete tool plugin execution handler. */
@@ -110,4 +112,4 @@ export type DefinedToolPluginEntry = ReturnType<typeof definePluginEntry> & {
 export declare function defineToolPlugin<TConfigSchema extends TSchema | undefined = undefined>(definition: DefineToolPluginOptions<TConfigSchema>): DefinedToolPluginEntry;
 /** Read tool-plugin metadata from an entry without exposing the symbol to callers. */
 export declare function getToolPluginMetadata(entry: unknown): ToolPluginMetadata | undefined;
-//#endregion
+export { ToolArgumentValidationError };

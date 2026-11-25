@@ -1,0 +1,3 @@
+import{n as canAccessSync,t as canAccess}from"./path-existence-BR9MXlgL.mjs";import fs from"node:fs";
+//!src/infra/ports-lsof.ts
+const LSOF_CANDIDATES=process.platform===`darwin`?[`/usr/sbin/lsof`,`/usr/bin/lsof`]:[`/usr/bin/lsof`,`/usr/sbin/lsof`];async function resolveLsofCommand(e){for(const t of LSOF_CANDIDATES){e?.throwIfAborted();const n=await canAccess(t,fs.constants.X_OK);e?.throwIfAborted();if(n)return t}return`lsof`}function resolveLsofCommandSync(){for(const e of LSOF_CANDIDATES)if(canAccessSync(e,fs.constants.X_OK))return e;return`lsof`}export{resolveLsofCommandSync as n,resolveLsofCommand as t};

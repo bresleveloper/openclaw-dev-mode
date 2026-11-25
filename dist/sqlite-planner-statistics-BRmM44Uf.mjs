@@ -1,0 +1,3 @@
+import{dt as captureSqliteNativeRuntimeAdmission}from"./sqlite-database-admission-BVeAafOy.mjs";import{r as compareValidSemver}from"./semver-Bem35wCz.mjs";import"./node-sqlite-Crx7gEDp.mjs";
+//!src/infra/sqlite-planner-statistics.ts
+function refreshSqlitePlannerStatistics(e){const t=captureSqliteNativeRuntimeAdmission()?.version;if(t&&(compareValidSemver(t,`3.46.0`)??0)<0){e.exec(`PRAGMA analysis_limit=1000; ANALYZE main;`);return}e.exec(`PRAGMA analysis_limit=1000; PRAGMA optimize=0x10002;`)}export{refreshSqlitePlannerStatistics as t};

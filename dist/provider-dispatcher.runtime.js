@@ -1,2 +1,3 @@
-import { n as dispatchReplyWithDispatcherCore, t as dispatchReplyWithBufferedBlockDispatcherCore } from "./provider-dispatcher-DfvoHTGk.mjs";
-export { dispatchReplyWithBufferedBlockDispatcherCore, dispatchReplyWithDispatcherCore };
+import{n as dispatchInboundMessageWithBufferedDispatcher,r as dispatchInboundMessageWithDispatcher}from"./dispatch-b-Qo7ziR.mjs";
+//!src/auto-reply/reply/provider-dispatcher.ts
+function projectDispatchParams(e){return{ctx:e.ctx,cfg:e.cfg,dispatcherOptions:e.dispatcherOptions,toolsAllow:e.toolsAllow,replyResolver:e.replyResolver,replyOptions:e.replyOptions}}const dispatchReplyWithBufferedBlockDispatcherCore=async e=>await dispatchInboundMessageWithBufferedDispatcher({...projectDispatchParams(e),dispatchReplyFromConfig:e.dispatchReplyFromConfig});const dispatchReplyWithDispatcherCore=async e=>await dispatchInboundMessageWithDispatcher(projectDispatchParams(e));export{dispatchReplyWithBufferedBlockDispatcherCore,dispatchReplyWithDispatcherCore};

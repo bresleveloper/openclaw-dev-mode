@@ -1,0 +1,3 @@
+import{n as resolveAuthProfileMetadata}from"./identity-Bk38qfq2.mjs";
+//!src/agents/auth-profiles/display.ts
+function resolveAuthProfileDisplayLabel(e){const{displayName:t,email:n}=resolveAuthProfileMetadata(e);const r=t||n;return r?`${e.profileId} (${r})`:e.profileId}function formatAuthProfileOAuthLabel(e){const{profileId:t}=e;return`${t}=OAuth${resolveAuthProfileDisplayLabel(e).slice(t.length)}`}export{resolveAuthProfileDisplayLabel as n,formatAuthProfileOAuthLabel as t};

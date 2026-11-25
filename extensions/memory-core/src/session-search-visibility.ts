@@ -23,10 +23,8 @@ import {
   resolveEffectiveSessionToolsVisibility,
   resolveSandboxSessionToolsVisibility,
 } from "openclaw/plugin-sdk/session-visibility";
-import {
-  normalizeOptionalLowercaseString as normalizeAgentIdForCompare,
-  normalizeOptionalString,
-} from "openclaw/plugin-sdk/string-coerce-runtime";
+import { normalizeOptionalLowercaseString as normalizeAgentIdForCompare } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { isActiveMemoryRecallSessionKey } from "./active-memory-recall-session.js";
 import {
   readSessionArchiveReasonFromHitPath,
   type SessionResetRecallCutoff,
@@ -41,16 +39,11 @@ type ConversationRecallContext = NonNullable<OpenClawPluginToolContext["conversa
 type SessionStore = Awaited<ReturnType<typeof loadMemorySearchSessionStore>>["store"];
 
 function isSameStoredTranscript(
-  // Legacy file locators remain authorization facts, not public session metadata.
-  anchor: (SessionStore[string] & { sessionFile?: unknown }) | undefined,
-  candidate: (SessionStore[string] & { sessionFile?: unknown }) | undefined,
+  anchor: SessionStore[string] | undefined,
+  candidate: SessionStore[string] | undefined,
 ): boolean {
   const anchorSessionId = anchor?.sessionId.trim();
-  const anchorSessionFile = normalizeOptionalString(anchor?.sessionFile);
-  return Boolean(
-    (anchorSessionId && candidate?.sessionId.trim() === anchorSessionId) ||
-    (anchorSessionFile && normalizeOptionalString(candidate?.sessionFile) === anchorSessionFile),
-  );
+  return Boolean(anchorSessionId && candidate?.sessionId.trim() === anchorSessionId);
 }
 
 function isPrivateConversation(params: {
@@ -67,7 +60,7 @@ function isPrivateConversation(params: {
   );
   if (
     chatTypes.some((chatType) => chatType === "group" || chatType === "channel") ||
-    /:active-memory:[a-f0-9]{12}$/i.test(key)
+    isActiveMemoryRecallSessionKey(key)
   ) {
     return false;
   }
@@ -227,9 +220,6 @@ export async function filterMemorySearchHitsBySessionVisibility(params: {
   }
   const anchorSessionKey = conversationRecall?.anchorSessionKey.trim();
   const sessionKeys = new Set(archives.map((archive) => archive.sessionKey));
-  if (params.requesterSessionKey) {
-    sessionKeys.add(params.requesterSessionKey);
-  }
   if (anchorSessionKey) {
     sessionKeys.add(anchorSessionKey);
   }

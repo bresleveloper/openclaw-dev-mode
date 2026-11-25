@@ -1,0 +1,2 @@
+//!packages/gateway-protocol/src/schema/session-placement-state.ts
+const SESSION_PLACEMENT_STATES=[`local`,`requested`,`provisioning`,`syncing`,`starting`,`active`,`draining`,`reconciling`,`reclaimed`,`failed`];function isCloudWorkerPlacementState(e){return e!==void 0&&e!==`local`&&e!==`reclaimed`}export{isCloudWorkerPlacementState as n,SESSION_PLACEMENT_STATES as t};

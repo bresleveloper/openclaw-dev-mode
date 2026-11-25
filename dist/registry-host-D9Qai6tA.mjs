@@ -1,0 +1,3 @@
+import{n as StoreRegistry,t as RegistryRecoveryRequired}from"./store-registry-BfFztOcL.mjs";
+//!extensions/knowledge/src/registry-host.ts
+function serveRegistry(e,t){let n,r;try{n=new StoreRegistry(t)}catch(e){r=e}e.on(`message`,t=>{try{if(!n)throw r;const i=n[t.op];e.postMessage({id:t.id,ok:true,value:i.apply(n,t.args)})}catch(r){e.postMessage({id:t.id,ok:false,message:r instanceof Error?r.message:String(r),recovery:r instanceof RegistryRecoveryRequired||!n})}})}export{serveRegistry};

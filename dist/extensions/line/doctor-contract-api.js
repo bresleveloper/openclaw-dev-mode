@@ -1,7 +1,7 @@
-import { a as laneKeyFor, i as eventIdFor, o as legacyEventIdFor, r as LineWebhookPayloadError, t as LINE_WEBHOOK_SPOOL_INVALID_EVENT_REASON } from "./.setup/webhook-spool-contract-msjTl60Q.mjs";
+import { a as laneKeyFor, i as eventIdFor, o as legacyEventIdFor, r as LineWebhookPayloadError, t as LINE_WEBHOOK_SPOOL_INVALID_EVENT_REASON } from "./.setup/webhook-spool-contract-COhQK5XQ.mjs";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { coerceErrorMessage } from "openclaw/plugin-sdk/error-runtime";
-//#region extensions/line/src/webhook-spool-migration.ts
+// extensions/line/src/webhook-spool-migration.ts
 /** Pre-drain (#109655) rows stored the event object under `event` instead of the
 *  canonical serialized `rawEvent`; anything else is not a migratable row. */
 function parseLegacySpoolPayload(payload) {
@@ -90,8 +90,7 @@ async function migrateLineLegacySpoolRows(queue) {
 	}
 	return result;
 }
-//#endregion
-//#region extensions/line/doctor-contract-api.ts
+// extensions/line/doctor-contract-api.ts
 const LINE_CHANNEL_ID = "line";
 /** Pre-drain rows can outlive the account config that admitted them, so the sweep
 *  enumerates accounts from the host's queue lane instead of the config; a host
@@ -105,6 +104,7 @@ function lineSpoolQueueAccess(context) {
 const stateMigrations = [{
 	id: "line-pre-drain-spool-rows",
 	label: "LINE pre-drain webhook spool rows",
+	collectBackupResources: () => [],
 	async detectLegacyState(params) {
 		const spool = lineSpoolQueueAccess(params.context);
 		const preview = [];
@@ -138,5 +138,4 @@ const stateMigrations = [{
 		};
 	}
 }];
-//#endregion
 export { stateMigrations };

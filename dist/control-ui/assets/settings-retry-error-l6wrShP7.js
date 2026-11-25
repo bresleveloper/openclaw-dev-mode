@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{VN as t,WN as n,oT as r,sT as i}from"./_2_____________________________.js";import{d as a,j as o,s,u as c,x as l}from"./_6____________________.js";function u(e){return o(r,{tone:`danger`,get action(){var t=d();return t._$$click=()=>e.onRetry(),a(t,()=>n(`pluginsPage.tryAgain`)),t},get children(){return e.error}})}var d;function f(){return(f=e((()=>{c(),i(),t(),d=l(`<button type=button class="btn btn--sm">`),s([`click`])})))()}export{f as n,u as t};
+//# sourceMappingURL=settings-retry-error-l6wrShP7.js.map

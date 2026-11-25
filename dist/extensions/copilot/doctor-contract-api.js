@@ -1,4 +1,4 @@
-//#region extensions/copilot/doctor-contract-api.ts
+// extensions/copilot/doctor-contract-api.ts
 const legacyConfigRules = [];
 function normalizeCompatibilityConfig({ cfg }) {
 	return {
@@ -6,5 +6,4 @@ function normalizeCompatibilityConfig({ cfg }) {
 		changes: []
 	};
 }
-//#endregion
 export { legacyConfigRules, normalizeCompatibilityConfig };

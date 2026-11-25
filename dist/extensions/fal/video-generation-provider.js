@@ -1,2 +1,1 @@
-import { t as buildFalVideoGenerationProvider } from "../../video-generation-provider-Cl6Hvy4H.mjs";
-export { buildFalVideoGenerationProvider };
+import{t as buildFalVideoGenerationProvider}from"../../video-generation-provider-bjF2nT_8.mjs";export{buildFalVideoGenerationProvider};

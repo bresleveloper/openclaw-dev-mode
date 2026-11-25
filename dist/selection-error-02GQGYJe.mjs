@@ -1,0 +1,2 @@
+//!src/cron/store/selection-error.ts
+var CronStoreSelectionRequiredError=class extends Error{constructor(e){super(e.message);this.selection=e;this.code=`CRON_STORE_SELECTION_REQUIRED`;this.name=`CronStoreSelectionRequiredError`}};export{CronStoreSelectionRequiredError as t};

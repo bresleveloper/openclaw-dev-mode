@@ -1,0 +1,2 @@
+//!src/agents/tool-operator-hint.ts
+const TOOL_OPERATOR_HINT=Symbol.for(`openclaw.toolOperatorHint`);function withToolOperatorHint(e,t){if(!(e instanceof Error)||!Object.isExtensible(e)||readToolOperatorHint(e))return e;Object.defineProperty(e,TOOL_OPERATOR_HINT,{configurable:true,enumerable:false,value:t,writable:true});return e}function readToolOperatorHint(e){if(!(e instanceof Error))return;const t=Object.getOwnPropertyDescriptor(e,TOOL_OPERATOR_HINT)?.value;return typeof t===`string`&&t.trim()?t:void 0}export{withToolOperatorHint as n,readToolOperatorHint as t};

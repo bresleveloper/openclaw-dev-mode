@@ -1,0 +1,2 @@
+//!src/config/plugins-allowlist.ts
+function ensurePluginAllowlisted(e,t){const n=e.plugins?.allow;if(!Array.isArray(n)||n.includes(t))return e;return{...e,plugins:{...e.plugins,allow:[...n,t]}}}export{ensurePluginAllowlisted as t};

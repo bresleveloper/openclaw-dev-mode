@@ -1,0 +1,3 @@
+import{n as markPrivateDirectoryCreationRefused}from"./private-directory-creation-BFFdcjWN.mjs";import path from"node:path";import{createDirectorySync,createFileSync}from"@openclaw/fs-safe/advanced";import{FsSafeError}from"@openclaw/fs-safe/errors";
+//!src/infra/windows-private-directory.ts
+function createPrivateWindowsDirectory(e){let t=false;try{createDirectorySync(path.resolve(e),{private:true,assertBeforeMutation(){t=true}})}catch(e){if(!t||e instanceof FsSafeError&&e.code===`already-exists`)throw markPrivateDirectoryCreationRefused(e);throw e}}function createPrivateWindowsFile(e){return createFileSync(path.resolve(e),{private:true})}export{createPrivateWindowsFile as n,createPrivateWindowsDirectory as t};

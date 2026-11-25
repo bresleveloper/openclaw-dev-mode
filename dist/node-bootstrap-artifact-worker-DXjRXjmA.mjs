@@ -1,0 +1,1 @@
+import{t as prepareNodeArtifactInWorker}from"./node-bootstrap-artifact-worker-D67rW2lk.mjs";export{prepareNodeArtifactInWorker};

@@ -1,2 +1,1 @@
-import { t as applyParticleConfig } from "./.setup/onboard-CjoABAqk.mjs";
-export { applyParticleConfig };
+export { t as applyParticleConfig } from "./.setup/onboard-CVmpAhQ7.mjs";

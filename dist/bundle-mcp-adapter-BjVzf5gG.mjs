@@ -1,0 +1,3 @@
+import{c as filterStringRecord,u as isStringArray}from"./record-coerce-BTbqdJ3-.mjs";
+//!src/agents/bundle-mcp-adapter.ts
+function decodeHeaderEnvPlaceholder(e){const t=/^(Bearer )?\${([A-Z0-9_]+)}$/.exec(e);return t?.[2]?{envVar:t[2],bearer:Boolean(t[1])}:null}const COMMON_STRING_FIELDS=[`command`,`cwd`,`url`];function normalizeBundleMcpServerConfig(e,t={}){const n={};for(const r of[...COMMON_STRING_FIELDS,...t.strings??[]])if(typeof e[r]===`string`)n[r]=e[r];for(const r of t.booleans??[])if(typeof e[r]===`boolean`)n[r]=e[r];const r=isStringArray(e.args)?[...e.args]:void 0;if(r)n.args=r;const i=filterStringRecord(e.env);if(i)n.env=i;return n}export{normalizeBundleMcpServerConfig as n,decodeHeaderEnvPlaceholder as t};

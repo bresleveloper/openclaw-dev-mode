@@ -12,7 +12,7 @@ struct VoiceSessionCoordinatorTests {
     func manualAndQueuedAutoSendShareAdmissionAndRetryIdentity(change: RetryChange) async throws {
         try await withVoiceSendFixture { fixture in
             var requests = fixture.forwarding.requests.makeAsyncIterator()
-            let token = fixture.sessions.startSession(source: .pushToTalk, text: "original", forwardEnabled: true)
+            let token = fixture.sessions.startSession(text: "original", forwardEnabled: true)
             fixture.sessions.finalize(token: token, text: "original", sendChime: .none, autoSendAfter: nil)
             // These are the two entry points after the delayed callback has already queued.
             fixture.overlay.requestSend(token: token)
@@ -82,7 +82,7 @@ struct VoiceSessionCoordinatorTests {
             fixture.holdPreparation = boundary == .preparation
             var preparations = fixture.preparation.requests.makeAsyncIterator()
             var forwards = fixture.forwarding.requests.makeAsyncIterator()
-            let token = fixture.sessions.startSession(source: .pushToTalk, text: "retired", forwardEnabled: true)
+            let token = fixture.sessions.startSession(text: "retired", forwardEnabled: true)
             fixture.overlay.requestSend(token: token)
             let task = try #require(fixture.tasks.last)
             let pendingPreparation = boundary == .preparation ? await preparations.next() : nil
@@ -91,7 +91,7 @@ struct VoiceSessionCoordinatorTests {
             let replacement: UUID?
             switch retirement {
             case .replacement:
-                replacement = fixture.sessions.startSession(source: .pushToTalk, text: "replacement", forwardEnabled: true)
+                replacement = fixture.sessions.startSession(text: "replacement", forwardEnabled: true)
             case .dismissal:
                 replacement = nil
                 fixture.overlay.cancelEditingAndDismiss()

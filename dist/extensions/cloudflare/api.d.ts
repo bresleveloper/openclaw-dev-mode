@@ -1,4 +1,2 @@
-import { LT as StorageProvider } from "../../config-contracts-CY87ANNp.js";
-//#region extensions/cloudflare/api.d.ts
+import { xC as StorageProvider } from "../../config-contracts-hzlacViZ.js";
 export declare const r2StorageProvider: StorageProvider;
-//#endregion

@@ -1,0 +1,4 @@
+import{t as formatCliCommand}from"./command-format-vlx1VIWT.mjs";import{t as quoteCliArg}from"./quote-cli-arg-BUHoGELl.mjs";import{t as note}from"./note-e4DtVgg2.mjs";import{n as countFailedChannelIngressQueueEntries}from"./ingress-queue-health-BBGCvJZO.mjs";
+//!src/commands/doctor-channel-ingress.ts
+async function noteChannelIngressDeadLetters(){const e=await countFailedChannelIngressQueueEntries();const t=e[0];if(!t)return;const n=e.map(e=>`- ${e.channelId}/${e.accountId}: ${e.count} dead-lettered ingress event${e.count===1?``:`s`}.`);n.push(`- Inspect with ${formatCliCommand(`openclaw channels dead-letters list --channel ${quoteCliArg(t.channelId)} --account ${quoteCliArg(t.accountId)}`)}.`);note(n.join(`
+`),`Channel ingress`)}export{noteChannelIngressDeadLetters};

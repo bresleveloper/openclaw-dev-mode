@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/line/index.ts
+// extensions/line/index.ts
 var line_default = defineBundledChannelEntry({
 	id: "line",
 	name: "LINE",
@@ -21,11 +21,10 @@ var line_default = defineBundledChannelEntry({
 			acceptsArgs: true,
 			requireAuth: false,
 			async handler(ctx) {
-				const { handleLineCardCommand } = await import("./.setup/card-command-Dnkl21vg.mjs");
+				const { handleLineCardCommand } = await import("./.setup/card-command-utjlRvb-.mjs");
 				return await handleLineCardCommand(ctx.args);
 			}
 		});
 	}
 });
-//#endregion
 export { line_default as default };

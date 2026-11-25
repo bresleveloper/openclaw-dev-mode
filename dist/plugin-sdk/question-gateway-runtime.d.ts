@@ -1,15 +1,12 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { _k as ReplyPayload, w as readAskUserQuestionId } from "../config-contracts-CY87ANNp.js";
-import "../index-8f56f6LD.js";
-import { U as MessagePresentation } from "../approval-handler-runtime-types-CAPTRUL9.js";
-//#region src/infra/question-channel-runtime.d.ts
+import { E as readAskUserQuestionId, aM as ReplyPayload } from "../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import "../index-DSy-_0fC.js";
+import { U as MessagePresentation } from "../approval-handler-runtime-types-fbG6kmPg.js";
 declare const registerQuestionChannelDelivery: ({ questionId, deliveryId, finalize }: {
   questionId: string;
   deliveryId: string;
   finalize: (statusLine: string) => void | Promise<void>;
 }) => void;
-//#endregion
-//#region src/infra/question-gateway-resolver.d.ts
 type ResolveQuestionOverGatewayResult = {
   status: "answered";
   questionId: string;
@@ -59,8 +56,6 @@ type AuthorizedResolveQuestionOverGatewayParams = ResolveQuestionOverGatewayPara
 /** Resolves one rendered choice or validates a custom-input transition. */
 declare function resolveQuestionOverGateway(params: AuthorizedResolveQuestionOverGatewayParams): Promise<ResolveQuestionOverGatewayResult | ResolveQuestionOverGatewayDenial>;
 declare function resolveQuestionOverGateway(params: ResolveQuestionOverGatewayParams): Promise<ResolveQuestionOverGatewayResult>;
-//#endregion
-//#region src/infra/question-reaction-runtime.d.ts
 type QuestionReactionBinding = {
   questionId: string;
   optionValues: string[];
@@ -72,8 +67,6 @@ declare function prepareQuestionReactionPayloadForDelivery(params: {
   presentation?: MessagePresentation;
 }): ReplyPayload | null;
 declare function resolveQuestionReactionOverGateway(params: ResolveQuestionOverGatewayParams): Promise<ResolveQuestionOverGatewayResult | null>;
-//#endregion
-//#region src/plugin-sdk/question-gateway-runtime.d.ts
 /** Creates one channel-owned target store for numbered ask_user reactions. */
 export declare function createQuestionReactionTargetStore<TIdentity, TMetadata = undefined>(params: {
   channel: string;
@@ -113,4 +106,4 @@ export declare const questionGatewayRuntime: {
     finalize: (statusLine: string) => void | Promise<void>;
   }) => void;
 };
-//#endregion
+export {};

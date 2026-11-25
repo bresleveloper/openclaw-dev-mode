@@ -3,10 +3,7 @@ import { pipeline } from "node:stream/promises";
 import { createZstdCompress, createZstdDecompress } from "node:zlib";
 import { decodeUtf8Chunks } from "./utf8-input.js";
 
-export type ArchiveLineTransform = (
-  line: string,
-  owner: string,
-) => { changed: boolean; content: string };
+type ArchiveLineTransform = (line: string, owner: string) => { changed: boolean; content: string };
 
 const ARCHIVE_STREAM_INPUT_CHUNK_SIZE = 1024 * 1024;
 

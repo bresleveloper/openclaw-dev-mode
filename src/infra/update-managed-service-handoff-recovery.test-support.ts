@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import type { Compilable } from "kysely";
 import { vi } from "vitest";
 import * as pidAlive from "../shared/pid-alive.js";
 import { executeSqliteQuerySync } from "./kysely-sync.js";
@@ -82,6 +83,10 @@ export function createManagedHandoffRecoveryFixture(root: string) {
     assert(found.kind === "current", "Expected a retained handoff");
     return found.lease;
   };
+  const mutate = (query: (tables: ReturnType<typeof leaseQueries>) => Compilable, key = root) => {
+    database(true, (db) => executeSqliteQuerySync(db, query(leaseQueries(db))));
+    return current(key);
+  };
   const insert = (rows: LeaseTable[]) =>
     database(true, (db) =>
       executeSqliteQuerySync(
@@ -117,14 +122,7 @@ export function createManagedHandoffRecoveryFixture(root: string) {
     /** Rows a cancelled original leaves when it dies before joining its candidate:
      * its v4 generation, a retained service root, an occupied-slot mirror, and the
      * candidate lineage under each root, in the shapes their producers write. */
-    seedCancellation(
-      options: { ageMs?: number; serviceAgeMs?: number; legacySchema?: boolean } = {},
-    ) {
-      if (options.legacySchema) {
-        database(true, (db) =>
-          db.exec("ALTER TABLE managed_update_handoffs DROP COLUMN recovery_json"),
-        );
-      }
+    seedCancellation(options: { ageMs?: number; serviceAgeMs?: number } = {}) {
       const at = (ageMs = 45 * 60_000 + 1_000) => Date.now() - ageMs;
       const updatedAt = at(options.ageMs);
       const original = { kind: "update", mutationProtocol: "original-cancellation-v1" };
@@ -184,27 +182,30 @@ export function createManagedHandoffRecoveryFixture(root: string) {
       ]);
       return { ...keys, lineage, updater: executor };
     },
-    seed(options: { ageMs?: number; timeoutMs?: number } = {}): ManagedHandoffLease {
+    seed(
+      options: { ageMs?: number; timeoutMs?: number; legacy?: string } = {},
+    ): ManagedHandoffLease {
       const updatedAt = Date.now() - (options.ageMs ?? 45 * 60_000 + 1_000);
+      const key = options.legacy ? `${root}/.openclaw-update-child-${options.legacy}` : root;
       const payload = JSON.stringify({
         version: 2,
         executor,
         helper,
-        action: { kind: "triage", phase: "uncertain", lifetime: { kind: "foreground", boot } },
+        action: options.legacy
+          ? { kind: "update" }
+          : { kind: "triage", phase: "uncertain", lifetime: { kind: "foreground", boot } },
       });
       facts.timeoutMs = options.timeoutMs ?? null;
-      database(true, (db) =>
-        executeSqliteQuerySync(
-          db,
-          leaseQueries(db).insertInto("managed_update_handoffs").values({
-            install_root: root,
+      return mutate(
+        (tables) =>
+          tables.insertInto("managed_update_handoffs").values({
+            install_root: key,
             owner: "prior-owner",
             payload_json: payload,
             updated_at: updatedAt,
           }),
-        ),
+        key,
       );
-      return current();
     },
     readMetadata(lease: ManagedHandoffLease) {
       return database(true, (db) =>
@@ -214,16 +215,12 @@ export function createManagedHandoffRecoveryFixture(root: string) {
       );
     },
     replaceHeartbeat(lease: ManagedHandoffLease) {
-      database(true, (db) =>
-        executeSqliteQuerySync(
-          db,
-          leaseQueries(db)
-            .updateTable("managed_update_handoffs")
-            .set({ updated_at: lease.updatedAt + 1 })
-            .where("install_root", "=", root),
-        ),
+      return mutate((tables) =>
+        tables
+          .updateTable("managed_update_handoffs")
+          .set({ updated_at: lease.updatedAt + 1 })
+          .where("install_root", "=", root),
       );
-      return current();
     },
   };
 }

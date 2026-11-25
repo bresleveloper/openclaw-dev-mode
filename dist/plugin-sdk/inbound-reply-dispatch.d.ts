@@ -1,10 +1,7 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { Bp as DurableInboundReplyDeliveryParams, Cm as resolveChannelTurnDispatchCounts, Sm as hasVisibleChannelTurnDispatch, Vx as recordInboundSession, _k as ReplyPayload, _p as dispatchChannelInboundReply, bp as runChannelInboundEvent, f as GetReplyOptions, fp as ChannelInboundEventRunnerParams, h_ as ChannelTurnRecordOptions, hp as PreparedInboundReply, i as FinalizedMsgContext, kd as deliverInboundReplyWithMessageSendContext, lp as AssembledInboundReply, m_ as ChannelTurnDroppedHistoryOptions, mp as InboundReplyDispatchResult, o_ as DispatchReplyWithBufferedBlockDispatcher, v_ as ChannelBotLoopProtectionFacts, wm as recordDroppedChannelTurnHistory, xm as hasFinalChannelTurnDispatch, xp as runPreparedInboundReply, y_ as recordChannelBotPairLoopAndCheckSuppression, zp as DurableInboundReplyDeliveryOptions } from "../config-contracts-CY87ANNp.js";
-//#region src/infra/outbound/reply-payload-normalize.d.ts
+import { $ as DispatchReplyWithBufferedBlockDispatcher, $h as InboundReplyDispatchResult, I_ as ChannelBotLoopProtectionFacts, Jh as AssembledInboundReply, L_ as recordChannelBotPairLoopAndCheckSuppression, M_ as ChannelTurnDroppedHistoryOptions, N_ as ChannelTurnRecordOptions, Tg as DurableInboundReplyDeliveryParams, Yk as recordInboundSession, Zh as ChannelInboundEventRunnerParams, __ as resolveChannelTurnDispatchCounts, aM as ReplyPayload, ag as runChannelInboundEvent, eg as PreparedInboundReply, f as GetReplyOptions, fm as deliverInboundReplyWithMessageSendContext, g_ as hasVisibleChannelTurnDispatch, h_ as hasFinalChannelTurnDispatch, i as FinalizedMsgContext, ng as dispatchChannelInboundReply, og as runPreparedInboundReply, wg as DurableInboundReplyDeliveryOptions, y_ as recordDroppedChannelTurnHistory } from "../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
 /** Outbound fields accepted from loose producers. */
 type OutboundReplyPayload = Pick<ReplyPayload, "text" | "mediaUrls" | "mediaUrl" | "presentation" | "presentationTextMode" | "interactive" | "channelData" | "sensitiveMedia" | "replyToId" | "location" | "videoAsNote">;
-//#endregion
-//#region src/plugin-sdk/inbound-reply-dispatch.d.ts
 type ReplyOptionsWithoutModelSelected = Omit<Omit<GetReplyOptions, "onBlockReply">, "onModelSelected">;
 type RecordInboundSessionFn = typeof recordInboundSession;
 declare function buildInboundReplyDispatchBase(params: {
@@ -58,5 +55,4 @@ type RecordInboundSessionAndDispatchReplyParams = {
   replyOptions?: ReplyOptionsWithoutModelSelected;
 };
 export declare function dispatchInboundReplyWithBase(params: BuildInboundReplyDispatchBaseParams & Pick<RecordInboundSessionAndDispatchReplyParams, "deliver" | "durable" | "onRecordError" | "onDispatchError" | "replyOptions">): Promise<void>;
-//#endregion
 export { type AssembledInboundReply, type ChannelBotLoopProtectionFacts, type ChannelTurnDroppedHistoryOptions as ChannelInboundDroppedHistoryOptions, type ChannelTurnDroppedHistoryOptions, type ChannelInboundEventRunnerParams, type ChannelTurnRecordOptions, type ChannelTurnRecordOptions as InboundReplyRecordOptions, type DurableInboundReplyDeliveryParams, type InboundReplyDispatchResult, type PreparedInboundReply, deliverInboundReplyWithMessageSendContext, dispatchChannelInboundReply, hasFinalChannelTurnDispatch as hasFinalInboundReplyDispatch, hasVisibleChannelTurnDispatch as hasVisibleInboundReplyDispatch, recordChannelBotPairLoopAndCheckSuppression, recordDroppedChannelTurnHistory as recordDroppedChannelInboundHistory, recordDroppedChannelTurnHistory, resolveChannelTurnDispatchCounts as resolveInboundReplyDispatchCounts, runChannelInboundEvent, runPreparedInboundReply };

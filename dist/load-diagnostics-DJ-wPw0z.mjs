@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";import{AsyncLocalStorage}from"node:async_hooks";
+//!src/plugins/load-diagnostics.ts
+const diagnostics=resolveGlobalSingleton(Symbol.for(`openclaw.pluginLoadDiagnostics`),()=>new AsyncLocalStorage);function withPluginLoadDiagnostics(e){const t=[];return diagnostics.run(t,()=>e(t))}function recordPluginLoadDiagnostic(e){diagnostics.getStore()?.push(e)}export{withPluginLoadDiagnostics as n,recordPluginLoadDiagnostic as t};

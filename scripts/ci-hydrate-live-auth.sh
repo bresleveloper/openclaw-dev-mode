@@ -67,6 +67,7 @@ activate_claude_oauth_access_token() {
 activate_claude_oauth_access_token
 
 for env_key in \
+  ABLITERATION_API_KEY \
   AZURE_SPEECH_KEY \
   AZURE_SPEECH_REGION \
   BASETEN_API_KEY \
@@ -117,6 +118,13 @@ for env_key in \
   OPENROUTER_API_KEY \
   PIXVERSE_API_KEY \
   QWEN_API_KEY \
+  PARALLEL_API_KEY \
+  REQUESTY_API_KEY \
+  SENSEAUDIO_API_KEY \
+  SUBQ_API_KEY \
+  SUBQ_DECISION_MODEL \
+  TYPESAFE_API_KEY \
+  XIAOMI_API_KEY \
   FAL_KEY \
   RUNWAY_API_KEY \
   DEEPGRAM_API_KEY \

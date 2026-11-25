@@ -1,23 +1,4 @@
-import { buildTokenHubProvider, buildTokenPlanProvider } from "./provider-catalog.js";
-//#region extensions/tencent/provider-discovery.ts
-const tencentProviderDiscovery = [{
-	id: "tencent-tokenhub",
-	label: "Tencent TokenHub",
-	docsPath: "/providers/tencent",
-	auth: [],
-	staticCatalog: {
-		order: "simple",
-		run: async () => ({ provider: buildTokenHubProvider() })
-	}
-}, {
-	id: "tencent-tokenplan",
-	label: "Tencent TokenPlan",
-	docsPath: "/providers/tencent",
-	auth: [],
-	staticCatalog: {
-		order: "simple",
-		run: async () => ({ provider: buildTokenPlanProvider() })
-	}
-}];
-//#endregion
-export { tencentProviderDiscovery as default };
+import { t as TENCENT_PROVIDER_CATALOG } from "./.setup/models-BV0V0cJ5.mjs";
+// extensions/tencent/provider-discovery.ts
+var provider_discovery_default = TENCENT_PROVIDER_CATALOG.staticDiscovery;
+export { provider_discovery_default as default };

@@ -1,0 +1,3 @@
+import{r as HEALTH_REFRESH_INTERVAL_MS}from"./server-constants-BmIepgnr.mjs";
+//!src/gateway/server/health-refresh-admission.ts
+const backgroundRefreshStartedAt=/* @__PURE__ */ new WeakMap;function shouldScheduleBackgroundHealthRefresh(e,t){const n=backgroundRefreshStartedAt.get(e);if(n!==void 0&&t-n<6e4)return false;backgroundRefreshStartedAt.set(e,t);return true}export{shouldScheduleBackgroundHealthRefresh as t};

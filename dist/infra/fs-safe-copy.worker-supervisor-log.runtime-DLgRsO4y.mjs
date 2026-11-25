@@ -1,0 +1,1 @@
+import{t as e}from"./fs-safe-copy.worker-subsystem-Ue-v4hwL.mjs";const t=e(`process/supervisor`);function warnProcessSupervisorFailure(e){t.warn(e)}export{warnProcessSupervisorFailure};

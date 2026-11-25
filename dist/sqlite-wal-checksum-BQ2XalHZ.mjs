@@ -1,0 +1,2 @@
+//!src/infra/sqlite-wal-checksum.ts
+const SQLITE_WAL_MAGIC_LE=931071618;const SQLITE_WAL_MAGIC_BE=931071619;function readUint32(e,t,n){return n===`LE`?e.readUInt32LE(t):e.readUInt32BE(t)}function sqliteWalChecksum(e,t,n=[0,0]){let[r,i]=n;for(let n=0;n<e.length;n+=8){r=r+readUint32(e,n,t)+i>>>0;i=i+readUint32(e,n+4,t)+r>>>0}return[r,i]}export{sqliteWalChecksum as i,SQLITE_WAL_MAGIC_LE as n,readUint32 as r,SQLITE_WAL_MAGIC_BE as t};

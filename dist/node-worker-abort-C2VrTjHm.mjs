@@ -1,0 +1,3 @@
+import{o as racePromiseWithAbortSignal}from"./src-De06gkOi.mjs";import"./abort-signal-BKkRe6pu.mjs";
+//!src/gateway/worker-environments/node-worker-abort.ts
+function raceNodeWorkerOperation(e,t,n={aborted:`node worker operation aborted`,failed:`node worker operation failed`}){if(!t)return e;const abortError=()=>t.reason instanceof Error?t.reason:new Error(n.aborted);return racePromiseWithAbortSignal(e,t,abortError).catch(e=>{throw e instanceof Error?e:new Error(n.failed??String(e))})}export{raceNodeWorkerOperation as t};

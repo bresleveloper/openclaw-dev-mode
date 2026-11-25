@@ -1,0 +1,63 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{_ as t}from"./worker-chunk-DJNECyh3.mjs";import{o as n}from"./worker-chunk-uw49siUx.mjs";import{i as r}from"./worker-chunk-Cb82E_9i.mjs";import{t as i}from"./worker-chunk-qL_zCMfG.mjs";import{c as a,p as o}from"./worker-chunk-DfQVdZGe.mjs";import{i as s,t as c}from"./worker-chunk-C_Zfi3Hc.mjs";import{n as l,t as u}from"./worker-chunk-CRIcLrL2.mjs";import{r as d,t as f}from"./worker-chunk-B5K5a_z9.mjs";import{a as p}from"./worker-chunk-DeqffDSh.mjs";import{p as m}from"./worker-chunk-BCayKjPf.mjs";import{a as h,n as g,r as _}from"./worker-chunk-BxCOG3_c.mjs";import{i as v}from"./worker-chunk-5wk16K4m.mjs";import{o as y,t as b}from"./worker-chunk-ClOm5HvW.mjs";import{i as x}from"./worker-chunk-7veGfNnk.mjs";import{a as S,i as C}from"./worker-chunk-Bt-zkiKd.mjs";import{n as w,t as T}from"./worker-chunk-D9Npvzj0.mjs";import{n as E,t as D}from"./worker-chunk-Cq9Pv9ki.mjs";import O from"node:fs";import k from"node:path";import A from"node:fs/promises";import{isUtf8 as j}from"node:buffer";function shouldMergeToolsMd(e){return e.trim().length>0&&e!==P&&e!==F&&e!==I}function resolveToolsMdMigrationWorkspaceTargets(e){let t=/* @__PURE__ */ new Map;for(let n of p(e)){let r=m(e,n),i=k.resolve(r),a=t.get(i)??{primaryAgentId:n,agentIds:[],workspaceDir:r};a.agentIds.push(n),t.set(i,a)}return[...t.values()]}function sameFileIdentity(e,t){return e?.dev===t?.dev&&e?.ino===t?.ino}function samePosixPermissions(e,t){return e.uid===t.uid&&e.gid===t.gid&&(e.mode&4095)==(t.mode&4095)}function addsPosixReaders(e,t){for(let n of/* @__PURE__ */ new Set([e.uid,t.uid,void 0]))for(let r of[!1,!0])for(let i of[!1,!0]){if(e.gid===t.gid&&r!==i)continue;let a=n===e.uid?256:r?32:4,o=n===t.uid?256:i?32:4;if((t.mode&o)!==0&&(e.mode&a)===0)return!0}return!1}async function assertSourceReadersPreserved(e,t){let n=await readMigrationFileSnapshot(e.path);if(n.content!==e.content||!n.stat||!sameFileIdentity(n.stat,e.stat)||!samePosixPermissions(n.stat,e.stat))throw Error(`TOOLS.md changed during migration`);if(addsPosixReaders(n.stat,t))throw Error(`Merging TOOLS.md would grant additional POSIX readers. Review both files' owners, groups, and read permissions before rerunning doctor.`)}async function readMigrationFileSnapshot(e,n=!1){let r;try{r=await A.lstat(e)}catch(e){if(n&&e.code===`ENOENT`)return{content:``};throw e}if(!r.isFile()||r.nlink>1)throw Error(`${k.basename(e)} must be an unlinked regular file for automatic migration`);let i=await t({filePath:e}),a=await A.lstat(e);if(i.stat.nlink!==1||!sameFileIdentity(i.stat,r)||!sameFileIdentity(a,i.stat))throw Error(`${k.basename(e)} changed while opening it for migration`);if(!j(i.buffer))throw Error(`File is not valid UTF-8: ${e}; preserve its bytes and convert a copy to UTF-8 before retrying`);return{content:i.buffer.toString(`utf8`),stat:a}}async function readToolsMd(e){let t=(await A.readdir(e).catch(()=>[])).filter(e=>e.startsWith(`TOOLS.md.doctor-importing-`)||e.startsWith(`AGENTS.md.doctor-backup-`));if(t.length>0)throw Error(`Interrupted v2026.7.2-beta.5 migration artifact(s) left untouched: ${t.join(`, `)}. Restore the desired file manually before rerunning doctor.`);let n=k.join(e,y),r=await readMigrationFileSnapshot(n,!0);if(r.stat)return{path:n,content:r.content,sha256:d(r.content),stat:r.stat}}function appendWithSpacing(e,t,n=``){let spacing=e=>e.endsWith(`
+
+`)?``:e.endsWith(`
+`)?`
+`:`
+
+`;return`${e}${e.length===0?``:spacing(e)}${t}${n.length===0?``:spacing(t)}${n}`}function mergeToolsMdIntoAgentsMd(e,t){let n=rewriteLegacyAgentsToolsGuidance(e),r=n.indexOf(M);if(r>=0&&n.includes(t))return n;let i=r>=0?t:`${M}\n\n${t}`,a=r>=0?r+40:findToolsSection(n)?.insertAt;return a===void 0?appendWithSpacing(n,`## Tools\n\n${i}`):appendWithSpacing(n.slice(0,a),i,n.slice(a))}function rewriteLegacyAgentsToolsGuidance(e){let t=e;for(let[e,n]of L)t=t.replaceAll(e,n);return t===e?e:ensureLocalNotesHeading(t)}function findToolsSection(e){let t=0,n=0,r;for(let i of e.match(/.*(?:\n|$)/gu)??[]){if(i===``)continue;let e=i.replace(/\n$/u,``),a=/^\s*(`{3,}|~{3,})/u.exec(e)?.[1],o=/^\s*(`{3,}|~{3,})\s*$/u.exec(e)?.[1],s=a?.[0];if(s&&!r)r={marker:s,length:a.length};else if(o&&r&&o[0]===r.marker&&o.length>=r.length)r=void 0;else if(!r){let r=/^(#{1,6})\s+(.+?)\s*#*\s*$/u.exec(e);if(r){let e=r[1].length;if(n>0&&e<=2)return{headingEnd:n,insertAt:t};e===2&&r[2].trim().toLowerCase()===`tools`&&(n=t+i.length)}}t+=i.length}return n>0?{headingEnd:n,insertAt:e.length}:void 0}function ensureLocalNotesHeading(e){let t=findToolsSection(e);if(!t)return e;let n=e.slice(t.headingEnd,t.insertAt);return/^###\s+Local notes(?:\s|$)/imu.test(n)?e:`${e.slice(0,t.headingEnd)}\n### Local notes\n${e.slice(t.headingEnd)}`}async function collectToolsMdMigrationFindings(e){let t={checkId:`core/doctor/tools-md-migration`,severity:`warning`,fixHint:`Run ${u(`openclaw doctor --fix`)} to merge TOOLS.md into AGENTS.md.`},n=[];for(let r of resolveToolsMdMigrationWorkspaceTargets(e))try{let i=await readToolsMd(r.workspaceDir);if(i&&(n.push({...t,target:r.primaryAgentId,path:i.path,message:`Agent "${r.primaryAgentId}" still stores local tool notes in TOOLS.md.`,requirement:`legacy-tools-md`}),shouldMergeToolsMd(i.content))){let a=k.join(r.workspaceDir,b),o=(await readMigrationFileSnapshot(a,!0)).content,s=mergeToolsMdIntoAgentsMd(o,i.content).length;for(let i of r.agentIds){let r=S(e,i);s<=r||n.push({...t,target:i,path:a,message:`Agent "${i}" TOOLS.md migration will produce a ${s}-character AGENTS.md, exceeding its configured bootstrapMaxChars limit of ${r}. Raise \`agents.entries.*.bootstrapMaxChars\` for this agent, or \`agents.defaults.bootstrapMaxChars\` as fallback, to preserve all migrated instructions.`,requirement:`tools-md-merged-bootstrap-limit`})}}}catch(e){n.push({...t,target:r.primaryAgentId,path:k.join(r.workspaceDir,y),message:`Agent "${r.primaryAgentId}" TOOLS.md cannot be migrated: ${c(e)}`,severity:`error`,requirement:`tools-md-migration-blocked`})}return n}async function maybeMigrateToolsMd(e){let t=e.env??process.env,n=[],i=[];for(let a of resolveToolsMdMigrationWorkspaceTargets(e.cfg))try{let i=await readToolsMd(a.workspaceDir);if(!i)continue;if(!e.shouldRepair){w(`${o(i.path)} will be archived and merged into AGENTS.md when customized.`,`TOOLS.md migration preview`);continue}let s=shouldMergeToolsMd(i.content),c=a.primaryAgentId.replace(/[^A-Za-z0-9._-]+/g,`-`),l=k.join(r(t),`backups`,`tools-md-migration`,`${c}-${i.sha256}.md`),u=k.dirname(l);await A.mkdir(u,{recursive:!0,mode:448});let f=`${l}.doctor-writing-${process.pid}-${Date.now()}`;try{{await using e=await A.open(f,`wx`,384);await e.writeFile(i.content,`utf8`),await e.sync()}await _(f,l,N),await A.rm(f),await h(u)}catch(e){if(await A.rm(f,{force:!0}),e.code!==`EEXIST`)throw e;if(d(await A.readFile(l,`utf8`))!==i.sha256)throw Error(`TOOLS.md migration archive collision at ${l}`,{cause:e})}let p=k.join(a.workspaceDir,b),m=k.dirname(p),g=`${k.basename(p)}.doctor-writing-`,v=(await A.readdir(m).catch(()=>[])).filter(e=>e.startsWith(g));for(let e of v){let t=k.join(m,e),n=await A.lstat(t);if(!n.isFile()||n.nlink!==1)throw Error(`interrupted AGENTS.md write must be an unlinked regular file: ${t}`);await A.rm(t)}v.length>0&&await h(m);let y=(await readMigrationFileSnapshot(p,!0)).content,x=s?mergeToolsMdIntoAgentsMd(y,i.content):rewriteLegacyAgentsToolsGuidance(y);if(x!==y){let e=s&&!y.includes(i.content)?i:void 0,t=await readMigrationFileSnapshot(p,!0);if(t.content!==y)throw Error(`AGENTS.md changed during TOOLS.md migration`);let n=t.stat,r=n?.mode??384,a=`${p}.doctor-writing-${process.pid}-${Date.now()}`;try{let t;{await using i=await A.open(a,`wx`,384);if(await i.writeFile(x,`utf8`),process.platform!==`win32`&&n&&(await i.chmod(0),await i.chown(n.uid,n.gid)),process.platform!==`win32`&&e&&await assertSourceReadersPreserved(e,n??await i.stat()),n&&await i.chmod(r),t=await i.stat(),process.platform!==`win32`&&n&&!samePosixPermissions(t,n))throw Error(`AGENTS.md ownership or permissions could not be preserved`);await i.sync()}let i=await readMigrationFileSnapshot(p,!0);if(i.content!==y||!sameFileIdentity(i.stat,n)||process.platform!==`win32`&&i.stat&&n&&!samePosixPermissions(i.stat,n))throw Error(`AGENTS.md changed during TOOLS.md migration`);process.platform!==`win32`&&e&&await assertSourceReadersPreserved(e,t),await A.rename(a,p),await h(k.dirname(p))}catch(e){throw await A.rm(a,{force:!0}),e}if((await readMigrationFileSnapshot(p)).content!==x)throw Error(`AGENTS.md changed after TOOLS.md migration was written`)}await h(a.workspaceDir);let S=await readMigrationFileSnapshot(i.path);if(d(S.content)!==i.sha256)throw Error(`TOOLS.md changed during migration`);let C=O.lstatSync(i.path);if(!S.stat||!sameFileIdentity(C,S.stat)||!sameFileIdentity(C,i.stat))throw Error(`TOOLS.md changed during migration`);O.unlinkSync(i.path),await h(a.workspaceDir),n.push(s?`Merged ${o(i.path)} into AGENTS.md and archived the original.`:`Removed untouched ${o(i.path)} after archiving it.`)}catch(e){i.push(`Agent "${a.primaryAgentId}" TOOLS.md was not migrated: ${c(e)}`)}return E({changes:n,warnings:i},{changesTitle:`TOOLS.md migration`}),{changes:n,warnings:i}}var M,N,P,F,I,L;e((()=>{i(),f(),T(),v(),C(),x(),l(),n(),g(),s(),a(),D(),M=`### Local notes (migrated from TOOLS.md)`,N={strategy:`link-or-copy`,durability:`degrade`},P=`# TOOLS.md - Local Notes
+
+Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup: camera names and locations, SSH hosts and aliases, preferred TTS voices, speaker/room names, device nicknames, anything environment-specific.
+
+## Examples
+
+\`\`\`markdown
+### Cameras
+
+- living-room → Main area, 180° wide angle
+- front-door → Entrance, motion-triggered
+
+### SSH
+
+- home-server → 192.168.1.100, user: admin
+
+### TTS
+
+- Preferred voice: "Nova" (warm, slightly British)
+- Default speaker: Kitchen HomePod
+\`\`\`
+
+## Why Separate?
+
+Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.
+
+---
+
+Add whatever helps you do your job. This is your cheat sheet.
+
+## Related
+
+- [Agent workspace](/concepts/agent-workspace)
+`,F=`# TOOLS.md - User Tool Notes (editable)
+
+This file is for _your_ notes about external tools and conventions. It does not define which tools exist; OpenClaw provides built-in tools internally, and skills add the rest.
+
+## Examples
+
+### imsg
+
+- Send an iMessage/SMS: describe who/what, confirm before sending.
+- Prefer short messages; avoid sending secrets.
+
+### sag
+
+- Text-to-speech: specify voice, target speaker/room, and whether to stream.
+
+Add whatever else you want the assistant to know about your local toolchain.
+
+## Related
+
+- [TOOLS.md template](/reference/templates/TOOLS)
+`,I=`# TOOLS.md - User Tool Notes (editable)
+
+Add your local tool notes here.
+`,L=[["Skills provide your tools. When you need one, check its `SKILL.md`. Keep local notes (camera names, SSH details, voice preferences) in `TOOLS.md`.",`Skills define how tools work. Keep environment-specific local notes in this section.`],["- Keep environment-specific notes in `TOOLS.md` (notes for skills).","- Keep environment-specific notes in this file's `## Tools` section."],["- Keep environment-specific notes in `TOOLS.md` (Notes for Skills).","- Keep environment-specific notes in this file's `## Tools` section."],["- You learn a lesson -> update `AGENTS.md`, `TOOLS.md`, or the relevant skill.","- You learn a lesson -> update `AGENTS.md` or the relevant skill."],[`- When you learn a lesson → update AGENTS.md, TOOLS.md, or the relevant skill`,`- When you learn a lesson → update AGENTS.md or the relevant skill`],["Skills 提供你的工具。当你需要某个工具时，查看它的 `SKILL.md`。在 `TOOLS.md` 中保存本地笔记（摄像头名称、SSH 详情、语音偏好等）。",`Skills 定义工具的使用方式。请将环境特定的本地笔记保存在本节中。`],["技能提供你的工具。当你需要某个工具时，查看它的 `SKILL.md`。在 `TOOLS.md` 中保存本地笔记（摄像头名称、SSH 详情、语音偏好等）。",`技能定义工具的使用方式。请将环境特定的本地笔记保存在本节中。`],["- 在 `TOOLS.md` 中保存环境特定的笔记（Skills 注意事项）。","- 将环境特定的笔记保存在本文件的 `## Tools` 部分。"],["- 将环境相关的备注保存在 `TOOLS.md`（Skills 备注）中。","- 将环境相关的备注保存在本文件的 `## Tools` 部分。"],["- 将环境相关的备注保存在 `TOOLS.md`（技能备注）中。","- 将环境相关的备注保存在本文件的 `## Tools` 部分。"],[`- 当你学到教训 → 更新 AGENTS.md、TOOLS.md 或相关 Skills 文件`,`- 当你学到教训 → 更新 AGENTS.md 或相关 Skills 文件`],[`- 当你学到教训 → 更新 AGENTS.md、TOOLS.md 或相关技能文件`,`- 当你学到教训 → 更新 AGENTS.md 或相关技能文件`]]}))();export{collectToolsMdMigrationFindings,maybeMigrateToolsMd};

@@ -1,0 +1,3 @@
+import{t as isValidAgentId}from"./agent-id-cOfqmfln.mjs";import{a as parseAgentSessionKeyParts}from"./session-key-DYtwLLn1.mjs";import"./session-key-C6YO7qUA.mjs";
+//!src/sessions/session-state-events.watch-address.ts
+function sessionStateWatchAgentId(e){const t=parseAgentSessionKeyParts(e);return t&&isValidAgentId(t.agentId)?t.agentId.toLowerCase():void 0}function isSessionStateWatchAddress(e){const t=sessionStateWatchAgentId(e.targetSessionKey);return Boolean(sessionStateWatchAgentId(e.watcherSessionKey)&&t&&(e.targetAgentId===void 0||isValidAgentId(e.targetAgentId)&&e.targetAgentId.trim().toLowerCase()===t))}export{sessionStateWatchAgentId as n,isSessionStateWatchAddress as t};

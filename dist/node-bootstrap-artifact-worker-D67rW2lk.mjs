@@ -1,0 +1,3 @@
+import{n as runtimeProcessEntrypoints}from"./runtime-process-entrypoints-DkIke3sT.mjs";import{a as resolveRuntimeWorkerUrl}from"./runtime-worker-url-B4gxQVQi.mjs";import{t as WorkerTaskPool}from"./worker-task-pool-CiGDnAai.mjs";
+//!src/gateway/worker-environments/node-bootstrap-artifact-worker.ts
+async function prepareNodeArtifactInWorker(e,t){const n=new WorkerTaskPool({workerUrl:resolveRuntimeWorkerUrl(runtimeProcessEntrypoints.nodeBootstrapArtifact),workerClass:`writer`});try{return await n.run({kind:e,input:t},{})}finally{await n.close()}}export{prepareNodeArtifactInWorker as t};

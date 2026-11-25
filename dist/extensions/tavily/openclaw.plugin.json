@@ -81,5 +81,9 @@
         }
       }
     }
-  }
+  },
+  "recommendedPrompts": [
+    "Check whether Tavily search and extraction are ready.",
+    "Compare information across a few URLs with Tavily and cite relevant passages."
+  ]
 }

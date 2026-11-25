@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/tlon/index.ts
+// extensions/tlon/index.ts
 var tlon_default = defineBundledChannelEntry({
 	id: "tlon",
 	name: "Tlon",
@@ -14,5 +14,4 @@ var tlon_default = defineBundledChannelEntry({
 		exportName: "setTlonRuntime"
 	}
 });
-//#endregion
 export { tlon_default as default };

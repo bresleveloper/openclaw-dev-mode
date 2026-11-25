@@ -1,18 +1,18 @@
-import { a as periodSchema, n as DAY_MS, r as describePeriod } from "./.setup/limits-iMrGeJ-3.mjs";
-import { n as listWorkSessions, t as createTeamReportsHttpHandler } from "./.setup/http-Dwalz1yN.mjs";
-import { n as createTeamReportsStore } from "./.setup/store-CDn4D32p.mjs";
+import { i as describePeriod, o as periodSchema, r as DAY_MS } from "./.setup/store-contract-Bp3uUP9F.mjs";
+import { n as listWorkSessions, t as createTeamReportsHttpHandler } from "./.setup/http-DdfYIQlW.mjs";
+import { n as createTeamReportsStore } from "./.setup/store-a1nCDaMK.mjs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { ErrorCodes, errorShape } from "openclaw/plugin-sdk/gateway-runtime";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { WorkerTaskPool, createPluginRuntimeProcessEntrypoint, resolveRuntimeWorkerUrl } from "openclaw/plugin-sdk/process-runtime";
+import { z } from "zod";
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import { extractErrorCode } from "openclaw/plugin-sdk/error-runtime";
 import { readFileHandleBounded } from "openclaw/plugin-sdk/file-access-runtime";
-import { z } from "zod";
-import { ErrorCodes, errorShape } from "openclaw/plugin-sdk/gateway-runtime";
 import { randomUUID } from "node:crypto";
-import { WorkerTaskPool } from "openclaw/plugin-sdk/process-runtime";
-//#region extensions/team-reports/src/config.ts
+// extensions/team-reports/src/config.ts
 const nonempty = z.string().min(1).regex(/\S/);
 const secretInputSchema = z.union([nonempty, z.strictObject({
 	source: z.enum([
@@ -130,12 +130,23 @@ function parseTeamReportsConfig(value, controlUiBasePath) {
 }
 const peopleFileSchema = z.strictObject({ people: z.array(personSchema) });
 const MAX_PEOPLE_FILE_BYTES = 2097152;
+const peopleFileDecoder = new TextDecoder("utf-8", {
+	fatal: true,
+	ignoreBOM: true
+});
 async function readPeopleFile(filePath) {
 	const handle = await open(filePath, constants.O_RDONLY | constants.O_NONBLOCK);
 	const invalidFileMessage = "team-reports.peopleFile must be a regular JSON file of at most 2 MiB.";
 	try {
 		if (!(await handle.stat()).isFile()) throw new Error(invalidFileMessage);
-		const data = JSON.parse((await readFileHandleBounded(handle, MAX_PEOPLE_FILE_BYTES)).toString("utf8"));
+		const bytes = await readFileHandleBounded(handle, MAX_PEOPLE_FILE_BYTES);
+		let text;
+		try {
+			text = peopleFileDecoder.decode(bytes);
+		} catch (error) {
+			throw new Error("team-reports.peopleFile must be valid UTF-8. Correct the file encoding and reload the plugin.", { cause: error });
+		}
+		const data = JSON.parse(text);
 		return peopleFileSchema.parse(data).people;
 	} catch (error) {
 		throw extractErrorCode(error) === "too-large" ? /* @__PURE__ */ new Error(invalidFileMessage) : error;
@@ -203,54 +214,9 @@ async function resolveTeamReportsConfig(config, fullConfig) {
 		people
 	};
 }
-//#endregion
-//#region extensions/team-reports/src/gateway-methods.ts
-const listSchema = z.strictObject({ period: periodSchema.optional() });
-const getSchema = z.strictObject({
-	period: periodSchema,
-	key: z.string(),
-	format: z.enum(["json", "markdown"]).default("json")
-});
-const generateSchema = z.strictObject({
-	period: z.literal("day"),
-	date: z.iso.date().optional(),
-	intraday: z.boolean().optional()
-});
-function registerTeamReportsGatewayMethods(api, access) {
-	const register = (name, scope, run) => {
-		api.registerGatewayMethod(`team-reports.${name}`, async ({ params, respond }) => {
-			try {
-				respond(true, await run(params ?? {}));
-			} catch (error) {
-				const message = error instanceof Error ? error.message : "Team Reports request failed";
-				respond(false, void 0, errorShape(error instanceof z.ZodError ? ErrorCodes.INVALID_REQUEST : ErrorCodes.UNAVAILABLE, message));
-			}
-		}, { scope });
-	};
-	register("status", "operator.read", (params) => {
-		z.strictObject({}).parse(params);
-		return access.scheduler().status();
-	});
-	register("list", "operator.read", async (params) => ({ periods: await access.store().listPeriods(listSchema.parse(params)) }));
-	register("get", "operator.read", async (params) => {
-		const { period, key, format } = getSchema.parse(params);
-		describePeriod(period, key);
-		if (format === "markdown") {
-			const stored = await access.store().getPeriod(period, key);
-			if (!stored) throw new Error("Report not found; generate the requested UTC day first");
-			return { markdown: stored.markdown };
-		}
-		const stored = await access.store().getPeriodDocument(period, key);
-		if (!stored) throw new Error("Report not found; generate the requested UTC day first");
-		return stored;
-	});
-	register("generate", "operator.admin", async (params) => ({ runId: await access.scheduler().generate(generateSchema.parse(params)) }));
-}
-//#endregion
-//#region extensions/team-reports/src/run-worker-contract.ts
+// extensions/team-reports/src/run-worker-contract.ts
 const REPORT_RUN_TIMEOUT_MS = 27e5;
-//#endregion
-//#region extensions/team-reports/src/run-worker.ts
+// extensions/team-reports/src/run-worker.ts
 var TeamReportsRunner = class {
 	constructor(workerUrl) {
 		this.requests = /* @__PURE__ */ new Set();
@@ -261,7 +227,7 @@ var TeamReportsRunner = class {
 		});
 	}
 	async run(params) {
-		const deadline = Date.now() + REPORT_RUN_TIMEOUT_MS;
+		const deadline = performance.now() + REPORT_RUN_TIMEOUT_MS;
 		try {
 			return await this.pool.run({
 				config: params.config,
@@ -295,7 +261,7 @@ var TeamReportsRunner = class {
 						signal.throwIfAborted();
 						return {
 							input: response,
-							timeoutMs: Math.max(1, deadline - Date.now())
+							timeoutMs: Math.max(1, deadline - performance.now())
 						};
 					})();
 					this.requests.add(pending);
@@ -315,10 +281,10 @@ var TeamReportsRunner = class {
 		}
 	}
 };
-//#endregion
-//#region extensions/team-reports/src/scheduler.ts
+// extensions/team-reports/src/scheduler.ts
 const STOP_TIMEOUT_MS = 3e4;
 const STARTUP_GRACE_MS = 3e5;
+const DEFERRED_RETRY_MS = 6e4;
 function nextClosedDayDue(nowMs, schedule) {
 	const random = Math.random();
 	const [hours = 0, minutes = 0] = schedule.closedDayUtc.split(":").map(Number);
@@ -422,11 +388,11 @@ var TeamReportsScheduler = class {
 			await this.options.store.close();
 		}
 	}
-	schedule(id, atMs, callback) {
+	schedule(id, when, callback) {
 		if (this.options.context.scheduler.signal.aborted) return;
 		this.options.context.scheduler.schedule({
 			id,
-			atMs,
+			...when,
 			run: async () => {
 				try {
 					await callback();
@@ -440,7 +406,7 @@ var TeamReportsScheduler = class {
 		const scheduled = nextClosedDayDue(afterMs, this.options.config.schedule);
 		const due = Math.max(scheduled, notBeforeMs);
 		this.due.closedDay = due;
-		this.schedule("closed-day", due, async () => {
+		this.schedule("closed-day", { atMs: due }, async () => {
 			await this.tick("closed-day");
 			if (!this.accepting) return;
 			this.armClosedDay(describePeriod("day", scheduled).untilMs - 1);
@@ -448,7 +414,7 @@ var TeamReportsScheduler = class {
 	}
 	armIntraday(afterMs = Date.now()) {
 		this.due.intraday = nextIntradayDue(afterMs, this.options.config.schedule.intradayEveryHours);
-		if (this.due.intraday !== void 0) this.schedule("intraday", this.due.intraday, async () => {
+		if (this.due.intraday !== void 0) this.schedule("intraday", { atMs: this.due.intraday }, async () => {
 			await this.tick("intraday");
 			if (this.accepting) this.armIntraday();
 		});
@@ -458,7 +424,7 @@ var TeamReportsScheduler = class {
 		if (this.active) {
 			if (!this.deferred.has(kind)) {
 				this.deferred.add(kind);
-				this.schedule(`deferred:${kind}`, Date.now() + 6e4, () => {
+				this.schedule(`deferred:${kind}`, { delayMs: DEFERRED_RETRY_MS }, () => {
 					this.deferred.delete(kind);
 					return this.tick(kind);
 				});
@@ -554,8 +520,18 @@ var TeamReportsScheduler = class {
 		return message.slice(0, 2e3);
 	}
 };
-//#endregion
-//#region extensions/team-reports/index.ts
+// extensions/team-reports/index.ts
+const listSchema = z.strictObject({ period: periodSchema.optional() });
+const getSchema = z.strictObject({
+	period: periodSchema,
+	key: z.string(),
+	format: z.enum(["json", "markdown"]).default("json")
+});
+const generateSchema = z.strictObject({
+	period: z.literal("day"),
+	date: z.iso.date().optional(),
+	intraday: z.boolean().optional()
+});
 var team_reports_default = definePluginEntry({
 	id: "team-reports",
 	name: "Team Reports",
@@ -565,11 +541,14 @@ var team_reports_default = definePluginEntry({
 		const initial = parseTeamReportsConfig(api.pluginConfig, api.config.gateway?.controlUi?.basePath);
 		let scheduler;
 		let store;
-		const requireScheduler = () => {
+		let readiness;
+		const requireScheduler = async () => {
+			await readiness;
 			if (!scheduler) throw new Error("Team Reports service is not running; check plugin configuration and reload the plugin");
 			return scheduler;
 		};
-		const requireStore = () => {
+		const requireStore = async () => {
+			await readiness;
 			if (!store) throw new Error("Team Reports storage is unavailable; check service status");
 			return store;
 		};
@@ -577,45 +556,56 @@ var team_reports_default = definePluginEntry({
 			id: "team-reports",
 			apiVersion: 2,
 			async start(ctx) {
-				const config = parseTeamReportsConfig(ctx.config.plugins?.entries?.["team-reports"]?.config ?? api.pluginConfig, ctx.config.gateway?.controlUi?.basePath);
-				const resolved = await resolveTeamReportsConfig(config, ctx.config);
-				const policy = ctx.config.plugins?.entries?.["team-reports"]?.llm;
-				const summaryOptions = { ...config.summaries };
-				if (policy?.allowModelOverride !== true) delete summaryOptions.model;
-				if (!api.runtimeSource) throw new Error("Team Reports requires an OpenClaw host with runtime entrypoint metadata");
-				const nextStore = await createTeamReportsStore({
-					stateDir: ctx.stateDir,
-					workerModuleUrl: new URL(`./src/store.worker${path.extname(api.runtimeSource)}`, pathToFileURL(api.runtimeSource))
+				readiness = initialize(ctx);
+				readiness.catch(() => {
+					const failure = /* @__PURE__ */ new Error("Team Reports initialization failed; check plugin configuration and database access");
+					ctx.serviceHealth?.reportFailure(failure);
+					ctx.logger.error(failure.message);
 				});
-				const runner = new TeamReportsRunner(new URL(`./src/run.worker${path.extname(api.runtimeSource)}`, pathToFileURL(api.runtimeSource)));
-				const nextScheduler = new TeamReportsScheduler({
-					config: {
-						...config,
-						summaries: summaryOptions
-					},
-					resolved,
-					store: nextStore,
-					llm: { complete: (params) => api.runtime.llm.complete(params) },
-					context: ctx,
-					runReports: (params) => runner.run(params),
-					closeRunner: () => runner.close()
-				});
-				try {
-					await nextScheduler.start();
-					store = nextStore;
-					scheduler = nextScheduler;
-				} catch (error) {
-					await nextScheduler.stop();
-					throw error;
-				}
 			},
-			async stop() {
+			async stop(ctx) {
+				ctx.scheduler.beginClose();
+				await readiness?.catch(() => {});
+				readiness = void 0;
 				const current = scheduler;
 				scheduler = void 0;
 				store = void 0;
 				await current?.stop();
 			}
 		});
+		async function initialize(ctx) {
+			const config = parseTeamReportsConfig(ctx.config.plugins?.entries?.["team-reports"]?.config ?? api.pluginConfig, ctx.config.gateway?.controlUi?.basePath);
+			const resolved = await resolveTeamReportsConfig(config, ctx.config);
+			const policy = ctx.config.plugins?.entries?.["team-reports"]?.llm;
+			const summaryOptions = { ...config.summaries };
+			if (policy?.allowModelOverride !== true) delete summaryOptions.model;
+			if (!api.runtimeSource) throw new Error("Team Reports requires an OpenClaw host with runtime entrypoint metadata");
+			const nextStore = await createTeamReportsStore({
+				stateDir: ctx.stateDir,
+				workerModuleUrl: resolveRuntimeWorkerUrl(createPluginRuntimeProcessEntrypoint("teamReportsStore", pathToFileURL(api.runtimeSource).href))
+			});
+			const runner = new TeamReportsRunner(resolveRuntimeWorkerUrl(createPluginRuntimeProcessEntrypoint("teamReportsRun", pathToFileURL(api.runtimeSource).href)));
+			const nextScheduler = new TeamReportsScheduler({
+				config: {
+					...config,
+					summaries: summaryOptions
+				},
+				resolved,
+				store: nextStore,
+				llm: { complete: (params) => api.runtime.llm.complete(params) },
+				context: ctx,
+				runReports: (params) => runner.run(params),
+				closeRunner: () => runner.close()
+			});
+			try {
+				await nextScheduler.start();
+				store = nextStore;
+				scheduler = nextScheduler;
+			} catch (error) {
+				await nextScheduler.stop();
+				throw error;
+			}
+		}
 		api.registerHttpRoute({
 			path: initial.basePath,
 			match: "prefix",
@@ -632,9 +622,12 @@ var team_reports_default = definePluginEntry({
 				},
 				workSessions: listWorkSessions,
 				assetsDir: path.join(api.rootDir ?? path.dirname(fileURLToPath(import.meta.url)), "assets"),
-				getStore: () => store,
-				status: () => requireScheduler().status(),
-				health: () => requireScheduler().health(),
+				getStore: async () => {
+					await readiness?.catch(() => {});
+					return store;
+				},
+				status: async () => (await requireScheduler()).status(),
+				health: async () => (await requireScheduler()).health(),
 				orgs: () => scheduler?.orgs() ?? initial.github.orgs,
 				people: () => scheduler?.people() ?? initial.people ?? []
 			})
@@ -650,12 +643,36 @@ var team_reports_default = definePluginEntry({
 			requiredScopes: ["operator.read"],
 			path: `${initial.basePath}/`
 		});
-		registerTeamReportsGatewayMethods(api, {
-			scheduler: requireScheduler,
-			store: requireStore
+		const register = (name, scope, run) => {
+			api.registerGatewayMethod(`team-reports.${name}`, async ({ params, respond }) => {
+				try {
+					respond(true, await run(params ?? {}));
+				} catch (error) {
+					const message = error instanceof Error ? error.message : "Team Reports request failed";
+					respond(false, void 0, errorShape(error instanceof z.ZodError ? ErrorCodes.INVALID_REQUEST : ErrorCodes.UNAVAILABLE, message));
+				}
+			}, { scope });
+		};
+		register("status", "operator.read", async (params) => {
+			z.strictObject({}).parse(params);
+			return (await requireScheduler()).status();
 		});
+		register("list", "operator.read", async (params) => ({ periods: await (await requireStore()).listPeriods(listSchema.parse(params)) }));
+		register("get", "operator.read", async (params) => {
+			const { period, key, format } = getSchema.parse(params);
+			describePeriod(period, key);
+			if (format === "markdown") {
+				const stored = await (await requireStore()).getPeriod(period, key);
+				if (!stored) throw new Error("Report not found; generate the requested UTC day first");
+				return { markdown: stored.markdown };
+			}
+			const stored = await (await requireStore()).getPeriodDocument(period, key);
+			if (!stored) throw new Error("Report not found; generate the requested UTC day first");
+			return stored;
+		});
+		register("generate", "operator.admin", async (params) => ({ runId: await (await requireScheduler()).generate(generateSchema.parse(params)) }));
 		api.registerCli(async ({ program }) => {
-			const { registerTeamReportsCli } = await import("./.setup/cli-DSsgPQT9.mjs");
+			const { registerTeamReportsCli } = await import("./.setup/cli-S14Z2_WU.mjs");
 			registerTeamReportsCli({ program });
 		}, { descriptors: [{
 			name: "team-reports",
@@ -664,5 +681,4 @@ var team_reports_default = definePluginEntry({
 		}] });
 	}
 });
-//#endregion
 export { team_reports_default as default };

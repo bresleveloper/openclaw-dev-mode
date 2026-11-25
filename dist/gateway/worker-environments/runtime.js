@@ -1,49 +1,6 @@
-import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
-import { r as resolveOpenClawPackageRootSync } from "../../openclaw-root-CPodxfi3.mjs";
-import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { r as resolveStateDir } from "../../state-dir-C8s3cOPX.mjs";
-import "../../paths-orClZ-2Z.mjs";
-import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-DR7bHNl9.mjs";
-import { t as VERSION } from "../../version-jg_14gWz.mjs";
-import { i as SUPPORTED_NODE_VERSION_RANGE, n as PROCESS_NODE_VERSION_CHECK } from "../../node-version-BfT-yCVT.mjs";
-import { t as FsSafeError, w as root } from "../../fs-safe-6Z4UiMS4.mjs";
-import { n as createLazyPromise } from "../../lazy-promise-DGqyc4Y4.mjs";
-import { t as _usingCtx } from "../../usingCtx-BhiZp_rS.mjs";
-import { t as resolveNpmJsonEntries } from "../../npm-json-output-Z3qrSjbB.mjs";
-import { r as isExactSemverVersion } from "../../npm-registry-spec-B_IER0ZB.mjs";
-import { Nc as validateWorkerAdmissionHandshake } from "../../src-pLJQA6J5.mjs";
-import { c as sha256File } from "../../directory-durability-B2RKADOj.mjs";
-import "../../worker-admission-DKoRQV__.mjs";
-import { t as runTasksWithConcurrency } from "../../run-with-concurrency-Dtu208ef.mjs";
-import { i as runCommandWithTimeout } from "../../exec-Bf6uhUA7.mjs";
-import { i as bundleTransferTimeoutMs } from "../../bootstrap-timeouts-CDaMuZ4A.mjs";
-import { t as DEFAULT_WORKER_BUNDLE_ARCHIVE_LIMITS } from "../../worker-bundle-limits-CF239rpc.mjs";
-import { i as WORKER_BUNDLE_MANIFEST_VERSION, n as WORKER_BUNDLE_CHUNK_PATH_PATTERN, o as compareWorkerBundlePaths, s as hashWorkerBundleManifest, t as WORKER_BUNDLE_ARTIFACT_PATHS } from "../../worker-bundle-hash-BynEVGqT.mjs";
-import { r as normalizeScpRemotePath } from "../../scp-host-DoRal-Os.mjs";
-import { a as workerSshCommandOptions, r as runWorkerSshCandidates, s as workerSshOptions, t as prepareWorkerSsh } from "../../ssh-BYwhpB2R.mjs";
-import { t as resolveSecretRefString } from "../../resolve-D1-YVpS6.mjs";
-import { n as readWorkerBundleArchiveManifest } from "../../worker-bundle-archive-CrciIVDQ.mjs";
-import { i as runSshScript, n as isSuccess, r as matchesCommandFailure, t as commandFailure } from "../../bootstrap-command-BybE-3lE.mjs";
-import { createReadStream } from "node:fs";
-import { createHash, randomUUID } from "node:crypto";
-import fs$1 from "node:fs/promises";
-import path from "node:path";
-import * as tar from "tar";
-//#region src/gateway/worker-environments/bootstrap.ts
-const BOOTSTRAP_ROOT = ".openclaw-worker";
-const BOOTSTRAP_RECEIPT = "bootstrap-receipt.json";
-const NODE_MISSING_EXIT_CODE = 42;
-const NPM_MISSING_EXIT_CODE = 43;
-const LOCK_TIMEOUT_EXIT_CODE = 44;
-const NODE_UNSUPPORTED_EXIT_CODE = 45;
-const LOCK_MAX_AGE_SECONDS = 3600;
-const NODE_MISSING_MARKER = "OPENCLAW_WORKER_NODE_MISSING";
-const NODE_UNSUPPORTED_MARKER = "OPENCLAW_WORKER_NODE_UNSUPPORTED";
-const NPM_MISSING_MARKER = "OPENCLAW_WORKER_NPM_MISSING";
-const BOOTSTRAP_OUTPUT_TAG = "OPENCLAW_WORKER_BOOTSTRAP_V1";
-const BUNDLE_HASH_PATTERN = /^[a-f0-9]{64}$/u;
-const NPM_INTEGRITY_PATTERN = /^sha512-[A-Za-z0-9+/]{86}==$/u;
-const NODE_RUNTIME_CHECK_JS = String.raw`const parse = (value) => /^(\d+)\.(\d+)\.(\d+)$/.exec(value)?.slice(1).map(Number); const atLeast = (version, floor) => version[0] > floor[0] || (version[0] === floor[0] && (version[1] > floor[1] || (version[1] === floor[1] && version[2] >= floor[2])));
+import{i as SUPPORTED_NODE_VERSION_RANGE,n as PROCESS_NODE_VERSION_CHECK}from"../../node-version-EaZf6kHy.mjs";import{i as WORKER_BUNDLE_MANIFEST_VERSION,n as WORKER_BUNDLE_CHUNK_PATH_PATTERN,t as WORKER_BUNDLE_ARTIFACT_PATHS}from"../../worker-bundle-hash-C7P5Jf__.mjs";import{i as isExactSemverVersion}from"../../npm-registry-spec-D06XlvdA.mjs";import{It as validateWorkerAdmissionHandshake}from"../../src-4ukgpRDU.mjs";import{n as runCommandWithTimeout}from"../../exec-runner-DpcWIHOp.mjs";import"../../exec-DMFvryVA.mjs";import{n as WORKER_PROTOCOL_MAX_FEATURE_LENGTH,t as WORKER_PROTOCOL_MAX_FEATURES}from"../../worker-protocol-constants-8F9zCimv.mjs";import{i as bundleTransferTimeoutMs,t as DEFAULT_BOOTSTRAP_TIMEOUT_MS}from"../../bootstrap-timeouts-DTWxPvhX.mjs";import{r as normalizeScpRemotePath}from"../../scp-host-CXkWaWwO.mjs";import{a as workerSshCommandOptions,r as runWorkerSshCandidates,s as workerSshOptions,t as prepareWorkerSsh}from"../../ssh-DQQhPbcw.mjs";import{t as resolveSecretRefString}from"../../resolve-DvlOBOi1.mjs";import{i as runSshScript,n as isSuccess,r as matchesCommandFailure,t as commandFailure}from"../../bootstrap-command-BLDSR2G8.mjs";import{r as resolveWorkerNpmInstallationArtifact,t as createWorkerBundleProducer}from"../../bundle-D8PvG1GI.mjs";import{createHash}from"node:crypto";
+//!src/gateway/worker-environments/bootstrap.ts
+const BOOTSTRAP_ROOT=`.openclaw-worker`;const BOOTSTRAP_RECEIPT=`bootstrap-receipt.json`;const NODE_MISSING_EXIT_CODE=42;const NPM_MISSING_EXIT_CODE=43;const LOCK_TIMEOUT_EXIT_CODE=44;const NODE_UNSUPPORTED_EXIT_CODE=45;const LOCK_MAX_AGE_SECONDS=3600;const NODE_MISSING_MARKER=`OPENCLAW_WORKER_NODE_MISSING`;const NODE_UNSUPPORTED_MARKER=`OPENCLAW_WORKER_NODE_UNSUPPORTED`;const NPM_MISSING_MARKER=`OPENCLAW_WORKER_NPM_MISSING`;const BOOTSTRAP_OUTPUT_TAG=`OPENCLAW_WORKER_BOOTSTRAP_V1`;const BUNDLE_HASH_PATTERN=/^[a-f0-9]{64}$/u;const NPM_INTEGRITY_PATTERN=/^sha512-[A-Za-z0-9+/]{86}==$/u;const NODE_RUNTIME_CHECK_JS=String.raw`const parse = (value) => /^(\d+)\.(\d+)\.(\d+)$/.exec(value)?.slice(1).map(Number); const atLeast = (version, floor) => version[0] > floor[0] || (version[0] === floor[0] && (version[1] > floor[1] || (version[1] === floor[1] && version[2] >= floor[2])));
 function checkRuntime() {
   const nodeSafe = ${PROCESS_NODE_VERSION_CHECK};
   if (!nodeSafe) return 1;
@@ -56,8 +13,7 @@ function checkRuntime() {
     return sqliteSafe ? 0 : 1;
   } finally { db.close(); }
 }
-try { process.exitCode = checkRuntime(); } catch { process.exitCode = 1; }`;
-const RECEIPT_MATCH_JS = String.raw`const fs = require("node:fs");
+try { process.exitCode = checkRuntime(); } catch { process.exitCode = 1; }`;const RECEIPT_MATCH_JS=String.raw`const fs = require("node:fs");
 try {
   const actual = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
   const expected = JSON.parse(process.argv[2]);
@@ -77,8 +33,7 @@ try {
       : 1;
 } catch {
   process.exitCode = 1;
-}`;
-const VERIFY_ARCHIVE_JS = String.raw`const crypto = require("node:crypto");
+}`;const VERIFY_ARCHIVE_JS=String.raw`const crypto = require("node:crypto");
 const fs = require("node:fs");
 try {
   const npm = process.argv[3] === "npm";
@@ -86,8 +41,7 @@ try {
   process.exitCode = actual === process.argv[2] ? 0 : 1;
 } catch {
   process.exitCode = 1;
-}`;
-const READ_NPM_PACK_FILENAME_JS = String.raw`const fs = require("node:fs");
+}`;const READ_NPM_PACK_FILENAME_JS=String.raw`const fs = require("node:fs");
 const path = require("node:path");
 try {
   const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
@@ -98,15 +52,12 @@ try {
   process.stdout.write(filename);
 } catch {
   process.exitCode = 1;
-}`;
-const WORKER_ARTIFACT_PATHS_JS = `const artifactPaths = ${JSON.stringify(WORKER_BUNDLE_ARTIFACT_PATHS)};
-const chunkPathPattern = ${WORKER_BUNDLE_CHUNK_PATH_PATTERN.toString()};`;
-const SELECT_NPM_WORKER_FILES_JS = String.raw`const fs = require("node:fs");
+}`;const WORKER_ARTIFACT_PATHS_JS=`const artifactPaths = ${JSON.stringify(WORKER_BUNDLE_ARTIFACT_PATHS)};
+const chunkPathPattern = ${WORKER_BUNDLE_CHUNK_PATH_PATTERN.toString()};`;const SELECT_NPM_WORKER_FILES_JS=String.raw`const fs = require("node:fs");
 const expected = "package/dist/worker-artifacts/" + process.argv[2] + ".tar.gz";
 const selected = fs.readFileSync(process.argv[1], "utf8").split("\n").filter((entry) => entry === expected);
 if (selected.length !== 1) throw new Error("missing or duplicate packaged worker bundle archive");
-process.stdout.write(selected.join("\n") + "\n");`;
-const VERIFY_INSTALL_JS = String.raw`const crypto = require("node:crypto");
+process.stdout.write(selected.join("\n") + "\n");`;const VERIFY_INSTALL_JS=String.raw`const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = process.argv[1];
@@ -166,8 +117,7 @@ try {
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
-}`;
-const ENSURE_PRIVATE_DIRECTORY_SH = String.raw`ensure_private_directory() {
+}`;const ENSURE_PRIVATE_DIRECTORY_SH=String.raw`ensure_private_directory() {
   directory=$1
   if [ -e "$directory" ] || [ -L "$directory" ]; then
     if [ ! -d "$directory" ] || [ -L "$directory" ]; then
@@ -178,8 +128,7 @@ const ENSURE_PRIVATE_DIRECTORY_SH = String.raw`ensure_private_directory() {
     mkdir "$directory"
   fi
   chmod 700 "$directory"
-}`;
-const PREFLIGHT_SCRIPT = String.raw`set -eu
+}`;const PREFLIGHT_SCRIPT=String.raw`set -eu
 umask 077
 hash=$1
 expected_receipt=$2
@@ -237,8 +186,7 @@ if [ ! -f "$upload" ] || [ -L "$upload" ]; then
 fi
 chmod 600 "$upload"
 printf '%s\t%s\t%s\n' '${BOOTSTRAP_OUTPUT_TAG}' install "$upload"
-`;
-const INSTALL_SCRIPT = String.raw`set -eu
+`;const INSTALL_SCRIPT=String.raw`set -eu
 umask 077
 install=$1
 hash=$2
@@ -421,36 +369,7 @@ chmod 600 "$staging/${BOOTSTRAP_RECEIPT}"
 rm -rf "$install_dir"
 mv "$staging" "$install_dir"
 finish_with_receipt
-`;
-function normalizeHandshake(artifact) {
-	const bundleHash = artifact.bundleHash.trim();
-	const openclawVersion = artifact.openclawVersion.trim();
-	const protocolFeatures = artifact.protocolFeatures.map((feature) => feature.trim());
-	if (!BUNDLE_HASH_PATTERN.test(bundleHash)) throw new Error("Worker bundle hash must be a lowercase SHA-256 digest");
-	if (!openclawVersion) throw new Error("Worker OpenClaw version must be non-empty");
-	if (protocolFeatures.length > 64 || protocolFeatures.some((feature) => !feature) || protocolFeatures.some((feature) => feature.length > 128) || new Set(protocolFeatures).size !== protocolFeatures.length) throw new Error("Worker protocol features must be unique non-empty strings");
-	if (artifact.install === "npm") {
-		if (!isExactSemverVersion(openclawVersion) || artifact.packageSpec !== `openclaw@${openclawVersion}`) throw new Error(`Worker npm install must use exact package openclaw@${openclawVersion}`);
-		if (!NPM_INTEGRITY_PATTERN.test(artifact.packageIntegrity)) throw new Error("Worker npm install requires a pinned SHA-512 package integrity");
-	} else if (!BUNDLE_HASH_PATTERN.test(artifact.tarballSha256)) throw new Error("Worker bundle archive digest must be a lowercase SHA-256 digest");
-	return {
-		bundleHash,
-		openclawVersion,
-		protocolFeatures
-	};
-}
-function parseReceiptJson(value, expected) {
-	let parsed;
-	try {
-		parsed = JSON.parse(value ?? "");
-	} catch {
-		throw new Error("Worker bootstrap returned an invalid receipt");
-	}
-	if (!validateWorkerAdmissionHandshake(parsed)) throw new Error("Worker bootstrap returned an invalid receipt");
-	if (parsed.bundleHash !== expected.bundleHash || parsed.openclawVersion !== expected.openclawVersion || parsed.protocolFeatures.length !== expected.protocolFeatures.length || parsed.protocolFeatures.some((feature, index) => feature !== expected.protocolFeatures[index])) throw new Error("Worker bootstrap receipt does not match the requested artifact");
-	return parsed;
-}
-const CLEANUP_UPLOAD_SCRIPT = String.raw`set -eu
+`;function normalizeHandshake(e){const t=e.bundleHash.trim();const n=e.openclawVersion.trim();const r=e.protocolFeatures.map(e=>e.trim());if(!BUNDLE_HASH_PATTERN.test(t))throw new Error(`Worker bundle hash must be a lowercase SHA-256 digest`);if(!n)throw new Error(`Worker OpenClaw version must be non-empty`);if(r.length>64||r.some(e=>!e)||r.some(e=>e.length>128)||new Set(r).size!==r.length)throw new Error(`Worker protocol features must be unique non-empty strings`);if(e.install===`npm`){if(!isExactSemverVersion(n)||e.packageSpec!==`openclaw@${n}`)throw new Error(`Worker npm install must use exact package openclaw@${n}`);if(!NPM_INTEGRITY_PATTERN.test(e.packageIntegrity))throw new Error(`Worker npm install requires a pinned SHA-512 package integrity`)}else if(!BUNDLE_HASH_PATTERN.test(e.tarballSha256))throw new Error(`Worker bundle archive digest must be a lowercase SHA-256 digest`);return{bundleHash:t,openclawVersion:n,protocolFeatures:r}}function parseReceiptJson(e,t){let n;try{n=JSON.parse(e??``)}catch{throw new Error(`Worker bootstrap returned an invalid receipt`)}if(!validateWorkerAdmissionHandshake(n))throw new Error(`Worker bootstrap returned an invalid receipt`);if(n.bundleHash!==t.bundleHash||n.openclawVersion!==t.openclawVersion||n.protocolFeatures.length!==t.protocolFeatures.length||n.protocolFeatures.some((e,n)=>e!==t.protocolFeatures[n]))throw new Error(`Worker bootstrap receipt does not match the requested artifact`);return n}const CLEANUP_UPLOAD_SCRIPT=String.raw`set -eu
 hash=$1
 operation_token=$2
 case "$hash" in
@@ -475,564 +394,6 @@ if [ ! -d "$incoming" ] || [ -L "$incoming" ]; then
 fi
 incoming=$(cd "$incoming" && pwd -P)
 rm -f -- "$incoming/openclaw-upload-$hash.tgz.$operation_token"
-`;
-async function cleanupRemoteUpload(params) {
-	const cleanupTimeoutMs = Math.min(params.timeoutMs, 1e4);
-	await runWorkerSshCandidates(params.prepared, cleanupTimeoutMs, (port, remainingTimeoutMs) => {
-		return runSshScript({
-			prepared: params.prepared,
-			runCommand: params.runCommand,
-			script: CLEANUP_UPLOAD_SCRIPT,
-			scriptArgs: [params.bundleHash, params.operationToken],
-			timeoutMs: remainingTimeoutMs,
-			port
-		});
-	}).catch(() => void 0);
-}
-function parseTaggedOutput(stdout) {
-	const prefix = `${BOOTSTRAP_OUTPUT_TAG}\t`;
-	const record = stdout.split(/\r?\n/u).findLast((line) => line.startsWith(prefix));
-	if (!record) return;
-	const actionEnd = record.indexOf("	", prefix.length);
-	if (actionEnd === -1) return;
-	const action = record.slice(prefix.length, actionEnd);
-	const payload = record.slice(actionEnd + 1).trim();
-	return action && payload ? {
-		action,
-		payload
-	} : void 0;
-}
-function parsePreflight(result, expected, expectedUploadFilename) {
-	if (matchesCommandFailure(result, NODE_MISSING_EXIT_CODE, NODE_MISSING_MARKER)) throw new Error("Worker bootstrap requires Node.js on the leased host; install Node in the provider setup phase and retry");
-	if (matchesCommandFailure(result, NODE_UNSUPPORTED_EXIT_CODE, NODE_UNSUPPORTED_MARKER)) throw new Error(`Worker bootstrap requires Node ${SUPPORTED_NODE_VERSION_RANGE.replace(" || ", ", or ")} with WAL-reset-safe SQLite on the leased host; install a supported Node runtime in the provider setup phase and retry`);
-	if (!isSuccess(result)) throw commandFailure("preflight", result);
-	const output = parseTaggedOutput(result.stdout);
-	if (output?.action === "current") return {
-		action: "current",
-		receipt: parseReceiptJson(output.payload, expected)
-	};
-	const remotePath = output?.action === "install" ? output.payload : void 0;
-	const normalizedPath = normalizeScpRemotePath(remotePath);
-	const expectedSuffix = `/${BOOTSTRAP_ROOT}/.incoming/${expectedUploadFilename}`;
-	const hasCanonicalSegments = normalizedPath?.split("/").slice(1).every((segment) => segment !== "" && segment !== "." && segment !== "..");
-	if (!normalizedPath || !hasCanonicalSegments || !normalizedPath.endsWith(expectedSuffix)) throw new Error("Worker bootstrap preflight returned an invalid upload path");
-	return {
-		action: "install",
-		path: normalizedPath
-	};
-}
-/** Installs one exact worker artifact over SSH and returns its admission receipt. */
-async function bootstrapWorker(request, dependencies) {
-	const artifact = request.artifact;
-	const timeoutMs = dependencies.timeoutMs ?? 6e5;
-	const transferTimeoutMs = artifact.install === "bundle" ? bundleTransferTimeoutMs(artifact.tarballBytes, timeoutMs) : timeoutMs;
-	const receipt = normalizeHandshake(artifact);
-	const operationToken = createHash("sha256").update(request.operationId).digest("hex");
-	const uploadFilename = `openclaw-upload-${receipt.bundleHash}.tgz.${operationToken}`;
-	const run = dependencies.runCommand ?? runCommandWithTimeout;
-	let needsUploadCleanup = false;
-	const assertCurrent = () => {
-		dependencies.signal?.throwIfAborted();
-		dependencies.assertCurrent?.();
-	};
-	const runCommand = (argv, options) => {
-		assertCurrent();
-		needsUploadCleanup = true;
-		return run(argv, options);
-	};
-	const prepared = await prepareWorkerSsh({
-		assertCurrent,
-		ssh: request.ssh,
-		pinnedHostKey: request.pinnedHostKey,
-		resolveIdentity: dependencies.resolveIdentity,
-		temporaryDirectoryPrefix: "openclaw-worker-bootstrap-"
-	});
-	try {
-		const preflightResult = await runWorkerSshCandidates(prepared, timeoutMs, (port, remainingTimeoutMs) => runSshScript({
-			prepared,
-			runCommand,
-			script: PREFLIGHT_SCRIPT,
-			scriptArgs: [
-				receipt.bundleHash,
-				JSON.stringify(receipt),
-				artifact.install,
-				operationToken
-			],
-			timeoutMs: remainingTimeoutMs,
-			port,
-			signal: dependencies.signal
-		}));
-		assertCurrent();
-		const preflight = parsePreflight(preflightResult, receipt, uploadFilename);
-		if (preflight.action === "current") {
-			needsUploadCleanup = false;
-			return preflight.receipt;
-		}
-		if (artifact.install === "bundle") {
-			const transfer = await runWorkerSshCandidates(prepared, transferTimeoutMs, (port, remainingTimeoutMs) => runCommand([
-				"scp",
-				...workerSshOptions(prepared, { forwarding: "disabled" }),
-				"-P",
-				String(port),
-				"--",
-				artifact.tarballPath,
-				`${prepared.scpTarget}:${preflight.path}`
-			], workerSshCommandOptions({
-				timeoutMs: remainingTimeoutMs,
-				signal: dependencies.signal
-			})));
-			if (!isSuccess(transfer)) throw commandFailure("bundle transfer", transfer);
-		}
-		const install = await runWorkerSshCandidates(prepared, timeoutMs, (port, remainingTimeoutMs) => runSshScript({
-			prepared,
-			runCommand,
-			script: INSTALL_SCRIPT,
-			scriptArgs: [
-				artifact.install,
-				receipt.bundleHash,
-				artifact.install === "npm" ? artifact.packageSpec : "",
-				artifact.install === "npm" ? artifact.packageIntegrity : "",
-				JSON.stringify(receipt),
-				preflight.path,
-				artifact.install === "bundle" ? artifact.tarballSha256 : ""
-			],
-			timeoutMs: remainingTimeoutMs,
-			port,
-			signal: dependencies.signal
-		}));
-		assertCurrent();
-		if (matchesCommandFailure(install, NPM_MISSING_EXIT_CODE, NPM_MISSING_MARKER)) throw new Error("Worker npm bootstrap requires npm on the leased host; use bundle install or provide npm in the provider setup phase");
-		if (!isSuccess(install)) throw commandFailure("install", install);
-		const output = parseTaggedOutput(install.stdout);
-		if (output?.action !== "receipt") throw new Error("Worker bootstrap install returned an invalid receipt");
-		return parseReceiptJson(output.payload, receipt);
-	} finally {
-		if (needsUploadCleanup) await cleanupRemoteUpload({
-			prepared,
-			bundleHash: receipt.bundleHash,
-			operationToken,
-			runCommand: run,
-			timeoutMs
-		});
-		await prepared.dispose();
-	}
-}
-//#endregion
-//#region src/gateway/worker-environments/bundle-staging.ts
-const WORKER_BUNDLE_STAGING_CONCURRENCY = 16;
-async function stageWorkerDeployArtifact(params) {
-	const relativeSourcePath = `dist/worker/${params.artifactPath}`;
-	const { buffer } = await params.source.read(relativeSourcePath, {
-		symlinks: "reject",
-		hardlinks: "allow"
-	}).catch((error) => {
-		if (error instanceof FsSafeError && error.category === "policy") throw new Error(`Unsafe worker deploy artifact: ${relativeSourcePath}`, { cause: error });
-		throw new Error(`OpenClaw worker deploy artifact is missing; build the running package at ${params.sourceRoot}`, { cause: error });
-	});
-	await fs$1.writeFile(path.join(params.stagingRoot, params.artifactPath), buffer, {
-		flag: "wx",
-		mode: 448
-	});
-	return {
-		path: params.artifactPath,
-		mode: 448,
-		size: buffer.byteLength,
-		sha256: createHash("sha256").update(buffer).digest("hex")
-	};
-}
-async function collectWorkerBundleManifest(sourceRoot, stagingRoot) {
-	const [source, artifacts] = await Promise.all([root(sourceRoot, { maxBytes: Infinity }), fs$1.readdir(path.join(sourceRoot, "dist/worker"))]).catch((error) => {
-		throw new Error(`OpenClaw worker deploy artifact is missing; build the running package at ${sourceRoot}`, { cause: error });
-	});
-	const chunks = artifacts.filter((name) => WORKER_BUNDLE_CHUNK_PATH_PATTERN.test(name));
-	const { results, hasError, firstError } = await runTasksWithConcurrency({
-		tasks: [...WORKER_BUNDLE_ARTIFACT_PATHS, ...chunks].map((artifactPath) => () => stageWorkerDeployArtifact({
-			sourceRoot,
-			source,
-			stagingRoot,
-			artifactPath
-		})),
-		limit: WORKER_BUNDLE_STAGING_CONCURRENCY,
-		errorMode: "stop"
-	});
-	if (hasError) throw firstError;
-	return results.toSorted((left, right) => compareWorkerBundlePaths(left.path, right.path));
-}
-//#endregion
-//#region src/gateway/worker-environments/bundle.ts
-const OPENCLAW_NPM_REGISTRY = "https://registry.npmjs.org/";
-const NPM_RELEASE_PROOF_TIMEOUT_MS = 6e4;
-const NPM_SHA512_INTEGRITY_PATTERN = /^sha512-[A-Za-z0-9+/]{86}==$/u;
-const BUNDLE_TARBALL_NAME_PATTERN = /^([a-f0-9]{64})\.tgz$/u;
-const BUNDLE_STAGING_NAME_PATTERN = /^\.staging-[A-Za-z0-9_-]+$/u;
-const BUNDLE_TEMP_NAME_PATTERN = /^[a-f0-9]{64}\.tgz\.[0-9]+\.[0-9a-f-]{36}\.tmp$/u;
-const PACKAGED_BUNDLE_NAME_PATTERN = /^([a-f0-9]{64})\.tar\.gz$/u;
-const PACKAGED_BUNDLE_DIRECTORY = "dist/worker-artifacts";
-function normalizeProtocolFeatures(features) {
-	const normalized = features.map((feature) => feature.trim());
-	if (normalized.some((feature) => feature.length === 0)) throw new Error("Worker protocol features must be non-empty strings");
-	return [...new Set(normalized)].toSorted(compareWorkerBundlePaths);
-}
-function resolveBundleCacheDir(cacheDir) {
-	return cacheDir ? path.resolve(cacheDir) : path.join(resolveStateDir(), "cache", "worker-bundles");
-}
-function resolvePackageRoot(packageRoot) {
-	if (packageRoot) return path.resolve(packageRoot);
-	const resolved = resolveOpenClawPackageRootSync({
-		moduleUrl: import.meta.url,
-		argv1: process.argv[1],
-		cwd: process.cwd()
-	});
-	if (!resolved) throw new Error("Unable to locate the running OpenClaw package root for worker bundling");
-	return resolved;
-}
-async function isReleasedPackageInstall(packageRoot) {
-	const entries = new Set(await fs$1.readdir(packageRoot));
-	return !entries.has(".git") && !entries.has("pnpm-lock.yaml") && !entries.has("bun.lock") && !entries.has("bun.lockb");
-}
-function parseNpmPackageIdentity(value) {
-	if (!isRecord(value)) return;
-	const name = normalizeOptionalString(value.name);
-	const version = normalizeOptionalString(value.version);
-	const integrity = normalizeOptionalString(value.integrity) ?? normalizeOptionalString(value["dist.integrity"]);
-	const filename = normalizeOptionalString(value.filename);
-	return name && version && integrity ? {
-		name,
-		version,
-		integrity,
-		filename
-	} : void 0;
-}
-async function runNpmProofCommand(params) {
-	try {
-		const result = await runCommandWithTimeout(params.argv, {
-			cwd: params.cwd,
-			timeoutMs: NPM_RELEASE_PROOF_TIMEOUT_MS,
-			env: {
-				COREPACK_ENABLE_DOWNLOAD_PROMPT: "0",
-				NPM_CONFIG_IGNORE_SCRIPTS: "true"
-			}
-		});
-		if (result.code !== 0 || result.stdoutTruncatedBytes) throw new Error(params.failureMessage);
-		return JSON.parse(result.stdout.trim());
-	} catch {
-		throw new Error(params.failureMessage);
-	}
-}
-async function hashNpmTarballIntegrity(tarballPath) {
-	const hash = createHash("sha512");
-	for await (const chunk of createReadStream(tarballPath)) hash.update(chunk);
-	return `sha512-${hash.digest("base64")}`;
-}
-async function verifyPublishedNpmRelease(params) {
-	const temporaryRoot = await fs$1.mkdtemp(path.join(resolvePreferredOpenClawTmpDir(), "openclaw-worker-npm-proof-"));
-	try {
-		const published = parseNpmPackageIdentity(resolveNpmJsonEntries(await runNpmProofCommand({
-			argv: [
-				"npm",
-				"view",
-				`openclaw@${params.version}`,
-				"name",
-				"version",
-				"dist.integrity",
-				"--json",
-				`--registry=${OPENCLAW_NPM_REGISTRY}`
-			],
-			cwd: temporaryRoot,
-			failureMessage: `OpenClaw ${params.version} is not published; use the worker bundle install`
-		}))[0]);
-		if (published?.name !== "openclaw" || published.version !== params.version || !NPM_SHA512_INTEGRITY_PATTERN.test(published.integrity)) throw new Error(`Cannot verify exact public npm release openclaw@${params.version}; use the worker bundle install`);
-		const packedValue = await runNpmProofCommand({
-			argv: [
-				"npm",
-				"pack",
-				`openclaw@${params.version}`,
-				"--pack-destination",
-				temporaryRoot,
-				"--ignore-scripts",
-				"--json",
-				`--registry=${OPENCLAW_NPM_REGISTRY}`
-			],
-			cwd: temporaryRoot,
-			failureMessage: "Unable to verify the installed OpenClaw package; use the worker bundle install"
-		});
-		const packed = parseNpmPackageIdentity(resolveNpmJsonEntries(packedValue)[0]);
-		if (!packed?.filename || path.basename(packed.filename) !== packed.filename) throw new Error("npm pack returned incomplete worker package metadata");
-		const packedTarballPath = path.join(temporaryRoot, packed.filename);
-		let packedTarballIntegrity;
-		try {
-			packedTarballIntegrity = await hashNpmTarballIntegrity(packedTarballPath);
-		} catch {
-			throw new Error("Unable to verify the installed OpenClaw package; use the worker bundle install");
-		}
-		if (packed.name !== published.name || packed.version !== published.version || packed.integrity !== published.integrity || packedTarballIntegrity !== published.integrity) throw new Error(`Installed OpenClaw ${params.version} does not match the published package; use the worker bundle install`);
-		const extractedRoot = path.join(temporaryRoot, "package");
-		await fs$1.mkdir(extractedRoot);
-		await tar.extract({
-			cwd: extractedRoot,
-			file: packedTarballPath,
-			preservePaths: false,
-			strict: true,
-			strip: 1
-		});
-		if ((await prepareWorkerBundle({
-			packageRoot: extractedRoot,
-			cacheDir: path.join(temporaryRoot, "bundle-cache"),
-			openclawVersion: params.version
-		})).bundleHash !== params.bundleHash) throw new Error(`Published OpenClaw ${params.version} does not match the prepared worker bundle; use the worker bundle install`);
-		return published.integrity;
-	} finally {
-		await fs$1.rm(temporaryRoot, {
-			recursive: true,
-			force: true
-		});
-	}
-}
-async function isCachedTarball(filePath) {
-	try {
-		const stats = await fs$1.lstat(filePath);
-		if (stats.isSymbolicLink() || !stats.isFile()) throw new Error(`Unsafe worker bundle cache path: ${filePath}`);
-		return true;
-	} catch (error) {
-		if (error.code === "ENOENT") return false;
-		throw error;
-	}
-}
-async function cachedTarballMatches(tarballPath, manifest) {
-	if (!await isCachedTarball(tarballPath)) return false;
-	try {
-		return hashWorkerBundleManifest(await readWorkerBundleArchiveManifest(tarballPath, DEFAULT_WORKER_BUNDLE_ARCHIVE_LIMITS)) === hashWorkerBundleManifest(manifest);
-	} catch {
-		return false;
-	}
-}
-async function writeTarball(params) {
-	const temporaryPath = `${params.tarballPath}.${process.pid}.${randomUUID()}.tmp`;
-	try {
-		await tar.create({
-			cwd: params.stagingRoot,
-			file: temporaryPath,
-			gzip: true,
-			noDirRecurse: true,
-			noMtime: true,
-			portable: true,
-			strict: true,
-			onWriteEntry: ({ stat }) => {
-				if (stat) stat.mode = stat.mode & -512 | 448;
-			}
-		}, params.entries.map((entry) => entry.path));
-		try {
-			await fs$1.rename(temporaryPath, params.tarballPath);
-		} catch (error) {
-			if (error.code !== "EEXIST") throw error;
-			if (!await cachedTarballMatches(params.tarballPath, params.entries)) {
-				await fs$1.rm(params.tarballPath, { force: true });
-				try {
-					await fs$1.rename(temporaryPath, params.tarballPath);
-				} catch (publishError) {
-					if (publishError.code !== "EEXIST" || !await cachedTarballMatches(params.tarballPath, params.entries)) throw publishError;
-				}
-			}
-		}
-	} finally {
-		await fs$1.rm(temporaryPath, { force: true });
-	}
-}
-async function pruneWorkerBundleCache(params) {
-	let entries;
-	try {
-		entries = await fs$1.readdir(params.cacheDir, { withFileTypes: true });
-	} catch (error) {
-		if (error.code !== "ENOENT") params.onError?.(error);
-		return;
-	}
-	const candidates = entries.map(({ name }) => ({
-		name,
-		bundleHash: BUNDLE_TARBALL_NAME_PATTERN.exec(name)?.[1],
-		staging: BUNDLE_STAGING_NAME_PATTERN.test(name)
-	})).filter(({ name, bundleHash, staging }) => bundleHash !== void 0 && bundleHash !== params.currentBundleHash || staging || BUNDLE_TEMP_NAME_PATTERN.test(name));
-	if (candidates.length === 0) return;
-	const retained = new Set([params.currentBundleHash, ...await params.readRetainedBundleHashes()].filter((hash) => /^[a-f0-9]{64}$/u.test(hash)));
-	for (const entry of candidates.toSorted((left, right) => compareWorkerBundlePaths(left.name, right.name))) {
-		if (entry.bundleHash !== void 0 && retained.has(entry.bundleHash)) continue;
-		const target = path.join(params.cacheDir, entry.name);
-		try {
-			const stats = await fs$1.lstat(target);
-			if (stats.isSymbolicLink()) continue;
-			if (entry.staging ? !stats.isDirectory() : !stats.isFile()) continue;
-			await fs$1.rm(target, {
-				recursive: entry.staging,
-				force: true
-			});
-		} catch (error) {
-			if (error.code !== "ENOENT") params.onError?.(error);
-		}
-	}
-}
-async function prepareWorkerBundle(options) {
-	const packageRoot = resolvePackageRoot(options.packageRoot);
-	const openclawVersion = (options.openclawVersion ?? VERSION).trim();
-	if (!openclawVersion) throw new Error("Worker bundle requires a non-empty OpenClaw version");
-	const protocolFeatures = normalizeProtocolFeatures(options.protocolFeatures ?? []);
-	const packaged = await resolvePackagedWorkerBundle({
-		packageRoot,
-		openclawVersion,
-		protocolFeatures
-	});
-	if (packaged) return packaged;
-	const cacheDir = resolveBundleCacheDir(options.cacheDir);
-	await fs$1.mkdir(cacheDir, { recursive: true });
-	const stagingRoot = await fs$1.mkdtemp(path.join(cacheDir, ".staging-"));
-	try {
-		try {
-			var _usingCtx$1 = _usingCtx();
-			const manifest = await collectWorkerBundleManifest(packageRoot, stagingRoot);
-			const bundleHash = hashWorkerBundleManifest(manifest);
-			const tarballPath = path.join(cacheDir, `${bundleHash}.tgz`);
-			if (!await cachedTarballMatches(tarballPath, manifest)) await writeTarball({
-				stagingRoot,
-				entries: manifest,
-				tarballPath
-			});
-			const handle = _usingCtx$1.a(await fs$1.open(tarballPath, "r"));
-			return {
-				install: "bundle",
-				bundleHash,
-				openclawVersion,
-				protocolFeatures,
-				tarballBytes: (await fs$1.stat(tarballPath)).size,
-				tarballSha256: (await sha256File(handle)).digest,
-				tarballPath
-			};
-		} catch (_) {
-			_usingCtx$1.e = _;
-		} finally {
-			await _usingCtx$1.d();
-		}
-	} finally {
-		await fs$1.rm(stagingRoot, {
-			recursive: true,
-			force: true
-		});
-	}
-}
-async function resolvePackagedWorkerBundle(params) {
-	try {
-		var _usingCtx3 = _usingCtx();
-		try {
-			await fs$1.access(path.join(params.packageRoot, "dist/worker"));
-			return null;
-		} catch (error) {
-			if (!isRecord(error) || error.code !== "ENOENT") throw error;
-		}
-		const archiveDirectory = path.join(params.packageRoot, PACKAGED_BUNDLE_DIRECTORY);
-		let entries;
-		try {
-			entries = await fs$1.readdir(archiveDirectory, { withFileTypes: true });
-		} catch (error) {
-			if (isRecord(error) && error.code === "ENOENT") return null;
-			throw error;
-		}
-		if (entries.length !== 1 || !entries[0].isFile()) throw new Error("Packaged worker bundle must contain exactly one regular archive");
-		const match = PACKAGED_BUNDLE_NAME_PATTERN.exec(entries[0].name);
-		if (!match) throw new Error("Packaged worker bundle archive name is invalid");
-		const tarballPath = path.join(archiveDirectory, entries[0].name);
-		const manifest = await readWorkerBundleArchiveManifest(tarballPath, DEFAULT_WORKER_BUNDLE_ARCHIVE_LIMITS);
-		const paths = new Set(manifest.map((entry) => entry.path));
-		const requiredPaths = new Set(WORKER_BUNDLE_ARTIFACT_PATHS);
-		if (WORKER_BUNDLE_ARTIFACT_PATHS.some((artifactPath) => !paths.has(artifactPath)) || manifest.some((entry) => !requiredPaths.has(entry.path) && !WORKER_BUNDLE_CHUNK_PATH_PATTERN.test(entry.path))) throw new Error("Packaged worker bundle archive does not match the worker artifact contract");
-		const bundleHash = hashWorkerBundleManifest(manifest);
-		if (bundleHash !== match[1]) throw new Error("Packaged worker bundle archive name does not match its manifest hash");
-		const handle = _usingCtx3.a(await fs$1.open(tarballPath, "r"));
-		return {
-			install: "bundle",
-			bundleHash,
-			openclawVersion: params.openclawVersion,
-			protocolFeatures: params.protocolFeatures,
-			tarballBytes: (await handle.stat()).size,
-			tarballSha256: (await sha256File(handle)).digest,
-			tarballPath
-		};
-	} catch (_) {
-		_usingCtx3.e = _;
-	} finally {
-		await _usingCtx3.d();
-	}
-}
-/** Creates a process-lifecycle bundle producer that scans the running build at most once. */
-function createWorkerBundleProducer(options = {}) {
-	let currentArtifact;
-	let pruning = Promise.resolve();
-	return {
-		prepare: createLazyPromise(async () => {
-			currentArtifact = await prepareWorkerBundle(options);
-			return currentArtifact;
-		}),
-		async prune(readRetainedBundleHashes) {
-			const artifact = currentArtifact;
-			if (options.cacheOwnership !== "exclusive" || !artifact) return;
-			const operation = pruning.then(async () => {
-				await pruneWorkerBundleCache({
-					cacheDir: resolveBundleCacheDir(options.cacheDir),
-					currentBundleHash: artifact.bundleHash,
-					readRetainedBundleHashes,
-					onError: options.onCacheCleanupError
-				});
-			});
-			pruning = operation.catch(() => void 0);
-			await operation;
-		}
-	};
-}
-/**
-* Selects the exact npm package only after the public tarball's canonical worker manifest proves
-* parity with the running gateway bundle.
-*/
-async function resolveWorkerNpmInstallationArtifact(params) {
-	const version = params.bundle.openclawVersion.trim();
-	if (!isExactSemverVersion(version)) throw new Error(`Worker npm install requires the exact published gateway version; expected ${version}`);
-	const packageRoot = resolvePackageRoot(params.packageRoot);
-	if (!(params.isPackageInstall ? await params.isPackageInstall(packageRoot) : await isReleasedPackageInstall(packageRoot))) throw new Error("Worker npm install requires the gateway to run from a packaged release install");
-	const packageIntegrity = await (params.verifyRelease ?? verifyPublishedNpmRelease)({
-		bundleHash: params.bundle.bundleHash,
-		version
-	});
-	return {
-		install: "npm",
-		bundleHash: params.bundle.bundleHash,
-		openclawVersion: version,
-		packageIntegrity,
-		protocolFeatures: params.bundle.protocolFeatures,
-		packageSpec: `openclaw@${version}`
-	};
-}
-//#endregion
-//#region src/gateway/worker-environments/identity.ts
-function requireIdentity(value) {
-	if (typeof value === "object" && value !== null && "kind" in value) {
-		if (value.kind === "path" && "path" in value && typeof value.path === "string" && value.path.trim()) return {
-			kind: "path",
-			path: value.path
-		};
-		if (value.kind === "material" && "contents" in value && typeof value.contents === "string" && value.contents.trim()) return {
-			kind: "material",
-			contents: value.contents
-		};
-	}
-	throw new Error("Worker SSH identity resolver returned an invalid identity");
-}
-/** Routes dynamic identities to their provider owner and configured refs to the generic resolver. */
-async function resolveWorkerSshIdentity(params) {
-	params.assertAuthorized();
-	const request = {
-		leaseId: params.leaseId,
-		profile: params.profile,
-		keyRef: params.keyRef,
-		assertCurrent: params.assertAuthorized
-	};
-	const identity = params.provider.resolveSshIdentity ? await params.provider.resolveSshIdentity(request) : await params.resolveGeneric(params.keyRef, params.assertAuthorized);
-	params.assertAuthorized();
-	return requireIdentity(identity);
-}
-//#endregion
-export { bootstrapWorker, createWorkerBundleProducer, resolveSecretRefString, resolveWorkerNpmInstallationArtifact, resolveWorkerSshIdentity };
+`;async function cleanupRemoteUpload(e){const t=Math.min(e.timeoutMs,1e4);await runWorkerSshCandidates(e.prepared,t,(t,n)=>{return runSshScript({prepared:e.prepared,runCommand:e.runCommand,script:CLEANUP_UPLOAD_SCRIPT,scriptArgs:[e.bundleHash,e.operationToken],timeoutMs:n,port:t})}).catch(()=>void 0)}function parseTaggedOutput(e){const t=`${BOOTSTRAP_OUTPUT_TAG}\t`;const n=e.split(/\r?\n/u).findLast(e=>e.startsWith(t));if(!n)return;const r=n.indexOf(`	`,t.length);if(r===-1)return;const i=n.slice(t.length,r);const a=n.slice(r+1).trim();return i&&a?{action:i,payload:a}:void 0}function parsePreflight(e,t,n){if(matchesCommandFailure(e,NODE_MISSING_EXIT_CODE,NODE_MISSING_MARKER))throw new Error(`Worker bootstrap requires Node.js on the leased host; install Node in the provider setup phase and retry`);if(matchesCommandFailure(e,NODE_UNSUPPORTED_EXIT_CODE,NODE_UNSUPPORTED_MARKER))throw new Error(`Worker bootstrap requires Node ${SUPPORTED_NODE_VERSION_RANGE.replace(` || `,`, or `)} with WAL-reset-safe SQLite on the leased host; install a supported Node runtime in the provider setup phase and retry`);if(!isSuccess(e))throw commandFailure(`preflight`,e);const r=parseTaggedOutput(e.stdout);if(r?.action===`current`)return{action:`current`,receipt:parseReceiptJson(r.payload,t)};const i=r?.action===`install`?r.payload:void 0;const a=normalizeScpRemotePath(i);const o=`/${BOOTSTRAP_ROOT}/.incoming/${n}`;const s=a?.split(`/`).slice(1).every(e=>e!==``&&e!==`.`&&e!==`..`);if(!a||!s||!a.endsWith(o))throw new Error(`Worker bootstrap preflight returned an invalid upload path`);return{action:`install`,path:a}}async function bootstrapWorker(e,t){const n=e.artifact;const r=t.timeoutMs??6e5;const i=n.install===`bundle`?bundleTransferTimeoutMs(n.tarballBytes,r):r;const a=normalizeHandshake(n);const o=createHash(`sha256`).update(e.operationId).digest(`hex`);const s=`openclaw-upload-${a.bundleHash}.tgz.${o}`;const c=t.runCommand??runCommandWithTimeout;let l=false;const assertCurrent=()=>{t.signal?.throwIfAborted();t.assertCurrent?.()};const runCommand=(e,t)=>{assertCurrent();l=true;return c(e,t)};const u=await prepareWorkerSsh({assertCurrent,ssh:e.ssh,pinnedHostKey:e.pinnedHostKey,resolveIdentity:t.resolveIdentity,temporaryDirectoryPrefix:`openclaw-worker-bootstrap-`});try{const e=await runWorkerSshCandidates(u,r,(e,r)=>runSshScript({prepared:u,runCommand,script:PREFLIGHT_SCRIPT,scriptArgs:[a.bundleHash,JSON.stringify(a),n.install,o],timeoutMs:r,port:e,signal:t.signal}));assertCurrent();const c=parsePreflight(e,a,s);if(c.action===`current`){l=false;return c.receipt}if(n.install===`bundle`){const e=await runWorkerSshCandidates(u,i,(e,r)=>runCommand([`scp`,...workerSshOptions(u,{forwarding:`disabled`}),`-P`,String(e),`--`,n.tarballPath,`${u.scpTarget}:${c.path}`],workerSshCommandOptions({timeoutMs:r,signal:t.signal})));if(!isSuccess(e))throw commandFailure(`bundle transfer`,e)}const d=await runWorkerSshCandidates(u,r,(e,r)=>runSshScript({prepared:u,runCommand,script:INSTALL_SCRIPT,scriptArgs:[n.install,a.bundleHash,n.install===`npm`?n.packageSpec:``,n.install===`npm`?n.packageIntegrity:``,JSON.stringify(a),c.path,n.install===`bundle`?n.tarballSha256:``],timeoutMs:r,port:e,signal:t.signal}));assertCurrent();if(matchesCommandFailure(d,NPM_MISSING_EXIT_CODE,NPM_MISSING_MARKER))throw new Error(`Worker npm bootstrap requires npm on the leased host; use bundle install or provide npm in the provider setup phase`);if(!isSuccess(d))throw commandFailure(`install`,d);const f=parseTaggedOutput(d.stdout);if(f?.action!==`receipt`)throw new Error(`Worker bootstrap install returned an invalid receipt`);return parseReceiptJson(f.payload,a)}finally{if(l)await cleanupRemoteUpload({prepared:u,bundleHash:a.bundleHash,operationToken:o,runCommand:c,timeoutMs:r});await u.dispose()}}
+//!src/gateway/worker-environments/identity.ts
+function requireIdentity(e){if(typeof e===`object`&&e!==null&&`kind`in e){if(e.kind===`path`&&`path`in e&&typeof e.path===`string`&&e.path.trim())return{kind:`path`,path:e.path};if(e.kind===`material`&&`contents`in e&&typeof e.contents===`string`&&e.contents.trim())return{kind:`material`,contents:e.contents}}throw new Error(`Worker SSH identity resolver returned an invalid identity`)}async function resolveWorkerSshIdentity(e){e.assertAuthorized();const t={leaseId:e.leaseId,profile:e.profile,keyRef:e.keyRef,assertCurrent:e.assertAuthorized};const n=e.provider.resolveSshIdentity?await e.provider.resolveSshIdentity(t):await e.resolveGeneric(e.keyRef,e.assertAuthorized);e.assertAuthorized();return requireIdentity(n)}export{bootstrapWorker,createWorkerBundleProducer,resolveSecretRefString,resolveWorkerNpmInstallationArtifact,resolveWorkerSshIdentity};

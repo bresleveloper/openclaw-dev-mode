@@ -1,0 +1,2 @@
+//!packages/normalization-core/src/code-points.ts
+function truncateCodePoints(e,t){const n=Math.max(0,Math.trunc(t)||0);if(e.length<=n)return e;const r=[];for(const t of e){if(r.length>=n)break;r.push(t)}return r.join(``)}export{truncateCodePoints as t};

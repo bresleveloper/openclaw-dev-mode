@@ -1,5 +1,17 @@
 {
   "id": "logbook",
+  "backupResources": [
+    {
+      "disposition": "include",
+      "scope": "state",
+      "relativePath": "logbook/logbook.sqlite"
+    },
+    {
+      "disposition": "include",
+      "scope": "state",
+      "relativePath": "logbook/frames"
+    }
+  ],
   "uiCapabilities": [
     "page",
     "navigation"
@@ -117,5 +129,9 @@
         "default": 14
       }
     }
-  }
+  },
+  "recommendedPrompts": [
+    "Help me decide whether to enable Logbook and understand its privacy and retention settings.",
+    "Draft a standup from a day already tracked in Logbook without starting capture or sending it."
+  ]
 }

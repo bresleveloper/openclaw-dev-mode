@@ -1,0 +1,2 @@
+//!src/pairing/join-code.ts
+const DEVICE_PAIRING_JOIN_CODE_RE=/^[A-Za-z0-9_-]{22}$/u;function isDevicePairingJoinCode(e){return DEVICE_PAIRING_JOIN_CODE_RE.test(e)}function parseDevicePairingJoinRequestPath(e){if(e.endsWith(`/j`))return``;const t=e.lastIndexOf(`/j/`);return t>=0?e.slice(t+3):null}export{parseDevicePairingJoinRequestPath as n,isDevicePairingJoinCode as t};

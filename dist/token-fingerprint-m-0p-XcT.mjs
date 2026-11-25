@@ -1,0 +1,3 @@
+import{D as parseStrictPositiveInteger}from"./number-coercion-B3CfI447.mjs";import"./number-runtime-G0nhUVZu.mjs";import{createHash}from"node:crypto";
+//!extensions/telegram/src/token-fingerprint.ts
+function fingerprintTelegramBotToken(e){return createHash(`sha256`).update(e).digest(`hex`).slice(0,16)}function fingerprintOptionalTelegramBotToken(e){const t=e?.trim();return t?fingerprintTelegramBotToken(t):null}function resolveTelegramBotUserIdFromToken(e){const t=e?.trim().split(`:`,1)[0];return t&&/^\d+$/.test(t)?parseStrictPositiveInteger(t):void 0}export{fingerprintTelegramBotToken as n,resolveTelegramBotUserIdFromToken as r,fingerprintOptionalTelegramBotToken as t};

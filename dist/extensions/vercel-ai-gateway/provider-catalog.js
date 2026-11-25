@@ -1,6 +1,6 @@
 import { VERCEL_AI_GATEWAY_BASE_URL, VERCEL_AI_GATEWAY_PROVIDER_ID, discoverVercelAiGatewayModels, getStaticVercelAiGatewayModelCatalog, resolveVercelAiGatewayDynamicModel } from "./models.js";
 import { resolveVercelAiGatewayThinkingProfile } from "./thinking.js";
-//#region extensions/vercel-ai-gateway/provider-catalog.ts
+// extensions/vercel-ai-gateway/provider-catalog.ts
 const VERCEL_AI_GATEWAY_IMAGE_MODEL_IDS = /* @__PURE__ */ new Set([
 	"openai/gpt-5.5",
 	"openai/gpt-5.5-pro",
@@ -40,5 +40,4 @@ async function buildVercelAiGatewayProvider(options = {}) {
 		models: await discoverVercelAiGatewayModels(options)
 	};
 }
-//#endregion
 export { buildStaticVercelAiGatewayProvider, buildVercelAiGatewayProvider, resolveVercelAiGatewayModel };

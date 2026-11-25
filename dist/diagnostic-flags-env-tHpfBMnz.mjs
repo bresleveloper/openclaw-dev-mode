@@ -1,0 +1,2 @@
+//!src/infra/diagnostic-flags-env.ts
+function parseDiagnosticEnvFlags(e){const t=e?.trim()??``;const n=t.toLowerCase();if(!n)return{flags:[],disablesAll:false};if([`0`,`false`,`off`,`none`].includes(n))return{flags:[],disablesAll:true};if([`1`,`true`,`all`,`*`].includes(n))return{flags:[`*`],disablesAll:false};return{flags:t.split(/[,\s]+/),disablesAll:false}}export{parseDiagnosticEnvFlags as t};

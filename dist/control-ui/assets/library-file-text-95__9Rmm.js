@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";function t(e){if(e.encoding!==`base64`)return e.content;try{let t=Uint8Array.from(atob(e.content),e=>e.charCodeAt(0)),n=new TextDecoder(`utf-8`,{fatal:!0,ignoreBOM:!0}).decode(t);return n.includes(`\0`)?null:n}catch{return null}}function n(){return(n=e((()=>{})))()}export{t as n,n as t};
+//# sourceMappingURL=library-file-text-95__9Rmm.js.map

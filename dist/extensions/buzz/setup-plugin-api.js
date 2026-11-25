@@ -1,2 +1,1 @@
-import { t as buzzSetupPlugin } from "./.setup/channel.setup-BkKmLQmX.mjs";
-export { buzzSetupPlugin };
+export { t as buzzSetupPlugin } from "./.setup/channel.setup-CPcHHUnQ.mjs";

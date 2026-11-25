@@ -1,3 +1,1 @@
-import { t as normalizeHostname } from "../hostname-Db1ZcSGB.mjs";
-import { n as normalizeScpRemoteHost } from "../scp-host-DoRal-Os.mjs";
-export { normalizeHostname, normalizeScpRemoteHost };
+import{n as normalizeHostname}from"../hostname-BcqVfTz7.mjs";import{n as normalizeScpRemoteHost}from"../scp-host-CXkWaWwO.mjs";export{normalizeHostname,normalizeScpRemoteHost};

@@ -1,0 +1,1 @@
+import{t as e}from"./control-ui-public-session-card.worker-subsystem-CMzSNBBo.mjs";const t=e(`worker/idle-gc`);function reportSlowIdleWorkerGc(e){t.warn(`slow idle worker garbage collection`,e)}export{reportSlowIdleWorkerGc};

@@ -16,6 +16,12 @@ Remove the service and selected local data first, then [any remaining CLI instal
 
 The command attempts independent requested cleanup scopes and returns a nonzero status if any scope fails or is blocked. Service teardown remains the safety gate for state and workspace deletion; if that gate fails, those data scopes are preserved while app cleanup is still attempted. Partial cleanup is reported explicitly and is never followed by an unconditional completion result.
 
+On Linux hosts without a service manager, service removal is a no-op only when
+OpenClaw can verify that no service or installed definition exists. Selected
+state and workspace cleanup can then proceed. A missing or inaccessible user
+bus alone is not proof of absence. A running Gateway or other live state owner
+still blocks data removal; stop it through its supervisor or terminal first.
+
 ```bash
 openclaw uninstall
 ```
@@ -24,6 +30,13 @@ The interactive prompt preselects only the Gateway service. For complete local
 removal, also select state, workspace, and app in the prompt, or run
 `openclaw uninstall --all`. State removal preserves configured workspace
 directories unless you also select `--workspace`.
+
+State removal also removes literal completion-cache registrations for that
+state directory before deleting the cache. Registrations for other profiles,
+user-managed portable hooks, unrelated shell settings, and shared PATH entries
+remain intact. If a shell profile cannot be updated, or a concurrent edit is
+detected before replacement, state deletion stops. Resolve the reported profile
+error and retry.
 
 Preview what will be removed (safe):
 
@@ -151,7 +164,7 @@ Git checkouts default to `~/openclaw` (`%USERPROFILE%\openclaw` on Windows); use
 
 Before deleting a prefix, move any state, configuration, and workspaces you want to keep outside it. **Never delete a shared prefix wholesale**: remove only verified OpenClaw files, preserving shared Node runtimes, packages, and tools.
 
-If completion was installed, remove only its `# OpenClaw Completion` block and OpenClaw source line from the [selected shell profile](/cli/completion#install-flow). Remove a legacy `openclaw completion` source/eval line only if it contains no other command; preserve surrounding content.
+If completion remains after manual state deletion or CLI-only removal, remove only its `# OpenClaw Completion` block and OpenClaw source line from the [selected shell profile](/cli/completion#install-flow). `openclaw uninstall --state` already removes literal registrations for the state it deletes. Remove a legacy `openclaw completion` source/eval line only if it contains no other command; preserve surrounding content.
 
 Remove an installer-added PATH entry only when no other command uses it. Keep shared bin directories such as `~/.local/bin`. On Windows, the same rule applies to portable Node/MinGit and their PATH entries under `%LOCALAPPDATA%\OpenClaw\deps`.
 

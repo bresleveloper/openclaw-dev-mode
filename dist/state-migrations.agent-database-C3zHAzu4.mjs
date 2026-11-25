@@ -1,0 +1,3 @@
+import{t as admitSqliteSchema}from"./sqlite-schema-facts-Edd-ttp_.mjs";import{s as createSqliteWalReclamationResult}from"./sqlite-wal-D5aTyNQo.mjs";
+//!src/infra/state-migrations.agent-database.ts
+function createMigrationDatabaseHandle(e,t,n){admitSqliteSchema(e);return{agentId:t,db:e,path:n,walMaintenance:{checkpoint:()=>false,stop:async()=>{},close:()=>false,reclaimFreePages:createSqliteWalReclamationResult}}}export{createMigrationDatabaseHandle as t};

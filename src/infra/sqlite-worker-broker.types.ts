@@ -5,11 +5,14 @@ import type {
   StateDatabaseSchemaLease,
 } from "./gateway-state-owner.js";
 import type { RuntimeWorkerGeneration } from "./runtime-worker-generation.js";
+import type { SqliteDatabaseAdmissionCursor } from "./sqlite-database-admission.js";
 import type {
   SqliteWorkerRequest,
   SqliteWorkerReply,
   SqliteWorkerCloseReceipt,
+  SqliteWorkerExecuteOptions,
 } from "./sqlite-worker-contract.js";
+import type { DatabasePathIdentity } from "./sqlite-worker-identity.js";
 import type {
   SqliteWorkerAdmissionFactory,
   SqliteWorkerOperationAdmission,
@@ -44,6 +47,7 @@ export type Job = {
   createAdmission?: SqliteWorkerAdmissionFactory;
   operationAdmission?: { admission: SqliteWorkerOperationAdmission; releaseService(): void };
   settleNative?: (settlement: SqliteWorkerOperationSettlement) => void;
+  finishing?: true;
   assertCurrent?: () => void;
   inputTransfer?: {
     id: number;
@@ -57,12 +61,16 @@ export type Job = {
   dispatchState?: DispatchState;
   request: SqliteWorkerRequest;
   bytes: number;
+  result: Promise<unknown>;
   resolve(value: unknown): void;
   reject(error: unknown): void;
   detach(): void;
 };
 export type Slot = {
+  carrierClass?: "agent" | "shared-state" | "external";
+  postgresPoolSent?: boolean;
   custody: SqliteWorkerSlotCustody;
+  databaseAdmissionCursor: SqliteDatabaseAdmissionCursor;
   runtimeGeneration?: RuntimeWorkerGeneration;
   borrowedGenerationSlot?: true;
   worker: Worker;
@@ -83,9 +91,10 @@ export type Actor = {
   markNativeStopped(): void;
   closeReceipt?: SqliteWorkerCloseReceipt;
   stateDatabasePath?: string;
-  stateAccess: ReturnType<typeof captureStateDatabaseAccess>;
+  stateAccess: Awaited<ReturnType<typeof captureStateDatabaseAccess>>;
   id: number;
   key: string;
+  identity: DatabasePathIdentity;
   databasePath: string;
   pathReferences: Map<string, number>;
   moduleUrl: string;
@@ -96,6 +105,7 @@ export type Actor = {
   openDispatch: DispatchState;
   initialized: boolean;
   backendClosed: boolean;
+  deliveredStateContext?: SqliteWorkerStateContext;
   cleanupState?: "pending" | "complete";
   closing?: Promise<void>;
   retirementRequested?: boolean;
@@ -125,12 +135,13 @@ export type EnqueueOptions = {
 export type StoreClient = {
   actor: Actor;
   close(): Promise<void>;
+  retireIdle?: () => Promise<void> | undefined;
   sealed: boolean;
   isAvailable(): boolean;
   scopes: Set<Promise<void>>;
   execute(
     command: { type: PropertyKey; input: unknown },
-    options: { signal?: AbortSignal },
+    options: SqliteWorkerExecuteOptions,
     scope?: OperationScope,
   ): Promise<unknown>;
 };
@@ -141,16 +152,23 @@ export type SqliteWorkerStoreOptions = {
   databasePath: string;
   input: unknown;
   existingOnly?: boolean;
-  admission?: { identity: string; assertCurrent(): void };
+  /** External databases use separate admission and worker capacity. */
+  isolation?: "external";
+  admission?: { identity: string; birthtime?: string; assertCurrent(): void };
 };
 
 export type PreparedSqliteWorkerOpen = {
+  /** Agent preparation must not block shared-state intake or unrelated plugin actors. */
+  carrierClass?: Slot["carrierClass"];
+  /** The caching owner synchronously seals an idle client, or declines reclamation. */
+  retireIdle?: () => Promise<void> | undefined;
   onNativeLost?: (reason: Error) => void;
   signal?: AbortSignal;
   preparation?: Buffer<ArrayBuffer>;
   runtimeGeneration?: RuntimeWorkerGeneration;
   carrierUrl: URL;
   expectedIdentity?: string;
+  expectedBirthtime?: string;
   createOpenAdmission?: SqliteWorkerAdmissionFactory;
   maintenanceScope?: OpenClawDatabaseMaintenanceScope;
   cleanupAccess?: Pick<StateDatabaseSchemaLease, "assertDatabaseAccess">;
@@ -176,6 +194,15 @@ export type SqliteWorkerAdmissionCleanup = {
   close(): Promise<void>;
 };
 
+export type SqliteWorkerClientBinding = Pick<
+  PreparedSqliteWorkerOpen,
+  "maintenanceScope" | "cleanupAccess" | "retireIdle"
+> & {
+  releasePaths: () => void;
+  databaseIdentity: Extract<RequestBody, { type: "execute" }>["databaseIdentity"];
+  resumeScheduledMaintenance: (() => void) | undefined;
+};
+
 export type SqliteWorkerOpenCustody = Pick<
   PreparedSqliteWorkerOpen,
   | "maintenanceScope"
@@ -186,6 +213,8 @@ export type SqliteWorkerOpenCustody = Pick<
   | "onNativeStopped"
   | "onNativeLost"
   | "signal"
+  | "retireIdle"
+  | "carrierClass"
 > & { preparation?: unknown };
 export type SqliteWorkerInputRetention = "snapshot" | "stream";
 export type SqliteWorkerInputPreparation = {

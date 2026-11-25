@@ -1,0 +1,1 @@
+import{n as prepareLegacyDeviceIdentity,r as detectLegacyDeviceIdentity,t as migrateLegacyDeviceIdentity}from"./state-migrations.device-identity-Bcz68pHj.mjs";export{detectLegacyDeviceIdentity,migrateLegacyDeviceIdentity,prepareLegacyDeviceIdentity};

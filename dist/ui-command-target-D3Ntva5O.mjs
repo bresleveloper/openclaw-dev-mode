@@ -1,0 +1,3 @@
+import{n as GATEWAY_CLIENT_IDS}from"./client-info-Dr3-kuD1.mjs";
+//!src/gateway/ui-command-target.ts
+function captureGatewayUiCommandTarget(e){const t=e?.connId?.trim();if(!t||e?.connect.client.id!==GATEWAY_CLIENT_IDS.CONTROL_UI||e.internal?.syntheticClient||e.invalidated||e.connectionSignal?.aborted)return;return Object.freeze({connId:t,...e.authenticatedUserProfile?.profileId?{profileId:e.authenticatedUserProfile.profileId}:{}})}export{captureGatewayUiCommandTarget as t};

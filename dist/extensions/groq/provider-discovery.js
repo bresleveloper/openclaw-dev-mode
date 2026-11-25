@@ -1,6 +1,6 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-B7n8WBLz.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-N7cAUo3f.mjs";
 import { buildManifestModelProviderConfig } from "openclaw/plugin-sdk/provider-model-metadata";
-//#region extensions/groq/provider-discovery.ts
+// extensions/groq/provider-discovery.ts
 const PROVIDER_ID = "groq";
 const groqProviderDiscovery = {
 	id: PROVIDER_ID,
@@ -15,5 +15,4 @@ const groqProviderDiscovery = {
 		}) })
 	}
 };
-//#endregion
 export { groqProviderDiscovery as default };

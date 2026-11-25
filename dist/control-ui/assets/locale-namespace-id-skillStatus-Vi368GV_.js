@@ -1,0 +1,1 @@
+export default {"skillStatus":{"bundled":"disertakan","eligible":"memenuhi syarat","blocked":"diblokir","disabled":"dinonaktifkan","blockedAllowlist":"diblokir oleh daftar izin","blockedAgentFilter":"diblokir oleh filter agen"}};

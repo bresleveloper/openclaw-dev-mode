@@ -1,0 +1,3 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";function t(e){let t=0,n=0;for(let r of e)r==="`"?(n+=1,t=Math.max(t,n)):n=0;return t}function n(e){let n="`".repeat(t(e)+1),r=e.startsWith("`")||e.endsWith("`")||e.includes(`
+`)||e.startsWith(` `)&&e.endsWith(` `)&&/[^ ]/.test(e)?` `:``;return`${n}${r}${e}${r}${n}`}function r(e,n){let r="`".repeat(Math.max(3,t(e)+1));return`${r}${n??``}\n${e}\n${r}`}function i(){return(i=e((()=>{})))()}export{n,i as r,r as t};
+//# sourceMappingURL=markdown-code-D3nSKiQb.js.map

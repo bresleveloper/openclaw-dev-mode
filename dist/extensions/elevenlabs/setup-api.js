@@ -1,13 +1,3 @@
-import { t as migrateElevenLabsLegacyTalkConfig } from "./.setup/config-compat-Bq7IhwwK.mjs";
-import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/elevenlabs/setup-api.ts
-var setup_api_default = definePluginEntry({
-	id: "elevenlabs",
-	name: "ElevenLabs Setup",
-	description: "Lightweight ElevenLabs setup hooks",
-	register(api) {
-		api.registerConfigMigration((config) => migrateElevenLabsLegacyTalkConfig(config));
-	}
-});
-//#endregion
-export { setup_api_default as default };
+import{t as migrateElevenLabsLegacyTalkConfig}from"./.setup/config-compat-TfvDxpMs.mjs";import{definePluginEntry}from"openclaw/plugin-sdk/plugin-entry";
+//!extensions/elevenlabs/setup-api.ts
+var setup_api_default=definePluginEntry({id:`elevenlabs`,name:`ElevenLabs Setup`,description:`Lightweight ElevenLabs setup hooks`,register(e){e.registerConfigMigration(e=>migrateElevenLabsLegacyTalkConfig(e))}});export{setup_api_default as default};

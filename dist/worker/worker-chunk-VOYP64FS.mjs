@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function createOutboundSendDeps(e){return{...e}}var t=e((()=>{}));export{t as n,createOutboundSendDeps as t};

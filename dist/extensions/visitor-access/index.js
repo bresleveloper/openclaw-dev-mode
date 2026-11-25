@@ -1,16 +1,165 @@
 import { buildPluginConfigSchema, createPluginRuntimeStore, definePluginEntry } from "./api.js";
+import { readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
 import { z } from "zod";
+import { resolveGatewayPublicOrigin } from "openclaw/plugin-sdk/config-contracts";
 import { textResult } from "openclaw/plugin-sdk/tool-results";
 import { Type } from "typebox";
-import { randomUUID } from "node:crypto";
-//#region extensions/visitor-access/src/errors.ts
+import { createHash, randomUUID } from "node:crypto";
+import { listAgentIds, resolveAgentConfig, tryResolveDefaultAgentId } from "openclaw/plugin-sdk/agent-scope-runtime";
+// \0rolldown/runtime.js
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __exportAll = (all, no_symbols) => {
+	let target = {};
+	for (var name in all) __defProp(target, name, {
+		get: all[name],
+		enumerable: true
+	});
+	if (!no_symbols) __defProp(target, Symbol.toStringTag, { value: "Module" });
+	return target;
+};
+var __copyProps = (to, from, except, desc) => {
+	if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
+		key = keys[i];
+		if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
+			get: ((k) => from[k]).bind(null, key),
+			enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+		});
+	}
+	return to;
+};
+var __reExport = (target, mod, secondTarget) => (__copyProps(target, mod, "default"), secondTarget && __copyProps(secondTarget, mod, "default"));
+// src/gateway/gateway-http-route-contracts.ts
+const GATEWAY_PROBE_ROUTES = /* @__PURE__ */ new Map([
+	["/health", "live"],
+	["/healthz", "live"],
+	["/ready", "ready"],
+	["/readyz", "ready"],
+	["/startup", "startup"],
+	["/startupz", "startup"]
+]);
+function classifyGatewayProbePath(pathname) {
+	for (const [root, status] of GATEWAY_PROBE_ROUTES) {
+		if (pathname === root) return status;
+		if (pathname.startsWith(`${root}/`)) return "namespace";
+	}
+	return "outside";
+}
+// packages/normalization-core/src/string-coerce.ts
+/** Trims string input and returns null for non-strings or empty strings. */
+function normalizeNullableString(value) {
+	if (typeof value !== "string") return null;
+	const trimmed = value.trim();
+	return trimmed ? trimmed : null;
+}
+/** Trims string input and returns undefined for non-strings or empty strings. */
+function normalizeOptionalString(value) {
+	return normalizeNullableString(value) ?? void 0;
+}
+/** Lowercases a normalized optional string. */
+function normalizeOptionalLowercaseString(value) {
+	return normalizeOptionalString(value)?.toLowerCase();
+}
+/** Lowercases a normalized string or returns an empty string when absent. */
+function normalizeLowercaseStringOrEmpty(value) {
+	return normalizeOptionalLowercaseString(value) ?? "";
+}
+// src/plugins/http-path-prefix.ts
+function prefixMatchPath(pathname, prefix) {
+	return pathname === prefix || pathname.startsWith(`${prefix}/`) || pathname.startsWith(`${prefix}%`);
+}
+// src/gateway/security-path.ts
+const MAX_PATH_DECODE_PASSES = 32;
+function normalizePathSeparators(pathname) {
+	const collapsed = pathname.replace(/\/{2,}/g, "/");
+	if (collapsed.length <= 1) return collapsed;
+	return collapsed.replace(/\/+$/, "");
+}
+function normalizePathForSecurity(pathname) {
+	return normalizePathSeparators(normalizeLowercaseStringOrEmpty(URL.parse(pathname, "http://localhost")?.pathname ?? pathname)) || "/";
+}
+function buildCanonicalPathCandidates(pathname) {
+	const candidates = /* @__PURE__ */ new Set([normalizePathForSecurity(pathname)]);
+	let decoded = pathname;
+	let malformedEncoding = false;
+	for (let pass = 0; pass < MAX_PATH_DECODE_PASSES; pass++) {
+		let nextDecoded;
+		try {
+			nextDecoded = decodeURIComponent(decoded);
+		} catch {
+			malformedEncoding = true;
+			break;
+		}
+		if (nextDecoded === decoded) break;
+		decoded = nextDecoded;
+		candidates.add(normalizePathForSecurity(decoded));
+	}
+	let decodePassLimitReached = false;
+	if (!malformedEncoding) try {
+		decodePassLimitReached = decodeURIComponent(decoded) !== decoded;
+	} catch {
+		malformedEncoding = true;
+	}
+	return {
+		candidates: [...candidates],
+		decodePassLimitReached,
+		malformedEncoding
+	};
+}
+function canonicalizePathForSecurity(pathname) {
+	const { candidates, decodePassLimitReached, malformedEncoding } = buildCanonicalPathCandidates(pathname);
+	return {
+		canonicalPath: candidates[candidates.length - 1] ?? "/",
+		candidates,
+		decodePassLimitReached,
+		malformedEncoding,
+		rawNormalizedPath: normalizePathSeparators(normalizeLowercaseStringOrEmpty(pathname)) || "/"
+	};
+}
+const PROTECTED_PLUGIN_ROUTE_PREFIXES = ["/api/channels"];
+// src/gateway/server/plugins-http/path-context.ts
+function normalizeProtectedPrefix(prefix) {
+	const collapsed = normalizeLowercaseStringOrEmpty(prefix).replace(/\/{2,}/g, "/");
+	if (collapsed.length <= 1) return collapsed || "/";
+	return collapsed.replace(/\/+$/, "");
+}
+const NORMALIZED_PROTECTED_PLUGIN_ROUTE_PREFIXES = PROTECTED_PLUGIN_ROUTE_PREFIXES.map(normalizeProtectedPrefix);
+/** Returns true when any decoded path candidate targets a protected route. */
+function isProtectedPluginRoutePathFromContext(context) {
+	if (context.candidates.some((candidate) => NORMALIZED_PROTECTED_PLUGIN_ROUTE_PREFIXES.some((prefix) => prefixMatchPath(candidate, prefix)))) return true;
+	if (context.decodePassLimitReached) return true;
+	if (!context.malformedEncoding) return false;
+	return NORMALIZED_PROTECTED_PLUGIN_ROUTE_PREFIXES.some((prefix) => prefixMatchPath(context.rawNormalizedPath, prefix));
+}
+/** Builds all security-relevant decoded path candidates for a request path. */
+function resolvePluginRoutePathContext(pathname) {
+	const canonical = canonicalizePathForSecurity(pathname);
+	return {
+		pathname,
+		canonicalPath: canonical.canonicalPath,
+		candidates: canonical.candidates,
+		malformedEncoding: canonical.malformedEncoding,
+		decodePassLimitReached: canonical.decodePassLimitReached,
+		rawNormalizedPath: canonical.rawNormalizedPath
+	};
+}
+// \0openclaw:bundled-sdk:openclaw/plugin-sdk/gateway-config-runtime
+var gateway_config_runtime_exports = /* @__PURE__ */ __exportAll({
+	classifyGatewayProbePath: () => classifyGatewayProbePath,
+	isProtectedPluginRoutePathFromContext: () => isProtectedPluginRoutePathFromContext,
+	resolvePluginRoutePathContext: () => resolvePluginRoutePathContext
+});
+import * as import_openclaw_plugin_sdk_gateway_config_runtime from "openclaw/plugin-sdk/gateway-config-runtime";
+__reExport(gateway_config_runtime_exports, import_openclaw_plugin_sdk_gateway_config_runtime);
+// extensions/visitor-access/src/errors.ts
 /** Only curated operator-facing messages cross the tool/log boundary. */
 var VisitorAccessError = class extends Error {};
 function visitorErrorText(error, apiToken) {
 	return (error instanceof VisitorAccessError ? error.message : "Visitor access operation failed. Check gateway health and retry; use visitor_list to inspect drift.").replaceAll(apiToken, "[redacted]");
 }
-//#endregion
-//#region extensions/visitor-access/src/roles.ts
+// extensions/visitor-access/src/roles.ts
 /** Match the Gateway's current assignment/default fallback, not a person's display identity. */
 function profileUsesVisitorRole(roles, profile) {
 	return profile.id !== "gateway-owner" && (!profile.role || profile.role === roles?.default || !Object.hasOwn(roles?.definitions ?? {}, profile.role));
@@ -26,8 +175,7 @@ function resolveVisitorRole(config) {
 	if (!name || !role || !isRestrictedVisitorRole(role)) throw new VisitorAccessError("Visitor Access requires gateway.roles.default to allow isolated own-session work and shared-session viewing with only operator.sessions.write and optional operator.sessions.read scopes, accessPolicyPlugin: \"visitor-access\", and an explicit modelPolicy. Use modelPolicy: {} for the source agent's primary and fallbacks, and configure exclusions before enabling guest access.");
 	return name;
 }
-//#endregion
-//#region extensions/visitor-access/src/access.ts
+// extensions/visitor-access/src/access.ts
 function createVisitorAccessReader(runtime) {
 	return async (githubAccountIds = []) => {
 		const { profiles, githubProfiles } = await runtime.gateway.request("users.list", githubAccountIds.length ? { githubAccountIds: [...new Set(githubAccountIds)] } : {}, { scopes: ["operator.read"] });
@@ -37,14 +185,17 @@ function createVisitorAccessReader(runtime) {
 		const byGithub = new Map(githubProfiles?.map(({ accountId, profileId }) => [accountId, byId.get(profileId)]));
 		const profile = (target) => typeof target === "string" ? byEmail.get(target) : byGithub.get(target);
 		const config = runtime.config.current();
-		const roles = config.gateway?.roles;
+		const roles = (0, gateway_config_runtime_exports.isNamedOperatorRoleEnforcementEnabled)(config) ? config.gateway?.roles : void 0;
 		const access = (target) => describeAccess(profile(target), roles);
 		return {
 			describe: (target) => access(target).description,
-			githubLogin: (target) => profile(target)?.githubIdentity?.login,
+			githubLogin: (target) => {
+				const identity = profile(target)?.githubIdentity;
+				return (identity?.host ?? "github.com") === "github.com" ? identity?.login : void 0;
+			},
 			assertGithubSelection(login, accountId) {
 				const normalized = login.toLowerCase();
-				const matches = canonical.filter((entry) => entry.githubIdentity?.login.toLowerCase() === normalized);
+				const matches = canonical.filter((entry) => (entry.githubIdentity?.host ?? "github.com") === "github.com" && entry.githubIdentity?.login.toLowerCase() === normalized);
 				if (matches.length > 1 || matches[0] && matches[0].id !== profile(accountId)?.id) throw new VisitorAccessError("The GitHub login conflicts with the Gateway's verified profile. Use a current profileId, grantId, or exact invitation email.");
 			},
 			profileId: (target) => profile(target)?.id,
@@ -96,8 +247,7 @@ function describeAccess(profile, roles) {
 		description: `Gateway default role ${JSON.stringify(roleName)} does not provide restricted guest access`
 	};
 }
-//#endregion
-//#region extensions/visitor-access/src/cloudflare.ts
+// extensions/visitor-access/src/cloudflare.ts
 const policyReferenceSchema = z.object({
 	id: z.string().min(1).max(128).refine((value) => value !== "." && value !== ".."),
 	name: z.string()
@@ -119,8 +269,24 @@ const responseSchema = z.object({
 	result: z.unknown(),
 	result_info: z.object({
 		total_pages: z.number().int().nonnegative().optional(),
+		total_count: z.number().int().nonnegative().optional(),
+		page: z.number().int().positive().optional(),
 		per_page: z.number().int().positive().optional()
 	}).optional()
+});
+const accountUserSchema = z.object({
+	access_seat: z.boolean(),
+	gateway_seat: z.boolean(),
+	seat_uid: z.string().min(1).optional()
+});
+const entitlementSchema = z.object({
+	id: z.string(),
+	deleted_date: z.string(),
+	allocation: z.unknown()
+});
+const seatAllocationSchema = z.object({
+	type: z.literal("max_count"),
+	value: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
 });
 function requireGithubProvider(provider) {
 	if (!provider) throw new VisitorAccessError("GitHub account invitations require the existing trusted-proxy Cloudflare Access OIDC provider and GitHub account-ID claim mapping. Configure that sign-in mapping before inviting by GitHub account.");
@@ -135,7 +301,8 @@ var VisitorPolicyClient = class {
 		this.fetcher = fetcher;
 		this.signal = signal;
 		this.readGithubProvider = readGithubProvider;
-		this.policiesUrl = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(config.accountId)}/access/apps/${encodeURIComponent(config.appId)}/policies`;
+		this.accountUrl = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(config.accountId)}`;
+		this.policiesUrl = `${this.accountUrl}/access/apps/${encodeURIComponent(config.appId)}/policies`;
 	}
 	async read(assertCurrent) {
 		const policy = await this.readPolicy(assertCurrent);
@@ -190,6 +357,60 @@ var VisitorPolicyClient = class {
 		assertPolicyCurrent();
 		return targets;
 	}
+	async readAccountSeats(assertCurrent) {
+		const deadline = AbortSignal.timeout(1e4);
+		const diagnostics = [];
+		const observe = async (label, read) => {
+			try {
+				const value = await read();
+				assertCurrent?.();
+				this.signal?.throwIfAborted();
+				return value;
+			} catch (error) {
+				assertCurrent?.();
+				this.signal?.throwIfAborted();
+				diagnostics.push(`${label} unavailable: ${error instanceof VisitorAccessError ? error.message : "Cloudflare returned invalid seat data or the observation timed out; inspect account seats."}`);
+				return null;
+			}
+		};
+		const read = (suffix, permission) => this.request(`${this.accountUrl}${suffix}`, "GET", void 0, assertCurrent, {
+			permission,
+			signal: deadline
+		});
+		const [capacity, occupied] = await Promise.all([observe("Seat allocation", async () => {
+			const response = await read("/entitlements", "Account Read");
+			const active = z.array(entitlementSchema).max(1e4).parse(response.result).filter((entry) => entry.id === "teams.users_allowed" && entry.deleted_date === "");
+			if (active.length !== 1) throw new VisitorAccessError("No unique current teams.users_allowed allocation; inspect the account entitlements.");
+			return seatAllocationSchema.parse(active[0].allocation).value;
+		}), observe("Seat occupancy", async () => {
+			const seats = /* @__PURE__ */ new Set();
+			let count = 0;
+			for (let page = 1; page <= 100; page++) {
+				const response = await read(`/access/users?page=${page}&per_page=100`, "Access: Audit Logs Read");
+				const users = z.array(accountUserSchema).max(1e3).parse(response.result);
+				count += users.length;
+				for (const user of users) if (user.access_seat || user.gateway_seat) {
+					if (!user.seat_uid) throw new VisitorAccessError("An occupied user has no seat ID; inspect the account users.");
+					seats.add(user.seat_uid);
+				}
+				const info = response.result_info;
+				if (info?.page !== void 0 && info.page !== page) throw new VisitorAccessError("Cloudflare returned a different users page; retry the seat observation.");
+				if (info?.total_pages === void 0 ? users.length < (info?.per_page ?? 100) : page >= info.total_pages) {
+					if (info?.total_count !== void 0 && count !== info.total_count) throw new VisitorAccessError("Cloudflare returned an incomplete users list; retry the seat observation.");
+					return seats.size;
+				}
+			}
+			throw new VisitorAccessError("The account users list exceeds the inspection limit; inspect seats in Cloudflare.");
+		})]);
+		const remaining = capacity === null || occupied === null ? null : Math.max(0, capacity - occupied);
+		return {
+			status: remaining === null ? "unknown" : remaining === 0 ? "full" : "available",
+			capacity,
+			occupied,
+			remaining,
+			diagnostics: diagnostics.toSorted()
+		};
+	}
 	assertGithubConfigured() {
 		return requireGithubProvider(this.readGithubProvider?.());
 	}
@@ -224,7 +445,7 @@ var VisitorPolicyClient = class {
 		}
 		throw new VisitorAccessError("The Access application has too many policies to inspect safely; reduce its policy count before retrying.");
 	}
-	async request(url, method, body, assertCurrent) {
+	async request(url, method, body, assertCurrent, options = {}) {
 		let response;
 		assertCurrent?.();
 		try {
@@ -236,25 +457,25 @@ var VisitorPolicyClient = class {
 				},
 				body: body === void 0 ? void 0 : JSON.stringify(body),
 				redirect: "error",
-				signal: this.signal ? AbortSignal.any([this.signal, AbortSignal.timeout(3e4)]) : AbortSignal.timeout(3e4)
+				signal: AbortSignal.any([
+					...this.signal ? [this.signal] : [],
+					...options.signal ? [options.signal] : [],
+					AbortSignal.timeout(3e4)
+				])
 			});
 		} catch {
 			throw new VisitorAccessError("Cloudflare request failed; check connectivity and retry. Policy state may need reconciliation.");
 		}
-		if (!response.ok) throw new VisitorAccessError(`Cloudflare request failed (HTTP ${response.status}); check the token's Access policy permissions and retry.`);
-		let data;
-		try {
-			data = await response.json();
-		} catch {
+		if (!response.ok) throw new VisitorAccessError(`Cloudflare request failed (HTTP ${response.status}); check the token's ${options.permission ?? "Access policy"} permissions and retry.`);
+		const data = await readProviderJsonResponse(response, "Cloudflare").catch(() => {
 			throw new VisitorAccessError("Cloudflare returned an unreadable response; retry and inspect the visitor policy.");
-		}
+		});
 		const parsed = responseSchema.safeParse(data);
 		if (!parsed.success) throw new VisitorAccessError("Cloudflare did not confirm the request; inspect the visitor policy before retrying.");
 		return parsed.data;
 	}
 };
-//#endregion
-//#region extensions/visitor-access/src/config.ts
+// extensions/visitor-access/src/config.ts
 const visitorConfigSchema = z.strictObject({
 	accountId: z.string().trim().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/),
 	appId: z.string().trim().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/),
@@ -263,18 +484,151 @@ const visitorConfigSchema = z.strictObject({
 	defaultTtlDays: z.number().int().min(0).max(3650).nullable().default(14),
 	maxVisitors: z.number().int().min(1).max(500).default(50)
 });
+const visitorLimitsSchema = visitorConfigSchema.pick({
+	maxVisitors: true,
+	defaultTtlDays: true
+}).strip();
 const visitorPluginSchema = buildPluginConfigSchema(visitorConfigSchema);
-//#endregion
-//#region extensions/visitor-access/src/runtime.ts
+// extensions/visitor-access/src/invite-result.ts
+/**
+* Where a visitor signs in: the operator-declared public Gateway origin plus the Control UI base
+* path, as for other external Control UI links. Undefined when the Control UI is disabled or no
+* usable gateway.publicOrigin is configured; callers must not substitute a guessed address.
+*/
+function resolveVisitorSignInUrl({ gateway }) {
+	const origin = gateway?.controlUi?.enabled === false ? void 0 : resolveGatewayPublicOrigin({ gateway: { publicOrigin: gateway?.publicOrigin } });
+	if (!origin) return;
+	const url = new URL(origin);
+	url.pathname = gateway?.controlUi?.basePath?.trim() || "/";
+	return url.pathname === "/" ? origin : url.href;
+}
+function expiryText(expiresAt) {
+	return expiresAt === null ? "never (explicit forever grant)" : new Date(expiresAt).toISOString();
+}
+function utcMinute$1(epochMs) {
+	return `${new Date(epochMs).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+function accountSeatsText(seats) {
+	return [
+		`Cloudflare account seats (shared across applications and devices): ${seats.occupied ?? "unknown"} / ${seats.capacity ?? "unknown"}; ${seats.remaining === null ? "remaining unknown" : `${seats.remaining} remaining`}.`,
+		seats.status === "full" ? "WARNING: new login identities cannot obtain a seat while the account is full. Already-seated identities can keep using their seat; renewing an invitation does not allocate another. An account operator must review seat consumers or capacity in Cloudflare One overview. No seats were removed." : seats.status === "unknown" ? "Seat availability is unknown; check Cloudflare One overview before promising a new login." : "This is an observation, not a seat reservation or login guarantee.",
+		...seats.diagnostics
+	].join(" ");
+}
+/** Tool result for a committed invite or renewal; the note appears only in the invitation text. */
+function visitorInviteResult({ renewed, target, grant, gatewayAccess, signInUrl, noteSupplied, accountSeats }) {
+	const { grantId, githubLogin, expiresAt } = grant;
+	const who = typeof target === "number" ? `@${githubLogin} (GitHub account ${target})` : githubLogin ? `@${githubLogin} (${target})` : target;
+	const noteStored = Boolean(grant.note?.trim());
+	const inviter = grant.invitedBy?.label?.replace(/\s+/gu, " ").trim();
+	const invitationIdentity = typeof target === "string" ? `the email ${target}` : githubLogin ? `your GitHub account @${githubLogin}` : `the GitHub account with ID ${target}`;
+	const message = grant.note?.trim();
+	const invitationText = [
+		inviter ? `${inviter} invited you to OpenClaw.` : "You're invited to OpenClaw.",
+		signInUrl ? `Sign in at ${signInUrl} with ${invitationIdentity}.` : `Ask ${inviter ?? "the person who invited you"} for the OpenClaw sign-in address, then sign in with ${invitationIdentity}.`,
+		expiresAt === null ? "Your access does not expire." : `Your access expires on ${utcMinute$1(expiresAt)}.`,
+		...message ? [
+			"",
+			`Note from ${inviter ?? "your inviter"}:`,
+			message
+		] : []
+	].join("\n");
+	const identity = typeof target === "number" ? "this GitHub account" : "this email";
+	const signIn = signInUrl ? `Sign in at ${signInUrl} using Team's existing login with ${identity}. The link itself does not grant access.` : `No sign-in URL: set gateway.publicOrigin and keep the Control UI enabled to include one. The visitor signs in with ${identity} at the address you share.`;
+	const noteStatus = noteStored ? noteSupplied ? " Inviter note stored." : " Existing inviter note kept." : "";
+	return {
+		text: `${renewed ? "Renewed" : "Invited"} ${who}. Invitation ID: ${grantId}. Visitor grant expires: ${expiryText(expiresAt)}. ${gatewayAccess}. ${signIn}${noteStatus}\n\n${accountSeatsText(accountSeats)}\n\nInvitation text to share with the visitor:\n${invitationText}`,
+		details: {
+			outcome: renewed ? "renewed" : "invited",
+			accountSeats,
+			grantId,
+			...typeof target === "string" ? { email: target } : { githubAccountId: target },
+			...githubLogin ? { githubLogin } : {},
+			expiresAt: expiresAt === null ? null : new Date(expiresAt).toISOString(),
+			gatewayAccess,
+			...signInUrl ? { signInUrl } : {},
+			noteStored,
+			invitationText
+		}
+	};
+}
+// extensions/visitor-access/src/runtime.ts
 const visitorRuntimeStore = createPluginRuntimeStore({
 	key: "plugin-runtime:visitor-access:active",
 	errorMessage: "Start the Gateway with visitor-access enabled before managing visitors."
 });
-//#endregion
-//#region extensions/visitor-access/src/tool-results.ts
+// extensions/visitor-access/src/grant-record.ts
+const VISITOR_NOTE_MAX_CHARS = 1e3;
+const INVITER_LABEL_MAX_CHARS = 200;
+const ONBOARDING_ERROR_MAX_CHARS = 500;
+const visitorNoteSchema = z.string().max(VISITOR_NOTE_MAX_CHARS);
+/** Grant keys for an identity, checking emails before GitHub accounts. */
+function visitorIdentityKeys({ emails, githubAccountIds = [] }) {
+	return [...emails.map((email) => email.trim().toLowerCase()), ...githubAccountIds.map(visitorTargetKey)];
+}
+function visitorGrantTarget(grant) {
+	return "email" in grant ? grant.email : grant.githubAccountId;
+}
+/**
+* Renewal keeps the recorded inviter, note, and onboarding progress unless replaced; grants
+* recorded before onboarding metadata keep their absent progress. New invitations start pending.
+*/
+function invitationMetadata(previous, supplied, now) {
+	const { invitedBy } = supplied;
+	const inviter = invitedBy ? {
+		profileId: invitedBy.profileId,
+		...invitedBy.label ? { label: invitedBy.label.slice(0, INVITER_LABEL_MAX_CHARS) } : {}
+	} : previous?.invitedBy;
+	const note = supplied.note ?? previous?.note;
+	const onboarding = previous ? previous.onboarding : {
+		state: "pending",
+		updatedAt: now
+	};
+	return {
+		...inviter ? { invitedBy: inviter } : {},
+		...note !== void 0 ? { note } : {},
+		...onboarding ? { onboarding } : {}
+	};
+}
+/** Decide one compare-and-set against the current durable record of an active grant. */
+function compareAndSetGrantOnboarding(current, { expected, next }, now) {
+	const recorded = current.onboarding;
+	if (expected === null ? recorded !== void 0 : recorded?.state !== expected.state || recorded.updatedAt !== expected.updatedAt) return {
+		applied: false,
+		reason: "conflict",
+		...recorded ? { onboarding: recorded } : {}
+	};
+	const { state, welcomeSessionKey, welcomeSessionId, error } = next;
+	return {
+		applied: true,
+		onboarding: {
+			state,
+			...welcomeSessionKey ? { welcomeSessionKey } : {},
+			...welcomeSessionId ? { welcomeSessionId } : {},
+			...error ? { error: error.slice(0, ONBOARDING_ERROR_MAX_CHARS) } : {},
+			updatedAt: Math.max(now, (recorded?.updatedAt ?? -1) + 1)
+		}
+	};
+}
+// extensions/visitor-access/src/tool-results.ts
 const expiresAtSchema = Type.Union([Type.String(), Type.Null()], { description: "Null means an explicit forever grant." });
+const visitorAccountSeatsSchema = Type.Object({
+	status: Type.Union([
+		Type.Literal("available"),
+		Type.Literal("full"),
+		Type.Literal("unknown")
+	]),
+	capacity: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+	occupied: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+	remaining: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+	diagnostics: Type.Array(Type.String())
+}, {
+	additionalProperties: false,
+	description: "Fresh account-wide seat observation, not reserved capacity or a login guarantee. Null means unavailable, never zero inferred from failure."
+});
 const visitorInviteDetailsSchema = Type.Object({
 	outcome: Type.Union([Type.Literal("invited"), Type.Literal("renewed")]),
+	accountSeats: visitorAccountSeatsSchema,
 	grantId: Type.String(),
 	email: Type.Optional(Type.String()),
 	githubAccountId: Type.Optional(Type.Integer({
@@ -284,7 +638,9 @@ const visitorInviteDetailsSchema = Type.Object({
 	githubLogin: Type.Optional(Type.String()),
 	expiresAt: expiresAtSchema,
 	gatewayAccess: Type.String(),
-	signInUrl: Type.String()
+	signInUrl: Type.Optional(Type.String({ description: "Absent without gateway.publicOrigin or when the Control UI is disabled." })),
+	noteStored: Type.Boolean({ description: "Whether the grant now carries an inviter note." }),
+	invitationText: Type.String({ description: "Plain text for the inviter to hand to the visitor; contains no credentials." })
 }, {
 	additionalProperties: false,
 	oneOf: [{ required: ["email"] }, { required: ["githubAccountId"] }]
@@ -299,6 +655,7 @@ const visitorRevokeDetailsSchema = Type.Object({
 	githubLogin: Type.Optional(Type.String())
 }, { additionalProperties: false });
 const visitorListDetailsSchema = Type.Object({
+	accountSeats: visitorAccountSeatsSchema,
 	counts: Type.Object({
 		recorded: Type.Integer(),
 		inPolicy: Type.Integer(),
@@ -321,6 +678,17 @@ const visitorListDetailsSchema = Type.Object({
 			Type.Literal("expired"),
 			Type.Literal("missing_from_policy")
 		], { description: "Missing policy membership takes precedence; expired grants await provider cleanup." }),
+		welcome: Type.Optional(Type.Object({
+			state: Type.Union([
+				Type.Literal("pending"),
+				Type.Literal("ready"),
+				Type.Literal("failed")
+			]),
+			sessionKey: Type.Optional(Type.String({ description: "This invitation's welcome session, once reserved. A deleted session is not recreated." }))
+		}, {
+			additionalProperties: false,
+			description: "Welcome-session progress for this invitation; absent on grants recorded before onboarding."
+		})),
 		gatewayAccess: Type.String()
 	}, {
 		additionalProperties: false,
@@ -337,11 +705,14 @@ const visitorListDetailsSchema = Type.Object({
 		additionalProperties: false,
 		oneOf: [{ required: ["email"] }, { required: ["githubAccountId"] }]
 	})),
-	omitted: Type.Integer({ description: "Rows omitted by the text output limits." })
+	omitted: Type.Integer({
+		minimum: 0,
+		description: "Rows remaining after this page; counts describe the whole inventory."
+	}),
+	nextCursor: Type.Union([Type.String(), Type.Null()], { description: "Pass as cursor to visitor_list for the next page. Null means complete. A changed inventory requires restarting without cursor; access and metadata are read fresh on each page." })
 }, { additionalProperties: false });
 const visitorToolErrorSchema = Type.Object({ error: Type.Literal(true) }, { additionalProperties: false });
-//#endregion
-//#region extensions/visitor-access/src/tools.ts
+// extensions/visitor-access/src/tools.ts
 const identityFields$1 = {
 	github: Type.Optional(Type.String({
 		description: "GitHub login, without @.",
@@ -354,6 +725,44 @@ const identityFields$1 = {
 		maxLength: 254
 	}))
 };
+const VisitorInviteParameters = Type.Object({
+	...identityFields$1,
+	days: Type.Optional(Type.Integer({
+		minimum: 1,
+		maximum: 3650,
+		description: "Grant duration in days; cannot be combined with forever."
+	})),
+	forever: Type.Optional(Type.Boolean({ description: "Explicitly grant access without expiry." })),
+	note: Type.Optional(Type.String({
+		maxLength: VISITOR_NOTE_MAX_CHARS,
+		description: "Free-text message from the inviter to the visitor, included in the invitation text; may include a session link. Replaces the stored note; omit to keep it on renewal."
+	}))
+}, {
+	additionalProperties: false,
+	oneOf: [{ required: ["email"] }, { required: ["github"] }]
+});
+const VisitorInviteOutputSchema = Type.Union([visitorInviteDetailsSchema, visitorToolErrorSchema]);
+const VisitorRevokeParameters = Type.Object({
+	...identityFields$1,
+	profileId: Type.Optional(Type.String({
+		minLength: 1,
+		maxLength: 128
+	})),
+	grantId: Type.Optional(Type.String({ format: "uuid" }))
+}, { additionalProperties: false });
+const VisitorRevokeOutputSchema = Type.Union([visitorRevokeDetailsSchema, visitorToolErrorSchema]);
+const VisitorListParameters = Type.Object({
+	cursor: Type.Optional(Type.String({
+		maxLength: 76,
+		description: "Copy nextCursor from the previous page; omit to start an inventory."
+	})),
+	limit: Type.Optional(Type.Integer({
+		minimum: 1,
+		maximum: 500,
+		description: "Maximum rows for this page, also bounded by maxVisitors and output limits."
+	}))
+}, { additionalProperties: false });
+const VisitorListOutputSchema = Type.Union([visitorListDetailsSchema, visitorToolErrorSchema]);
 function createVisitorTools(context) {
 	let runtime = visitorRuntimeStore.tryGetRuntime();
 	const assertCurrent = () => {
@@ -364,47 +773,31 @@ function createVisitorTools(context) {
 		{
 			name: "visitor_invite",
 			label: "Invite visitor",
-			description: "Grant or renew visitor access to team.openclaw.ai. Requires administrator or designated-owner authority. Provide exactly one Team sign-in email or GitHub login. A GitHub invitation uses the immutable account ID, not public email. Checks restricted guest access and preserves existing assigned roles. Grants expire after the configured duration (14 days by default); forever must be explicit.",
-			parameters: Type.Object({
-				...identityFields$1,
-				days: Type.Optional(Type.Integer({
-					minimum: 1,
-					maximum: 3650,
-					description: "Grant duration in days; cannot be combined with forever."
-				})),
-				forever: Type.Optional(Type.Boolean({ description: "Explicitly grant access without expiry." }))
-			}, {
-				additionalProperties: false,
-				oneOf: [{ required: ["email"] }, { required: ["github"] }]
-			}),
-			outputSchema: Type.Union([visitorInviteDetailsSchema, visitorToolErrorSchema]),
-			run: (service, raw) => service.invite(raw, {
+			description: "Grant or renew visitor access to the Team Gateway. Requires administrator or designated-owner authority. Provide exactly one Team sign-in email or GitHub login. A GitHub invitation uses the immutable account ID, not public email. Checks restricted guest access and preserves existing assigned roles. Grants expire after the configured duration (14 days by default); forever must be explicit. An optional note from you to the visitor, such as a session link to start from, is stored with the grant; renewal without a note keeps the existing one. Reports fresh shared Cloudflare seat capacity separately from the visitor cap, and warns when a new login cannot obtain a seat. Grant success is not first-login success; existing seats and renewals are never blocked by this diagnostic. Unavailable seat reads are reported, never assumed to be zero. The result includes invitationText: short plain text naming the inviter, sign-in address, identity to use, expiry, and note, ready to hand to the visitor.",
+			parameters: VisitorInviteParameters,
+			outputSchema: VisitorInviteOutputSchema,
+			run: async ({ service, readInviter, readSignInUrl }, raw) => service.invite(raw, {
 				assertCurrent,
-				invitedVia: context.sessionKey ?? context.agentId
+				invitedVia: context.sessionKey ?? context.agentId,
+				invitedBy: await readInviter(),
+				signInUrl: readSignInUrl()
 			})
 		},
 		{
 			name: "visitor_revoke",
 			label: "Revoke visitor",
 			description: "Remove the recorded Visitor invitations selected for a profileId, or cancel one invitation by grantId, including before first sign-in. Use the IDs returned by visitor_list or visitor_invite. Person selection keeps the selected identity current at local commit and before policy requests. Already committed expirations remain ended if cleanup fails. Email targets that address. GitHub login targets its immutable account and its person's recorded invitations. An explicit email or GitHub login can remove that target's unmanaged policy entry. Do not combine profileId or grantId with another selector. Preserves saved work, existing PRs and independent staff access. Already absent grants are a no-op.",
-			parameters: Type.Object({
-				...identityFields$1,
-				profileId: Type.Optional(Type.String({
-					minLength: 1,
-					maxLength: 128
-				})),
-				grantId: Type.Optional(Type.String({ format: "uuid" }))
-			}, { additionalProperties: false }),
-			outputSchema: Type.Union([visitorRevokeDetailsSchema, visitorToolErrorSchema]),
-			run: (service, raw) => service.revoke(raw, assertCurrent)
+			parameters: VisitorRevokeParameters,
+			outputSchema: VisitorRevokeOutputSchema,
+			run: ({ service }, raw) => service.revoke(raw, assertCurrent)
 		},
 		{
 			name: "visitor_list",
 			label: "List visitors",
-			description: "List recorded visitor grants, current verified GitHub identities, current Gateway access, invitation and expiry dates, and drift from the Access policy. Grant expiry does not describe independent staff access. Unmanaged policy targets are reported and retained; missing policy targets are never automatically restored.",
-			parameters: Type.Object({}, { additionalProperties: false }),
-			outputSchema: Type.Union([visitorListDetailsSchema, visitorToolErrorSchema]),
-			run: (service) => service.list(assertCurrent)
+			description: "List recorded visitor grants, current verified GitHub identities, current Gateway access, invitation and expiry dates, and drift from the Access policy. Includes fresh account-wide Cloudflare seat occupancy/allocation separately from these app-policy counts; full accounts warn about new logins, and unavailable reads stay explicitly unknown. Grant expiry does not describe independent staff access or reclaim account seats. Unmanaged policy targets are reported and retained; missing policy targets are never automatically restored. Start with {}; pass nextCursor as cursor until nextCursor is null to inspect every row. Counts cover the whole inventory; omitted counts rows remaining after this page. If the inventory changes, restart without a cursor. Pages read current access and metadata, not a frozen snapshot.",
+			parameters: VisitorListParameters,
+			outputSchema: VisitorListOutputSchema,
+			run: ({ service }, raw) => service.list(assertCurrent, raw)
 		}
 	].map(({ name, label, description, parameters, outputSchema, run }) => ({
 		name,
@@ -420,7 +813,7 @@ function createVisitorTools(context) {
 			};
 			try {
 				assertCurrent();
-				const { text, details } = await run(runtime.service, raw);
+				const { text, details } = await run(runtime, raw);
 				return textResult(text, details);
 			} catch (error) {
 				return {
@@ -431,11 +824,7 @@ function createVisitorTools(context) {
 		}
 	}));
 }
-//#endregion
-//#region extensions/visitor-access/src/visitors.ts
-function visitorGrantTarget(grant) {
-	return "email" in grant ? grant.email : grant.githubAccountId;
-}
+// extensions/visitor-access/src/visitor-input.ts
 const emailSchema = z.string().trim().max(254).pipe(z.email()).transform((email) => email.toLowerCase());
 const identityFields = {
 	github: z.string().trim().min(1).transform((login) => login.toLowerCase()).optional(),
@@ -449,23 +838,125 @@ const revokeSchema = z.strictObject({
 const inviteSchema = z.strictObject({
 	...identityFields,
 	days: z.number().int().min(1).max(3650).optional(),
-	forever: z.boolean().optional()
+	forever: z.boolean().optional(),
+	note: visitorNoteSchema.optional()
 }).refine((input) => input.email !== void 0 !== (input.github !== void 0));
+const listSchema = z.strictObject({
+	cursor: z.string().regex(/^v1:[a-f0-9]{64}:[1-9]\d{0,7}$/).optional(),
+	limit: z.number().int().min(1).max(500).optional()
+});
 const grantIdSchema = z.uuid();
-const DAY_MS = 864e5;
-const MAX_TIMER_DELAY_MS = 2147483647;
-const SIGN_IN_URL = "https://team.openclaw.ai";
 function parseVisitorInput(schema, raw) {
 	const result = schema.safeParse(raw);
-	if (!result.success) throw new VisitorAccessError("Invalid visitor input. Use a valid email or GitHub login, days from 1 to 3650, or forever: true.");
+	if (!result.success) throw new VisitorAccessError(`Invalid visitor input. Use a valid email or GitHub login, days from 1 to 3650, or forever: true. A note must be a string of at most ${VISITOR_NOTE_MAX_CHARS} characters.`);
 	return result.data;
 }
-function expiryText(expiresAt) {
-	return expiresAt === null ? "never (explicit forever grant)" : new Date(expiresAt).toISOString();
+// extensions/visitor-access/src/visitor-list.ts
+async function listVisitors(raw, { store, policy: client, readAccess, readLimits, assertCurrent }) {
+	const input = listSchema.safeParse(raw);
+	if (!input.success) throw new VisitorAccessError("Invalid visitor list input. Use limit from 1 to 500 and the previous nextCursor, or omit cursor to start again.");
+	const policyTargets = (await client.read(assertCurrent))?.targets ?? [];
+	const targetKeys = new Set(policyTargets.map(visitorTargetKey));
+	const entries = (await store.entries()).toSorted((left, right) => left.key.localeCompare(right.key));
+	assertCurrent();
+	const managed = new Set(entries.map((entry) => entry.key));
+	const unmanaged = policyTargets.filter((target) => !managed.has(visitorTargetKey(target))).toSorted((left, right) => visitorTargetKey(left).localeCompare(visitorTargetKey(right)));
+	const inventory = createHash("sha256").update(JSON.stringify([entries.map(({ key }) => key), unmanaged.map(visitorTargetKey)])).digest("hex");
+	const offset = input.data.cursor ? Number(input.data.cursor.split(":")[2]) : 0;
+	const total = entries.length + unmanaged.length;
+	if (input.data.cursor && (input.data.cursor.split(":")[1] !== inventory || offset >= total)) throw new VisitorAccessError("Visitor inventory changed or cursor is invalid. Restart visitor_list without cursor.");
+	const { maxVisitors } = readLimits();
+	const pageSize = Math.min(input.data.limit ?? maxVisitors, maxVisitors);
+	const pageEntries = entries.slice(offset, offset + pageSize);
+	const pageUnmanaged = unmanaged.slice(Math.max(0, offset - entries.length), Math.max(0, offset + pageSize - entries.length));
+	const displayedTargets = [...pageEntries.map(({ value }) => visitorGrantTarget(value)), ...pageUnmanaged];
+	const access = await readAccess([...new Set(displayedTargets.filter((target) => typeof target === "number"))]);
+	assertCurrent();
+	const missing = entries.filter((entry) => !targetKeys.has(entry.key)).length;
+	const accountSeats = await client.readAccountSeats(assertCurrent);
+	const lines = [`Visitors: ${entries.length} recorded; ${targetKeys.size} in policy. Drift: ${unmanaged.length} unmanaged, ${missing} missing from policy.`, accountSeatsText(accountSeats)];
+	const details = {
+		accountSeats,
+		counts: {
+			recorded: entries.length,
+			inPolicy: targetKeys.size,
+			unmanaged: unmanaged.length,
+			missingFromPolicy: missing
+		},
+		grants: [],
+		unmanaged: [],
+		omitted: 0,
+		nextCursor: null
+	};
+	const rows = pageEntries.map(({ value: grant }) => {
+		const target = visitorGrantTarget(grant);
+		const profileId = access.profileId(target);
+		const missingFromPolicy = !targetKeys.has(visitorTargetKey(target));
+		const expired = grant.expiresAt !== null && grant.expiresAt <= Date.now();
+		const state = missingFromPolicy ? "MISSING FROM POLICY" : expired ? "EXPIRED; provider cleanup pending" : "managed";
+		const gatewayAccess = access.describe(target);
+		const githubLogin = access.githubLogin(target);
+		const github = `Verified GitHub: ${githubLogin ? `@${githubLogin}` : "unavailable"}`;
+		const welcome = grant.onboarding && {
+			state: grant.onboarding.state,
+			...grant.onboarding.welcomeSessionKey ? { sessionKey: grant.onboarding.welcomeSessionKey } : {}
+		};
+		const welcomeText = welcome ? ` | welcome ${welcome.state}${welcome.sessionKey ? ` ${welcome.sessionKey}` : ""}` : "";
+		return {
+			line: `${visitorTargetKey(target)} | ${github}${profileId ? ` | profileId ${profileId}` : ""}${grant.grantId ? ` | grantId ${grant.grantId}` : ""} | invited ${new Date(grant.createdAt).toISOString()} | grant expires ${expiryText(grant.expiresAt)} | ${state}${welcomeText} | ${gatewayAccess}`,
+			grant: {
+				...typeof target === "string" ? { email: target } : { githubAccountId: target },
+				...grant.grantId ? { grantId: grant.grantId } : {},
+				...profileId ? { profileId } : {},
+				...githubLogin ? { githubLogin } : {},
+				invitedAt: new Date(grant.createdAt).toISOString(),
+				expiresAt: grant.expiresAt === null ? null : new Date(grant.expiresAt).toISOString(),
+				state: missingFromPolicy ? "missing_from_policy" : expired ? "expired" : "managed",
+				...welcome ? { welcome } : {},
+				gatewayAccess
+			}
+		};
+	});
+	rows.push(...pageUnmanaged.map((target) => {
+		const gatewayAccess = access.describe(target);
+		return {
+			line: `${visitorTargetKey(target)} | UNMANAGED: no grant record; retained until explicit revoke. | ${gatewayAccess}`,
+			unmanaged: {
+				...typeof target === "string" ? { email: target } : { githubAccountId: target },
+				gatewayAccess
+			}
+		};
+	}));
+	let length = lines.join("\n").length;
+	let shown = 0;
+	for (const row of rows) {
+		if (length + row.line.length + 1 > 11760) {
+			if (shown === 0) throw new VisitorAccessError("A visitor row exceeds the list output budget. Inspect its profile or welcome-session metadata before listing again.");
+			break;
+		}
+		lines.push(row.line);
+		if ("grant" in row) details.grants.push(row.grant);
+		else details.unmanaged.push(row.unmanaged);
+		length += row.line.length + 1;
+		shown++;
+	}
+	details.omitted = total - offset - shown;
+	if (details.omitted > 0) {
+		details.nextCursor = `v1:${inventory}:${offset + shown}`;
+		lines.push(`${details.omitted} entries omitted from this page. Continue visitor_list with cursor: ${details.nextCursor}`);
+	}
+	assertCurrent();
+	return {
+		text: lines.join("\n"),
+		details
+	};
 }
+// extensions/visitor-access/src/visitors.ts
+const DAY_MS = 864e5;
+const MAX_TIMER_DELAY_MS = 2147483647;
 var VisitorAccessService = class {
-	constructor(config, store, policy, logger, readAccess, resolveGitHubAccount, signal) {
-		this.config = config;
+	constructor(readLimits, store, policy, logger, readAccess, resolveGitHubAccount, signal) {
+		this.readLimits = readLimits;
 		this.store = store;
 		this.policy = policy;
 		this.logger = logger;
@@ -498,19 +989,61 @@ var VisitorAccessService = class {
 		if (this.closed) throw new VisitorAccessError("Visitor access is stopping; retry after the Gateway starts.");
 	}
 	authorize(emails, githubAccountIds = []) {
-		const authority = this.readAuthority(emails, void 0, githubAccountIds);
-		if (!authority) throw new VisitorAccessError("An active visitor invitation is required. Ask a maintainer to invite or renew access.");
-		return authority;
+		return this.readAuthority(emails, void 0, githubAccountIds);
 	}
-	/** Unlike admission, an unavailable grant map must leave durable requests pending. */
+	/** An unavailable grant map must leave durable requests pending. */
 	resume(emails, grantId, githubAccountIds = []) {
 		return this.readAuthority(emails, grantId, githubAccountIds);
 	}
-	readAuthority(emails, grantId, githubAccountIds = []) {
+	/** The first current grant among target keys, optionally with an exact grantId. */
+	findActiveGrant(keys, grantId) {
 		this.assertOpen();
 		if (!this.ready) throw new VisitorAccessError("Visitor access is starting; retry shortly.");
 		const now = Date.now();
-		const state = [...emails.map((email) => email.trim().toLowerCase()), ...githubAccountIds.map(visitorTargetKey)].map((key) => this.grants.get(key)).find((entry) => entry && grantIdSchema.safeParse(entry.grant.grantId).success && (grantId === void 0 || entry.grant.grantId === grantId) && !entry.controller.signal.aborted && (entry.grant.expiresAt === null || entry.grant.expiresAt > now));
+		for (const key of keys) {
+			const entry = this.grants.get(key);
+			if (entry !== void 0 && (grantId === void 0 || entry.grant.grantId === grantId) && grantIdSchema.safeParse(entry.grant.grantId).success && !entry.controller.signal.aborted && (entry.grant.expiresAt === null || entry.grant.expiresAt > now)) return entry;
+		}
+	}
+	/** Plugin-internal onboarding API; see README "Onboarding record". */
+	findActiveInvitation(grantId) {
+		const state = this.findActiveGrant(this.grants.keys(), grantId);
+		return state && {
+			...structuredClone(state.grant),
+			grantId
+		};
+	}
+	/** Plugin-internal onboarding API; see README "Onboarding record". */
+	compareAndSetOnboarding(params) {
+		return this.serialize(async () => {
+			const state = this.findActiveGrant(this.grants.keys(), params.grantId);
+			if (!state) return {
+				applied: false,
+				reason: "inactive"
+			};
+			const key = visitorTargetKey(visitorGrantTarget(state.grant));
+			const store = this.actionStore(() => {
+				params.assertCurrent?.();
+				if (!this.findActiveGrant([key], params.grantId)) throw new VisitorAccessError("Visitor access ended during onboarding. Invite again to retry.");
+			});
+			const current = await store.lookup(key);
+			if (!current || current.grantId !== params.grantId) return {
+				applied: false,
+				reason: "inactive"
+			};
+			const result = compareAndSetGrantOnboarding(current, params, Date.now());
+			if (result.applied) await this.registerGrant({
+				...current,
+				onboarding: result.onboarding
+			}, store);
+			return structuredClone(result);
+		}, params.assertCurrent);
+	}
+	readAuthority(emails, grantId, githubAccountIds = []) {
+		const state = this.findActiveGrant(visitorIdentityKeys({
+			emails,
+			githubAccountIds
+		}), grantId);
 		if (!state) return;
 		const assertCurrent = () => {
 			this.assertOpen();
@@ -609,12 +1142,12 @@ var VisitorAccessService = class {
 			githubLogin: result.login
 		};
 	}
-	invite(raw, { invitedVia, assertCurrent }) {
+	invite(raw, { invitedVia, invitedBy, signInUrl, assertCurrent }) {
 		return this.serialize(async () => {
 			const store = this.actionStore(assertCurrent);
 			const input = parseVisitorInput(inviteSchema, raw);
 			if (input.forever && input.days !== void 0) throw new VisitorAccessError("Choose days or forever: true, not both.");
-			const days = input.days ?? this.config.defaultTtlDays;
+			const days = input.days ?? this.readLimits().defaultTtlDays;
 			let expiresAt = null;
 			if (!input.forever) {
 				if (!days) throw new VisitorAccessError("No default duration is configured. Pass days or explicitly pass forever: true.");
@@ -631,14 +1164,20 @@ var VisitorAccessService = class {
 				...typeof target === "string" ? { email: target } : { githubAccountId: target },
 				...githubLogin ? { githubLogin } : {},
 				...provenance ? { invitedVia: provenance } : {},
+				...invitationMetadata(previous, {
+					invitedBy,
+					note: input.note
+				}, now),
 				createdAt: previous?.createdAt ?? now,
 				expiresAt
 			};
+			const accountSeats = await this.policy.readAccountSeats(assertCurrent);
 			let gatewayAccess = "";
 			await this.policy.update(async (targets) => {
 				const entries = await store.entries();
 				const known = /* @__PURE__ */ new Set([...targets.map(visitorTargetKey), ...entries.map((entry) => entry.key)]);
-				if (!known.has(key) && known.size >= this.config.maxVisitors) throw new VisitorAccessError(`Visitor limit (${this.config.maxVisitors}) reached. Revoke an existing visitor before inviting another.`);
+				const { maxVisitors } = this.readLimits();
+				if (!known.has(key) && known.size >= maxVisitors) throw new VisitorAccessError(`Visitor limit (${maxVisitors}) reached. Revoke an existing visitor before inviting another.`);
 				const access = await this.readAccess(typeof target === "number" ? [target] : []);
 				access.assertInvitable(target);
 				gatewayAccess = access.describe(target);
@@ -651,23 +1190,26 @@ var VisitorAccessService = class {
 			const continuous = previous && grantIdSchema.safeParse(previous.grantId).success && (previous.expiresAt === null || previous.expiresAt > Date.now());
 			const grantId = continuous ? grantIdSchema.parse(previous.grantId) : randomUUID();
 			grant.grantId = grantId;
+			if (!continuous) grant.onboarding = {
+				state: "pending",
+				updatedAt: now
+			};
 			await this.registerGrant(grant, continuous ? this.actionStore(() => {
 				assertCurrent();
 				if (previous.expiresAt !== null && previous.expiresAt <= Date.now()) throw new VisitorAccessError("The previous visitor grant expired before renewal was recorded. Check the grant and invite again.");
 			}) : store);
-			const who = typeof target === "number" ? `@${grant.githubLogin} (GitHub account ${target})` : grant.githubLogin ? `@${grant.githubLogin} (${target})` : target;
-			return {
-				text: `${previous ? "Renewed" : "Invited"} ${who}. Invitation ID: ${grantId}. Visitor grant expires: ${expiryText(grant.expiresAt)}. ${gatewayAccess}. Sign in at ${SIGN_IN_URL} using Team's existing login with ${typeof target === "number" ? "this GitHub account" : "this email"}. The link itself does not grant access.`,
-				details: {
-					outcome: previous ? "renewed" : "invited",
-					grantId,
-					...typeof target === "string" ? { email: target } : { githubAccountId: target },
-					...grant.githubLogin ? { githubLogin: grant.githubLogin } : {},
-					expiresAt: grant.expiresAt === null ? null : new Date(grant.expiresAt).toISOString(),
-					gatewayAccess,
-					signInUrl: SIGN_IN_URL
-				}
-			};
+			return visitorInviteResult({
+				accountSeats,
+				renewed: previous !== void 0,
+				target,
+				grant: {
+					...grant,
+					grantId
+				},
+				gatewayAccess,
+				signInUrl,
+				noteSupplied: input.note !== void 0
+			});
 		}, assertCurrent);
 	}
 	revoke(raw, assertCurrent) {
@@ -727,83 +1269,17 @@ var VisitorAccessService = class {
 			return profile && selection && typeof directTarget === "number" ? await selection.withProfile(profile.id, [directTarget], withRecordedTargets) : await withRecordedTargets();
 		}, assertCurrent);
 	}
-	list(assertCurrent) {
-		return this.serialize(async () => {
-			const policyTargets = (await this.policy.read(assertCurrent))?.targets ?? [];
-			const targetKeys = new Set(policyTargets.map(visitorTargetKey));
-			const entries = await this.store.entries();
-			assertCurrent();
-			const managed = new Set(entries.map((entry) => entry.key));
-			const unmanaged = policyTargets.filter((target) => !managed.has(visitorTargetKey(target))).toSorted((left, right) => visitorTargetKey(left).localeCompare(visitorTargetKey(right)));
-			const displayedTargets = [...entries.toSorted((left, right) => left.key.localeCompare(right.key)).map(({ value }) => visitorGrantTarget(value)), ...unmanaged].slice(0, this.config.maxVisitors);
-			const access = await this.readAccess([...new Set(displayedTargets.filter((target) => typeof target === "number"))]);
-			assertCurrent();
-			const missing = entries.filter((entry) => !targetKeys.has(entry.key)).length;
-			const summary = `Visitors: ${entries.length} recorded; ${targetKeys.size} in policy. Drift: ${unmanaged.length} unmanaged, ${missing} missing from policy.`;
-			const lines = [summary];
-			const details = {
-				counts: {
-					recorded: entries.length,
-					inPolicy: targetKeys.size,
-					unmanaged: unmanaged.length,
-					missingFromPolicy: missing
-				},
-				grants: [],
-				unmanaged: [],
-				omitted: 0
-			};
-			const rows = entries.toSorted((a, b) => a.key.localeCompare(b.key)).map(({ value: grant }) => {
-				const target = visitorGrantTarget(grant);
-				const profileId = access.profileId(target);
-				const missingFromPolicy = !targetKeys.has(visitorTargetKey(target));
-				const expired = grant.expiresAt !== null && grant.expiresAt <= Date.now();
-				const state = missingFromPolicy ? "MISSING FROM POLICY" : expired ? "EXPIRED; provider cleanup pending" : "managed";
-				const gatewayAccess = access.describe(target);
-				const githubLogin = access.githubLogin(target);
-				const github = `Verified GitHub: ${githubLogin ? `@${githubLogin}` : "unavailable"}`;
-				return {
-					line: `${visitorTargetKey(target)} | ${github}${profileId ? ` | profileId ${profileId}` : ""}${grant.grantId ? ` | grantId ${grant.grantId}` : ""} | invited ${new Date(grant.createdAt).toISOString()} | grant expires ${expiryText(grant.expiresAt)} | ${state} | ${gatewayAccess}`,
-					grant: {
-						...typeof target === "string" ? { email: target } : { githubAccountId: target },
-						...grant.grantId ? { grantId: grant.grantId } : {},
-						...profileId ? { profileId } : {},
-						...githubLogin ? { githubLogin } : {},
-						invitedAt: new Date(grant.createdAt).toISOString(),
-						expiresAt: grant.expiresAt === null ? null : new Date(grant.expiresAt).toISOString(),
-						state: missingFromPolicy ? "missing_from_policy" : expired ? "expired" : "managed",
-						gatewayAccess
-					}
-				};
-			});
-			rows.push(...unmanaged.map((target) => {
-				const gatewayAccess = access.describe(target);
-				return {
-					line: `${visitorTargetKey(target)} | UNMANAGED: no grant record; retained until explicit revoke. | ${gatewayAccess}`,
-					unmanaged: {
-						...typeof target === "string" ? { email: target } : { githubAccountId: target },
-						gatewayAccess
-					}
-				};
-			}));
-			let length = summary.length;
-			let shown = 0;
-			for (const row of rows.slice(0, this.config.maxVisitors)) {
-				if (length + row.line.length + 1 > 11880) break;
-				lines.push(row.line);
-				if ("grant" in row) details.grants.push(row.grant);
-				else details.unmanaged.push(row.unmanaged);
-				length += row.line.length + 1;
-				shown++;
+	list(assertCurrent, raw = {}) {
+		return this.serialize(() => listVisitors(raw, {
+			store: this.store,
+			policy: this.policy,
+			readAccess: this.readAccess,
+			readLimits: this.readLimits,
+			assertCurrent: () => {
+				this.assertOpen();
+				assertCurrent();
 			}
-			if (shown < rows.length) {
-				details.omitted = rows.length - shown;
-				lines.push(`${rows.length - shown} entries omitted by output limits. Inspect the policy; revoke by profileId, grantId, email, or GitHub login.`);
-			}
-			return {
-				text: lines.join("\n"),
-				details
-			};
-		}, assertCurrent);
+		}), assertCurrent);
 	}
 	sweep() {
 		return this.serialize(async () => {
@@ -835,8 +1311,205 @@ var VisitorAccessService = class {
 		});
 	}
 };
-//#endregion
-//#region extensions/visitor-access/index.ts
+// extensions/visitor-access/src/welcome.ts
+const WELCOME_ENSURE_METHOD = "visitor-access.welcome.ensure";
+const RETRY_AFTER_MS = 1e3;
+/**
+* Sets up each guest invitation's welcome session once. The pull caller selects nothing:
+* the invitation comes from the grant the Gateway admitted for this connection.
+*/
+var VisitorWelcome = class {
+	constructor(service, gateway, config, logger) {
+		this.service = service;
+		this.gateway = gateway;
+		this.config = config;
+		this.logger = logger;
+		this.inFlight = /* @__PURE__ */ new Set();
+	}
+	async ensure(client) {
+		const grant = client?.internal?.operatorAccessAuthority?.gatewayAccessGrant;
+		const guest = client?.authenticatedUserProfile;
+		if (grant?.pluginId !== "visitor-access" || !guest) return { status: "not_applicable" };
+		let invitation;
+		try {
+			invitation = this.service.findActiveInvitation(grant.grantId);
+			const recorded = invitation?.onboarding;
+			if (recorded?.state === "ready" && recorded.welcomeSessionKey) return await this.readyWelcome(recorded.welcomeSessionKey);
+		} catch (error) {
+			return failed(error);
+		}
+		if (!invitation) return { status: "not_applicable" };
+		if (this.inFlight.has(invitation.grantId)) return {
+			status: "pending",
+			retryAfterMs: RETRY_AFTER_MS
+		};
+		this.inFlight.add(invitation.grantId);
+		try {
+			return await this.setUp(invitation, guest, client.preparedSessionProfile?.githubLogin);
+		} finally {
+			this.inFlight.delete(invitation.grantId);
+		}
+	}
+	/**
+	* A welcome session deleted after setup stays deleted: the record keeps its key so setup
+	* never recreates it, and the guest is not sent to a session that no longer exists.
+	* Before ready, retries deliberately resume the reserved key, even for a removed partial session.
+	*/
+	async readyWelcome(sessionKey) {
+		const agentId = agentFromKey(sessionKey);
+		const { session } = await this.gateway.request("sessions.describe", {
+			key: sessionKey,
+			agentId
+		}, { scopes: ["operator.sessions.read"] });
+		return session ? {
+			status: "ready",
+			sessionKey,
+			agentId,
+			created: false
+		} : { status: "not_applicable" };
+	}
+	async setUp(invitation, guest, githubLogin) {
+		const { grantId, onboarding: recorded } = invitation;
+		const advance = (from, next) => this.service.compareAndSetOnboarding({
+			grantId,
+			expected: from ? {
+				state: from.state,
+				updatedAt: from.updatedAt
+			} : null,
+			next
+		});
+		let reservation;
+		try {
+			const config = this.config();
+			const reservedKey = recorded?.welcomeSessionKey;
+			const agentId = reservedKey ? agentFromKey(reservedKey) : chooseGuestAgent(config);
+			const sessionKey = reservedKey ?? `agent:${agentId}:dashboard:${randomUUID()}`;
+			const reserved = await advance(recorded, {
+				state: "pending",
+				welcomeSessionKey: sessionKey
+			});
+			if (!reserved.applied) return reserved.reason === "inactive" ? { status: "not_applicable" } : {
+				status: "pending",
+				retryAfterMs: RETRY_AFTER_MS
+			};
+			reservation = reserved.onboarding;
+			const name = guest.displayName?.replace(/\s+/gu, " ").trim() || void 0;
+			const titleName = name || githubLogin?.trim();
+			await this.gateway.request("sessions.create", {
+				key: sessionKey,
+				agentId,
+				displayName: titleName ? `Welcome ${titleName}` : "Welcome"
+			});
+			const inviter = invitation.invitedBy?.profileId === guest.profileId ? void 0 : invitation.invitedBy;
+			const label = inviter?.label?.replace(/\s+/gu, " ").trim() || void 0;
+			const greeting = name ? `Welcome to OpenClaw, ${name}.` : "Welcome to OpenClaw.";
+			const access = invitation.expiresAt === null ? "Your guest access does not expire." : `Your guest access runs through ${utcMinute(invitation.expiresAt)}.`;
+			const mentionText = `@${label ?? "inviter"}`;
+			const invited = inviter ? `${mentionText} invited you. ${access}` : `You were invited as a guest. ${access}`;
+			const note = invitation.note?.trim();
+			const capabilities = guestCapabilities(config, agentId).map((line) => `- ${line}`);
+			const text = [
+				greeting,
+				"",
+				invited,
+				...note ? [
+					"",
+					`Note from ${label ?? "your inviter"}:`,
+					note
+				] : [],
+				"",
+				`This is your own session with ${agentName(config, agentId)}. As a guest you can:`,
+				...capabilities
+			].join("\n");
+			const start = greeting.length + 2;
+			const message = {
+				text,
+				mentions: inviter ? [{
+					profileId: inviter.profileId,
+					start,
+					end: start + mentionText.length
+				}] : []
+			};
+			await this.gateway.appendAgentMessage({
+				sessionKey,
+				agentId,
+				text: message.text,
+				...message.mentions.length ? { mentions: message.mentions } : {},
+				idempotencyKey: `visitor-welcome:${grantId}`
+			});
+			const done = await advance(reservation, {
+				state: "ready",
+				welcomeSessionKey: sessionKey
+			});
+			if (done.applied) return {
+				status: "ready",
+				sessionKey,
+				agentId,
+				created: true
+			};
+			return done.reason === "inactive" ? { status: "not_applicable" } : {
+				status: "pending",
+				retryAfterMs: RETRY_AFTER_MS
+			};
+		} catch (error) {
+			const detail = error instanceof Error ? error.message : String(error);
+			this.logger.warn(`visitor-access: welcome setup failed: ${detail}`);
+			if (reservation) {
+				const recordedFailure = await advance(reservation, {
+					state: "failed",
+					welcomeSessionKey: reservation.welcomeSessionKey,
+					error: detail
+				}).catch(() => void 0);
+				if (recordedFailure && !recordedFailure.applied && recordedFailure.reason === "inactive") return { status: "not_applicable" };
+			}
+			return failed(error);
+		}
+	}
+};
+function failed(error) {
+	return {
+		status: "failed",
+		retryable: true,
+		message: error instanceof VisitorAccessError ? error.message : "Your welcome session could not be set up yet. Reload to try again."
+	};
+}
+function agentFromKey(sessionKey) {
+	const agentId = /^agent:([^:]+):/u.exec(sessionKey)?.[1];
+	if (!agentId) throw new VisitorAccessError("The reserved welcome session key is invalid.");
+	return agentId;
+}
+function guestRole(config) {
+	const role = (config.gateway?.roles)?.definitions[resolveVisitorRole(config)];
+	if (!role) throw new VisitorAccessError("The guest role is not configured.");
+	return role;
+}
+/** The default agent when the guest role permits it, otherwise the role's first agent. */
+function chooseGuestAgent(config) {
+	const { agents } = guestRole(config);
+	const permitted = agents === "*" ? listAgentIds(config) : agents;
+	const preferred = tryResolveDefaultAgentId(config);
+	const agentId = preferred && permitted.includes(preferred) ? preferred : permitted[0];
+	if (!agentId) throw new VisitorAccessError("No agent is available to guests. Ask a maintainer to add one.");
+	return agentId;
+}
+function agentName(config, agentId) {
+	const agent = resolveAgentConfig(config, agentId);
+	return agent?.identity?.name?.trim() || agent?.name?.trim() || agentId;
+}
+function utcMinute(epochMs) {
+	return `${new Date(epochMs).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+/** Guest capabilities stated from the live guest role, never from fixed claims. */
+function guestCapabilities(config, agentId) {
+	const role = guestRole(config);
+	const agents = role.agents === "*" ? void 0 : role.agents.map((id) => agentName(config, id));
+	const lines = [agents ? `start your own sessions with ${agents.join(" or ")}` : "start your own sessions with any agent on this Gateway"];
+	if (role.sandbox === "required") lines.push(`have ${agentName(config, agentId)} work in a private sandbox`);
+	if (role.sessions.others === "view") lines.push("read other people's sessions");
+	else if (role.sessions.others === "write") lines.push("read and reply in other people's sessions");
+	return lines;
+}
+// extensions/visitor-access/index.ts
 function registerVisitorPlugin(api) {
 	if (api.registrationMode === "cli-metadata") return;
 	for (const name of [
@@ -850,15 +1523,34 @@ function registerVisitorPlugin(api) {
 	if (api.registrationMode !== "full") return;
 	const config = visitorConfigSchema.parse(api.pluginConfig);
 	const lifetime = new AbortController();
-	const service = new VisitorAccessService(config, api.runtime.state.openKeyedStore({
+	const service = new VisitorAccessService(() => visitorLimitsSchema.parse(api.runtime.config.current().plugins?.entries?.[api.id]?.config), api.runtime.state.openKeyedStore({
 		namespace: "visitor-grants",
 		maxEntries: 500,
 		overflowPolicy: "reject-new"
 	}), new VisitorPolicyClient(config, fetch, lifetime.signal, () => api.runtime.config.current().gateway?.auth?.trustedProxy?.cloudflareAccessOidc), api.logger, createVisitorAccessReader(api.runtime), api.runtime.gateway.resolveGitHubAccount, lifetime.signal);
 	const runtime = {
 		service,
+		async readInviter() {
+			try {
+				const { profile } = await api.runtime.gateway.request("users.self", {}, { scopes: ["operator.read"] });
+				return profile.id === "gateway-owner" ? void 0 : {
+					profileId: profile.id,
+					...profile.displayName ? { label: profile.displayName } : {}
+				};
+			} catch {
+				return;
+			}
+		},
+		readSignInUrl: () => resolveVisitorSignInUrl(api.runtime.config.current()),
 		errorText: (error) => visitorErrorText(error, config.apiToken)
 	};
+	const welcome = new VisitorWelcome(service, api.runtime.gateway, () => api.runtime.config.current({ clone: true }), api.logger);
+	api.registerGatewayMethod(WELCOME_ENSURE_METHOD, async ({ client, respond }) => {
+		respond(true, await welcome.ensure(client));
+	}, {
+		scope: "operator.sessions.write",
+		profileAccess: "required"
+	});
 	api.registerGatewayAccessPolicy({
 		resume({ profile, grantId }) {
 			return service.resume(profile.emails, grantId, profile.githubAccountIds);
@@ -875,9 +1567,9 @@ function registerVisitorPlugin(api) {
 	});
 	let interval;
 	let sweeping;
-	let startupSweep;
+	let starting;
 	const sweep = () => {
-		sweeping ??= service.sweep().catch((error) => {
+		sweeping ??= (api.lifecycle.runInBackgroundContext?.(() => service.sweep()) ?? service.sweep()).catch((error) => {
 			if (!lifetime.signal.aborted) api.logger.error(`visitor-access sweep failed: ${visitorErrorText(error, config.apiToken)}`);
 		}).finally(() => {
 			sweeping = void 0;
@@ -888,7 +1580,7 @@ function registerVisitorPlugin(api) {
 		lifetime.signal.throwIfAborted();
 		const active = visitorRuntimeStore.tryGetRuntime();
 		if (active && active !== runtime) throw new Error("A visitor-access Gateway service is already running.");
-		return startupSweep ??= (async () => {
+		return starting ??= (async () => {
 			await service.initialize();
 			lifetime.signal.throwIfAborted();
 			const current = visitorRuntimeStore.tryGetRuntime();
@@ -901,7 +1593,7 @@ function registerVisitorPlugin(api) {
 				sweep();
 			}, 36e5);
 			interval.unref();
-			await sweep();
+			sweep();
 		})();
 	};
 	api.on("gateway_start", start);
@@ -914,6 +1606,7 @@ function registerVisitorPlugin(api) {
 			service.close();
 			lifetime.abort();
 			await service.waitForIdle();
+			await sweeping;
 			if (visitorRuntimeStore.tryGetRuntime() === runtime) visitorRuntimeStore.clearRuntime();
 		}
 	});
@@ -923,7 +1616,7 @@ var visitor_access_default = definePluginEntry({
 	name: "Visitor Access",
 	description: "Internal Cloudflare Access visitor grants with managed expiry.",
 	configSchema: visitorPluginSchema,
+	reload: { hotPrefixes: ["plugins.entries.visitor-access.config.maxVisitors", "plugins.entries.visitor-access.config.defaultTtlDays"] },
 	register: registerVisitorPlugin
 });
-//#endregion
 export { visitor_access_default as default };

@@ -282,5 +282,9 @@
         }
       }
     }
-  }
+  },
+  "recommendedPrompts": [
+    "Help me plan an IMAP email trigger for trusted senders.",
+    "Draft a workflow to summarize new IMAP messages from senders I choose."
+  ]
 }

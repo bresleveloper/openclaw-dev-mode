@@ -1,0 +1,1 @@
+export default {"gatewayLogs":{"title":"日誌","subtitle":"Gateway 檔案日誌 (JSONL)。","exportButton":"匯出{label}","exportLabels":{"filtered":"已篩選項目","visible":"可見項目"},"filter":"篩選","searchPlaceholder":"搜尋日誌","autoFollow":"自動跟隨","file":"檔案: {file}","truncated":"日誌輸出已截斷; 顯示最新區塊。","empty":"尚無記錄項目。","filteredEmpty":"沒有符合這些篩選條件的日誌項目。","moreActions":"更多操作"}};

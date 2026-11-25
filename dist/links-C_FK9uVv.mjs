@@ -1,0 +1,3 @@
+import{t as formatTerminalLink}from"./terminal-link-DUWxmWMA.mjs";
+//!packages/terminal-core/src/links.ts
+const DOCS_ROOT=`https://docs.openclaw.ai`;const ABSOLUTE_HTTP_URL_RE=/^https?:\/\//i;function formatDocsLink(e,t,n){const r=typeof e===`string`?e.trim():``;const i=r?ABSOLUTE_HTTP_URL_RE.test(r)?r:`${DOCS_ROOT}${r.startsWith(`/`)?r:`/${r}`}`:DOCS_ROOT;return formatTerminalLink(t??i,i,{fallback:n?.fallback??i,force:n?.force})}export{formatDocsLink as t};

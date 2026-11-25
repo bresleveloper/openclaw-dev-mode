@@ -1,0 +1,3 @@
+import{Fn as object,Jn as string}from"./schemas-DuCQi-Qb.mjs";
+//!src/infra/update-doctor-lint-schema.ts
+const UpdateDoctorLintFindingSchema=object({checkId:string().refine(e=>e.trim().length>0),message:string(),source:string().optional(),errorCode:string().optional(),fixHint:string().optional(),severity:string().optional(),path:string().optional(),requirement:string().optional()});export{UpdateDoctorLintFindingSchema as t};

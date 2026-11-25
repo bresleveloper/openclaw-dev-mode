@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{AsyncResource as t}from"node:async_hooks";function enterAsyncStore(e,t){return this.enterWith(e),t()}function runWithAsyncStore(e,n,r){return e.getStore()===n?r():new t(`OpenClawAsyncStore`).runInAsyncScope(enterAsyncStore,e,n,r)}var n=e((()=>{}));export{runWithAsyncStore as n,n as t};

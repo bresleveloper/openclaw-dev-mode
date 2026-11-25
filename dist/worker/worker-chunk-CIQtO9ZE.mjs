@@ -1,0 +1,1 @@
+import{j as e}from"./worker-chunk-BCayKjPf.mjs";import{a as t,i as n,n as r,r as i,t as a}from"./worker-chunk-zTV0Y9Io.mjs";r();export{a as inheritLegacyDefaultAgentId,i as resolveSessionStoreCompatibilityAgentId,n as retainLegacyDefaultAgentId,t as tryGetLegacyDefaultAgentId,e as tryResolveLegacyCompatibilityAgentId};

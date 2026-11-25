@@ -1,0 +1,2 @@
+//!src/gateway/worker-environments/local-workspace-conflict-error.ts
+var LocalWorkspaceConflictError=class extends Error{constructor(){super(`Local sandbox edits conflict with the managed workspace; pending changes were preserved. Resolve the workspace conflicts before retrying.`);this.name=`LocalWorkspaceConflictError`}};export{LocalWorkspaceConflictError as t};

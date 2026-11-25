@@ -1,9 +1,7 @@
 import path from "node:path";
-import { resolveCodexAppServerLocalHomeDir } from "./auth-start-options.js";
-import {
-  isCodexAppServerLiveThreadProtected,
-  readCodexClientSessionMeta,
-} from "./client-runtime.js";
+import { resolveCodexAppServerVerifiedLocalHomeDir } from "./auth-start-options.js";
+import { isCodexAppServerLiveThreadProtected, withCodexClientWorkspace } from "./client-runtime.js";
+import { readCodexWorkspaceSessionMeta } from "./client-workspace-state.js";
 import type { CodexAppServerClient } from "./client.js";
 import type { CodexAppServerRuntimeOptions } from "./config.js";
 import {
@@ -66,8 +64,7 @@ export async function loadCodexAttemptNativeToolCatalog(
   // Restricted discovery threads may not have accepted a turn or materialized
   // metadata yet; the lifecycle owns their transition to a normal conversation.
   if (
-    binding.nativeToolPolicyRestricted === true ||
-    binding.restrictedThreadConfigFingerprint !== undefined ||
+    binding.restrictedThreadConfigFingerprint ||
     params.ephemeral ||
     (params.appServer.start.transport !== "stdio" && params.appServer.start.transport !== "unix") ||
     params.appServer.remoteWorkspaceRoot
@@ -132,7 +129,7 @@ export function parseCodexNativeToolCatalog(
       type: "function",
       name: value.name,
       description: value.description,
-      inputSchema: structuredClone(value.inputSchema),
+      inputSchema: value.inputSchema,
       ...(value.deferLoading === true ? { deferLoading: true } : {}),
     };
   };
@@ -175,9 +172,12 @@ export async function loadCodexNativeToolCatalog(params: {
 }): Promise<CodexDynamicToolSpec[]> {
   const { binding, client, appServer, agentDir, assertCurrent } = params;
   assertCurrent();
-  const home = resolveCodexAppServerLocalHomeDir(appServer.start, agentDir);
   const runtimeIdentity = client.getRuntimeIdentity();
-  const actualHome = runtimeIdentity?.codexHome;
+  const home = resolveCodexAppServerVerifiedLocalHomeDir(
+    appServer,
+    agentDir,
+    runtimeIdentity?.codexHome,
+  );
   const runtimeFingerprint =
     binding.connectionScope === "supervision"
       ? buildCodexAppServerConnectionFingerprint(appServer, agentDir)
@@ -189,21 +189,22 @@ export async function loadCodexNativeToolCatalog(params: {
   if (
     (!hasCodexNativeToolCatalog(binding) && !hasProtectedManagedCatalog(binding, client)) ||
     !binding.dynamicToolsFingerprint ||
-    (appServer.start.transport !== "stdio" && appServer.start.transport !== "unix") ||
-    appServer.remoteWorkspaceRoot ||
-    !actualHome ||
-    path.resolve(actualHome) !== path.resolve(home) ||
+    !home ||
     binding.appServerRuntimeFingerprint !== runtimeFingerprint
   ) {
     throw new Error(
       "Saved Codex declarations require the original verified local binding and selected native connection; the thread is preserved.",
     );
   }
-  const metadata = await readCodexClientSessionMeta(
-    client,
-    path.join(home, "sessions"),
-    binding.rolloutPath,
-    binding.threadId,
+  const metadata = await withCodexClientWorkspace(client, (state, maxCachedSessions) =>
+    readCodexWorkspaceSessionMeta(
+      client,
+      state,
+      path.join(home, "sessions"),
+      binding.rolloutPath,
+      binding.threadId,
+      maxCachedSessions,
+    ),
   );
   const consume = () => {
     assertCurrent();

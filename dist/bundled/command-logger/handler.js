@@ -1,36 +1,4 @@
-import { r as resolveStateDir } from "../../state-dir-C8s3cOPX.mjs";
-import "../../paths-orClZ-2Z.mjs";
-import { t as formatErrorMessage } from "../../errors-DPfGDWk1.mjs";
-import { t as createSubsystemLogger } from "../../subsystem-mStysHHC.mjs";
-import { n as appendRegularFile } from "../../fs-safe-6Z4UiMS4.mjs";
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-//#region src/hooks/bundled/command-logger/handler.ts
-const log = createSubsystemLogger("command-logger");
-const logCommand = async (event) => {
-	if (event.type !== "command") return;
-	try {
-		const stateDir = resolveStateDir(process.env, os.homedir);
-		const logDir = path.join(stateDir, "logs");
-		await fs.mkdir(logDir, { recursive: true });
-		const logFile = path.join(logDir, "commands.log");
-		const logLine = JSON.stringify({
-			timestamp: event.timestamp.toISOString(),
-			action: event.action,
-			sessionKey: event.sessionKey,
-			senderId: event.context.senderId ?? "unknown",
-			source: event.context.commandSource ?? "unknown"
-		}) + "\n";
-		await appendRegularFile({
-			filePath: logFile,
-			content: logLine,
-			rejectSymlinkParents: true
-		});
-	} catch (err) {
-		const message = formatErrorMessage(err);
-		log.error(`Failed to log command: ${message}`);
-	}
-};
-//#endregion
-export { logCommand as default };
+import{r as resolveStateDir}from"../../state-dir-BwbNjuVe.mjs";import{n as appendRegularFile}from"../../fs-safe-Bxzu1j4h.mjs";import"../../paths-DxXULbkO.mjs";import{t as formatErrorMessage}from"../../errors-CRXp6JVo.mjs";import{t as createSubsystemLogger}from"../../subsystem-BXrV0rVs.mjs";import path from"node:path";import fs from"node:fs/promises";import os from"node:os";
+//!src/hooks/bundled/command-logger/handler.ts
+const log=createSubsystemLogger(`command-logger`);const logCommand=async e=>{if(e.type!==`command`)return;try{const t=resolveStateDir(process.env,os.homedir);const n=path.join(t,`logs`);await fs.mkdir(n,{recursive:true});const r=path.join(n,`commands.log`);const i=JSON.stringify({timestamp:e.timestamp.toISOString(),action:e.action,sessionKey:e.sessionKey,senderId:e.context.senderId??`unknown`,source:e.context.commandSource??`unknown`})+`
+`;await appendRegularFile({filePath:r,content:i,rejectSymlinkParents:true})}catch(e){const t=formatErrorMessage(e);log.error(`Failed to log command: ${t}`)}};export{logCommand as default};

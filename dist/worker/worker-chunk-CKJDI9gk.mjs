@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function formatSystemTurnPrompt(e){let n=e.trim();return n.startsWith(t)?n:`${t} ${n}`}var t,n=e((()=>{t=`[System]`}));export{n,formatSystemTurnPrompt as t};

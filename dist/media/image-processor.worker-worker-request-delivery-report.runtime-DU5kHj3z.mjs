@@ -1,0 +1,1 @@
+import{t as e}from"./image-processor.worker-subsystem-Nwa6Fp0F.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

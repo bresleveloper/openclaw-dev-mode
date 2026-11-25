@@ -1,25 +1,4 @@
-import fs from "node:fs";
-//#region src/infra/sqlite-header-probe.worker.ts
-const magic = Buffer.from("SQLite format 3\0");
-const input = JSON.parse(fs.readFileSync(0, "utf8"));
-if (!Array.isArray(input) || !input.every((pathname) => typeof pathname === "string")) throw new Error("SQLite header probe expects a JSON array of paths");
-const results = input.map((pathname) => {
-	try {
-		if (!fs.lstatSync(pathname).isFile()) return false;
-		const fd = fs.openSync(pathname, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
-		try {
-			if (!fs.fstatSync(fd).isFile()) return false;
-			const header = Buffer.alloc(magic.length);
-			return fs.readSync(fd, header, 0, header.length, 0) === header.length && header.equals(magic);
-		} finally {
-			fs.closeSync(fd);
-		}
-	} catch (error) {
-		const code = error instanceof Error && "code" in error ? error.code : void 0;
-		if (code === "ENOENT" || code === "ELOOP") return false;
-		throw error;
-	}
-});
-process.stdout.write(JSON.stringify(results));
-//#endregion
-export {};
+import fs from"node:fs";import path from"node:path";
+//!src/infra/sqlite-header-probe.worker.ts
+const magic=Buffer.from(`SQLite format 3\0`);const retryDelaysMs=[50,100];const input=JSON.parse(fs.readFileSync(0,`utf8`));if(!Array.isArray(input)||!input.every(e=>typeof e===`string`))throw new Error(`SQLite header probe expects a JSON array of paths`);const paths=input;const retriedSources=[];function probeSqliteHeader(e){for(let t=0;;t++)try{if(!fs.lstatSync(e).isFile())return false;const t=fs.openSync(e,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW??0));try{if(!fs.fstatSync(t).isFile())return false;const e=Buffer.alloc(magic.length);return fs.readSync(t,e,0,e.length,0)===e.length&&e.equals(magic)}finally{fs.closeSync(t)}}catch(n){const r=n instanceof Error&&`code`in n?n.code:void 0;if(r===`ENOENT`||r===`ELOOP`)return false;const i=retryDelaysMs[t];if(process.platform===`win32`&&(r===`EBUSY`||r===`EPERM`)&&i!==void 0){if(t===0)retriedSources.push(`${e} (${r})`);Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,i);continue}throw n}}const results=[];let unreadable;for(const e of paths){const t=path.resolve(e);try{results.push(probeSqliteHeader(t))}catch(e){unreadable={code:e instanceof Error&&`code`in e?e.code:void 0,errno:e instanceof Error&&`errno`in e?e.errno:void 0,path:t};break}}if(unreadable){process.stderr.write(JSON.stringify(unreadable));process.exitCode=3}else{process.stdout.write(JSON.stringify(results));if(retriedSources.length>0)process.stderr.write(retriedSources.join(`
+`))}export{};

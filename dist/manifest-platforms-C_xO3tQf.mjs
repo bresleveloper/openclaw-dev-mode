@@ -1,0 +1,3 @@
+import{m as normalizeTrimmedStringList}from"./string-normalization-D_oBUpO3.mjs";
+//!src/plugins/manifest-platforms.ts
+const MANIFEST_PLATFORMS=/* @__PURE__ */ new Set([`aix`,`android`,`darwin`,`freebsd`,`haiku`,`linux`,`openbsd`,`sunos`,`win32`,`cygwin`,`netbsd`]);function normalizeManifestPlatforms(e){return normalizeTrimmedStringList(e).filter(e=>MANIFEST_PLATFORMS.has(e))}export{normalizeManifestPlatforms as t};

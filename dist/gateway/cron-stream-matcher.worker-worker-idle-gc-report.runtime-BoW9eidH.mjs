@@ -1,0 +1,1 @@
+import{t as e}from"./cron-stream-matcher.worker-subsystem-BGy0RlYC.mjs";const t=e(`worker/idle-gc`);function reportSlowIdleWorkerGc(e){t.warn(`slow idle worker garbage collection`,e)}export{reportSlowIdleWorkerGc};

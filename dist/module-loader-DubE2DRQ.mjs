@@ -1,0 +1,2 @@
+//!src/hooks/module-loader.ts
+function resolveFunctionModuleExport(e){const t=e.exportName?.trim();const n=t?[t]:e.fallbackExportNames??[`default`];for(const t of n){const n=e.mod[t];if(typeof n===`function`)return n}}export{resolveFunctionModuleExport as t};

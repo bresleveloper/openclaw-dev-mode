@@ -1,0 +1,3 @@
+import path from"node:path";
+//!src/config/sessions/generated-transcript-session-id.ts
+function extractGeneratedTranscriptSessionId(e){const t=e?.trim();if(!t)return;const n=path.basename(t);if(!n.endsWith(`.jsonl`))return;const r=n.slice(0,-6);const i=r.indexOf(`-topic-`);if(i>0){const e=r.slice(0,i);return looksLikeGeneratedSessionId(e)?e:void 0}const a=r.match(/^(\d{4}-\d{2}-\d{2}T[\w-]+(?:Z|[+-]\d{2}(?:-\d{2})?)?)_(.+)$/);if(a?.[2])return looksLikeGeneratedSessionId(a[2])?a[2]:void 0;return looksLikeGeneratedSessionId(r)?r:void 0}function looksLikeGeneratedSessionId(e){return/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(e)}export{extractGeneratedTranscriptSessionId as t};

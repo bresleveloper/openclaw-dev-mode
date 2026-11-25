@@ -1,0 +1,1 @@
+function expectDefined(e,t){if(e==null)throw Error(`expected `+t+` to be defined`);return e}export{expectDefined as t};

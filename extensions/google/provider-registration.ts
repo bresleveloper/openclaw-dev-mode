@@ -1,16 +1,15 @@
 import { createLazyRuntimeSurface } from "openclaw/plugin-sdk/lazy-runtime";
-import type { ProviderReasoningOutputModeContext } from "openclaw/plugin-sdk/plugin-entry";
 import { runLiveProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { resolveMergedModelProviderConfig } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { createProviderApiKeyAuthMethod } from "openclaw/plugin-sdk/provider-entry";
 import type { ProviderPlugin } from "openclaw/plugin-sdk/provider-model-shared";
 import { normalizeGoogleModelId } from "./model-id.js";
 import { GOOGLE_GEMINI_DEFAULT_MODEL, applyGoogleGeminiModelDefault } from "./onboard.js";
-import { buildGoogleLiveCatalogProvider } from "./provider-catalog-runtime.js";
+import { loadGoogleLiveCatalog } from "./provider-catalog-runtime.js";
 import googleProviderDiscovery from "./provider-discovery.js";
 import { GOOGLE_GEMINI_PROVIDER_HOOKS } from "./provider-hooks.js";
 import {
-  isGoogleNativeVideoModelId,
+  isGoogleGeminiTextModelId,
   isModernGoogleModel,
   resolveGoogleGeminiForwardCompatModel,
   resolveGoogleModelApi,
@@ -19,29 +18,10 @@ import {
   isOfficialGoogleAiStudioBaseUrl,
   isGoogleVertexBaseUrl,
   normalizeGoogleProviderConfig,
+  resolveGoogleFastModeSupport,
   resolveGoogleGenerativeAiTransport,
 } from "./provider-policy.js";
 
-function resolveGoogleReasoningOutputMode(
-  ctx: ProviderReasoningOutputModeContext,
-): "native" | "tagged" {
-  if (
-    ctx.provider === "google" ||
-    ctx.provider === "google-vertex" ||
-    ctx.provider === "google-interactions"
-  ) {
-    const api = ctx.model?.api ?? ctx.modelApi;
-    if (
-      !api ||
-      api === "google-generative-ai" ||
-      api === "google-vertex" ||
-      api === "google-interactions"
-    ) {
-      return "native";
-    }
-  }
-  return "tagged";
-}
 const loadGenerativeAiStream = createLazyRuntimeSurface(
   () => import("./transport-stream.js"),
   (runtime) => runtime.createGoogleGenerativeAiTransportStreamFn(),
@@ -99,15 +79,28 @@ export function buildGoogleProvider(): ProviderPlugin {
         return await runLiveProviderCatalog({
           providerId: "google",
           profileId: auth.profileId,
-          run: async () => ({
-            providers: {
-              google: await buildGoogleLiveCatalogProvider({
-                discoveryMode: "strict",
-                apiKey: auth.apiKey,
-                discoveryApiKey: auth.discoveryApiKey,
-              }),
-            },
-          }),
+          run: async () => {
+            const { provider, listedModelIds } = await loadGoogleLiveCatalog({
+              discoveryMode: "strict",
+              apiKey: auth.apiKey,
+              discoveryApiKey: auth.discoveryApiKey,
+            });
+            return {
+              providers: { google: provider },
+              ...(listedModelIds
+                ? {
+                    outcomes: [
+                      {
+                        provider: "google",
+                        ...(auth.profileId ? { profileId: auth.profileId } : {}),
+                        status: "ready" as const,
+                        listedModelIds,
+                      },
+                    ],
+                  }
+                : {}),
+            };
+          },
         });
       },
     },
@@ -118,7 +111,7 @@ export function buildGoogleProvider(): ProviderPlugin {
         ctx.provider === "google" &&
         (ctx.model.api === "google-generative-ai" || ctx.model.api === "google-interactions") &&
         isOfficialGoogleAiStudioBaseUrl(ctx.model.baseUrl) &&
-        isGoogleNativeVideoModelId(ctx.modelId);
+        isGoogleGeminiTextModelId(ctx.modelId);
       return {
         ...ctx.model,
         api: resolveGoogleModelApi({
@@ -153,11 +146,29 @@ export function buildGoogleProvider(): ProviderPlugin {
       return undefined;
     },
     ...GOOGLE_GEMINI_PROVIDER_HOOKS,
+    resolveFastModeSupport: resolveGoogleFastModeSupport,
     // Gemini 2.5+ delivers reasoning via native thinkingParts (thinkingConfig.includeThoughts).
     // Tagged mode simultaneously injects <think>/<final> which the model opens before a tool
     // call, never closes, leaving the post-tool turn empty (payloads=0). The CLI backend keeps
     // tagged mode because it emits JSON text, not native thought parts.
-    resolveReasoningOutputMode: resolveGoogleReasoningOutputMode,
+    resolveReasoningOutputMode: (ctx): "native" | "tagged" => {
+      if (
+        ctx.provider === "google" ||
+        ctx.provider === "google-vertex" ||
+        ctx.provider === "google-interactions"
+      ) {
+        const api = ctx.model?.api ?? ctx.modelApi;
+        if (
+          !api ||
+          api === "google-generative-ai" ||
+          api === "google-vertex" ||
+          api === "google-interactions"
+        ) {
+          return "native";
+        }
+      }
+      return "tagged";
+    },
     isModernModelRef: ({ modelId }) => isModernGoogleModel(modelId),
   };
 }

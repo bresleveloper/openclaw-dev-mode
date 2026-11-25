@@ -1,0 +1,2 @@
+//!src/shared/gateway-client-platform.ts
+function resolveGatewayClientPlatformIdentity(e){switch(e){case`darwin`:return{platform:`macos`,deviceFamily:`Mac`};case`win32`:return{platform:`windows`,deviceFamily:`Windows`};case`linux`:return{platform:e,deviceFamily:`Linux`};default:return{platform:e}}}export{resolveGatewayClientPlatformIdentity as t};

@@ -1,0 +1,2 @@
+//!src/skills/discovery/skill-index.ts
+function normalizeSkillIndexName(e){return e.trim().toLowerCase().replace(/[\s_/]+/g,`-`).replace(/[^a-z0-9-]+/g,``).replace(/-+/g,`-`).replace(/^-+|-+$/g,``)}function isSkillPromptVisible(e){if(e.exposure)return e.exposure.includeInAvailableSkillsPrompt??true;return!(e.invocation??e.skill).disableModelInvocation}function isSkillUserInvocable(e){return(e.exposure??e.invocation)?.userInvocable??true}export{isSkillUserInvocable as n,normalizeSkillIndexName as r,isSkillPromptVisible as t};

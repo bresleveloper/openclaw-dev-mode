@@ -1,0 +1,3 @@
+import{ri as config}from"./json-schema-processors-DZqDXXCr.mjs";
+//!node_modules/.pnpm/zod@4.6.7/node_modules/zod/v4/classic/compat.js
+const ZodIssueCode={invalid_type:`invalid_type`,too_big:`too_big`,too_small:`too_small`,invalid_format:`invalid_format`,not_multiple_of:`not_multiple_of`,unrecognized_keys:`unrecognized_keys`,invalid_union:`invalid_union`,invalid_key:`invalid_key`,invalid_element:`invalid_element`,invalid_value:`invalid_value`,custom:`custom`};function setErrorMap(e){config({customError:e})}function getErrorMap(){return config().customError}var ZodFirstPartyTypeKind;ZodFirstPartyTypeKind||(ZodFirstPartyTypeKind={});export{setErrorMap as i,ZodIssueCode as n,getErrorMap as r,ZodFirstPartyTypeKind as t};

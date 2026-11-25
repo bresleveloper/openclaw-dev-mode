@@ -1,2 +1,1 @@
-import { r as setMattermostRuntime } from "./.setup/runtime-CNB4YGqJ.mjs";
-export { setMattermostRuntime };
+export { r as setMattermostRuntime } from "./.setup/runtime-y_L8jPMH.mjs";

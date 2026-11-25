@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,s as n}from"./worker-chunk-CHXXUV6W.mjs";function resolveHookExternalContentSource(e){let t=n(e);if(t.startsWith(`hook:gmail:`))return`gmail`;if(t.startsWith(`hook:`))return`webhook`}var r=e((()=>{t()}));export{resolveHookExternalContentSource as n,r as t};

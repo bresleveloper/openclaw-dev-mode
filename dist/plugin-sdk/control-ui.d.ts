@@ -1,5 +1,9 @@
-import { On as SessionRow, St as BoardGetParams, bn as SessionsListParams, q as AgentSummary } from "../index-8f56f6LD.js";
-//#region src/plugin-sdk/control-ui-components.d.ts
+import { l as MemorySearchResponse } from "../types-D2yUynI0.js";
+import { t as ControlUiSettingsPlacement } from "../plugin-control-ui-settings-Wx3FLi3x.js";
+import { At as BoardGetParams, On as SessionsListParams, Z as ChannelsStatusResult, nt as AgentsWorkspaceGetResult, rt as AgentSummary } from "../index-DSy-_0fC.js";
+import { a as SessionRow } from "../sessions-row-09BvoTD5.js";
+import { n as DoctorMemoryStatusPayload } from "../doctor-memory-BDagPv_v.js";
+import { t as PluginJsonValue } from "../host-hook-json-B1L3lIHs.js";
 /** Semantic host components available to native Control UI plugins. */
 type ControlUiComponentHandle<T> = {
   update: (props: T) => void;
@@ -92,8 +96,6 @@ type ControlUiComponents = {
   mountSessionSummary: (container: HTMLElement, props: ControlUiSessionSummaryProps) => ControlUiComponentHandle<ControlUiSessionSummaryProps>;
   mountDashboard: (container: HTMLElement, props: ControlUiDashboardProps) => ControlUiComponentHandle<ControlUiDashboardProps>;
 };
-//#endregion
-//#region src/plugin-sdk/control-ui-session-link.d.ts
 type SessionHeaderLink = {
   url: string;
   label: string;
@@ -119,9 +121,163 @@ type SessionHeaderLinkMount = (container: HTMLElement, initialContext: SessionHe
  * Render a custom accessory instead. Removal is tracked by `plugin-sdk-session-header-link`.
  */
 export declare function createSessionHeaderLink(resolve: (session: NonNullable<SessionHeaderLinkContext["props"]["session"]>) => SessionHeaderLink | undefined): SessionHeaderLinkMount;
-//#endregion
-//#region src/plugin-sdk/control-ui.d.ts
+type TranslationMap = {
+  readonly [key: string]: string | TranslationMap;
+};
+/** Translate plugin-owned messages without owning their loading, state, or locale. */
+export declare function translateControlUiMessage(messages: (locale: string) => TranslationMap | undefined, locale: string, key: string, params?: Record<string, string>): string;
+type ControlUiSettingsSnapshot = {
+  readonly agentId: string | null;
+  readonly agentsLoading: boolean;
+  readonly agentsError: string | null;
+  readonly engine: {
+    readonly kind: "default" | "off" | "pinned";
+    readonly id: string | null;
+    readonly availability: "enabled" | "disabled" | "missing" | "loading" | "unknown";
+  };
+  readonly connected: boolean;
+  /** Gateway-advertised methods; absent until the connection publishes its catalog. */
+  readonly advertisedMethods?: readonly string[];
+  readonly connectionEpoch: number;
+  readonly routeIntent: string;
+  readonly locale: string;
+};
+type Content = string | HTMLElement;
+type SectionProps = {
+  title: string;
+  content: HTMLElement;
+};
+type RowProps = {
+  title: string;
+  description?: Content;
+  control?: Content;
+};
+type StatusProps = {
+  kind: "ok" | "warn" | "danger" | "accent" | "muted";
+  label: string;
+};
+type ValueProps = {
+  value: string | number;
+  mono?: boolean;
+};
+type NavProps = {
+  title: string;
+  onClick: () => void;
+};
+type PetProps = {
+  seed: string;
+  sleeping?: boolean;
+  reading?: boolean;
+  grumpy?: boolean;
+  standalone?: boolean;
+};
+/** Consumed by Settings presentations; the shipped ControlUiComponents contract is unchanged. */
+type ControlUiSettingsComponents = {
+  mountSection: (container: HTMLElement, props: SectionProps) => ControlUiComponentHandle<SectionProps>;
+  mountRow: (container: HTMLElement, props: RowProps) => ControlUiComponentHandle<RowProps>;
+  mountStatus: (container: HTMLElement, props: StatusProps) => ControlUiComponentHandle<StatusProps>;
+  mountValue: (container: HTMLElement, props: ValueProps) => ControlUiComponentHandle<ValueProps>;
+  mountNavigation: (container: HTMLElement, props: NavProps) => ControlUiComponentHandle<NavProps>;
+  mountLobster: (container: HTMLElement, props: PetProps) => ControlUiComponentHandle<PetProps>;
+};
+type ControlUiSettingsContext = {
+  readonly signal: AbortSignal;
+  readonly props: ControlUiSettingsSnapshot;
+  readonly components: ControlUiSettingsComponents;
+  /** Existing authenticated operator RPC authority, bound to this Settings lifetime. */
+  request: <T = unknown>(method: string, params?: unknown) => Promise<T>;
+  navigate: (destination: "overview" | "memories" | "dreams" | "settings") => void;
+  refreshAgents: () => void;
+  formatRelativeTimestamp: (timestamp: number) => string;
+  formatError: (error: unknown) => string;
+};
+type ControlUiSettingsView = {
+  readonly placement: Extract<ControlUiSettingsPlacement, {
+    section: "memory";
+  }>;
+  mount: (container: HTMLElement, context: ControlUiSettingsContext) => {
+    update: (props: ControlUiSettingsSnapshot) => void;
+    dispose: () => void;
+  };
+};
+type ControlUiChannelSettingsSnapshot = {
+  readonly channelId: string;
+  readonly status: unknown;
+  readonly defaultAccountId?: string;
+  readonly login?: {
+    readonly message: string | null;
+    readonly qrDataUrl: string | null;
+    readonly connected: boolean | null;
+    readonly busy: boolean;
+  };
+  readonly accounts: readonly ChannelsStatusResult["channelAccounts"][string][number][];
+  readonly connected: boolean;
+  readonly canAdmin: boolean;
+  readonly connectionEpoch: number;
+  readonly locale: string;
+  /** Detaching the channel detail does not end this page-owned editor lifetime. */
+  readonly presented: boolean;
+};
+type ControlUiChannelSettingsContext = {
+  readonly signal: AbortSignal;
+  readonly props: ControlUiChannelSettingsSnapshot;
+  readonly components: ControlUiSettingsComponents;
+  /** Authenticated JSON under this channel's account namespace; no credentials leave the host. */
+  request: (request: {
+    accountId: string;
+    path: readonly string[];
+    method: "PUT" | "POST";
+    body: unknown;
+    signal: AbortSignal;
+  }) => Promise<{
+    ok: boolean;
+    status: number;
+    data: Record<string, unknown> | null;
+    errorMessage: string;
+  }>;
+  /** Shared login owner, available only for the declaring channel's existing login flow. */
+  login?: {
+    start: (force: boolean) => Promise<void>;
+    wait: () => Promise<void>;
+    /** Capture the current account before an awaited operator decision. */
+    captureLogout: () => {
+      readonly accountId: string;
+      logout: () => Promise<void>;
+    } | null;
+  };
+  confirm?: (options: {
+    title: string;
+    message: string;
+    confirmLabel: string;
+    danger?: boolean;
+  }) => Promise<boolean>;
+  formatPhoneNumber?: (value: string) => string;
+  formatDuration?: (milliseconds: number) => string;
+  mountConfig: (container: HTMLElement) => () => void;
+  refresh: (probe: boolean) => Promise<void>;
+  formatRelativeTimestamp: (timestamp: number | null | undefined) => string;
+  formatError: (error: unknown) => string;
+  formatExternalText: (text: string) => string;
+};
+type ControlUiChannelSettingsView = {
+  readonly placement: Extract<ControlUiSettingsPlacement, {
+    section: "channels";
+  }>;
+  mount: (container: HTMLElement, context: ControlUiChannelSettingsContext) => {
+    update: (props: ControlUiChannelSettingsSnapshot) => void;
+    dispose: () => void;
+  };
+};
 export type ControlUiDisposer = () => void;
+/** Tab-local recovery data bound to this authenticated Gateway account and plugin. */
+export type ControlUiRecoveryStorageV1 = {
+  readonly version: 1;
+  /** Throws after account, connection, activation, or view retirement. */
+  assertCurrent: () => void;
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+};
 export type ControlUiConnection = {
   connected: boolean;
   canRead: boolean;
@@ -200,6 +356,8 @@ export type ControlUiViewContext<T = Readonly<Record<string, string>>> = {
   readonly host: ControlUiHost;
   readonly signal: AbortSignal;
   readonly props: T;
+  /** Report a fatal mount failure; the host disposes this instance and offers Retry. */
+  reportError?: (error: unknown) => void;
   /** Presentation can pause a retained view without ending its host lifetime. */
   readonly presented: boolean;
   /** Mount the host's built-in view inside a replacement; it keeps receiving host updates. */
@@ -235,9 +393,22 @@ export type ControlUiNavigationItem = {
   /** Context menu actions, available by right-click or the keyboard menu shortcut. */
   actions?: ControlUiNavigationAction[];
 };
+/** A predefined installed renderer. Payload is data, never a generated template. */
+type ControlUiInlineView = {
+  id: string;
+  /** Exact component/payload interface version (1–65535), not the package version. */
+  version: number;
+  mount: ControlUiView<BoardGetParams & {
+    payload: PluginJsonValue;
+    toolCallId: string;
+    toolName: string;
+  }>;
+};
 export type ControlUiPanel = {
   id: string;
   label: string;
+  /** Fixed host icon-registry name; unknown/omitted names fall back to plug. Manifest SVG artwork takes precedence. */
+  icon?: string;
   mount: ControlUiView<BoardGetParams>;
 };
 export type ControlUiAction = {
@@ -288,12 +459,20 @@ export type ControlUiHost = {
   readonly locale: string;
   redact: (text: string) => string;
   readonly connection: ControlUiConnection;
+  /** Absent or null until the authenticated recovery owner is available. Storage errors throw. */
+  readonly recoveryStorage?: ControlUiRecoveryStorageV1 | null;
   readonly components: ControlUiComponents;
   /**
    * Native modules share the operator's authenticated Gateway authority.
    * The Gateway enforces connection scopes, not a per-plugin RPC allowlist.
    */
   request: <T = unknown>(method: string, params?: Record<string, unknown>) => Promise<T>;
+  /**
+   * `session.message` listeners receive complete message bodies. Registration is
+   * synchronous, but delivery starts after the Gateway acknowledges full-body
+   * interest. In-flight roster events without bodies are skipped during admission;
+   * the host never delivers a bodyless `session.message` to a plugin listener.
+   */
   onEvent: (event: string, listener: (payload: unknown) => void) => ControlUiDisposer;
   subscribe: (listener: () => void) => ControlUiDisposer;
   sessions: {
@@ -364,6 +543,7 @@ export type ControlUiHost = {
     registerAction: (action: ControlUiAction) => ControlUiDisposer;
     registerAccessory: (accessory: ControlUiAccessory) => ControlUiDisposer;
     registerWidget: (widget: ControlUiWidget) => ControlUiDisposer;
+    registerInlineView: (view: ControlUiInlineView) => ControlUiDisposer;
     registerReplacement: (replacement: ControlUiReplacement) => ControlUiDisposer;
     /** Select an owned replacement, or restore the built-in view for this surface. */
     selectReplacement: (surface: ControlUiSurface, id: string | null) => void;
@@ -374,5 +554,4 @@ export type ControlUiPlugin = {
   activate: (host: ControlUiHost) => void | ControlUiDisposer | Promise<void | ControlUiDisposer>;
 };
 export declare function defineControlUiPlugin(plugin: ControlUiPlugin): ControlUiPlugin;
-//#endregion
-export type { ControlUiAgentPickerProps, ControlUiComponentHandle, ControlUiComponents, ControlUiDashboardProps, ControlUiDialogProps };
+export type { AgentsWorkspaceGetResult, ControlUiAgentPickerProps, ControlUiChannelSettingsContext, ControlUiChannelSettingsSnapshot, ControlUiChannelSettingsView, ControlUiComponentHandle, ControlUiComponents, ControlUiDashboardProps, ControlUiDialogProps, ControlUiSettingsComponents, ControlUiSettingsContext, ControlUiSettingsPlacement, ControlUiSettingsSnapshot, ControlUiSettingsView, DoctorMemoryStatusPayload, MemorySearchResponse };

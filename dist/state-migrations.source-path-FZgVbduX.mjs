@@ -1,0 +1,2 @@
+//!src/infra/state-migrations.source-path.ts
+function resolveLegacyMigrationSourcePath(e){return e.replace(/\.doctor-importing(?:-\d+-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})?$/,``)}export{resolveLegacyMigrationSourcePath as t};

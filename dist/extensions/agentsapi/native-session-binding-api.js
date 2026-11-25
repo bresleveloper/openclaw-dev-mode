@@ -1,2 +1,1 @@
-import { n as readRecord } from "../../agentsapi-binding-record-CO7NOYrI.mjs";
-export { readRecord as readNativeSessionBindingRecord };
+import{n as readRecord}from"../../agentsapi-binding-record-BpMov6TE.mjs";export{readRecord as readNativeSessionBindingRecord};

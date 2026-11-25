@@ -1,11 +1,14 @@
-//#region extensions/codex/provider-discovery.ts
+import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
+// extensions/codex/provider-discovery.ts
+/** Native login facts belong to Codex, never to an OpenClaw bearer profile. */
+const loadNativeAuth = createLazyRuntimeModule(() => import("./.setup/native-auth-Ci6Lt0Wf.mjs"));
 const codexProviderDiscovery = {
 	id: "codex",
 	label: "Codex",
 	auth: [],
 	prepareSyntheticAuth: async ({ config, provider, env, signal, pluginRoot }) => {
 		if (provider !== "codex") return;
-		const { probeCodexNativeAuth } = await import("./.setup/native-auth-llyxY8vN.mjs");
+		const { probeCodexNativeAuth } = await loadNativeAuth();
 		return await probeCodexNativeAuth({
 			config,
 			env,
@@ -14,5 +17,4 @@ const codexProviderDiscovery = {
 		});
 	}
 };
-//#endregion
 export { codexProviderDiscovery as default };

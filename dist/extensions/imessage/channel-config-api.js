@@ -1,2 +1,1 @@
-import { t as IMessageChannelConfigSchema } from "./.setup/config-schema-DXwa_3V5.mjs";
-export { IMessageChannelConfigSchema };
+export { t as IMessageChannelConfigSchema } from "./.setup/config-schema-BjkQV5P5.mjs";

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,r as n}from"./worker-chunk-B-Bd6wJd.mjs";import r from"node:fs/promises";async function unlinkIfExists(e){if(!e)return;let n=t();if(n)await n.discardResource(e);else try{await r.unlink(e)}catch{}}var i=e((()=>{n()}));export{unlinkIfExists as n,i as t};

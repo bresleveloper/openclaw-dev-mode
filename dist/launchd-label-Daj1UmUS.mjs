@@ -1,0 +1,3 @@
+import{f as resolveGatewayLaunchAgentLabel}from"./constants-tH5Q8GoI.mjs";import{n as sanitizeForLog}from"./ansi-54CEWBZf.mjs";
+//!src/daemon/launchd-label.ts
+function assertValidLaunchAgentLabel(e){const t=e.trim();if(!/^[A-Za-z0-9._-]+$/.test(t))throw new Error(`Invalid launchd label: ${sanitizeForLog(t)}`);return t}function resolveLaunchAgentLabel(e){const t=e?.OPENCLAW_LAUNCHD_LABEL?.trim();return assertValidLaunchAgentLabel(t||resolveGatewayLaunchAgentLabel(e?.OPENCLAW_PROFILE))}export{resolveLaunchAgentLabel as n,assertValidLaunchAgentLabel as t};

@@ -1,0 +1,1 @@
+import{n as loadChannelSetupPluginRegistrySnapshotForChannel,t as ensureChannelSetupPluginInstalled}from"./plugin-install-x_Jw75qB.mjs";export{ensureChannelSetupPluginInstalled,loadChannelSetupPluginRegistrySnapshotForChannel};

@@ -1,0 +1,1 @@
+let runtimeExecutionProfile;function resolveRuntimeExecutionProfile(e){return e?.mode===`aot`?`embedded-aot`:`dynamic-execution`}function getRuntimeExecutionProfile(){return runtimeExecutionProfile??=resolveRuntimeExecutionProfile(globalThis.__openclawStandaloneBuildInfo)}export{getRuntimeExecutionProfile as t};

@@ -1,0 +1,1 @@
+import{t as e}from"./transcript-subsystem-JWF8ns83.mjs";const t=e(`worker/idle-gc`);function reportSlowIdleWorkerGc(e){t.warn(`slow idle worker garbage collection`,e)}export{reportSlowIdleWorkerGc};

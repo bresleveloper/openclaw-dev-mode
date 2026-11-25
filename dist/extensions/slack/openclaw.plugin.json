@@ -316,21 +316,6 @@
             },
             "additionalProperties": false
           },
-          "heartbeatVisibility": {
-            "type": "object",
-            "properties": {
-              "showOk": {
-                "type": "boolean"
-              },
-              "showAlerts": {
-                "type": "boolean"
-              },
-              "useIndicator": {
-                "type": "boolean"
-              }
-            },
-            "additionalProperties": false
-          },
           "healthMonitor": {
             "type": "object",
             "properties": {
@@ -1186,6 +1171,9 @@
               "messages": {
                 "type": "boolean"
               },
+              "channels": {
+                "type": "boolean"
+              },
               "pins": {
                 "type": "boolean"
               },
@@ -1712,21 +1700,6 @@
                       "additionalProperties": false
                     },
                     "nativeTransport": {
-                      "type": "boolean"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "heartbeatVisibility": {
-                  "type": "object",
-                  "properties": {
-                    "showOk": {
-                      "type": "boolean"
-                    },
-                    "showAlerts": {
-                      "type": "boolean"
-                    },
-                    "useIndicator": {
                       "type": "boolean"
                     }
                   },
@@ -2583,6 +2556,9 @@
                     "messages": {
                       "type": "boolean"
                     },
+                    "channels": {
+                      "type": "boolean"
+                    },
                     "pins": {
                       "type": "boolean"
                     },
@@ -2837,22 +2813,22 @@
       "description": "Slack channel, DM, command, and app event integration.",
       "uiHints": {
         "historyLimit": {
-          "help": "Automatic observed-message context uses a default of 50 and a maximum of 200 messages; 0 disables automatic injection. The JSON integer maximum selects the 50-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+          "help": "Automatic observed-message context uses a default of 50 and a maximum of 200 messages; 0 disables automatic injection. The JSON integer maximum selects the 50-message default. Chat history trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
         },
         "accounts.*.historyLimit": {
-          "help": "Automatic observed-message context uses a default of 50 and a maximum of 200 messages; 0 disables automatic injection. The JSON integer maximum selects the 50-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+          "help": "Automatic observed-message context uses a default of 50 and a maximum of 200 messages; 0 disables automatic injection. The JSON integer maximum selects the 50-message default. Chat history trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
         },
         "dmHistoryLimit": {
-          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Chat history trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
         },
         "accounts.*.dmHistoryLimit": {
-          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Chat history trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
         },
         "dms.*.historyLimit": {
-          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Chat history trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
         },
         "accounts.*.dms.*.historyLimit": {
-          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Chat history trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
         },
         "requireMentionInBotThreads": {
           "label": "Require Mention in Bot Threads",
@@ -3100,7 +3076,7 @@
         },
         "thread.inheritParent": {
           "label": "Slack Thread Parent Inheritance",
-          "help": "If true, Slack thread sessions inherit the parent channel transcript (default: false)."
+          "help": "If true, Slack thread sessions inherit the parent channel chat history (default: false)."
         },
         "thread.initialHistoryLimit": {
           "label": "Slack Thread Initial History Limit",
@@ -3113,5 +3089,10 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {}
-  }
+  },
+  "recommendedPrompts": [
+    "Help me plan Slack access for this agent and the channels I choose.",
+    "Summarize decisions and open questions in a Slack thread without replying.",
+    "Draft a reply to a Slack message or thread for my review without sending it."
+  ]
 }

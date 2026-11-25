@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function chatRef(e){return Object.freeze({agentId:e.agentId,storePath:e.storePath,sessionKey:e.sessionKey})}var t=e((()=>{}));export{t as n,chatRef as t};

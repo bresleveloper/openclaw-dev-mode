@@ -1,2 +1,1 @@
-import { n as defineBundledChannelSetupEntry, r as loadBundledEntryExportSync, t as defineBundledChannelEntry } from "../channel-entry-contract-Bm5cj8Vj.mjs";
-export { defineBundledChannelEntry, defineBundledChannelSetupEntry, loadBundledEntryExportSync };
+import{n as defineBundledChannelSetupEntry,r as loadBundledEntryExportSync,t as defineBundledChannelEntry}from"../channel-entry-contract-D20X8YIV.mjs";export{defineBundledChannelEntry,defineBundledChannelSetupEntry,loadBundledEntryExportSync};

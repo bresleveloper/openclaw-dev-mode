@@ -1,4 +1,1 @@
-import { r as fetchConfiguredLocalOriginWithSsrFGuard } from "../fetch-guard-DRapCKeS.mjs";
-import { n as registerManagedProxyBrowserCdpBypass } from "../proxy-lifecycle-hAKSje34.mjs";
-import "../ssrf-runtime-internal-B1sosNZE.mjs";
-export { fetchConfiguredLocalOriginWithSsrFGuard, registerManagedProxyBrowserCdpBypass };
+import{r as fetchConfiguredLocalOriginWithSsrFGuard}from"../fetch-guard-BbOox8hm.mjs";import{n as registerManagedProxyBrowserCdpBypass}from"../proxy-lifecycle-CGlZQnJs.mjs";import"../ssrf-runtime-internal-D0gfqu72.mjs";export{fetchConfiguredLocalOriginWithSsrFGuard,registerManagedProxyBrowserCdpBypass};

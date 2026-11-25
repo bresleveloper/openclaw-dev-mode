@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/imessage/index.ts
+// extensions/imessage/index.ts
 var imessage_default = defineBundledChannelEntry({
 	id: "imessage",
 	name: "iMessage",
@@ -14,5 +14,4 @@ var imessage_default = defineBundledChannelEntry({
 		exportName: "setIMessageRuntime"
 	}
 });
-//#endregion
 export { imessage_default as default };

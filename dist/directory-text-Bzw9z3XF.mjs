@@ -1,0 +1,3 @@
+import{a as wrapExternalContent}from"./external-content-CpoNe0Vh.mjs";import"./security-runtime-CCLeFIRb.mjs";
+//!extensions/file-transfer/src/tools/directory-text.ts
+function renderDirectoryText(e){const t=[];const render=()=>{const{manifest:n,text:r}=e.render(t);const i=wrapExternalContent(r,{source:`unknown`});return i.includes(n)&&Buffer.byteLength(i,`utf8`)<=8192?i:void 0};let n=render();for(const r of e.entries){t.push(JSON.stringify(e.project(r)));const i=render();if(!i)break;n=i}return n??wrapExternalContent(e.fallback,{source:`unknown`})}export{renderDirectoryText as t};

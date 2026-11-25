@@ -1,5 +1,5 @@
-import { n as runFirecrawlScrape } from "./.setup/firecrawl-client--j4MjwgU.mjs";
-//#region extensions/firecrawl/api.ts
+import { n as runFirecrawlScrape } from "./.setup/firecrawl-client-yyMZRLXM.mjs";
+// extensions/firecrawl/api.ts
 async function fetchFirecrawlContent(params) {
 	const cfg = { plugins: { entries: { firecrawl: {
 		enabled: true,
@@ -30,5 +30,4 @@ async function fetchFirecrawlContent(params) {
 		warning: result.warning
 	};
 }
-//#endregion
 export { fetchFirecrawlContent };

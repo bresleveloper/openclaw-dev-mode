@@ -1,0 +1,3 @@
+import{t as runGitReadOperation}from"./git-read-cache-jN3OxgvY.mjs";
+//!src/sessions/session-diff.ts
+async function loadCheckoutDiff(e,t){const{sessionKey:n,poll:r,...i}=e;return{...await runGitReadOperation({type:`checkout.diff`,input:i},{diffTiming:t,poll:r}),sessionKey:n}}async function captureSessionDiffBaseline(e){const t=await runGitReadOperation({type:`checkout.baseline`,input:{cwd:e.cwd}});return t?{...t,sessionId:e.sessionId}:void 0}export{loadCheckoutDiff as n,captureSessionDiffBaseline as t};

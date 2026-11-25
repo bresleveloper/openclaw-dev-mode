@@ -1,8 +1,7 @@
-import { r as isLegacyGroupSessionKey, t as canonicalizeLegacySessionKey } from "./.setup/session-contract-DMTm6Q_L.mjs";
-//#region extensions/whatsapp/legacy-session-surface-api.ts
+import { r as isLegacyGroupSessionKey, t as canonicalizeLegacySessionKey } from "./.setup/session-contract-DYn8aT4Q.mjs";
+// extensions/whatsapp/legacy-session-surface-api.ts
 const whatsappLegacySessionSurface = {
 	isLegacyGroupSessionKey,
 	canonicalizeLegacySessionKey
 };
-//#endregion
 export { whatsappLegacySessionSurface };

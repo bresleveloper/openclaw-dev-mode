@@ -1,2 +1,1 @@
-import { t as createBraveWebSearchProvider } from "./.setup/brave-web-search-provider-m9mxf4kg.mjs";
-export { createBraveWebSearchProvider };
+export { t as createBraveWebSearchProvider } from "./.setup/brave-web-search-provider-9AzXZDBI.mjs";

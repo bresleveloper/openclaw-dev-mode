@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function isTimeoutReason(e){return e===`overall-timeout`||e===`no-output-timeout`}var t,n=e((()=>{t=5e3}));export{n,isTimeoutReason as r,t};

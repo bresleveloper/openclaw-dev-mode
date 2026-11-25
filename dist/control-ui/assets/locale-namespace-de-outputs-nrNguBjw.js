@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Alle anzeigen","files":"Dateien","loading":"Ausgaben werden geladen…","updating":"Ausgaben werden aktualisiert…","loadingDashboard":"Dashboard wird geladen…","emptyTitle":"Noch keine Ausgaben vorhanden.","emptyDescription":"Dateien und Dashboards aus dieser Sitzung werden hier angezeigt."}};

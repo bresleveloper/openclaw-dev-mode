@@ -20,8 +20,12 @@ export async function attachSqliteSessionTarget(
     sessionKey: params.sessionKey,
     storePath,
   };
-  const entry = { sessionFile: params.sessionFile, sessionId, updatedAt: Date.now() };
-  await upsertSessionEntry({ agentId: "main", sessionKey: params.sessionKey, storePath, entry });
+  await upsertSessionEntry({
+    agentId: "main",
+    sessionKey: params.sessionKey,
+    storePath,
+    entry: { sessionFile: params.sessionFile, sessionId, updatedAt: Date.now() },
+  });
 }
 export async function appendSqliteHistoryMessage(
   params: EmbeddedRunAttemptParams,

@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"正在处理: {context}","removeContext":"移除工作上下文","includeContext":"包含工作上下文","selection":"所选文本","attachSelection":"附加所选文本","attachSelectionTooltip":"附加所选内容","removeSelection":"移除所选文本"}};

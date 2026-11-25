@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{randomUUID as t}from"node:crypto";function createSessionDiffBaselineCaptureClaim(){return{version:1,captureId:t(),status:`pending`}}var n=e((()=>{}));export{n,createSessionDiffBaselineCaptureClaim as t};

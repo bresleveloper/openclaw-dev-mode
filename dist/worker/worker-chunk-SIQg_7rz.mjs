@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function*workspacePathAncestors(e){for(let t=e.indexOf(`/`);t>=0;t=e.indexOf(`/`,t+1))yield e.slice(0,t)}var t=e((()=>{}));export{workspacePathAncestors as n,t};

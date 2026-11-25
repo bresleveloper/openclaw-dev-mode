@@ -1,0 +1,2 @@
+//!src/auto-reply/reply/history-limit.ts
+const DEFAULT_GROUP_HISTORY_LIMIT=50;const MAX_PROMPT_HISTORY_LIMIT=200;function resolvePromptHistoryLimit(e,t=50){const n=typeof e===`number`&&Number.isInteger(e)&&e>=Number.MAX_SAFE_INTEGER;const r=typeof e===`number`&&Number.isFinite(e)&&!n?e:t;return Number.isFinite(r)?Math.min(Math.max(0,Math.trunc(r)),MAX_PROMPT_HISTORY_LIMIT):0}export{resolvePromptHistoryLimit as n,DEFAULT_GROUP_HISTORY_LIMIT as t};

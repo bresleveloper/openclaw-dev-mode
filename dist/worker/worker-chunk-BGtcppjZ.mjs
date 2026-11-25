@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{r as t}from"./worker-chunk-BcUp1FuP.mjs";import{s as n}from"./worker-chunk-Bxv9ACSn.mjs";function resolveAllowedAgentIds(e){if(!Array.isArray(e))return;let n=/* @__PURE__ */ new Set;for(let r of e){let e=r.trim();if(e){if(e===`*`)return;n.add(t(e))}}return n}var r=e((()=>{n()}));export{resolveAllowedAgentIds as n,r as t};

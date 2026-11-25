@@ -1,0 +1,2 @@
+//!src/utils/safe-json.ts
+function safeJsonStringify(e){try{return JSON.stringify(e,(e,t)=>{if(typeof t===`bigint`)return t.toString();if(typeof t===`function`)return`[Function]`;if(t instanceof Error)return{name:t.name,message:t.message,stack:t.stack};if(t instanceof Uint8Array)return{type:`Uint8Array`,data:Buffer.from(t).toString(`base64`)};return t})}catch{return null}}export{safeJsonStringify as t};

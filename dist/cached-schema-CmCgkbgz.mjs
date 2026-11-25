@@ -1,0 +1,3 @@
+import{t as pruneMapToMaxSize}from"./map-size-DLQqorvK.mjs";import{Clone}from"typebox/value";
+//!src/agents/schema/cached-schema.ts
+function createCachedToolSchema(e){const t=/* @__PURE__ */ new Map;return n=>{const r=e.key(n);const i=t.get(r);if(i)return i;const a=Clone(e.build(n));const o=[a];while(o.length>0){const e=o.pop();if(e&&typeof e===`object`&&!Object.isFrozen(e)){o.push(...Object.values(e));Object.freeze(e)}}t.set(r,a);pruneMapToMaxSize(t,64);return a}}export{createCachedToolSchema as t};

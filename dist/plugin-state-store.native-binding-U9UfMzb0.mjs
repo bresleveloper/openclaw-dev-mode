@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";
+//!src/plugin-state/plugin-state-store.native-binding.ts
+const stores=resolveGlobalSingleton(Symbol.for(`openclaw.pluginStateNativeBindingStores`),()=>/* @__PURE__ */ new WeakMap);function bindPluginStateNativeBindingStore(e,t,n,r,i,a){stores.set(e,{options:t,assertReadable:n,assertCurrent:r,sessionEntryCurrent:i,moduleSource:a});return e}function capturePluginStateNativeBindingStore(e){return stores.get(e)}export{capturePluginStateNativeBindingStore as n,bindPluginStateNativeBindingStore as t};

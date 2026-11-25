@@ -4,8 +4,7 @@ import { resolveAwsSdkEnvVarName } from "openclaw/plugin-sdk/provider-auth-runti
 import { LiveModelCatalogHttpError } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { resolveClaudeModelIdentity, supportsClaudeAdaptiveThinking } from "openclaw/plugin-sdk/provider-model-shared";
 import { asOptionalRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalLowercaseString, normalizeOptionalString, normalizeSortedUniqueTrimmedStringList } from "openclaw/plugin-sdk/string-coerce-runtime";
-import { isFutureDateTimestampMs, resolveExpiresAtMsFromDurationSeconds } from "openclaw/plugin-sdk/number-runtime";
-//#region extensions/amazon-bedrock/discovery.ts
+// extensions/amazon-bedrock/discovery.ts
 const DEFAULT_REFRESH_INTERVAL_SECONDS = 3600;
 const DEFAULT_CONTEXT_WINDOW = 32e3;
 const DEFAULT_MAX_TOKENS = 4096;
@@ -77,12 +76,9 @@ const KNOWN_CONTEXT_WINDOWS = {
 	"qwen.qwen3-coder-next": 256e3,
 	"qwen.qwen3-coder-30b-a3b-v1:0": 256e3,
 	"qwen.qwen3-32b-v1:0": 128e3,
-	"qwen.qwen3-vl-235b-a22b": 128e3
+	"qwen.qwen3-vl-235b-a22b": 128e3,
+	"xai.grok-4.6": 5e5
 };
-/**
-* Resolve the real context window for a Bedrock model ID.
-* Strips inference profile prefixes (us., eu., ap., global.) before lookup.
-*/
 function resolveKnownContextWindow(modelId) {
 	const candidates = [modelId, modelId.replace(/^(?:us|eu|ap|apac|au|jp|global)\./, "")];
 	for (const candidate of candidates) {
@@ -104,7 +100,15 @@ const DEFAULT_COST = {
 };
 const discoveryCache = /* @__PURE__ */ new Map();
 /**
-* Fetch raw inference profile summaries from the Bedrock control plane.
+* Bare foundation-model IDs only work through Converse when Bedrock reports
+* ON_DEMAND. Profile-only and provisioned-only IDs fail at request time, so
+* discovery lists their inference profiles instead. Missing metadata stays
+* selectable because unknown does not mean non-invocable.
+*/
+function supportsOnDemandInference(inferenceTypes) {
+	return !inferenceTypes?.length || inferenceTypes.includes("ON_DEMAND");
+}
+/**
 * All pages must succeed before discovery can cache a complete catalog.
 */
 async function fetchInferenceProfileSummaries(client, createListInferenceProfilesCommand) {
@@ -140,7 +144,7 @@ async function discoverBedrockModels(params) {
 	const now = Date.now();
 	if (refreshIntervalSeconds > 0) {
 		const cached = discoveryCache.get(cacheKey);
-		if (cached && isFutureDateTimestampMs(cached.expiresAt, { nowMs: now })) return cached.result;
+		if (cached && cached.expiresAt > now) return cached.result;
 		discoveryCache.delete(cacheKey);
 	}
 	const sdk = await loadBedrockControlPlaneSdk();
@@ -162,7 +166,7 @@ async function discoverBedrockModels(params) {
 			for (const summary of foundationResponse.modelSummaries ?? []) {
 				if (!summary.modelId?.trim()) continue;
 				if (providerFilter.length > 0) {
-					const providerName = summary.providerName ?? (typeof summary.modelId === "string" ? summary.modelId.split(".")[0] : void 0);
+					const providerName = summary.providerName ?? summary.modelId.split(".")[0];
 					const provider = normalizeOptionalLowercaseString(providerName);
 					if (!provider || !providerFilter.includes(provider)) continue;
 				}
@@ -181,10 +185,11 @@ async function discoverBedrockModels(params) {
 					maxTokens: isClaude5BedrockModel({ id }) ? 128e3 : defaultMaxTokens,
 					...thinkingLevelMap ? { thinkingLevelMap } : {}
 				};
-				discovered.push(def);
 				const normalizedId = normalizeLowercaseStringOrEmpty(def.id);
-				seenIds.add(normalizedId);
 				foundationModels.set(normalizedId, def);
+				if (!supportsOnDemandInference(summary.inferenceTypesSupported)) continue;
+				discovered.push(def);
+				seenIds.add(normalizedId);
 			}
 			for (const profile of profileSummaries) {
 				if (!profile.inferenceProfileId?.trim()) continue;
@@ -237,13 +242,10 @@ async function discoverBedrockModels(params) {
 		if (params.discoveryMode === "strict") throw error;
 		return [];
 	});
-	if (refreshIntervalSeconds > 0) {
-		const expiresAt = resolveExpiresAtMsFromDurationSeconds(refreshIntervalSeconds, { nowMs: now });
-		if (expiresAt !== void 0) discoveryCache.set(cacheKey, {
-			expiresAt,
-			result: discoveryPromise
-		});
-	}
+	if (refreshIntervalSeconds > 0) discoveryCache.set(cacheKey, {
+		expiresAt: now + refreshIntervalSeconds * 1e3,
+		result: discoveryPromise
+	});
 	return discoveryPromise;
 }
 /** Public resolution keeps advisory null results; strict catalog callers retain acquired empties. */
@@ -268,5 +270,4 @@ async function resolveImplicitBedrockProvider(params) {
 		models
 	};
 }
-//#endregion
 export { discoverBedrockModels, resolveImplicitBedrockProvider };

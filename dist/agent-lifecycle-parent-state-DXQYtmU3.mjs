@@ -1,0 +1,2 @@
+//!src/agents/agent-lifecycle-parent-state.ts
+function isAgentLifecycleYieldedWaiting(e){return e.phase===`end`&&e.yielded===true&&e.livenessState===`paused`&&e.stopReason===`end_turn`&&e.aborted!==true&&e.status!==`cancelled`&&e.status!==`timed_out`&&e.timeoutPhase==null&&e.error==null}export{isAgentLifecycleYieldedWaiting as t};

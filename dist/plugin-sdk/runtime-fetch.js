@@ -1,2 +1,1 @@
-import { n as fetchWithRuntimeDispatcher, r as fetchWithRuntimeDispatcherOrMockedGlobal } from "../runtime-fetch-FH7UFEsq.mjs";
-export { fetchWithRuntimeDispatcher, fetchWithRuntimeDispatcherOrMockedGlobal };
+import{n as fetchWithRuntimeDispatcher,r as fetchWithRuntimeDispatcherOrMockedGlobal}from"../runtime-fetch-Cz4y654E.mjs";import"../runtime-fetch-CNDG85BP.mjs";export{fetchWithRuntimeDispatcher,fetchWithRuntimeDispatcherOrMockedGlobal};

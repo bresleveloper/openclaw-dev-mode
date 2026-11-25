@@ -1,0 +1,2 @@
+//!src/agents/auth-profiles/advance.ts
+async function advanceAuthProfileCandidate(e){for(const[t,n]of e.candidates.entries()){if(t<=e.state.profileIndex)continue;e.state.profileIndex=t;if(e.isAvailable(n,t)&&await e.tryPrepare(n,t))return true}e.state.profileIndex=e.candidates.length;return false}export{advanceAuthProfileCandidate as t};

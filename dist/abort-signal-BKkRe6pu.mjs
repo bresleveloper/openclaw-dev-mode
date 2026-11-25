@@ -1,0 +1,3 @@
+import"./src-De06gkOi.mjs";
+//!src/infra/abort-signal.ts
+function isAbortError(e){if(!e||typeof e!==`object`)return false;try{if((`name`in e?String(e.name):``)===`AbortError`)return true;return(`message`in e&&typeof e.message===`string`?e.message:``)===`This operation was aborted`}catch{return false}}async function waitForAbortSignal(e,t){let onAbort;const n=new Promise(t=>{onAbort=()=>t();if(!e||e.aborted)t();else e.addEventListener(`abort`,onAbort,{once:true})});try{await(t?Promise.race([t,n]):n)}finally{e?.removeEventListener(`abort`,onAbort)}}export{waitForAbortSignal as n,isAbortError as t};

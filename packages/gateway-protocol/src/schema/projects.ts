@@ -2,6 +2,7 @@ import type { Static } from "typebox";
 import { Type } from "typebox";
 import { closedObject } from "./closed-object.js";
 import { NonEmptyString } from "./primitives.js";
+import { stringLiteralUnion } from "./string-literal-union.js";
 
 const StoredProjectIdSchema = Type.String({
   pattern: "^[a-z0-9][a-z0-9-]{0,63}$",
@@ -14,6 +15,13 @@ export const PROJECTS_LIST_MAX_IDENTITY_PROBES = 32;
 export const ProjectRecordSchema = closedObject({
   id: NonEmptyString,
   displayName: NonEmptyString,
+  repositoryIdentity: Type.Optional(
+    Type.String({
+      minLength: 1,
+      description:
+        "Read-safe org/repo identity for an already discoverable project; excludes origin URLs and checkout paths.",
+    }),
+  ),
   repoRoot: Type.Optional(
     Type.String({
       minLength: 1,
@@ -92,6 +100,7 @@ export const ProjectsCheckoutOptionsParamsSchema = closedObject({
 export const ProjectsCheckoutOptionsResultSchema = closedObject({
   current: Type.Boolean(),
   worktree: Type.Boolean(),
+  refreshing: Type.Optional(Type.Boolean()),
 });
 export type ProjectsCheckoutOptionsResult = Static<typeof ProjectsCheckoutOptionsResultSchema>;
 
@@ -147,7 +156,7 @@ export const ProjectsSearchRemoteParamsSchema = closedObject({
 });
 export const ProjectsSearchRemoteResultSchema = closedObject({
   stale: Type.Optional(Type.Boolean()),
-  credential: Type.Union([Type.Literal("configured"), Type.Literal("missing")]),
+  credential: stringLiteralUnion(["configured", "missing"]),
   projects: Type.Array(RemoteProjectSchema, { maxItems: 10 }),
 });
 

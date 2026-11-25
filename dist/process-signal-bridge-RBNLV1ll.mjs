@@ -1,0 +1,2 @@
+//!src/infra/process-signal-bridge.ts
+const PROCESS_SIGNALS=[`SIGINT`,`SIGTERM`];function createProcessSignalBridge(){const e=new AbortController;let t;const n=/* @__PURE__ */ new Map;const dispose=()=>{for(const[e,t]of n)process.off(e,t);n.clear()};for(const r of PROCESS_SIGNALS){const handler=()=>{t=r;e.abort();dispose()};n.set(r,handler);process.on(r,handler)}return{signal:e.signal,getReceivedSignal:()=>t,dispose}}export{createProcessSignalBridge as t};

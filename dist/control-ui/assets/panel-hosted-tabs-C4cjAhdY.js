@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";function t(e,t){let n=JSON.stringify(t);i.get(e)!==n&&(i.set(e,n),e.dispatchEvent(new CustomEvent(r,{bubbles:!0,composed:!0})))}function n(e){let t=e;return t&&Array.isArray(t.hostedTabs)&&typeof t.selectHostedTab==`function`&&typeof t.closeHostedTab==`function`?t:null}var r,i;function a(){return(a=e((()=>{r=`openclaw:panel-hosted-tabs-change`,i=new WeakMap})))()}export{n as i,a as n,t as r,r as t};
+//# sourceMappingURL=panel-hosted-tabs-C4cjAhdY.js.map

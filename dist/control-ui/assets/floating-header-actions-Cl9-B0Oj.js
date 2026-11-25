@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{IN as t,PN as n}from"./_2_____________________________.js";import{K as r,O as i,U as a,j as o,n as s,u as c}from"./_6____________________.js";function l(e){let t=r(n);return o(i,{get when(){return t?.owner.headerActionsSlot()},get fallback(){return e.fallback},children:t=>o(s,{get mount(){return t()},get children(){return e.children}})})}function u(){return(u=e((()=>{c(),a(),t()})))()}export{u as n,l as t};
+//# sourceMappingURL=floating-header-actions-Cl9-B0Oj.js.map

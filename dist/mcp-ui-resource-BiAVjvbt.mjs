@@ -1,0 +1,1 @@
+import{a as getMcpAppViewLeaseForSession,c as releaseMcpAppView,i as getMcpAppViewLease,n as buildMcpAppCanvasPayload,o as leaseMcpAppModelContextForSessionTurn,r as fetchMcpAppView,s as readMcpAppChannelView,t as acquireMcpAppViewRequest}from"./mcp-ui-resource-BK45Qqt7.mjs";export{buildMcpAppCanvasPayload,fetchMcpAppView};

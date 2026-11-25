@@ -1,0 +1,14 @@
+import { l as ModelDefinitionConfig } from "../../types.openclaw-D8uW-XQA.js";
+import "../../provider-model-shared-OQQj5XdR.js";
+import { t as OpenAICompatibleModelDiscoveryOptions } from "../../provider-catalog-live-runtime-DnKGuU0_.js";
+export declare const REQUESTY_LIVE_MODEL_DISCOVERY: OpenAICompatibleModelDiscoveryOptions;
+export declare const REQUESTY_PROVIDER_ID = "requesty";
+export declare const REQUESTY_BASE_URL: string;
+export declare const REQUESTY_MODELS_URL: string;
+export declare const REQUESTY_DEFAULT_MODEL_ID: string;
+export declare const REQUESTY_DEFAULT_MODEL_REF: string;
+export declare const REQUESTY_DEFAULT_CONTEXT_WINDOW: number | undefined;
+export declare const REQUESTY_DEFAULT_MAX_TOKENS: number;
+export declare function isRequestyAnthropicModel(modelId: string): boolean;
+export declare function getStaticRequestyModelCatalog(): ModelDefinitionConfig[];
+export declare function projectRequestyModels(rows: readonly unknown[]): ModelDefinitionConfig[];

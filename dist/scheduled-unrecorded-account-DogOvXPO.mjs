@@ -1,0 +1,3 @@
+import{n as recordModelFallbackStop}from"./model-fallback-stop-CvdSBnnN.mjs";
+//!src/agents/scheduled-unrecorded-account.ts
+function createUnrecordedScheduledAccountRefusal(e){const t=e.profileId?`stored account ${e.profileId}`:`a credential that is not a configured key`;const n=/* @__PURE__ */ new Error(`Automation has no recorded inference account. Runtime ${e.runtime} would run ${e.modelRef} with ${t}. Record the account with openclaw automations edit <jobId> --model ${e.modelRef}@${e.profileId??`<profileId>`}.`+(e.runtime===`openclaw`||e.runtime===`codex`?` For eligible host-managed accounts, openclaw doctor --fix can record it without pinning the model.`:``));recordModelFallbackStop(n);return n}export{createUnrecordedScheduledAccountRefusal as t};

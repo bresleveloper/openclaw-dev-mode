@@ -1,0 +1,1 @@
+function withSince(e,t){return Object.assign(t,{"x-openclaw-since":e}),t}export{withSince as t};

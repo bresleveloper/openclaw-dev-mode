@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"Skills dell’area di lavoro","learned":"Competenze apprese","builtIn":"Skills integrate","installed":"Skills installate","extra":"Skills aggiuntive","other":"Altre Skills"}};

@@ -1,0 +1,2 @@
+//!packages/gateway-protocol/src/schema/chat-history-constants.ts
+const CHAT_HISTORY_MAX_ENTRIES=1e3;const CHAT_MESSAGE_MAX_CHARS=8e6;const CHAT_PENDING_INPUT_MESSAGE_PREFIX=`pending:`;export{CHAT_MESSAGE_MAX_CHARS as n,CHAT_PENDING_INPUT_MESSAGE_PREFIX as r,CHAT_HISTORY_MAX_ENTRIES as t};

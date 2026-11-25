@@ -1,0 +1,2 @@
+//!src/gateway/openclaw-id/owner-account.ts
+let resolver;function setOpenClawIdOwnerAccountResolver(e){resolver=e}function resolveOpenClawIdOwnerAccount(){return resolver?.()}async function resolveOpenClawIdOwnerProfile(){const e=resolveOpenClawIdOwnerAccount();if(!e)return null;const{readOpenClawIdLinkedProfile:t}=await import(`./user-profile-openclaw-id-B1lnkv3g.mjs`);return await t(e)}export{resolveOpenClawIdOwnerProfile as n,setOpenClawIdOwnerAccountResolver as r,resolveOpenClawIdOwnerAccount as t};

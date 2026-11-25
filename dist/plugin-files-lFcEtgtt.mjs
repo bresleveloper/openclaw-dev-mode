@@ -1,0 +1,3 @@
+import{fileURLToPath}from"node:url";import path from"node:path";
+//!extensions/knowledge/src/plugin-files.ts
+let location={root:fileURLToPath(new URL(`..`,import.meta.url)),extension:path.extname(fileURLToPath(import.meta.url))};function locatePluginFiles(e){location={root:path.dirname(e),extension:path.extname(e)}}function usePluginFilesLocation(e){location=e}const pluginFilesLocation=()=>location;const ontologyRoot=()=>path.join(location.root,`ontologies`);const sampleVaultRoot=()=>path.join(location.root,`fixtures`,`sample-vault`);export{usePluginFilesLocation as a,sampleVaultRoot as i,ontologyRoot as n,pluginFilesLocation as r,locatePluginFiles as t};

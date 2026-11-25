@@ -1,0 +1,3 @@
+import{r as PluginInstanceUnavailableError}from"./plugin-instance-error-xm5RPSuB.mjs";
+//!src/plugins/plugin-replacement-retry.ts
+function isPluginReloadingError(e){return e instanceof PluginInstanceUnavailableError&&e.replacement!==void 0}async function retryAfterPluginReplacement(e){try{return await e()}catch(t){if(!isPluginReloadingError(t))throw t;await t.replacement;return await e()}}export{retryAfterPluginReplacement as n,isPluginReloadingError as t};

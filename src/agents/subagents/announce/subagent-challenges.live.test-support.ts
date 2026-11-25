@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { asOptionalRecord } from "@openclaw/normalization-core/record-coerce";
-import { expect, onTestFinished } from "vitest";
+import { expect, onTestFinished, type TestContext } from "vitest";
 import { acquireGatewayTestClient } from "../../../../test/helpers/gateway-client.js";
 import { createDeferred } from "../../../../test/helpers/promise.js";
-import { runQaGatewayFixture } from "../../../../test/helpers/qa-gateway-cleanup.js";
+import { runQaGatewayTestFixture } from "../../../../test/helpers/qa-gateway-test-lifetime.js";
+import { isSilentReplyText } from "../../../auto-reply/tokens.js";
 import { clearRuntimeConfigSnapshot, type OpenClawConfig } from "../../../config/config.js";
 import { loadSessionEntry } from "../../../config/sessions/session-accessor.js";
 import type { GatewayClient } from "../../../gateway/client.js";
@@ -19,7 +21,7 @@ import { GATEWAY_CLIENT_MODES, GATEWAY_CLIENT_NAMES } from "../../../utils/messa
 import { subagentRuns } from "../registry/subagent-registry-memory.js";
 import { subscribeSubagentRunChanges } from "../registry/subagent-registry-publication.js";
 import {
-  countPendingDescendantRunsFromRuns,
+  buildSubagentRunReadIndexFromRuns,
   listDescendantRunsForRequesterFromRuns,
 } from "../registry/subagent-registry-queries.js";
 import { getSubagentRunsSnapshotForRead } from "../registry/subagent-registry-state.js";
@@ -39,13 +41,16 @@ export async function until<T>(
   label: string,
   read: () => Promise<T | undefined> | T | undefined,
   timeoutMs = WAIT_MS,
+  signal?: AbortSignal,
 ): Promise<T> {
   const startedAt = Date.now();
   const deadline = startedAt + timeoutMs;
   let lastProgressAt = startedAt;
   console.log(`[subagent-handoff-stress] waiting: ${label}`);
   while (Date.now() < deadline) {
+    signal?.throwIfAborted();
     const result = await read();
+    signal?.throwIfAborted();
     if (result !== undefined) {
       return result;
     }
@@ -55,9 +60,7 @@ export async function until<T>(
         `[subagent-handoff-stress] waiting: ${label} (${Math.round((lastProgressAt - startedAt) / 1_000)}s)`,
       );
     }
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 100);
-    });
+    await delay(100, undefined, { signal });
   }
   throw new Error(`Live subagent stress timed out: ${label}`);
 }
@@ -222,6 +225,7 @@ export function gateTask(url: string): string {
 }
 
 type LiveSubagentContext = {
+  until: typeof until;
   gateway: GatewayClient;
   state: Awaited<ReturnType<typeof createOpenClawTestState>>;
   gates: Awaited<ReturnType<typeof createExternalGates>>;
@@ -251,8 +255,10 @@ export async function runWithLiveSubagentGateway(
     maxConcurrent?: number;
     additionalTools?: string[];
     peerSessions?: boolean;
+    sessionVisibility?: "tree";
   },
   body: (context: LiveSubagentContext) => Promise<void>,
+  testContext: Pick<TestContext, "signal" | "onTestFinished">,
 ): Promise<void> {
   expect(Boolean(process.env.OPENAI_API_KEY?.trim()), "OpenAI API key is present").toBe(true);
   const model = process.env.OPENCLAW_LIVE_SUBAGENT_E2E_MODEL?.trim() || "openai/gpt-5.6-luna";
@@ -296,8 +302,10 @@ export async function runWithLiveSubagentGateway(
       `${JSON.stringify(redactSecrets(evidence), null, 2)}\n`,
     );
   };
-  await runQaGatewayFixture(
-    async () => {
+  await runQaGatewayTestFixture(
+    testContext,
+    async ({ signal }) => {
+      const wait: typeof until = (label, read, timeoutMs) => until(label, read, timeoutMs, signal);
       const gates = await createExternalGates();
       gateServer = gates;
       const cfg: OpenClawConfig = {
@@ -314,6 +322,9 @@ export async function runWithLiveSubagentGateway(
           toolSearch: false,
           ...(options.peerSessions
             ? { sessions: { visibility: "all" as const }, agentToAgent: { enabled: true } }
+            : {}),
+          ...(options.sessionVisibility
+            ? { sessions: { visibility: options.sessionVisibility } }
             : {}),
           allow: [
             "sessions_spawn",
@@ -427,7 +438,7 @@ export async function runWithLiveSubagentGateway(
             "This status question does not replace the original task or its completion reply.",
           ].join("\n"),
         );
-        const reply = await until(
+        const reply = await wait(
           "status-only reply",
           async () => finalReplies((await history(sessionKey)).slice(before.length), marker)[0],
           timeoutMs,
@@ -454,7 +465,8 @@ export async function runWithLiveSubagentGateway(
             const runs = getSubagentRunsSnapshotForRead(subagentRuns);
             // Cleanup precedes the requester's durable delivery acknowledgement.
             if (
-              countPendingDescendantRunsFromRuns(runs, sessionKey) === 0 &&
+              buildSubagentRunReadIndexFromRuns({ runs }).countPendingDescendantRuns(sessionKey) ===
+                0 &&
               listDescendantRunsForRequesterFromRuns(runs, sessionKey).every(
                 (run) =>
                   !run.requesterSettleWake ||
@@ -470,23 +482,28 @@ export async function runWithLiveSubagentGateway(
           }
         };
         const unsubscribe = subscribeSubagentRunChanges("persistence", inspect);
+        const abort = () => completed.reject(signal.reason);
+        signal.addEventListener("abort", abort, { once: true });
         onTestFinished(() => {
           unsubscribe();
           completed.reject(new Error(`Test ended before descendant settlement for ${sessionKey}`));
         });
         try {
+          signal.throwIfAborted();
           inspect();
           await completed.promise;
         } finally {
+          signal.removeEventListener("abort", abort);
           unsubscribe();
         }
       };
       const waitForFinal = async (sessionKey: string, marker: string, expected: string) => {
+        // A parent woken with partial results may stay silent until the rest arrive.
         const taskFinals = (messages: Record<string, unknown>[]) =>
           finalReplies(messages, "").filter(
-            (reply) => !statusOnlyReplies.get(sessionKey)?.has(reply),
+            (reply) => !statusOnlyReplies.get(sessionKey)?.has(reply) && !isSilentReplyText(reply),
           );
-        const firstFinal = await until(
+        const firstFinal = await wait(
           "parent final",
           async () => taskFinals(await history(sessionKey))[0],
         );
@@ -523,6 +540,7 @@ export async function runWithLiveSubagentGateway(
         "--json",
       ];
       await body({
+        until: wait,
         gateway,
         state,
         gates,

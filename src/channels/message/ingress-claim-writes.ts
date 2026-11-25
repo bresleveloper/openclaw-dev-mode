@@ -99,11 +99,11 @@ export function createIngressWriter<TPayload, TMetadata, TCompletedMetadata>(
     onTerminal(claim.id);
   };
 
-  const releaseClaim = async (
+  const releaseClaim = (
     claim: ChannelIngressQueueClaim<TPayload, TMetadata>,
     releaseOptions?: { lastError?: string; recordAttempt?: boolean },
   ) =>
-    await commitClaimWriteWithRetry({
+    commitClaimWriteWithRetry({
       claim,
       label: "release",
       write: () =>
@@ -115,12 +115,12 @@ export function createIngressWriter<TPayload, TMetadata, TCompletedMetadata>(
       falseMeansReclaimed: false,
     });
 
-  const failClaim = async (
+  const failClaim = (
     claim: ChannelIngressQueueClaim<TPayload, TMetadata>,
     reason: string,
     message: string,
   ) =>
-    await commitClaimWriteWithRetry({
+    commitClaimWriteWithRetry({
       claim,
       label: "dead-letter",
       write: () => queue.fail(claim, { reason, message, failedAt: now() }),

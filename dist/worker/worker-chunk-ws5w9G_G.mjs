@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{AsyncLocalStorage as t}from"node:async_hooks";function runWithSpawnBrokerAdmission(e,t){return n.run(e,t)}function getSpawnBrokerAdmission(){return n.getStore()??`command`}var n,r=e((()=>{n=new t}));export{r as n,runWithSpawnBrokerAdmission as r,getSpawnBrokerAdmission as t};

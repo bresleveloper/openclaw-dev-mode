@@ -1,0 +1,3 @@
+import{n as normalizeAgentModelMapForConfig,r as normalizeAgentModelRefForConfig}from"./model-input-CJnF-FEy.mjs";
+//!src/plugins/provider-model-primary.ts
+function applyPrimaryModel(e,t,n){const r=normalizeAgentModelRefForConfig(t);const i={...normalizeAgentModelMapForConfig(e.agents?.defaults?.models??{})};i[r]=i[r]??{};const a=e.agents?.defaults?.model;const o=typeof a===`string`?a:typeof a===`object`?a?.primary:void 0;const s=o?normalizeAgentModelRefForConfig(o):void 0;const c=typeof a===`object`?a?.fallbacks?.map(normalizeAgentModelRefForConfig):void 0;return{...e,agents:{...e.agents,defaults:{...e.agents?.defaults,models:i,model:{...c?{fallbacks:c}:void 0,primary:n?.preserveExistingPrimary===true?s??r:r}}}}}export{applyPrimaryModel as t};

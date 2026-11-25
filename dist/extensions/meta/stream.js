@@ -1,6 +1,6 @@
 import { filterStringEntries } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { createPayloadPatchStreamWrapper } from "openclaw/plugin-sdk/provider-stream-shared";
-//#region extensions/meta/stream.ts
+// extensions/meta/stream.ts
 const META_REASONING_ENCRYPTED_CONTENT_INCLUDE = "reasoning.encrypted_content";
 function wrapMetaProviderStream(ctx) {
 	if (ctx.provider !== "meta" || (ctx.sourceApi ?? ctx.model?.api) !== "openai-responses") return;
@@ -14,5 +14,4 @@ function wrapMetaProviderStream(ctx) {
 		payload.store = false;
 	});
 }
-//#endregion
 export { wrapMetaProviderStream };

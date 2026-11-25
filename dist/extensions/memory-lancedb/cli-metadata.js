@@ -1,6 +1,6 @@
-import { isMemoryMachineOutput } from "./cli-output-mode.js";
+import { t as isMemoryMachineOutput } from "./.setup/cli-output-mode-VwoYL2-H.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/core";
-//#region extensions/memory-lancedb/cli-metadata.ts
+// extensions/memory-lancedb/cli-metadata.ts
 var cli_metadata_default = definePluginEntry({
 	id: "memory-lancedb",
 	name: "Memory LanceDB",
@@ -14,5 +14,4 @@ var cli_metadata_default = definePluginEntry({
 		}] });
 	}
 });
-//#endregion
 export { cli_metadata_default as default };

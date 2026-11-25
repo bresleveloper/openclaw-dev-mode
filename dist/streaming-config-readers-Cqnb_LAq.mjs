@@ -1,0 +1,3 @@
+import{r as asNullableRecord}from"./record-coerce-BTbqdJ3-.mjs";import{t as asBoolean}from"./boolean-Dt_JCqyW.mjs";
+//!src/channels/streaming-config-readers.ts
+function getChannelStreamingConfigObject(e){const t=asNullableRecord(e?.streaming);return t?t:void 0}function resolveChannelStreamingNativeTransport(e){return asBoolean(getChannelStreamingConfigObject(e)?.nativeTransport)}export{resolveChannelStreamingNativeTransport as n,getChannelStreamingConfigObject as t};

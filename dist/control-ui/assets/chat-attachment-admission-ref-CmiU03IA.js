@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{P as t,U as n}from"./_6____________________.js";function r(e){let n;return t(e,e=>(e?.(n),()=>e?.(void 0))),e=>n=e}function i(){return(i=e((()=>{n()})))()}export{i as n,r as t};
+//# sourceMappingURL=chat-attachment-admission-ref-CmiU03IA.js.map

@@ -1,6 +1,6 @@
-import { o as buildStaticBasetenModels, r as BASETEN_DEFAULT_MODEL_REF, t as BASETEN_BASE_URL } from "./.setup/models-wG5xIuOb.mjs";
+import { i as BASETEN_DEFAULT_MODEL_REF, s as buildStaticBasetenModels, t as BASETEN_BASE_URL } from "./.setup/models-B0xCZcxx.mjs";
 import { createModelCatalogPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/baseten/onboard.ts
+// extensions/baseten/onboard.ts
 const { applyConfig } = createModelCatalogPresetAppliers({
 	primaryModelRef: BASETEN_DEFAULT_MODEL_REF,
 	resolveParams: (_cfg, catalogModels) => ({
@@ -17,5 +17,4 @@ const { applyConfig } = createModelCatalogPresetAppliers({
 /** Applies Baseten's provider catalog and starter model without replacing an explicit primary. */
 const applyBasetenConfig = (cfg) => applyConfig(cfg, buildStaticBasetenModels());
 const applyBasetenSetupConfig = (cfg) => applyConfig(cfg, cfg.models?.mode === "replace" ? buildStaticBasetenModels() : []);
-//#endregion
 export { applyBasetenConfig, applyBasetenSetupConfig };

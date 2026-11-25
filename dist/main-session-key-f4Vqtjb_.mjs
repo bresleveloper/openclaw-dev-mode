@@ -1,0 +1,3 @@
+import{n as buildAgentMainSessionKey}from"./session-key-DYtwLLn1.mjs";import"./session-key-C6YO7qUA.mjs";
+//!src/config/sessions/main-session-key.ts
+function resolveCanonicalMainSessionKey(e){return e.sessionScope===`global`?`global`:buildAgentMainSessionKey(e)}function collectCanonicalSessionLookupKeys(e){const t=/* @__PURE__ */ new Set;if(e.canonicalKey)t.add(e.canonicalKey);if(e.requestedKey&&e.requestedKey!==e.canonicalKey)t.add(e.requestedKey);if(e.canonicalKey===`global`||e.canonicalKey===`unknown`)return[...t];if(e.canonicalKey===buildAgentMainSessionKey(e))t.add(`agent:${e.agentId}:main`);return[...t]}export{resolveCanonicalMainSessionKey as n,collectCanonicalSessionLookupKeys as t};

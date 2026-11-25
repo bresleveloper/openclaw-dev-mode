@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/plugins/provider-plugin-choice.ts
+const PROVIDER_PLUGIN_CHOICE_PREFIX=`provider-plugin:`;function buildProviderPluginMethodChoice(e,t){return`${PROVIDER_PLUGIN_CHOICE_PREFIX}${normalizeOptionalString(e)??``}:${normalizeOptionalString(t)??``}`}function parseProviderPluginMethodChoice(e){const t=e.trim();if(!t.startsWith(`provider-plugin:`))return;const n=t.slice(16);const r=n.indexOf(`:`);return{providerId:(r>=0?n.slice(0,r):n).trim(),...r>=0?{methodId:n.slice(r+1).trim()}:{}}}export{buildProviderPluginMethodChoice as n,parseProviderPluginMethodChoice as r,PROVIDER_PLUGIN_CHOICE_PREFIX as t};

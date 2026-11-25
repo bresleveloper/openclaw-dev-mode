@@ -1,10 +1,9 @@
-import { toImageDataUrl } from "openclaw/plugin-sdk/image-generation";
+import { resolveImageSourceUrl } from "openclaw/plugin-sdk/image-generation";
 import { downloadGeneratedVideoAsset, resolveGeneratedMediaMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
 import { isProviderApiKeyConfiguredAsync } from "openclaw/plugin-sdk/provider-auth";
-import { resolveApiKeyForProvider } from "openclaw/plugin-sdk/provider-auth-runtime";
-import { assertOkOrThrowHttpError, createProviderOperationDeadline, createProviderOperationTimeoutResolver, pollProviderOperationJson, postJsonRequest, readProviderJsonObjectResponse, resolveProviderHttpRequestConfig, sanitizeConfiguredModelProviderRequest } from "openclaw/plugin-sdk/provider-http";
+import { createProviderOperationDeadline, createProviderOperationTimeoutResolver, pollProviderOperationJson, postJsonResponse, resolveProviderApiKeyHttpRequestConfig, sanitizeConfiguredModelProviderRequest } from "openclaw/plugin-sdk/provider-http";
 import { isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/novita/video-generation-provider.ts
+// extensions/novita/video-generation-provider.ts
 const DEFAULT_BASE_URL = "https://api.novita.ai";
 const DEFAULT_MODEL = "wan2.6-t2v";
 const DEFAULT_TIMEOUT_MS = 12e4;
@@ -121,10 +120,6 @@ const MODEL_CATALOG = {
 		}
 	}
 };
-function nearestDuration(value, allowed) {
-	const requested = typeof value === "number" && Number.isFinite(value) ? value : allowed[0];
-	return allowed.reduce((best, current) => Math.abs(current - requested) < Math.abs(best - requested) ? current : best);
-}
 function resolveModel(req) {
 	const model = normalizeOptionalString(req.model) ?? DEFAULT_MODEL;
 	if (!Object.hasOwn(MODEL_CATALOG, model)) throw new Error(`Novita video generation does not support model ${model}.`);
@@ -134,18 +129,6 @@ function resolveModel(req) {
 	if (images.length === 0 && model.endsWith("-i2v")) throw new Error(`Novita ${model} requires one input image.`);
 	if (images[0]?.role && images[0].role !== "first_frame") throw new Error("Novita image-to-video supports only an ordinary or first_frame image.");
 	return images.length > 0 ? model.replace(/-t2v$/, "-i2v") : model;
-}
-function resolveImage(req) {
-	const image = req.inputImages?.[0];
-	if (!image) return;
-	const url = normalizeOptionalString(image.url);
-	if (url) return url;
-	if (!image.buffer) throw new Error("Novita image-to-video input is missing image data.");
-	return toImageDataUrl({
-		...image,
-		buffer: image.buffer,
-		defaultMimeType: "image/png"
-	});
 }
 function resolveResolution(req, wan) {
 	return normalizeOptionalString(req.resolution)?.toUpperCase() === "1080P" ? "1080P" : wan ? "720P" : "768P";
@@ -160,18 +143,14 @@ function resolveWanSize(req) {
 }
 function buildBody(req, model) {
 	const wan = model.startsWith("wan");
-	const image = resolveImage(req);
+	const image = resolveImageSourceUrl(req.inputImages?.[0], "Novita image-to-video input is missing image data.");
 	const options = req.providerOptions ?? {};
 	const mode = image ? "imageToVideo" : "generate";
 	const schema = MODEL_CATALOG[model]?.capabilities?.[mode]?.providerOptions ?? {};
 	for (const [key, value] of Object.entries(options)) if (typeof value !== schema[key]) throw new Error(`Novita ${model} does not support provider option ${key} with this value.`);
 	const audioInputs = req.inputAudios ?? [];
 	if (audioInputs.length > (wan ? 1 : 0)) throw new Error(`Novita ${model} supports ${wan ? "at most one" : "no"} audio reference input.`);
-	const duration = nearestDuration(req.durationSeconds, wan ? [
-		5,
-		10,
-		15
-	] : [6, 10]);
+	const duration = req.durationSeconds ?? (wan ? 5 : 6);
 	const resolution = resolveResolution(req, wan);
 	if (!wan) {
 		if (duration === 10 && resolution === "1080P") throw new Error("Novita Hailuo 1080P requires a 6-second duration; use 768P for 10 seconds.");
@@ -205,13 +184,13 @@ function buildBody(req, model) {
 		}
 	};
 }
-function readTask(payload) {
+function isTaskComplete(payload) {
 	if (!isRecord(payload.task)) throw new Error("Novita video status response missing task.");
 	switch (payload.task.status) {
 		case "TASK_STATUS_QUEUED":
-		case "TASK_STATUS_PROCESSING":
-		case "TASK_STATUS_SUCCEED":
-		case "TASK_STATUS_FAILED": return payload.task;
+		case "TASK_STATUS_PROCESSING": return false;
+		case "TASK_STATUS_SUCCEED": return true;
+		case "TASK_STATUS_FAILED": throw new Error(`Novita video generation failed: ${normalizeOptionalString(payload.task.reason) ?? "task failed"}`);
 		default: throw new Error("Novita video status response returned an unknown task status.");
 	}
 }
@@ -240,13 +219,17 @@ function buildNovitaVideoGenerationProvider() {
 		async generateVideo(req) {
 			const model = resolveModel(req);
 			const body = buildBody(req, model);
-			const auth = await resolveApiKeyForProvider({
+			const providerConfig = req.cfg.models?.providers?.novita;
+			const configuredBase = normalizeOptionalString(providerConfig?.baseUrl)?.replace(/\/+$/, "").replace(/\/openai\/v1$/, "");
+			const { baseUrl, headers, allowPrivateNetwork, dispatcherPolicy } = await resolveProviderApiKeyHttpRequestConfig({
+				req,
+				missingApiKeyMessage: "Novita API key missing",
+				baseUrl: configuredBase ?? DEFAULT_BASE_URL,
+				defaultBaseUrl: DEFAULT_BASE_URL,
 				provider: "novita",
-				cfg: req.cfg,
-				agentDir: req.agentDir,
-				store: req.authStore
+				capability: "video",
+				request: sanitizeConfiguredModelProviderRequest(providerConfig?.request)
 			});
-			if (!auth.apiKey) throw new Error("Novita API key missing");
 			const deadline = createProviderOperationDeadline({
 				timeoutMs: req.timeoutMs ?? DEFAULT_OPERATION_TIMEOUT_MS,
 				label: "Novita video generation"
@@ -255,43 +238,25 @@ function buildNovitaVideoGenerationProvider() {
 				deadline,
 				defaultTimeoutMs: DEFAULT_TIMEOUT_MS
 			});
-			const providerConfig = req.cfg.models?.providers?.novita;
-			const configuredBase = normalizeOptionalString(providerConfig?.baseUrl)?.replace(/\/+$/, "").replace(/\/openai\/v1$/, "");
-			const { baseUrl, headers, allowPrivateNetwork, dispatcherPolicy } = resolveProviderHttpRequestConfig({
-				baseUrl: configuredBase ?? DEFAULT_BASE_URL,
-				defaultBaseUrl: DEFAULT_BASE_URL,
-				defaultHeaders: {
-					Authorization: `Bearer ${auth.apiKey}`,
-					"Content-Type": "application/json"
-				},
-				provider: "novita",
-				capability: "video",
-				transport: "http",
-				request: sanitizeConfiguredModelProviderRequest(providerConfig?.request)
-			});
 			const endpoint = `/v3/async/${model}`;
-			const { response, release } = await postJsonRequest({
+			const submitted = await postJsonResponse({
 				url: `${baseUrl}${endpoint}`,
 				headers,
 				body,
 				timeoutMs: timeoutMs(),
 				fetchFn: fetch,
 				allowPrivateNetwork,
-				dispatcherPolicy
-			});
-			let taskId;
-			try {
-				await assertOkOrThrowHttpError(response, "Novita video generation failed", {
+				dispatcherPolicy,
+				errorLabel: "Novita video generation failed",
+				errorOptions: {
 					bodyTimeoutMs: timeoutMs,
 					requestHeaders: headers
-				});
-				const submitted = await readProviderJsonObjectResponse(response, "Novita video generation failed", { timeoutMs });
-				const id = normalizeOptionalString(submitted.task_id);
-				if (!id) throw new Error("Novita video generation response missing task_id");
-				taskId = id;
-			} finally {
-				await release();
-			}
+				},
+				readOptions: { timeoutMs },
+				objectResponse: true
+			});
+			const taskId = normalizeOptionalString(submitted.task_id);
+			if (!taskId) throw new Error("Novita video generation response missing task_id");
 			const pollUrl = new URL(`${baseUrl}/v3/async/task-result`);
 			pollUrl.searchParams.set("task_id", taskId);
 			const completed = await pollProviderOperationJson({
@@ -300,17 +265,13 @@ function buildNovitaVideoGenerationProvider() {
 				deadline,
 				defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
 				fetchFn: fetch,
-				allowPrivateNetwork,
+				ssrfPolicy: { allowPrivateNetwork },
 				dispatcherPolicy,
 				maxAttempts: 120,
 				pollIntervalMs: 5e3,
 				requestFailedMessage: "Novita video status request failed",
 				timeoutMessage: `Novita video generation task ${taskId} did not finish in time`,
-				isComplete: (payload) => readTask(payload).status === "TASK_STATUS_SUCCEED",
-				getFailureMessage: (payload) => {
-					const task = readTask(payload);
-					return task.status === "TASK_STATUS_FAILED" ? `Novita video generation failed: ${normalizeOptionalString(task.reason) ?? "task failed"}` : void 0;
-				}
+				isComplete: isTaskComplete
 			});
 			const output = Array.isArray(completed.videos) ? completed.videos[0] : void 0;
 			const videoUrl = isRecord(output) ? normalizeOptionalString(output.video_url) : void 0;
@@ -338,5 +299,4 @@ function buildNovitaVideoGenerationProvider() {
 		}
 	};
 }
-//#endregion
 export { buildNovitaVideoGenerationProvider };

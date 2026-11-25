@@ -1,2 +1,1 @@
-import { t as buildTogetherProvider } from "../../provider-catalog-CzUTtHwq.mjs";
-export { buildTogetherProvider };
+import{t as buildTogetherProvider}from"../../provider-catalog-D8gkLPZg.mjs";export{buildTogetherProvider};

@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{IM as t,LM as n}from"./_2_____________________________.js";function r(e){return e?i(e):a}var i,a;function o(){return(o=e((()=>{n(),i=t({read:e=>e,subscribe:(e,t)=>{let n=[e.agents,e.agentIdentity,e.gateway].map(e=>e.subscribe(t));return()=>n.forEach(e=>e())}}),a={read:()=>void 0,revision:()=>0}})))()}export{r as n,o as t};
+//# sourceMappingURL=agent-row-context-B8T0acWq.js.map

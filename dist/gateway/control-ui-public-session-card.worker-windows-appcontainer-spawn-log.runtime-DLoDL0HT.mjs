@@ -1,0 +1,1 @@
+import{t as e}from"./control-ui-public-session-card.worker-subsystem-CMzSNBBo.mjs";function logAppContainerTokenProbeFailure(t){e(`process`).debug(`AppContainer token probe failed; allowing spawn`,{error:String(t)})}export{logAppContainerTokenProbeFailure};

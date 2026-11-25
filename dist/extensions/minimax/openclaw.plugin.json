@@ -165,7 +165,7 @@
       },
       "documentModels": {
         "pdf": {
-          "textExtraction": "MiniMax-M2.7",
+          "textExtraction": "MiniMax-M3",
           "image": false
         }
       },
@@ -182,7 +182,7 @@
       },
       "documentModels": {
         "pdf": {
-          "textExtraction": "MiniMax-M2.7",
+          "textExtraction": "MiniMax-M3",
           "image": false
         }
       },

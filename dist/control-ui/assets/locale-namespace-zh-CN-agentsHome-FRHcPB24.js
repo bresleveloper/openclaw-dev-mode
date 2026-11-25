@@ -1,0 +1,1 @@
+export default {"agentsHome":{"pinnedAgents":"已置顶的智能体","noAssistantMessage":"暂无智能体回复","viewSessions":"会话","deleteAgentConfirm":"删除 {agent}？","deleteAgentDetails":"其工作区、智能体状态和聊天记录将移至废纸篓。其渠道账号配置将保留。","agentOptions":"{agent} 的选项","working":"正在工作"}};

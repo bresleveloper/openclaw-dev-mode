@@ -1,0 +1,3 @@
+//!src/shared/markdown-code.ts
+function longestBacktickRun(e){let t=0;let n=0;for(const r of e){if(r==="`"){n+=1;t=Math.max(t,n);continue}n=0}return t}function formatInlineCodeSpan(e){const t="`".repeat(longestBacktickRun(e)+1);const n=e.startsWith("`")||e.endsWith("`")||e.includes(`
+`)||e.startsWith(` `)&&e.endsWith(` `)&&/[^ ]/.test(e)?` `:``;return`${t}${n}${e}${n}${t}`}function formatFencedCodeBlock(e,t){const n="`".repeat(Math.max(3,longestBacktickRun(e)+1));return`${n}${t??``}\n${e}\n${n}`}export{formatInlineCodeSpan as n,formatFencedCodeBlock as t};

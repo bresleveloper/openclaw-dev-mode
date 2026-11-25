@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";
+//!src/shared/text/auto-linked-file-ref.ts
+const FILE_REF_EXTENSIONS=[`md`,`go`,`py`,`pl`,`sh`,`am`,`at`,`be`,`cc`];const FILE_REF_EXTENSIONS_WITH_TLD=new Set(FILE_REF_EXTENSIONS);function isAutoLinkedFileRef(e,t){if(e.replace(/^https?:\/\//i,``)!==t)return false;const n=t.lastIndexOf(`.`);if(n<1)return false;const r=normalizeLowercaseStringOrEmpty(t.slice(n+1));if(!FILE_REF_EXTENSIONS_WITH_TLD.has(r))return false;return t.indexOf(`.`)>t.lastIndexOf(`/`)}export{isAutoLinkedFileRef as n,FILE_REF_EXTENSIONS_WITH_TLD as t};

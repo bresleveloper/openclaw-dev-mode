@@ -1,0 +1,2 @@
+//!src/plugins/agent-prompt-surface-kind.ts
+function normalizeAgentPromptSurfaceKind(e){return e===`pi_main`?`openclaw_main`:e}function isOpenClawMainPromptSurface(e){return normalizeAgentPromptSurfaceKind(e)===`openclaw_main`}export{normalizeAgentPromptSurfaceKind as n,isOpenClawMainPromptSurface as t};

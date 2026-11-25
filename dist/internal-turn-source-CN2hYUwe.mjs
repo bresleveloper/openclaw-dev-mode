@@ -1,0 +1,3 @@
+import{t as isStringOption}from"./string-readers-CdTvPGel.mjs";
+//!src/auto-reply/internal-turn-source.ts
+const LEGACY_INTERNAL_TURN_SOURCES=/* @__PURE__ */ new Map([[`heartbeat`,`heartbeat`],[`cron-event`,`cron`],[`exec-event`,`exec`]]);function legacyInternalTurnSource(e){return e?LEGACY_INTERNAL_TURN_SOURCES.get(e):void 0}function normalizeInternalTurnContext(e){const t=isStringOption(e.InternalTurnSource,[`heartbeat`,`cron`,`exec`,`event`,`progress-card-refresh`])?e.InternalTurnSource:legacyInternalTurnSource(e.Provider);if(t)e.InternalTurnSource=t;else delete e.InternalTurnSource;for(const t of[`Provider`,`Surface`,`OriginatingChannel`])if(legacyInternalTurnSource(e[t]))delete e[t]}export{normalizeInternalTurnContext as t};

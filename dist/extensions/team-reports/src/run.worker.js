@@ -1,15 +1,16 @@
-import { a as memberSummary, c as safeExternalUrl, i as countDescription, r as ITEM_LABELS, t as TeamReportsStore } from "../.setup/store-CDn4D32p.mjs";
-import { a as truncateGraphemes, o as buildRoster, r as boundReportDocument } from "../.setup/aggregate-KniOgsu_.mjs";
+import { n as GITHUB_ITEM_KINDS } from "../.setup/store-contract-Bp3uUP9F.mjs";
+import { i as memberSummary, r as countDescription, s as safeExternalUrl, t as TeamReportsStore } from "../.setup/store-a1nCDaMK.mjs";
+import { a as truncateGraphemes, o as buildRoster, r as boundReportDocument } from "../.setup/aggregate-Bt_HiV_r.mjs";
 import { z } from "zod";
+import { readErrorName } from "openclaw/plugin-sdk/error-runtime";
 import { createHash } from "node:crypto";
 import { serveWorkerTasks } from "openclaw/plugin-sdk/worker-task-server";
-import { racePromiseWithAbortSignal } from "openclaw/plugin-sdk/time-runtime";
 import { sleepWithAbort } from "openclaw/plugin-sdk/runtime-env";
 import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
 import { parseRetryAfterHeaderSeconds } from "openclaw/plugin-sdk/retry-runtime";
-//#region extensions/team-reports/src/render/markdown.ts
+// extensions/team-reports/src/render/markdown.ts
 function text(value) {
-	return value.replace(/[\\`*_{}[\]()#+.!|>~-]/g, "\\$&").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\r?\n/g, " ");
+	return value.replace(/[\\`*_{}[\]()#+.!|<>&~-]/g, "\\$&").replace(/\r?\n/g, " ");
 }
 function modelText(value) {
 	return value.replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -38,7 +39,7 @@ function renderMarkdown(report, summary) {
 		for (const item of member.github.items) {
 			const url = safeExternalUrl(item.url);
 			const title = text(item.title);
-			lines.push(`- ${ITEM_LABELS[item.kind]} · ${text(item.repo)}: ${url ? `[${title}](<${url}>)` : title}`);
+			lines.push(`- ${GITHUB_ITEM_KINDS[item.kind].label} · ${text(item.repo)}: ${url ? `[${title}](<${url}>)` : title}`);
 		}
 		for (const excerpt of member.discord.excerpts) lines.push(`- Discord #${text(excerpt.channel)}: ${text(excerpt.excerpt)}`);
 		lines.push("");
@@ -47,8 +48,52 @@ function renderMarkdown(report, summary) {
 	if (report.unmatchedDiscord.length > 0) lines.push("## Unmatched Discord authors", "", ...report.unmatchedDiscord.map((author) => `- ${text(author.authorId)}: ${author.messages} messages.`), "");
 	return `${lines.join("\n").trim()}\n`;
 }
-//#endregion
-//#region extensions/team-reports/src/sources/http.ts
+// extensions/team-reports/src/sources/http.ts
+var ApiResponseReadError = class extends Error {
+	constructor(kind) {
+		super(kind);
+		this.kind = kind;
+	}
+};
+async function readApiResponse(url, headers, status) {
+	let release;
+	try {
+		status.stats.apiCalls = Number(status.stats.apiCalls) + 1;
+		const result = await fetchWithSsrFGuard({
+			url: String(url),
+			init: {
+				headers,
+				redirect: "error"
+			},
+			timeoutMs: 3e4,
+			requireHttps: true,
+			maxRedirects: 0,
+			capture: false
+		});
+		const response = result.response;
+		release = result.release;
+		const body = await response.text();
+		let data;
+		try {
+			data = JSON.parse(body);
+		} catch {
+			data = void 0;
+		}
+		return {
+			status: response.status,
+			headers: response.headers,
+			data
+		};
+	} catch (error) {
+		const name = readErrorName(error);
+		if (name === "TimeoutError" || name === "AbortError") throw new ApiResponseReadError("timeout");
+		throw error;
+	} finally {
+		await release?.().catch(() => {
+			throw new ApiResponseReadError("release");
+		});
+	}
+}
 function createResponseParser(createError) {
 	return (schema, data) => {
 		const parsed = schema.safeParse(data);
@@ -56,121 +101,20 @@ function createResponseParser(createError) {
 		return parsed.data;
 	};
 }
-function checkAbort(signal, label) {
-	if (signal?.aborted) throw new DOMException(label, "AbortError");
-}
-async function wait(ms, signal, label) {
-	checkAbort(signal, label);
-	try {
-		await sleepWithAbort(ms, signal);
-	} catch (error) {
-		checkAbort(signal, label);
-		throw error;
-	}
-	checkAbort(signal, label);
-}
 function parseApiBase(raw, label) {
 	const base = URL.parse(`${raw.replace(/\/+$/, "")}/`);
 	if (!base) throw new Error(`${label} API base URL is invalid.`);
 	if (base.protocol !== "https:" || base.username || base.password || base.search || base.hash) throw new Error(`${label} API base URL must use HTTPS without credentials, query, or fragment.`);
 	return base;
 }
-//#endregion
-//#region extensions/team-reports/src/sources/discord/client.ts
+// extensions/team-reports/src/sources/discord/index.ts
 const retrySchema = z.object({ retry_after: z.number().finite().nonnegative() });
-const timeoutMs = 3e4;
-const ABORT_LABEL$1 = "Discord collection aborted.";
 var DiscordHttpError = class extends Error {
 	constructor(status) {
 		super(`Discord request failed (HTTP ${status}); check bot channel permissions.`);
 		this.status = status;
 	}
 };
-function createClient(config, runtime, status) {
-	const base = parseApiBase(config.apiBaseUrl, "Discord");
-	async function request(url) {
-		const controller = new AbortController();
-		const signal = runtime.signal ? AbortSignal.any([runtime.signal, controller.signal]) : controller.signal;
-		const timer = setTimeout(() => controller.abort(), timeoutMs);
-		const init = {
-			headers: {
-				Authorization: `Bot ${config.token}`,
-				Accept: "application/json"
-			},
-			signal,
-			redirect: "error"
-		};
-		let release;
-		try {
-			checkAbort(runtime.signal, ABORT_LABEL$1);
-			status.stats.apiCalls = Number(status.stats.apiCalls) + 1;
-			let response;
-			if (runtime.fetchImpl) response = await runtime.fetchImpl(url, init);
-			else {
-				const result = await fetchWithSsrFGuard({
-					url,
-					init,
-					signal,
-					timeoutMs,
-					requireHttps: true,
-					maxRedirects: 0,
-					capture: false
-				});
-				response = result.response;
-				release = result.release;
-			}
-			const body = await response.text();
-			checkAbort(runtime.signal, ABORT_LABEL$1);
-			let data;
-			try {
-				data = JSON.parse(body);
-			} catch {
-				data = void 0;
-			}
-			return {
-				status: response.status,
-				headers: response.headers,
-				data
-			};
-		} finally {
-			clearTimeout(timer);
-			await release?.();
-		}
-	}
-	return { async get(path, params) {
-		const url = new URL(path.replace(/^\//, ""), base);
-		for (const [key, value] of Object.entries(params ?? {})) url.searchParams.set(key, value);
-		let retries = 0;
-		while (true) {
-			checkAbort(runtime.signal, ABORT_LABEL$1);
-			let result;
-			try {
-				result = await request(url.toString());
-			} catch {
-				checkAbort(runtime.signal, ABORT_LABEL$1);
-				if (retries >= 2) throw new Error("Discord request failed after retries; check connectivity and API access.");
-				await wait(1e3 * 2 ** retries++, runtime.signal, ABORT_LABEL$1);
-				continue;
-			}
-			if (result.status === 429) {
-				const retry = retrySchema.safeParse(result.data);
-				const headerDelay = Number(result.headers.get("Retry-After"));
-				const seconds = retry.success ? retry.data.retry_after : headerDelay;
-				await wait(Number.isFinite(seconds) && seconds > 0 ? seconds * 1e3 : 1e3, runtime.signal, ABORT_LABEL$1);
-				continue;
-			}
-			if (result.status >= 500 && retries < 2) {
-				await wait(1e3 * 2 ** retries++, runtime.signal, ABORT_LABEL$1);
-				continue;
-			}
-			if (result.status < 200 || result.status >= 300) throw new DiscordHttpError(result.status);
-			if (result.data === void 0) throw new Error("Discord returned invalid JSON.");
-			return result.data;
-		}
-	} };
-}
-//#endregion
-//#region extensions/team-reports/src/sources/discord/index.ts
 const snowflake = z.string().regex(/^\d{1,20}$/);
 const channelSchema = z.object({
 	id: snowflake,
@@ -208,17 +152,48 @@ function createDiscordSource(runtime) {
 		};
 		let messageCount = 0;
 		const warn = (scope, error) => {
-			checkAbort(runtime.signal, ABORT_LABEL$1);
 			const warning = `${scope}: ${error instanceof Error ? error.message : "Discord collection failed."}`;
 			status.warnings.push(config.token ? warning.replaceAll(config.token, "[redacted]") : warning);
 			status.stale = true;
 			status.ok = false;
 		};
-		checkAbort(runtime.signal, ABORT_LABEL$1);
-		const client = createClient(config, runtime, status);
+		const base = parseApiBase(config.apiBaseUrl, "Discord");
+		const request = (url) => readApiResponse(url, {
+			Authorization: `Bot ${config.token}`,
+			Accept: "application/json"
+		}, status);
+		const get = async (path, params) => {
+			const url = new URL(path.replace(/^\//, ""), base);
+			for (const [key, value] of Object.entries(params ?? {})) url.searchParams.set(key, value);
+			let retries = 0;
+			while (true) {
+				let result;
+				try {
+					result = await request(url.toString());
+				} catch {
+					if (retries >= 2) throw new Error("Discord request failed after retries; check connectivity and API access.");
+					await sleepWithAbort(1e3 * 2 ** retries++);
+					continue;
+				}
+				if (result.status === 429) {
+					const retry = retrySchema.safeParse(result.data);
+					const headerDelay = Number(result.headers.get("Retry-After"));
+					const seconds = retry.success ? retry.data.retry_after : headerDelay;
+					await sleepWithAbort(Number.isFinite(seconds) && seconds > 0 ? seconds * 1e3 : 1e3);
+					continue;
+				}
+				if (result.status >= 500 && retries < 2) {
+					await sleepWithAbort(1e3 * 2 ** retries++);
+					continue;
+				}
+				if (result.status < 200 || result.status >= 300) throw new DiscordHttpError(result.status);
+				if (result.data === void 0) throw new Error("Discord returned invalid JSON.");
+				return result.data;
+			}
+		};
 		const channels = /* @__PURE__ */ new Map();
 		try {
-			for (const channel of parse$1(z.array(channelSchema), await client.get(`/guilds/${encodeURIComponent(config.guildId)}/channels`))) channels.set(channel.id, channel);
+			for (const channel of parse$1(z.array(channelSchema), await get(`/guilds/${encodeURIComponent(config.guildId)}/channels`))) channels.set(channel.id, channel);
 		} catch (error) {
 			warn("Discord guild channels", error);
 		}
@@ -243,15 +218,14 @@ function createDiscordSource(runtime) {
 			}
 		};
 		try {
-			parse$1(activeSchema, await client.get(`/guilds/${encodeURIComponent(config.guildId)}/threads/active`)).threads.forEach(addThread);
+			parse$1(activeSchema, await get(`/guilds/${encodeURIComponent(config.guildId)}/threads/active`)).threads.forEach(addThread);
 		} catch (error) {
 			warn("Discord active threads", error);
 		}
 		const collectArchives = async (path, order = "timestamp") => {
 			let before;
 			while (true) {
-				checkAbort(runtime.signal, ABORT_LABEL$1);
-				const page = parse$1(archivesSchema, await client.get(path, {
+				const page = parse$1(archivesSchema, await get(path, {
 					limit: "100",
 					...before ? { before } : {}
 				}));
@@ -293,8 +267,7 @@ function createDiscordSource(runtime) {
 			let after = (BigInt(window.sinceMs) - epochMs << 22n).toString();
 			try {
 				while (true) {
-					checkAbort(runtime.signal, ABORT_LABEL$1);
-					const page = parse$1(messagesSchema, await client.get(`/channels/${encodeURIComponent(target.id)}/messages`, {
+					const page = parse$1(messagesSchema, await get(`/channels/${encodeURIComponent(target.id)}/messages`, {
 						limit: "100",
 						after
 					}));
@@ -337,14 +310,11 @@ function createDiscordSource(runtime) {
 				warn(`Discord messages for channel ${target.id}`, error);
 			}
 		}
-		checkAbort(runtime.signal, ABORT_LABEL$1);
 		runtime.logger.info(`team-reports: Discord messages done: ${status.stats.channelsScanned} channels, ${status.stats.threadsScanned} threads, ${messageCount} messages`);
 		return status;
 	} };
 }
-//#endregion
-//#region extensions/team-reports/src/sources/github/client.ts
-const ABORT_LABEL = "GitHub collection aborted";
+// extensions/team-reports/src/sources/github/client.ts
 var GithubSourceError = class extends Error {};
 var GithubHttpError = class extends GithubSourceError {
 	constructor(status) {
@@ -360,9 +330,8 @@ function pathWithQuery(path, query) {
 	})}`;
 }
 var GithubClient = class {
-	constructor(cfg, runtime, status) {
+	constructor(cfg, status) {
 		this.cfg = cfg;
-		this.runtime = runtime;
 		this.status = status;
 		try {
 			this.base = parseApiBase(cfg.apiBaseUrl, "GitHub");
@@ -371,14 +340,12 @@ var GithubClient = class {
 		}
 	}
 	warn(scope, error) {
-		checkAbort(this.runtime.signal, ABORT_LABEL);
 		const message = `${scope}: ${error instanceof GithubSourceError ? error.message : "Request failed; check API access and connectivity"}`;
 		this.status.warnings.push(this.cfg.token ? message.replaceAll(this.cfg.token, "[redacted]") : message);
 		this.status.stale = true;
 		this.status.ok = false;
 	}
 	async attempt(scope, action) {
-		checkAbort(this.runtime.signal, ABORT_LABEL);
 		try {
 			await action();
 		} catch (error) {
@@ -393,62 +360,20 @@ var GithubClient = class {
 	async get(path) {
 		const url = this.url(path);
 		for (let failures = 0;;) {
-			checkAbort(this.runtime.signal, ABORT_LABEL);
-			this.status.stats.apiCalls = Number(this.status.stats.apiCalls) + 1;
 			let response;
 			let data;
-			let release;
-			const controller = new AbortController();
-			const signal = this.runtime.signal ? AbortSignal.any([this.runtime.signal, controller.signal]) : controller.signal;
-			const timeout = setTimeout(() => controller.abort(), 3e4);
 			try {
-				const init = {
-					headers: {
-						Accept: "application/vnd.github+json",
-						"X-GitHub-Api-Version": "2022-11-28",
-						Authorization: `Bearer ${this.cfg.token}`
-					},
-					signal,
-					redirect: "error"
-				};
-				if (this.runtime.fetchImpl) response = await this.runtime.fetchImpl(url, init);
-				else {
-					const result = await fetchWithSsrFGuard({
-						url: url.href,
-						init,
-						signal: this.runtime.signal,
-						requireHttps: true,
-						timeoutMs: 3e4,
-						maxRedirects: 0,
-						capture: false
-					});
-					release = result.release;
-					response = result.response;
-				}
-				const body = await response.text();
-				checkAbort(this.runtime.signal, ABORT_LABEL);
-				if (response.ok) try {
-					data = JSON.parse(body);
-				} catch {
-					throw new GithubSourceError("Invalid JSON API response");
-				}
-				else if (response.status === 403 || response.status === 409) try {
-					data = JSON.parse(body);
-				} catch {
-					data = void 0;
-				}
+				response = await readApiResponse(url, {
+					Accept: "application/vnd.github+json",
+					"X-GitHub-Api-Version": "2022-11-28",
+					Authorization: `Bearer ${this.cfg.token}`
+				}, this.status);
+				data = response.data;
+				if (response.status >= 200 && response.status < 300 && data === void 0) throw new GithubSourceError("Invalid JSON API response");
 			} catch (error) {
-				checkAbort(this.runtime.signal, ABORT_LABEL);
 				if (error instanceof GithubSourceError) throw error;
-				throw new GithubSourceError(controller.signal.aborted ? "API request timed out" : "Request failed; check API access and connectivity");
-			} finally {
-				clearTimeout(timeout);
-				if (release) await release().catch(() => {
-					checkAbort(this.runtime.signal, ABORT_LABEL);
-					throw new GithubSourceError("Could not release API response");
-				});
+				throw new GithubSourceError(error instanceof ApiResponseReadError ? error.kind === "timeout" ? "API request timed out" : "Could not release API response" : "Request failed; check API access and connectivity");
 			}
-			checkAbort(this.runtime.signal, ABORT_LABEL);
 			const remaining = response.headers.get("x-ratelimit-remaining");
 			if (remaining !== null && Number.isFinite(Number(remaining))) this.status.stats.rateLimitRemaining = Number(remaining);
 			const retryAfter = parseRetryAfterHeaderSeconds(response.headers.get("retry-after"));
@@ -456,15 +381,15 @@ var GithubClient = class {
 			const resetDelay = resetHeader === null ? 0 : Math.max(0, Number(resetHeader) * 1e3 - Date.now());
 			const errorBody = z.object({ message: z.string() }).safeParse(data);
 			if (response.status === 429 || response.status === 403 && (remaining === "0" || retryAfter !== void 0 || errorBody.success && /(?:secondary )?rate limit|abuse detection/i.test(errorBody.data.message))) {
-				await wait(Math.max(1e3, (retryAfter ?? 0) * 1e3, Number.isFinite(resetDelay) ? resetDelay : 0, retryAfter === void 0 && remaining !== "0" ? 6e4 : 0), this.runtime.signal, ABORT_LABEL);
+				await sleepWithAbort(Math.max(1e3, (retryAfter ?? 0) * 1e3, Number.isFinite(resetDelay) ? resetDelay : 0, retryAfter === void 0 && remaining !== "0" ? 6e4 : 0));
 				continue;
 			}
 			if (response.status >= 500 && failures < 3) {
 				failures += 1;
-				await wait(1e3 * 2 ** (failures - 1), this.runtime.signal, ABORT_LABEL);
+				await sleepWithAbort(1e3 * 2 ** (failures - 1));
 				continue;
 			}
-			if (!response.ok) {
+			if (response.status < 200 || response.status >= 300) {
 				if (response.status === 409 && /^repos\/[^/]+\/[^/]+\/commits$/u.test(url.pathname.slice(this.base.pathname.length)) && errorBody.success && errorBody.data.message === "Git Repository is empty.") return { data: [] };
 				throw new GithubHttpError(response.status);
 			}
@@ -479,22 +404,17 @@ var GithubClient = class {
 		let next = path;
 		const seen = /* @__PURE__ */ new Set();
 		while (next) {
-			checkAbort(this.runtime.signal, ABORT_LABEL);
 			const canonical = this.url(next).href;
 			if (seen.has(canonical)) throw new GithubSourceError("API pagination did not advance");
 			seen.add(canonical);
 			const page = await this.get(next);
-			for (const item of parse(z.array(schema), page.data)) {
-				checkAbort(this.runtime.signal, ABORT_LABEL);
-				yield item;
-			}
+			for (const item of parse(z.array(schema), page.data)) yield item;
 			await afterPage?.();
 			next = page.next;
 		}
 	}
 };
-//#endregion
-//#region extensions/team-reports/src/sources/github/schemas.ts
+// extensions/team-reports/src/sources/github/index.ts
 const date = z.string().refine((value) => Number.isFinite(Date.parse(value)));
 const userSchema = z.object({ login: z.string().min(1) });
 const collaboratorSchema = userSchema.extend({ permissions: z.object({
@@ -545,8 +465,6 @@ const advisorySchema = z.object({
 	})).nullish(),
 	publisher: userSchema.nullish()
 });
-//#endregion
-//#region extensions/team-reports/src/sources/github/search.ts
 function searchPath(query, org, start, end) {
 	const type = query.kind === "issues" ? ` is:${query.type}` : "";
 	return pathWithQuery(`/search/${query.kind}`, { q: `org:${org}${type} ${query.qualifier}:${(/* @__PURE__ */ new Date(start * 1e3)).toISOString()}..${(/* @__PURE__ */ new Date(end * 1e3)).toISOString()}` });
@@ -591,8 +509,6 @@ async function* search(client, query, org, window, itemSchema, first, afterPage)
 	}
 	yield* range(...searchSeconds(window), first);
 }
-//#endregion
-//#region extensions/team-reports/src/sources/github/index.ts
 function newStatus() {
 	return {
 		ok: true,
@@ -608,8 +524,8 @@ function newStatus() {
 function repoPath(repo) {
 	return `/repos/${repo.split("/").map(encodeURIComponent).join("/")}`;
 }
-function inWindow(date, window) {
-	const atMs = date ? Date.parse(date) : NaN;
+function inWindow(timestamp, window) {
+	const atMs = timestamp ? Date.parse(timestamp) : NaN;
 	return atMs >= window.sinceMs && atMs < window.untilMs;
 }
 function commentTitle(body) {
@@ -640,7 +556,7 @@ function createGithubSource(runtime) {
 	return {
 		async loadRoster(cfg) {
 			const status = newStatus();
-			const client = new GithubClient(cfg, runtime, status);
+			const client = new GithubClient(cfg, status);
 			const people = /* @__PURE__ */ new Map();
 			const add = (login) => people.set(login.toLowerCase(), { github: [login] });
 			for (const team of cfg.teams) await client.attempt(`Load team ${team.org}/${team.slug}`, async () => {
@@ -649,7 +565,6 @@ function createGithubSource(runtime) {
 			if (cfg.includeDirectCollaborators) for (const repo of (await listRepos(client, cfg)).values()) await client.attempt(`Load collaborators for ${repo.full_name}`, async () => {
 				for await (const user of client.pages(pathWithQuery(`${repoPath(repo.full_name)}/collaborators`, { affiliation: "direct" }), collaboratorSchema)) if (user.permissions?.push || user.permissions?.maintain || user.permissions?.admin) add(user.login);
 			});
-			checkAbort(runtime.signal, ABORT_LABEL);
 			runtime.logger.info(`team-reports: GitHub roster loaded: ${people.size} people`);
 			return {
 				people: [...people].toSorted(([a], [b]) => a.localeCompare(b, "en")).map(([, person]) => person),
@@ -658,9 +573,8 @@ function createGithubSource(runtime) {
 		},
 		async collect(cfg, window, roster, emit) {
 			const status = newStatus();
-			const client = new GithubClient(cfg, runtime, status);
-			checkAbort(runtime.signal, ABORT_LABEL);
-			if (!Number.isFinite(window.sinceMs) || !Number.isFinite(window.untilMs) || window.untilMs <= window.sinceMs) throw new Error("Invalid GitHub activity window");
+			const client = new GithubClient(cfg, status);
+			if (window.untilMs <= window.sinceMs) throw new Error("Invalid GitHub activity window");
 			const repos = await listRepos(client, cfg);
 			runtime.logger.info(`team-reports: GitHub repos listed: ${repos.size}`);
 			let pending = [];
@@ -681,10 +595,14 @@ function createGithubSource(runtime) {
 			};
 			const seenIssues = /* @__PURE__ */ new Set();
 			const add = async (item) => {
-				checkAbort(runtime.signal, ABORT_LABEL);
 				if (item.atMs >= window.sinceMs && item.atMs < window.untilMs) {
 					pending.push({
-						key: `${item.kind}\0${item.url}\0${item.actor.toLowerCase()}\0${item.atMs}`,
+						key: JSON.stringify([
+							item.kind,
+							item.url,
+							item.actor.toLowerCase(),
+							item.atMs
+						]),
 						value: item
 					});
 					itemCount++;
@@ -693,15 +611,15 @@ function createGithubSource(runtime) {
 				}
 			};
 			const addCommit = async (repo, commit) => {
-				const date = commit.commit.committer?.date;
-				if (!inWindow(date, window)) return;
+				const committedAt = commit.commit.committer?.date;
+				if (!inWindow(committedAt, window)) return;
 				active.add(repo.toLowerCase());
 				await add({
 					kind: "commit",
 					repo,
 					title: commit.commit.message.split(/\r?\n/, 1)[0] ?? "",
 					url: commit.html_url,
-					atMs: Date.parse(date ?? ""),
+					atMs: Date.parse(committedAt ?? ""),
 					actor: commit.author?.login ?? "",
 					coauthors: coauthors(commit.commit.message, roster)
 				});
@@ -849,27 +767,25 @@ function createGithubSource(runtime) {
 							direction: "desc"
 						}), advisorySchema, flush)) {
 							if (advisory.updated_at && Date.parse(advisory.updated_at) < window.sinceMs) break;
-							const date = inWindow(advisory.updated_at, window) ? advisory.updated_at : advisory.published_at;
-							if (!inWindow(date, window)) continue;
+							const advisoryDate = inWindow(advisory.updated_at, window) ? advisory.updated_at : advisory.published_at;
+							if (!inWindow(advisoryDate, window)) continue;
 							const actors = new Set([advisory.publisher?.login, ...(advisory.credits ?? []).map((credit) => credit.user?.login ?? credit.login)].filter((login) => Boolean(login)));
 							for (const actor of actors) await add({
 								kind: "security_advisory",
 								repo: repo.full_name,
 								title: advisory.summary,
 								url: advisory.html_url,
-								atMs: Date.parse(date ?? ""),
+								atMs: Date.parse(advisoryDate ?? ""),
 								actor
 							});
 						}
 					} catch (error) {
-						checkAbort(runtime.signal, ABORT_LABEL);
 						if (error instanceof GithubHttpError && (error.status === 403 || error.status === 404)) status.stats.advisoriesSkipped = Number(status.stats.advisoriesSkipped) + 1;
 						else throw error;
 					}
 				});
 				await flush();
 			}
-			checkAbort(runtime.signal, ABORT_LABEL);
 			runtime.logger.info(`team-reports: GitHub comments scanned: ${status.stats.reposScanned} repos; advisories scanned: ${advisoryReposScanned} repos`);
 			if (Number(status.stats.advisoriesSkipped) > 0) runtime.logger.info(`team-reports: GitHub advisories skipped: ${status.stats.advisoriesSkipped} repos (HTTP 403/404; no advisories visible)`);
 			await flush();
@@ -877,8 +793,7 @@ function createGithubSource(runtime) {
 		}
 	};
 }
-//#endregion
-//#region extensions/team-reports/src/summaries.ts
+// extensions/team-reports/src/summaries.ts
 const MAX_RESPONSE_CHARS = 131072;
 const MAX_DIGEST_BYTES = 2097152;
 var SummaryResponseError = class extends Error {
@@ -1089,8 +1004,7 @@ function fallbackResult(report, fingerprint, generatedAtMs, reason, logger) {
 	};
 }
 async function generateSummaries(params) {
-	const { report, options, previous, signal } = params;
-	signal?.throwIfAborted();
+	const { report, options, previous } = params;
 	const digest = buildEvidenceDigest(report);
 	const fingerprint = createHash("sha256").update(digest).digest("hex");
 	const generatedAtMs = Date.now();
@@ -1118,7 +1032,6 @@ async function generateSummaries(params) {
 	const maxTokens = Math.min(32e3, 4e3 + 300 * report.members.length);
 	let failureReason = "Model summary unavailable: invalid JSON after repair";
 	for (let attempt = 0; attempt < 2; attempt += 1) {
-		signal?.throwIfAborted();
 		let result;
 		try {
 			result = await params.llm.complete({
@@ -1127,14 +1040,11 @@ async function generateSummaries(params) {
 				reasoning: options.reasoning,
 				agentId: options.agentId,
 				maxTokens,
-				purpose: "team-reports summary",
-				signal
+				purpose: "team-reports summary"
 			});
 		} catch {
-			signal?.throwIfAborted();
 			return fallbackResult(report, fingerprint, generatedAtMs, "Model summary unavailable: completion failed", params.logger);
 		}
-		signal?.throwIfAborted();
 		try {
 			const parsed = parseResponse(result.text, report);
 			return {
@@ -1165,32 +1075,22 @@ async function generateSummaries(params) {
 	}
 	return fallbackResult(report, fingerprint, generatedAtMs, failureReason, params.logger);
 }
-//#endregion
-//#region extensions/team-reports/src/run.ts
-function createReportSources(runtime, discordEnabled) {
-	return {
-		github: createGithubSource(runtime),
-		discord: discordEnabled ? createDiscordSource(runtime) : void 0
-	};
-}
-function untilAborted(work, signal) {
-	return racePromiseWithAbortSignal(work, signal, ({ reason }) => reason instanceof Error ? reason : new Error(typeof reason === "string" ? reason : "Team Reports run aborted"));
-}
+// extensions/team-reports/src/run.ts
 async function generateReportPeriods(params) {
 	const { config, resolved, store, runtime } = params;
-	const sources = params.sources(runtime);
-	const loaded = await untilAborted(sources.github.loadRoster(resolved.github), runtime.signal);
-	runtime.signal.throwIfAborted();
+	const sources = {
+		github: createGithubSource(runtime),
+		discord: resolved.discord ? createDiscordSource(runtime) : void 0
+	};
+	const loaded = await sources.github.loadRoster(resolved.github);
 	if (!loaded.status.ok) throw new Error("GitHub roster unavailable; check token access and configured teams");
 	const roster = buildRoster(resolved.people, loaded.people);
 	params.onRoster([...new Set(roster.byLogin.values())]);
 	const statuses = {};
 	const rejectedDays = [];
 	for (const period of params.periods) {
-		runtime.signal.throwIfAborted();
 		if (period.period !== "day" && rejectedDays.some((day) => day.sinceMs < period.untilMs && day.untilMs > period.sinceMs)) continue;
 		const previous = await store.getPeriodDocument(period.period, period.key);
-		runtime.signal.throwIfAborted();
 		const accepted = previous?.report;
 		if (params.reuseCollectedDays && period.period === "day" && accepted && accepted.status === "closed" && Object.values(accepted.sources).every((source) => source.ok) && accepted.orgs.join("\0") === [...new Set(resolved.github.orgs)].toSorted().join("\0")) {
 			statuses[`day/${period.key}/github`] = accepted.sources.github;
@@ -1205,23 +1105,18 @@ async function generateReportPeriods(params) {
 				untilMs: Math.min(cutoffMs, period.untilMs)
 			};
 			await store.resetActivity();
-			runtime.signal.throwIfAborted();
-			const github = await untilAborted(sources.github.collect(resolved.github, window, roster, async (entries) => {
-				runtime.signal.throwIfAborted();
+			const github = await sources.github.collect(resolved.github, window, roster, async (entries) => {
 				await store.appendActivity({
 					source: "github",
 					entries
 				});
-			}), runtime.signal);
-			runtime.signal.throwIfAborted();
-			const discord = resolved.discord && sources.discord ? await untilAborted(sources.discord.collect(resolved.discord, window, async (entries) => {
-				runtime.signal.throwIfAborted();
+			});
+			const discord = resolved.discord && sources.discord ? await sources.discord.collect(resolved.discord, window, async (entries) => {
 				await store.appendActivity({
 					source: "discord",
 					entries
 				});
-			}), runtime.signal) : void 0;
-			runtime.signal.throwIfAborted();
+			}) : void 0;
 			const githubStatus = {
 				...github,
 				warnings: [.../* @__PURE__ */ new Set([...loaded.status.warnings, ...github.warnings])],
@@ -1238,7 +1133,6 @@ async function generateReportPeriods(params) {
 				discordConfig: resolved.discord
 			});
 			await store.resetActivity();
-			runtime.signal.throwIfAborted();
 			report.generatedAtMs = Date.now();
 		} else report = await store.aggregatePeriod({
 			period,
@@ -1253,7 +1147,7 @@ async function generateReportPeriods(params) {
 			continue;
 		}
 		for (const options of [{ enabled: false }, ...config.summaries.enabled ? [config.summaries] : []]) {
-			const summarized = await untilAborted(generateSummaries({
+			const summarized = await generateSummaries({
 				report,
 				options,
 				llm: params.llm,
@@ -1261,10 +1155,8 @@ async function generateReportPeriods(params) {
 				previous: options.enabled && previous?.summary ? {
 					report: previous.report,
 					summary: previous.summary
-				} : void 0,
-				signal: runtime.signal
-			}), runtime.signal);
-			runtime.signal.throwIfAborted();
+				} : void 0
+			});
 			const bounded = boundReportDocument(summarized.report);
 			await store.upsertPeriod({
 				report: bounded,
@@ -1272,12 +1164,10 @@ async function generateReportPeriods(params) {
 				markdown: renderMarkdown(bounded, summarized.summary)
 			});
 		}
-		runtime.signal.throwIfAborted();
 	}
 	return statuses;
 }
-//#endregion
-//#region extensions/team-reports/src/run.worker.ts
+// extensions/team-reports/src/run.worker.ts
 serveWorkerTasks(async (value, channel, control) => {
 	if (!channel) throw new Error("Team Reports requires a host task channel");
 	const input = value;
@@ -1314,7 +1204,6 @@ serveWorkerTasks(async (value, channel, control) => {
 			meta
 		})
 	};
-	const signal = new AbortController().signal;
 	const store = new TeamReportsStore({
 		async execute(command) {
 			return await request({
@@ -1328,11 +1217,7 @@ serveWorkerTasks(async (value, channel, control) => {
 		return await generateReportPeriods({
 			...input,
 			store,
-			runtime: {
-				logger,
-				signal
-			},
-			sources: (runtime) => createReportSources(runtime, Boolean(input.resolved.discord)),
+			runtime: { logger },
 			llm: { complete: async ({ signal: _signal, ...params }) => {
 				return await request({
 					kind: "llm",
@@ -1347,5 +1232,4 @@ serveWorkerTasks(async (value, channel, control) => {
 		if (logs.length || roster) await request({ kind: "flush" });
 	}
 });
-//#endregion
 export {};

@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"Arbetar med: {context}","removeContext":"Ta bort arbetskontext","includeContext":"Inkludera arbetskontext","selection":"Markerad text","attachSelection":"Bifoga markerad text","attachSelectionTooltip":"Bifoga markering","removeSelection":"Ta bort markerad text"}};

@@ -1,0 +1,1 @@
+import{r as e}from"./openclaw-state-read-config-machine-state-row-BTKlRkqR.mjs";const t={"machineState.read":(t,n)=>({type:`machineState.read`,row:e(n,t.key)})};export{t as machineStateReadOperations};

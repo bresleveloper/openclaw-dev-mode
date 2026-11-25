@@ -1,0 +1,3 @@
+import{f as resolveAgentWorkspaceDir,h as resolveConfiguredAgentId,l as resolveAgentOperationAgentId}from"./agent-scope-config-a2Ym-O21.mjs";import"./agent-scope-A1AqU6fw.mjs";
+//!src/commands/channel-setup/owner.ts
+function resolveChannelSetupOwner(e,t){const n=t?.trim();if(t!==void 0&&!n)throw new Error(`--agent must not be blank`);const r=resolveConfiguredAgentId(e,n??resolveAgentOperationAgentId(e,void 0,{surface:`channel plugin discovery`,hint:`Pass --agent <id> to channels commands or set agents.defaults.systemAgent.agentId.`}));return{agentId:r,workspaceDir:resolveAgentWorkspaceDir(e,r)}}export{resolveChannelSetupOwner as t};

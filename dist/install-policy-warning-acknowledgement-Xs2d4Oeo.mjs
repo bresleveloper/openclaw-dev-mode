@@ -1,0 +1,3 @@
+import{n as sanitizeTerminalText}from"./safe-text-B_QTgn0s.mjs";import{n as promptText}from"./prompt-Cy3o3NWH.mjs";
+//!src/cli/install-policy-warning-acknowledgement.ts
+function resolveInstallPolicyWarningAcknowledgementCliOptions(e){const t=!e.acknowledgeInstallPolicyWarning&&e.allowPrompt!==false&&process.stdin.isTTY&&process.stdout.isTTY;return e.acknowledgeInstallPolicyWarning?{onInstallPolicyWarning:async()=>({status:`approved`})}:t?{onInstallPolicyWarning:async e=>{const t=sanitizeTerminalText(e.targetName);return(await promptText(`type: '${t}' to ${e.requestMode} anyway\n> `)).trim()===t?{status:`approved`}:{status:`declined`}}}:{}}export{resolveInstallPolicyWarningAcknowledgementCliOptions as t};

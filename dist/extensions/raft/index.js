@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/raft/index.ts
+// extensions/raft/index.ts
 var raft_default = defineBundledChannelEntry({
 	id: "raft",
 	name: "Raft",
@@ -10,5 +10,4 @@ var raft_default = defineBundledChannelEntry({
 		exportName: "raftPlugin"
 	}
 });
-//#endregion
 export { raft_default as default };

@@ -1,0 +1,3 @@
+import{d as asPositiveFiniteNumber}from"./number-coercion-B3CfI447.mjs";
+//!src/shared/session-activity-timestamp.ts
+function sessionActivityTimestamp(e){const t=asPositiveFiniteNumber(e.lastActivityAt);const n=asPositiveFiniteNumber(e.lastInteractionAt);if(t!==void 0||n!==void 0)return Math.max(t??0,n??0);return asPositiveFiniteNumber(e.updatedAt)??asPositiveFiniteNumber(e.createdAt)??0}export{sessionActivityTimestamp as t};

@@ -1,0 +1,3 @@
+import{t as dispatchNativeHookRelayHttpCallback}from"./native-hook-relay-DYwDqnzX.mjs";
+//!src/gateway/native-hook-relay-http.ts
+async function handleNativeHookRelayHttpRequest(e){const{req:t,res:n,clientIp:r,rateLimiter:i}=e;const a=`native-hook-callback`;if(i&&!i.check(r,a).allowed){n.writeHead(429).end();return true}await dispatchNativeHookRelayHttpCallback(t,n);if(n.statusCode===403)i?.recordFailure(r,a);return true}export{handleNativeHookRelayHttpRequest};

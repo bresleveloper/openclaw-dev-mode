@@ -1,2 +1,1 @@
-import { n as refreshMiniMaxPortalOAuthCredential, t as loginMiniMaxPortalOAuth } from "../../oauth-DW_MEWba.mjs";
-export { loginMiniMaxPortalOAuth, refreshMiniMaxPortalOAuthCredential };
+import{n as refreshMiniMaxPortalOAuthCredential,t as loginMiniMaxPortalOAuth}from"../../oauth-DUsRVtBo.mjs";export{loginMiniMaxPortalOAuth,refreshMiniMaxPortalOAuthCredential};

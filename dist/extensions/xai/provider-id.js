@@ -1,2 +1,1 @@
-import { t as isXaiProviderId } from "../../provider-id-BklI9wmC.mjs";
-export { isXaiProviderId };
+import{t as isXaiProviderId}from"../../provider-id-EJmUgi5D.mjs";export{isXaiProviderId};

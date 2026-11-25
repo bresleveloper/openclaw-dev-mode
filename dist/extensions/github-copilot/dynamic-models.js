@@ -1,2 +1,1 @@
-import { t as createGithubCopilotDynamicModelHooks } from "../../dynamic-models-E_ux5Dkh.mjs";
-export { createGithubCopilotDynamicModelHooks };
+import{t as createGithubCopilotDynamicModelHooks}from"../../dynamic-models-BwYVSO0g.mjs";export{createGithubCopilotDynamicModelHooks};

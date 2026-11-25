@@ -1,3 +1,1 @@
-import { n as resolveFfmpegBin } from "../ffmpeg-exec-BXxkKwWn.mjs";
-import "../media-ffmpeg-pOUzjY-I.mjs";
-export { resolveFfmpegBin };
+import{n as resolveFfmpegBin}from"../ffmpeg-exec-QxJhcfBI.mjs";import"../media-ffmpeg-DAt9-HlJ.mjs";export{resolveFfmpegBin};

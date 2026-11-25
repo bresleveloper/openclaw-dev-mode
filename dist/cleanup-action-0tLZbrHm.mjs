@@ -1,0 +1,2 @@
+//!src/config/sessions/cleanup-action.ts
+function resolveSessionCleanupAction(e){for(const[t,n]of[[e.dmScopeRetiredKeys,`retire-dm-scope`],[e.missingKeys,`prune-missing`],[e.modelRunPrunedKeys,`prune-model-run`],[e.archivedKeys,`archive-dashboard`],[e.capArchivedKeys,`archive-cap`],[e.ageArchivedKeys,`archive-age`],[e.staleKeys,`prune-stale`],[e.cappedKeys,`cap-overflow`]])if(t?.has(e.key))return n;return`keep`}export{resolveSessionCleanupAction as t};

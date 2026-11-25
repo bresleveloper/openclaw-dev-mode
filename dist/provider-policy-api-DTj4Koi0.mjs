@@ -1,0 +1,3 @@
+import{r as resolveCopilotThinkingLevelMap}from"./model-metadata-CIDVwYlG.mjs";
+//!extensions/github-copilot/provider-policy-api.ts
+function resolveThinkingProfile(e){if(e.provider.trim().toLowerCase()!==`github-copilot`)return null;const t=resolveCopilotThinkingLevelMap(e.modelId,e.compat,e.api,e.params);return{levels:[{id:`off`},{id:`minimal`},{id:`low`},{id:`medium`},{id:`high`},...[`xhigh`,`max`].filter(e=>t?.[e]).map(e=>({id:e}))]}}export{resolveThinkingProfile as t};

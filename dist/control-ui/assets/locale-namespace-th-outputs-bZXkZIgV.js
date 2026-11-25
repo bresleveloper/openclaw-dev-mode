@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"ดูทั้งหมด","files":"ไฟล์","loading":"กำลังโหลดผลลัพธ์…","updating":"กำลังอัปเดตผลลัพธ์…","loadingDashboard":"กำลังโหลดแดชบอร์ด…","emptyTitle":"ยังไม่มีผลลัพธ์","emptyDescription":"ไฟล์และแดชบอร์ดจากเซสชันนี้จะปรากฏที่นี่"}};

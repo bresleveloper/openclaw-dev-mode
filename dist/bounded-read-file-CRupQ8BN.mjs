@@ -1,0 +1,2 @@
+//!src/media/bounded-read-file.ts
+const BOUNDED_OUTBOUND_MEDIA_READ_FILE=Symbol(`boundedOutboundMediaReadFile`);function createBoundedOutboundMediaReadFile(e){const wrapped=(async t=>await e(t));Object.defineProperty(wrapped,BOUNDED_OUTBOUND_MEDIA_READ_FILE,{value:e});return wrapped}async function readOutboundMediaFile(e,t,n){const r=e[BOUNDED_OUTBOUND_MEDIA_READ_FILE];return r?await r(t,n):await e(t)}export{readOutboundMediaFile as n,createBoundedOutboundMediaReadFile as t};

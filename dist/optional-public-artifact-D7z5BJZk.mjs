@@ -1,0 +1,3 @@
+import{t as loadBundledPluginPublicArtifactModuleFromCandidatesSync}from"./public-surface-loader-BfDPD6QJ.mjs";
+//!src/channels/plugins/optional-public-artifact.ts
+function loadOptionalBundledChannelPublicArtifact(e){return loadBundledPluginPublicArtifactModuleFromCandidatesSync({dirName:e.channelId.trim(),artifactCandidates:[e.artifactBasename]})??void 0}export{loadOptionalBundledChannelPublicArtifact as t};

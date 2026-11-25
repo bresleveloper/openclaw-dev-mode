@@ -1,0 +1,2 @@
+//!src/process/supervisor/cancellation-policy.ts
+const GRACEFUL_CANCEL_TIMEOUT_MS=5e3;function isTimeoutReason(e){return e===`overall-timeout`||e===`no-output-timeout`}export{isTimeoutReason as n,GRACEFUL_CANCEL_TIMEOUT_MS as t};

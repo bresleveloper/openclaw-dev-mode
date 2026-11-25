@@ -1,68 +1,57 @@
+import type { AgentRunTerminalReplySnapshot } from "../../agents/agent-run-terminal-reply.types.js";
+import {
+  createMissingReplyNotice,
+  resolveReplyExpectation,
+} from "../../agents/reply-completion.js";
 import { isRuntimeToolAllowed } from "../../agents/tool-policy-match.js";
 import { formatSystemTurnPrompt } from "../../sessions/system-turn-prompt.js";
-import { SkillLibraryError } from "../../skills/skill-library-error.js";
 import type { SourceReplyDeliveryMode } from "../get-reply-options.types.js";
-import {
-  getReplyPayloadMetadata,
-  isReplyPayloadTerminalContent,
-  markReplyPayloadForSourceSuppressionDelivery,
-} from "../reply-payload.js";
+import { getReplyPayloadMetadata, isReplyPayloadTerminalContent } from "../reply-payload.js";
 import type { ReplyPayload } from "../types.js";
-import {
-  classifyPrivateMessageToolFinal,
-  shouldClassifyPrivateMessageToolFinal,
-} from "./private-message-tool-final.js";
+import { isStrandedPrivateMessageToolFinal } from "./private-message-tool-final.js";
 import type { FollowupRun } from "./queue/types.js";
+import { expireSkillLibraryAuthoring } from "./transcript-followup-run.js";
 
 const STRANDED_REPLY_RETRY_MARKER = "stranded-reply-retry";
-const STRANDED_REPLY_DELIVERY_FAILURE_TEXT =
-  "I generated a reply but could not deliver it to this chat. Please try again.";
-
-export function buildStrandedReplyDeliveryFailurePayload(): ReplyPayload {
-  return markReplyPayloadForSourceSuppressionDelivery({
-    text: STRANDED_REPLY_DELIVERY_FAILURE_TEXT,
-    isError: true,
-    isStatusNotice: true,
-  });
-}
 
 type StrandedReplyRecovery =
   | { kind: "none" }
   | { kind: "retry"; run: FollowupRun }
-  | { kind: "diagnostic"; payload: ReplyPayload; warn: boolean };
+  | { kind: "diagnostic"; payload: ReplyPayload };
 
 /** Resolve the one allowed recovery action for a final that missed source delivery. */
 export function resolveStrandedReplyRecovery(params: {
   base: FollowupRun;
   payloads: readonly ReplyPayload[];
   finalText: string;
+  terminalReply?: AgentRunTerminalReplySnapshot;
   sourceReplyDeliveryMode: SourceReplyDeliveryMode | undefined;
   sendPolicyDenied: boolean;
   successfulSourceReplyDelivery: boolean;
-  isHeartbeat: boolean;
   isRoomEvent: boolean;
 }): StrandedReplyRecovery {
   // Host-owned payloads can still be awaiting transport when completion bookkeeping runs.
   if (
-    !shouldClassifyPrivateMessageToolFinal(params) ||
+    !isStrandedPrivateMessageToolFinal({
+      ...params,
+      replyExpectation: resolveReplyExpectation({
+        ...params.base.run,
+        scheduledAutomation: params.base.run.scheduledAutomation !== undefined,
+      }),
+    }) ||
     params.payloads.some(
       (payload) =>
-        isReplyPayloadTerminalContent(payload) &&
+        (isReplyPayloadTerminalContent(payload) || payload.isError === true) &&
         getReplyPayloadMetadata(payload)?.deliverDespiteSourceReplySuppression === true,
     )
   ) {
     return { kind: "none" };
   }
-  const classification = classifyPrivateMessageToolFinal(params);
   if (params.base.strandedReplyRetry === true) {
     return {
       kind: "diagnostic",
-      payload: buildStrandedReplyDeliveryFailurePayload(),
-      warn: classification === "substantive",
+      payload: createMissingReplyNotice(),
     };
-  }
-  if (classification !== "substantive") {
-    return { kind: "none" };
   }
   return {
     kind: "retry",
@@ -86,20 +75,10 @@ export function resolveStrandedReplyRecovery(params: {
         ...params.base.run,
         sourceReplyDeliveryMode: params.sourceReplyDeliveryMode,
         suppressNextUserMessagePersistence: true,
-        // The source grant cannot authorize a replacement turn. Keep a personal-only
-        // expired grant so Workshop cannot fall back to wider workspace authoring.
-        skillLibraryAuthoring: params.base.run.skillLibraryAuthoring && {
-          target: "personal",
-          defaultTarget: "personal",
-          multipleProfiles: params.base.run.skillLibraryAuthoring.multipleProfiles,
-          bind: () => {},
-          invoke: async () => {
-            throw new SkillLibraryError(
-              "AUTHORITY_EXPIRED",
-              "Skill authoring is unavailable while retrying an undelivered reply. Send a fresh message requesting the change.",
-            );
-          },
-        },
+        skillLibraryAuthoring: expireSkillLibraryAuthoring(
+          params.base.run.skillLibraryAuthoring,
+          "Skill authoring is unavailable while retrying an undelivered reply. Send a fresh message requesting the change.",
+        ),
       },
     },
   };
@@ -107,10 +86,9 @@ export function resolveStrandedReplyRecovery(params: {
 
 function buildStrandedReplyRetryPrompt(finalText: string): string {
   return formatSystemTurnPrompt(
-    `Your previous reply was not delivered to the conversation because ` +
-      `you did not call message(action=send). Your reply text was:\n\n` +
-      `"${finalText}"\n\n` +
-      `Please deliver this reply now by calling message(action=send). ` +
-      `Do not add any extra commentary; just deliver the original reply.`,
+    `Your previous reply was not delivered because you did not call message(action=send). ` +
+      `Your reply text was: "${finalText}". ` +
+      `If the user should see a reply, send it now with message(action=send). ` +
+      `If no reply is needed, answer exactly NO_REPLY.`,
   );
 }

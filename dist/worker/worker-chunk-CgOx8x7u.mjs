@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function resolveImageSanitizationLimits(e){let t=e?.agents?.defaults?.imageMaxDimensionPx;return t===void 0?{}:{maxDimensionPx:t}}var t,n,r=e((()=>{t=1200,n=5242880}));export{resolveImageSanitizationLimits as i,t as n,r,n as t};

@@ -1,0 +1,1 @@
+import{n as retireExpiredStandaloneDoctorCaptures,t as collectStandaloneDoctorCaptures}from"./doctor-capture-retention-DXXImGCY.mjs";export{retireExpiredStandaloneDoctorCaptures};

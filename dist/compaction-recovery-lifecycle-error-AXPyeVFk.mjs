@@ -1,0 +1,3 @@
+import{n as isContextOverflowErrorFromTables}from"./context-overflow-tables-P59whs89.mjs";
+//!src/agents/compaction-recovery-lifecycle-error.ts
+function resolveCompactionRecoveryLifecycleError(e,t){if(e.meta.error?.kind!==`compaction_failure`||!t||!isContextOverflowErrorFromTables(t))return;return e.meta.finalAssistantVisibleText?.trim()||e.meta.error.message.trim()||`Auto-compaction failed. Try again or run /compact.`}export{resolveCompactionRecoveryLifecycleError as t};

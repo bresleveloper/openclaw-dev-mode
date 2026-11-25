@@ -1,0 +1,3 @@
+import{i as resolveChannelConfigRecord,n as hasMeaningfulChannelConfigShallow}from"./channel-config-activation-g_b_Clo2.mjs";import{t as getChannelEnvVars}from"./channel-env-vars-byPbKmaY.mjs";
+//!src/config/channel-configured-shared.ts
+function isStaticallyChannelConfigured(e,t,n=process.env){for(const r of getChannelEnvVars(t,{config:e,env:n}))if(typeof n[r]===`string`&&n[r].trim().length>0)return true;return hasMeaningfulChannelConfigShallow(resolveChannelConfigRecord(e,t),t)}export{isStaticallyChannelConfigured as t};

@@ -1,0 +1,2 @@
+//!src/plugins/bundle-capability-support.ts
+function isBundleCapabilitySupported(e,t){if(t===`skills`||t===`mcpServers`||t===`settings`)return true;if((t===`commands`||t===`outputStyles`||t===`lspServers`)&&(e===`claude`||e===`cursor`))return true;if(t===`agents`)return e===`claude`;return t===`hooks`&&(e===`codex`||e===`claude`)}export{isBundleCapabilitySupported as t};

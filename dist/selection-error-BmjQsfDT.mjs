@@ -1,0 +1,3 @@
+import{o as FailoverError}from"./error-ChFneay4.mjs";
+//!src/agents/auth-profiles/selection-error.ts
+function createSelectedAuthProfileUnavailableError(e){return new FailoverError(`Selected auth profile "${e.profileId}" is unavailable.`,{reason:`auth`,code:`selected_auth_profile_unavailable`,provider:e.provider,model:e.modelId,profileId:e.profileId})}export{createSelectedAuthProfileUnavailableError as t};

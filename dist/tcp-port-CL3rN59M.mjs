@@ -1,0 +1,3 @@
+import{D as parseStrictPositiveInteger}from"./number-coercion-B3CfI447.mjs";
+//!src/infra/tcp-port.ts
+const MAX_TCP_PORT=65535;function parseTcpPort(e){const t=parseStrictPositiveInteger(e);if(t===void 0||t>65535)return null;return t}function parseTcpPortFromArgs(e){if(!e?.length)return null;let t=null;for(let n=0;n<e.length;n+=1){const r=e[n];let i;if(r===`--port`)i=e[++n];else if(r?.startsWith(`--port=`))i=r.slice(7);t=parseTcpPort(i)??t}return t}export{parseTcpPort as n,parseTcpPortFromArgs as r,MAX_TCP_PORT as t};

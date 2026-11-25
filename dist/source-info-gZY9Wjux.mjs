@@ -1,0 +1,2 @@
+//!src/agents/sessions/source-info.ts
+function createSourceInfo(e,t){return{path:e,source:t.source,scope:t.scope,origin:t.origin,baseDir:t.baseDir}}function createSyntheticSourceInfo(e,t){return{path:e,source:t.source,scope:t.scope??`temporary`,origin:t.origin??`top-level`,baseDir:t.baseDir}}export{createSyntheticSourceInfo as n,createSourceInfo as t};

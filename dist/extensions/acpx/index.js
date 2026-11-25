@@ -1,14 +1,13 @@
-import { t as createAcpxRuntimeService } from "./.setup/register.runtime-D685iYx-.mjs";
-import { g as AcpxNativeAgentsSchema, h as ACPX_NATIVE_AGENT_IDS, t as resolveAcpxPluginConfig } from "./.setup/config-D0ATuiVJ.mjs";
-import { a as PI_SESSIONS_CAPABILITY, c as PI_SESSION_READ_COMMAND, l as PI_TERMINAL_RESUME_COMMAND, o as PI_SESSIONS_LIST_COMMAND, r as piSessionStoreAvailable, s as PI_SESSION_ID_PATTERN } from "./.setup/pi-session-paths-CIvyk6KB.mjs";
+import { g as AcpxNativeAgentsSchema, h as ACPX_NATIVE_AGENT_IDS, t as resolveAcpxPluginConfig } from "./.setup/config-Cj99mN1O.mjs";
+import { a as PI_SESSIONS_CAPABILITY, c as PI_SESSION_READ_COMMAND, l as PI_TERMINAL_RESUME_COMMAND, o as PI_SESSIONS_LIST_COMMAND, r as piSessionStoreAvailable, s as PI_SESSION_ID_PATTERN } from "./.setup/pi-session-paths-pUr6hnVA.mjs";
 import { createAgentRegistry } from "acpx/agent-registry";
-import { tryDispatchAcpReplyHook } from "openclaw/plugin-sdk/acp-runtime-backend";
-import { createLazyRuntimeModule, createLazyRuntimeSurface } from "openclaw/plugin-sdk/lazy-runtime";
+import { getAcpRuntimeBackend, registerAcpRuntimeBackend, requireAcpRuntimeBackend, tryDispatchAcpReplyHook, unregisterAcpRuntimeBackend } from "openclaw/plugin-sdk/acp-runtime-backend";
+import { createLazyRuntimeMethodBinder, createLazyRuntimeModule, createLazyRuntimeSurface } from "openclaw/plugin-sdk/lazy-runtime";
 import { finiteSecondsToTimerSafeMilliseconds } from "openclaw/plugin-sdk/number-runtime";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { resolveNodeHostExecutable } from "openclaw/plugin-sdk/node-host";
 import { createSessionCatalogNodeHostBindings } from "openclaw/plugin-sdk/session-catalog";
-//#region extensions/acpx/src/native-agents.ts
+// extensions/acpx/src/native-agents.ts
 function isAcpxNativeAgentEnabled(flags, agent) {
 	return AcpxNativeAgentsSchema.parse(flags)?.[agent] !== false;
 }
@@ -25,8 +24,7 @@ function listAcpxNativeAgents(rawConfig, agents) {
 		enabled: enabled?.[agent.id] !== false
 	}));
 }
-//#endregion
-//#region extensions/acpx/src/harness.ts
+// extensions/acpx/src/harness.ts
 const LOCAL_TOOL_REQUIREMENTS = [
 	"ls",
 	"read",
@@ -35,6 +33,27 @@ const LOCAL_TOOL_REQUIREMENTS = [
 	"exec"
 ];
 const NATIVE_TOOL_REQUIREMENTS = {
+	"grok-build": [
+		...LOCAL_TOOL_REQUIREMENTS,
+		"apply_patch",
+		"process",
+		"web_fetch",
+		"web_search",
+		"x_search",
+		"sessions_spawn",
+		"sessions_send",
+		"subagents",
+		"memory_search",
+		"memory_get",
+		"skills_read",
+		"view_image",
+		"pdf",
+		"ask_user",
+		"automations",
+		"update_goal",
+		"image_generate",
+		"video_generate"
+	],
 	opencode: [
 		...LOCAL_TOOL_REQUIREMENTS,
 		"apply_patch",
@@ -90,6 +109,21 @@ const NATIVE_TOOL_REQUIREMENTS = {
 		"memory_get",
 		"view_image",
 		"ask_user"
+	],
+	qoder: [
+		...LOCAL_TOOL_REQUIREMENTS,
+		"process",
+		"sessions_spawn",
+		"sessions_send",
+		"sessions_list",
+		"subagents",
+		"web_fetch",
+		"web_search",
+		"view_image",
+		"ask_user",
+		"automations",
+		"image_generate",
+		"video_generate"
 	]
 };
 function createAcpAgentHarness(params) {
@@ -169,6 +203,8 @@ function createAcpAgentHarness(params) {
 					agentCommand: inspection.launch.argv,
 					cwd: input.workspaceDir ?? config.cwd,
 					signal: generation.signal,
+					agentProcessEnvAllow: config.agentProcessEnvAllow,
+					agentProcessEnvBlock: config.agentProcessEnvBlock,
 					timeoutMs: config.timeoutSeconds === void 0 ? void 0 : finiteSecondsToTimerSafeMilliseconds(config.timeoutSeconds) ?? 1
 				});
 				generation.signal.throwIfAborted();
@@ -204,7 +240,7 @@ function createAcpAgentHarness(params) {
 			if (inspection?.launch.kind !== "installed") throw new Error(`${params.label} is not installed; refresh the model catalog`);
 			const runtime = await runtimeFor(input.workspaceDir);
 			generation.signal.throwIfAborted();
-			const { runAcpHarnessAttempt } = await import("./.setup/harness-attempt-lu4_bMfd.mjs");
+			const { runAcpHarnessAttempt } = await import("./.setup/harness-attempt-Co9oLpPg.mjs");
 			return await runAcpHarnessAttempt({
 				input,
 				runtime,
@@ -244,9 +280,8 @@ function createAcpAgentHarness(params) {
 		}
 	};
 }
-//#endregion
-//#region extensions/acpx/src/pi-session-catalog-plugin.ts
-const loadPiSessionCatalogModule = createLazyRuntimeModule(() => import("./.setup/pi-session-catalog-runtime-BAM1pEMw.mjs"));
+// extensions/acpx/src/pi-session-catalog-plugin.ts
+const loadPiSessionCatalogModule = createLazyRuntimeModule(() => import("./.setup/pi-session-catalog-runtime-DE_SJqtO.mjs"));
 function fullConfigCatalogEnabled(config) {
 	if (!isRecord(config) || !isRecord(config.plugins) || !isRecord(config.plugins.entries)) return true;
 	const entry = config.plugins.entries.acpx;
@@ -308,23 +343,210 @@ function registerPiSessionCatalog(api) {
 	for (const command of nodeHost.commands) api.registerNodeHostCommand(command);
 	for (const policy of nodeHost.policies) api.registerNodeInvokePolicy(policy);
 }
-//#endregion
-//#region extensions/acpx/index.ts
-/**
-* ACPX runtime plugin entry. It registers the embedded ACP backend service and
-* wires reply-dispatch hooks into the plugin SDK runtime.
-*/
+// extensions/acpx/src/runtime-proxy.ts
+/** Start an ACP turn through a lazy runtime resolver without awaiting resolution up front. */
+function lazyStartRuntimeTurn(resolveRuntime, input) {
+	const turnPromise = resolveRuntime().then((runtime) => runtime.startTurn(input));
+	return {
+		requestId: input.requestId,
+		get promptStarted() {
+			return turnPromise.then((turn) => turn.promptStarted);
+		},
+		events: { async *[Symbol.asyncIterator]() {
+			yield* (await turnPromise).events;
+		} },
+		result: turnPromise.then((turn) => turn.result),
+		cancel(inputArgs) {
+			return turnPromise.then((turn) => turn.cancel(inputArgs));
+		},
+		closeStream(inputArgs) {
+			return turnPromise.then((turn) => turn.closeStream(inputArgs));
+		}
+	};
+}
+/** Create an ACP runtime facade backed by an async runtime resolver. */
+function createLazyAcpRuntimeProxy(resolveRuntime) {
+	const bind = createLazyRuntimeMethodBinder(resolveRuntime);
+	return {
+		ownerAwareSessions: 1,
+		findSession: bind((runtime) => runtime.findSession.bind(runtime)),
+		shutdown: bind((runtime) => runtime.shutdown.bind(runtime)),
+		ensureSession: bind((runtime) => runtime.ensureSession.bind(runtime)),
+		startTurn(input) {
+			return lazyStartRuntimeTurn(resolveRuntime, input);
+		},
+		async *runTurn(input) {
+			yield* (await resolveRuntime()).runTurn(input);
+		},
+		getCapabilities: bind((runtime) => runtime.getCapabilities.bind(runtime)),
+		getStatus: bind((runtime) => runtime.getStatus.bind(runtime)),
+		setMode: bind((runtime) => runtime.setMode.bind(runtime)),
+		setModel: bind((runtime) => runtime.setModel.bind(runtime)),
+		setConfigOption: bind((runtime) => runtime.setConfigOption.bind(runtime)),
+		doctor: bind((runtime) => runtime.doctor.bind(runtime)),
+		prepareFreshSession: bind((runtime) => runtime.prepareFreshSession.bind(runtime)),
+		cancel: bind((runtime) => runtime.cancel.bind(runtime)),
+		close: bind((runtime) => runtime.close.bind(runtime))
+	};
+}
+// extensions/acpx/index.ts
+const ACPX_BACKEND_ID = "acpx";
+const loadServiceModule = createLazyRuntimeModule(() => import("./.setup/service-BHdFJWm2.mjs"));
+function unregisterOwnedRuntime(runtime) {
+	if (runtime && getAcpRuntimeBackend(ACPX_BACKEND_ID)?.runtime === runtime) unregisterAcpRuntimeBackend(ACPX_BACKEND_ID);
+}
 const plugin = {
 	id: "acpx",
 	name: "ACPX Runtime",
 	description: "Embedded ACP runtime backend with plugin-owned session and transport management.",
 	register(api) {
 		registerPiSessionCatalog(api);
-		const service = createAcpxRuntimeService({
-			pluginConfig: api.pluginConfig,
-			getAllowedAgents: () => api.runtime.config.current().acp?.allowedAgents,
-			openKeyedStore: (options) => api.runtime.state.openKeyedStoreV2(options)
-		});
+		const pluginConfig = api.pluginConfig;
+		let ctx = null;
+		let published = false;
+		let lifecycleRevision = 0;
+		let ownedRuntime = null;
+		let realService = null;
+		let startPromise = null;
+		let stopPromise = null;
+		async function startRealService(expectedRevision, deferredRuntime, purpose = "gateway", probeAtStartup = purpose === "gateway") {
+			if (lifecycleRevision !== expectedRevision || !ctx) throw new Error("ACPX runtime service is not started");
+			if (startPromise) return await startPromise;
+			const activeContext = ctx;
+			let starting = true;
+			startPromise = (async () => {
+				let publishedRuntime = null;
+				const { createAcpxRuntimeService: createAcpxRuntimeServiceLocal } = await loadServiceModule();
+				const activeService = createAcpxRuntimeServiceLocal({
+					pluginConfig,
+					getAllowedAgents: () => api.runtime.config.current().acp?.allowedAgents,
+					openKeyedStore: (options) => api.runtime.state.openKeyedStoreV2(options),
+					probeAtStartup,
+					startupPurpose: purpose,
+					assertCurrent: () => {
+						if (lifecycleRevision !== expectedRevision || ctx !== activeContext || published && getAcpRuntimeBackend(ACPX_BACKEND_ID)?.runtime !== ownedRuntime) throw new Error("ACPX runtime service lost recovery ownership");
+					},
+					backendLifecycle: {
+						publish(backend) {
+							if (lifecycleRevision !== expectedRevision || ctx !== activeContext) throw new Error("ACPX runtime service stopped during activation");
+							if (published && getAcpRuntimeBackend(ACPX_BACKEND_ID)?.runtime !== deferredRuntime) throw new Error("ACPX runtime service lost registry ownership during activation");
+							if (published) {
+								const { healthy } = backend;
+								registerAcpRuntimeBackend({
+									id: ACPX_BACKEND_ID,
+									...backend,
+									runtime: deferredRuntime,
+									...healthy ? { healthy: () => starting || healthy() } : {}
+								});
+							}
+							publishedRuntime = backend.runtime;
+						},
+						retract() {}
+					}
+				});
+				realService = activeService;
+				await activeService.start(activeContext);
+				if (lifecycleRevision !== expectedRevision || ctx !== activeContext) throw new Error("ACPX runtime service stopped during activation");
+				if (!publishedRuntime) throw new Error("ACPX runtime service did not register an ACP backend");
+				if (published && getAcpRuntimeBackend(ACPX_BACKEND_ID)?.runtime !== deferredRuntime) throw new Error("ACPX runtime service lost registry ownership during activation");
+				return publishedRuntime;
+			})().finally(() => {
+				starting = false;
+			});
+			try {
+				return await startPromise;
+			} catch (error) {
+				if (lifecycleRevision === expectedRevision) {
+					startPromise = null;
+					realService = null;
+				}
+				throw error;
+			}
+		}
+		function createDeferredRuntime(expectedRevision) {
+			const deferredRuntime = {
+				...createLazyAcpRuntimeProxy(() => startRealService(expectedRevision, deferredRuntime)),
+				async ensureSession(input) {
+					const runtime = await startRealService(expectedRevision, deferredRuntime);
+					requireAcpRuntimeBackend(ACPX_BACKEND_ID);
+					return await runtime.ensureSession(input);
+				}
+			};
+			return deferredRuntime;
+		}
+		const service = {
+			id: "acpx-runtime",
+			async getRuntime(serviceContext) {
+				if (stopPromise) await stopPromise;
+				if (!ctx) {
+					ctx = serviceContext;
+					lifecycleRevision += 1;
+					ownedRuntime = createDeferredRuntime(lifecycleRevision);
+				}
+				if (!ownedRuntime) throw new Error("ACPX runtime service lost its runtime owner");
+				return await startRealService(lifecycleRevision, ownedRuntime, published ? "gateway" : "inspection", false);
+			},
+			async start(serviceContext) {
+				if (process.env.OPENCLAW_SKIP_ACPX_RUNTIME === "1") {
+					serviceContext.logger.info("skipping embedded acpx runtime backend (OPENCLAW_SKIP_ACPX_RUNTIME=1)");
+					return;
+				}
+				if (stopPromise) await stopPromise;
+				if (ctx && ownedRuntime) {
+					const revision = lifecycleRevision;
+					const previous = getAcpRuntimeBackend(ACPX_BACKEND_ID)?.runtime;
+					const assertCurrent = () => {
+						const current = getAcpRuntimeBackend(ACPX_BACKEND_ID)?.runtime;
+						if (lifecycleRevision !== revision || !ctx || current !== previous && current !== ownedRuntime) throw new Error("ACPX runtime service lost promotion ownership");
+					};
+					await startPromise;
+					assertCurrent();
+					await realService?.promote(serviceContext, assertCurrent);
+					assertCurrent();
+					published = true;
+					registerAcpRuntimeBackend({
+						id: ACPX_BACKEND_ID,
+						runtime: ownedRuntime
+					});
+					return;
+				}
+				published = true;
+				lifecycleRevision += 1;
+				ctx = serviceContext;
+				const deferredRuntime = createDeferredRuntime(lifecycleRevision);
+				ownedRuntime = deferredRuntime;
+				registerAcpRuntimeBackend({
+					id: ACPX_BACKEND_ID,
+					runtime: deferredRuntime
+				});
+				serviceContext.logger.info("embedded acpx runtime backend registered lazily");
+			},
+			async stop(serviceContext) {
+				if (stopPromise) return await stopPromise;
+				lifecycleRevision += 1;
+				ctx = null;
+				published = false;
+				const stoppingRuntime = ownedRuntime;
+				unregisterOwnedRuntime(stoppingRuntime);
+				const startingPromise = startPromise;
+				stopPromise = (async () => {
+					await startingPromise?.catch(() => void 0);
+					try {
+						await realService?.stop?.(serviceContext);
+					} finally {
+						unregisterOwnedRuntime(stoppingRuntime);
+						ownedRuntime = null;
+						realService = null;
+						startPromise = null;
+					}
+				})();
+				try {
+					await stopPromise;
+				} finally {
+					stopPromise = null;
+				}
+			}
+		};
 		api.registerService(service);
 		const currentConfig = () => api.runtime.config.current().plugins?.entries?.acpx?.config;
 		const registry = createAgentRegistry();
@@ -337,11 +559,7 @@ const plugin = {
 				isEnabled: () => isAcpxNativeAgentEnabled(currentConfig()?.nativeAgents, agentId),
 				api,
 				getRuntime: service.getRuntime,
-				shutdown: () => service.stop?.({
-					config: api.config,
-					stateDir: api.runtime.state.resolveStateDir(),
-					logger: api.logger
-				})
+				shutdown: () => stopPromise ?? (ctx ? service.stop?.(ctx) : void 0)
 			}));
 			return {
 				id: agentId,
@@ -366,5 +584,4 @@ const plugin = {
 		api.on("reply_dispatch", tryDispatchAcpReplyHook, { eligibleDispatchKinds: ["acp"] });
 	}
 };
-//#endregion
 export { plugin as default };

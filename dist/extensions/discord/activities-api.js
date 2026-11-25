@@ -1,106 +1,33 @@
-import { l as resolveDiscordAccount } from "./.setup/accounts-ljrzXBJi.mjs";
-import { D as getDiscordEndpointRuntime } from "./.setup/allow-list-BKqOldGy.mjs";
-import { n as resolveDiscordChannelId$1 } from "./.setup/target-parsing-C-HyNxcE.mjs";
-import { S as parseDiscordActivityCustomId, i as buildDiscordPresentationComponents } from "./.setup/components-Du9NhD8h.mjs";
-import { r as sendDiscordComponentMessage } from "./.setup/send.components-CWZUuGvA.mjs";
-import { r as setDiscordActivitiesRuntime, t as DiscordActivitiesRuntime } from "./.setup/runtime-plifsKg9.mjs";
+import { n as getDiscordEndpointRuntime } from "./.setup/endpoint-runtime-BM3x-m6O.mjs";
+import { n as resolveDiscordChannelId$1 } from "./.setup/target-parsing-BiuhcK9Q.mjs";
+import { n as buildDiscordPresentationComponents, p as parseDiscordActivityCustomId } from "./.setup/shared-interactive-DKBw4SNV.mjs";
+import { t as fetchDiscordJson } from "./.setup/oauth-http-DdVyzSbo.mjs";
+import { r as setDiscordActivitiesRuntime, t as DiscordActivitiesRuntime } from "./.setup/runtime-DSaHEGJd.mjs";
 import { asOptionalRecord, normalizeBoundedOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-import { randomBytes } from "node:crypto";
-import { fetchWithSsrFGuard as fetchWithSsrFGuard$1 } from "openclaw/plugin-sdk/ssrf-runtime";
 import { logError } from "openclaw/plugin-sdk/logging-core";
-import { readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
+import { randomBytes } from "node:crypto";
+import { pruneMapToMaxSize } from "openclaw/plugin-sdk/collection-runtime";
 import fs from "node:fs/promises";
+import { containsAsciiControlCharacter } from "openclaw/plugin-sdk/string-normalization-runtime";
 import { resolveRequestClientIp } from "openclaw/plugin-sdk/webhook-ingress";
 import { WEBHOOK_BODY_READ_DEFAULTS, readJsonBodyWithLimit, sendHttpRequestRejection } from "openclaw/plugin-sdk/webhook-request-guards";
 import { WIDGET_CDN_ORIGINS } from "openclaw/plugin-sdk/widget-html";
-import { containsAsciiControlCharacter } from "openclaw/plugin-sdk/string-normalization-runtime";
-//#region extensions/discord/src/activities/discord-api.ts
-const DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token";
-const DISCORD_USER_URL = "https://discord.com/api/v10/users/@me";
-const DISCORD_HOST = "discord.com";
-const DISCORD_ACTIVITY_REQUEST_TIMEOUT_MS = 15e3;
-const JSON_MAX_BYTES = 65536;
-const INSTANCE_ID_MAX_LENGTH = 256;
-function normalizeInstanceId(value) {
-	const instanceId = normalizeBoundedOptionalString(value, INSTANCE_ID_MAX_LENGTH);
-	return instanceId && !containsAsciiControlCharacter(instanceId) ? instanceId : void 0;
-}
-async function fetchDiscordJson(params) {
-	const endpoint = Object.hasOwn(params, "endpointRuntime") ? params.endpointRuntime : getDiscordEndpointRuntime();
-	const liveUrl = new URL(params.url);
-	const endpointPath = liveUrl.pathname === "/api/oauth2/token" ? "/oauth2/token" : liveUrl.pathname.startsWith("/api/v10/") ? liveUrl.pathname.slice(8) : void 0;
-	if (endpoint && !endpointPath) throw new Error("Discord Activity request is outside the configured endpoint routes");
-	const { response, release } = endpoint ? {
-		response: await endpoint.fetch(`${endpoint.descriptor.restApiBaseUrl}${endpointPath}${liveUrl.search}`, {
-			...params.init,
-			signal: params.init.signal ? AbortSignal.any([params.init.signal, AbortSignal.timeout(DISCORD_ACTIVITY_REQUEST_TIMEOUT_MS)]) : AbortSignal.timeout(DISCORD_ACTIVITY_REQUEST_TIMEOUT_MS)
-		}),
-		release: async () => {}
-	} : await params.fetchGuard({
-		url: params.url,
-		fetchImpl: params.fetchImpl,
-		init: params.init,
-		policy: { allowedHostnames: [DISCORD_HOST] },
-		auditContext: params.auditContext,
-		timeoutMs: DISCORD_ACTIVITY_REQUEST_TIMEOUT_MS
-	});
-	try {
-		if (!response.ok) {
-			await response.body?.cancel().catch(() => void 0);
-			return {
-				ok: false,
-				status: response.status
-			};
-		}
-		return {
-			ok: true,
-			status: response.status,
-			body: await readProviderJsonResponse(response, "Discord Activity OAuth", { maxBytes: JSON_MAX_BYTES })
-		};
-	} finally {
-		await release();
-	}
-}
-async function resolveActivityInstanceChannel(params) {
-	const endpointRuntime = getDiscordEndpointRuntime() ?? null;
-	let result;
-	try {
-		result = await fetchDiscordJson({
-			fetchGuard: params.fetchGuard,
-			fetchImpl: params.proxyFetch,
-			url: `https://discord.com/api/v10/applications/${encodeURIComponent(params.applicationId)}/activity-instances/${encodeURIComponent(params.instanceId)}`,
-			init: { headers: { Authorization: `Bot ${params.botAuth}` } },
-			auditContext: "discord.activities.instance",
-			endpointRuntime
-		});
-	} catch {
-		return;
-	}
-	if (!result.ok || !Array.isArray(result.body?.users) || !result.body.users.includes(params.discordUserId) || !result.body.location || typeof result.body.location !== "object") return;
-	const channelId = result.body.location.channel_id;
-	return typeof channelId === "string" && /^\d+$/.test(channelId) ? channelId : void 0;
-}
-//#endregion
-//#region extensions/discord/src/activities/rate-limit.ts
+// extensions/discord/src/activities/rate-limit.ts
 const TOKEN_RATE_LIMIT = 10;
 const TOKEN_GLOBAL_RATE_LIMIT = 60;
 const TOKEN_RATE_WINDOW_MS = 6e4;
 const TOKEN_RATE_MAX_KEYS = 1024;
 var TokenRateLimiter = class {
-	constructor(now) {
-		this.now = now;
+	constructor() {
 		this.attempts = /* @__PURE__ */ new Map();
 		this.globalAttempts = [];
 	}
 	allowKey(key) {
-		const now = this.now();
+		const now = Date.now();
 		const active = (this.attempts.get(key) ?? []).filter((timestamp) => timestamp > now - TOKEN_RATE_WINDOW_MS);
 		const allowed = active.length < TOKEN_RATE_LIMIT;
 		if (allowed) {
-			if (!this.attempts.has(key) && this.attempts.size >= TOKEN_RATE_MAX_KEYS) {
-				const oldestKey = this.attempts.keys().next().value;
-				if (typeof oldestKey === "string") this.attempts.delete(oldestKey);
-			}
+			if (!this.attempts.has(key) && this.attempts.size >= TOKEN_RATE_MAX_KEYS) pruneMapToMaxSize(this.attempts, 1023);
 			active.push(now);
 		}
 		this.attempts.delete(key);
@@ -108,7 +35,7 @@ var TokenRateLimiter = class {
 		return allowed;
 	}
 	reserveGlobal() {
-		const now = this.now();
+		const now = Date.now();
 		this.globalAttempts = this.globalAttempts.filter((reservation) => reservation.at > now - TOKEN_RATE_WINDOW_MS);
 		if (this.globalAttempts.length >= TOKEN_GLOBAL_RATE_LIMIT) return null;
 		const reservation = { at: now };
@@ -120,8 +47,7 @@ var TokenRateLimiter = class {
 		if (index >= 0) this.globalAttempts.splice(index, 1);
 	}
 };
-//#endregion
-//#region extensions/discord/src/activities/shell.ts
+// extensions/discord/src/activities/shell.ts
 const DISCORD_ACTIVITY_ROUTE_PREFIX = "/discord/activity";
 const DISCORD_ACTIVITY_TOKEN_REQUEST_TIMEOUT_MS = 35e3;
 const DISCORD_ACTIVITY_WIDGET_REQUEST_TIMEOUT_MS = 2e4;
@@ -247,360 +173,13 @@ run().catch((error) => {
   }
 });
 `;
-//#endregion
-//#region extensions/discord/src/activities/http.ts
-const BODY_MAX_BYTES = 8192;
-const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
-const WIDGET_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/;
-const DOC_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const DISCORD_ACTIVITY_WIDGET_CSP = `sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' ${WIDGET_CDN_ORIGINS.join(" ")}; style-src 'unsafe-inline' ${WIDGET_CDN_ORIGINS.join(" ")}; img-src data: blob:; font-src data: ${WIDGET_CDN_ORIGINS.join(" ")}; connect-src 'none'; frame-ancestors *`;
-function respond(res, statusCode, body, contentType, headers) {
-	res.statusCode = statusCode;
-	res.setHeader("Cache-Control", "no-store");
-	res.setHeader("Referrer-Policy", "no-referrer");
-	res.setHeader("X-Content-Type-Options", "nosniff");
-	res.setHeader("Content-Type", contentType);
-	for (const [key, value] of Object.entries(headers ?? {})) res.setHeader(key, value);
-	res.end(body);
-	return true;
-}
-function jsonBody(body) {
-	return `${JSON.stringify(body)}\n`;
-}
-function respondJson(res, statusCode, body) {
-	return respond(res, statusCode, jsonBody(body), JSON_CONTENT_TYPE);
-}
-function notFound(res, widgetDocument = false) {
-	return respond(res, 404, "not found", "text/plain; charset=utf-8", widgetDocument ? { "Content-Security-Policy": DISCORD_ACTIVITY_WIDGET_CSP } : void 0);
-}
-function readHeader(req, name) {
-	const value = req.headers[name];
-	return Array.isArray(value) ? value[0] : value;
-}
-function extractApplicationId(req) {
-	for (const header of [readHeader(req, "origin"), readHeader(req, "referer")]) {
-		if (!header) continue;
-		try {
-			const match = new URL(header).hostname.match(/^(\d+)\.discordsays\.com$/i);
-			if (match?.[1]) return match[1];
-		} catch {}
-	}
-}
-function bearerToken(req) {
-	return ((readHeader(req, "authorization")?.trim())?.match(/^Bearer\s+([A-Za-z0-9_-]{43})$/i))?.[1];
-}
-function createDiscordActivityHttpHandler(deps) {
-	const fetchGuard = deps.fetchGuard ?? fetchWithSsrFGuard$1;
-	const limiter = new TokenRateLimiter(deps.now ?? Date.now);
-	const readVendorAsset = deps.readVendorAsset ?? ((assetPath) => fs.readFile(assetPath));
-	const reportError = deps.logError ?? logError;
-	const bodyTimeoutMs = deps.bodyTimeoutMs ?? WEBHOOK_BODY_READ_DEFAULTS.preAuth.timeoutMs;
-	let vendorAsset;
-	let pendingLaunchFailureLogged = false;
-	function logPendingLaunchFailure(error) {
-		if (pendingLaunchFailureLogged) return;
-		pendingLaunchFailureLogged = true;
-		reportError(`discord activity: failed to consume pending launch: ${String(error)}`);
-	}
-	async function handleToken(req, res) {
-		const cfg = deps.runtime.currentConfig();
-		const sourceIp = resolveRequestClientIp(req, cfg.gateway?.trustedProxies, cfg.gateway?.allowRealIpFallback === true) ?? "unknown";
-		if (!limiter.allowKey(sourceIp)) return respondJson(res, 429, { error: "too many token requests" });
-		const applicationId = extractApplicationId(req);
-		const account = deps.runtime.resolveHttpAccount(applicationId);
-		if (!account) return respondJson(res, 503, { error: "Discord Activities is not fully configured" });
-		const endpointRuntime = getDiscordEndpointRuntime() ?? null;
-		const fetchAccountJson = (params) => fetchDiscordJson({
-			...params,
-			fetchGuard,
-			fetchImpl: account.proxyFetch,
-			endpointRuntime
-		}).catch(() => void 0);
-		const bodyResult = await readJsonBodyWithLimit(req, {
-			maxBytes: BODY_MAX_BYTES,
-			timeoutMs: bodyTimeoutMs,
-			emptyObjectOnEmpty: true,
-			destroyOnLimit: false
-		});
-		if (!bodyResult.ok && (bodyResult.code === "REQUEST_BODY_TIMEOUT" || bodyResult.code === "PAYLOAD_TOO_LARGE")) {
-			const timedOut = bodyResult.code === "REQUEST_BODY_TIMEOUT";
-			await sendHttpRequestRejection(req, res, timedOut ? 408 : 413, jsonBody({ error: timedOut ? "request body timeout" : "request body too large" }), JSON_CONTENT_TYPE);
-			return true;
-		}
-		const body = bodyResult.ok ? asOptionalRecord(bodyResult.value) : void 0;
-		const code = typeof body?.code === "string" ? body.code.trim() : "";
-		if (!code) return respondJson(res, 401, { error: "invalid authorization code" });
-		const reservation = limiter.reserveGlobal();
-		if (reservation === null) return respondJson(res, 429, { error: "too many token requests" });
-		let completed = false;
-		try {
-			const tokenResponse = await fetchAccountJson({
-				url: DISCORD_TOKEN_URL,
-				init: {
-					method: "POST",
-					headers: { "Content-Type": "application/x-www-form-urlencoded" },
-					body: new URLSearchParams({
-						grant_type: "authorization_code",
-						client_id: account.applicationId,
-						client_secret: account.clientSecret,
-						code
-					})
-				},
-				auditContext: "discord.activities.oauth.token"
-			});
-			if (!tokenResponse) return respondJson(res, 503, { error: "Discord token exchange unavailable" });
-			const granted = typeof tokenResponse.body?.access_token === "string" ? tokenResponse.body.access_token.trim() : "";
-			if (!tokenResponse.ok || !granted) return respondJson(res, 401, { error: "invalid authorization code" });
-			const userResponse = await fetchAccountJson({
-				url: DISCORD_USER_URL,
-				init: { headers: { Authorization: `Bearer ${granted}` } },
-				auditContext: "discord.activities.oauth.user"
-			});
-			if (!userResponse) return respondJson(res, 503, { error: "Discord user lookup unavailable" });
-			const discordUserId = typeof userResponse.body?.id === "string" ? userResponse.body.id : void 0;
-			if (!userResponse.ok || !discordUserId) return respondJson(res, 401, { error: "Discord user lookup failed" });
-			const minted = await deps.runtime.store.createSession({
-				discordUserId,
-				accountId: account.accountId
-			});
-			completed = true;
-			return respondJson(res, 200, {
-				access_token: granted,
-				session_token: minted
-			});
-		} finally {
-			if (!completed) limiter.releaseGlobal(reservation);
-		}
-	}
-	async function handleWidget(req, res, url) {
-		const token = bearerToken(req);
-		const session = token ? await deps.runtime.store.lookupSession(token) : void 0;
-		if (!session) return respondJson(res, 401, { error: "invalid session" });
-		const customId = url.searchParams.get("custom_id")?.trim() ?? "";
-		const instanceId = normalizeInstanceId(url.searchParams.get("instance_id"));
-		const account = deps.runtime.resolveAccount(session.accountId);
-		const channelId = instanceId && account ? await resolveActivityInstanceChannel({
-			fetchGuard,
-			applicationId: account.applicationId,
-			instanceId,
-			discordUserId: session.discordUserId,
-			botAuth: account.botAuth,
-			proxyFetch: account.proxyFetch
-		}) : void 0;
-		if (!channelId) return respondJson(res, 404, { error: "widget not found" });
-		let resolved = null;
-		const requestedWidgetId = WIDGET_ID_PATTERN.test(customId) ? customId : parseDiscordActivityCustomId(customId)?.widgetId;
-		if (requestedWidgetId) {
-			const widget = await deps.runtime.store.lookupWidget(requestedWidgetId);
-			if (widget?.accountId !== session.accountId || widget.channelId !== channelId) return respondJson(res, 404, { error: "widget not found" });
-			resolved = {
-				id: requestedWidgetId,
-				widget
-			};
-			try {
-				await deps.runtime.store.retirePendingLaunch(session.accountId, channelId, session.discordUserId, requestedWidgetId);
-			} catch (error) {
-				logPendingLaunchFailure(error);
-			}
-		} else {
-			try {
-				const pendingLaunch = await deps.runtime.store.consumePendingLaunch(session.accountId, channelId, session.discordUserId);
-				if (pendingLaunch) {
-					const widget = await deps.runtime.store.lookupWidget(pendingLaunch.widgetId);
-					if (widget?.accountId === session.accountId && widget.channelId === channelId) resolved = {
-						id: pendingLaunch.widgetId,
-						widget
-					};
-				}
-			} catch (error) {
-				logPendingLaunchFailure(error);
-			}
-			resolved ??= await deps.runtime.store.latestPostedWidgetForChannel(session.accountId, channelId);
-		}
-		if (!resolved) return respondJson(res, 404, { error: "widget not found" });
-		const docToken = await deps.runtime.store.createDocToken({
-			widgetId: resolved.id,
-			accountId: session.accountId
-		});
-		return respondJson(res, 200, {
-			id: resolved.id,
-			title: resolved.widget.title,
-			docUrl: `${DISCORD_ACTIVITY_ROUTE_PREFIX}/api/widget/${encodeURIComponent(resolved.id)}/doc?wt=${encodeURIComponent(docToken)}`
-		});
-	}
-	async function handleDocument(res, widgetId, token) {
-		if (!WIDGET_ID_PATTERN.test(widgetId) || !DOC_TOKEN_PATTERN.test(token)) return notFound(res, true);
-		const capability = await deps.runtime.store.consumeDocToken(token);
-		if (!capability || capability.widgetId !== widgetId) return notFound(res, true);
-		const widget = await deps.runtime.store.lookupWidget(widgetId);
-		if (!widget || widget.accountId !== capability.accountId) return notFound(res, true);
-		return respond(res, 200, widget.html, "text/html; charset=utf-8", { "Content-Security-Policy": DISCORD_ACTIVITY_WIDGET_CSP });
-	}
-	return { handleHttpRequest: async (req, res) => {
-		const url = new URL(req.url ?? "/", "http://localhost");
-		if (url.pathname !== "/discord/activity" && !url.pathname.startsWith(`/discord/activity/`)) return false;
-		if (!deps.runtime.hasEnabledAccounts()) return false;
-		const relative = url.pathname.slice(17) || "/";
-		if (req.method === "GET" && (relative === "/" || relative === "/index.html")) return respond(res, 200, DISCORD_ACTIVITY_SHELL_HTML, "text/html; charset=utf-8", { "Content-Security-Policy": DISCORD_ACTIVITY_SHELL_CSP });
-		if (req.method === "GET" && relative === "/shell.js") return respond(res, 200, DISCORD_ACTIVITY_SHELL_JS, "text/javascript; charset=utf-8");
-		if (req.method === "GET" && relative === "/vendor/embedded-app-sdk.mjs") {
-			const pendingAsset = vendorAsset ??= readVendorAsset(deps.vendorAssetPath);
-			try {
-				return respond(res, 200, await pendingAsset, "text/javascript; charset=utf-8");
-			} catch {
-				if (vendorAsset === pendingAsset) vendorAsset = void 0;
-				return notFound(res);
-			}
-		}
-		if (req.method === "POST" && relative === "/api/token") return await handleToken(req, res);
-		if (req.method === "GET" && relative === "/api/widget") return await handleWidget(req, res, url);
-		const documentMatch = relative.match(/^\/api\/widget\/([^/]+)\/doc$/);
-		if (req.method === "GET" && documentMatch?.[1]) {
-			let widgetId;
-			try {
-				widgetId = decodeURIComponent(documentMatch[1]);
-			} catch {
-				return notFound(res, true);
-			}
-			return await handleDocument(res, widgetId, url.searchParams.get("wt") ?? "");
-		}
-		return notFound(res);
-	} };
-}
-//#endregion
-//#region extensions/discord/src/activities/presenter.ts
-const DISCORD_WIDGET_HTML_MAX_BYTES = 49152;
-const unavailable = () => ({
-	ok: false,
-	error: {
-		code: "unavailable",
-		message: "Discord Activities are unavailable for the current channel and account."
-	}
-});
-function resolveDiscordChannelId(context) {
-	const raw = context.nativeChannelId?.trim() || context.currentMessagingTarget?.trim() || context.currentChannelId?.trim() || context.deliveryContext?.to?.trim();
-	if (!raw) return;
-	try {
-		return resolveDiscordChannelId$1(raw);
-	} catch {
-		return;
-	}
-}
-function resolveDiscordPresentationRoute(context, runtime) {
-	if (context.messageChannel !== "discord") return;
-	const cfg = runtime.currentConfig();
-	const account = resolveDiscordAccount({
-		cfg,
-		accountId: context.accountId ?? context.deliveryContext?.accountId
-	});
-	const channelId = resolveDiscordChannelId(context);
-	const activityAccount = runtime.resolveAccount(account.accountId, cfg);
-	if (!channelId || !activityAccount) return;
-	return {
-		account: activityAccount,
-		cfg,
-		channelId
-	};
-}
-/** Presents a canonical core widget document in the active Discord channel. */
-function createDiscordWidgetPresenter(runtime) {
-	return {
-		target: "current_channel",
-		description: "Post an Activity launch button in the current Discord channel",
-		capabilities: {
-			sourceKinds: ["html"],
-			maxSourceBytes: DISCORD_WIDGET_HTML_MAX_BYTES
-		},
-		match: (context) => resolveDiscordPresentationRoute(context, runtime) !== void 0,
-		async availability(context) {
-			return resolveDiscordPresentationRoute(context, runtime) ? {
-				ok: true,
-				value: { available: true }
-			} : unavailable();
-		},
-		async present({ context, document, title }) {
-			const route = resolveDiscordPresentationRoute(context, runtime);
-			if (!route) return unavailable();
-			if (Array.from(title).length > 80) return {
-				ok: false,
-				error: {
-					code: "presentation_error",
-					message: "title must be 80 characters or fewer"
-				}
-			};
-			const widgetId = await runtime.store.createWidget({
-				html: document.html,
-				title,
-				channelId: route.channelId,
-				accountId: route.account.accountId,
-				createdAt: Date.now()
-			});
-			let result;
-			let deliveredResult;
-			let deliveryRecord;
-			let deliveryRecordError;
-			const recordDelivery = async (deliveryResult) => {
-				deliveredResult = deliveryResult;
-				deliveryRecord ??= runtime.store.markWidgetDelivered(widgetId, deliveryResult.messageId);
-				try {
-					await deliveryRecord;
-				} catch (error) {
-					deliveryRecordError ??= new Error("Discord widget was delivered, but its delivery state could not be saved", { cause: error });
-					throw deliveryRecordError;
-				}
-			};
-			try {
-				const components = buildDiscordPresentationComponents({ blocks: [{
-					type: "buttons",
-					buttons: [{
-						label: "Open widget",
-						action: {
-							type: "web-app",
-							widgetId
-						}
-					}]
-				}] });
-				if (!components) throw new Error("Discord widget launch button could not be rendered");
-				result = await sendDiscordComponentMessage(`channel:${route.channelId}`, {
-					...components,
-					text: title
-				}, {
-					cfg: route.cfg,
-					accountId: route.account.accountId,
-					allowedMentions: { parse: [] },
-					onDeliveryResult: recordDelivery
-				});
-				await recordDelivery(result);
-			} catch (error) {
-				if (deliveryRecordError) throw deliveryRecordError;
-				if (!deliveredResult) {
-					await runtime.store.deleteWidget(widgetId);
-					throw error;
-				}
-				result = deliveredResult;
-			}
-			return {
-				ok: true,
-				value: {
-					kind: "message",
-					receipt: result.receipt
-				}
-			};
-		}
-	};
-}
-//#endregion
-//#region extensions/discord/src/activities/store.ts
+// extensions/discord/src/activities/store.ts
 const DAY_MS = 864e5;
 const DISCORD_EPOCH_MS = 14200704e5;
 const WIDGET_TTL_MS = 7 * DAY_MS;
 const SESSION_TTL_MS = 9e5;
 const DOC_TOKEN_TTL_MS = 6e4;
 const PENDING_LAUNCH_TTL_MS = 12e4;
-function requireAtomicComparison(store) {
-	if (!store.observe || !store.compareAndApply) throw new Error("Discord Activities require atomic plugin state comparisons");
-	return store;
-}
 function openDiscordActivityStores(openKeyedStore) {
 	const openStore = (namespace, maxEntries, defaultTtlMs) => openKeyedStore({
 		namespace,
@@ -609,10 +188,10 @@ function openDiscordActivityStores(openKeyedStore) {
 		defaultTtlMs
 	});
 	return {
-		widgets: requireAtomicComparison(openStore("activities-widgets", 64, WIDGET_TTL_MS)),
+		widgets: openStore("activities-widgets", 64, WIDGET_TTL_MS),
 		sessions: openStore("activities-sessions", 256, SESSION_TTL_MS),
 		docTokens: openStore("activities-doc-tokens", 256, DOC_TOKEN_TTL_MS),
-		launches: requireAtomicComparison(openStore("activities-launches", 256, PENDING_LAUNCH_TTL_MS))
+		launches: openStore("activities-launches", 256, PENDING_LAUNCH_TTL_MS)
 	};
 }
 function pendingLaunchKey(accountId, channelId, discordUserId) {
@@ -629,15 +208,11 @@ async function applyActivityStoreIntent(store, key, intent) {
 var DiscordActivityStore = class {
 	constructor(stores) {
 		this.stores = stores;
-		this.lastWidgetCreatedAt = 0;
 	}
 	async createWidget(value) {
 		const id = randomBytes(16).toString("base64url");
-		const createdAt = Math.max(value.createdAt, this.lastWidgetCreatedAt + 1);
-		this.lastWidgetCreatedAt = createdAt;
 		await this.stores.widgets.register(id, {
 			...value,
-			createdAt,
 			deliveredMessageId: null
 		});
 		return id;
@@ -723,24 +298,354 @@ var DiscordActivityStore = class {
 		return launch?.state === "single" ? launch : void 0;
 	}
 };
-//#endregion
-//#region extensions/discord/src/activities/register.ts
+// extensions/discord/src/activities/register.ts
+const BODY_MAX_BYTES = 8192;
+const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
+const WIDGET_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/;
+const DOC_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token";
+const DISCORD_USER_URL = "https://discord.com/api/v10/users/@me";
+const INSTANCE_ID_MAX_LENGTH = 256;
+function normalizeInstanceId(value) {
+	const instanceId = normalizeBoundedOptionalString(value, INSTANCE_ID_MAX_LENGTH);
+	return instanceId && !containsAsciiControlCharacter(instanceId) ? instanceId : void 0;
+}
+const DISCORD_ACTIVITY_WIDGET_CSP = `sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' ${WIDGET_CDN_ORIGINS.join(" ")}; style-src 'unsafe-inline' ${WIDGET_CDN_ORIGINS.join(" ")}; img-src data: blob:; font-src data: ${WIDGET_CDN_ORIGINS.join(" ")}; connect-src 'none'; frame-ancestors *`;
+function respond(res, statusCode, body, contentType, headers) {
+	res.statusCode = statusCode;
+	res.setHeader("Cache-Control", "no-store");
+	res.setHeader("Referrer-Policy", "no-referrer");
+	res.setHeader("X-Content-Type-Options", "nosniff");
+	res.setHeader("Content-Type", contentType);
+	for (const [key, value] of Object.entries(headers ?? {})) res.setHeader(key, value);
+	res.end(body);
+	return true;
+}
+function jsonBody(body) {
+	return `${JSON.stringify(body)}\n`;
+}
+function respondJson(res, statusCode, body) {
+	return respond(res, statusCode, jsonBody(body), JSON_CONTENT_TYPE);
+}
+function notFound(res, widgetDocument = false) {
+	return respond(res, 404, "not found", "text/plain; charset=utf-8", widgetDocument ? { "Content-Security-Policy": DISCORD_ACTIVITY_WIDGET_CSP } : void 0);
+}
+function readHeader(req, name) {
+	const value = req.headers[name];
+	return Array.isArray(value) ? value[0] : value;
+}
+function extractApplicationId(req) {
+	for (const header of [readHeader(req, "origin"), readHeader(req, "referer")]) {
+		if (!header) continue;
+		try {
+			const match = new URL(header).hostname.match(/^(\d+)\.discordsays\.com$/i);
+			if (match?.[1]) return match[1];
+		} catch {}
+	}
+}
+function bearerToken(req) {
+	return ((readHeader(req, "authorization")?.trim())?.match(/^Bearer\s+([A-Za-z0-9_-]{43})$/i))?.[1];
+}
+const DISCORD_WIDGET_HTML_MAX_BYTES = 49152;
+const unavailable = () => ({
+	ok: false,
+	error: {
+		code: "unavailable",
+		message: "Discord Activities are unavailable for the current channel and account."
+	}
+});
+function resolveDiscordChannelId(context) {
+	const raw = context.nativeChannelId?.trim() || context.currentMessagingTarget?.trim() || context.currentChannelId?.trim() || context.deliveryContext?.to?.trim();
+	if (!raw) return;
+	try {
+		return resolveDiscordChannelId$1(raw);
+	} catch {
+		return;
+	}
+}
+function resolveDiscordPresentationRoute(context, runtime) {
+	if (context.messageChannel !== "discord") return;
+	const cfg = runtime.currentConfig();
+	const channelId = resolveDiscordChannelId(context);
+	const activityAccount = runtime.resolveAccount(context.accountId ?? context.deliveryContext?.accountId, cfg);
+	if (!channelId || !activityAccount) return;
+	return {
+		account: activityAccount,
+		cfg,
+		channelId
+	};
+}
 function registerDiscordActivities(api) {
 	setDiscordActivitiesRuntime(void 0);
-	const store = new DiscordActivityStore(openDiscordActivityStores(api.runtime.state.openKeyedStore.bind(api.runtime.state)));
-	const runtime = new DiscordActivitiesRuntime(store, api.config, api.runtime.config?.current ? () => api.runtime.config.current() : void 0);
+	const store = new DiscordActivityStore(openDiscordActivityStores(api.runtime.state.openKeyedStoreV2.bind(api.runtime.state)));
+	const runtime = new DiscordActivitiesRuntime(store, () => api.runtime.config.current());
 	setDiscordActivitiesRuntime(runtime);
-	const http = createDiscordActivityHttpHandler({
-		runtime,
-		vendorAssetPath: api.resolvePath("assets/embedded-app-sdk.mjs")
-	});
+	const vendorAssetPath = api.resolvePath("assets/embedded-app-sdk.mjs");
+	const limiter = new TokenRateLimiter();
+	const bodyTimeoutMs = WEBHOOK_BODY_READ_DEFAULTS.preAuth.timeoutMs;
+	let vendorAsset;
+	let pendingLaunchFailureLogged = false;
+	function logPendingLaunchFailure(error) {
+		if (pendingLaunchFailureLogged) return;
+		pendingLaunchFailureLogged = true;
+		logError(`discord activity: failed to consume pending launch: ${String(error)}`);
+	}
+	async function handleToken(req, res) {
+		const cfg = runtime.currentConfig();
+		const sourceIp = resolveRequestClientIp(req, cfg.gateway?.trustedProxies, cfg.gateway?.allowRealIpFallback === true) ?? "unknown";
+		if (!limiter.allowKey(sourceIp)) return respondJson(res, 429, { error: "too many token requests" });
+		const applicationId = extractApplicationId(req);
+		const account = runtime.resolveHttpAccount(applicationId);
+		if (!account) return respondJson(res, 503, { error: "Discord Activities is not fully configured" });
+		const endpointRuntime = getDiscordEndpointRuntime() ?? null;
+		const fetchAccountJson = (params) => fetchDiscordJson({
+			...params,
+			fetchImpl: account.proxyFetch,
+			endpointRuntime
+		}).catch(() => void 0);
+		const bodyResult = await readJsonBodyWithLimit(req, {
+			maxBytes: BODY_MAX_BYTES,
+			timeoutMs: bodyTimeoutMs,
+			emptyObjectOnEmpty: true,
+			destroyOnLimit: false
+		});
+		if (!bodyResult.ok && (bodyResult.code === "REQUEST_BODY_TIMEOUT" || bodyResult.code === "PAYLOAD_TOO_LARGE")) {
+			const timedOut = bodyResult.code === "REQUEST_BODY_TIMEOUT";
+			await sendHttpRequestRejection(req, res, timedOut ? 408 : 413, jsonBody({ error: timedOut ? "request body timeout" : "request body too large" }), JSON_CONTENT_TYPE);
+			return true;
+		}
+		const body = bodyResult.ok ? asOptionalRecord(bodyResult.value) : void 0;
+		const code = typeof body?.code === "string" ? body.code.trim() : "";
+		if (!code) return respondJson(res, 401, { error: "invalid authorization code" });
+		const reservation = limiter.reserveGlobal();
+		if (reservation === null) return respondJson(res, 429, { error: "too many token requests" });
+		let completed = false;
+		try {
+			const tokenResponse = await fetchAccountJson({
+				url: DISCORD_TOKEN_URL,
+				init: {
+					method: "POST",
+					headers: { "Content-Type": "application/x-www-form-urlencoded" },
+					body: new URLSearchParams({
+						grant_type: "authorization_code",
+						client_id: account.applicationId,
+						client_secret: account.clientSecret,
+						code
+					})
+				},
+				auditContext: "discord.activities.oauth.token"
+			});
+			if (!tokenResponse) return respondJson(res, 503, { error: "Discord token exchange unavailable" });
+			const granted = typeof tokenResponse.body?.access_token === "string" ? tokenResponse.body.access_token.trim() : "";
+			if (!tokenResponse.ok || !granted) return respondJson(res, 401, { error: "invalid authorization code" });
+			const userResponse = await fetchAccountJson({
+				url: DISCORD_USER_URL,
+				init: { headers: { Authorization: `Bearer ${granted}` } },
+				auditContext: "discord.activities.oauth.user"
+			});
+			if (!userResponse) return respondJson(res, 503, { error: "Discord user lookup unavailable" });
+			const discordUserId = typeof userResponse.body?.id === "string" ? userResponse.body.id : void 0;
+			if (!userResponse.ok || !discordUserId) return respondJson(res, 401, { error: "Discord user lookup failed" });
+			const minted = await runtime.store.createSession({
+				discordUserId,
+				accountId: account.accountId
+			});
+			completed = true;
+			return respondJson(res, 200, {
+				access_token: granted,
+				session_token: minted
+			});
+		} finally {
+			if (!completed) limiter.releaseGlobal(reservation);
+		}
+	}
+	async function handleWidget(req, res, url) {
+		const token = bearerToken(req);
+		const session = token ? await runtime.store.lookupSession(token) : void 0;
+		if (!session) return respondJson(res, 401, { error: "invalid session" });
+		const customId = url.searchParams.get("custom_id")?.trim() ?? "";
+		const instanceId = normalizeInstanceId(url.searchParams.get("instance_id"));
+		const account = runtime.resolveAccount(session.accountId);
+		let channelId;
+		if (instanceId && account) {
+			const discordUserId = session.discordUserId;
+			const endpointRuntime = getDiscordEndpointRuntime() ?? null;
+			const result = await fetchDiscordJson({
+				fetchImpl: account.proxyFetch,
+				url: `https://discord.com/api/v10/applications/${encodeURIComponent(account.applicationId)}/activity-instances/${encodeURIComponent(instanceId)}`,
+				init: { headers: { Authorization: `Bot ${account.botAuth}` } },
+				auditContext: "discord.activities.instance",
+				endpointRuntime
+			}).catch(() => void 0);
+			if (result?.ok && Array.isArray(result.body?.users) && result.body.users.includes(discordUserId)) {
+				const value = asOptionalRecord(result.body.location)?.channel_id;
+				channelId = typeof value === "string" && /^\d+$/.test(value) ? value : void 0;
+			}
+		}
+		if (!channelId) return respondJson(res, 404, { error: "widget not found" });
+		let resolved = null;
+		const requestedWidgetId = WIDGET_ID_PATTERN.test(customId) ? customId : parseDiscordActivityCustomId(customId)?.widgetId;
+		if (requestedWidgetId) {
+			const widget = await runtime.store.lookupWidget(requestedWidgetId);
+			if (widget?.accountId !== session.accountId || widget.channelId !== channelId) return respondJson(res, 404, { error: "widget not found" });
+			resolved = {
+				id: requestedWidgetId,
+				widget
+			};
+			try {
+				await runtime.store.retirePendingLaunch(session.accountId, channelId, session.discordUserId, requestedWidgetId);
+			} catch (error) {
+				logPendingLaunchFailure(error);
+			}
+		} else {
+			try {
+				const pendingLaunch = await runtime.store.consumePendingLaunch(session.accountId, channelId, session.discordUserId);
+				if (pendingLaunch) {
+					const widget = await runtime.store.lookupWidget(pendingLaunch.widgetId);
+					if (widget?.accountId === session.accountId && widget.channelId === channelId) resolved = {
+						id: pendingLaunch.widgetId,
+						widget
+					};
+				}
+			} catch (error) {
+				logPendingLaunchFailure(error);
+			}
+			resolved ??= await runtime.store.latestPostedWidgetForChannel(session.accountId, channelId);
+		}
+		if (!resolved) return respondJson(res, 404, { error: "widget not found" });
+		const docToken = await runtime.store.createDocToken({
+			widgetId: resolved.id,
+			accountId: session.accountId
+		});
+		return respondJson(res, 200, {
+			id: resolved.id,
+			title: resolved.widget.title,
+			docUrl: `${DISCORD_ACTIVITY_ROUTE_PREFIX}/api/widget/${encodeURIComponent(resolved.id)}/doc?wt=${encodeURIComponent(docToken)}`
+		});
+	}
+	async function handleDocument(res, widgetId, token) {
+		if (!WIDGET_ID_PATTERN.test(widgetId) || !DOC_TOKEN_PATTERN.test(token)) return notFound(res, true);
+		const capability = await runtime.store.consumeDocToken(token);
+		if (!capability || capability.widgetId !== widgetId) return notFound(res, true);
+		const widget = await runtime.store.lookupWidget(widgetId);
+		if (!widget || widget.accountId !== capability.accountId) return notFound(res, true);
+		return respond(res, 200, widget.html, "text/html; charset=utf-8", { "Content-Security-Policy": DISCORD_ACTIVITY_WIDGET_CSP });
+	}
 	api.registerHttpRoute({
 		path: DISCORD_ACTIVITY_ROUTE_PREFIX,
 		auth: "plugin",
 		match: "prefix",
-		handler: http.handleHttpRequest
+		handler: async (req, res) => {
+			const url = new URL(req.url ?? "/", "http://localhost");
+			if (url.pathname !== "/discord/activity" && !url.pathname.startsWith(`/discord/activity/`)) return false;
+			if (!runtime.hasEnabledAccounts()) return false;
+			const relative = url.pathname.slice(17) || "/";
+			if (req.method === "GET" && (relative === "/" || relative === "/index.html")) return respond(res, 200, DISCORD_ACTIVITY_SHELL_HTML, "text/html; charset=utf-8", { "Content-Security-Policy": DISCORD_ACTIVITY_SHELL_CSP });
+			if (req.method === "GET" && relative === "/shell.js") return respond(res, 200, DISCORD_ACTIVITY_SHELL_JS, "text/javascript; charset=utf-8");
+			if (req.method === "GET" && relative === "/vendor/embedded-app-sdk.mjs") {
+				const pendingAsset = vendorAsset ??= fs.readFile(vendorAssetPath);
+				try {
+					return respond(res, 200, await pendingAsset, "text/javascript; charset=utf-8");
+				} catch {
+					if (vendorAsset === pendingAsset) vendorAsset = void 0;
+					return notFound(res);
+				}
+			}
+			if (req.method === "POST" && relative === "/api/token") return await handleToken(req, res);
+			if (req.method === "GET" && relative === "/api/widget") return await handleWidget(req, res, url);
+			const documentMatch = relative.match(/^\/api\/widget\/([^/]+)\/doc$/);
+			if (req.method === "GET" && documentMatch?.[1]) {
+				let widgetId;
+				try {
+					widgetId = decodeURIComponent(documentMatch[1]);
+				} catch {
+					return notFound(res, true);
+				}
+				return await handleDocument(res, widgetId, url.searchParams.get("wt") ?? "");
+			}
+			return notFound(res);
+		}
 	});
-	api.registerWidgetPresenter(createDiscordWidgetPresenter(runtime));
+	/** Presents a canonical core widget document in the active Discord channel. */
+	api.registerWidgetPresenter({
+		target: "current_channel",
+		description: "Post an Activity launch button in the current Discord channel",
+		capabilities: {
+			sourceKinds: ["html"],
+			maxSourceBytes: DISCORD_WIDGET_HTML_MAX_BYTES
+		},
+		match: (context) => resolveDiscordPresentationRoute(context, runtime) !== void 0,
+		async availability(context) {
+			return resolveDiscordPresentationRoute(context, runtime) ? {
+				ok: true,
+				value: { available: true }
+			} : unavailable();
+		},
+		async present({ context, document, title }) {
+			const route = resolveDiscordPresentationRoute(context, runtime);
+			if (!route) return unavailable();
+			if (Array.from(title).length > 80) return {
+				ok: false,
+				error: {
+					code: "presentation_error",
+					message: "title must be 80 characters or fewer"
+				}
+			};
+			const widgetId = await runtime.store.createWidget({
+				html: document.html,
+				title,
+				channelId: route.channelId,
+				accountId: route.account.accountId,
+				createdAt: Date.now()
+			});
+			let result;
+			let deliveredResult;
+			let deliveryRecord;
+			const recordDelivery = (deliveryResult) => {
+				deliveredResult = deliveryResult;
+				return deliveryRecord ??= runtime.store.markWidgetDelivered(widgetId, deliveryResult.messageId).catch((error) => {
+					throw new Error("Discord widget was delivered, but its delivery state could not be saved", { cause: error });
+				});
+			};
+			try {
+				const components = buildDiscordPresentationComponents({ blocks: [{
+					type: "buttons",
+					buttons: [{
+						label: "Open widget",
+						action: {
+							type: "web-app",
+							widgetId
+						}
+					}]
+				}] });
+				if (!components) throw new Error("Discord widget launch button could not be rendered");
+				const { sendDiscordComponentMessage } = await import("./.setup/send.components-CIZALYDP.mjs").then((n) => n.i);
+				result = await sendDiscordComponentMessage(`channel:${route.channelId}`, {
+					...components,
+					text: title
+				}, {
+					cfg: route.cfg,
+					accountId: route.account.accountId,
+					allowedMentions: { parse: [] },
+					onDeliveryResult: recordDelivery
+				});
+				await recordDelivery(result);
+			} catch (error) {
+				if (!deliveredResult) {
+					await runtime.store.deleteWidget(widgetId);
+					throw error;
+				}
+				await deliveryRecord;
+				result = deliveredResult;
+			}
+			return {
+				ok: true,
+				value: {
+					kind: "message",
+					receipt: result.receipt
+				}
+			};
+		}
+	});
 }
-//#endregion
 export { registerDiscordActivities };

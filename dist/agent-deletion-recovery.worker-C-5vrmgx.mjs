@@ -1,0 +1,3 @@
+import{v as resolveAgentDeletionRecoveryHolds}from"./agent-deletion-journal-DNYQA80U.mjs";import"./agent-deletion-journal-recovery.kernel-zEY4cb96.mjs";
+//!src/state/agent-deletion-recovery.worker.ts
+const agentRecoveryOperations={"agentRecovery.resolveHolds":(e,t)=>t.writeAdmitted(t=>resolveAgentDeletionRecoveryHolds(t,e.predicate.agentId,e.paths,e.predicate),{operationLabel:`agent.recovery.resolve`})};export{agentRecoveryOperations};

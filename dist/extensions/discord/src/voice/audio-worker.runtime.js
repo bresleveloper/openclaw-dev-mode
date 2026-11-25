@@ -1,5 +1,5 @@
-import { _ as setDiscordAudioOutputStatus, a as recoverDaveZeroTransition, c as createDiscordOpusPlaybackStream, d as decodeOpusStreamChunks, g as serializeDiscordAudioError, m as getDiscordAudioOutputStatus, n as analyzeVoiceReceiveError, p as DiscordAudioOutputStatus, r as enableDaveReceivePassthrough, s as DiscordOpusEncodeStream, u as createRealtimePcmToDiscordConverter } from "../../.setup/receive-recovery-CKvaG2Hf.mjs";
-import { t as resolveDiscordOutputAudioDelta } from "../../.setup/output-activity-uBpMSX75.mjs";
+import { _ as setDiscordAudioOutputStatus, a as recoverDaveZeroTransition, c as createDiscordOpusPlaybackStream, d as decodeOpusStreamChunks, g as serializeDiscordAudioError, m as getDiscordAudioOutputStatus, n as analyzeVoiceReceiveError, p as DiscordAudioOutputStatus, r as enableDaveReceivePassthrough, s as DiscordOpusEncodeStream, u as createRealtimePcmToDiscordConverter } from "../../.setup/receive-recovery-DV_v5ROf.mjs";
+import { t as resolveDiscordOutputAudioDelta } from "../../.setup/output-activity-CDgs2s3O.mjs";
 import { createRequire } from "node:module";
 import { parentPort, workerData } from "node:worker_threads";
 import { PassThrough, pipeline } from "node:stream";
@@ -7,13 +7,12 @@ import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ } from "openclaw/plugin-sdk/realtime-voice-provider";
 import { createSubsystemLogger } from "openclaw/plugin-sdk/runtime-env";
 import { createRealtimeVoiceOutputActivityTracker, isRealtimeVoiceAudioAudible } from "openclaw/plugin-sdk/realtime-voice";
-//#region extensions/discord/src/voice/sdk-runtime.ts
+// extensions/discord/src/voice/sdk-runtime.ts
 let cachedDiscordVoiceSdk = null;
 function loadDiscordVoiceSdk() {
 	return cachedDiscordVoiceSdk ||= createRequire(import.meta.url)("@discordjs/voice");
 }
-//#endregion
-//#region extensions/discord/src/voice/realtime-player.runtime.ts
+// extensions/discord/src/voice/realtime-player.runtime.ts
 const DISCORD_REALTIME_PLAYBACK_IDLE_MS = 2e3;
 /** One physical player serves every speaker lane in the room. */
 var DiscordRealtimePlayer = class {
@@ -96,8 +95,7 @@ var DiscordRealtimePlayer = class {
 		});
 	}
 };
-//#endregion
-//#region extensions/discord/src/voice/realtime-output.runtime.ts
+// extensions/discord/src/voice/realtime-output.runtime.ts
 const logger = createSubsystemLogger("discord/voice");
 const DISCORD_RAW_PCM_FRAME_BYTES = 3840;
 const DISCORD_REALTIME_OUTPUT_PREROLL_FRAMES = 25;
@@ -156,7 +154,7 @@ var DiscordRealtimeOutput = class {
 				this.startupTimer = void 0;
 				this.startPlayback();
 			}, DISCORD_CONTINUOUS_START_DEADLINE_MS);
-			this.startupTimer.unref?.();
+			this.startupTimer.unref();
 		}
 	}
 	writeConverted(pcm) {
@@ -318,7 +316,7 @@ var DiscordRealtimeOutput = class {
 			this.silenceTimer = void 0;
 			if (!this.closed && !this.activity.snapshot().streamEnding && !this.hasUnplayedAudibleAudio()) this.finish("continuous-idle", true);
 		}, Math.max(0, DISCORD_REALTIME_PLAYBACK_IDLE_MS - (performance.now() - this.silentSince)));
-		this.silenceTimer.unref?.();
+		this.silenceTimer.unref();
 	}
 	clearTimer(timer) {
 		clearTimeout(this[timer]);
@@ -361,8 +359,7 @@ var DiscordRealtimeOutput = class {
 		}, timeoutMs);
 	}
 };
-//#endregion
-//#region extensions/discord/src/voice/continuous-output.runtime.ts
+// extensions/discord/src/voice/continuous-output.runtime.ts
 /** A transferred endpoint is owned by one already-admitted provider generation.
 * No socket, response policy, credential, or speaker admission crosses this port. */
 var DiscordContinuousOutput = class {
@@ -383,8 +380,10 @@ var DiscordContinuousOutput = class {
 					return;
 				}
 				if (!this.enabled) return;
-				if (message.type === "audio") this.append(Buffer.from(message.audio));
-				else if (message.type === "clear") this.clear();
+				if (message.type === "audio") {
+					const { audio } = message;
+					this.append(Buffer.from(audio.buffer, audio.byteOffset, audio.byteLength));
+				} else if (message.type === "clear") this.clear();
 			} catch (error) {
 				this.fail(error);
 			} finally {
@@ -478,8 +477,7 @@ var DiscordContinuousOutput = class {
 		this.close();
 	}
 };
-//#endregion
-//#region extensions/discord/src/voice/audio-worker.ts
+// extensions/discord/src/voice/audio-worker.ts
 const PLAYBACK_READY_TIMEOUT_MS = 6e4;
 const MAX_CAPTURE_PACKETS = 1e3;
 const MAX_CAPTURE_BYTES = 1048576;
@@ -517,63 +515,59 @@ var DiscordAudioWorker = class {
 	}
 	async connect() {
 		const deadline = performance.now() + this.options.connectTimeoutMs;
-		for (let attempt = 0; attempt < 2; attempt += 1) {
+		if (this.stopped) return;
+		const connection = this.sdk.joinVoiceChannel({
+			guildId: this.options.guildId,
+			channelId: this.options.channelId,
+			group: this.options.group,
+			selfDeaf: this.options.selfDeaf,
+			selfMute: this.options.selfMute,
+			daveEncryption: this.options.daveEncryption,
+			decryptionFailureTolerance: this.options.decryptionFailureTolerance,
+			adapterCreator: (methods) => {
+				this.adapter = methods;
+				return {
+					sendPayload: (payload) => {
+						this.post({
+							type: "gateway-send",
+							payload
+						});
+						return true;
+					},
+					destroy: () => {}
+				};
+			}
+		});
+		this.connection = connection;
+		connection.on("error", this.onError);
+		try {
+			await this.sdk.entersState(connection, this.sdk.VoiceConnectionStatus.Ready, AbortSignal.any([this.stopAbort.signal, AbortSignal.timeout(Math.max(1, Math.floor(deadline - performance.now())))]));
 			if (this.stopped) return;
-			const connection = this.sdk.joinVoiceChannel({
-				guildId: this.options.guildId,
-				channelId: this.options.channelId,
-				group: this.options.group,
-				selfDeaf: this.options.selfDeaf,
-				selfMute: this.options.selfMute,
-				daveEncryption: this.options.daveEncryption,
-				decryptionFailureTolerance: this.options.decryptionFailureTolerance,
-				adapterCreator: (methods) => {
-					this.adapter = methods;
-					return {
-						sendPayload: (payload) => {
-							this.post({
-								type: "gateway-send",
-								payload
-							});
-							return true;
-						},
-						destroy: () => {}
-					};
-				}
-			});
-			this.connection = connection;
-			connection.on("error", this.onError);
-			try {
-				await this.sdk.entersState(connection, this.sdk.VoiceConnectionStatus.Ready, AbortSignal.any([this.stopAbort.signal, AbortSignal.timeout(Math.max(1, Math.floor(deadline - performance.now())))]));
-				if (this.stopped) return;
-				connection.subscribe(this.player);
-				connection.on("stateChange", (_old, state) => {
-					this.post({
-						type: "connection",
-						status: state.status
-					});
-				});
-				connection.on(this.sdk.VoiceConnectionStatus.Destroyed, this.onDestroyed);
-				connection.on(this.sdk.VoiceConnectionStatus.Disconnected, this.onDisconnected);
-				connection.receiver.speaking.on("start", this.onSpeakingStart);
-				connection.receiver.speaking.on("end", this.onSpeakingEnd);
-				for (const userId of connection.receiver.speaking.users.keys()) this.post({
-					type: "speaking",
-					userId,
-					speaking: true
-				});
+			connection.subscribe(this.player);
+			connection.on("stateChange", (_old, state) => {
 				this.post({
 					type: "connection",
-					status: connection.state.status
+					status: state.status
 				});
-				this.post({ type: "ready" });
-				return;
-			} catch (error) {
-				if (this.stopped) return;
-				if (connection.state.status !== this.sdk.VoiceConnectionStatus.Destroyed) connection.destroy();
-				if (attempt === 0 && !this.stopped && performance.now() < deadline && error instanceof Error && error.message.toLowerCase().includes("operation was aborted")) continue;
-				throw error;
-			}
+			});
+			connection.on(this.sdk.VoiceConnectionStatus.Destroyed, this.onDestroyed);
+			connection.on(this.sdk.VoiceConnectionStatus.Disconnected, this.onDisconnected);
+			connection.receiver.speaking.on("start", this.onSpeakingStart);
+			connection.receiver.speaking.on("end", this.onSpeakingEnd);
+			for (const userId of connection.receiver.speaking.users.keys()) this.post({
+				type: "speaking",
+				userId,
+				speaking: true
+			});
+			this.post({
+				type: "connection",
+				status: connection.state.status
+			});
+			this.post({ type: "ready" });
+		} catch (error) {
+			if (this.stopped) return;
+			if (connection.state.status !== this.sdk.VoiceConnectionStatus.Destroyed) connection.destroy();
+			throw error;
 		}
 	}
 	receive(command) {
@@ -765,11 +759,6 @@ var DiscordAudioWorker = class {
 			sdk: this.sdk,
 			reason,
 			expirySeconds,
-			onVerbose: (message) => this.post({
-				type: "log",
-				level: "verbose",
-				message
-			}),
 			onWarn: (message) => this.post({
 				type: "log",
 				level: "warn",
@@ -779,13 +768,7 @@ var DiscordAudioWorker = class {
 	}
 	onSpeaking(userId, speaking) {
 		if (this.stopped) return;
-		for (const [id, capture] of this.captures) {
-			if (capture.userId !== userId) continue;
-			if (speaking) {
-				clearTimeout(capture.timer);
-				capture.timer = void 0;
-			} else this.finalizeLater(id, capture);
-		}
+		for (const capture of this.captures.values()) if (capture.userId === userId) this.finalizeLater(capture, speaking);
 		this.post({
 			type: "speaking",
 			userId,
@@ -798,11 +781,9 @@ var DiscordAudioWorker = class {
 		clearTimeout(capture.timer);
 		if (!capture.stream.destroyed) capture.stream.destroy();
 	}
-	finalizeLater(id, capture) {
+	finalizeLater(capture, speaking) {
 		clearTimeout(capture.timer);
-		capture.timer = setTimeout(() => {
-			if (this.captures.get(id) === capture) this.stopCapture(capture);
-		}, this.options.captureSilenceGraceMs);
+		capture.timer = setTimeout(() => this.stopCapture(capture), this.options.captureSilenceGraceMs + (speaking ? this.sdk.SpeakingMap.DELAY : 0));
 	}
 	async capture(id, userId, recordingEpoch) {
 		const connection = this.connection;
@@ -816,6 +797,7 @@ var DiscordAudioWorker = class {
 			closed: false
 		};
 		this.captures.set(id, capture);
+		this.finalizeLater(capture, true);
 		const input = new PassThrough({ objectMode: true });
 		const recordingClock = new BigInt64Array(recordingEpoch);
 		const receipts = /* @__PURE__ */ new WeakMap();
@@ -824,6 +806,7 @@ var DiscordAudioWorker = class {
 		let decodedFrames = 0;
 		const onError = (error) => {
 			if (failed) return;
+			this.stopCapture(capture);
 			const analysis = analyzeVoiceReceiveError(error);
 			if (analysis.isAbortLike && !analysis.countsAsDecryptFailure) {
 				if (!abortReported) this.post({
@@ -863,6 +846,7 @@ var DiscordAudioWorker = class {
 		};
 		const accept = (packet) => {
 			if (failed || capture.closed || !packet.length) return;
+			capture.timer?.refresh();
 			if (capture.pendingPackets >= MAX_CAPTURE_PACKETS || capture.pendingBytes + packet.length > MAX_CAPTURE_BYTES) {
 				onError(/* @__PURE__ */ new Error("Discord voice receive backlog exceeded; try speaking again."));
 				this.stopCapture(capture);
@@ -892,7 +876,6 @@ var DiscordAudioWorker = class {
 		stream.on("end", end);
 		stream.once("close", finalized);
 		stream.on("error", onError);
-		if (!connection.receiver.speaking.users.has(userId)) this.finalizeLater(id, capture);
 		try {
 			await decodeOpusStreamChunks(input, {
 				onChunk: async (pcm, packet) => {
@@ -911,11 +894,6 @@ var DiscordAudioWorker = class {
 					});
 				},
 				onError,
-				onVerbose: (message) => this.post({
-					type: "log",
-					level: "verbose",
-					message
-				}),
 				onWarn: (message) => this.post({
 					type: "log",
 					level: "warn",
@@ -1002,8 +980,7 @@ var DiscordAudioWorker = class {
 		this.post({ type: "stopped" });
 	}
 };
-//#endregion
-//#region extensions/discord/src/voice/audio-worker.runtime.ts
+// extensions/discord/src/voice/audio-worker.runtime.ts
 const port = parentPort;
 if (!port) throw new Error("Discord audio runtime requires a worker MessagePort.");
 const media = new DiscordAudioWorker(workerData, (event) => {
@@ -1028,5 +1005,4 @@ port.on("close", () => {
 	media.stop();
 });
 media.connect().catch(fail);
-//#endregion
 export {};

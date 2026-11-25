@@ -1,0 +1,1 @@
+import{t as createOpenAIProviderMetadata}from"../../provider-metadata-BQtyc8Yo.mjs";export{createOpenAIProviderMetadata};

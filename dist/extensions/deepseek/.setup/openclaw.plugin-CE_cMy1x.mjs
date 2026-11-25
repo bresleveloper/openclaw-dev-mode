@@ -1,0 +1,173 @@
+// extensions/deepseek/openclaw.plugin.json
+var openclaw_plugin_default = {
+	id: "deepseek",
+	categories: ["models"],
+	activation: { "onStartup": false },
+	enabledByDefault: true,
+	providerCatalogEntry: "./provider-discovery.ts",
+	providers: ["deepseek"],
+	contracts: {
+		"usageProviders": ["deepseek"],
+		"webSearchProviders": ["deepseek"]
+	},
+	providerEndpoints: [{
+		"endpointClass": "deepseek-native",
+		"hosts": ["api.deepseek.com"]
+	}],
+	providerRequest: { "providers": { "deepseek": { "family": "deepseek" } } },
+	modelCatalog: {
+		"modelsDev": { "deepseek": "deepseek" },
+		"providers": { "deepseek": {
+			"baseUrl": "https://api.deepseek.com",
+			"api": "openai-completions",
+			"defaultModel": "deepseek-v4-pro",
+			"family": "deepseek",
+			"models": [
+				{
+					"id": "deepseek-v4-flash",
+					"name": "DeepSeek V4.1 Flash (Legacy Alias)",
+					"reasoning": true,
+					"thinkingLevelMap": {
+						"xhigh": "high",
+						"max": "max"
+					},
+					"input": ["text", "image"],
+					"contextWindow": 1e6,
+					"maxTokens": 384e3,
+					"cost": {
+						"input": .3,
+						"output": 1.2,
+						"cacheRead": .006,
+						"cacheWrite": 0
+					},
+					"compat": {
+						"requiresReasoningContentOnAssistantMessages": true,
+						"supportsUsageInStreaming": true,
+						"supportsReasoningEffort": true,
+						"maxTokensField": "max_tokens",
+						"codeMode": "preferred",
+						"defaultThinkingLevel": "high"
+					}
+				},
+				{
+					"id": "deepseek-v4-pro",
+					"name": "DeepSeek V4 Pro",
+					"reasoning": true,
+					"thinkingLevelMap": {
+						"xhigh": "high",
+						"max": "max"
+					},
+					"input": ["text"],
+					"contextWindow": 1e6,
+					"maxTokens": 384e3,
+					"cost": {
+						"input": 1.32,
+						"output": 3.96,
+						"cacheRead": .044,
+						"cacheWrite": 0
+					},
+					"compat": {
+						"requiresReasoningContentOnAssistantMessages": true,
+						"supportsUsageInStreaming": true,
+						"supportsReasoningEffort": true,
+						"maxTokensField": "max_tokens",
+						"codeMode": "preferred",
+						"defaultThinkingLevel": "high"
+					}
+				},
+				{
+					"id": "deepseek-v4-flash-vision-exp",
+					"name": "DeepSeek V4.1 Flash (Legacy Vision Alias)",
+					"reasoning": true,
+					"thinkingLevelMap": {
+						"xhigh": "high",
+						"max": "max"
+					},
+					"input": ["text", "image"],
+					"contextWindow": 1e6,
+					"maxTokens": 384e3,
+					"cost": {
+						"input": .3,
+						"output": 1.2,
+						"cacheRead": .006,
+						"cacheWrite": 0
+					},
+					"compat": {
+						"requiresReasoningContentOnAssistantMessages": true,
+						"supportsUsageInStreaming": true,
+						"supportsReasoningEffort": true,
+						"maxTokensField": "max_tokens",
+						"codeMode": "preferred",
+						"defaultThinkingLevel": "high"
+					}
+				},
+				{
+					"id": "deepseek-flash",
+					"name": "DeepSeek V4.1 Flash",
+					"reasoning": true,
+					"thinkingLevelMap": {
+						"xhigh": "high",
+						"max": "max"
+					},
+					"input": ["text", "image"],
+					"contextWindow": 1e6,
+					"maxTokens": 384e3,
+					"cost": {
+						"input": .3,
+						"output": 1.2,
+						"cacheRead": .006,
+						"cacheWrite": 0
+					},
+					"compat": {
+						"requiresReasoningContentOnAssistantMessages": true,
+						"supportsUsageInStreaming": true,
+						"supportsReasoningEffort": true,
+						"maxTokensField": "max_tokens",
+						"codeMode": "preferred",
+						"defaultThinkingLevel": "high"
+					}
+				}
+			]
+		} },
+		"discovery": { "deepseek": "refreshable" }
+	},
+	setup: { "providers": [{
+		"id": "deepseek",
+		"envVars": ["DEEPSEEK_API_KEY"]
+	}] },
+	providerAuthChoices: [{
+		"provider": "deepseek",
+		"method": "api-key",
+		"choiceId": "deepseek-api-key",
+		"appGuidedSecret": true,
+		"choiceLabel": "DeepSeek API key",
+		"groupId": "deepseek",
+		"groupLabel": "DeepSeek",
+		"groupHint": "API key",
+		"optionKey": "deepseekApiKey",
+		"cliFlag": "--deepseek-api-key",
+		"cliOption": "--deepseek-api-key <key>",
+		"cliDescription": "DeepSeek API key"
+	}],
+	configSchema: {
+		"type": "object",
+		"additionalProperties": false,
+		"properties": { "webSearch": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": { "apiKey": { "type": ["string", "object"] } }
+		} }
+	},
+	uiHints: { "webSearch.apiKey": {
+		"label": "DeepSeek Search API Key",
+		"help": "DeepSeek API key. Falls back to DEEPSEEK_API_KEY, then to models.providers.deepseek.apiKey while that provider and its models use https://api.deepseek.com.",
+		"sensitive": true
+	} },
+	configGroups: [{
+		"id": "web-search",
+		"title": "Web search",
+		"order": 10,
+		"properties": ["webSearch"]
+	}]
+};
+export { openclaw_plugin_default as t };

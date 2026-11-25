@@ -1,0 +1,3 @@
+import{t as formatErrorMessage}from"./errors-CRXp6JVo.mjs";
+//!src/gateway/startup-tasks.ts
+function taskMeta(e,t){return{source:e.source,...e.agentId?{agentId:e.agentId}:{},...e.sessionKey?{sessionKey:e.sessionKey}:{},...e.workspaceDir?{workspaceDir:e.workspaceDir}:{},reason:t}}async function runStartupTasks(e){for(const t of e.tasks){let n;try{n=await t.run()}catch(e){n={status:`failed`,reason:formatErrorMessage(e)}}if(n.status===`failed`){e.log.warn(`startup task failed`,taskMeta(t,n.reason));continue}if(n.status===`skipped`)e.log.debug(`startup task skipped`,taskMeta(t,n.reason))}}export{runStartupTasks as t};

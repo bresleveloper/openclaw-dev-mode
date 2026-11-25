@@ -1,0 +1,2 @@
+//!src/gateway/session-list-diagnostics.ts
+const baseMissReasons=/* @__PURE__ */ new WeakMap;function retainSessionListBaseMiss(e,t){if(t)baseMissReasons.set(e,t)}function getSessionListBaseMiss(e){return baseMissReasons.get(e)}export{retainSessionListBaseMiss as n,getSessionListBaseMiss as t};

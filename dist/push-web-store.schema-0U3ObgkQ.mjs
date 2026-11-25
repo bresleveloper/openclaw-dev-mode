@@ -1,0 +1,3 @@
+import{n as ensureColumn}from"./openclaw-state-db-schema-helpers-4Hs1ye38.mjs";
+//!src/infra/push-web-store.schema.ts
+function ensureWebPushSubscriptionBindingColumns(e){ensureColumn(e,`web_push_subscriptions`,`device_id TEXT`);ensureColumn(e,`web_push_subscriptions`,`user_profile_id TEXT`);ensureColumn(e,`web_push_subscriptions`,`preferences_json TEXT`)}export{ensureWebPushSubscriptionBindingColumns as t};

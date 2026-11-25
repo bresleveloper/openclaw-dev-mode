@@ -1,11 +1,13 @@
 // FIX-07 (dev-mode fork): output for `openclaw config validate --fix [--dry-run]`.
 // Repairs: src/commands/doctor/config-content-fix.ts (doctor's config-only stages).
-// Hook: one guarded call at the top of runConfigValidate in src/cli/config-cli.ts.
+// Hook: one guarded call at the top of the `config validate` action in registerConfigCli
+// (src/cli/config-cli.ts; until 2026.11.3 it sat in a runConfigValidate() helper, which upstream
+// inlined into the command in 2026.11.10).
 //
 // Regression checklist after an upstream upgrade:
 // - config-cli.ts still registers --fix/--dry-run on `config validate`, calls
-//   runConfigValidateFix first, returns when it returns null, and spreads `...fixJson` into
-//   the valid and invalid JSON payloads.
+//   runConfigValidateFix first inside the action's try block, returns when it returns null, and
+//   spreads `...fixJson` into the valid and invalid JSON payloads.
 // - Run src/cli/config-validate-fix.test.ts.
 import { theme } from "../../packages/terminal-core/src/theme.js";
 import type { ConfigContentFixReport } from "../commands/doctor/config-content-fix.js";

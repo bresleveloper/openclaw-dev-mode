@@ -1,0 +1,1 @@
+export{t as applyWorkspacePatch,n as createWorkspacePatch,r as readWorkspacePatch,i as recoverWorkerWorkspaceReconciliation}from"./openclaw-state-read-placement-workspace-journal-BhgXn3Kj.mjs";

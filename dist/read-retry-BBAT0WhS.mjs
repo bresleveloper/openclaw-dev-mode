@@ -1,0 +1,3 @@
+import{u as retryAsync}from"./src-De06gkOi.mjs";
+//!packages/memory-host-sdk/src/host/read-retry.ts
+const TRANSIENT_MEMORY_READ_ERRNO=-11;const TRANSIENT_MEMORY_READ_CODES=/* @__PURE__ */ new Set([`EAGAIN`,`EWOULDBLOCK`,`EDEADLK`]);const TRANSIENT_MEMORY_READ_MESSAGE=/Unknown system error -11\b/i;async function retryTransientMemoryRead(e,t=`memory read`){return await retryAsync(e,{attempts:3,minDelayMs:25,maxDelayMs:50,label:t,shouldRetry:e=>{const t=e;const n=t?.code;return typeof n===`string`&&TRANSIENT_MEMORY_READ_CODES.has(n)||t?.errno===TRANSIENT_MEMORY_READ_ERRNO||e instanceof Error&&TRANSIENT_MEMORY_READ_MESSAGE.test(e.message)}})}export{retryTransientMemoryRead as t};

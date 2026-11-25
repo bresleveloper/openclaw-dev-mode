@@ -16,6 +16,7 @@ import type { OpenKeyedStoreOptions } from "../plugin-state/plugin-state-store.j
 import type { PluginDoctorStateMigration } from "../plugins/doctor-contract-module.js";
 import { archiveLegacyStateSource } from "../plugins/doctor-state-migration-fs.js";
 
+export { decodeUtf8Input, Utf8InputError };
 export { mergeMissing } from "../config/merge-missing.js";
 export { collectProviderDangerousNameMatchingScopes } from "../config/dangerous-name-matching.js";
 export { defineChannelAliasMigration } from "../config/channel-alias-migration.js";
@@ -55,6 +56,8 @@ export type {
   PluginStateKeyedStore,
 } from "../plugin-state/plugin-state-store.js";
 export type {
+  PluginDoctorRecoveryCliContext,
+  PluginDoctorRecoveryCliRegistrar,
   PluginDoctorCronChange,
   PluginDoctorCronInventory,
   PluginDoctorCronJob,
@@ -517,5 +520,3 @@ export function defineLegacyJsonStateMigration<TSource>(params: {
     },
   };
 }
-
-export { decodeUtf8Input, Utf8InputError };

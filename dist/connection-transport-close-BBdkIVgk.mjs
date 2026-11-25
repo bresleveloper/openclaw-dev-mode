@@ -1,0 +1,3 @@
+import{o as WEBSOCKET_CLOSE_GRACE_MS}from"./server-constants-BmIepgnr.mjs";
+//!src/gateway/server/connection-transport-close.ts
+const closingTransports=/* @__PURE__ */ new WeakSet;function closeGatewayTransportWithGrace(e,t,n){if(closingTransports.has(e))return;closingTransports.add(e);const handleClose=()=>{clearTimeout(r);e.off(`close`,handleClose);closingTransports.delete(e)};const terminate=()=>{try{e.terminate()}catch{}};e.once(`close`,handleClose);const r=setTimeout(terminate,WEBSOCKET_CLOSE_GRACE_MS).unref();try{e.close(t,n)}catch{clearTimeout(r);terminate()}}export{closeGatewayTransportWithGrace as t};

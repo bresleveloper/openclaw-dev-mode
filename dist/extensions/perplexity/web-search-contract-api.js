@@ -1,3 +1,2 @@
-import { t as createPerplexityWebSearchProvider } from "./.setup/perplexity-web-search-provider-BP_SdCt9.mjs";
+export { t as createPerplexityWebSearchProvider } from "./.setup/perplexity-web-search-provider-Dg_FWVaV.mjs";
 import "./web-search-provider.js";
-export { createPerplexityWebSearchProvider };

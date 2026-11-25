@@ -1,36 +1,3 @@
-import { r as asNullableRecord } from "../../record-coerce-TIsquoVR.mjs";
-import "../../runtime-doctor-migrations-BuGkvNDu.mjs";
-/** Retired Active Memory QMD override detected before strict manifest validation. */
-const legacyConfigRules = [{
-	path: [
-		"plugins",
-		"entries",
-		"active-memory",
-		"config",
-		"qmd"
-	],
-	message: "plugins.entries.active-memory.config.qmd is retired because the QMD memory backend was removed. Run \"openclaw doctor --fix\"."
-}];
-/** Removes the retired plugin-owned QMD override. */
-function normalizeCompatibilityConfig({ cfg }) {
-	const entry = asNullableRecord(cfg.plugins?.entries?.["active-memory"]);
-	const pluginConfig = asNullableRecord(entry?.config);
-	if (!pluginConfig || !Object.hasOwn(pluginConfig, "qmd")) return {
-		config: cfg,
-		changes: []
-	};
-	const nextConfig = structuredClone(cfg);
-	const nextEntry = asNullableRecord(nextConfig.plugins?.entries?.["active-memory"]);
-	const nextPluginConfig = asNullableRecord(nextEntry?.config);
-	if (!nextPluginConfig) return {
-		config: cfg,
-		changes: []
-	};
-	delete nextPluginConfig.qmd;
-	return {
-		config: nextConfig,
-		changes: ["Removed retired Active Memory QMD search-mode configuration."]
-	};
-}
-//#endregion
-export { legacyConfigRules, normalizeCompatibilityConfig };
+import{r as asNullableRecord}from"../../record-coerce-BTbqdJ3-.mjs";import"../../runtime-doctor-migrations-C2XqpPtt.mjs";
+//!extensions/active-memory/doctor-contract-api.ts
+const RETIRED_QMD_CONFIG_PATH=[`plugins`,`entries`,`active-memory`,`config`,`qmd`];const legacyConfigRules=[{path:RETIRED_QMD_CONFIG_PATH,message:`plugins.entries.active-memory.config.qmd is retired because the QMD memory backend was removed. Run "openclaw doctor --fix".`}];function normalizeCompatibilityConfig({cfg:e}){const t=asNullableRecord(e.plugins?.entries?.[`active-memory`]);const n=asNullableRecord(t?.config);if(!n||!Object.hasOwn(n,`qmd`))return{config:e,changes:[]};const r=structuredClone(e);const i=asNullableRecord(r.plugins?.entries?.[`active-memory`]);const a=asNullableRecord(i?.config);if(!a)return{config:e,changes:[]};delete a.qmd;return{config:r,changes:[`Removed retired Active Memory QMD search-mode configuration.`]}}export{legacyConfigRules,normalizeCompatibilityConfig};

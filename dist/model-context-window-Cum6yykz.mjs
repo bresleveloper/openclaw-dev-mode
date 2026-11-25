@@ -1,0 +1,2 @@
+//!src/agents/model-context-window.ts
+function resolveModelContextWindowProfile(e){const t=e.catalogEntry?.contextWindows??[];const n=e.catalogEntry?.contextWindowDefault;const r=e.selected?t.find(t=>t.id===e.selected):void 0;const i=n?t.find(e=>e.id===n):void 0;const a=r??i;return{contextWindow:a?.id,contextWindows:t.length>0?t:void 0,contextWindowDefault:n,contextTokens:a?.contextWindow??e.catalogEntry?.contextWindow}}export{resolveModelContextWindowProfile as t};

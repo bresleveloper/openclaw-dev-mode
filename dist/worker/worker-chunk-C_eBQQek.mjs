@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,t as n}from"./worker-chunk-BL8IsHVh.mjs";function logAppContainerTokenProbeFailure(e){n(`process`).debug(`AppContainer token probe failed; allowing spawn`,{error:String(e)})}e((()=>{t()}))();export{logAppContainerTokenProbeFailure};

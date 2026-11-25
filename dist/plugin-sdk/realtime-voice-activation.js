@@ -1,2 +1,1 @@
-import { r as normalizeRealtimeVoiceActivationNamePrefix, t as isSupportedRealtimeVoiceActivationName } from "../activation-name-Mr5RBN2x.mjs";
-export { isSupportedRealtimeVoiceActivationName, normalizeRealtimeVoiceActivationNamePrefix };
+import{r as normalizeRealtimeVoiceActivationNamePrefix,t as isSupportedRealtimeVoiceActivationName}from"../activation-name-DHMKjH4O.mjs";export{isSupportedRealtimeVoiceActivationName,normalizeRealtimeVoiceActivationNamePrefix};

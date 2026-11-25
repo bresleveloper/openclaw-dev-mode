@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,r as n,t as r}from"./worker-chunk-CiZl_oCp.mjs";function styleSelectParams(e){return{...e,message:n(e.message),options:e.options.map(e=>{let n=`hint`in e&&typeof e.hint==`string`?e.hint:void 0;return n===void 0?e:{...e,hint:t(n)}})}}var i=e((()=>{r()}));export{styleSelectParams as n,i as t};

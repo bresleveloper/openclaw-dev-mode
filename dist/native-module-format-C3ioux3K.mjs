@@ -1,0 +1,3 @@
+import fs from"node:fs";import path from"node:path";
+//!src/infra/native-module-format.ts
+function isNativeEsmPackage(e){let t=path.dirname(e);while(true){const e=path.join(t,`package.json`);if(fs.existsSync(e))try{const t=JSON.parse(fs.readFileSync(e,`utf8`));return typeof t===`object`&&t!==null&&Object.getOwnPropertyDescriptor(t,`type`)?.value===`module`}catch{return false}const n=path.dirname(t);if(n===t)return false;t=n}}export{isNativeEsmPackage as t};

@@ -1,8 +1,8 @@
-import { KIMI_K3_THINKING_EFFORTS, isKimiK31ModelId, isKimiK3ModelId } from "./provider-policy-api.js";
+import { KIMI_K3_THINKING_EFFORTS, isKimiCodeEnabledOnlyModelId, isKimiK3ModelId } from "./provider-policy-api.js";
 import { asFiniteNumberInRange, asOptionalObjectRecord, isRecord, parseBooleanValue } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { resolveOpenAIRequestReasoning, streamSimple } from "openclaw/plugin-sdk/llm";
-import { normalizeOpenAICompatibleReasoningReplay, streamWithPayloadPatch, transformProviderStreamMessages } from "openclaw/plugin-sdk/provider-stream-shared";
-//#region extensions/kimi-coding/stream.ts
+import { mapAssistantMessageStream, normalizeOpenAICompatibleReasoningReplay, streamWithPayloadPatch, transformProviderStreamMessages } from "openclaw/plugin-sdk/provider-stream-shared";
+// extensions/kimi-coding/stream.ts
 const TOOL_CALLS_SECTION_BEGIN = "<|tool_calls_section_begin|>";
 const TOOL_CALLS_SECTION_END = "<|tool_calls_section_end|>";
 const TOOL_CALL_BEGIN = "<|tool_call_begin|>";
@@ -104,13 +104,10 @@ function parseKimiTaggedToolCalls(text) {
 	return toolCalls.length > 0 ? toolCalls : null;
 }
 function rewriteKimiTaggedToolCallsInMessage(message) {
-	const record = asOptionalObjectRecord(message);
-	if (!record || !Array.isArray(record.content)) return;
 	let changed = false;
 	const nextContent = [];
-	for (const block of record.content) {
-		const typedBlock = asOptionalObjectRecord(block);
-		const parsed = typedBlock?.type === "text" && typeof typedBlock.text === "string" ? parseKimiTaggedToolCalls(typedBlock.text) : null;
+	for (const block of message.content) {
+		const parsed = block.type === "text" ? parseKimiTaggedToolCalls(block.text) : null;
 		if (!parsed) {
 			nextContent.push(block);
 			continue;
@@ -119,29 +116,21 @@ function rewriteKimiTaggedToolCallsInMessage(message) {
 		changed = true;
 	}
 	if (!changed) return;
-	record.content = nextContent;
-	if (record.stopReason === "stop") record.stopReason = "toolUse";
-}
-function createKimiToolCallMarkupWrapper(baseStreamFn) {
-	const underlying = baseStreamFn ?? streamSimple;
-	return (model, context, options) => {
-		const maybeStream = underlying(model, context, options);
-		if (maybeStream && typeof maybeStream === "object" && "then" in maybeStream) return Promise.resolve(maybeStream).then((stream) => transformProviderStreamMessages(stream, rewriteKimiTaggedToolCallsInMessage));
-		return transformProviderStreamMessages(maybeStream, rewriteKimiTaggedToolCallsInMessage);
-	};
+	message.content = nextContent;
+	if (message.stopReason === "stop") message.stopReason = "toolUse";
 }
 function wrapKimiProviderStream(ctx) {
 	const configured = normalizeKimiThinkingConfig(ctx.extraParams?.thinking);
 	const extraBody = asOptionalObjectRecord(ctx.extraParams?.extra_body ?? ctx.extraParams?.extraBody);
 	const templateKwargs = asOptionalObjectRecord(extraBody?.chat_template_kwargs ?? ctx.extraParams?.chat_template_kwargs ?? ctx.extraParams?.chatTemplateKwargs);
 	const underlying = ctx.streamFn ?? streamSimple;
-	return createKimiToolCallMarkupWrapper((model, context, options) => {
+	return (model, context, options) => {
 		const api = ctx.sourceApi ?? model.api;
 		const anthropic = api === "anthropic-messages";
 		const k3 = anthropic && isKimiK3ModelId(model.id);
 		const openaiK3 = api === "openai-completions" && isKimiK3ModelId(model.id);
 		const requestedLevel = options?.reasoning ?? ctx.thinkingLevel ?? (k3 ? "high" : void 0);
-		const thinkingLevel = anthropic && isKimiK31ModelId(model.id) && requestedLevel === "off" ? "high" : requestedLevel;
+		const thinkingLevel = anthropic && isKimiCodeEnabledOnlyModelId(model.id) && (!requestedLevel || requestedLevel === "off") ? k3 ? "high" : "low" : requestedLevel;
 		const thinkingConfig = resolveKimiThinkingConfig(configured, thinkingLevel);
 		const enabledLevel = thinkingLevel && thinkingLevel !== "off" ? thinkingLevel : k3 || openaiK3 ? "high" : "low";
 		const nativeLevel = enabledLevel === "adaptive" ? "high" : enabledLevel;
@@ -159,7 +148,7 @@ function wrapKimiProviderStream(ctx) {
 				...model.thinkingLevelMap
 			}
 		} : model;
-		return streamWithPayloadPatch(underlying, runtimeModel, context, {
+		const stream = streamWithPayloadPatch(underlying, runtimeModel, context, {
 			...options,
 			reasoning
 		}, (payloadObj) => {
@@ -196,7 +185,8 @@ function wrapKimiProviderStream(ctx) {
 				});
 			}
 		});
-	});
+		return mapAssistantMessageStream(stream, (resolved) => transformProviderStreamMessages(resolved, rewriteKimiTaggedToolCallsInMessage));
+	};
 }
 function stripContentArrayCacheControl(value) {
 	if (!Array.isArray(value)) return;
@@ -212,5 +202,4 @@ function stripAnthropicCacheControlMarkers(payloadObj) {
 	if (!Array.isArray(payloadObj.messages)) return;
 	for (const message of payloadObj.messages) stripContentArrayCacheControl(asOptionalObjectRecord(message)?.content);
 }
-//#endregion
 export { wrapKimiProviderStream };

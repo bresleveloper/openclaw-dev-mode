@@ -1,0 +1,3 @@
+import{n as digestTemplateValue}from"./digest-DTImQMv1.mjs";
+//!src/templates/agent-config-ownership.ts
+function templateOwnedAgentConfig(e){const{model:t,subagents:n,...r}=e;return r}function digestTemplateOwnedAgentConfig(e){return digestTemplateValue(templateOwnedAgentConfig(e))}function preserveOperatorAgentSettings(e,t){return{...templateOwnedAgentConfig(e),...t&&`model`in t?{model:t.model}:{},...t&&`subagents`in t?{subagents:t.subagents}:{}}}export{preserveOperatorAgentSettings as n,templateOwnedAgentConfig as r,digestTemplateOwnedAgentConfig as t};

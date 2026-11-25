@@ -1,10 +1,9 @@
-import { t as createCodexWebSearchProviderBase } from "./.setup/web-search-provider.shared-BrZmlqyR.mjs";
-//#region extensions/codex/web-search-contract-api.ts
+import { t as createCodexWebSearchProviderBase } from "./.setup/web-search-provider.shared-CICsH-KY.mjs";
+// extensions/codex/web-search-contract-api.ts
 function createCodexWebSearchProvider() {
 	return {
 		...createCodexWebSearchProviderBase(),
 		createTool: () => null
 	};
 }
-//#endregion
 export { createCodexWebSearchProvider };

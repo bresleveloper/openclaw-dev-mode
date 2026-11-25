@@ -1,0 +1,2 @@
+//!src/cli/tui-cli-options.ts
+function addTuiOptions(e){return e.option(`--url <url>`,`Gateway WebSocket URL (defaults to gateway.remote.url when configured)`).option(`--token <token>`,`Gateway token (if required)`).option(`--password <password>`,`Gateway password (if required)`).option(`--tls-fingerprint <sha256>`,`Expected Gateway TLS certificate fingerprint`)}export{addTuiOptions as t};

@@ -1,0 +1,1 @@
+export default {"skillStatus":{"bundled":"в комплекте","eligible":"доступно","blocked":"заблокировано","disabled":"отключено","blockedAllowlist":"заблокировано списком разрешений","blockedAgentFilter":"заблокировано фильтром агента"}};

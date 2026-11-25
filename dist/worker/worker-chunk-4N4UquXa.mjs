@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function isWorkspaceProjectId(e){return e.startsWith(t)}var t,n=e((()=>{t=`workspace:`}));export{n,isWorkspaceProjectId as r,t};

@@ -1,0 +1,3 @@
+import{Buffer}from"node:buffer";
+//!src/utils/utf8-truncate.ts
+function isContinuationByte(e){return e!==void 0&&(e&192)===128}function truncateEncodedPrefix(e,t){let n=t;while(n>0&&isContinuationByte(e[n]))n-=1;return e.subarray(0,n).toString(`utf8`)}function truncateUtf8Prefix(e,t){if(t<=0)return``;if(e.length<=t&&Buffer.byteLength(e)<=t)return e;return truncateEncodedPrefix(Buffer.from(e.slice(0,t)),t)}function truncateUtf8Suffix(e,t){if(t<=0)return``;if(e.length<=t&&Buffer.byteLength(e)<=t)return e;const n=Buffer.from(Number.isInteger(t)?e.slice(-t-1):e);let r=n.byteLength-t;while(r<n.byteLength&&isContinuationByte(n[r]))r+=1;return n.subarray(r).toString(`utf8`)}export{truncateUtf8Suffix as n,truncateUtf8Prefix as t};

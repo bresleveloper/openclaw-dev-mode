@@ -1,4 +1,1 @@
-import { n as normalizeCommandBody } from "../commands-registry-normalize-BI2t-DKf.mjs";
-import { t as shouldHandleTextCommands } from "../commands-text-routing-C0zJ6oP2.mjs";
-import "../command-surface-DzF363fd.mjs";
-export { normalizeCommandBody, shouldHandleTextCommands };
+import{n as normalizeCommandBody}from"../commands-registry-normalize-CfTYZL0S.mjs";import{t as shouldHandleTextCommands}from"../commands-text-routing-Ca5ulB_8.mjs";import{t as loadCommandArgMenuModelCatalog}from"../command-surface-BwpggN1q.mjs";export{loadCommandArgMenuModelCatalog,normalizeCommandBody,shouldHandleTextCommands};

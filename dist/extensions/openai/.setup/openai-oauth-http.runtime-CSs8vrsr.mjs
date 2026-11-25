@@ -1,0 +1,3 @@
+import{fetchWithSsrFGuard}from"openclaw/plugin-sdk/ssrf-runtime";
+//!extensions/openai/openai-oauth-http.runtime.ts
+async function withOpenAIOAuthResponse(e,t){const{response:n,release:r}=await fetchWithSsrFGuard(e);try{return await t(n)}finally{await r()}}function createOpenAIAuthorizationCodeForm(e){return new URLSearchParams({grant_type:`authorization_code`,client_id:e.clientId,code:e.code,code_verifier:e.verifier,redirect_uri:e.redirectUri,...e.resource?{resource:e.resource}:{}})}export{withOpenAIOAuthResponse as n,createOpenAIAuthorizationCodeForm as t};

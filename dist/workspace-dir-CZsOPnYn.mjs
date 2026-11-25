@@ -1,0 +1,3 @@
+import{c as resolveUserPath}from"./home-dir-aZetQWeY.mjs";import"./utils-CVVNdy3C.mjs";import path from"node:path";
+//!src/agents/workspace-dir.ts
+function normalizeWorkspaceDir(e){const t=e?.trim();if(!t)return null;const n=t.startsWith(`~`)?resolveUserPath(t):t;const r=path.resolve(n);if(r===path.parse(r).root)return null;return r}function resolveWorkspaceRoot(e){return normalizeWorkspaceDir(e)??process.cwd()}export{resolveWorkspaceRoot as n,normalizeWorkspaceDir as t};

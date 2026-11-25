@@ -1,2 +1,0 @@
-# Align both clocks in the existing source-finalization deadline fixture.
-3

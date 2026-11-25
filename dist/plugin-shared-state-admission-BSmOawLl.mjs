@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";
+//!src/plugins/plugin-shared-state-admission.ts
+const admission=resolveGlobalSingleton(Symbol.for(`openclaw.pluginSharedStateAdmission`),()=>({}));function bindPluginSharedStateAdmission(e){admission.resolveHost??=e}function getPluginSharedStateResourceHost(){return admission.resolveHost?.()}function runPluginSharedStateWork(e){const t=getPluginSharedStateResourceHost();return t?t.trackSharedStateWork(e):e()}export{getPluginSharedStateResourceHost as n,runPluginSharedStateWork as r,bindPluginSharedStateAdmission as t};

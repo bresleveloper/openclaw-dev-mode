@@ -1,0 +1,1 @@
+function isPromiseLike(e){if(e===null||typeof e!=`object`&&typeof e!=`function`)return!1;try{return typeof e.then==`function`}catch{return!1}}export{isPromiseLike as t};

@@ -1,0 +1,3 @@
+import{r as resolveStateDir}from"./state-dir-BwbNjuVe.mjs";import{o as resolveOpenClawStateDirForDatabasePath,r as resolveDatabasePath,s as resolveOpenClawStateSqlitePath}from"./openclaw-state-db.paths-BxxcG-S8.mjs";import path from"node:path";
+//!src/infra/client-credential-paths.ts
+function resolveClientCredentialStorePath(e){return path.join(resolveStateDir(e),`client`,`credentials.sqlite`)}function resolveStateClientCredentialEnvironment(e){const t=resolveDatabasePath({path:e.path});const n={...e.env,OPENCLAW_STATE_DIR:resolveOpenClawStateDirForDatabasePath(t)};return t===resolveOpenClawStateSqlitePath(n)?n:void 0}export{resolveStateClientCredentialEnvironment as n,resolveClientCredentialStorePath as t};

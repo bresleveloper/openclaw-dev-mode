@@ -1,0 +1,1 @@
+var SecretStoreValidationError=class extends Error{constructor(e,t){super(t),this.code=e,this.name=`SecretStoreValidationError`}};const e=65536;export{SecretStoreValidationError as n,e as t};

@@ -1,0 +1,2 @@
+//!src/wizard/prompts.ts
+const DEVICE_CODE_PHISHING_WARNING=`Continue only if you started this sign-in yourself. If a website or another person gave you this code, cancel.`;var WizardCancelledError=class extends Error{constructor(e=`wizard cancelled`){super(e);this.name=`WizardCancelledError`}};var WizardNavigationError=class extends Error{constructor(e){super(`wizard navigate ${e}`);this.direction=e;this.name=`WizardNavigationError`}};export{WizardCancelledError as n,WizardNavigationError as r,DEVICE_CODE_PHISHING_WARNING as t};

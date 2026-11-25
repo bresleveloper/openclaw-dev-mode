@@ -1,0 +1,5 @@
+import{t as expectDefined}from"./expect-DkJCbmLj.mjs";import{a as getMarkdownTableSource,c as renderMarkdownCodeTable,l as renderMarkdownTableBullets,s as markdownToIRWithMeta}from"./ir-DJnpQG7c.mjs";
+//!packages/markdown-core/src/tables.ts
+function convertMarkdownTables(e,t){if(!e||t===`off`||!e.includes(`|`))return e;const{tables:n}=markdownToIRWithMeta(e,{linkify:false,autolink:false,tableMode:`block`});let r=0;let i=``;for(const a of n){const n=expectDefined(getMarkdownTableSource(a),`Markdown table source`);let o=``;if(t!==`bullets`){const e=renderMarkdownCodeTable(a.headers,a.rows);let t=3;for(const n of e.matchAll(/`+/g))t=Math.max(t,n[0].length+1);const n="`".repeat(t);o=`${n}\n${e}${n}`}else{const e=a.headers.map((e,t)=>({text:e,markdown:n.headers[t]}));const t=a.rows.map((e,t)=>e.map((e,r)=>({text:e,markdown:n.rows[t]?.[r]})));renderMarkdownTableBullets(e,t,e=>{o+=e},(e,t)=>{o+=t?`**${e.markdown}**`:e.markdown});o=o.replace(/\n+$/u,``)}o=o.replaceAll(`
+`,`
+`+n.prefix);i+=e.slice(r,n.start)+o;r=n.end}return i+e.slice(r)}export{convertMarkdownTables as t};

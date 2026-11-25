@@ -1,15 +1,15 @@
-import { M as OpenClawConfig, w as MemorySyncProgressUpdate, y as MemoryProviderStatus } from "../../types-D7I_F5Ux.js";
-import "../../config-contracts-CY87ANNp.js";
-import { c as HealthCheck } from "../../health-cYhdxqLA.js";
-import { n as MemoryDreamingStorageConfig } from "../../dreaming-D2Tdqt2p.js";
-import { d as MemoryEmbeddingProbeResult, n as configureMemoryCoreDreamingState, s as PromotionCandidate, u as ShortTermRecallEntry } from "../../dreaming-state-Bbascr8N.js";
-import { t as filterMemorySearchHitsBySessionVisibility } from "../../session-search-visibility-V5UnOZqN.js";
-//#region extensions/memory-core/prewarm-api.d.ts
-export declare function prewarmMemorySearchWorker(): Promise<void>;
-//#endregion
-//#region extensions/memory-core/src/dreaming-dreams-file.d.ts
+import "../../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../../types.openclaw-D8uW-XQA.js";
+import { h as MemorySyncProgressUpdate, s as MemoryProviderStatus } from "../../types-D2yUynI0.js";
+import { c as HealthCheck, d as HealthFinding } from "../../health-BiFk88ye.js";
+import "../../memory-core-host-engine-foundation-B9GEQdKU.js";
+import { t as MemoryDreamingStorageConfig } from "../../memory-core-host-runtime-core-B6UF-6o1.js";
+import { g as MemoryEmbeddingProbeResult, h as WorkspaceFileMode, n as configureMemoryCoreDreamingState, s as PromotionCandidate, u as ShortTermRecallEntry } from "../../dreaming-state-DURGeEXv.js";
+import { t as filterMemorySearchHitsBySessionVisibility } from "../../session-search-visibility-D7fy7WQS.js";
+export declare function prewarmMemorySearchWorker(cfg: OpenClawConfig): Promise<void>;
 export declare function writeBackfillDiaryEntries(params: {
   workspaceDir: string;
+  workspaceFileMode?: WorkspaceFileMode;
   entries: Array<{
     isoDay: string;
     bodyLines: string[];
@@ -35,8 +35,6 @@ export declare function dedupeDreamDiaryEntries(params: {
   removed: number;
   kept: number;
 }>;
-//#endregion
-//#region extensions/memory-core/src/rem-evidence.d.ts
 type GroundedRemPreviewItem = {
   text: string;
   refs: string[];
@@ -62,15 +60,11 @@ export declare function previewGroundedRemMarkdown(params: {
     renderedMarkdown: string;
   }[];
 }>;
-//#endregion
-//#region extensions/memory-core/src/dreaming-phases.d.ts
 export declare function filterRecallEntriesWithinLookback(params: {
   entries: readonly ShortTermRecallEntry[];
   nowMs: number;
   lookbackDays: number;
 }): ShortTermRecallEntry[];
-//#endregion
-//#region extensions/memory-core/src/rem-harness.d.ts
 type PreviewRemHarnessOptions = {
   workspaceDir: string;
   cfg?: OpenClawConfig;
@@ -191,24 +185,13 @@ export declare function previewRemHarness(params: PreviewRemHarnessOptions): Pro
     candidates: PromotionCandidate[];
   };
 }>;
-//#endregion
-//#region extensions/memory-core/src/memory-rebuild-notice.d.ts
 export declare function captureMemoryRebuildNotice(status: MemoryProviderStatus): () => string | undefined;
-//#endregion
-//#region extensions/memory-core/src/memory/manager-status-presence.runtime.d.ts
-export declare function inspectMemoryIndexPresence(databasePath: string): Promise<boolean>;
-//#endregion
-//#region extensions/memory-core/src/doctor-vector-index-provider.d.ts
+export declare function inspectMemoryIndexPresence(databasePath: string, agentId?: string): Promise<boolean>;
 type ProviderFailure = {
   provider: string;
   reason: string;
   requirement?: string;
   fixHint?: string;
-};
-type VectorProviderFinding = ProviderFailure & {
-  agentId: string;
-  model: string;
-  configPrefix: string;
 };
 type InspectConfiguredProvider = (params: {
   config: OpenClawConfig;
@@ -219,9 +202,8 @@ declare function collectVectorProviderFindings(params: {
   config: OpenClawConfig;
   env: NodeJS.ProcessEnv;
   stateDir: string;
-}, inspectProvider: InspectConfiguredProvider): Promise<VectorProviderFinding[]>;
-//#endregion
-//#region extensions/memory-core/src/doctor-health.d.ts
+  shouldInspectAgent: (agentId: string) => boolean;
+}, inspectProvider: InspectConfiguredProvider): Promise<HealthFinding[]>;
 export declare const MEMORY_MANAGED_LOCAL_EMBEDDING_SETUP_CHECK_ID = "memory-core/managed-local-embedding-setup";
 export declare const pluginStateIsolatedDoctorCheckIds: readonly ["memory-core/managed-local-embedding-setup"];
 type InspectManagedLocalEmbeddingSetup = (params: {
@@ -237,8 +219,5 @@ type MemoryCoreDoctorRegistrationHost = {
   memoryCoreActive: boolean;
 };
 export declare function registerMemoryCoreDoctorChecks(host: MemoryCoreDoctorRegistrationHost): void;
-//#endregion
-//#region extensions/memory-core/src/memory/local-embedding-provider.d.ts
 export declare const MISSING_LOCAL_MEMORY_EMBEDDING_PROVIDER_MESSAGE: string;
-//#endregion
 export { type MemoryEmbeddingProbeResult, type MemoryProviderStatus, type MemorySyncProgressUpdate, type OpenClawConfig, type PreviewRemHarnessOptions, type PreviewRemHarnessResult, configureMemoryCoreDreamingState, filterMemorySearchHitsBySessionVisibility };

@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"目前處理: {context}","removeContext":"移除工作脈絡","includeContext":"包含工作脈絡","selection":"已選取的文字","attachSelection":"附加已選取的文字","attachSelectionTooltip":"附加選取內容","removeSelection":"移除已選取的文字"}};

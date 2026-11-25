@@ -1,0 +1,1 @@
+import{n as e}from"./transcript-sql-connection-DLZo1Z6N.mjs";import{m as t}from"./transcript-kysely-sync-BLR5Zy5p.mjs";function engineIndexHint(n,r){return t.raw(e(n)?``:`INDEXED BY ${r}`)}export{engineIndexHint as t};

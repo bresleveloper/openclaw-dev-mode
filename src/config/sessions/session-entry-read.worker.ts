@@ -8,12 +8,18 @@ import {
 } from "../../infra/kysely-sync.js";
 import { sqlPublicationAnchor } from "../../infra/sql-connection.js";
 import { withSqlitePostCommitPublications } from "../../infra/sqlite-post-commit.js";
-import { runSqliteDeferredTransactionSync } from "../../infra/sqlite-transaction.js";
+import { runSqliteReadSnapshotSync } from "../../infra/sqlite-transaction.js";
+import {
+  assertExistingDatabaseIdentity,
+  readDatabasePathIdentitySync,
+} from "../../infra/sqlite-worker-identity.js";
+import { withArtifactPreservingStateReads } from "../../state/artifact-preserving-state-reads.js";
 import {
   assertOpenClawAgentDatabaseIdentity,
   isOpenClawAgentDatabasePathCurrent,
   readOpenClawAgentDatabaseIdentity,
 } from "../../state/openclaw-agent-db-identity.js";
+import { withFreshOpenClawAgentDatabaseReadOnly } from "../../state/openclaw-agent-db-readonly-open.js";
 import { withOpenClawAgentDatabaseReadOnly } from "../../state/openclaw-agent-db-readonly.js";
 import type { OpenClawAgentReadOnlyDatabase } from "../../state/openclaw-agent-db-readonly.js";
 import type { DB as OpenClawAgentKyselyDatabase } from "../../state/openclaw-agent-db.generated.js";
@@ -25,29 +31,30 @@ import { hasPendingSessionTranscriptArchives } from "./session-accessor.sqlite-a
 import { readSessionCreationSnapshotInDatabase } from "./session-accessor.sqlite-creation-read.js";
 import { readExactSessionEntryCandidatesInDatabase } from "./session-accessor.sqlite-entry-cache.js";
 import { readExactSessionEntryFactsInDatabase } from "./session-accessor.sqlite-entry-facts.worker.js";
-import {
-  listSqliteSessionEntriesFromDatabase,
-  readSelectedSessionEntriesInDatabase,
-} from "./session-accessor.sqlite-entry-list.read.js";
+import { listSqliteSessionEntriesFromDatabase } from "./session-accessor.sqlite-entry-list.read.js";
 import {
   prepareExactSessionEntryRowReads,
   readExactSessionEntryRow,
   readSessionChildEntriesInDatabase,
   readSessionEntryByIdInDatabase,
 } from "./session-accessor.sqlite-entry-read.js";
+import { readSelectedSessionEntriesInDatabase } from "./session-accessor.sqlite-entry-selected.read.js";
 import { participantRecordsBySessionKey } from "./session-accessor.sqlite-participant-projection.js";
+import { resolveSqliteScope } from "./session-accessor.sqlite-read-scope.js";
 import { readSessionEntryReplacementState } from "./session-accessor.sqlite-replacement-read.js";
-import { resolveSqliteScope } from "./session-accessor.sqlite-scope.js";
 import { readTranscriptHeaderFromDatabase } from "./session-accessor.sqlite-transcript-metadata-read.js";
 import { readSessionTranscriptWatermarkInDatabase } from "./session-accessor.sqlite-transcript-watermark.js";
 import { readSessionWorktreeOwnerFactsInDatabase } from "./session-accessor.sqlite-worktree-owner.js";
 import {
+  assertCanonicalSqliteSessionKeysCurrent,
   canonicalSessionKeyMigrationRequiredError,
   readWithCanonicalSessionReaderContinuation,
 } from "./session-canonical-key.js";
+import { readSessionColdMetadataInDatabase } from "./session-cold-storage-inventory.js";
 import { prepareSessionColdSourceGuard } from "./session-cold-storage-source-guard.worker.js";
-import { readSessionColdTranscript } from "./session-cold-storage-state.js";
+import { readSessionCreationReceipt } from "./session-creation-receipts.js";
 import { createSessionEntryReadScope } from "./session-entry-cohort.worker.js";
+import { prepareSessionEntryInspectionSnapshot } from "./session-entry-inspection-snapshot.worker.js";
 import { captureSessionEntryReadSource } from "./session-entry-read-source.js";
 import type {
   SessionExactEntriesWorkerInput,
@@ -112,11 +119,113 @@ function selectsChildEntries(
   return request.selection?.kind === "children";
 }
 
+/** Private source preparation belongs to the async worker dispatch, before native row reads. */
+export async function readExactSessionEntriesWithLifecycleAsync(
+  request: SessionExactEntriesWorkerInput,
+  signal: AbortSignal,
+): Promise<SessionExactEntriesWorkerResult> {
+  signal.throwIfAborted();
+  if (request.preserveSourceArtifacts) {
+    const {
+      preserveSourceArtifacts: _,
+      expectedIdentity: admittedIdentity,
+      inspectionSourcePath,
+      inspectionSnapshot,
+      ...selection
+    } = request;
+    // Cold sources are identified here, without opening or initializing the original database.
+    const expectedIdentity =
+      admittedIdentity ?? readDatabasePathIdentitySync(request.database.path);
+    if (
+      !expectedIdentity?.key.startsWith("file:") ||
+      expectedIdentity.birthtime === undefined ||
+      (request.projection !== "full" &&
+        request.projection !== "sharing" &&
+        request.projection !== "exact" &&
+        request.projection !== "list" &&
+        request.projection !== "worktree" &&
+        request.projection !== undefined)
+    ) {
+      throw new Error("Session authority inspection requires its admitted physical source");
+    }
+    const assertOriginal = () => {
+      assertExistingDatabaseIdentity(
+        request.database.path,
+        expectedIdentity.key,
+        expectedIdentity.birthtime,
+      );
+      if (inspectionSourcePath) {
+        const current = readDatabasePathIdentitySync(inspectionSourcePath);
+        if (
+          current.canonicalPath !== request.database.path ||
+          current.key !== expectedIdentity.key ||
+          current.birthtime !== expectedIdentity.birthtime
+        ) {
+          throw new Error("Session inspection locator changed after physical preparation");
+        }
+      }
+    };
+    assertOriginal();
+    const snapshot = await prepareSessionEntryInspectionSnapshot(request, signal, expectedIdentity);
+    let result: SessionExactEntriesWorkerResult;
+    let cleaned: boolean;
+    try {
+      signal.throwIfAborted();
+      assertOriginal();
+      snapshot.assertCurrent?.();
+      const read = withArtifactPreservingStateReads(() =>
+        withFreshOpenClawAgentDatabaseReadOnly(
+          (database) => {
+            assertCanonicalSqliteSessionKeysCurrent(database);
+            return readExactSessionEntriesWithLifecycle(
+              {
+                ...selection,
+                database: { agentId: database.agentId, path: database.path },
+                expectedIdentity: inspectionSnapshot ?? readDatabasePathIdentitySync(database.path),
+              },
+              database,
+            );
+          },
+          { ...request.database, path: snapshot.location, env: request.env },
+        ),
+      );
+      assertOriginal();
+      if (!read.found) {
+        if (read.reason === "database-missing") {
+          throw new Error("Session entry read lost its captured physical owner");
+        }
+        throw new SessionMetadataUnavailableError(read.reason);
+      }
+      // Keep the private reader's identity intact. The host binds this copy provenance
+      // to its pre-dispatch source and retained writer publications before disclosure.
+      result = {
+        ...read.value,
+        snapshotSource: {
+          agentId: request.database.agentId,
+          path: request.database.path,
+          databaseIdentity: expectedIdentity.key.slice("file:".length),
+          databaseBirthtime: expectedIdentity.birthtime,
+        },
+      };
+    } finally {
+      cleaned = await snapshot.cleanupAsync();
+    }
+    if (!cleaned) {
+      throw new Error("Session authority snapshot cleanup failed");
+    }
+    return result;
+  }
+  return readExactSessionEntriesWithLifecycle(request);
+}
+
 /** Exact facts are one statement; richer selections retain their shared snapshot. */
 export function readExactSessionEntriesWithLifecycle(
   request: SessionExactEntriesWorkerInput,
   capturedDatabase?: OpenClawAgentReadOnlyDatabase,
 ): SessionExactEntriesWorkerResult {
+  if (request.preserveSourceArtifacts) {
+    throw new Error("Artifact-preserving session inspection requires async preparation");
+  }
   if (request.sourceChecks) {
     return readSessionSourceChecks(request, capturedDatabase);
   }
@@ -234,9 +343,10 @@ export function readExactSessionEntriesWithLifecycle(
             ...(request.manualCompact
               ? {
                   manualCompact: {
-                    archive: readSessionColdTranscript(
-                      database.db,
+                    ...readSessionColdMetadataInDatabase(
+                      database,
                       request.manualCompact.sessionId,
+                      request.readCustody,
                     ),
                     refusedSource: sourceGuard.read(
                       database,
@@ -273,9 +383,7 @@ export function readExactSessionEntriesWithLifecycle(
       request.projection === "list"
         ? {
             kind: "session-exact-entries" as const,
-            ...(request.expectedIdentity
-              ? { source: captureSessionEntryReadSource(database, request.expectedIdentity) }
-              : {}),
+            source: captureSessionEntryReadSource(database, request.expectedIdentity),
             entries: readSelectedSessionEntriesInDatabase(database, request.sessionKeys ?? [], {
               continuation: request.continuation,
               ...(request.selection?.kind === "label" ? { label: request.selection.label } : {}),
@@ -283,10 +391,7 @@ export function readExactSessionEntriesWithLifecycle(
                 ? { sessionIdOrKey: request.selection.sessionIdOrKey }
                 : {}),
               ...(request.selection?.kind === "transcript-aliases"
-                ? {
-                    transcriptSessionIds: request.selection.sessionIds,
-                    transcriptSessionFiles: request.selection.sessionFiles,
-                  }
+                ? { transcriptSessionIds: request.selection.sessionIds }
                 : {}),
             }),
             lifecycleTimestamps: {},
@@ -294,6 +399,17 @@ export function readExactSessionEntriesWithLifecycle(
         : withSqlitePostCommitPublications(sqlPublicationAnchor(database.db), () =>
             snapshot(database, () => {
               assertCanonicalRead(database, request.expectedIdentity);
+              if (request.projection === "creation-receipt") {
+                if (!request.creationDigest) {
+                  throw new Error("Creation receipt lookup requires its digest");
+                }
+                return {
+                  kind: "session-exact-entries" as const,
+                  entries: [],
+                  lifecycleTimestamps: {},
+                  creationReceipt: readSessionCreationReceipt(database, request.creationDigest),
+                };
+              }
               if (request.projection === "creation") {
                 const { identity, canonicalPath } = readOpenClawAgentDatabaseIdentity(database);
                 const sessionKey = request.sessionKeys[0];
@@ -551,7 +667,7 @@ export function readSessionRowDatabaseFacts(
               const { entry } = selected;
               const storedTranscript =
                 selected.row.row_transcript_window_id === null
-                  ? { lastMessagePreview: null, terminalModel: null }
+                  ? { lastMessagePreview: null, lastAssistantMessage: null, terminalModel: null }
                   : readStoredSessionRowTranscriptProjection({
                       json: selected.row.row_transcript_json,
                       updatedAt: selected.row.row_transcript_updated_at,
@@ -564,6 +680,9 @@ export function readSessionRowDatabaseFacts(
                 hasBoard:
                   selected.row.session_key === sessionKey && selected.row.board_present === 1,
                 transcriptPreview: storedTranscript?.lastMessagePreview,
+                transcriptAssistantMessage: storedTranscript
+                  ? storedTranscript.lastAssistantMessage
+                  : "unknown",
                 transcriptTerminalModel: storedTranscript?.terminalModel,
               };
               if (readSessionActivitySummary(entry)) {
@@ -577,7 +696,7 @@ export function readSessionRowDatabaseFacts(
           };
         };
         return withSqlitePostCommitPublications(sqlPublicationAnchor(database.db), () =>
-          database.db.isTransaction ? read() : runSqliteDeferredTransactionSync(database.db, read),
+          database.db.isTransaction ? read() : runSqliteReadSnapshotSync(database.db, read),
         );
       }),
     { ...request.database, env: request.env },

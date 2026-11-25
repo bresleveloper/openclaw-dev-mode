@@ -1,0 +1,2 @@
+//!extensions/anthropic/session-catalog-node-helpers.ts
+function createNodeListFailedError(e){const t=e instanceof Error?e.message.trim():typeof e===`string`?e.trim():``;const n=`Paired nodes could not be listed`;return{code:`NODE_LIST_FAILED`,message:t&&t!==n?`${n}: ${t}`:n}}function resolveNodeLabel(e){return e.displayName?.trim()||e.remoteIp?.trim()||e.nodeId}export{resolveNodeLabel as n,createNodeListFailedError as t};

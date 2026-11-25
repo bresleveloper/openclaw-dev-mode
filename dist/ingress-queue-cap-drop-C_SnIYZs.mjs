@@ -1,0 +1,2 @@
+//!src/channels/message/ingress-queue-cap-drop.ts
+const INGRESS_QUEUE_CAP_DROP_REASONS=[`queue-cap`,`queue-cap-old`,`queue-cap-new`];var IngressQueueCapDropError=class extends Error{constructor(e){super(`followup queue dropped source by cap policy (${e})`);this.reason=e}};function resolveQueueCapDropFailure(e,t){return e instanceof IngressQueueCapDropError?{reason:e.reason,message:e.message}:t?.(e)??null}export{IngressQueueCapDropError as n,resolveQueueCapDropFailure as r,INGRESS_QUEUE_CAP_DROP_REASONS as t};

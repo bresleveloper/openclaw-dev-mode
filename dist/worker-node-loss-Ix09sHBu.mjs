@@ -1,0 +1,3 @@
+import{n as recordModelFallbackStop}from"./model-fallback-stop-CvdSBnnN.mjs";
+//!src/worker/worker-node-loss.ts
+var WorkerNodeLostError=class extends Error{constructor(e){super(`The node disconnected before the turn finished. Tool effects may be unknown; verify state before retrying.`,e);this.code=`node-lost`;this.canContinue=false;this.name=`WorkerNodeLostError`;recordModelFallbackStop(this)}};export{WorkerNodeLostError as t};

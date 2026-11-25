@@ -1,0 +1,3 @@
+import{n as resolveRealpathOrAbsolute}from"./boundary-path-DRYXObp6.mjs";import{o as resolveSessionFilePathCore}from"./paths-ZsF-wmPI.mjs";import fs from"node:fs";import path from"node:path";
+//!src/commands/doctor-session-sqlite-transcript-file.ts
+function resolveActiveSqliteTranscriptFile(e,t){let n;try{n=resolveSessionFilePathCore(t.sessionId,t,{agentId:e.agentId,sessionsDir:path.dirname(e.storePath)})}catch{return}if(!n.endsWith(`.jsonl`))return;try{if(!fs.statSync(n).isFile())return}catch{return}const r=resolveRealpathOrAbsolute(path.dirname(e.storePath));const i=resolveRealpathOrAbsolute(n);return path.dirname(i)===r?i:void 0}export{resolveActiveSqliteTranscriptFile as t};

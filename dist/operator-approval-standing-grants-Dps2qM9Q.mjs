@@ -1,0 +1,3 @@
+import"./src-0ci69Prg.mjs";import{t as stableStringify}from"./stable-stringify-Cy0VZ0ci.mjs";import{r as buildSystemRunApprovalEnvBinding}from"./system-run-approval-binding-NqmEGPvD.mjs";
+//!src/gateway/operator-approval-standing-grants.ts
+function buildCronExecOperationBinding(e){return stableStringify({v:1,command:e.command.trim(),cwd:e.cwd?.trim()||null,envHash:buildSystemRunApprovalEnvBinding(e.env).envHash})}function parseCronExecOperationBinding(e){try{const t=JSON.parse(e);if(t.v!==1||typeof t.command!==`string`)return null;return{command:t.command,cwd:typeof t.cwd===`string`?t.cwd:null}}catch{return null}}export{parseCronExecOperationBinding as n,buildCronExecOperationBinding as t};

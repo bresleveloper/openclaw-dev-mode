@@ -1,0 +1,3 @@
+import"./src-0ci69Prg.mjs";import{t as stableStringify}from"./stable-stringify-Cy0VZ0ci.mjs";import{n as sha256Hex}from"./node-crypto-DPk8agfR.mjs";import"./crypto-digest-T8X5EZni.mjs";import{t as redactConfigObject}from"./redact-snapshot-BLNzqood.mjs";
+//!src/skills/runtime/snapshot-config-fingerprint.ts
+let configFingerprints=/* @__PURE__ */ new WeakMap;function fingerprintSkillSnapshotConfig(e){const t=configFingerprints.get(e);if(t)return t;const n=sha256Hex(stableStringify(redactConfigObject(e)));configFingerprints.set(e,n);return n}function resetSkillSnapshotConfigFingerprintCache(){configFingerprints=/* @__PURE__ */ new WeakMap}export{resetSkillSnapshotConfigFingerprintCache as n,fingerprintSkillSnapshotConfig as t};

@@ -1,14 +1,12 @@
 import { resolveAnthropicVertexAdcCredentials, resolveAnthropicVertexProjectId } from "./region.js";
 import { resolveAnthropicVertexClientRegion } from "./region-endpoint.js";
-import { requiresClaudeMandatoryAdaptiveThinking, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity, supportsClaudeAdaptiveThinking, supportsClaudeNativeXhighEffort } from "openclaw/plugin-sdk/provider-model-shared";
+import { requiresClaudeMandatoryAdaptiveThinking, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity } from "openclaw/plugin-sdk/provider-model-shared";
 import { AnthropicVertex } from "@anthropic-ai/vertex-sdk";
 import { GoogleAuth } from "google-auth-library";
-import { adjustMaxTokensForThinking, stream } from "openclaw/plugin-sdk/llm";
-import { asPositiveFiniteNumber } from "openclaw/plugin-sdk/number-runtime";
-import { resolveAnthropicThinkingEffort } from "openclaw/plugin-sdk/provider-stream-shared";
-import { copyProviderAcceptanceObserver } from "openclaw/plugin-sdk/provider-transport-runtime";
+import { stream } from "openclaw/plugin-sdk/llm";
+import { applyAnthropicThinkingOptions, clampMaxTokensToModel, copyProviderAcceptanceObserver } from "openclaw/plugin-sdk/provider-transport-runtime";
 import { EnvHttpProxyAgent, fetch } from "undici";
-//#region extensions/anthropic-vertex/stream-runtime.ts
+// extensions/anthropic-vertex/stream-runtime.ts
 const GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
 let googleAuthDispatcher;
 const googleAuthFetch = (input, init) => {
@@ -23,14 +21,6 @@ const defaultAnthropicVertexStreamDeps = {
 	GoogleAuth,
 	streamAnthropic: stream
 };
-function resolveAnthropicVertexMaxTokens(params) {
-	const modelLimit = asPositiveFiniteNumber(params.modelMaxTokens);
-	const requestedLimit = asPositiveFiniteNumber(params.requestedMaxTokens);
-	const modelMax = modelLimit === void 0 ? void 0 : Math.floor(modelLimit);
-	const requested = requestedLimit === void 0 ? void 0 : Math.floor(requestedLimit);
-	if (modelMax !== void 0 && requested !== void 0) return Math.min(requested, modelMax);
-	return requested ?? modelMax;
-}
 /**
 * Create a StreamFn that routes through OpenClaw's generic model stream with an
 * injected `AnthropicVertex` client.  All streaming, message conversion, and
@@ -55,21 +45,12 @@ function createAnthropicVertexStreamFn(projectId, region, baseURL, deps = defaul
 			...model,
 			api: "anthropic-messages"
 		};
-		const maxTokens = resolveAnthropicVertexMaxTokens({
-			modelMaxTokens: transportModel.maxTokens,
-			requestedMaxTokens: options?.maxTokens
-		});
 		const adaptiveDefaultClaude5 = resolveClaudeSonnet5ModelIdentity(transportModel) !== void 0 || resolveClaudeOpus5ModelIdentity(transportModel) !== void 0;
-		const mandatoryAdaptiveThinking = requiresClaudeMandatoryAdaptiveThinking(transportModel);
-		const adaptiveModel = supportsClaudeAdaptiveThinking(transportModel);
-		const requestedReasoning = options?.reasoning;
-		const reasoning = requestedReasoning === "off" && mandatoryAdaptiveThinking ? "low" : requestedReasoning ?? (adaptiveDefaultClaude5 ? "high" : void 0);
-		const temperature = mandatoryAdaptiveThinking || Boolean(reasoning && reasoning !== "off" && adaptiveModel) || supportsClaudeNativeXhighEffort(transportModel) ? void 0 : options?.temperature;
+		const reasoning = options?.reasoning ?? (adaptiveDefaultClaude5 ? "high" : requiresClaudeMandatoryAdaptiveThinking(transportModel) ? void 0 : "off");
 		const opts = copyProviderAcceptanceObserver(options, {
 			client,
-			thinkingEnabled: mandatoryAdaptiveThinking,
-			...temperature !== void 0 ? { temperature } : {},
-			...maxTokens !== void 0 ? { maxTokens } : {},
+			...options?.temperature !== void 0 ? { temperature: options.temperature } : {},
+			maxTokens: Math.floor(clampMaxTokensToModel(transportModel, options?.maxTokens ?? transportModel.maxTokens)),
 			signal: options?.signal,
 			cacheRetention: options?.cacheRetention,
 			sessionId: options?.sessionId,
@@ -79,20 +60,10 @@ function createAnthropicVertexStreamFn(projectId, region, baseURL, deps = defaul
 			maxRetryDelayMs: options?.maxRetryDelayMs,
 			metadata: options?.metadata
 		});
-		if (reasoning === "off") opts.thinkingEnabled = false;
-		else if (reasoning) {
-			if (adaptiveModel) {
-				opts.thinkingEnabled = true;
-				opts.effort = resolveAnthropicThinkingEffort(transportModel, reasoning);
-			} else {
-				const adjusted = adjustMaxTokensForThinking(maxTokens, transportModel.maxTokens, reasoning, options?.thinkingBudgets);
-				opts.thinkingEnabled = adjusted.thinkingBudget >= 1024;
-				if (opts.thinkingEnabled) {
-					opts.maxTokens = adjusted.maxTokens;
-					opts.thinkingBudgetTokens = adjusted.thinkingBudget;
-				}
-			}
-		}
+		applyAnthropicThinkingOptions(transportModel, opts, {
+			reasoning,
+			thinkingBudgets: options?.thinkingBudgets
+		}, "provider");
 		return deps.streamAnthropic(transportModel, context, opts);
 	};
 }
@@ -114,5 +85,4 @@ function createAnthropicVertexStreamFnForModel(model, env = process.env, deps) {
 		env
 	}), resolveAnthropicVertexSdkBaseUrl(model.baseUrl), deps, env);
 }
-//#endregion
 export { createAnthropicVertexStreamFn, createAnthropicVertexStreamFnForModel };

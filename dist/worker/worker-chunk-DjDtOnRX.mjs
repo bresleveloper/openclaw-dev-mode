@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";var t,n,r,i,a,o=e((()=>{t=`gateway-owner`,n=4096,r=`git.coauthor.enabled`,i=`github.prAttribution.enabled`,a=`🦞 Made with [OpenClaw](https://openclaw.ai)`}));export{n as a,i,r as n,o,a as r,t};

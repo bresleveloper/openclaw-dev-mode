@@ -1,0 +1,3 @@
+import{t as createCachedLazyValueGetter}from"./lazy-value-BJJrSp6u.mjs";import{r as emptyPluginConfigSchema}from"./config-schema-BQYgWf1D.mjs";
+//!src/plugin-sdk/plugin-entry.ts
+function definePluginEntry({id:e,name:t,description:n,kind:r,configSchema:i=emptyPluginConfigSchema,reload:a,nodeHostCommands:o,securityAuditCollectors:s,register:c}){const l=createCachedLazyValueGetter(i);return{id:e,name:t,description:n,...r?{kind:r}:{},...a?{reload:a}:{},...o?{nodeHostCommands:o}:{},...s?{securityAuditCollectors:s}:{},get configSchema(){return l()},register:c}}export{definePluginEntry as t};

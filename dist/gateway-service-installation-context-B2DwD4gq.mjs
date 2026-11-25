@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";import{AsyncLocalStorage}from"node:async_hooks";
+//!src/infra/gateway-service-installation-context.ts
+const installations=resolveGlobalSingleton(Symbol.for(`openclaw.gatewayServiceInstallation`),()=>new AsyncLocalStorage);function withGatewayServiceInstallation(e,t){return installations.run(e,t)}function getGatewayServiceInstallation(){return installations.getStore()?.installation}export{withGatewayServiceInstallation as n,getGatewayServiceInstallation as t};

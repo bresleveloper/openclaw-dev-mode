@@ -1,0 +1,1 @@
+import{z as e}from"./transcript-plugin-instance-invocation-7pP9ZY8b.mjs";import"./transcript-message-patterns-CxgLJN15.mjs";function isSignalTimeoutReason(t){try{return e(t)===`TimeoutError`}catch{return!1}}export{isSignalTimeoutReason as t};

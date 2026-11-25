@@ -2,7 +2,11 @@ import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { compileFunction } from "node:vm";
-//#region src/media/staged-inputs.ts
+// packages/normalization-core/src/record-coerce.ts
+function isStringArray(value) {
+	return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+// src/media/staged-inputs.ts
 const STAGED_INPUT_DIRECTORY_PREFIX = "media/inbound/openclaw-staged-";
 const STAGED_INPUT_GITIGNORE = "# Raw task inputs remain private; copy outputs into the project to publish.\n*\n";
 const STAGED_INPUT_GITIGNORE_SHA256 = createHash("sha256").update(STAGED_INPUT_GITIGNORE).digest("hex");
@@ -46,8 +50,7 @@ function stagedInputDirectoriesFromEntries(entries) {
   return directories;
 }`;
 const { stagedInputPathDirectory, isStagedInputPath, stagedInputDirectoriesFromEntries } = compileFunction(`${STAGED_INPUT_PATHS_JS}\nreturn { stagedInputPathDirectory, isStagedInputPath, stagedInputDirectoriesFromEntries };`)();
-//#endregion
-//#region src/gateway/worker-environments/workspace-inventory-limits.ts
+// src/gateway/worker-environments/workspace-inventory-limits.ts
 const MAX_WORKSPACE_INVENTORY_ENTRIES = 25e4;
 const MATERIALIZED_SANDBOX_SKILLS_WORKSPACE = [".openclaw", "sandbox-skills"].join("/");
 const MANAGED_SANDBOX_SKILLS_PATH_JS = `
@@ -58,9 +61,7 @@ function isManagedSandboxSkillsPath(relativePath) {
     relativePath.startsWith(MATERIALIZED_SANDBOX_SKILLS_WORKSPACE + "/")
   );
 }`;
-compileFunction(`${MANAGED_SANDBOX_SKILLS_PATH_JS}\nreturn isManagedSandboxSkillsPath;`)();
-//#endregion
-//#region src/gateway/worker-environments/workspace-path-exclusions.ts
+// src/gateway/worker-environments/workspace-path-exclusions.ts
 const DERIVED_WORKSPACE_DIRECTORY_NAMES = [
 	"__pycache__",
 	".pytest_cache",
@@ -68,6 +69,85 @@ const DERIVED_WORKSPACE_DIRECTORY_NAMES = [
 	".ruff_cache",
 	"node_modules"
 ];
+const BUILD_CACHE_ROOT_PATHS = [".artifacts/build-all-cache", ".artifacts/build-cache-inputs"];
+const PNPM_FALLBACK_STORE_ROOT_PATH = ".openclaw/.pnpm-store";
+const DERIVED_WORKSPACE_ROOT_PATHS = [
+	...[
+		[
+			".npm/_cacache",
+			"npm cache",
+			"npm_config_cache"
+		],
+		[
+			".npm/_logs",
+			"npm logs",
+			"npm_config_cache"
+		],
+		[
+			".cache/pip",
+			"pip cache",
+			"PIP_CACHE_DIR"
+		],
+		[
+			".cache/uv",
+			"uv cache",
+			"UV_CACHE_DIR"
+		],
+		[
+			".pnpm-store",
+			"pnpm store",
+			"PNPM_CONFIG_STORE_DIR"
+		],
+		[
+			".bun/install/cache",
+			"Bun cache",
+			"BUN_INSTALL_CACHE_DIR"
+		],
+		[
+			".cargo/registry",
+			"Cargo registry cache",
+			"CARGO_HOME"
+		],
+		[
+			".cargo/git",
+			"Cargo Git cache",
+			"CARGO_HOME"
+		],
+		[
+			".gradle/caches",
+			"Gradle cache",
+			"GRADLE_USER_HOME"
+		],
+		[
+			".local/share/NuGet/http-cache",
+			"NuGet HTTP cache",
+			"NUGET_HTTP_CACHE_PATH"
+		],
+		[
+			".local/share/NuGet/v3-cache",
+			"NuGet HTTP cache",
+			"NUGET_HTTP_CACHE_PATH"
+		],
+		[
+			".nuget/packages",
+			"NuGet global packages",
+			"NUGET_PACKAGES"
+		]
+	].map(([root]) => root),
+	".cache/vitest",
+	".cache/bun-transpiler",
+	".cache/openclaw/bun",
+	".cache/ms-playwright",
+	".cache/convex/binaries",
+	".local/share/pnpm/store",
+	"artifacts/task-environment/local/share/pnpm/store",
+	PNPM_FALLBACK_STORE_ROOT_PATH,
+	".openclaw/tools",
+	".artifacts/vitest-workers",
+	".artifacts/vitest-worker-cache",
+	".artifacts/vitest-shard-timings.json"
+];
+const RUNTIME_WORKSPACE_ROOT_PATHS = [".artifacts/dist-artifacts.lock", ".openclaw/tmp"];
 const DERIVED_WORKSPACE_FILE_NAMES = [".DS_Store"];
 const DERIVED_WORKSPACE_FILE_SUFFIXES = [".pyc", ".pyo"];
 const WORKER_ATTACHMENT_DIRECTORY_PREFIX = "openclaw-inbound-";
@@ -79,33 +159,79 @@ const WORKER_ATTACHMENT_DIRECTORY_PATTERN = WORKER_ATTACHMENT_DIRECTORY_PREFIX +
 	`[89ab]${UUID_HEX.repeat(3)}`,
 	UUID_HEX.repeat(12)
 ].join("-");
+const DERIVED_WORKSPACE_SEGMENT_PATTERN = `(?:^|/)(?:${[
+	...DERIVED_WORKSPACE_DIRECTORY_NAMES.map((name) => name.replaceAll(".", "\\.")),
+	...DERIVED_WORKSPACE_FILE_NAMES.map((name) => name.replaceAll(".", "\\.")),
+	...DERIVED_WORKSPACE_FILE_SUFFIXES.map((suffix) => `[^/]*${suffix.replaceAll(".", "\\.")}`),
+	WORKER_ATTACHMENT_DIRECTORY_PATTERN
+].join("|")})(?![^/])`;
 const WORKSPACE_PATH_EXCLUSIONS_JS = `
 ${STAGED_INPUT_PATHS_JS}
 ${MANAGED_SANDBOX_SKILLS_PATH_JS}
-const DERIVED_WORKSPACE_DIRECTORY_NAMES = ${JSON.stringify(DERIVED_WORKSPACE_DIRECTORY_NAMES)};
-const DERIVED_WORKSPACE_FILE_NAMES = ${JSON.stringify(DERIVED_WORKSPACE_FILE_NAMES)};
-const DERIVED_WORKSPACE_FILE_SUFFIXES = ${JSON.stringify(DERIVED_WORKSPACE_FILE_SUFFIXES)};
-const WORKER_ATTACHMENT_DIRECTORY_RE = new RegExp(${JSON.stringify(`^${WORKER_ATTACHMENT_DIRECTORY_PATTERN}$`)});
-function isDerivedWorkspacePath(relativePath, retainedInput = false) {
-  if (isManagedSandboxSkillsPath(relativePath)) {
+const DERIVED_WORKSPACE_ROOT_PATHS = ${JSON.stringify(DERIVED_WORKSPACE_ROOT_PATHS)};
+const PNPM_FALLBACK_STORE_ROOT_PATH = ${JSON.stringify(PNPM_FALLBACK_STORE_ROOT_PATH)};
+const BUILD_CACHE_ROOT_PATHS = ${JSON.stringify(BUILD_CACHE_ROOT_PATHS)};
+function isBuildCacheWorkspacePath(relativePath) {
+  return BUILD_CACHE_ROOT_PATHS.some((root) => relativePath === root || relativePath.startsWith(root + "/"));
+}
+function buildCacheInputPaths(paths = []) {
+  const retained = new Set();
+  for (const entryPath of paths) {
+    if (!isBuildCacheWorkspacePath(entryPath)) continue;
+    const segments = entryPath.split("/");
+    for (let index = 1; index <= segments.length; index++) retained.add(segments.slice(0, index).join("/"));
+  }
+  return retained;
+}
+const RUNTIME_WORKSPACE_ROOT_PATHS = ${JSON.stringify(RUNTIME_WORKSPACE_ROOT_PATHS)};
+const DERIVED_WORKSPACE_SEGMENT_RE = new RegExp(${JSON.stringify(DERIVED_WORKSPACE_SEGMENT_PATTERN)});
+function isRuntimeOwnedWorkspacePath(relativePath) {
+  return relativePath === ".git" || relativePath.startsWith(".git/") ||
+    relativePath.endsWith("/.git") || relativePath.includes("/.git/") ||
+    isManagedSandboxSkillsPath(relativePath) || RUNTIME_WORKSPACE_ROOT_PATHS.some(
+    (root) => relativePath === root || relativePath.startsWith(root + "/"),
+  );
+}
+function isDerivedWorkspacePath(relativePath, retainedInput = false, excludeBuildCaches = false, includeLegacyPnpmStore = false) {
+  if (isRuntimeOwnedWorkspacePath(relativePath)) {
     return true;
   }
   if (retainedInput) {
     return false;
   }
-  const segments = relativePath.split("/");
-  // "$" can match before a final newline; require the entire path segment.
-  return segments.some(
-    (segment) =>
-      WORKER_ATTACHMENT_DIRECTORY_RE.exec(segment)?.[0] === segment ||
-      DERIVED_WORKSPACE_DIRECTORY_NAMES.includes(segment) ||
-      DERIVED_WORKSPACE_FILE_NAMES.includes(segment) ||
-      DERIVED_WORKSPACE_FILE_SUFFIXES.some((suffix) => segment.endsWith(suffix)),
-  );
+  if (excludeBuildCaches && isBuildCacheWorkspacePath(relativePath)) return true;
+  if (DERIVED_WORKSPACE_ROOT_PATHS.some(
+    (root) => (!includeLegacyPnpmStore || root !== PNPM_FALLBACK_STORE_ROOT_PATH) &&
+      (relativePath === root || relativePath.startsWith(root + "/")),
+  )) {
+    return true;
+  }
+  return DERIVED_WORKSPACE_SEGMENT_RE.test(relativePath);
+}
+function projectWorkspaceEntries(entries, isRetainedInput, excludeBuildCaches = false) {
+  const nonemptyDirectories = new Set();
+  const retainedParents = new Set();
+  const parent = (entryPath) => entryPath.slice(0, Math.max(0, entryPath.lastIndexOf("/")));
+  for (const entry of entries) nonemptyDirectories.add(parent(entry.path));
+  const eligible = [];
+  // Children precede parents in this reverse walk of the sorted inventory.
+  // Prune ancestry created only by excluded contents, but retain original empty directories.
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (
+      isDerivedWorkspacePath(entry.path, isRetainedInput(entry.path), excludeBuildCaches) ||
+      (entry.type === "directory" && nonemptyDirectories.has(entry.path) && !retainedParents.has(entry.path))
+    ) continue;
+    eligible.push(entry);
+    retainedParents.add(parent(entry.path));
+  }
+  return eligible.toReversed();
 }`;
-compileFunction(`${WORKSPACE_PATH_EXCLUSIONS_JS}\nreturn isDerivedWorkspacePath;`)();
+const { isDerivedWorkspacePath, isRuntimeOwnedWorkspacePath, projectWorkspaceEntries, buildCacheInputPaths } = compileFunction(`${WORKSPACE_PATH_EXCLUSIONS_JS}\nreturn { isDerivedWorkspacePath, isRuntimeOwnedWorkspacePath, projectWorkspaceEntries, buildCacheInputPaths };`)();
 [
 	`${MATERIALIZED_SANDBOX_SKILLS_WORKSPACE}`,
+	...DERIVED_WORKSPACE_ROOT_PATHS.map((root) => `/${root}`),
+	...RUNTIME_WORKSPACE_ROOT_PATHS.map((root) => `/${root}`),
 	...DERIVED_WORKSPACE_DIRECTORY_NAMES,
 	...DERIVED_WORKSPACE_FILE_NAMES,
 	...DERIVED_WORKSPACE_FILE_SUFFIXES.map((suffix) => `*${suffix}`)
@@ -146,11 +272,9 @@ function isStagedInput(relativePath) {
   }
   return owned;
 }`;
-//#endregion
-//#region src/gateway/worker-environments/workspace-manifest.ts
+// src/gateway/worker-environments/workspace-manifest.ts
 const MAX_RECONCILIATION_ENTRIES = MAX_WORKSPACE_INVENTORY_ENTRIES * 2;
-//#endregion
-//#region src/gateway/worker-environments/workspace-mutation-lock-remote-script.ts
+// src/gateway/worker-environments/workspace-mutation-lock-remote-script.ts
 const REMOTE_WORKSPACE_MUTATION_LOCK_JS = String.raw`function removeTree(target) {
   let stats;
   try {
@@ -456,8 +580,7 @@ function releaseWorkspaceLock() {
   fs.renameSync(lockRoot, quarantine);
   removeQuarantinedLock(quarantine, validated, "workspace mutation lock changed during release");
 }`;
-//#endregion
-//#region src/gateway/worker-environments/workspace-mutation-remote-script.ts
+// src/gateway/worker-environments/workspace-mutation-remote-script.ts
 const REMOTE_WORKSPACE_MUTATION_CONTEXT_JS = String.raw`const mutationActions = [
   "begin", "apply", "rollback", "recover", "commit", "settle", "receiver", "reset",
 ];
@@ -610,8 +733,7 @@ try {
 } finally {
   releaseWorkspaceLock();
 }`;
-//#endregion
-//#region src/gateway/worker-environments/workspace-accepted-remote-script.ts
+// src/gateway/worker-environments/workspace-accepted-remote-script.ts
 const REMOTE_WORKSPACE_ACCEPTED_RSYNC_RECEIVER_JS = String.raw`const childProcess = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -1092,14 +1214,13 @@ try {
 } finally {
   releaseWorkspaceLock();
 }`;
-//#endregion
-//#region src/worker/workspace-rsync-receiver.ts
+// src/worker/workspace-rsync-receiver.ts
 const FIXED_DESTINATION = "openclaw-rsync-destination";
 const [mode, encodedContext, nonce, ...receiverArgs] = process.argv.slice(2);
 if (!/^(?:workspace-root|git-pack|accepted-next)$/u.test(mode ?? "") || !/^[A-Za-z0-9_-]+$/u.test(encodedContext ?? "") || !/^[a-f0-9]{32}$/u.test(nonce ?? "") || receiverArgs.at(-1) !== FIXED_DESTINATION) throw new Error("invalid worker workspace rsync receiver invocation");
 const contextBytes = Buffer.from(encodedContext, "base64url");
 const context = JSON.parse(contextBytes.toString("utf8"));
-if (contextBytes.toString("base64url") !== encodedContext || !Array.isArray(context) || context.length !== 3 || !context.every((value) => typeof value === "string")) throw new Error("invalid worker workspace rsync receiver context");
+if (contextBytes.toString("base64url") !== encodedContext || !isStringArray(context) || context.length !== 3) throw new Error("invalid worker workspace rsync receiver context");
 const [workspace, canonicalHome, remoteRelative] = context;
 const receiverMode = mode;
 const receiverNonce = nonce;
@@ -1114,5 +1235,4 @@ process.argv = [
 	...receiverArgs.with(receiverArgs.length - 1, receiverTarget)
 ];
 compileFunction(receiverMode === "accepted-next" ? REMOTE_WORKSPACE_ACCEPTED_RSYNC_RECEIVER_JS : REMOTE_WORKSPACE_RSYNC_RECEIVER_JS, ["require"])(createRequire(import.meta.url));
-//#endregion
 export {};

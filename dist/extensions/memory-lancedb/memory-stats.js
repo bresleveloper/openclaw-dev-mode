@@ -1,46 +1,15 @@
-import { MEMORY_TABLE_NAME, hasAgentScopeColumn, legacyMemorySchemaError, memoryAgentPredicate } from "./lancedb-schema.js";
-import { memoryStatsRuntimeEntrypoint } from "./memory-stats-entrypoint.js";
+import { a as legacyMemorySchemaError, i as hasAgentScopeColumn, o as memoryAgentPredicate, r as MEMORY_TABLE_NAME } from "./.setup/lancedb-schema-Cn7oifJZ.mjs";
+import { t as memoryStatsRuntimeEntrypoint } from "./.setup/memory-stats-entrypoint-C9mmwK31.mjs";
 import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { resolveRuntimeWorkerArgv, resolveRuntimeWorkerUrl, runUtf8CommandWithTimeout } from "openclaw/plugin-sdk/process-runtime";
-//#region extensions/memory-lancedb/memory-stats.ts
-const STATS_READER = `
-import { readFileSync } from "node:fs";
-const input = JSON.parse(readFileSync(0, "utf8"));
-let db;
-let table;
-const result = {};
-try {
-  const { loadLanceDbModule } = await import(input.moduleUrl);
-  const lancedb = await loadLanceDbModule();
-  db = await lancedb.connect(input.dbPath, { storageOptions: input.storageOptions });
-  if ((await db.tableNames()).includes(input.tableName)) {
-    table = await db.openTable(input.tableName);
-    result.columns = (await table.schema()).fields.map((field) => field.name);
-    result.count = await table.countRows(input.predicate);
-  } else {
-    result.count = 0;
-  }
-} catch (error) {
-  result.error = String(error);
-} finally {
-  table?.close();
-  db?.close();
-}
-process.stdout.write(JSON.stringify(result));
-`;
+import { isStringArray } from "openclaw/plugin-sdk/collection-input-runtime";
+// extensions/memory-lancedb/memory-stats.ts
 async function readMemoryStats(source, agentId) {
 	const moduleUrl = resolveRuntimeWorkerUrl(memoryStatsRuntimeEntrypoint);
-	const preload = resolveRuntimeWorkerArgv(moduleUrl).slice(0, -1);
-	const result = await runUtf8CommandWithTimeout([
-		process.execPath,
-		...preload,
-		"--input-type=module",
-		"--eval",
-		STATS_READER
-	], {
+	const result = await runUtf8CommandWithTimeout([process.execPath, ...resolveRuntimeWorkerArgv(moduleUrl)], {
 		input: JSON.stringify({
 			...source,
-			moduleUrl: moduleUrl.href,
+			fileLockUrl: moduleUrl.pathname.endsWith(".ts") ? import.meta.resolve("openclaw/plugin-sdk/file-lock") : void 0,
 			tableName: MEMORY_TABLE_NAME,
 			predicate: memoryAgentPredicate(agentId)
 		}),
@@ -54,10 +23,9 @@ async function readMemoryStats(source, agentId) {
 	if (result.code !== 0 || result.termination !== "exit") throw new Error(`memory-lancedb: statistics reader failed (${result.termination}, exit ${result.code}). ${result.stderr.trim()}`);
 	const reply = asOptionalRecord(JSON.parse(result.stdout));
 	const columns = reply?.columns;
-	if (Array.isArray(columns) && columns.every((column) => typeof column === "string") && !hasAgentScopeColumn({ fields: columns.map((name) => ({ name })) })) throw legacyMemorySchemaError();
+	if (isStringArray(columns) && !hasAgentScopeColumn({ fields: columns.map((name) => ({ name })) })) throw legacyMemorySchemaError();
 	if (typeof reply?.error === "string") throw new Error(`memory-lancedb: statistics failed: ${reply.error}`);
 	if (typeof reply?.count !== "number" || !Number.isSafeInteger(reply.count) || reply.count < 0) throw new Error("memory-lancedb: statistics reader returned an invalid count.");
 	return reply.count;
 }
-//#endregion
 export { readMemoryStats };

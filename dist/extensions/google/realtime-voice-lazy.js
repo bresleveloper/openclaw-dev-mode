@@ -1,2 +1,1 @@
-import { t as createLazyGoogleRealtimeVoiceProvider } from "../../realtime-voice-lazy-CI9o9cRq.mjs";
-export { createLazyGoogleRealtimeVoiceProvider };
+import{t as createLazyGoogleRealtimeVoiceProvider}from"../../realtime-voice-lazy-D5gZjK7m.mjs";export{createLazyGoogleRealtimeVoiceProvider};

@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/infra/npm-integrity.ts
+async function resolveNpmIntegrityDriftWithDefaultMessage(e){const t=normalizeOptionalString(e.expectedIntegrity);if(!t)return{};const n=e.resolution.resolvedSpec??e.spec;const r=normalizeOptionalString(e.resolution.integrity);if(!r)return{error:`aborted: npm package integrity missing for ${n}`};if(t===r)return{};const i={spec:e.spec,expectedIntegrity:t,actualIntegrity:r,resolution:e.resolution};let a=false;if(e.onIntegrityDrift)a=await e.onIntegrityDrift(i);else e.warn?.(`Integrity drift detected for ${n}: expected ${t}, got ${r}`);return a?{}:{error:`aborted: npm package integrity drift detected for ${n}`}}export{resolveNpmIntegrityDriftWithDefaultMessage as t};

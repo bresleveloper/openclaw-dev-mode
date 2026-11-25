@@ -1,0 +1,2 @@
+//!src/config/channel-config-keys.ts
+const CHANNEL_KERNEL_CONFIG_KEYS=/* @__PURE__ */ new Set([`defaults`,`modelByChannel`]);const CHANNEL_NAMESPACE_PREFIX=`channels.`;function isKernelOwnedChannelConfigKey(e){return CHANNEL_KERNEL_CONFIG_KEYS.has(e)}function isPluginOwnedChannelConfigPath(e){if(!e.startsWith(CHANNEL_NAMESPACE_PREFIX))return false;const t=e.slice(9).split(`.`,1)[0];return t===void 0||!isKernelOwnedChannelConfigKey(t)}export{isPluginOwnedChannelConfigPath as n,isKernelOwnedChannelConfigKey as t};

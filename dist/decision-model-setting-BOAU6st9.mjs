@@ -1,0 +1,3 @@
+import{a as parseProviderModelRef}from"./model-catalog-refs-eJnrGUHo.mjs";import{n as listAgentEntries}from"./agent-roster-Cq57wKEj.mjs";import{r as resolveAgentConfig}from"./agent-scope-config-a2Ym-O21.mjs";
+//!src/agents/decision-model-setting.ts
+function resolveDecisionModelSetting(e,t){const n=(t?resolveAgentConfig(e,t)?.decisionModel:void 0)??e.agents?.defaults?.decisionModel;return n?parseProviderModelRef(n)??void 0:void 0}function getConfiguredDecisionProviderIds(e){const t=[e.agents?.defaults?.decisionModel,...listAgentEntries(e).map(e=>e.decisionModel)];return[...new Set(t.flatMap(e=>{const t=e?parseProviderModelRef(e):null;return t?[t.provider]:[]}))]}export{resolveDecisionModelSetting as n,getConfiguredDecisionProviderIds as t};

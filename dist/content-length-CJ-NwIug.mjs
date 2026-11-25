@@ -1,0 +1,2 @@
+//!packages/media-core/src/content-length.ts
+function parseMediaContentLength(e){if(e===null)return null;const t=e.split(`,`).map(e=>e.replace(/^[\t ]+|[\t ]+$/g,``));const n=t[0]??``;const r=Number(n);if(!/^\d+$/.test(n)||t.some(e=>e!==n)||!Number.isSafeInteger(r))throw new Error(`invalid content-length header: ${e}`);return r}export{parseMediaContentLength as t};

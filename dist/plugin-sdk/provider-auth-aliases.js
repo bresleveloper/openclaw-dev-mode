@@ -1,2 +1,1 @@
-import { i as resolveProviderIdForAuth } from "../provider-auth-aliases-DCRcDae6.mjs";
-export { resolveProviderIdForAuth };
+import{i as resolveProviderIdForAuth}from"../provider-auth-aliases-t2zQWbu1.mjs";export{resolveProviderIdForAuth};

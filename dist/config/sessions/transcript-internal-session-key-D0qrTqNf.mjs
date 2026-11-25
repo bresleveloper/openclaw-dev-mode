@@ -1,0 +1,1 @@
+import"./transcript-session-key-Dq3o0RTN.mjs";function isInternalSessionEffectsKey(e){if(!e.startsWith(`agent:`))return!1;let t=e.indexOf(`:`,6);return t>=0&&e.startsWith(`internal-session-effects:`,t+1)}export{isInternalSessionEffectsKey as t};

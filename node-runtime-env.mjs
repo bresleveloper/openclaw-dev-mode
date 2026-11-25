@@ -2,7 +2,7 @@ import path from "node:path";
 
 // Matches Node's NODE_OPTIONS grammar: literal-space delimiters, double quotes,
 // and backslash escapes only inside quotes.
-function parseNodeOptionsEnvVar(value) {
+export function parseNodeOptionsEnvVar(value) {
   const tokens = [];
   let token = "";
   let inQuotes = false;
@@ -26,6 +26,7 @@ function parseNodeOptionsEnvVar(value) {
       inQuotes = !inQuotes;
       continue;
     }
+
     token += char;
   }
 
@@ -38,13 +39,13 @@ function parseNodeOptionsEnvVar(value) {
   return tokens;
 }
 
+/** Preloads can install module hooks and start an independent compiler/reaper. */
 function isNodeStartupHook(arg) {
   return /^(?:--(?:import|require|(?:experimental-)?loader)(?:=|$)|-r)/u.test(
     arg.replaceAll("_", "-"),
   );
 }
 
-/** Preloads can install module hooks and start an independent compiler/reaper. */
 export function hasNodeStartupHooks(execArgv, nodeOptions) {
   const envArgs = parseNodeOptionsEnvVar(nodeOptions);
   return envArgs === null || [...execArgv, ...envArgs].some(isNodeStartupHook);
@@ -84,11 +85,10 @@ export function nodeRuntimePathEntries(value) {
 /** Keep lifecycle children on the explicitly selected runtime without changing npm config. */
 export function withNodeRuntimePath(env, nodePath, platform = process.platform) {
   const paths = platform === "win32" ? path.win32 : path.posix;
-  const keys = Object.keys(env).filter((key) =>
-    platform === "win32" ? key.toUpperCase() === "PATH" : key === "PATH",
-  );
-  // Select the same first lexical alias without requiring newer Array methods.
-  const key = keys.length ? keys.reduce((first, entry) => (entry < first ? entry : first)) : "PATH";
+  const keys = Object.keys(env)
+    .toSorted()
+    .filter((key) => (platform === "win32" ? key.toUpperCase() === "PATH" : key === "PATH"));
+  const key = keys[0] ?? "PATH";
   const directory = paths.dirname(nodePath);
   const entries = (env[key] ? env[key].split(paths.delimiter) : []).filter(
     (entry) => entry !== directory,

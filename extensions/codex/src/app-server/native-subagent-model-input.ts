@@ -1,5 +1,6 @@
 import { readStringField as readString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { readThreadParentThreadId, readThreadSpawnSource } from "./native-subagent-assignment.js";
+import { buildCodexNativeSubagentAgentPathKey } from "./native-subagent-delivery-receipts.js";
 import { resolveNativeModelParentOwner } from "./native-subagent-model-lookup.js";
 import {
   createNativeModelSourceOwner,
@@ -38,8 +39,6 @@ export function assertNativeModelInputCompatible(sender: ParentOwner, receiver: 
     if (!identity || identity !== target.source?.sourceIdentity) {
       throw new Error("Codex active input requires the same admitted model source");
     }
-    input.assertCurrent();
-    target.assertCurrent();
   } finally {
     target?.release();
     input?.release();
@@ -55,10 +54,7 @@ type InputDependencies = {
   currentModelExecution: (threadId: string) => ParentOwner | undefined;
   admissions: ReadonlyMap<string, NativeChildAdmissionEvidence[]>;
   canPrepareReceiver: (state: ParentState, threadId: string) => boolean;
-  /** The child that held a canonical path under this native parent before its registration ended. */
-  retiredChildForAgentPath: (nativeParentThreadId: string, agentPath: string) => string | undefined;
-  /** Native child thread IDs an earlier registration of this native parent observed. */
-  retiredChildThreadIds: (nativeParentThreadId: string) => Iterable<string>;
+  retiredChildren: RetiredNativeChildPaths;
   prepareReceiver: (state: ParentState, threadId: string, nativeParentThreadId?: string) => boolean;
   registerChildThread: AdmissionDrainDependencies["registerChildThread"];
   admit: (
@@ -74,6 +70,41 @@ type InputDependencies = {
 /** Codex agent paths: `/root` plus lowercase task-name segments (codex-protocol agent_path.rs). */
 function isCodexCanonicalAgentPath(path: string): boolean {
   return /^\/root(?:\/[a-z0-9_]+)*$/.test(path);
+}
+
+/**
+ * Task names outlive a parent registration: a later turn may address the same native child
+ * by its path, or need its ID named back. Keyed by native parent thread, then agent path.
+ */
+export class RetiredNativeChildPaths {
+  private readonly byParent = new Map<string, Map<string, string>>();
+
+  /** `liveAliases` is the monitor's registration-scoped agent-path index. */
+  constructor(private readonly liveAliases: Map<string, string>) {}
+
+  /** Drops a pruned registration's aliases while keeping the child's canonical task paths. */
+  retire(registrationThreadId: string, known: KnownChild, threadId: string): void {
+    for (const path of known.agentPaths) {
+      this.liveAliases.delete(buildCodexNativeSubagentAgentPathKey(registrationThreadId, path));
+      // Every alias names its child; only canonical paths resolve as targets.
+      let paths = this.byParent.get(known.nativeParentThreadId);
+      if (!paths) {
+        paths = new Map();
+        this.byParent.set(known.nativeParentThreadId, paths);
+      }
+      paths.set(path, threadId);
+    }
+  }
+
+  /** The child that held a canonical path under this native parent before its registration ended. */
+  childForAgentPath(nativeParentThreadId: string, agentPath: string): string | undefined {
+    return this.byParent.get(nativeParentThreadId)?.get(agentPath);
+  }
+
+  /** Native child thread IDs an earlier registration of this native parent observed. */
+  childThreadIds(nativeParentThreadId: string): Iterable<string> {
+    return this.byParent.get(nativeParentThreadId)?.values() ?? [];
+  }
 }
 
 function nativeAgentPath(known: KnownChild | undefined): string | undefined {
@@ -119,7 +150,7 @@ function unidentifiedTargetError(
   request: NativeModelToolInputRequest,
   dependencies: InputDependencies,
 ): Error {
-  const ids = new Set(dependencies.retiredChildThreadIds(request.threadId));
+  const ids = new Set(dependencies.retiredChildren.childThreadIds(request.threadId));
   for (const [threadId, known] of dependencies.knownChildren) {
     if (known.nativeParentThreadId === request.threadId) {
       ids.add(threadId);
@@ -185,7 +216,7 @@ function resolveInputTarget(
   // An earlier registration of this sender saw the child under that canonical path.
   const retired =
     matches.length === 0
-      ? dependencies.retiredChildForAgentPath(request.threadId, path)
+      ? dependencies.retiredChildren.childForAgentPath(request.threadId, path)
       : undefined;
   if (!retired) {
     throw unidentifiedTargetError(

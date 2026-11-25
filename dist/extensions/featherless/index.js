@@ -1,37 +1,11 @@
-import { a as FEATHERLESS_DEFAULT_MODEL_REF, c as FEATHERLESS_DYNAMIC_MAX_TOKENS, d as isFeatherlessCatalogModelId, f as openclaw_plugin_default, i as FEATHERLESS_DEFAULT_MODEL_ID, o as FEATHERLESS_DYNAMIC_COMPAT, s as FEATHERLESS_DYNAMIC_CONTEXT_WINDOW, t as FEATHERLESS_BASE_URL } from "./.setup/models-BN2vG1Qe.mjs";
+import { a as FEATHERLESS_DEFAULT_MODEL_REF, c as FEATHERLESS_DYNAMIC_MAX_TOKENS, d as isFeatherlessCatalogModelId, f as openclaw_plugin_default, i as FEATHERLESS_DEFAULT_MODEL_ID, o as FEATHERLESS_DYNAMIC_COMPAT, s as FEATHERLESS_DYNAMIC_CONTEXT_WINDOW, t as FEATHERLESS_BASE_URL } from "./.setup/models-2eLGnbkC.mjs";
 import { applyFeatherlessConnectionConfig } from "./onboard.js";
 import { readConfiguredProviderCatalogEntries } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildProviderReplayFamilyHooks, resolveFamilyForwardCompatModel } from "openclaw/plugin-sdk/provider-model-shared";
 import { buildProviderToolCompatFamilyHooks } from "openclaw/plugin-sdk/provider-tools";
-//#region extensions/featherless/index.ts
+// extensions/featherless/index.ts
 const PROVIDER_ID = "featherless";
-function resolveFeatherlessDynamicModel(ctx) {
-	const modelId = ctx.modelId.trim();
-	if (!modelId || isFeatherlessCatalogModelId(modelId)) return;
-	return resolveFamilyForwardCompatModel({
-		providerId: PROVIDER_ID,
-		modelId,
-		ctx,
-		cases: [{
-			match: () => true,
-			templateIds: [FEATHERLESS_DEFAULT_MODEL_ID],
-			patch: ({ template }) => template ? void 0 : {
-				api: "openai-completions",
-				baseUrl: FEATHERLESS_BASE_URL
-			}
-		}],
-		patch: {
-			provider: PROVIDER_ID,
-			reasoning: false,
-			input: ["text"],
-			contextWindow: FEATHERLESS_DYNAMIC_CONTEXT_WINDOW,
-			maxTokens: FEATHERLESS_DYNAMIC_MAX_TOKENS,
-			compat: FEATHERLESS_DYNAMIC_COMPAT
-		},
-		synthesize: true
-	});
-}
 var featherless_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
 	name: "Featherless AI Provider",
@@ -74,9 +48,33 @@ var featherless_default = defineSingleProviderPluginEntry({
 			dropReasoningFromHistory: false
 		}),
 		...buildProviderToolCompatFamilyHooks("openai"),
-		resolveDynamicModel: resolveFeatherlessDynamicModel,
+		resolveDynamicModel: (ctx) => {
+			const modelId = ctx.modelId.trim();
+			if (!modelId || isFeatherlessCatalogModelId(modelId)) return;
+			return resolveFamilyForwardCompatModel({
+				providerId: PROVIDER_ID,
+				modelId,
+				ctx,
+				cases: [{
+					match: () => true,
+					templateIds: [FEATHERLESS_DEFAULT_MODEL_ID],
+					patch: ({ template }) => template ? void 0 : {
+						api: "openai-completions",
+						baseUrl: FEATHERLESS_BASE_URL
+					}
+				}],
+				patch: {
+					provider: PROVIDER_ID,
+					reasoning: false,
+					input: ["text"],
+					contextWindow: FEATHERLESS_DYNAMIC_CONTEXT_WINDOW,
+					maxTokens: FEATHERLESS_DYNAMIC_MAX_TOKENS,
+					compat: FEATHERLESS_DYNAMIC_COMPAT
+				},
+				synthesize: true
+			});
+		},
 		isModernModelRef: () => true
 	}
 });
-//#endregion
 export { featherless_default as default };

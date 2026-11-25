@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{r as t,t as n}from"./worker-chunk-BAsSkSlH.mjs";import r from"node:os";import i from"node:path";function resolveServiceTmpDir(e,n){if(n===`darwin`)try{return i.join(t(e),`tmp`)}catch{}let a=e.TMPDIR?.trim();return n===`linux`?a||void 0:a||r.tmpdir()}var a=e((()=>{n()}));export{resolveServiceTmpDir as n,a as t};

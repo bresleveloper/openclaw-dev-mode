@@ -1,0 +1,2 @@
+//!src/channels/plugins/pairing-adapters.ts
+function createPairingPrefixStripper(e,t=e=>e){return n=>t(n.trim().replace(e,``).trim())}function createLoggedPairingApprovalNotifier(e,t=console.log){return async n=>{t(typeof e===`function`?e(n):e)}}function createTextPairingAdapter(e){return{idLabel:e.idLabel,normalizeAllowEntry:e.normalizeAllowEntry,notifyApproval:async t=>{await e.notify({...t,message:e.message})}}}export{createPairingPrefixStripper as n,createTextPairingAdapter as r,createLoggedPairingApprovalNotifier as t};

@@ -1,5 +1,5 @@
 import { normalizeOptionalLowercaseString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/pixverse/constants.ts
+// extensions/pixverse/constants.ts
 const PIXVERSE_PROVIDER_ID = "pixverse";
 const PIXVERSE_BASE_URL_BY_REGION = {
 	international: "https://app-api.pixverse.ai/openapi/v2",
@@ -20,5 +20,4 @@ function normalizePixVerseRegion(value) {
 		default: return;
 	}
 }
-//#endregion
 export { DEFAULT_PIXVERSE_MODEL_ID, DEFAULT_PIXVERSE_REGION, PIXVERSE_BASE_URL_BY_REGION, PIXVERSE_DEFAULT_VIDEO_MODEL_REF, PIXVERSE_PROVIDER_ID, normalizePixVerseRegion };

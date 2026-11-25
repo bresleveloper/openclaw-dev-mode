@@ -1,5 +1,5 @@
 import { DEFAULT_ACCOUNT_ID, hasConfiguredAccountValue, mergeAccountConfig } from "openclaw/plugin-sdk/account-core";
-//#region extensions/feishu/configured-state.ts
+// extensions/feishu/configured-state.ts
 /** Feishu owns configured account credentials; ambient variables alone are not an account. */
 function hasConfiguredFeishuChannelState(params) {
 	const channel = params.cfg.channels?.feishu;
@@ -20,5 +20,4 @@ function hasConfiguredFeishuChannelState(params) {
 		return hasConfiguredAccountValue(appId) && hasConfiguredAccountValue(appSecret);
 	});
 }
-//#endregion
 export { hasConfiguredFeishuChannelState };

@@ -1,6 +1,6 @@
 import { CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_REF, buildCloudflareAiGatewayModelDefinition, resolveCloudflareAiGatewayBaseUrl } from "./models.js";
 import { applyAgentDefaultModelPrimary, applyProviderConfigWithDefaultModel, applyProviderConnectionConfig, createAliasOnlyPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/cloudflare-ai-gateway/onboard.ts
+// extensions/cloudflare-ai-gateway/onboard.ts
 const { applyProviderConfig: applyCloudflareAiGatewayAlias } = createAliasOnlyPresetAppliers({
 	modelRef: CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_REF,
 	alias: "Cloudflare AI Gateway"
@@ -50,5 +50,4 @@ function applyCloudflareAiGatewayProviderConnectionConfig(cfg, params) {
 function applyCloudflareAiGatewayConnectionConfig(cfg, params) {
 	return applyAgentDefaultModelPrimary(applyCloudflareAiGatewayProviderConnectionConfig(cfg, params), CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_REF);
 }
-//#endregion
 export { applyCloudflareAiGatewayConfig, applyCloudflareAiGatewayConnectionConfig, applyCloudflareAiGatewayProviderConfig, applyCloudflareAiGatewayProviderConnectionConfig, buildCloudflareAiGatewayConfigPatch };

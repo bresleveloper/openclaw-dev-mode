@@ -1,2 +1,1 @@
-import { t as buildSkillItems } from "../../skills-DhvqOhCv.mjs";
-export { buildSkillItems };
+import{t as buildSkillItems}from"../../skills-CxIeSNLa.mjs";export{buildSkillItems};

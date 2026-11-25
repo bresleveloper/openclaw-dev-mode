@@ -1,0 +1,3 @@
+import{t as formatErrorMessage}from"./errors-CRXp6JVo.mjs";import{t as appendMemoryHostEvent}from"./memory-host-events-XTsnAgxx.mjs";import"./dreaming-shared-D-MAbTxC.mjs";import{n as resolveMemoryCoreTimestamp,t as resolveMemoryCoreNowMs}from"./time-BgopdjUE.mjs";
+//!extensions/memory-core/src/dreaming-events.ts
+async function appendFailedDreamingEvent(e){try{await appendMemoryHostEvent(e.workspaceDir,{type:`memory.dream.completed`,timestamp:resolveMemoryCoreTimestamp(resolveMemoryCoreNowMs(e.nowMs)),phase:e.phase,outcome:`failed`,error:e.error,lineCount:0,storageMode:e.storageMode})}catch(t){e.logger.warn(`memory-core: failed to write ${e.phase} dreaming outcome event for workspace ${e.workspaceDir}: ${formatErrorMessage(t)}`)}}export{appendFailedDreamingEvent as t};

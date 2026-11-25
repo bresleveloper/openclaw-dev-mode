@@ -32,7 +32,9 @@
       "acp-qwen",
       "acp-pi",
       "acp-kilocode",
-      "acp-copilot"
+      "acp-copilot",
+      "acp-grok-build",
+      "acp-qoder"
     ]
   },
   "enabledByDefault": true,
@@ -52,7 +54,9 @@
         "probeAgent",
         "agents",
         "timeoutSeconds",
-        "nativeAgents"
+        "nativeAgents",
+        "agentProcessEnvAllow",
+        "agentProcessEnvBlock"
       ]
     },
     {
@@ -125,6 +129,20 @@
         "minimum": 0.001,
         "default": 120
       },
+      "agentProcessEnvAllow": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[^=\\s]+$"
+        }
+      },
+      "agentProcessEnvBlock": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[^=\\s]+$"
+        }
+      },
       "piSessionCatalog": {
         "type": "object",
         "additionalProperties": false,
@@ -183,6 +201,12 @@
           },
           "copilot": {
             "type": "boolean"
+          },
+          "grok-build": {
+            "type": "boolean"
+          },
+          "qoder": {
+            "type": "boolean"
           }
         }
       },
@@ -240,6 +264,16 @@
     "timeoutSeconds": {
       "label": "Runtime Operation Timeout Seconds",
       "help": "Timeout for embedded ACP runtime startup and control operations. ACP turns use OpenClaw agent/run timeouts.",
+      "advanced": true
+    },
+    "agentProcessEnvAllow": {
+      "label": "Agent Environment Allowlist",
+      "help": "Default unset (agents inherit the Gateway environment). When set, ACP agents, their command probes, and terminals inherit only process essentials (PATH, HOME, locale, temp, XDG_*), these names, and ACPX_AUTH_* grants.",
+      "advanced": true
+    },
+    "agentProcessEnvBlock": {
+      "label": "Agent Environment Blocklist",
+      "help": "Default unset. Gateway environment variable names that ACP agents, their command probes, and terminals do not inherit, for example OPENCLAW_GATEWAY_TOKEN. Applied after the allowlist; explicit grants such as ACPX_AUTH_* still apply.",
       "advanced": true
     },
     "piSessionCatalog.enabled": {

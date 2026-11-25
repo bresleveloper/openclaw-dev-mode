@@ -1,0 +1,2 @@
+//!src/plugin-sdk/account-configured-ids.ts
+function listConfiguredAccountIds(e){if(!e.accounts)return[];const t=/* @__PURE__ */ new Set;for(const n of Object.keys(e.accounts)){if(!n)continue;t.add(e.normalizeAccountId(n))}return[...t]}export{listConfiguredAccountIds as t};

@@ -1,5 +1,23 @@
 {
+  "controlUi": {
+    "entry": "dist/control-ui/84fe89aebb39605a448f8d1fa6b039666f4a13eed8b2fc5e9f3cea1b350d94bc/index.js",
+    "styles": [
+      "dist/control-ui/84fe89aebb39605a448f8d1fa6b039666f4a13eed8b2fc5e9f3cea1b350d94bc/index.css"
+    ],
+    "activation": "settings-only",
+    "settingsViews": [
+      {
+        "section": "memory",
+        "panel": "overview"
+      },
+      {
+        "section": "memory",
+        "panel": "memories"
+      }
+    ]
+  },
   "id": "memory-core",
+  "generationOverlap": true,
   "categories": [
     "memory"
   ],
@@ -323,5 +341,10 @@
         }
       }
     }
-  }
+  },
+  "recommendedPrompts": [
+    "Check whether this agent’s file-backed memory and search are ready.",
+    "Help me save a useful decision or preference in this agent’s memory.",
+    "Find a decision in this agent’s memory and cite the source without changing it."
+  ]
 }

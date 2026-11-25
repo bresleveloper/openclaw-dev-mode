@@ -1,13 +1,13 @@
-import { t as GOOGLE_MEET_CLI_DESCRIPTOR } from "./.setup/cli-output-mode-BwH_6tH8.mjs";
-import { n as GOOGLE_MEET_NODE_COMMAND } from "./.setup/google-meet-platform-constants-CnRfrYX7.mjs";
-import { r as resolveGoogleMeetConfig } from "./.setup/config-BXGAMntj.mjs";
-import { a as formatGoogleMeetGatewayError, c as loadGoogleMeetCreateModule, d as normalizeMode, f as normalizeTransport, g as shouldJoinCreatedMeet, h as sendGoogleMeetGatewayError, i as createLazyGoogleMeetNodeInvokePolicy, l as loadGoogleMeetNodeHostModule, m as resolveMeetingInput, n as callGoogleMeetGatewayFromTool, o as keepTrustedToolAgentId, p as readGoogleMeetParticipationParams, r as createGoogleMeetRuntimeAccessor, s as loadGoogleMeetCliModule, t as assertGoogleMeetAgentToolActionSupported, u as loadGoogleMeetPluginHelpers } from "./.setup/plugin-registration-1Oc4T1Bj.mjs";
+import { t as GOOGLE_MEET_CLI_DESCRIPTOR } from "./.setup/cli-output-mode-DztqqVeZ.mjs";
+import { n as GOOGLE_MEET_NODE_COMMAND } from "./.setup/google-meet-platform-constants-C83Cdmpd.mjs";
+import { r as resolveGoogleMeetConfig } from "./.setup/config-CMTw0Anh.mjs";
+import { a as formatGoogleMeetGatewayError, c as loadGoogleMeetCreateModule, d as normalizeMode, f as normalizeTransport, g as shouldJoinCreatedMeet, h as sendGoogleMeetGatewayError, i as createLazyGoogleMeetNodeInvokePolicy, l as loadGoogleMeetNodeHostModule, m as resolveMeetingInput, n as callGoogleMeetGatewayFromTool, o as keepTrustedToolAgentId, p as readGoogleMeetParticipationParams, r as createGoogleMeetRuntimeAccessor, s as loadGoogleMeetCliModule, t as assertGoogleMeetAgentToolActionSupported, u as loadGoogleMeetPluginHelpers } from "./.setup/plugin-registration-DKu55NBZ.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { asNonArrayRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { optionalPositiveIntegerSchema } from "openclaw/plugin-sdk/channel-actions";
 import { Type } from "typebox";
-//#region extensions/google-meet/src/plugin-schema.ts
+// extensions/google-meet/src/plugin-schema.ts
 const googleMeetConfigSchema = { parse(value) {
 	return resolveGoogleMeetConfig(value);
 } };
@@ -106,8 +106,7 @@ const GoogleMeetToolSchema = Type.Object({
 	clientSecret: Type.Optional(Type.String({ description: "OAuth client secret override" })),
 	expiresAt: Type.Optional(Type.Number({ description: "Cached access token expiry ms" }))
 });
-//#endregion
-//#region extensions/google-meet/index.ts
+// extensions/google-meet/index.ts
 var InvalidGoogleMeetRequest = class extends Error {};
 function requireSessionId(params) {
 	const sessionId = normalizeOptionalString(params?.sessionId);
@@ -151,7 +150,7 @@ var google_meet_default = definePluginEntry({
 		const queryActions = {
 			latest: async (raw) => {
 				const helpers = await loadGoogleMeetPluginHelpers();
-				const token = await helpers.resolveGoogleMeetTokenFromParams(config, raw);
+				const token = await helpers.resolveGoogleMeetTokenFromParams(config, raw, api.runtime);
 				const resolved = await helpers.resolveMeetingFromParams({
 					config,
 					raw,
@@ -167,7 +166,7 @@ var google_meet_default = definePluginEntry({
 			},
 			calendar_events: async (raw) => {
 				const helpers = await loadGoogleMeetPluginHelpers();
-				const token = await helpers.resolveGoogleMeetTokenFromParams(config, raw);
+				const token = await helpers.resolveGoogleMeetTokenFromParams(config, raw, api.runtime);
 				const window = raw.today === true ? helpers.buildGoogleMeetCalendarDayWindow() : {};
 				return helpers.listGoogleMeetCalendarEvents({
 					accessToken: token.accessToken,
@@ -178,11 +177,11 @@ var google_meet_default = definePluginEntry({
 			},
 			artifacts: async (raw) => {
 				const helpers = await loadGoogleMeetPluginHelpers();
-				return helpers.fetchResolvedGoogleMeetArtifacts(await helpers.resolveArtifactQueryFromParams(config, raw));
+				return helpers.fetchResolvedGoogleMeetArtifacts(await helpers.resolveArtifactQueryFromParams(config, raw, api.runtime));
 			},
 			attendance: async (raw) => {
 				const helpers = await loadGoogleMeetPluginHelpers();
-				return helpers.fetchResolvedGoogleMeetAttendance(await helpers.resolveArtifactQueryFromParams(config, raw));
+				return helpers.fetchResolvedGoogleMeetAttendance(await helpers.resolveArtifactQueryFromParams(config, raw, api.runtime));
 			}
 		};
 		api.registerTranscriptSourceProvider({
@@ -252,7 +251,7 @@ var google_meet_default = definePluginEntry({
 			["googlemeet.attendance", "attendance"]
 		]) registerGatewayMethod(method, ({ params }) => queryActions[action](asNonArrayRecord(params)));
 		registerGatewayMethod("googlemeet.export", async ({ params }) => {
-			return (await loadGoogleMeetPluginHelpers()).exportGoogleMeetBundleFromParams(config, asNonArrayRecord(params));
+			return (await loadGoogleMeetPluginHelpers()).exportGoogleMeetBundleFromParams(config, asNonArrayRecord(params), api.runtime);
 		});
 		registerGatewayMethod("googlemeet.leave", async ({ params }) => {
 			const sessionId = requireSessionId(params);
@@ -261,7 +260,7 @@ var google_meet_default = definePluginEntry({
 		registerGatewayMethod("googlemeet.endActiveConference", async ({ params }) => {
 			const raw = asNonArrayRecord(params);
 			const helpers = await loadGoogleMeetPluginHelpers();
-			const token = await helpers.resolveGoogleMeetTokenFromParams(config, raw);
+			const token = await helpers.resolveGoogleMeetTokenFromParams(config, raw, api.runtime);
 			return helpers.endGoogleMeetActiveConference({
 				accessToken: token.accessToken,
 				meeting: resolveMeetingInput(config, raw.meeting)
@@ -324,12 +323,12 @@ var google_meet_default = definePluginEntry({
 						case "setup_status":
 						case "end_active_conference": break;
 						case "resolve_space": {
-							const { token: _token, ...result } = await (await loadGoogleMeetPluginHelpers()).resolveSpaceFromParams(config, raw);
+							const { token: _token, ...result } = await (await loadGoogleMeetPluginHelpers()).resolveSpaceFromParams(config, raw, api.runtime);
 							return jsonResult(result);
 						}
 						case "preflight": {
 							const helpers = await loadGoogleMeetPluginHelpers();
-							const { meeting, token, space } = await helpers.resolveSpaceFromParams(config, raw);
+							const { meeting, token, space } = await helpers.resolveSpaceFromParams(config, raw, api.runtime);
 							return jsonResult(helpers.buildGoogleMeetPreflightReport({
 								input: meeting,
 								space,
@@ -343,7 +342,7 @@ var google_meet_default = definePluginEntry({
 						case "attendance": return jsonResult(await queryActions[raw.action](raw));
 						case "export": {
 							const helpers = await loadGoogleMeetPluginHelpers();
-							return jsonResult(await helpers.exportGoogleMeetBundleFromParams(config, raw));
+							return jsonResult(await helpers.exportGoogleMeetBundleFromParams(config, raw, api.runtime));
 						}
 						case "participate":
 							readGoogleMeetParticipationParams(raw);
@@ -383,7 +382,8 @@ var google_meet_default = definePluginEntry({
 			registerGoogleMeetCli({
 				program,
 				config,
-				ensureRuntime
+				ensureRuntime,
+				oauthRuntime: api.runtime
 			});
 		}, {
 			commands: ["googlemeet"],
@@ -391,5 +391,4 @@ var google_meet_default = definePluginEntry({
 		});
 	}
 });
-//#endregion
 export { google_meet_default as default };

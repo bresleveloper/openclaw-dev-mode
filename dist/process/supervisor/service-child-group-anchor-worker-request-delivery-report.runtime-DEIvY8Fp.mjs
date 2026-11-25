@@ -1,0 +1,1 @@
+import{t as e}from"./service-child-group-anchor-subsystem-BMcfUyJo.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

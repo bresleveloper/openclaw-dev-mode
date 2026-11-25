@@ -1,2 +1,1 @@
-import { n as registerXWorkOriginGuidance } from "../../work-origin-B7MxJjbF.mjs";
-export { registerXWorkOriginGuidance };
+import{r as registerXWorkOriginGuidance}from"../../work-origin-DjGw_mrC.mjs";export{registerXWorkOriginGuidance};

@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{Cron}from"croner";
+//!src/cron/expression.ts
+function resolveCronTimezone(e){const t=normalizeOptionalString(e)??``;if(t)return t;return Intl.DateTimeFormat().resolvedOptions().timeZone}function isValidCronExpression(e,t){const n=e.trim();if(!n)return false;try{new Cron(n,{timezone:resolveCronTimezone(t),catch:false});return true}catch{return false}}export{resolveCronTimezone as n,isValidCronExpression as t};

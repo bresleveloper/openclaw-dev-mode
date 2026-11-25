@@ -5,17 +5,11 @@ extension VoiceWakeOverlayController {
     @discardableResult
     func startSession(
         token: UUID = UUID(),
-        source: VoiceSessionCoordinator.Source,
         transcript: String,
         attributed: NSAttributedString? = nil,
         forwardEnabled: Bool = false,
         isFinal: Bool = false) -> UUID
     {
-        let message = """
-        overlay session_start source=\(source.rawValue) \
-        len=\(transcript.count)
-        """
-        self.logger.log(level: .info, "\(message)")
         self.activeToken = token
         SimpleTaskSupport.stop(task: &self.autoSendTask)
         self.setTranscript(transcript, attributed: attributed, isFinal: isFinal, forwardEnabled: forwardEnabled)
@@ -30,13 +24,8 @@ extension VoiceWakeOverlayController {
     }
 
     func updatePartial(token: UUID, transcript: String, attributed: NSAttributedString? = nil) {
-        guard self.guardToken(token, context: "partial") else { return }
+        guard self.guardToken(token) else { return }
         guard !self.model.isFinal else { return }
-        let message = """
-        overlay partial token=\(token.uuidString) \
-        len=\(transcript.count)
-        """
-        self.logger.log(level: .info, "\(message)")
         SimpleTaskSupport.stop(task: &self.autoSendTask)
         self.setTranscript(transcript, attributed: attributed, isFinal: false, forwardEnabled: false)
         self.present()
@@ -49,14 +38,7 @@ extension VoiceWakeOverlayController {
         autoSendAfter delay: TimeInterval?,
         attributed: NSAttributedString? = nil)
     {
-        guard self.guardToken(token, context: "final") else { return }
-        let message = """
-        overlay presentFinal token=\(token.uuidString) \
-        len=\(transcript.count) \
-        autoSendAfter=\(delay ?? -1) \
-        forwardEnabled=\(!transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        """
-        self.logger.log(level: .info, "\(message)")
+        guard self.guardToken(token) else { return }
         self.autoSendTask?.cancel()
         self.setTranscript(
             transcript,
@@ -66,7 +48,6 @@ extension VoiceWakeOverlayController {
         self.present()
         if let delay {
             if delay <= 0 {
-                self.logger.log(level: .info, "overlay autoSend immediate token=\(token.uuidString)")
                 self.actions()?.send(token, .autoSendImmediate)
             } else {
                 self.scheduleAutoSend(token: token, after: delay)
@@ -122,15 +103,8 @@ extension VoiceWakeOverlayController {
 
     /// Presentation only; the coordinator owns admission and consumes the RPC result.
     func beginSendUI(token: UUID) {
-        guard self.guardToken(token, context: "beginSendUI") else { return }
+        guard self.guardToken(token) else { return }
         self.autoSendTask?.cancel()
-        let message = """
-        overlay beginSendUI token=\(token.uuidString) \
-        isSending=\(self.model.isSending) \
-        forwardEnabled=\(self.model.forwardEnabled) \
-        textLen=\(self.model.text.count)
-        """
-        self.logger.log(level: .info, "\(message)")
         self.model.isEditing = false
         self.model.sendError = nil
         self.model.isSent = false
@@ -139,41 +113,31 @@ extension VoiceWakeOverlayController {
     }
 
     func completeSendUI(token: UUID, sendChime: VoiceWakeChime) {
-        guard self.guardToken(token, context: "sendCompletion") else { return }
+        guard self.guardToken(token) else { return }
         self.model.isSending = false
         self.model.isSent = true
         if sendChime != .none {
-            let message = "overlay completeSendUI playing sendChime=\(String(describing: sendChime))"
-            self.logger.log(level: .info, "\(message)")
-            VoiceWakeChimePlayer.play(sendChime, reason: "overlay.send")
+            VoiceWakeChimePlayer.play(sendChime)
         }
         self.dismiss(token: token, reason: .explicit, outcome: .sent)
     }
 
     func failSendUI(token: UUID, message: String) {
-        guard self.guardToken(token, context: "sendFailure") else { return }
+        guard self.guardToken(token) else { return }
         self.model.isSending = false
         self.model.sendError = message
         self.updateWindowFrame(animate: true)
     }
 
     func requestSend(token: UUID? = nil, reason: VoiceSessionCoordinator.SendReason = .explicit) {
-        guard self.guardToken(token, context: "requestSend") else { return }
+        guard self.guardToken(token) else { return }
         guard let active = token ?? self.activeToken else { return }
         self.actions()?.send(active, reason)
     }
 
     func dismiss(token: UUID? = nil, reason: DismissReason = .explicit, outcome: SendOutcome = .empty) {
-        guard self.guardToken(token, context: "dismiss") else { return }
+        guard self.guardToken(token) else { return }
         guard let dismissedToken = self.activeToken else { return }
-        let message = """
-        overlay dismiss token=\(self.activeToken?.uuidString ?? "nil") \
-        reason=\(String(describing: reason)) \
-        outcome=\(String(describing: outcome)) \
-        visible=\(self.model.isVisible) \
-        sending=\(self.model.isSending)
-        """
-        self.logger.log(level: .info, "\(message)")
         self.autoSendTask?.cancel()
         self.model.isSending = false
         self.model.isEditing = false
@@ -191,7 +155,7 @@ extension VoiceWakeOverlayController {
                     self.clearDismissedSession(resetLevelUpdate: false)
                 }
             case let .animated(finishWindow):
-                guard self.guardToken(dismissedToken, context: "dismissCompletion") else { return }
+                guard self.guardToken(dismissedToken) else { return }
                 finishWindow()
                 self.clearDismissedSession()
                 actions?.didDismiss(dismissedToken, outcome)
@@ -207,7 +171,7 @@ extension VoiceWakeOverlayController {
     }
 
     func updateLevel(token: UUID, _ level: Double) {
-        guard self.guardToken(token, context: "level") else { return }
+        guard self.guardToken(token) else { return }
         guard self.model.isVisible else { return }
         let now = ProcessInfo.processInfo.systemUptime
         if level != 0, now - self.lastLevelUpdate < self.levelUpdateInterval {
@@ -217,22 +181,12 @@ extension VoiceWakeOverlayController {
         self.model.level = max(0, min(1, level))
     }
 
-    private func guardToken(_ token: UUID?, context: String) -> Bool {
+    private func guardToken(_ token: UUID?) -> Bool {
         switch Self.evaluateToken(active: self.activeToken, incoming: token) {
         case .accept:
-            return true
-        case .dropMismatch:
-            self.logger.log(
-                level: .info,
-                """
-                overlay drop \(context, privacy: .public) token_mismatch \
-                active=\(self.activeToken?.uuidString ?? "nil", privacy: .public) \
-                got=\(token?.uuidString ?? "nil", privacy: .public)
-                """)
-            return false
-        case .dropNoActive:
-            self.logger.log(level: .info, "overlay drop \(context, privacy: .public) no_active")
-            return false
+            true
+        case .dropMismatch, .dropNoActive:
+            false
         }
     }
 
@@ -243,15 +197,8 @@ extension VoiceWakeOverlayController {
     }
 
     func scheduleAutoSend(token: UUID, after delay: TimeInterval) {
-        self.logger.log(
-            level: .info,
-            """
-            overlay scheduleAutoSend token=\(token.uuidString) \
-            after=\(delay)
-            """)
         SimpleTaskSupport.schedule(task: &self.autoSendTask, delay: max(0, delay)) { [weak self] in
-            guard let self, self.guardToken(token, context: "autoSend") else { return }
-            self.logger.log(level: .info, "overlay autoSend firing token=\(token.uuidString, privacy: .public)")
+            guard let self, self.guardToken(token) else { return }
             self.actions()?.send(token, .autoSendDelay)
             self.autoSendTask = nil
         }

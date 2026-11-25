@@ -1,0 +1,1 @@
+import{t as BUNDLED_OFFICIAL_EXTERNAL_PLUGIN_CATALOG_ENTRIES}from"./official-external-plugin-bundled-catalogs-BZ-wTeoK.mjs";export{BUNDLED_OFFICIAL_EXTERNAL_PLUGIN_CATALOG_ENTRIES};

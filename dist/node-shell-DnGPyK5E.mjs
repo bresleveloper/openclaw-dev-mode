@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";import path from"node:path";
+//!src/infra/node-shell.ts
+function buildNodeShellCommand(e,t){const n=normalizeLowercaseStringOrEmpty((t??``).trim());if(n.startsWith(`win`))return[`cmd.exe`,`/d`,`/s`,`/c`,e];if(n===`darwin`||n.startsWith(`macos`))return[`/bin/sh`,`-c`,e];return[`/bin/sh`,`-lc`,e]}function resolveShellCommandLaunch(e){if(process.platform!==`win32`||e.length!==5)return{argv:e};const[t,n,r,i,a]=e;if(t===void 0||a===void 0||path.win32.basename(t).toLowerCase()!==`cmd.exe`||n!==`/d`||r!==`/s`||i!==`/c`)return{argv:e};return{argv:[t,n,r,i,`"${a}"`],windowsVerbatimArguments:true}}export{resolveShellCommandLaunch as n,buildNodeShellCommand as t};

@@ -1,7 +1,6 @@
-import "../types-D7I_F5Ux.js";
-import { AC as PluginHookInboundMessageMetadata, A_ as resetGlobalHookRunner, FC as PluginHookMessageSentEvent, LC as MessageHookMediaFact, NC as PluginHookMessageContext, PC as PluginHookMessageReceivedEvent, fg as InternalHookEvent, i as FinalizedMsgContext, k_ as initializeGlobalHookRunner, mg as InternalHookHandler, o as OriginatingChannelType, pg as InternalHookEventType } from "../config-contracts-CY87ANNp.js";
-import "../index-8f56f6LD.js";
-//#region src/hooks/fire-and-forget.d.ts
+import { FT as MessageHookMediaFact, Fi as InternalHookHandler, J_ as resetGlobalHookRunner, MT as PluginHookMessageReceivedEvent, NT as PluginHookMessageSentEvent, Ni as InternalHookEvent, OT as PluginHookInboundMessageMetadata, Pi as InternalHookEventType, i as FinalizedMsgContext, jT as PluginHookMessageContext, o as OriginatingChannelType, q_ as initializeGlobalHookRunner } from "../config-contracts-hzlacViZ.js";
+import "../types.openclaw-D8uW-XQA.js";
+import "../index-DSy-_0fC.js";
 type FireAndForgetBoundedHookOptions = {
   maxConcurrency?: number;
   maxQueue?: number;
@@ -10,8 +9,6 @@ type FireAndForgetBoundedHookOptions = {
 export declare function fireAndForgetHook(task: Promise<unknown>, label: string, logger?: (message: string) => void): void;
 /** Queue a fire-and-forget hook with bounded concurrency, queue depth, and timeout logs. */
 export declare function fireAndForgetBoundedHook(task: () => Promise<unknown>, label: string, logger?: (message: string) => void, options?: FireAndForgetBoundedHookOptions): void;
-//#endregion
-//#region src/hooks/internal-hooks.d.ts
 type MessageReceivedHookContext = {
   /** Sender identifier (e.g., phone number, user ID) */
   from: string;
@@ -46,8 +43,6 @@ export declare function clearInternalHooks(): void;
 /** Dispatch family handlers before exact-action handlers, in registration order; isolate errors. */
 export declare function triggerInternalHook(event: InternalHookEvent): Promise<void>;
 export declare function createInternalHookEvent(type: InternalHookEventType, action: string, sessionKey: string, context?: Record<string, unknown>): InternalHookEvent;
-//#endregion
-//#region src/hooks/message-hook-mappers.d.ts
 type CanonicalSentMessageHookContext = MessageSentHookContext & Pick<PluginHookMessageContext, "sessionKey" | "runId" | "trace" | "callDepth">;
 declare function deriveInboundMessageHookContextBase(ctx: FinalizedMsgContext, overrides?: {
   content?: string;
@@ -128,5 +123,4 @@ export declare function toPluginMessageReceivedEvent(canonical: CanonicalInbound
 export declare function toPluginMessageSentEvent(canonical: CanonicalSentMessageHookContext): PluginHookMessageSentEvent;
 export declare function toInternalMessageReceivedContext(canonical: CanonicalInboundMessageHookContext): MessageReceivedHookContext;
 export declare function toInternalMessageSentContext(canonical: CanonicalSentMessageHookContext): MessageSentHookContext;
-//#endregion
 export { initializeGlobalHookRunner, resetGlobalHookRunner };

@@ -1,6 +1,6 @@
-import { t as createDiagnosticsOtelService } from "./.setup/runtime-api-DmS74mVU.mjs";
+import { t as createDiagnosticsOtelService } from "./.setup/runtime-api-DdQyHuId.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/diagnostics-otel/index.ts
+// extensions/diagnostics-otel/index.ts
 var diagnostics_otel_default = definePluginEntry({
 	id: "diagnostics-otel",
 	name: "Diagnostics OpenTelemetry",
@@ -9,5 +9,4 @@ var diagnostics_otel_default = definePluginEntry({
 		api.registerService(createDiagnosticsOtelService());
 	}
 });
-//#endregion
 export { diagnostics_otel_default as default };

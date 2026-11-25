@@ -1,0 +1,1 @@
+import{i as e}from"./transcript-global-singleton-DIJgobpU.mjs";e(Symbol.for(`openclaw.gatewayOperatorAccessUnavailableError`),()=>class extends Error{constructor(){super(`Gateway access policy is unavailable; retry the operation.`),this.name=`GatewayOperatorAccessUnavailableError`}});export{};

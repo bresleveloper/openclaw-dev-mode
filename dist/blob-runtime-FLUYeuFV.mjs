@@ -1,0 +1,2 @@
+//!src/plugin-sdk/blob-runtime.ts
+function bufferToBlobPart(e){return e.buffer instanceof ArrayBuffer?new Uint8Array(e.buffer,e.byteOffset,e.byteLength):Uint8Array.from(e)}export{bufferToBlobPart as t};

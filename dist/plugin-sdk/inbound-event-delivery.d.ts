@@ -1,4 +1,3 @@
-//#region src/plugin-sdk/inbound-event-delivery.d.ts
 type ActiveInboundEvent = {
   outboundTo: string;
   outboundAccountId?: string;
@@ -18,4 +17,4 @@ export declare function createInboundEventDeliveryCorrelation(params: {
   }): () => void;
   notify(notification: InboundEventDeliveryNotification): void;
 };
-//#endregion
+export {};

@@ -1,0 +1,1 @@
+import{i as readPackageVersion,n as readPackageManagerSpec,r as readPackageName,t as isPackageDependencyName}from"./package-json-DFB01rMW.mjs";export{isPackageDependencyName,readPackageManagerSpec,readPackageName,readPackageVersion};

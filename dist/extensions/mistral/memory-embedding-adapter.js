@@ -1,7 +1,7 @@
 import { MISTRAL_BASE_URL } from "./model-definitions.js";
-import { DEFAULT_MISTRAL_EMBEDDING_MODEL, createMistralEmbeddingProvider } from "./embedding-provider.js";
-import { embeddingProviderOwnsDestination, isMissingEmbeddingApiKeyError, sanitizeEmbeddingCacheHeaders } from "openclaw/plugin-sdk/memory-core-host-engine-embeddings";
-//#region extensions/mistral/memory-embedding-adapter.ts
+import { createRemoteEmbeddingProvider, embeddingProviderOwnsDestination, normalizeEmbeddingModelWithPrefixes, resolveRemoteEmbeddingClient, sanitizeEmbeddingCacheHeaders } from "openclaw/plugin-sdk/memory-core-host-engine-embeddings";
+// extensions/mistral/memory-embedding-adapter.ts
+const DEFAULT_MISTRAL_EMBEDDING_MODEL = "mistral-embed";
 const EXCLUDED_EMBEDDING_HEADERS = [
 	"authorization",
 	"content-type",
@@ -14,13 +14,26 @@ const mistralMemoryEmbeddingProviderAdapter = {
 	transport: "remote",
 	authProviderId: "mistral",
 	autoSelectPriority: 50,
-	allowExplicitWhenConfiguredAuto: true,
-	shouldContinueAutoSelection: isMissingEmbeddingApiKeyError,
 	create: async (options) => {
-		const { provider, client } = await createMistralEmbeddingProvider({
+		const preparedOptions = {
 			...options,
 			provider: "mistral",
 			fallback: "none"
+		};
+		const client = await resolveRemoteEmbeddingClient({
+			provider: "mistral",
+			options: preparedOptions,
+			defaultBaseUrl: MISTRAL_BASE_URL,
+			normalizeModel: (model) => normalizeEmbeddingModelWithPrefixes({
+				model,
+				defaultModel: DEFAULT_MISTRAL_EMBEDDING_MODEL,
+				prefixes: ["mistral/"]
+			})
+		});
+		const provider = createRemoteEmbeddingProvider({
+			id: "mistral",
+			client,
+			errorPrefix: "mistral embeddings failed"
 		});
 		const headers = sanitizeEmbeddingCacheHeaders(client.headers, EXCLUDED_EMBEDDING_HEADERS);
 		const usesDefaultIdentity = headers.length === 0 && embeddingProviderOwnsDestination({
@@ -43,5 +56,4 @@ const mistralMemoryEmbeddingProviderAdapter = {
 		};
 	}
 };
-//#endregion
 export { mistralMemoryEmbeddingProviderAdapter };

@@ -41,8 +41,8 @@ try {
   }
   process.env.OPENCLAW_VITEST_POST_SHARD_INCLUDE_FILE = includeFile;
   const rows = [];
-  for (const index of [undefined, 1, 2, 3]) {
-    ctx.config.shard = index ? { index, count: 3 } : undefined;
+  for (const index of [undefined, 1, 2]) {
+    ctx.config.shard = index ? { index, count: 2 } : undefined;
     const native = new BaseSequencer(ctx);
     const original = index ? await native.shard(specifications) : specifications;
     const selected = {};
@@ -92,7 +92,6 @@ try {
     );
     return unit.createSpecification(file);
   });
-  // Vitest 5.0.5 reads uncached file sizes directly during native sorting.
   const names = (files) => files.map((file) => path.basename(file.moduleId, ".test.ts"));
   const native = new BaseSequencer(ctx);
   const sequencer = new ctx.config.sequence.sequencer(ctx);
@@ -107,16 +106,22 @@ try {
   for (const populateAll of [false, true]) {
     for (const [index, spec] of schedulingSpecs.entries()) {
       if (populateAll || index === 0) {
-        // Seed native cache storage only: both sequencers retain real cache readers.
-        // These synthetic modules are deliberately never executed as test bodies.
-        // eslint-disable-next-line no-underscore-dangle -- Native fixture cache seeding; no public write API exists.
-        const results = ctx.cache._results;
-        results.getProjectResults(unit.name).files.set(results.getFilePath(spec), {
-          duration: index * 100,
-          failed: index === 2,
-          lastRun: 1,
-        });
-        results.legacyResults = undefined;
+        // Seed prior-run results through the cache owner without registering
+        // synthetic files as executed modules in the current Vitest state.
+        await ctx.cache._results.update(
+          [
+            {
+              ...spec,
+              testModule: {
+                task: {
+                  meta: {},
+                  result: { duration: index * 100, state: index === 2 ? "fail" : "pass" },
+                },
+              },
+            },
+          ],
+          0,
+        );
       }
     }
     scheduling.cached.push({
@@ -135,7 +140,6 @@ try {
       path.relative = relative;
     }
   }
-  // eslint-disable-next-line no-underscore-dangle -- Clear only the synthetic native results seeded above.
   await ctx.cache._results.clear();
   // testLines identify independent selections over shared physical pragma
   // fixtures; the real sequencer still reads their environments and file sizes.
@@ -159,7 +163,7 @@ try {
     actual: selectionIds(await sequencer.sort(boundedSpecs)),
   };
   const mixed = [...schedulingSpecs];
-  for (const name of ["unit-mock-registry", "chromium", "unit-timing"]) {
+  for (const name of ["unit-mock-registry", "chromium", "chromium-mock-registry", "unit-timing"]) {
     const project = ctx.getProjectByName(name);
     const specs = schedulingSpecs.map((spec) => project.createSpecification(spec.moduleId));
     scheduling.preserved.push({
@@ -221,7 +225,7 @@ try {
   // Exercise the registered pool boundary with no members in this runtime's shard.
   process.env.OPENCLAW_VITEST_POST_SHARD_INCLUDE_FILE = includeFile;
   fs.writeFileSync(includeFile, "[]");
-  ctx.config.shard = { index: 1, count: 3 };
+  ctx.config.shard = { index: 1, count: 2 };
   const empty = await ctx.runTestSpecifications(specifications);
   fs.writeFileSync(
     output,

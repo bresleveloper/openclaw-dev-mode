@@ -1,0 +1,3 @@
+import{t as expectDefined}from"./expect-DkJCbmLj.mjs";import path from"node:path";
+//!packages/normalization-core/src/stable-node-path.ts
+function stableHomebrewNodePathCandidates(e){const t=e.match(/^(.+?)[\\/]Cellar[\\/]([^\\/]+)[\\/][^\\/]+[\\/]bin[\\/]node$/);if(!t)return[];const n=expectDefined(t[1],`cellar match capture group 1`);const r=expectDefined(t[2],`cellar match capture group 2`);const i=e.includes(`\\`)?path.win32:path.posix;const a=[i.join(n,`opt`,r,`bin`,`node`)];if(r===`node`)a.push(i.join(n,`bin`,`node`));return a}export{stableHomebrewNodePathCandidates as t};

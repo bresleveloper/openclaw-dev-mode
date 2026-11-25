@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{channel as t}from"node:diagnostics_channel";function recordSessionPrDiagnostic(e,t,r){n.hasSubscribers&&n.publish({phase:e,sessionKey:t?.params.sessionKey,receiptsOnly:t?.taskReceiptsOnly===!0,...r})}var n,r=e((()=>{n=t(`openclaw.gateway.session-pr`)}));export{recordSessionPrDiagnostic as n,r as t};

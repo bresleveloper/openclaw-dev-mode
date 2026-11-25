@@ -1,0 +1,2 @@
+//!src/infra/http-server-lifecycle.ts
+async function closeHttpServers(e,t){await Promise.all(e.map(e=>new Promise(n=>{if(!e.listening){n();return}e.close(()=>n());if(t?.force)e.closeAllConnections()})))}export{closeHttpServers as t};

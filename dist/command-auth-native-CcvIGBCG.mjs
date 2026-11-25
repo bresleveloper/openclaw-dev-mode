@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";import"./command-auth-Ch_q0NQN.mjs";import"./thinking-runtime-1FeT1dqU.mjs";import"./stored-model-overrides-Dzs06VwN.mjs";import"./fast-mode-B0s80_Es.mjs";import"./commands-registry-DOLkOBXZ.mjs";import"./command-detection-DH8I6gba.mjs";import"./command-specs-BITdU0FS.mjs";import"./chat-commands-B5F0HpcT.mjs";
+//!src/channels/native-command-session-targets.ts
+function resolveNativeCommandSessionTargets(e){const t=e.boundSessionKey??`agent:${e.agentId}:${e.sessionPrefix}:${e.userId}`;return{sessionKey:e.sessionKeyCase===`lowercase`?normalizeLowercaseStringOrEmpty(t):t,commandTargetSessionKey:e.boundSessionKey??e.targetSessionKey}}export{resolveNativeCommandSessionTargets as t};

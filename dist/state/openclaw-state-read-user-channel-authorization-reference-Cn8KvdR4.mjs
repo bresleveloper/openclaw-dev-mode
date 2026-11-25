@@ -1,0 +1,1 @@
+import{g as e,l as t,x as n,y as r}from"./openclaw-state-read-schemas-CLrAtqTl.mjs";const i=e({version:t(1),id:n()});r([i,i.extend({version:t(2)})]);export{i as t};

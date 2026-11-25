@@ -1,0 +1,1 @@
+export default {"skillStatus":{"bundled":"medföljande","eligible":"uppfyller kraven","blocked":"blockerad","disabled":"inaktiverad","blockedAllowlist":"blockerad av tillåtelselistan","blockedAgentFilter":"blockerad av agentfiltret"}};

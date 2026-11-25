@@ -1,0 +1,1 @@
+import{n as detectSuspiciousPatterns,t as buildSafeExternalPrompt}from"./external-content-CpoNe0Vh.mjs";export{buildSafeExternalPrompt,detectSuspiciousPatterns};

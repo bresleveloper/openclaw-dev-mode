@@ -1,0 +1,1 @@
+export default {"mcpPage":{"servers":"サーバー","settings":"設定","apps":"MCP アプリ","noServers":"MCPサーバーはまだありません。","setUpFirstServer":"MCPサーバーのセットアップガイド","operatorCommands":"コマンドライン","operatorCommandsHint":"ステータス、診断、ランタイムの再読み込み。","serversHelp":"MCPサーバーについて","runtimeHint":"自動再読み込みが有効な場合、次回使用時に接続が再構築されます。","toolFilter":"ツールフィルター","parallel":"並列","tlsVerifyOff":"TLS検証オフ","mtls":"mTLS"}};

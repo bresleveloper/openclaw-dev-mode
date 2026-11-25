@@ -1,0 +1,3 @@
+import{r as lowercasePreservingWhitespace}from"./string-coerce-CpTFcSwY.mjs";
+//!src/param-key.ts
+function toSnakeCaseKey(e){const t=e.replace(/([A-Z]+)([A-Z][a-z])/g,`$1_$2`).replace(/([a-z0-9])([A-Z])/g,`$1_$2`);return lowercasePreservingWhitespace(t)}function resolveSnakeCaseParamKey(e,t){if(Object.hasOwn(e,t))return t;const n=toSnakeCaseKey(t);if(n!==t&&Object.hasOwn(e,n))return n}function readSnakeCaseParamRaw(e,t){const n=resolveSnakeCaseParamKey(e,t);if(n)return e[n]}export{resolveSnakeCaseParamKey as n,readSnakeCaseParamRaw as t};

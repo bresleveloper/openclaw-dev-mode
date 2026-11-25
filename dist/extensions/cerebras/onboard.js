@@ -1,7 +1,7 @@
-import { i as buildCerebrasCatalogModels, o as openclaw_plugin_default, t as CEREBRAS_BASE_URL } from "./.setup/provider-catalog-BiNR-qKR.mjs";
+import { i as buildCerebrasCatalogModels, o as openclaw_plugin_default, t as CEREBRAS_BASE_URL } from "./.setup/provider-catalog-C6PzOcGM.mjs";
 import { readManifestProviderDefaultModelRef } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/cerebras/onboard.ts
+// extensions/cerebras/onboard.ts
 const CEREBRAS_DEFAULT_MODEL_REF = readManifestProviderDefaultModelRef(openclaw_plugin_default, "cerebras");
 const { applyConfig: applyCerebrasConfig } = createProviderConnectionPresetAppliers({
 	primaryModelRef: CEREBRAS_DEFAULT_MODEL_REF,
@@ -16,5 +16,4 @@ const { applyConfig: applyCerebrasConfig } = createProviderConnectionPresetAppli
 		}]
 	})
 });
-//#endregion
 export { CEREBRAS_DEFAULT_MODEL_REF, applyCerebrasConfig };

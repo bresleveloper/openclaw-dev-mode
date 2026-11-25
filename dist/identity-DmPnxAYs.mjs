@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{n as resolveAgentIdentity}from"./identity-CX83FFXz.mjs";import{t as resolveAgentAvatar}from"./identity-avatar-D-1JsvPR.mjs";
+//!src/infra/outbound/identity.ts
+function resolveAgentOutboundIdentity(e,t){const n=resolveAgentIdentity(e,t);const r=resolveAgentAvatar(e,t);const i=normalizeOptionalString(n?.name);const a=normalizeOptionalString(r.kind===`remote`?r.url:void 0);const o=normalizeOptionalString(n?.emoji);const s=normalizeOptionalString(n?.theme);return i||a||o||s?{name:i,avatarUrl:a,emoji:o,theme:s}:void 0}export{resolveAgentOutboundIdentity as t};

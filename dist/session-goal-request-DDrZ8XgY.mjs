@@ -1,0 +1,3 @@
+import{i as loadOrCreateProcessDeviceIdentityAsync}from"./device-identity-async-DC_ie4dY.mjs";import{createHmac}from"node:crypto";
+//!src/gateway/server-methods/session-goal-request.ts
+async function fingerprintSessionGoalRequest(e){const t=JSON.stringify(e,(e,t)=>t&&typeof t===`object`&&!Array.isArray(t)?Object.fromEntries(Object.entries(t).toSorted(([e],[t])=>e<t?-1:e>t?1:0)):t);const n=await loadOrCreateProcessDeviceIdentityAsync();return createHmac(`sha256`,n.privateKeyPem).update(`openclaw.session-goal.v1\0`).update(t).digest(`hex`)}export{fingerprintSessionGoalRequest as t};

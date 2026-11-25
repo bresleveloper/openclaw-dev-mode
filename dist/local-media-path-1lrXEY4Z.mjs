@@ -1,0 +1,3 @@
+import{c as resolveUserPath}from"./home-dir-aZetQWeY.mjs";import"./utils-CVVNdy3C.mjs";import{t as isPassThroughRemoteMediaSource}from"./media-source-url-Bru7RY5z.mjs";import path from"node:path";import{safeFileURLToPath}from"@openclaw/fs-safe/advanced";
+//!src/media/local-media-path.ts
+const DATA_URL_RE=/^data:/i;const WINDOWS_DRIVE_RE=/^[A-Za-z]:[\\/]/;function resolveLocalMediaPath(e){const t=e.trim();if(!t||isPassThroughRemoteMediaSource(t)||DATA_URL_RE.test(t))return;if(/^file:/iu.test(t))try{return safeFileURLToPath(t)}catch{return}if(t.startsWith(`~`))return resolveUserPath(t);if(path.isAbsolute(t)||WINDOWS_DRIVE_RE.test(t))return path.resolve(t)}export{resolveLocalMediaPath as t};

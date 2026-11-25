@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-DyeIuPEC.mjs";var t;function init_physical_facts_contract(){return(init_physical_facts_contract=e((()=>{t={name:`database.engine.schema`,schemaDependent:!0}})))()}export{t as n,init_physical_facts_contract as t};

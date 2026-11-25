@@ -3,7 +3,7 @@ import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-en
 import { buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
 import { applyOpenAICompletionsToolReasoning, createPayloadPatchStreamWrapper } from "openclaw/plugin-sdk/provider-stream-shared";
 import { buildProviderToolCompatFamilyHooks } from "openclaw/plugin-sdk/provider-tools";
-//#region extensions/gmi/openclaw.plugin.json
+// extensions/gmi/openclaw.plugin.json
 var openclaw_plugin_default = {
 	id: "gmi",
 	categories: ["models"],
@@ -191,8 +191,7 @@ var openclaw_plugin_default = {
 		"discovery": { "gmi": "refreshable" }
 	}
 };
-//#endregion
-//#region extensions/gmi/index.ts
+// extensions/gmi/index.ts
 const PROVIDER_ID = "gmi";
 function wrapGmiOpenAIToolReasoning(ctx) {
 	const wrapped = createPayloadPatchStreamWrapper(ctx.streamFn, ({ model, payload }) => {
@@ -231,5 +230,4 @@ var gmi_default = defineSingleProviderPluginEntry({
 		wrapSimpleCompletionStreamFn: wrapGmiOpenAIToolReasoning
 	}
 });
-//#endregion
 export { gmi_default as default };

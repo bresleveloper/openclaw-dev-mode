@@ -1,2 +1,1 @@
-import { n as withTrailingNewline, t as replaceManagedMarkdownBlock } from "../memory-host-markdown-DwzbxsY_.mjs";
-export { replaceManagedMarkdownBlock, withTrailingNewline };
+import{n as withTrailingNewline,t as replaceManagedMarkdownBlock}from"../memory-host-markdown-DRjoaX2j.mjs";export{replaceManagedMarkdownBlock,withTrailingNewline};

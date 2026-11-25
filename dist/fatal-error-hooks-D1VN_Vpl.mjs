@@ -1,0 +1,2 @@
+//!src/infra/fatal-error-hooks.ts
+let fatalHook;function setFatalErrorHook(e){fatalHook=e}function runFatalErrorHooks(e){try{const t=fatalHook?.(e);return typeof t===`string`&&t.trim()?[t]:[]}catch(e){return[`fatal-error hook failed: ${e instanceof Error&&e.name?e.name:`unknown`}`]}}export{setFatalErrorHook as n,runFatalErrorHooks as t};

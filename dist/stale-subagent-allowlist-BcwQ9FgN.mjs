@@ -1,0 +1,1 @@
+import{n as maybeRepairStaleSubagentAllowlists,r as scanStaleSubagentAllowlistReferences,t as collectStaleSubagentAllowlistWarnings}from"./stale-subagent-allowlist-bYgQQ11r.mjs";export{collectStaleSubagentAllowlistWarnings,scanStaleSubagentAllowlistReferences};

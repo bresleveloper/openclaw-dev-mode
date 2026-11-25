@@ -1,0 +1,2 @@
+//!src/agents/cli-runner/prepare-claude.ts
+function detectNodeClaudePlacement(e){if(e.backendId===`claude-cli`&&e.execHost===`node`&&!e.execNode?.trim())throw new Error(`node-placed Claude CLI session is missing execNode`);return e.backendId===`claude-cli`&&e.execHost===`node`&&Boolean(e.execNode?.trim())}export{detectNodeClaudePlacement as t};

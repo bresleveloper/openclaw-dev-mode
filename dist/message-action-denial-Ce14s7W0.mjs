@@ -1,0 +1,2 @@
+//!src/infra/outbound/message-action-denial.ts
+var MessageActionDeniedError=class extends Error{constructor(e,t,n){super(e);this.reasonCode=t;this.policyRef=n;this.name=`MessageActionDeniedError`}};export{MessageActionDeniedError as t};

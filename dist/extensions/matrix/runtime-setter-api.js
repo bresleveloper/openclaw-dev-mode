@@ -1,2 +1,1 @@
-import { a as setMatrixRuntimeLifecycle, i as setMatrixRuntime } from "./.setup/runtime-1kn1P6io.mjs";
-export { setMatrixRuntime, setMatrixRuntimeLifecycle };
+export { i as setMatrixRuntime, a as setMatrixRuntimeLifecycle } from "./.setup/runtime-Ck8TjD7L.mjs";

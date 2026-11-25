@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Посмотреть все","files":"Файлы","loading":"Загрузка результатов…","updating":"Обновление результатов…","loadingDashboard":"Загрузка панели…","emptyTitle":"Результатов пока нет.","emptyDescription":"Здесь появятся файлы и панели мониторинга из этого сеанса."}};

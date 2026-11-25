@@ -1,0 +1,2 @@
+//!src/plugins/gateway-ingress.types.ts
+var GatewayControlUiIngressError=class extends Error{constructor(e,t){super(t);this.name=`GatewayControlUiIngressError`;this.code=e}};export{GatewayControlUiIngressError as t};

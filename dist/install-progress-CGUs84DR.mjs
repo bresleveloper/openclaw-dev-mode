@@ -1,0 +1,3 @@
+import{randomUUID}from"node:crypto";
+//!src/infra/install-progress.ts
+async function withInstallActivity(e,t,n,r=e=>!(e&&typeof e===`object`&&`ok`in e&&e.ok===false)){if(!e?.activity)return await n();const i=randomUUID();const emit=n=>{try{e.activity?.({activityId:i,stage:t,status:n})}catch{}};emit(`started`);try{const e=await n();emit(r(e)?`completed`:`failed`);return e}catch(e){emit(`failed`);throw e}}export{withInstallActivity as t};

@@ -1,0 +1,3 @@
+import{o as resolveRuntimeProcessEntrypointUrl}from"./runtime-process-url-Dncg2P94.mjs";import{t as WorkerTaskPool}from"./worker-task-pool-CiGDnAai.mjs";
+//!src/gateway/control-ui-public-session-card.ts
+function createPublicSessionCardRenderer(){const e=new WorkerTaskPool({workerUrl:resolveRuntimeProcessEntrypointUrl(`publicSessionCard`),maxWorkers:1,maxPendingTasks:8,sharedCompute:true});return{async render(t){const n=await e.run(t,{timeoutMs:1e4});return Buffer.from(n.buffer,n.byteOffset,n.byteLength)},dispose:()=>e.close()}}export{createPublicSessionCardRenderer};

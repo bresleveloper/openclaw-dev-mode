@@ -18,29 +18,30 @@ export function stripDispatcher(init: RequestInit | undefined): RequestInit | un
   return rest;
 }
 
-/** Stream one chunk past the cap and await real client closure, never finite EOF. */
+/**
+ * Streams JSON one chunk past `capBytes`, then holds the response open without
+ * ending it. Resolves once the client closes the unfinished response, so a test
+ * awaiting it observes the reader's cancellation; eager runtime buffering (Bun
+ * fetch) cannot race a finite body to EOF first.
+ */
 export function writeOversizedJson(
   res: ServerResponse,
   capBytes: number,
   jsonPrefix: string,
-): { bytesPulled: () => number; canceled: () => boolean; clientClosed: Promise<void> } {
-  let canceled = false;
+): Promise<void> {
   const clientClosed = new Promise<void>((resolve) => {
-    res.once("close", () => {
-      canceled = true;
-      resolve();
-    });
+    res.once("close", () => resolve());
   });
   const chunk = Buffer.alloc(1024 * 1024, 0x20);
   const prefix = Buffer.from(jsonPrefix);
-  let bytesPulled = prefix.byteLength;
+  let bytesWritten = prefix.byteLength;
   res.writeHead(200, { "content-type": "application/json" });
   res.write(prefix);
   const sendChunk = () => {
-    if (res.destroyed || bytesPulled > capBytes) {
+    if (res.destroyed || bytesWritten > capBytes) {
       return;
     }
-    bytesPulled += chunk.byteLength;
+    bytesWritten += chunk.byteLength;
     if (res.write(chunk)) {
       setImmediate(sendChunk);
       return;
@@ -48,5 +49,5 @@ export function writeOversizedJson(
     res.once("drain", sendChunk);
   };
   setImmediate(sendChunk);
-  return { bytesPulled: () => bytesPulled, canceled: () => canceled, clientClosed };
+  return clientClosed;
 }

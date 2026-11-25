@@ -1,0 +1,2 @@
+//!src/config/bindings.ts
+function isRouteBinding(e){return e.type!==`acp`}function listConfiguredBindings(e){return Array.isArray(e.bindings)?e.bindings:[]}function listRouteBindings(e){return listConfiguredBindings(e).filter(isRouteBinding)}function listAcpBindings(e){return listConfiguredBindings(e).filter(e=>e.type===`acp`)}export{listRouteBindings as i,listAcpBindings as n,listConfiguredBindings as r,isRouteBinding as t};

@@ -1,0 +1,2 @@
+//!extensions/telegram/src/control-ui-base-path.ts
+function normalizeControlUiBasePath(e,t){if(!e||e===`/`)return``;const n=e.startsWith(`/`)?e:`/${e}`;return t===`all`?n.replace(/\/+$/,``):n.replace(/\/$/,``)}export{normalizeControlUiBasePath as t};

@@ -1,7 +1,6 @@
-import { t as CONFIG_DIR } from "../utils-DhaCU8ER.js";
-import { n as formatCliCommand, r as detectBinary, t as formatDocsLink } from "../links-BkD3xQjr.js";
-import { s as extractArchive } from "../archive-DSpJVZFx.js";
-//#region src/infra/brew.d.ts
+import { t as CONFIG_DIR } from "../utils-B6YNl4JK.js";
+import { n as detectBinary, r as formatCliCommand, t as formatDocsLink } from "../links-DFoSOaCI.js";
+import { s as extractArchive } from "../archive-CYdLYJm9.js";
 type BrewResolutionOptions = {
   homeDir?: string;
   /**
@@ -12,5 +11,4 @@ type BrewResolutionOptions = {
 };
 /** Resolves an executable `brew` path from trusted PATH entries or standard install roots. */
 export declare function resolveBrewExecutable(opts?: BrewResolutionOptions): string | undefined;
-//#endregion
 export { CONFIG_DIR, detectBinary, extractArchive, formatCliCommand, formatDocsLink };

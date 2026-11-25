@@ -1,3 +1,1 @@
-import { I as buildControlUiSessionPath } from "../session-key-CSDERtm3.mjs";
-import { n as registerSessionDiscussionProvider } from "../session-discussion-registry-DvOauvdC.mjs";
-export { buildControlUiSessionPath, registerSessionDiscussionProvider };
+import{I as buildControlUiSessionPath}from"../session-key-C6YO7qUA.mjs";import{n as registerSessionDiscussionProvider}from"../session-discussion-registry-Buuzz7qi.mjs";export{buildControlUiSessionPath,registerSessionDiscussionProvider};

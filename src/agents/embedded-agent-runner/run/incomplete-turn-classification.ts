@@ -4,8 +4,13 @@ import { getReplyPayloadMetadata } from "../../../auto-reply/reply-payload.js";
 import { parseReplyDirectives } from "../../../auto-reply/reply/reply-directives.js";
 import type { AssistantMessage } from "../../../llm/types.js";
 import { resolveRawAssistantAnswerText } from "../../../shared/assistant-answer-text.js";
+import { prepareAgentRunTerminalReply } from "../../agent-run-terminal-reply.js";
 import type { CompletedAssistantAnswer } from "../../embedded-agent-subscribe.handlers.types.js";
-import { extractEmbeddedAssistantText } from "../../embedded-agent-utils.js";
+import {
+  extractAssistantVisibleText,
+  extractEmbeddedAssistantText,
+  sanitizeAssistantVisibleStreamText,
+} from "../../embedded-agent-utils.js";
 import {
   isStrictAgenticSupportedProviderModel,
   stripProviderPrefix,
@@ -19,13 +24,14 @@ import type { EmbeddedRunAttemptResult } from "./types.js";
 export type IncompleteTurnAttempt = Pick<
   EmbeddedRunAttemptResult,
   | "assistantTexts"
+  | "inputAlreadyDelivered"
+  | "preparedTerminalReply"
   | "textToolCallAttempt"
   | "clientToolCalls"
   | "currentAttemptAssistant"
   | "currentAttemptCompletedAssistant"
   | "yieldDetected"
   | "didSendDeterministicApprovalPrompt"
-  | "heartbeatToolResponse"
   | "toolMediaUrls"
   | "toolAudioAsVoice"
   | "toolTrustedLocalMedia"
@@ -103,7 +109,7 @@ export function hasComposedVisibleAnswerAfterSettledTools(params: {
   });
 }
 
-/** Excludes pre-tool progress and generated failures; structured delivery remains evidence. */
+/** Excludes pre-tool progress, displayed reasoning and generated failures; structured delivery remains evidence. */
 export function countSettledTurnDeliveryPayloads(params: {
   payloads: EmbeddedAgentRunResult["payloads"];
   attempt: IncompleteTurnAttempt;
@@ -139,12 +145,13 @@ export function countSettledTurnDeliveryPayloads(params: {
     }
     const text = typeof payload.text === "string" ? payload.text.trim() : "";
     const hasNonTextDelivery = Object.entries(payload).some(
-      ([key, value]) => key !== "text" && value !== undefined && value !== false,
+      ([key, value]) =>
+        key !== "text" && key !== "isReasoning" && value !== undefined && value !== false,
     );
     return (
       hasNonTextDelivery ||
-      !text ||
-      !params.attempt.assistantTexts.some((candidate) => candidate.trim() === text)
+      (payload.isReasoning !== true &&
+        (!text || !params.attempt.assistantTexts.some((candidate) => candidate.trim() === text)))
     );
   }).length;
 }
@@ -177,11 +184,18 @@ const GEMINI_INCOMPLETE_TURN_PROVIDER_IDS = new Set([
 ]);
 const GEMINI_INCOMPLETE_TURN_MODEL_ID_PATTERN = /^gemini(?:[.-]|$)/;
 // Ollama native `/api/chat` can finish with only thinking/internal blocks when constrained.
+// Match the API too: a custom provider id on it (llmman) behaves the same.
 const OLLAMA_INCOMPLETE_TURN_PROVIDER_ID_PATTERN = /^ollama(?:-|$)/;
 
-export function isOllamaIncompleteTurnProvider(provider?: string): boolean {
-  return OLLAMA_INCOMPLETE_TURN_PROVIDER_ID_PATTERN.test(
-    normalizeLowercaseStringOrEmpty(provider ?? ""),
+export function isOllamaIncompleteTurnProvider(params: {
+  provider?: string;
+  modelApi?: string;
+}): boolean {
+  return (
+    normalizeLowercaseStringOrEmpty(params.modelApi ?? "") === "ollama" ||
+    OLLAMA_INCOMPLETE_TURN_PROVIDER_ID_PATTERN.test(
+      normalizeLowercaseStringOrEmpty(params.provider ?? ""),
+    )
   );
 }
 // Model APIs eligible for the non-visible turn retry guard.  OpenAI Responses
@@ -199,7 +213,7 @@ const RETRY_GUARD_MODEL_APIS = new Set([
   "openclaw-azure-openai-responses-transport",
 ]);
 export function joinAssistantTexts(assistantTexts?: readonly string[]): string {
-  return (assistantTexts ?? []).join("\n\n").trim();
+  return (assistantTexts ?? []).join("\n\n");
 }
 
 export function shouldApplyNonVisibleTurnRetryGuard(params: {
@@ -215,11 +229,9 @@ export function shouldApplyNonVisibleTurnRetryGuard(params: {
     (GEMINI_INCOMPLETE_TURN_PROVIDER_IDS.has(
       normalizeLowercaseStringOrEmpty(params.provider ?? ""),
     ) &&
-      GEMINI_INCOMPLETE_TURN_MODEL_ID_PATTERN.test(
-        stripProviderPrefix(typeof params.modelId === "string" ? params.modelId : ""),
-      )) ||
+      GEMINI_INCOMPLETE_TURN_MODEL_ID_PATTERN.test(stripProviderPrefix(params.modelId ?? ""))) ||
     RETRY_GUARD_MODEL_APIS.has(normalizeLowercaseStringOrEmpty(params.modelApi ?? "")) ||
-    isOllamaIncompleteTurnProvider(params.provider)
+    isOllamaIncompleteTurnProvider(params)
   );
 }
 
@@ -228,18 +240,25 @@ export function classifyAssistantTurn(params: {
   attempt: Pick<
     IncompleteTurnAttempt,
     | "assistantTexts"
+    | "preparedTerminalReply"
     | "textToolCallAttempt"
     | "currentAttemptAssistant"
     | "currentAttemptCompletedAssistant"
   >;
 }) {
   const assistant = resolveCurrentAttemptAssistant(params.attempt);
-  const output = parseReplyDirectives(
-    assistant
-      ? resolveRawAssistantAnswerText(assistant)
-      : joinAssistantTexts(params.attempt.assistantTexts),
-  );
-  const visibleText = output.text.trim();
+  const rawAnswerText = assistant
+    ? resolveRawAssistantAnswerText(assistant)
+    : joinAssistantTexts(params.attempt.assistantTexts);
+  const prepared =
+    params.attempt.preparedTerminalReply ??
+    prepareAgentRunTerminalReply({ rawText: rawAnswerText });
+  const renderedText = params.attempt.preparedTerminalReply
+    ? prepared.text
+    : assistant
+      ? extractAssistantVisibleText(assistant, (_text, final) => (final ? prepared.text : ""))
+      : sanitizeAssistantVisibleStreamText(prepared.text);
+  const visibleText = parseReplyDirectives(renderedText).text.trim();
   const reasoningOnly = Boolean(
     assistant && assessLastAssistantMessage(assistant) === "incomplete-text",
   );
@@ -256,7 +275,10 @@ export function classifyAssistantTurn(params: {
   return {
     assistant,
     visibleText,
-    silent: output.isSilent,
+    silent:
+      prepared.terminalReply.disposition === "silent" &&
+      assistant?.stopReason === "stop" &&
+      !assistant.content.some((block) => block.type === "toolCall"),
     reasoningOnly,
     emptyResponse: nonVisibleEligibleForSilentReply && !reasoningOnly,
     nonVisibleEligibleForSilentReply,

@@ -1,0 +1,3 @@
+import{t as createDeferredCore}from"./deferred-QsZCoVH-.mjs";
+//!src/shared/pending-request-registry.ts
+function createPendingRequestRegistry(){const e=/* @__PURE__ */ new Map;const release=e=>{clearTimeout(e.timer);e.dispose?.()};const take=(t,n)=>{const r=e.get(t);if(!r||n&&r!==n)return;e.delete(t);release(r);return r};const add=(t,n)=>{if(e.has(t))return;const r={...createDeferredCore(),value:n.value,dispose:n.dispose};e.set(t,r);r.timer=setTimeout(()=>{const e=take(t,r);if(e){e.reject(n.timeoutError());n.onTimeout?.()}},n.timeoutMs);r.timer.unref?.();return r};const rejectAll=t=>{const n=[...e.values()];e.clear();for(const e of n){release(e);e.reject(t)}};return{add,get:t=>e.get(t),take,rejectAll}}export{createPendingRequestRegistry as t};

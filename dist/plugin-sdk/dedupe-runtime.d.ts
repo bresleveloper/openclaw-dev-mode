@@ -1,6 +1,5 @@
-import { Ll as createDedupeCache, Pb as OpenKeyedStoreOptions, Rl as resolveGlobalDedupeCache } from "../config-contracts-CY87ANNp.js";
-import "../plugin-state-runtime-cWC3lBJR.js";
-//#region src/plugin-sdk/dedupe-runtime.d.ts
+import { VD as OpenKeyedStoreOptions, af as resolveGlobalDedupeCache, if as createDedupeCache } from "../config-contracts-hzlacViZ.js";
+import "../plugin-state-runtime-HqbrbvLJ.js";
 type PersistentDedupeStore<TRecord> = {
   register(key: string, value: TRecord, opts?: {
     ttlMs?: number;
@@ -41,5 +40,4 @@ export declare function createPersistentDedupeCache<TRecord>(params: {
     readTimestamp?: (record: TRecord) => number | undefined;
   };
 }): PersistentDedupeCache<TRecord>;
-//#endregion
 export { createDedupeCache, resolveGlobalDedupeCache };

@@ -1,0 +1,3 @@
+import{o as getAsyncWorkSignal}from"./async-work-scope-D40kkw8R.mjs";import{t as captureSessionActorStorageOwner}from"./session-actor-storage-binding--qUpNoLI.mjs";import{r as IncognitoSessionSyncAccessError}from"./incognito-session-error-BsGeTJTN.mjs";
+//!packages/memory-host-sdk/src/host/session-memory-authority.ts
+function assertBoundIncognitoMemorySyncAccess(e,t,n){if(captureMemoryOwner(e))throw new IncognitoSessionSyncAccessError(t,n)}function captureMemoryOwner(e){const t=getAsyncWorkSignal();const assertCurrent=()=>t?.throwIfAborted();return captureSessionActorStorageOwner(e,{assertCurrent,authorize:assertCurrent})}export{captureMemoryOwner as n,assertBoundIncognitoMemorySyncAccess as t};

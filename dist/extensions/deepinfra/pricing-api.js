@@ -1,6 +1,6 @@
 import { asFiniteNumberInRange, asOptionalRecord, asPositiveSafeInteger } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { normalizeModelPricingCatalog } from "openclaw/plugin-sdk/model-catalog-pricing";
-//#region extensions/deepinfra/pricing-api.ts
+// extensions/deepinfra/pricing-api.ts
 function normalizeDeepInfraTokenPricing(value) {
 	const row = asOptionalRecord(value);
 	if (!row || row.type !== void 0 && row.type !== "tokens") return;
@@ -47,5 +47,4 @@ function parseDeepInfraPricingCatalog(payload) {
 		}
 	});
 }
-//#endregion
 export { parseDeepInfraPricingCatalog };

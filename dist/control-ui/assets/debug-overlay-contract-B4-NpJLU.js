@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{_M as t,lM as n}from"./_2_____________________________.js";function r(){window.dispatchEvent(new CustomEvent(n))}function i(){return(i=e((()=>{t()})))()}export{r as n,i as t};
+//# sourceMappingURL=debug-overlay-contract-B4-NpJLU.js.map

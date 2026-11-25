@@ -1,0 +1,3 @@
+import{c as getSqliteReadScopeRevision}from"./sqlite-schema-facts-Edd-ttp_.mjs";
+//!src/config/sessions/session-transcript-context-facts.ts
+const contextFacts=/* @__PURE__ */ new WeakMap;function readTranscriptContextFacts(e,t){const n=e.db.isTransaction?getSqliteReadScopeRevision(e.db):void 0;const r=contextFacts.get(e.db);return n&&r?.revision===n&&r.sessionId===t?r:void 0}function retainTranscriptContextFacts(e,t,n,r,i){if(e.db.isTransaction&&r)contextFacts.set(e.db,{sessionId:t,revision:r,version:{...n},cold:i})}export{retainTranscriptContextFacts as n,readTranscriptContextFacts as t};

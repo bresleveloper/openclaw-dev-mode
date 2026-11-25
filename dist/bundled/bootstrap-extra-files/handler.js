@@ -1,28 +1,4 @@
-import { t as createSubsystemLogger } from "../../subsystem-mStysHHC.mjs";
-import { a as isAgentBootstrapEvent } from "../../internal-hooks-DNLQqCT3.mjs";
-import { t as loadDeclaredExtraBootstrapFiles } from "../../declared-files-DmgJwHA_.mjs";
-//#region src/hooks/bundled/bootstrap-extra-files/handler.ts
-const log = createSubsystemLogger("bootstrap-extra-files");
-const bootstrapExtraFilesHook = async (event) => {
-	if (!isAgentBootstrapEvent(event)) return;
-	const context = event.context;
-	try {
-		const { files: extras, diagnostics } = await loadDeclaredExtraBootstrapFiles({
-			config: context.cfg,
-			workspaceDir: context.workspaceDir
-		});
-		if (diagnostics.length > 0) log.debug("skipped extra bootstrap candidates", {
-			skipped: diagnostics.length,
-			reasons: diagnostics.reduce((counts, item) => {
-				counts[item.reason] = (counts[item.reason] ?? 0) + 1;
-				return counts;
-			}, {})
-		});
-		if (extras.length === 0) return;
-		context.bootstrapFiles = [...context.bootstrapFiles, ...extras];
-	} catch (err) {
-		log.warn(`failed: ${String(err)}`);
-	}
-};
-//#endregion
-export { bootstrapExtraFilesHook as default };
+import{t as createSubsystemLogger}from"../../subsystem-BXrV0rVs.mjs";import{n as rememberBoundedKey}from"../../dedupe-Cnws8lvZ.mjs";import{i as isAgentBootstrapEvent}from"../../internal-hooks-C10BZZrh.mjs";import{t as loadDeclaredExtraBootstrapFiles}from"../../declared-files-Cmced36I.mjs";
+//!src/hooks/bundled/bootstrap-extra-files/handler.ts
+const log=createSubsystemLogger(`bootstrap-extra-files`);const MAX_WARNED_SKIPS=256;const SKIPPED_FILES_WARNING=`configured extra bootstrap files were not loaded. Use a supported bootstrap filename inside the workspace, or check file access: https://docs.openclaw.ai/automation/hooks/bundled-hooks#bootstrap-extra-files`;const warnedSkips=/* @__PURE__ */ new Set;const bootstrapExtraFilesHook=async e=>{if(!isAgentBootstrapEvent(e))return;const t=e.context;try{const{files:e,diagnostics:n}=await loadDeclaredExtraBootstrapFiles({config:t.cfg,workspaceDir:t.workspaceDir});if(n.length>0)log.debug(`skipped extra bootstrap candidates`,{skipped:n.length,reasons:n.reduce((e,t)=>{e[t.reason]=(e[t.reason]??0)+1;return e},{})});const r=n.filter(e=>e.reason!==`missing`);const i=r.map(e=>`${e.reason}:${e.path}`).join(`
+`);if(r.length>0&&rememberBoundedKey(warnedSkips,i,MAX_WARNED_SKIPS))log.warn(SKIPPED_FILES_WARNING,{skipped:r.length,files:r.slice(0,5)});if(e.length===0)return;t.bootstrapFiles=[...t.bootstrapFiles,...e]}catch(e){log.warn(`failed: ${String(e)}`)}};export{bootstrapExtraFilesHook as default};

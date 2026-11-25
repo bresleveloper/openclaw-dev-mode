@@ -5,40 +5,13 @@ import { withTrustedEnvProxyGuardedFetchMode } from "openclaw/plugin-sdk/fetch-r
 import { resolveExpiresAtMsFromDurationSeconds } from "openclaw/plugin-sdk/number-runtime";
 import { parseOAuthCallbackInput, waitForLocalOAuthCallback } from "openclaw/plugin-sdk/provider-auth-runtime";
 import { assertOkOrThrowProviderError, readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
-import { buildOAuthRequestSignal } from "openclaw/plugin-sdk/provider-oauth-runtime";
+import { buildOAuthRequestSignal, createOAuthRefreshError, createOAuthRefreshResponseError } from "openclaw/plugin-sdk/provider-oauth-runtime";
 import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
-//#region extensions/chutes/oauth.ts
+// extensions/chutes/oauth.ts
 const CHUTES_AUTHORIZE_ENDPOINT = "https://api.chutes.ai/idp/authorize";
 const CHUTES_TOKEN_ENDPOINT = "https://api.chutes.ai/idp/token";
 const CHUTES_USERINFO_ENDPOINT = "https://api.chutes.ai/idp/userinfo";
 const CHUTES_OAUTH_REQUEST_TIMEOUT_MS = 3e4;
-function parseRedirectUri(redirectUri) {
-	const url = new URL(redirectUri);
-	if (url.protocol !== "http:") throw new Error(`Chutes OAuth redirect URI must be http:// (got ${redirectUri})`);
-	const hostname = url.hostname === "[::1]" ? "::1" : url.hostname || "127.0.0.1";
-	if (hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "::1") throw new Error(`Chutes OAuth redirect hostname must be loopback (got ${hostname}). Use http://127.0.0.1:<port>/...`);
-	return {
-		hostname,
-		port: url.port ? Number.parseInt(url.port, 10) : 80,
-		pathname: url.pathname || "/"
-	};
-}
-function parseManualOAuthInput(input, expectedState) {
-	const parsed = parseOAuthCallbackInput(input, {
-		invalidInput: "Paste the full redirect URL (must include code + state).",
-		missingState: "Missing 'state' parameter. Paste the full redirect URL."
-	});
-	if ("error" in parsed) throw new Error(parsed.error);
-	if (parsed.state !== expectedState) throw new Error("OAuth state mismatch - possible CSRF attack. Please retry login.");
-	return parsed;
-}
-function resolveChutesExpiresAt(value, now) {
-	return resolveExpiresAtMsFromDurationSeconds(value, {
-		nowMs: now,
-		bufferMs: 3e5,
-		minRemainingMs: 3e4
-	});
-}
 async function requestChutesTokenGrant(params) {
 	const { response, release } = await fetchWithSsrFGuard(withTrustedEnvProxyGuardedFetchMode({
 		url: CHUTES_TOKEN_ENDPOINT,
@@ -53,15 +26,37 @@ async function requestChutesTokenGrant(params) {
 		})
 	}));
 	try {
-		await assertOkOrThrowProviderError(response, `${params.responseLabel} failed`);
+		if (params.responseLabel === "Chutes token exchange") await assertOkOrThrowProviderError(response, `${params.responseLabel} failed`);
 		const data = await readProviderJsonResponse(response, params.responseLabel);
+		if (!response.ok || data.error !== void 0) throw createOAuthRefreshResponseError(params.responseLabel, response.status, data);
 		const access = normalizeOptionalString(data.access_token);
-		const expires = resolveChutesExpiresAt(data.expires_in, params.now ?? Date.now());
-		if (!access) throw new Error(`${params.responseLabel} returned no access_token`);
-		if (expires === void 0) throw new Error(`${params.responseLabel} returned invalid expires_in`);
+		const expires = resolveExpiresAtMsFromDurationSeconds(data.expires_in, {
+			nowMs: params.now ?? Date.now(),
+			bufferMs: 3e5,
+			minRemainingMs: 3e4
+		});
+		if (!access) throw createOAuthRefreshError(`${params.responseLabel} returned no access_token`, {
+			version: 1,
+			phase: "after-token-response",
+			outcome: "unknown",
+			status: response.status
+		});
+		if (expires === void 0) throw createOAuthRefreshError(`${params.responseLabel} returned invalid expires_in`, {
+			version: 1,
+			phase: "after-token-response",
+			outcome: "unknown",
+			status: response.status
+		});
+		const refresh = normalizeOptionalString(data.refresh_token);
+		if (data.refresh_token !== void 0 && !refresh) throw createOAuthRefreshError(`${params.responseLabel} returned invalid refresh_token`, {
+			version: 1,
+			phase: "after-token-response",
+			outcome: "unknown",
+			status: response.status
+		});
 		return {
 			access,
-			refresh: normalizeOptionalString(data.refresh_token),
+			refresh,
 			expires
 		};
 	} finally {
@@ -84,41 +79,6 @@ async function fetchChutesUserInfo(params) {
 	} finally {
 		await release();
 	}
-}
-async function exchangeChutesCodeForTokens(params) {
-	const now = Date.now();
-	const body = new URLSearchParams({
-		grant_type: "authorization_code",
-		client_id: params.app.clientId,
-		code: params.code,
-		redirect_uri: params.app.redirectUri,
-		code_verifier: params.codeVerifier
-	});
-	if (params.app.clientSecret) body.set("client_secret", params.app.clientSecret);
-	const token = await requestChutesTokenGrant({
-		body,
-		responseLabel: "Chutes token exchange",
-		now,
-		...params.signal ? { signal: params.signal } : {}
-	});
-	if (!token.refresh) throw new Error("Chutes token exchange returned no refresh_token");
-	let info = null;
-	try {
-		info = await fetchChutesUserInfo({
-			accessToken: token.access,
-			...params.signal ? { signal: params.signal } : {}
-		});
-	} catch (error) {
-		if (params.signal?.aborted) throw error;
-	}
-	return {
-		access: token.access,
-		refresh: token.refresh,
-		expires: token.expires,
-		email: info?.username,
-		accountId: info?.sub,
-		clientId: params.app.clientId
-	};
 }
 /** Refreshes a stored Chutes OAuth credential through the provider token endpoint. */
 async function refreshChutesOAuthCredential(credential) {
@@ -159,25 +119,39 @@ async function loginChutes(params) {
 		code_challenge_method: "S256"
 	});
 	const url = `${CHUTES_AUTHORIZE_ENDPOINT}?${query}`;
-	const promptForCode = async () => parseManualOAuthInput(await params.onPrompt({
-		message: "Paste the redirect URL",
-		placeholder: `${params.app.redirectUri}?code=...&state=...`
-	}), state);
+	const promptForCode = async () => {
+		const parsed = parseOAuthCallbackInput(await params.onPrompt({
+			message: "Paste the redirect URL",
+			placeholder: `${params.app.redirectUri}?code=...&state=...`
+		}), {
+			invalidInput: "Paste the full redirect URL (must include code + state).",
+			missingState: "Missing 'state' parameter. Paste the full redirect URL."
+		});
+		if ("error" in parsed) throw new Error(parsed.error);
+		if (parsed.state !== state) throw new Error("OAuth state mismatch - possible CSRF attack. Please retry login.");
+		return parsed;
+	};
 	let codeAndState;
 	if (params.manual) {
 		await params.onAuth({ url });
 		params.onProgress?.("Waiting for redirect URL...");
 		codeAndState = await promptForCode();
 	} else {
-		const redirect = parseRedirectUri(params.app.redirectUri);
+		const redirectUri = params.app.redirectUri;
+		const redirect = new URL(redirectUri);
+		if (redirect.protocol !== "http:") throw new Error(`Chutes OAuth redirect URI must be http:// (got ${redirectUri})`);
+		const hostname = redirect.hostname === "[::1]" ? "::1" : redirect.hostname || "127.0.0.1";
+		if (hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "::1") throw new Error(`Chutes OAuth redirect hostname must be loopback (got ${hostname}). Use http://127.0.0.1:<port>/...`);
+		const port = redirect.port ? Number.parseInt(redirect.port, 10) : 80;
+		const pathname = redirect.pathname || "/";
 		const callback = waitForLocalOAuthCallback({
 			expectedState: state,
 			timeoutMs: 18e4,
-			port: redirect.port,
-			callbackPath: redirect.pathname,
+			port,
+			callbackPath: pathname,
 			redirectUri: params.app.redirectUri,
-			successTitle: "Chutes OAuth complete",
-			hostname: redirect.hostname,
+			successTitle: "Chutes authorization received",
+			hostname,
 			onProgress: params.onProgress,
 			...params.signal ? { signal: params.signal } : {}
 		}).catch(async (error) => {
@@ -189,12 +163,40 @@ async function loginChutes(params) {
 		codeAndState = await callback;
 	}
 	params.onProgress?.("Exchanging code for tokens...");
-	return await exchangeChutesCodeForTokens({
-		app: params.app,
+	const app = params.app;
+	const signal = params.signal;
+	const now = Date.now();
+	const body = new URLSearchParams({
+		grant_type: "authorization_code",
+		client_id: app.clientId,
 		code: codeAndState.code,
-		codeVerifier: verifier,
-		...params.signal ? { signal: params.signal } : {}
+		redirect_uri: app.redirectUri,
+		code_verifier: verifier
 	});
+	if (app.clientSecret) body.set("client_secret", app.clientSecret);
+	const token = await requestChutesTokenGrant({
+		body,
+		responseLabel: "Chutes token exchange",
+		now,
+		...signal ? { signal } : {}
+	});
+	if (!token.refresh) throw new Error("Chutes token exchange returned no refresh_token");
+	let info = null;
+	try {
+		info = await fetchChutesUserInfo({
+			accessToken: token.access,
+			...signal ? { signal } : {}
+		});
+	} catch (error) {
+		if (signal?.aborted) throw error;
+	}
+	return {
+		access: token.access,
+		refresh: token.refresh,
+		expires: token.expires,
+		email: info?.username,
+		accountId: info?.sub,
+		clientId: app.clientId
+	};
 }
-//#endregion
 export { loginChutes, refreshChutesOAuthCredential };

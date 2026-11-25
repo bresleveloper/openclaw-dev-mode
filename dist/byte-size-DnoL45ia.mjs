@@ -1,0 +1,3 @@
+import{t as parseByteSize}from"./parse-bytes-B0fmXHX6.mjs";
+//!src/config/byte-size.ts
+function parseNonNegativeByteSize(e){if(typeof e===`number`){const t=Math.floor(e);return Number.isSafeInteger(t)&&t>=0?t:null}if(typeof e===`string`){const t=e.trim();if(!t)return null;try{const e=parseByteSize(t);return e>=0?e:null}catch{return null}}return null}function isValidNonNegativeByteSizeString(e){return parseNonNegativeByteSize(e)!==null}export{parseNonNegativeByteSize as n,isValidNonNegativeByteSizeString as t};

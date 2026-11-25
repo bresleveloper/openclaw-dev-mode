@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var WorkerPlacementInventoryChangedError,t=e((()=>{WorkerPlacementInventoryChangedError=class extends Error{constructor(e){super(`Worker placement inventory changed`),this.sessionIds=e}}}));export{t as n,WorkerPlacementInventoryChangedError as t};

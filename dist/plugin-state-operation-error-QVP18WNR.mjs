@@ -1,0 +1,2 @@
+//!src/plugin-state/plugin-state-operation-error.ts
+var PluginStateOperationInvalidatedError=class extends Error{constructor(){super(`Plugin state operation receipt is no longer current`);this.name=`PluginStateOperationInvalidatedError`}};export{PluginStateOperationInvalidatedError as t};

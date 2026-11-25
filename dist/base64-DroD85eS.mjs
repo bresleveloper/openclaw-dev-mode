@@ -1,0 +1,3 @@
+import{t as canonicalizeBase64}from"./base64-BbBj85Rq.mjs";import"./realtime-voice-provider-CtLzCNqX.mjs";
+//!extensions/google/base64.ts
+function toStandardGoogleProviderBase64(e){const t=e.includes(`+`)||e.includes(`/`);const n=e.includes(`-`)||e.includes(`_`);if(t&&n)return;return n?e.replace(/[-_]/g,e=>e===`-`?`+`:`/`):e}function canonicalizeGoogleProviderBase64(e){const t=toStandardGoogleProviderBase64(e);return t===void 0?void 0:canonicalizeBase64(t)}export{toStandardGoogleProviderBase64 as n,canonicalizeGoogleProviderBase64 as t};

@@ -1,0 +1,3 @@
+import{a as asOptionalRecord,u as isStringArray}from"./record-coerce-BTbqdJ3-.mjs";
+//!packages/agent-core/src/harness/compaction/compaction-details.ts
+const MAX_LATEST_USER_REQUEST_CHARS=800;function parseCompactionDetails(e){const t=asOptionalRecord(e);if(!t||!isStringArray(t.readFiles)||!isStringArray(t.modifiedFiles))return;const n=t.latestUnresolvedUserRequest;const r=typeof n===`string`&&n.length<=800?n:void 0;return{readFiles:t.readFiles,modifiedFiles:t.modifiedFiles,...r?{latestUnresolvedUserRequest:r}:{},...t.qualityDegraded===true?{qualityDegraded:true}:{},...t.summaryRefused===true?{summaryRefused:true}:{}}}export{parseCompactionDetails as t};

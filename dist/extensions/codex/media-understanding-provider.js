@@ -1,10 +1,8 @@
+import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { validateJsonSchemaValue } from "openclaw/plugin-sdk/json-schema-runtime";
-//#region extensions/codex/media-understanding-provider.ts
-/**
-* Codex-backed media understanding provider for bounded image description and
-* structured extraction turns.
-*/
+// extensions/codex/media-understanding-provider.ts
+const loadBoundedTurn = createLazyRuntimeModule(() => import("./.setup/bounded-turn-DwSU7K39.mjs"));
 const CODEX_MEDIA_PROVIDER_ID = "codex";
 const DEFAULT_CODEX_IMAGE_MODEL = "gpt-6-astra";
 const DEFAULT_CODEX_IMAGE_PROMPT = "Describe the image.";
@@ -17,23 +15,39 @@ function buildCodexMediaUnderstandingProvider(options = {}) {
 		id: CODEX_MEDIA_PROVIDER_ID,
 		capabilities: ["image"],
 		defaultModels: { image: DEFAULT_CODEX_IMAGE_MODEL },
-		describeImage: async ({ buffer, fileName, mime, ...req }) => describeCodexImages({
-			...req,
-			images: [{
-				buffer,
-				fileName,
-				mime
-			}]
+		describeImage: async ({ buffer, fileName, mime, ...req }) => runCodexMediaTask({
+			kind: "image",
+			request: {
+				...req,
+				images: [{
+					buffer,
+					fileName,
+					mime
+				}]
+			}
 		}, options),
-		describeImages: async (req) => describeCodexImages(req, options),
-		extractStructured: async (req) => extractCodexStructured(req, options)
+		describeImages: async (req) => runCodexMediaTask({
+			kind: "image",
+			request: req
+		}, options),
+		extractStructured: async (req) => runCodexMediaTask({
+			kind: "structured",
+			request: req
+		}, options)
 	};
 }
-async function describeCodexImages(req, options) {
+async function runCodexMediaTask(task, options) {
+	const { kind, request: req } = task;
+	const taskLabel = kind === "image" ? "image understanding" : "structured extraction";
 	const model = req.model.trim();
-	if (!model) throw new Error("Codex image understanding requires model id.");
+	if (!model) throw new Error(`Codex ${taskLabel} requires model id.`);
+	if (kind === "structured") {
+		if (!req.instructions.trim()) throw new Error("Codex structured extraction requires instructions.");
+		if (req.input.length === 0) throw new Error("Codex structured extraction requires at least one input.");
+		if (!req.input.some((entry) => entry.type === "image")) throw new Error("Codex structured extraction requires at least one image input.");
+	}
 	req.signal?.throwIfAborted();
-	const { runBoundedCodexAppServerTurn } = await import("./.setup/bounded-turn-0Siz1u82.mjs");
+	const { runBoundedCodexAppServerTurn } = await loadBoundedTurn();
 	req.signal?.throwIfAborted();
 	const { text } = await runBoundedCodexAppServerTurn({
 		config: req.cfg,
@@ -48,52 +62,23 @@ async function describeCodexImages(req, options) {
 		agentDir: req.agentDir,
 		authProfileStore: req.authStore,
 		options,
-		taskLabel: "image understanding",
-		developerInstructions: "You are OpenClaw's bounded image-understanding worker. Describe only the provided image content. Do not call tools, edit files, or ask follow-up questions.",
-		input: [{
+		taskLabel,
+		developerInstructions: kind === "image" ? "You are OpenClaw's bounded image-understanding worker. Describe only the provided image content. Do not call tools, edit files, or ask follow-up questions." : "You are OpenClaw's bounded structured-extraction worker. Return only the requested extraction. Do not call tools, edit files, ask follow-up questions, or include secrets.",
+		input: kind === "image" ? [{
 			type: "text",
 			text: buildCodexImagePrompt(req),
 			text_elements: []
 		}, ...req.images.map((image) => ({
 			type: "image",
 			url: `data:${image.mime ?? "image/png"};base64,${image.buffer.toString("base64")}`
-		}))],
+		}))] : buildCodexStructuredInput(req),
 		requiredModalities: ["text", "image"],
 		isolation: "configured-transport"
 	});
-	return {
+	if (kind === "image") return {
 		text,
 		model
 	};
-}
-async function extractCodexStructured(req, options) {
-	const model = req.model.trim();
-	if (!model) throw new Error("Codex structured extraction requires model id.");
-	if (!req.instructions.trim()) throw new Error("Codex structured extraction requires instructions.");
-	if (req.input.length === 0) throw new Error("Codex structured extraction requires at least one input.");
-	if (!req.input.some((entry) => entry.type === "image")) throw new Error("Codex structured extraction requires at least one image input.");
-	req.signal?.throwIfAborted();
-	const { runBoundedCodexAppServerTurn } = await import("./.setup/bounded-turn-0Siz1u82.mjs");
-	req.signal?.throwIfAborted();
-	const { text } = await runBoundedCodexAppServerTurn({
-		config: req.cfg,
-		model: {
-			mode: "required",
-			id: model
-		},
-		modelProvider: "openai",
-		profile: req.profile,
-		timeoutMs: req.timeoutMs,
-		signal: req.signal,
-		agentDir: req.agentDir,
-		authProfileStore: req.authStore,
-		options,
-		taskLabel: "structured extraction",
-		developerInstructions: "You are OpenClaw's bounded structured-extraction worker. Return only the requested extraction. Do not call tools, edit files, ask follow-up questions, or include secrets.",
-		input: buildCodexStructuredInput(req),
-		requiredModalities: ["text", "image"],
-		isolation: "configured-transport"
-	});
 	const result = {
 		text,
 		model,
@@ -149,5 +134,4 @@ function buildCodexStructuredInput(req) {
 		};
 	})];
 }
-//#endregion
 export { buildCodexMediaUnderstandingProvider };

@@ -3,6 +3,7 @@ import { resolveDefaultAgentId } from "../../agents/agent-scope.js";
 import { formatSqliteSessionFileMarker } from "../../config/sessions/legacy-sqlite-marker.js";
 import { loadTranscriptEvents } from "../../config/sessions/session-accessor.js";
 import { resolveSessionStorePathForScope } from "../../config/sessions/session-store-path.js";
+import { withSessionTranscriptHydrationCaller } from "../../config/sessions/session-transcript-hydration-caller.js";
 import { selectSessionTranscriptLeafControlledPath } from "../../config/sessions/transcript-tree.js";
 import { logVerbose } from "../../globals.js";
 import { createInternalHookEvent, triggerInternalHook } from "../../hooks/internal-hooks.js";
@@ -25,7 +26,8 @@ export async function readBeforeResetMessages(params: {
   sessionKey?: string;
   storePath?: string;
 }): Promise<unknown[]> {
-  if (!params.sessionId || !params.sessionKey || !params.storePath) {
+  const { sessionId, sessionKey, storePath } = params;
+  if (!sessionId || !sessionKey || !storePath) {
     logVerbose("before_reset: no session identity available, firing hook with empty messages");
     return [];
   }
@@ -33,12 +35,14 @@ export async function readBeforeResetMessages(params: {
     return parseTranscriptMessages(
       // before_reset snapshots the canonical pre-reset rows. sessionFile is
       // hook metadata only and must not be treated as a readable path.
-      await loadTranscriptEvents({
-        ...(params.agentId ? { agentId: params.agentId } : {}),
-        sessionId: params.sessionId,
-        sessionKey: params.sessionKey,
-        storePath: params.storePath,
-      }),
+      await withSessionTranscriptHydrationCaller("reset-hook", () =>
+        loadTranscriptEvents({
+          ...(params.agentId ? { agentId: params.agentId } : {}),
+          sessionId,
+          sessionKey,
+          storePath,
+        }),
+      ),
     );
   } catch (err: unknown) {
     logVerbose(
@@ -55,7 +59,13 @@ export async function emitResetCommandHooks(params: {
   cfg: HandleCommandsParams["cfg"];
   command: Pick<
     HandleCommandsParams["command"],
-    "surface" | "senderId" | "channel" | "from" | "to" | "resetHookTriggered"
+    | "surface"
+    | "senderId"
+    | "channel"
+    | "from"
+    | "to"
+    | "resetHookTriggered"
+    | "commandBodyNormalized"
   >;
   sessionKey?: string;
   storePath?: string;
@@ -78,6 +88,14 @@ export async function emitResetCommandHooks(params: {
           storePath: params.storePath,
         })
       : params.storePath;
+  // openclaw-dev-mode FIX-04: the text after `/new` or `/reset` ("" when bare), exposed as
+  // `resetTail` on the event (`commandBodyNormalized` joined the `command` Pick above for it).
+  // The dev-mode-greeting hook skips its own greeting turn when text trails: that text's turn
+  // is the first turn of the new session (src/hooks/bundled/dev-mode-greeting/handler.ts).
+  const resetMatch = params.command.commandBodyNormalized.match(/^\/(new|reset)(?:\s|$)/i);
+  const resetTail = resetMatch
+    ? params.command.commandBodyNormalized.slice(resetMatch[0].length).trim()
+    : "";
   const hookEvent = createInternalHookEvent("command", params.action, params.sessionKey ?? "", {
     agentId: hookAgentId,
     sessionEntry: params.sessionEntry,
@@ -88,6 +106,7 @@ export async function emitResetCommandHooks(params: {
     workspaceDir: params.workspaceDir,
     storePath: hookStorePath,
     cfg: params.cfg,
+    resetTail, // openclaw-dev-mode FIX-04
   });
   await triggerInternalHook(hookEvent);
   params.command.resetHookTriggered = true;

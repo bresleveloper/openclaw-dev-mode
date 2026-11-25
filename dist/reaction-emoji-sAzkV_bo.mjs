@@ -1,0 +1,2 @@
+//!packages/gateway-protocol/src/reaction-emoji.ts
+const emojiSegmenter=new Intl.Segmenter(`en`,{granularity:`grapheme`});const emojiSequence=/^(?:\p{Regional_Indicator}{2}|[#*0-9]️?⃣|\u{1F3F4}[\u{E0061}-\u{E007A}]+\u{E007F}|\p{Extended_Pictographic}️?\p{Emoji_Modifier}?(?:‍\p{Extended_Pictographic}️?\p{Emoji_Modifier}?)*)$/u;function isReactionEmoji(e){return Array.from(e).length<=32&&[...emojiSegmenter.segment(e)].length===1&&emojiSequence.test(e)}export{isReactionEmoji as t};

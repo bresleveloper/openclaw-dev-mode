@@ -1,0 +1,2 @@
+//!src/process/pty-terminal-name.ts
+const DEFAULT_PTY_TERMINAL_NAME=`xterm-256color`;function resolvePtyTerminalName(e){const t=e?.trim();return!t||t.toLowerCase()===`dumb`?DEFAULT_PTY_TERMINAL_NAME:t}function setPtyTerminalName(e){if(e.platform===`win32`){for(const t of Object.keys(e.env))if(t!==`TERM`&&t.toLowerCase()===`term`)delete e.env[t]}e.env.TERM=e.name}export{setPtyTerminalName as n,resolvePtyTerminalName as t};

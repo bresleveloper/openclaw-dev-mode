@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"Налаштування нового сеансу","rememberSettings":"Запам’ятати налаштування для {shortcut}","rememberSettingsNoShortcut":"Запам’ятати ці налаштування","rememberUnavailable":"Підключіться знову, щоб зберегти налаштування.","settingsSaveFailed":"Не вдалося зберегти налаштування. Спробуйте ще раз."}};

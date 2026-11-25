@@ -1,0 +1,2 @@
+//!extensions/anthropic/fast-mode-unsupported.ts
+function createFastModeUnsupportedModels(e){const t=/* @__PURE__ */ new Set;let n;const open=()=>n??=e.openStore();const warn=t=>e.warn(`anthropic: fast-mode capability state: ${String(t)}`);let r;const load=()=>r??=Promise.resolve().then(()=>open().entries()).then(e=>{for(const n of e)t.add(n.key)},e=>warn(e));return{ready:load,has:e=>{load();return t.has(e)},record:e=>{if(t.has(e))return;t.add(e);Promise.resolve().then(()=>open().register(e,{learnedAt:Date.now()})).catch(warn)}}}export{createFastModeUnsupportedModels as t};

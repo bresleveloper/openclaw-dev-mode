@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";function t(){let e=new AbortController;return r=e,()=>{e.abort(),r===e&&(r=void 0)}}function n(){return r?.signal??AbortSignal.abort()}var r;function i(){return(i=e((()=>{})))()}export{n,t as r,i as t};
+//# sourceMappingURL=feature-lifetime-BHVdXhSD.js.map

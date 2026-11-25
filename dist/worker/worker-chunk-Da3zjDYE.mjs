@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function canChannelEnforcePluginReviewerPolicy(e,t,n){return!Object.hasOwn(e.approvals?.plugin??{},t)||n?.supportsScopedPluginApprovalApprovers===!0}var t=e((()=>{}));export{t as n,canChannelEnforcePluginReviewerPolicy as t};

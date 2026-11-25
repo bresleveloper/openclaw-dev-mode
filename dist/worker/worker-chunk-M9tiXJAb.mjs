@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{i as t,r as n}from"./worker-chunk-TgMlpsZo.mjs";import{g as r,m as i,s as a}from"./worker-chunk-DjuK_SqH.mjs";import{i as o,o as s}from"./worker-chunk-DQSYHBnu.mjs";function withUpdateRunRead(e,n,a){return s()?t(()=>r(e,n)):(n.allowNativeRead?r:i)(e,n,a)}var c=e((()=>{o(),a(),n()}));export{withUpdateRunRead as n,c as t};

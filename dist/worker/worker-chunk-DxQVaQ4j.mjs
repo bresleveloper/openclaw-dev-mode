@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,r as n}from"./worker-chunk-B_7MB8pt.mjs";import{n as r,t as i}from"./worker-chunk-D256RCCi.mjs";function createPluginCapabilityConsentPrompter(e,t){return async r=>(await e.note(i(r).join(`
+`),`Plugin capabilities`),await e.confirm({message:`Accept these capabilities for "${n(r.pluginId)}"?`,initialValue:!1})?(await t?.(),{reviewToken:r.reviewToken}):e.cancel?.(`Plugin capability review was declined.`))}var a=e((()=>{t(),r()}));export{a as n,createPluginCapabilityConsentPrompter as t};

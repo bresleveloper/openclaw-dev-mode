@@ -1,0 +1,3 @@
+import{a as cliHistoryWriterFacts,s as getCliHistoryWriter}from"./cli-history-boundary-CWmCWedk.mjs";
+//!src/agents/sessions/session-manager-metadata-command.ts
+function prepareSessionManagerMetadataCommand(e,t,n){const r=getCliHistoryWriter({...e.input.scope,storePath:t});if(e.type===`session.transcript.appendMessage`||e.type===`session.metadata.append`)e.input={...e.input,cliWriter:r&&cliHistoryWriterFacts(r)};if(e.type===`session.transcript.appendMessage`)Object.assign(e.input,n);if(e.type===`session.transcript.rewrite`&&`entries`in e.input&&n.pendingInput)e.input.pendingInput=n.pendingInput;if(`event`in e.input&&typeof e.input.event!==`string`&&e.input.message)e.input.message={...e.input.message,...n};return r}export{prepareSessionManagerMetadataCommand as t};

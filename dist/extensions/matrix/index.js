@@ -1,11 +1,11 @@
-import { n as registerMatrixCliMetadata } from "./.setup/cli-metadata-C60BW1oa.mjs";
-import { a as setMatrixRuntimeLifecycle } from "./.setup/runtime-1kn1P6io.mjs";
+import { n as registerMatrixCliMetadata } from "./.setup/cli-metadata-FwlOHfdX.mjs";
+import { a as setMatrixRuntimeLifecycle } from "./.setup/runtime-Ck8TjD7L.mjs";
 import "./runtime-setter-api.js";
 import { registerMatrixSubagentHooks } from "./subagent-hooks-api.js";
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
 import { runWithLocalStateMutationOwner } from "openclaw/plugin-sdk/gateway-runtime";
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
-//#region extensions/matrix/index.ts
+// extensions/matrix/index.ts
 const loadMatrixHandlersRuntimeModule = createLazyRuntimeModule(() => import("./plugin-entry.handlers.runtime.js"));
 function registerMatrixFullRuntime(api) {
 	setMatrixRuntimeLifecycle(api.runtime, api.lifecycle);
@@ -68,5 +68,4 @@ var matrix_default = defineBundledChannelEntry({
 	registerCliMetadata: registerMatrixCliMetadata,
 	registerFull: registerMatrixFullRuntime
 });
-//#endregion
 export { matrix_default as default, registerMatrixFullRuntime };

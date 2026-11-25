@@ -1,0 +1,68 @@
+import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
+import { captureChannelReadAuthority } from "openclaw/plugin-sdk/fetch-runtime";
+// extensions/matrix/src/matrix/client-bootstrap.ts
+const loadMatrixSharedClientRuntimeDeps = createLazyRuntimeModule(() => import("./client-BVgnwwz0.mjs").then((n) => n.t));
+async function ensureResolvedClientReadiness(params) {
+	if (params.readiness === "started") {
+		if (params.lease) await params.lease.start();
+		else await params.client.start();
+		return;
+	}
+	if (params.readiness === "prepared" || !params.readiness && params.preparedByDefault) await params.client.prepareForOneOff();
+}
+async function resolveRuntimeMatrixClientWithReadiness(opts) {
+	const assertCurrent = captureChannelReadAuthority();
+	assertCurrent?.();
+	if (opts.client) {
+		await ensureResolvedClientReadiness({
+			client: opts.client,
+			readiness: opts.readiness,
+			preparedByDefault: false
+		});
+		assertCurrent?.();
+		return { client: opts.client };
+	}
+	if (!opts.cfg) throw new Error("Matrix runtime client requires a resolved runtime config. Load and resolve config at the command or gateway boundary, then pass cfg through the runtime path.");
+	const cfg = opts.cfg;
+	const { acquireSharedMatrixClient } = await loadMatrixSharedClientRuntimeDeps();
+	assertCurrent?.();
+	const lease = await acquireSharedMatrixClient({
+		cfg,
+		timeoutMs: opts.timeoutMs,
+		accountId: opts.accountId,
+		role: "transient"
+	});
+	try {
+		assertCurrent?.();
+		await ensureResolvedClientReadiness({
+			client: lease.client,
+			lease,
+			readiness: opts.readiness,
+			preparedByDefault: true
+		});
+		assertCurrent?.();
+	} catch (err) {
+		await lease.release({ mode: "persist" });
+		throw err;
+	}
+	return {
+		client: lease.client,
+		lease
+	};
+}
+async function withResolvedRuntimeMatrixClient(opts, run) {
+	const assertCurrent = captureChannelReadAuthority();
+	assertCurrent?.();
+	const resolved = await resolveRuntimeMatrixClientWithReadiness(opts);
+	try {
+		assertCurrent?.();
+		return await run(resolved.client, resolved.lease?.abortSignal);
+	} finally {
+		try {
+			await resolved.lease?.release({ mode: "persist" });
+		} finally {
+			assertCurrent?.();
+		}
+	}
+}
+export { resolveRuntimeMatrixClientWithReadiness, withResolvedRuntimeMatrixClient };

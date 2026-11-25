@@ -1,0 +1,1 @@
+import{n as wrapOllamaToolNames,t as normalizeOllamaToolCallName}from"./tool-name-aliases-CcstD3do.mjs";export{normalizeOllamaToolCallName,wrapOllamaToolNames};

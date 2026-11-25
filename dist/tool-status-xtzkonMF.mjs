@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/acp/tool-status.ts
+const ACP_TOOL_TERMINAL_OUTCOMES={completed:`completed`,done:`completed`,failed:`failed`,error:`failed`,cancelled:`cancelled`};function resolveAcpToolTerminalOutcome(e){const t=normalizeOptionalLowercaseString(e);if(!t||!Object.hasOwn(ACP_TOOL_TERMINAL_OUTCOMES,t))return;return ACP_TOOL_TERMINAL_OUTCOMES[t]}export{resolveAcpToolTerminalOutcome as t};

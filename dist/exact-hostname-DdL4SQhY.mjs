@@ -1,0 +1,3 @@
+import{domainToASCII}from"node:url";import net from"node:net";
+//!src/secrets/exact-hostname.ts
+function normalizeExactAllowedHost(e){const t=e.trim().toLowerCase().replace(/\.+$/u,``);if(t.includes(`*`))throw new Error(`Allowed host "${e}" cannot contain a wildcard; use one exact hostname.`);const n=t.startsWith(`[`)&&t.endsWith(`]`)?t.slice(1,-1):t;if(net.isIP(n))return n;if(!n||n.includes(`:`)||/[\s/?#@]/u.test(n))throw new Error(`Allowed host "${e}" must be a hostname without a scheme, path, wildcard, or port.`);const r=domainToASCII(n);if(!r||r.length>253||r.split(`.`).some(e=>!e||e.length>63||e.startsWith(`-`)||e.endsWith(`-`)||!/^[a-z0-9-]+$/u.test(e)))throw new Error(`Allowed host "${e}" is not a valid hostname.`);return r}export{normalizeExactAllowedHost as t};

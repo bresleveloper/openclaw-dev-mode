@@ -1,11 +1,12 @@
 import { normalizeProviderId } from "@openclaw/model-catalog-core/provider-id";
 import { normalizeLowercaseStringOrEmpty } from "@openclaw/normalization-core/string-coerce";
-import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { normalizePluginsConfig, type NormalizedPluginsConfig } from "../plugins/config-state.js";
 import { isManifestPluginAvailableForControlPlane } from "../plugins/manifest-contract-eligibility.js";
-import type { PluginMetadataSnapshot } from "../plugins/plugin-metadata-snapshot.types.js";
-import type { PluginRegistry } from "../plugins/registry.js";
+import { resolveProviderAuthScope } from "../plugins/provider-auth-scope.js";
+import { createProviderModelRoutesResolver } from "../plugins/provider-model-routes.js";
+import { resolveProviderRefOwnership } from "../plugins/providers.js";
 import { withPluginRuntimeRegistryScope } from "../plugins/runtime/gateway-request-scope.js";
+import { getActiveSecretsRuntimeSnapshotRevisionState } from "../secrets/runtime-state.js";
 import {
   withCurrentReadAuthority,
   type CurrentReadAuthority,
@@ -13,12 +14,8 @@ import {
 import { getActiveOpenClawStateDatabaseReadSnapshot } from "../state/openclaw-state-db-readonly.js";
 import { captureOpenClawStateReadWorkerContext } from "../state/openclaw-state-worker-context.js";
 import { isUserModelAuthProfileId } from "../state/user-model-account-id.js";
-import type {
-  PersonalCatalogProfiles,
-  PersonalCatalogSelection,
-} from "../state/user-model-accounts.js";
+import type { PersonalCatalogSelection } from "../state/user-model-accounts.js";
 import { captureUserProfileModelAccountLinksAuthority } from "../state/user-profile-events.js";
-import type { PreparedAgentCredentialModes } from "./agent-auth-credential-modes.js";
 import {
   resolveAgentDir,
   resolveAgentWorkspaceDir,
@@ -27,8 +24,6 @@ import {
 import { resolveExternalCliAuthScopeFromConfig } from "./auth-profiles/external-cli-scope.js";
 import { materializePreparedPersonalAuthProfile } from "./auth-profiles/personal-profiles.js";
 import { resolveAuthStoreReadOnlyValidUntil } from "./auth-profiles/read-only-availability.js";
-import type { RuntimeAuthMaterialization } from "./auth-profiles/runtime-materializations.js";
-import type { AuthProfileStore } from "./auth-profiles/types.js";
 import { listCliRuntimeModelBackendBindings } from "./cli-backends.js";
 import { resolveAgentHarnessPolicy } from "./harness/policy.js";
 import { buildAgentHarnessSupportContext } from "./harness/support.js";
@@ -39,6 +34,8 @@ import {
 } from "./model-auth-availability.js";
 import { createUnlistedClaudeCliWildcardCheck } from "./model-catalog-cli-wildcard.js";
 import { resolveCatalogDecisionRuntime } from "./model-catalog-decision-runtime.js";
+import { createCatalogPluginAuth } from "./model-catalog-decisions.plugin-auth.js";
+import type { ModelCatalogDecisionParams } from "./model-catalog-decisions.types.js";
 import {
   createModelCatalogSnapshotView,
   listModelCatalogObservedRoutes,
@@ -46,44 +43,20 @@ import {
   selectModelCatalogRuntimeEntry,
 } from "./model-catalog-view.js";
 import { loadManifestModelCatalog } from "./model-catalog.js";
-import type { ModelCatalogEntry, ModelCatalogSnapshot } from "./model-catalog.types.js";
+import type { ModelCatalogEntry } from "./model-catalog.types.js";
 import { splitTrailingAuthProfile } from "./model-ref-profile.js";
 import { resolveDefaultModelForAgent } from "./model-selection-config.js";
 import { dedupeModelCatalogEntries } from "./model-selection-shared.js";
 import {
   createModelCatalogIdentityKeyResolver,
-  createOpenAIModelRoutesResolver,
   openAIModelCatalogRoutePolicy,
 } from "./openai-model-routes.js";
 import { PreparedModelRuntimePublicationSupersededError } from "./prepared-model-runtime.errors.js";
 import { isPreparedModelCatalogFull } from "./prepared-model-runtime.full-catalog.js";
 import { resolveProviderIdForAuth } from "./provider-auth-aliases.js";
 
+export type { ModelCatalogDecisionParams } from "./model-catalog-decisions.types.js";
 export { resolveCatalogDecisionRuntime } from "./model-catalog-decision-runtime.js";
-
-export type ModelCatalogDecisionParams = {
-  cfg: OpenClawConfig;
-  agentId: string;
-  agentDir?: string;
-  workspaceDir?: string;
-  snapshot: ModelCatalogSnapshot;
-  metadataSnapshot: PluginMetadataSnapshot;
-  preparedAuthStore: AuthProfileStore;
-  preparedRuntimeAuthModes?: PreparedAgentCredentialModes;
-  preparedRuntimeAuthMaterializations?: readonly RuntimeAuthMaterialization[];
-  preparedSyntheticAuthComplete?: boolean;
-  requesterProfileId?: string;
-  pluginRegistry?: PluginRegistry;
-  observationConfig?: OpenClawConfig;
-  preferredProfileId?: string;
-  pinnedProfileId?: string;
-  profileProvider?: string;
-  runtimeOverride?: string;
-  accountCatalog?: import("./prepared-model-runtime-auth.js").PreparedAccountCatalogAccess;
-  routeResolverFactory?: typeof createOpenAIModelRoutesResolver;
-  isCurrent?: () => boolean;
-  preparedPersonalCatalog?: PersonalCatalogProfiles & { isCurrent: () => boolean };
-};
 
 /** Prepare private records once under the caller's retained credential authority. */
 export async function prepareModelCatalogDecisions(
@@ -158,7 +131,9 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
   const modelKeyOf = createModelCatalogIdentityKeyResolver();
   const primaryKey = modelKeyOf(primaryEntry);
   const configuredPinForEntry = (entry: Pick<ModelCatalogEntry, "provider" | "id">) =>
-    modelKeyOf(entry) === primaryKey ? configuredProfileId : undefined;
+    configuredProfileId !== undefined && modelKeyOf(entry) === primaryKey
+      ? configuredProfileId
+      : undefined;
   // Runtime choices are read after preparation; CLI backends belong to the owner's registry.
   const cliRuntimeBindings = params.pluginRegistry
     ? withPluginRuntimeRegistryScope(params.pluginRegistry, () =>
@@ -261,15 +236,25 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
     get refreshFailed() {
       return statusSource.refreshFailed;
     },
+    get refreshFailures() {
+      return statusSource.refreshFailures;
+    },
     get pendingProviders() {
       return statusSource.pendingProviders;
     },
   };
+  // Share only stable provider/config indexes within this decision owner, never account decisions.
+  const resolveOpenAIProviderRoutes = createProviderModelRoutesResolver({
+    provider: "openai",
+    config: params.cfg,
+    env: process.env,
+  });
   const nativeEvaluator = prepareModelCatalogView({
     ...params,
     snapshot,
     workspaceDir,
     profileProvider,
+    resolveOpenAIProviderRoutes,
   }).evaluateNative;
   // A selected profile is host-owned auth, not evidence from the shared native
   // login; the harness evaluator already applies this rule to session pins.
@@ -280,9 +265,24 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
       : nativeEvaluator(entry, host, runtimeId);
   // Retire the captured host evaluation so its caller prepares fresh facts.
   const authValidUntil = resolveAuthStoreReadOnlyValidUntil(authStore, Date.now());
+  const isPluginAuthProvider = (provider: string) =>
+    resolveProviderAuthScope({
+      provider,
+      config: params.cfg,
+      workspaceDir,
+      pluginMetadataSnapshot: metadataSnapshot,
+    }) === "plugin";
+  const pluginAuthRevision = getActiveSecretsRuntimeSnapshotRevisionState();
+  const hasPluginAuth = snapshot.entries.some((entry) => isPluginAuthProvider(entry.provider));
   const agentDir = resolveAgentDir(params.cfg, params.agentId);
   let normalizedPlugins: NormalizedPluginsConfig | undefined;
   const authResolver = createModelAuthAvailabilityResolver({
+    ...createCatalogPluginAuth({
+      cfg: params.cfg,
+      workspaceDir,
+      metadataSnapshot,
+      pluginRegistry: params.pluginRegistry,
+    }),
     cfg: params.cfg,
     agentId: params.agentId,
     authStore,
@@ -313,6 +313,7 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
     externalCliProviderIds: resolveExternalCliAuthScopeFromConfig(params.cfg)?.providerIds ?? [],
     preparedRuntimeAuthStore: authStore,
     routeResolverFactory: params.routeResolverFactory,
+    resolveOpenAIProviderRoutes,
     // Read at evaluation time: selected-account discovery replaces outcomes in place. Entitlement
     // is per account, so only the listing discovery made with this exact credential applies.
     accountListedModelIds: (provider, profileId) => {
@@ -336,7 +337,6 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
   const evaluations = new Map<string, ModelAuthAvailabilityEvaluation>();
   const preferredProfileIdForCatalog = params.preferredProfileId || undefined;
   const pinnedProfileIdForCatalog = params.pinnedProfileId || undefined;
-  const runtimeOverride = params.runtimeOverride;
   const normalizeAuthProvider = (provider: string) =>
     resolveProviderIdForAuth(provider, { config: params.cfg, metadataSnapshot });
   const isSelectedProvider = (provider: string) =>
@@ -364,7 +364,8 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
       entry.baseUrl,
       observedRoutes,
     ]);
-    const cached = evaluations.get(cacheKey);
+    const pluginAuth = isPluginAuthProvider(entry.provider);
+    const cached = pluginAuth ? undefined : evaluations.get(cacheKey);
     if (cached) {
       return cached;
     }
@@ -375,7 +376,7 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
     // New sessions capture personal defaults with the same strength as explicit account pins.
     const pinnedProfileId = pinnedProfileForEntry(entry);
     const requestedRuntimeId =
-      runtimeId ?? (sameProvider && profileProvider ? runtimeOverride : undefined);
+      runtimeId ?? (sameProvider && profileProvider ? params.runtimeOverride : undefined);
     const resolved = {
       ...authResolver.evaluateRuntimeModelAuth(entry.provider, {
         modelId: identity?.id ?? entry.id,
@@ -415,14 +416,15 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
           unavailableUntil: undefined,
         }
       : listed;
-    evaluations.set(cacheKey, evaluation);
+    if (!pluginAuth) {
+      evaluations.set(cacheKey, evaluation);
+    }
     return evaluation;
   };
-  const missingPersonalPin = Boolean(
+  const missingPersonalPin =
     params.preferredProfileId &&
     isUserModelAuthProfileId(params.preferredProfileId) &&
-    !authStore.profiles[params.preferredProfileId],
-  );
+    !authStore.profiles[params.preferredProfileId];
   const evaluateEntry: typeof evaluateStoredEntry = missingPersonalPin
     ? (entry, variants, runtimeId) =>
         profileProvider &&
@@ -431,12 +433,14 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
           : {
               availability: false,
               unavailableReason: "missing-auth",
+              selectedProfileId: params.preferredProfileId,
               routeResolution: null,
             }
     : evaluateStoredEntry;
   const accountObservations: Array<() => boolean> = [];
   const isCurrent = () =>
     Date.now() < authValidUntil &&
+    (!hasPluginAuth || getActiveSecretsRuntimeSnapshotRevisionState() === pluginAuthRevision) &&
     personalCatalog?.isCurrent() !== false &&
     (params.isCurrent?.() ?? params.observationConfig === undefined) &&
     accountObservations.every((current) => current());
@@ -492,6 +496,7 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
             providerId,
             profileId,
             authStore,
+            refresh: options.refresh,
             config: params.cfg,
             agentDir: params.agentDir ?? resolveAgentDir(params.cfg, params.agentId),
             workspaceDir,
@@ -510,6 +515,11 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
       );
       await withCurrentReadAuthority(authority, () => {
         accountObservations.push(acquired.isCurrent);
+        // A cold account cache is not a new observation. Retain the current
+        // authenticated shared outcome until the account publishes a result.
+        if (!acquired.hasPublishedCatalog) {
+          return;
+        }
         providerOutcomes.splice(
           0,
           providerOutcomes.length,
@@ -543,6 +553,7 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
               entry,
               evaluation,
               pluginRegistry: params.pluginRegistry,
+              resolveOpenAIProviderRoutes,
             })?.id ?? "openclaw";
           const selected = selectModelCatalogRuntimeEntry({ entry, routeVariants, runtimeId });
           return view.project(selected.entry, evaluation, selected.variants).runtimeEntry;
@@ -555,8 +566,11 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
       }),
     accountCatalog: params.accountCatalog,
     prepareSelectedAccountCatalog,
+    hasPinnedAccount: (entry: Pick<ModelCatalogEntry, "provider" | "id">) =>
+      pinnedProfileForEntry(entry) !== undefined,
     evaluateEntry,
     evaluateNative,
+    resolveOpenAIProviderRoutes,
     snapshot,
     metadataSnapshot,
     authStore,
@@ -572,10 +586,12 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
         entry,
         evaluation: initial,
         pluginRegistry: params.pluginRegistry,
+        resolveOpenAIProviderRoutes,
       });
       const candidates = new Set([
         selected?.id ?? "openclaw",
         "openclaw",
+        ...(params.pluginRegistry?.agentHarnesses.map(({ harness }) => harness.id) ?? []),
         ...variants.flatMap((variant) => (variant.nativeRuntime ? [variant.nativeRuntime] : [])),
         ...(initial.routeResolution?.kind === "routes"
           ? initial.routeResolution.routes.flatMap(
@@ -609,6 +625,7 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
           modelApi: route?.api ?? entry.api,
           modelBaseUrl: route?.baseUrl ?? entry.baseUrl,
           requestTransportOverrides: route?.requestTransportOverrides,
+          resolveOpenAIProviderRoutes,
         });
         if (policy.forcedByEnvironment && policy.runtime !== runtimeId) {
           continue;
@@ -643,6 +660,12 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
               modelId: entry.id,
               requestedRuntime: runtimeId,
               contextManagement: harness.contextManagement,
+              providerOwnership: resolveProviderRefOwnership({
+                provider: entry.provider,
+                config: params.cfg,
+                workspaceDir,
+                metadataSnapshot,
+              }),
               modelProvider: {
                 api: route?.api ?? entry.api,
                 baseUrl: route?.baseUrl ?? entry.baseUrl,
@@ -659,17 +682,19 @@ export function createModelCatalogDecisions(params: ModelCatalogDecisionParams) 
         }
         choices.push(runtimeId);
       }
-      if (!isCurrent()) {
-        throw new PreparedModelRuntimePublicationSupersededError(
-          "Model catalog changed while selecting runtimes",
-        );
-      }
       return choices.length === 0 && unknown ? undefined : choices;
     },
     authMaterializations: params.preparedRuntimeAuthMaterializations,
     cliRuntimeBindings,
     pluginRegistry: params.pluginRegistry,
     isCurrent,
+    assertCurrent: () => {
+      if (!isCurrent()) {
+        throw new PreparedModelRuntimePublicationSupersededError(
+          "Model catalog changed while selecting runtimes",
+        );
+      }
+    },
     observationConfig: params.observationConfig,
   };
 }

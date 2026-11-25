@@ -1,0 +1,1 @@
+export default {"skillDiscovery":{"search":"Cerca skill","settings":"Impostazioni della skill","libraryStatus":"Skill della libreria. Le selezioni della sessione determinano quando viene utilizzata."}};

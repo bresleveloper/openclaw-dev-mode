@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isPluginEnabledByDefaultForPlatform(e,t=process.platform){return e.enabledByDefault===!0||e.enabledByDefaultOnPlatforms?.includes(t)===!0}var t=e((()=>{}));export{isPluginEnabledByDefaultForPlatform as n,t};

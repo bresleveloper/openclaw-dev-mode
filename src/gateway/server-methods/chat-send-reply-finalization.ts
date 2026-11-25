@@ -2,7 +2,7 @@ import { expectDefined } from "@openclaw/normalization-core";
 import { getReplyPayloadMetadata, type ReplyPayload } from "../../auto-reply/reply-payload.js";
 import { applyAssistantDeliveryDirectives } from "../../config/sessions/transcript-assistant-delivery.js";
 import { readAssistantDisplayContent } from "../../shared/assistant-display-content.js";
-import { combineNonStreamingReplyParts } from "../../shared/text/text-projection.js";
+import { combineNonStreamingReplyParts } from "../../shared/text/trim-code-text.js";
 import { appendChatCanvasBlocksToMessage } from "../chat-display-projection.canvas.js";
 import { attachManagedOutgoingMediaToMessage } from "../managed-image-attachments.js";
 import { loadGatewaySessionEntryReadOnlyInWorker } from "../session-utils-store-worker.js";
@@ -375,6 +375,8 @@ export async function finalizeChatSendDispatchedReplies(
     }
     if (hasVisibleAssistantFinalMessage(message)) {
       emitFirstAssistantServerTiming();
+      // Reply dispatch owns completion, so drain paced text before terminal cleanup.
+      context.chatRunState.flushPendingText(clientRunId);
     }
     broadcastChatTerminal({
       terminalEntry: params.terminalEntry,

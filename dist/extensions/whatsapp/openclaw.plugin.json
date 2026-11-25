@@ -54,6 +54,21 @@
       }
     }
   },
+  "controlUi": {
+    "entry": "dist/control-ui/b57b6b2cb5d8d2af7ab64d71754bc0921568c50666469e9fe39f63b61de3b87b/index.js",
+    "activation": "settings-only",
+    "settingsViews": [
+      {
+        "section": "channels",
+        "panel": "detail",
+        "channelId": "whatsapp"
+      }
+    ]
+  },
+  "recommendedPrompts": [
+    "Help me plan a WhatsApp connection and choose who can access this agent.",
+    "Draft a WhatsApp message for my chosen contact or group without sending it."
+  ],
   "channelConfigs": {
     "whatsapp": {
       "schema": {
@@ -230,21 +245,6 @@
                   }
                 },
                 "additionalProperties": false
-              }
-            },
-            "additionalProperties": false
-          },
-          "heartbeatVisibility": {
-            "type": "object",
-            "properties": {
-              "showOk": {
-                "type": "boolean"
-              },
-              "showAlerts": {
-                "type": "boolean"
-              },
-              "useIndicator": {
-                "type": "boolean"
               }
             },
             "additionalProperties": false
@@ -574,21 +574,6 @@
                         }
                       },
                       "additionalProperties": false
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "heartbeatVisibility": {
-                  "type": "object",
-                  "properties": {
-                    "showOk": {
-                      "type": "boolean"
-                    },
-                    "showAlerts": {
-                      "type": "boolean"
-                    },
-                    "useIndicator": {
-                      "type": "boolean"
                     }
                   },
                   "additionalProperties": false

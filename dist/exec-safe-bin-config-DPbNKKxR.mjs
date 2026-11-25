@@ -1,0 +1,3 @@
+import{m as normalizeTrimmedStringList,v as normalizeUniqueTrimmedStringList,y as sortUniqueStrings}from"./string-normalization-D_oBUpO3.mjs";
+//!src/infra/exec-safe-bin-config.ts
+function normalizeConfiguredSafeBins(e){return sortUniqueStrings(normalizeTrimmedStringList(e).map(e=>e.toLowerCase()))}function normalizeConfiguredTrustedSafeBinDirs(e){return normalizeUniqueTrimmedStringList(e)}export{normalizeConfiguredTrustedSafeBinDirs as n,normalizeConfiguredSafeBins as t};

@@ -1,0 +1,3 @@
+import{b as uniqueStrings}from"./string-normalization-D_oBUpO3.mjs";import{t as readCliStartupMetadata}from"./startup-metadata-DoabmkVN.mjs";
+//!src/cli/channel-options.ts
+function resolveCliChannelOptions(){const e=readCliStartupMetadata(import.meta.url);if(e&&Array.isArray(e.channelOptions))return uniqueStrings(e.channelOptions.filter(e=>typeof e===`string`&&Boolean(e)));return[]}function formatCliChannelOptions(e=[]){const t=[...e,...resolveCliChannelOptions()];return t.length>0?t.join(`|`):`channel`}export{resolveCliChannelOptions as n,formatCliChannelOptions as t};

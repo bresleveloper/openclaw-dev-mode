@@ -1,0 +1,4 @@
+import"./types.secrets-UWdyCdE6.mjs";import"./utils-CVVNdy3C.mjs";import"./session-key-C6YO7qUA.mjs";import"./detect-binary-IdzCa2lh.mjs";import"./setup-helpers-XD9mpaqi.mjs";import"./setup-wizard-helpers-DB8f7Zs1.mjs";import"./setup-credential-NsBB00ey.mjs";
+//!src/plugin-sdk/resolution-notes.ts
+function formatResolvedUnresolvedNote(e){if(e.resolved.length===0&&e.unresolved.length===0)return;return[e.resolved.length>0?`Resolved: ${e.resolved.join(`, `)}`:void 0,e.unresolved.length>0?`Unresolved (kept as typed): ${e.unresolved.join(`, `)}`:void 0].filter(Boolean).join(`
+`)}export{formatResolvedUnresolvedNote as t};

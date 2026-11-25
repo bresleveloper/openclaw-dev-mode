@@ -1,10 +1,9 @@
-import { t as DEFAULT_ACCOUNT_ID } from "../account-id-Dh6XMgGH.js";
-import { FE as ChannelSetupWizard, PE as ChannelSetupDmPolicy } from "../config-contracts-CY87ANNp.js";
-import { d as ChannelSetupAdapter, f as ChannelSetupInput, u as defineChannelSetupContract } from "../manifest-registry-DcAsDGQ5.js";
-import { t as formatDocsLink } from "../links-BkD3xQjr.js";
-import { L as setSetupChannelEnabled, g as createTopLevelChannelDmPolicy, n as defineTokenCredential, t as baseUrlTextInput, z as splitSetupEntries } from "../setup-credential-BOHSYxXF.js";
-import "../setup-BgdlpmI-.js";
-//#region src/plugin-sdk/optional-channel-setup.d.ts
+import { aA as ChannelSetupDmPolicy, oA as ChannelSetupWizard } from "../config-contracts-hzlacViZ.js";
+import { t as DEFAULT_ACCOUNT_ID } from "../account-id-Dn0dJeta.js";
+import { d as ChannelSetupAdapter, f as ChannelSetupInput, u as defineChannelSetupContract } from "../manifest-registry-CNNq5Vj2.js";
+import { L as setSetupChannelEnabled, g as createTopLevelChannelDmPolicy, n as defineTokenCredential, t as baseUrlTextInput, z as splitSetupEntries } from "../setup-credential-6fwONHRi.js";
+import { t as formatDocsLink } from "../links-DFoSOaCI.js";
+import "../setup-Bk0qGrve.js";
 type OptionalChannelSetupParams$1 = {
   /** Channel id used by setup wizard status and routing. */
   channel: string;
@@ -30,19 +29,8 @@ params: OptionalChannelSetupParams$1): ChannelSetupAdapter;
 export declare function createOptionalChannelSetupWizard(
 /** Optional plugin metadata used to build setup wizard status guidance. */
 params: OptionalChannelSetupParams$1): ChannelSetupWizard;
-//#endregion
-//#region src/plugin-sdk/channel-setup.d.ts
 /** Metadata used to advertise an optional channel plugin during setup flows. */
-type OptionalChannelSetupParams = {
-  /** Channel id shown in setup status and wizard routing. */
-  channel: string;
-  /** Human-readable plugin name used in install guidance. */
-  label: string;
-  /** Package spec operators should install to enable the optional channel. */
-  npmSpec?: string;
-  /** Docs path linked from setup validation and wizard hints. */
-  docsPath?: string;
-};
+type OptionalChannelSetupParams = Parameters<typeof createOptionalChannelSetupAdapter>[0];
 /** Paired setup adapter + setup wizard for channels that may not be installed yet. */
 export type OptionalChannelSetupSurface = {
   /** Adapter that fails validation with install guidance until the plugin is installed. */
@@ -54,5 +42,4 @@ export type OptionalChannelSetupSurface = {
 export declare function createOptionalChannelSetupSurface(
 /** Optional plugin metadata shared by the adapter and wizard. */
 params: OptionalChannelSetupParams): OptionalChannelSetupSurface;
-//#endregion
 export { type ChannelSetupAdapter, type ChannelSetupDmPolicy, type ChannelSetupInput, type ChannelSetupWizard, DEFAULT_ACCOUNT_ID, baseUrlTextInput, createTopLevelChannelDmPolicy, defineChannelSetupContract, defineTokenCredential, formatDocsLink, setSetupChannelEnabled, splitSetupEntries };

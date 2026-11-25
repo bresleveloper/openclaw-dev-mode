@@ -1,0 +1,3 @@
+import{b as uniqueStrings}from"./string-normalization-D_oBUpO3.mjs";import{n as listKnownChannelEnvVarNames}from"./channel-env-vars-byPbKmaY.mjs";import{r as listKnownProviderAuthEnvVarNamesCore}from"./provider-env-vars-BMc4g9Cd.mjs";
+//!src/config/shell-env-expected-keys.ts
+const CORE_SHELL_ENV_EXPECTED_KEYS=[`OPENCLAW_GATEWAY_TOKEN`,`OPENCLAW_GATEWAY_PASSWORD`];function resolveShellEnvExpectedKeys(e,t){return uniqueStrings([...listKnownProviderAuthEnvVarNamesCore({config:t,env:e}),...listKnownChannelEnvVarNames({config:t,env:e}),...CORE_SHELL_ENV_EXPECTED_KEYS])}export{resolveShellEnvExpectedKeys as t};

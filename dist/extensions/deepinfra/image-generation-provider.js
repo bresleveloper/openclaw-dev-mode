@@ -2,7 +2,7 @@ import { DEEPINFRA_BASE_URL, DEEPINFRA_IMAGE_FALLBACK_MODELS, normalizeDeepInfra
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { bufferToBlobPart } from "openclaw/plugin-sdk/blob-runtime";
 import { createOpenAiCompatibleImageGenerationProvider, imageSourceUploadFileName } from "openclaw/plugin-sdk/image-generation";
-//#region extensions/deepinfra/image-generation-provider.ts
+// extensions/deepinfra/image-generation-provider.ts
 const DEEPINFRA_IMAGE_SIZES = [
 	"512x512",
 	"1024x1024",
@@ -83,5 +83,4 @@ function buildDeepInfraImageGenerationProvider(options) {
 		}
 	});
 }
-//#endregion
 export { buildDeepInfraImageGenerationProvider };

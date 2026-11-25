@@ -1,0 +1,5 @@
+import{n as appendRegularFile}from"./fs-safe-Bxzu1j4h.mjs";import"./security-runtime-CCLeFIRb.mjs";import path from"node:path";import fs from"node:fs/promises";import os from"node:os";
+//!extensions/file-transfer/src/shared/audit.ts
+let auditDirPromise=null;async function ensureAuditDir(){auditDirPromise??=(async()=>{const e=path.join(os.homedir(),`.openclaw`,`audit`);await fs.mkdir(e,{recursive:true,mode:448});return e})().catch(e=>{auditDirPromise=null;throw e});return auditDirPromise}function auditFilePath(e){return path.join(e,`file-transfer.jsonl`)}async function appendFileTransferAudit(e){try{const t=await ensureAuditDir();const n=`${JSON.stringify({timestamp:(/* @__PURE__ */ new Date()).toISOString(),...e})}\n`;await appendRegularFile({filePath:auditFilePath(t),content:n,rejectSymlinkParents:true})}catch(e){console.warn(`[file-transfer:audit] append failed: ${String(e)}`)}}
+//!extensions/file-transfer/src/shared/audit-context.ts
+function bindFileTransferAudit(e,t){return n=>appendFileTransferAudit({...e,...n,durationMs:Date.now()-t})}export{appendFileTransferAudit as n,bindFileTransferAudit as t};

@@ -1,2 +1,1 @@
-import { t as twitchSetupPlugin } from "./.setup/setup-surface-BHuTmMZL.mjs";
-export { twitchSetupPlugin };
+export { t as twitchSetupPlugin } from "./.setup/setup-surface-mdCyd7g7.mjs";

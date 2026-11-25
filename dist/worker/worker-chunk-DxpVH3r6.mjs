@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function stripExtractedFileImageMetadata(e){return{type:`image`,data:e.data,mimeType:e.mimeType}}var t=e((()=>{}));export{stripExtractedFileImageMetadata as n,t};

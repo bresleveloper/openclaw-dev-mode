@@ -1,0 +1,2 @@
+//!src/plugins/installed-plugin-index-source-admissions.ts
+function preservePluginSourceAdmissions(e,t){const n=new Map(e?.plugins.map(e=>[e.pluginId,e]));for(const e of t.plugins){const t=n.get(e.pluginId);if(t?.sourceAdmissions&&t.rootDir===e.rootDir&&t.installRecordHash===e.installRecordHash)e.sourceAdmissions={...e.sourceAdmissions,...t.sourceAdmissions}}}export{preservePluginSourceAdmissions as t};

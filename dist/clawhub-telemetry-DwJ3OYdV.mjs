@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{_ as resolveClawHubAuthToken,a as isClawHubTelemetryDisabled,b as withClawHubResponse,n as createClawHubError}from"./clawhub-client-kwxdTgHV.mjs";
+//!src/infra/clawhub-telemetry.ts
+async function reportClawHubInstallTelemetry(e,t){const n=normalizeOptionalString(e.token)??await resolveClawHubAuthToken();if(!n||isClawHubTelemetryDisabled())return;const r=t();if(!r)return;await withClawHubResponse({...e,path:`/api/cli/telemetry/install`,method:`POST`,token:n,json:r},async({response:t,url:n,hasToken:r})=>{if(!t.ok)throw await createClawHubError(t,n,r,e.timeoutMs)})}export{reportClawHubInstallTelemetry as t};

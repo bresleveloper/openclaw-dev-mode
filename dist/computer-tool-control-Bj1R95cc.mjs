@@ -1,0 +1,3 @@
+import{_ as ScreenSnapshotParamsSchema}from"./computer-use-contract-CaYMDN7U.mjs";import{Type}from"typebox";
+//!src/agents/tools/computer-tool-control.ts
+const ComputerTakeControlParamsSchema=Type.Object({action:Type.Literal(`__take_control`),...Type.Required(Type.Pick(ScreenSnapshotParamsSchema,[`executionId`])).properties},{additionalProperties:false});export{ComputerTakeControlParamsSchema as t};

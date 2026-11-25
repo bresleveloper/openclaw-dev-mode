@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"In Bearbeitung: {context}","removeContext":"Arbeitskontext entfernen","includeContext":"Arbeitskontext einbeziehen","selection":"Ausgewählter Text","attachSelection":"Ausgewählten Text anhängen","attachSelectionTooltip":"Auswahl anhängen","removeSelection":"Ausgewählten Text entfernen"}};

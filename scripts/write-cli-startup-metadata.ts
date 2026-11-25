@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { replaceFileAtomicSync } from "@openclaw/fs-safe/atomic";
 import { toErrorObject } from "@openclaw/normalization-core/error-coercion";
 import pMap from "p-map";
+import { PRECOMPUTED_SUBCOMMAND_HELP_NAMES as PRECOMPUTED_SUBCOMMAND_HELP_COMMANDS } from "../src/cli/precomputed-help-commands.js";
 import type { RootHelpRenderOptions } from "../src/cli/program/root-help.js";
 import type { OpenClawConfig } from "../src/config/config.js";
 import { resolveCliStartupRootHelpBundleIdentity } from "./lib/cli-startup-root-help-bundle.js";
@@ -23,20 +24,17 @@ const distDir = path.join(rootDir, "dist");
 const outputPath = path.join(distDir, "cli-startup-metadata.json");
 const extensionsDir = path.join(rootDir, "extensions");
 const ROOT_HELP_RENDER_TIMEOUT_MS = 120_000;
+const ROOT_HELP_RENDER_PHASES = [
+  "root-help: importing",
+  "root-help: rendering",
+  "root-help: rendered",
+];
 const COMMAND_HELP_RENDER_TIMEOUT_MS = 120_000;
 const COMMAND_HELP_RENDER_MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 const COMMAND_HELP_RENDER_KILL_GRACE_MS = 5_000;
 // Cold CLI boots compete for the same module graph, so CPU count is not a safe
 // proxy for module-loading throughput on a disk-contended host.
 const COMMAND_HELP_RENDER_CONCURRENCY = 2;
-const PRECOMPUTED_SUBCOMMAND_HELP_COMMANDS = [
-  "config",
-  "doctor",
-  "gateway",
-  "models",
-  "plugins",
-  "sessions",
-] as const;
 const CORE_CHANNEL_ORDER = [
   "telegram",
   "whatsapp",
@@ -47,7 +45,10 @@ const CORE_CHANNEL_ORDER = [
   "signal",
   "imessage",
 ] as const;
-const generatorSignature = createHash("sha1").update(readFileSync(scriptPath)).digest("hex");
+const generatorSignature = createHash("sha1")
+  .update(readFileSync(scriptPath))
+  .update(JSON.stringify(PRECOMPUTED_SUBCOMMAND_HELP_COMMANDS))
+  .digest("hex");
 
 type ExtensionChannelEntry = {
   id: string;
@@ -250,7 +251,7 @@ function resolveNodesHelpSourceSignature(sourceRootDir: string = rootDir): strin
       path.join(sourceRootDir, "src/cli/program/help.ts"),
       path.join(sourceRootDir, "src/cli/program/context.ts"),
       path.join(sourceRootDir, "src/cli/banner.ts"),
-      path.join(sourceRootDir, "src/plugins/register-plugin-cli-command-groups.ts"),
+      path.join(sourceRootDir, "src/plugins/cli.ts"),
     ],
     sourceRootDir,
   );
@@ -459,6 +460,7 @@ async function spawnText(
     onTerminalFailure?: (error: Error) => void;
     signal?: AbortSignal;
     spawnProcess?: typeof spawn;
+    stderrPhases?: readonly string[];
     timeoutMs: number;
   },
 ): Promise<string> {
@@ -534,14 +536,17 @@ async function spawnText(
       kind: Parameters<typeof createSpawnTextFailure>[0]["kind"],
       detail: string,
       cause?: unknown,
-    ) =>
-      createSpawnTextFailure({
+    ) => {
+      // Report only a caller-owned fixed phase, never arbitrary stderr on a timeout.
+      const phase = options.stderrPhases?.findLast((marker) => stderr.includes(marker));
+      return createSpawnTextFailure({
         cause,
-        detail,
+        detail: phase ? `${detail} (last phase: ${phase})` : detail,
         failureMessage: options.failureMessage,
         kind,
         startedAt,
       });
+    };
     const fail = (
       kind: Parameters<typeof createSpawnTextFailure>[0]["kind"],
       detail: string,
@@ -744,11 +749,14 @@ async function renderBundledRootHelpText(
     env: renderContext.env,
   } satisfies RootHelpRenderOptions;
   const inlineModule = [
+    `process.stderr.write(${JSON.stringify(ROOT_HELP_RENDER_PHASES[0] + "\n")});`,
     `const mod = await import(${JSON.stringify(moduleUrl)});`,
     "if (typeof mod.outputRootHelp !== 'function') {",
     `  throw new Error(${JSON.stringify(`Bundle ${bundleIdentity.bundleName} does not export outputRootHelp.`)});`,
     "}",
+    `process.stderr.write(${JSON.stringify(ROOT_HELP_RENDER_PHASES[1] + "\n")});`,
     `await mod.outputRootHelp(${JSON.stringify(renderOptions)});`,
+    `process.stderr.write(${JSON.stringify(ROOT_HELP_RENDER_PHASES[2] + "\n")});`,
     "process.exit(0);",
   ].join("\n");
   return await spawnText(["--input-type=module", "--eval", inlineModule], {
@@ -758,6 +766,7 @@ async function renderBundledRootHelpText(
     failureMessage: `Failed to render bundled root help from ${bundleIdentity.bundleName}`,
     onTerminalFailure: taskContext?.reportFailure,
     signal: taskContext?.signal,
+    stderrPhases: ROOT_HELP_RENDER_PHASES,
     timeoutMs: ROOT_HELP_RENDER_TIMEOUT_MS,
   });
 }
@@ -774,16 +783,18 @@ async function renderSourceRootHelpText(
   }
   const moduleUrl = pathToFileURL(path.join(rootDir, "src/cli/program/root-help.ts")).href;
   const renderOptions = {
-    pluginSdkResolution: "src",
     config: renderContext.config,
     env: renderContext.env,
   } satisfies RootHelpRenderOptions;
   const inlineModule = [
+    `process.stderr.write(${JSON.stringify(ROOT_HELP_RENDER_PHASES[0] + "\n")});`,
     `const mod = await import(${JSON.stringify(moduleUrl)});`,
     "if (typeof mod.outputRootHelp !== 'function') {",
     `  throw new Error(${JSON.stringify("Source root-help module does not export outputRootHelp.")});`,
     "}",
+    `process.stderr.write(${JSON.stringify(ROOT_HELP_RENDER_PHASES[1] + "\n")});`,
     `await mod.outputRootHelp(${JSON.stringify(renderOptions)});`,
+    `process.stderr.write(${JSON.stringify(ROOT_HELP_RENDER_PHASES[2] + "\n")});`,
     "process.exit(0);",
   ].join("\n");
   return await spawnText(["--import", "tsx", "--input-type=module", "--eval", inlineModule], {
@@ -792,6 +803,7 @@ async function renderSourceRootHelpText(
     failureMessage: "Failed to render source root help",
     onTerminalFailure: taskContext?.reportFailure,
     signal: taskContext?.signal,
+    stderrPhases: ROOT_HELP_RENDER_PHASES,
     timeoutMs: ROOT_HELP_RENDER_TIMEOUT_MS,
   });
 }

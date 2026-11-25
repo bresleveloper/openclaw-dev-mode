@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";import{AsyncLocalStorage}from"node:async_hooks";
+//!src/agents/workspace-readiness.ts
+const workspaceReadiness=resolveGlobalSingleton(Symbol.for(`openclaw.agentWorkspaceReadiness`),()=>new AsyncLocalStorage);function runWithAgentWorkspaceReadiness(e,t){return workspaceReadiness.run(e,t)}function captureAgentWorkspaceReadiness(e){const t=workspaceReadiness.getStore();return e&&t?.sessionKey===e?t:void 0}export{runWithAgentWorkspaceReadiness as n,captureAgentWorkspaceReadiness as t};

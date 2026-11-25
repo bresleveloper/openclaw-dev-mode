@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var MessageActionDeniedError,t=e((()=>{MessageActionDeniedError=class extends Error{constructor(e,t,n){super(e),this.reasonCode=t,this.policyRef=n,this.name=`MessageActionDeniedError`}}}));export{t as n,MessageActionDeniedError as t};

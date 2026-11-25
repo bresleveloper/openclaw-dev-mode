@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{l as t,n}from"./worker-chunk-CHXXUV6W.mjs";import{r,t as i}from"./worker-chunk-9I5W9fss.mjs";function normalizeAnyChannelId(e){let n=t(e);return n?i(n)?.plugin.id??null:null}var a=e((()=>{n(),r()}));export{normalizeAnyChannelId as n,a as t};

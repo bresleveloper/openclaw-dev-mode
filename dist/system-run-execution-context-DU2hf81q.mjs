@@ -1,0 +1,5 @@
+import{t as closedObject}from"./closed-object-CP71yugl.mjs";import{a as NonEmptyString}from"./primitives-CYTMtVCE.mjs";import{Zo as isSystemRunExecutionContext,t as createProtocolValidator}from"./protocol-validator-C8aQQyMV.mjs";import{Type}from"typebox";
+//!packages/gateway-protocol/src/schema/system-run-execution-context.ts
+const SystemRunExecutionContextSchema=closedObject({senderId:Type.Optional(NonEmptyString),chatId:Type.Optional(NonEmptyString),subagent:Type.Optional(Type.Literal(true))});
+//!packages/gateway-protocol/src/system-run-execution-context.ts
+const SYSTEM_RUN_EXECUTION_CONTEXT_CAPABILITY=`system.run.execution-context.v1`;const validateSystemRunExecutionContext=/* @__PURE__ */ createProtocolValidator(SystemRunExecutionContextSchema,isSystemRunExecutionContext);export{validateSystemRunExecutionContext as n,SYSTEM_RUN_EXECUTION_CONTEXT_CAPABILITY as t};

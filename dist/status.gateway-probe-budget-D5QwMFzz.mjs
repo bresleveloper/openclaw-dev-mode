@@ -1,0 +1,3 @@
+import{r as DEFAULT_RESTART_HEALTH_TIMEOUT_MS}from"./restart-health.constants-j-tsiJ8g.mjs";
+//!src/commands/status.gateway-probe-budget.ts
+function createStatusGatewayProbeBudget(e){return{timeoutMs:e,gatewayProbeDeadlineMs:performance.now()+(e??DEFAULT_RESTART_HEALTH_TIMEOUT_MS)}}function resolveStatusGatewayProbeTimeoutMs(e){const t=Math.max(0,Math.ceil(e.gatewayProbeDeadlineMs-performance.now()));return e.timeoutMs===void 0?t:Math.min(e.timeoutMs,t)}export{resolveStatusGatewayProbeTimeoutMs as n,createStatusGatewayProbeBudget as t};

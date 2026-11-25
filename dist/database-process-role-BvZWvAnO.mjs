@@ -1,0 +1,3 @@
+import{u as rewriteUpdateFlagArgv}from"./cli-root-options-eez2TgAl.mjs";import"./argv-BgC5-KlV.mjs";import{r as isGatewayRunInvocationArgv}from"./gateway-run-argv-D8aBgiPG.mjs";import{t as resolveCliArgvInvocation}from"./argv-invocation-aH4sq40s.mjs";
+//!src/cli/database-process-role.ts
+function resolveCliDatabaseProcessRole(e){const t=rewriteUpdateFlagArgv(e);const{primary:n,hasHelpOrVersion:r}=resolveCliArgvInvocation(t);return!r&&(n===null||isGatewayRunInvocationArgv(t))?`gateway`:`cli-oneshot`}export{resolveCliDatabaseProcessRole as t};

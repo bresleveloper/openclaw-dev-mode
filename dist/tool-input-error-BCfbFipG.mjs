@@ -1,0 +1,2 @@
+//!src/agents/tool-input-error.ts
+const trustedToolInputErrors=/* @__PURE__ */ new WeakSet;var ToolInputError=class extends Error{constructor(e){super(e);this.status=400;this.name=`ToolInputError`;trustedToolInputErrors.add(this)}};var ToolAuthorizationError=class extends ToolInputError{constructor(e){super(e);this.status=403;this.name=`ToolAuthorizationError`}};function isTrustedToolInputError(e){return typeof e===`object`&&e!==null&&trustedToolInputErrors.has(e)}export{ToolInputError as n,isTrustedToolInputError as r,ToolAuthorizationError as t};

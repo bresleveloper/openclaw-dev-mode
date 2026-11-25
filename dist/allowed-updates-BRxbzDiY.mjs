@@ -1,0 +1,3 @@
+import{API_CONSTANTS}from"grammy";
+//!extensions/telegram/src/allowed-updates.ts
+const DEFAULT_TELEGRAM_UPDATE_TYPES=API_CONSTANTS.DEFAULT_UPDATE_TYPES;const TELEGRAM_WIDGET_QUERY_UPDATE=bindUpdateName(`widget_query`);function bindUpdateName(e){return e}function resolveTelegramAllowedUpdates(){const e=DEFAULT_TELEGRAM_UPDATE_TYPES.filter(e=>e!==`stopped_message_generation`);for(const t of[`message_reaction`,`channel_post`,TELEGRAM_WIDGET_QUERY_UPDATE])if(!e.includes(t))e.push(t);return e}export{resolveTelegramAllowedUpdates as t};

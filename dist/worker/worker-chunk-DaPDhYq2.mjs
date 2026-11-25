@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function matchesStarSegments(e,t){if(!t.startsWith(e.first))return!1;let n=e.first.length,r=e.last?t.length-e.last.length:t.length;if(e.last&&(!t.endsWith(e.last)||r<n))return!1;for(let i of e.interior){let e=t.indexOf(i,n);if(e===-1||e+i.length>r)return!1;n=e+i.length}return!0}var t=e((()=>{}));export{matchesStarSegments as n,t};

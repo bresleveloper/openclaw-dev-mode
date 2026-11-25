@@ -1,25 +1,3 @@
-import { i as routeLogsToStderr } from "../console-CML7QnOp.mjs";
-import { t as encodeOpenClawStateWorkerError } from "../openclaw-state-worker-error-B93Lf_P2.mjs";
-import { o as inspectOpenClawStateOwnershipInProcess } from "../openclaw-state-ownership-SRnMuR_a.mjs";
-//#region src/state/openclaw-state-ownership.worker.ts
-function inspect(databasePath) {
-	try {
-		if (!databasePath) throw new Error("Shared-state ownership worker requires a database path");
-		const ownership = inspectOpenClawStateOwnershipInProcess(databasePath);
-		return {
-			ok: true,
-			ownershipJson: JSON.stringify(ownership)
-		};
-	} catch (error) {
-		const workerError = encodeOpenClawStateWorkerError(error, { includeOrdinary: true });
-		if (!workerError) throw error;
-		return {
-			ok: false,
-			workerError
-		};
-	}
-}
-routeLogsToStderr();
-process.stdout.write(JSON.stringify(inspect(process.argv[2])));
-//#endregion
-export {};
+import{i as routeLogsToStderr}from"../console-D4tM82ug.mjs";import{t as encodeOpenClawStateWorkerError}from"../openclaw-state-worker-error-BcQCNP2k.mjs";import{o as inspectOpenClawStateOwnershipInProcess}from"../openclaw-state-ownership-DSdBZ1Yt.mjs";
+//!src/state/openclaw-state-ownership.worker.ts
+function inspect(e){try{if(!e)throw new Error(`Shared-state ownership worker requires a database path`);const t=inspectOpenClawStateOwnershipInProcess(e);return{ok:true,ownershipJson:JSON.stringify(t)}}catch(e){const t=encodeOpenClawStateWorkerError(e,{includeOrdinary:true});if(!t)throw e;return{ok:false,workerError:t}}}routeLogsToStderr();process.stdout.write(JSON.stringify(inspect(process.argv[2])));export{};

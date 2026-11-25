@@ -1,0 +1,3 @@
+import{t as encodeOpenClawStateWorkerError}from"./openclaw-state-worker-error-BcQCNP2k.mjs";import{t as assertTransactionUsable}from"./sqlite-transaction-mUAqxIBY.mjs";
+//!src/infra/sqlite-worker-domain-error.ts
+function encodeSqliteWorkerDomainError(e,t){assertTransactionUsable(e);if(!e.isOpen||e.isTransaction)throw t;const n=encodeOpenClawStateWorkerError(t,{includeOrdinary:true});if(!n)throw t;return n}export{encodeSqliteWorkerDomainError as t};

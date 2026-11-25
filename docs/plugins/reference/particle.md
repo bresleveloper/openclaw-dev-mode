@@ -15,7 +15,7 @@ Adds Particle model provider support to OpenClaw.
 ## Distribution
 
 - Package: `@openclaw/particle-provider`
-- Install route: npm or ClawHub: `clawhub:@openclaw/particle-provider`
+- Install route: npm or ClawHub: `@openclaw/particle-provider`
 
 ## Surface
 

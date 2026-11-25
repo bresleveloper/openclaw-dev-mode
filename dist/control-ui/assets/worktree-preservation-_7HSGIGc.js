@@ -1,0 +1,3 @@
+import{n as e,r as t}from"./rolldown-runtime-CNOWq4Kh.js";import{li as n,oi as r}from"./_4____________________________.js";import{n as i,t as a}from"./session-management-english-DwW7oOhU.js";var o=t({formatPreservedWorktreesNotice:()=>s});function s(e){let t=e.map(e=>`${e.branch} — ${n(`sessionsView.deletePreservedReasons.${e.reason}`)}`).join(`
+`);return`${n(`worktrees.title`)}:\n${t}`}function c(e){let t=n(`sessionsView.deletePreservedReasons.${e.reason}`);return`${n(`sessionsView.attentionRequired`)}: ${t}.`}function l(){return(l=e((()=>{r(),a(),i()})))()}export{o as i,s as n,l as r,c as t};
+//# sourceMappingURL=worktree-preservation-_7HSGIGc.js.map

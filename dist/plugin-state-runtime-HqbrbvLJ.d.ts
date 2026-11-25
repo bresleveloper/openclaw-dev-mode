@@ -1,0 +1,1 @@
+import "./config-contracts-hzlacViZ.js";

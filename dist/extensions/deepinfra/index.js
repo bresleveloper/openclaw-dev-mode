@@ -1,11 +1,9 @@
-import { createDeepInfraAnthropicCacheWrapper } from "./cache-wrapper.js";
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-5ywdmEQ1.mjs";
-import { buildDeepInfraEmbeddingAdapter } from "./embedding-adapter.js";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-DMCTN2sM.mjs";
+import { deepinfraEmbeddingProviderAdapter } from "./embedding-adapter.js";
 import { buildDeepInfraImageGenerationProvider } from "./image-generation-provider.js";
-import { buildDeepInfraMediaUnderstandingProvider } from "./media-understanding-provider.js";
+import { deepinfraMediaUnderstandingProvider } from "./media-understanding-provider.js";
 import { DEEPINFRA_DEFAULT_MODEL_REF, buildStaticDeepInfraProvider } from "./provider-static-catalog.js";
 import { applyDeepInfraConfig } from "./onboard.js";
-import { getDeepInfraSurfaceFallbackCatalog } from "./provider-models.js";
 import { buildDeepInfraApiKeyCatalog } from "./provider-catalog.js";
 import { buildDeepInfraSpeechProvider } from "./speech-provider.js";
 import { listDeepInfraImageGenCatalog, listDeepInfraVideoGenCatalog } from "./surface-model-catalogs.js";
@@ -13,7 +11,8 @@ import { buildDeepInfraVideoGenerationProvider } from "./video-generation-provid
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { applyModelCompatPatch, buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
 import { createOpenRouterWrapper, isProxyReasoningUnsupported } from "openclaw/plugin-sdk/provider-stream";
-//#region extensions/deepinfra/index.ts
+import { applyAnthropicEphemeralCacheControlMarkers, applyCompletionsAnthropicCacheControl, createPayloadPatchStreamWrapper } from "openclaw/plugin-sdk/provider-stream-shared";
+// extensions/deepinfra/index.ts
 const PROVIDER_ID = "deepinfra";
 var deepinfra_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
@@ -41,26 +40,39 @@ var deepinfra_default = defineSingleProviderPluginEntry({
 		}) : model,
 		wrapStreamFn: (ctx) => {
 			const thinkingLevel = isProxyReasoningUnsupported(ctx.modelId) ? void 0 : ctx.thinkingLevel;
-			return createDeepInfraAnthropicCacheWrapper(createOpenRouterWrapper(ctx.streamFn, thinkingLevel), ctx.extraParams);
+			const baseStreamFn = createOpenRouterWrapper(ctx.streamFn, thinkingLevel);
+			const extraParams = ctx.extraParams;
+			return (model, context, options) => {
+				if (thinkingLevel === "off" && model.api === "openai-completions" && model.id.toLowerCase() === "nvidia/nvidia-nemotron-3.5-super-vl") return createPayloadPatchStreamWrapper(baseStreamFn, ({ payload }) => {
+					payload.reasoning = { enabled: false };
+				})(model, context, options);
+				if (!model.id.toLowerCase().startsWith("anthropic/")) return baseStreamFn(model, context, options);
+				const isCompletions = model.api === "openai-completions";
+				const configured = options?.cacheRetention ?? extraParams?.cacheRetention;
+				const cacheRetention = configured === "none" || configured === "long" ? configured : "short";
+				return createPayloadPatchStreamWrapper(baseStreamFn, ({ payload }) => {
+					if (isCompletions) applyCompletionsAnthropicCacheControl(payload, cacheRetention === "none" ? null : { type: "ephemeral" });
+					else applyAnthropicEphemeralCacheControlMarkers(payload);
+				})(model, context, isCompletions ? {
+					...options,
+					cacheRetention
+				} : options);
+			};
 		},
 		isModernModelRef: () => true,
 		isCacheTtlEligible: (ctx) => ctx.modelId.toLowerCase().startsWith("anthropic/")
 	},
 	register(api) {
-		const catalog = getDeepInfraSurfaceFallbackCatalog();
-		api.registerImageGenerationProvider(buildDeepInfraImageGenerationProvider({ imageGenModels: catalog.imageGen }));
+		api.registerImageGenerationProvider(buildDeepInfraImageGenerationProvider());
 		api.registerModelCatalogProvider({
 			provider: PROVIDER_ID,
 			kinds: ["image_generation"],
 			liveCatalog: listDeepInfraImageGenCatalog
 		});
-		api.registerMediaUnderstandingProvider(buildDeepInfraMediaUnderstandingProvider({
-			vlmModels: catalog.vlm,
-			sttModels: catalog.stt
-		}));
-		api.registerEmbeddingProvider(buildDeepInfraEmbeddingAdapter({ embedModels: catalog.embed }));
-		api.registerSpeechProvider(buildDeepInfraSpeechProvider({ ttsModels: catalog.tts }));
-		api.registerVideoGenerationProvider(buildDeepInfraVideoGenerationProvider({ videoGenModels: catalog.videoGen }));
+		api.registerMediaUnderstandingProvider(deepinfraMediaUnderstandingProvider);
+		api.registerEmbeddingProvider(deepinfraEmbeddingProviderAdapter);
+		api.registerSpeechProvider(buildDeepInfraSpeechProvider());
+		api.registerVideoGenerationProvider(buildDeepInfraVideoGenerationProvider());
 		api.registerModelCatalogProvider({
 			provider: PROVIDER_ID,
 			kinds: ["video_generation"],
@@ -68,5 +80,4 @@ var deepinfra_default = defineSingleProviderPluginEntry({
 		});
 	}
 });
-//#endregion
 export { deepinfra_default as default };

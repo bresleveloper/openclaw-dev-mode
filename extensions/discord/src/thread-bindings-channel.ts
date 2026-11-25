@@ -1,6 +1,9 @@
 import type { ChannelPlugin } from "openclaw/plugin-sdk/channel-core";
 import type { ResolvedDiscordAccount } from "./accounts.js";
-import { loadDiscordThreadBindingsManagerModule } from "./channel.loaders.js";
+import {
+  loadDiscordConversationForkModule,
+  loadDiscordThreadBindingsManagerModule,
+} from "./channel.loaders.js";
 import {
   setThreadBindingIdleTimeoutBySessionKey,
   setThreadBindingIdleTimeoutBySessionKeyAsync,
@@ -17,16 +20,17 @@ function toConversationLifecycleBinding(binding: {
 }) {
   return {
     boundAt: binding.boundAt,
-    lastActivityAt:
-      typeof binding.lastActivityAt === "number" ? binding.lastActivityAt : binding.boundAt,
-    idleTimeoutMs: typeof binding.idleTimeoutMs === "number" ? binding.idleTimeoutMs : undefined,
-    maxAgeMs: typeof binding.maxAgeMs === "number" ? binding.maxAgeMs : undefined,
+    lastActivityAt: binding.lastActivityAt ?? binding.boundAt,
+    idleTimeoutMs: binding.idleTimeoutMs,
+    maxAgeMs: binding.maxAgeMs,
   };
 }
 
 export const discordConversationBindings: NonNullable<
   ChannelPlugin<ResolvedDiscordAccount>["conversationBindings"]
 > = {
+  prepareFork: async (params) =>
+    (await loadDiscordConversationForkModule()).prepareDiscordConversationFork(params),
   supportsCurrentConversationBinding: true,
   bindingStore: "adapter",
   defaultTopLevelPlacement,

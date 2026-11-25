@@ -12,19 +12,19 @@ Plugin resolution stays with Bun's native/Jiti loader and `Bun.plugin` on Bun, e
 
 ## Requirements
 
-Node fallback and build processes accept Node **24.16.0+ on 24.x, or 26.1.0+**. Node **24.22.1+/26.12.1+** is strongly recommended for the eMudhra compromised-key rejection fix; compatible older Node warns during updates and security audit instead of being refused solely for the missing security patch. Updating Node does not change Bun's independent TLS verifier or its release qualification.
+Node fallback and build processes accept Node **24.16.0+ on 24.x, or 26.1.0+**. Node **24.22.1+/26.12.1+** is strongly recommended for the eMudhra compromised-key rejection fix; compatible older Node warns at startup, during updates, and in Doctor and security audit instead of being refused solely for the missing security patch. Updating Node does not change Bun's independent TLS verifier or its release qualification.
 
 OpenClaw supports only the **latest stable Bun release (currently 1.4.4)** and the **pinned OpenClaw Bun fork**. Older stock releases are rejected before CLI or Gateway work, even if their SQLite checks pass. Both supported runtimes require an available **`node:sqlite`** API and the same [WAL-safe SQLite floor as Node](/install/node-compatibility#why-the-floors-exist).
 
-Stock Bun 1.4.4 adds the eMudhra compromised-key blocklist for full handshakes, but this is partial remediation: saved TLS sessions can retain earlier authorization, and QUIC early data can bypass changed trust policy. Use a supported patched Node runtime when current compromised-key rejection is required. The pinned fork remains a separately qualified artifact; changing the stock floor does not update its pin, publish its pending session repair, or establish downstream adoption.
+Stock Bun 1.4.4 adds the eMudhra compromised-key blocklist for full handshakes, but this is partial remediation: saved TLS sessions can retain earlier authorization, and QUIC early data can bypass changed trust policy. The pinned OpenClaw fork includes the current-trust session and early-data repair in [Bun #213](https://github.com/openclaw/bun/pull/213), published as `openclaw-v1.4.4-20261026-191755ec11-webkit-b82bc917e9`. Its detailed incident/session/product proof is native macOS ARM64; other release targets have build and smoke checks, with shared Windows compatibility checks on x64 and ARM64. See [the exact shared pin and qualification limits](/ci/pipeline#test-runtime-selection). Use a supported patched Node runtime or the qualified pinned fork for current compromised-key rejection. Publication and a source pin do not update an existing installation or establish fleet delivery.
 
 | Platform | SQLite library Bun uses                       | Extension loading              | What OpenClaw does                                 |
 | -------- | --------------------------------------------- | ------------------------------ | -------------------------------------------------- |
-| Linux    | Statically linked SQLite; 3.53.4 in Bun 1.4.4 | Supported                      | No additional library setup needed.                |
+| Linux    | Statically linked SQLite; 3.53.4 in Bun 1.4.3 | Supported                      | No additional library setup needed.                |
 | macOS    | Apple system SQLite by default                | Unavailable in Apple's library | Selects a supported library or refuses; see below. |
 | Windows  | Same static SQLite build as Linux             | Supported                      | No additional library setup needed.                |
 
-The platform defaults come from [Bun's SQLite build policy](https://github.com/oven-sh/bun/blob/bun-v1.4.4/scripts/build/deps/sqlite.ts); the [Bun 1.4.4 version definition](https://github.com/oven-sh/bun/blob/bun-v1.4.4/src/jsc/bindings/sqlite/sqlite3_local.h) pins SQLite 3.53.4.
+The platform defaults come from [Bun's SQLite build policy](https://github.com/oven-sh/bun/blob/bun-v1.4.3/scripts/build/deps/sqlite.ts); the [Bun 1.4.3 version definition](https://github.com/oven-sh/bun/blob/bun-v1.4.3/src/jsc/bindings/sqlite/sqlite3_local.h) pins SQLite 3.53.4.
 
 ## macOS app private runtime
 
@@ -78,6 +78,13 @@ Before opening databases, OpenClaw selects a library in this order:
 
 Candidates must meet the WAL safety floor and support extension loading before selection. The memory KNN child uses the same selected library.
 
+Standalone builds try their bundled SQLite library before host discovery, including
+when their executable runs a portable worker. Each candidate is checked in a
+bounded child process using the same runtime's built-in SQLite API. Validation
+does not require Bun's FFI or JIT, and only an accepted candidate is selected in
+the parent process. The child uses an isolated working directory and empty Bun
+configuration, so project preloads and `.env` files cannot affect validation.
+
 If automatic discovery finds no qualifying library, OpenClaw refuses to open databases instead of using Bun's runtime library. That library is Apple's patched system SQLite, which deviates from upstream SQLite where OpenClaw's read-only connections depend on it. It cannot open a WAL database read-only before its `-wal` and `-shm` files exist (`unable to open database file`). In rollback-journal mode, it also fails to begin a write transaction while a read-only connection in the same process holds a read lock (`disk I/O error`). The refusal lists any present candidate that could not load:
 
 ```text
@@ -86,7 +93,7 @@ No supported SQLite library for Bun on macOS (<arch>); unusable: <path> (<reason
 
 An x64 Bun running under Rosetta cannot load an arm64-only Homebrew library. Point `OPENCLAW_SQLITE_LIBRARY` at a universal or x86_64 build, such as the one `scripts/build-mac-sqlite.sh universal <runtime-directory>` produces from a source checkout.
 
-SQLite storage workers inherit the main process's selected library. Opening another database or restarting a storage worker reuses that selection without repeating Bun's one-shot library initialization.
+SQLite storage workers inherit the main process's selected library. A read-only subprocess receives the same library path when a request uses a limited set of environment variables. Opening another database or restarting a storage worker reuses the selection without repeating Bun's one-shot library initialization in the same process.
 
 Package-update recovery retains the library selected during Bun admission. On macOS, copy the printed recovery command including its `OPENCLAW_SQLITE_LIBRARY` prefix; it works from a fresh shell without the service environment or custom `HOMEBREW_PREFIX`. If recovery cannot meet the SQLite safety floor, it refuses before opening the journal and names the recorded library input to restore. The version-1 recovery journal format is unchanged.
 
@@ -231,7 +238,7 @@ resources. The check runs once in a small isolated worker; it uses behavior, not
 the Bun version string. Short CLI paths do not run it. A passing result enables
 the shared writer pool and targeted reader cleanup used on Node.
 
-Stock Bun 1.4.4 fails this check and retains the conservative lifecycle below.
+Stock Bun 1.4.3 fails this check and retains the conservative lifecycle below.
 Errors, timeouts, and unsupported WAL behavior also keep that lifecycle and record
 the reason. A timeout or error returns the conservative decision without waiting
 for worker cleanup. Cleanup waits up to five seconds for worker exit before
@@ -278,13 +285,13 @@ config or state. Gateway startup logs include the decision and its reason.
 ## Known limitations
 
 - **Supervised command output:** Large piped responses, including CUA screenshots, preserve backpressure under Bun. Completed output reaches EOF while process cleanup retains authority, including on builds that retain duplicate standard-output descriptors. A runtime that already closed its output socket does not trigger descendant cleanup.
-- **Desktop WebSockets:** OpenClaw uses the installed `ws` transport for desktop observers and paired-node desktop/portal streams. Bun 1.4.4's built-in `ws` server adapter lacks pause/resume and the Duplex stream bridge; the installed transport preserves backpressure, payload limits, and cleanup when a desktop disconnects.
+- **Desktop WebSockets:** OpenClaw uses the installed `ws` transport for desktop observers and paired-node desktop/portal streams. Bun 1.4.3's built-in `ws` server adapter lacks pause/resume and the Duplex stream bridge; the installed transport preserves backpressure, payload limits, and cleanup when a desktop disconnects.
 - **Lifecycle scripts:** Bun blocks dependency lifecycle scripts unless explicitly trusted with `bun pm trust`.
 - **Package scripts:** Some scripts hardcode pnpm, so `bun run` still invokes pnpm internally.
 - **PTY terminals:** macOS and Linux use Bun's native PTY without a Node runtime only on builds providing `Bun.Terminal.pause()` and `Bun.Terminal.resume()`, such as the OpenClaw Bun fork builds that also carry the [macOS child-exit fix](https://github.com/openclaw/bun/pull/11). Other Bun releases use the Node helper and require an installed Node runtime for terminal I/O. OpenClaw skips Bun's `node` shim when selecting that runtime, including under `bun --bun`. Windows keeps `node-pty`.
 - **Windows browser extension:** native messaging registration accepts only `node.exe` as the host interpreter. Run `openclaw browser extension install` with Node on Windows.
-- **Launched desktop apps:** Node marks inherited descriptors close-on-exec at startup and Bun 1.4.4 does not, so an app that Gateway computer control launches inherits the helper's standard streams. The Gateway's 30-second cleanup timeout then stops the app when its execution closes. OpenClaw's Bun fork adopts Node's behavior in [openclaw/bun#12](https://github.com/openclaw/bun/pull/12).
-- **SQLite handles:** Bun builds that fail the [native-close capability check](/install/bun-compatibility#sqlite-worker-lifecycle), including stock Bun 1.4.4, can retain statement handles and WAL/shared-memory files after close or disposal. OpenClaw cannot finalize them through Bun's public `node:sqlite` API and waits for worker exit. Builds with the [upstream close fix](https://github.com/oven-sh/bun/pull/40005) can use targeted cleanup after passing the check. Windows and processes without completed admission retain the conservative policy.
+- **Launched desktop apps:** Node marks inherited descriptors close-on-exec at startup and Bun 1.4.3 does not, so an app that Gateway computer control launches inherits the helper's standard streams. The Gateway's 30-second cleanup timeout then stops the app when its execution closes. OpenClaw's Bun fork adopts Node's behavior in [openclaw/bun#12](https://github.com/openclaw/bun/pull/12).
+- **SQLite handles:** Bun builds that fail the [native-close capability check](/install/bun-compatibility#sqlite-worker-lifecycle), including stock Bun 1.4.3, can retain statement handles and WAL/shared-memory files after close or disposal. OpenClaw cannot finalize them through Bun's public `node:sqlite` API and waits for worker exit. Builds with the [upstream close fix](https://github.com/oven-sh/bun/pull/40005) can use targeted cleanup after passing the check. Windows and processes without completed admission retain the conservative policy.
 - **Shared-state reads:** Successful reads reuse their worker and native reader on both lifecycle policies. With the native-close capability, idle readers close after 30 minutes and targeted cleanup can retain the worker. Without it, closing or replacing a reader waits for worker exit, including host-requested cleanup; idle readers retire with their worker, and transcript discovery retires its worker before releasing captured database aliases. Failed reads and uncertain cleanup retain their existing retirement rules on every runtime.
 - **SQLite storage workers:** A Bun broker created without the native-close capability uses one worker per distinct database, up to 64 dedicated workers within the host's 64-client cap. Clients of the same database share its worker, and closing the last client waits for worker exit. Capacity exhaustion rejects new work without interrupting existing stores. Node and Bun brokers created with the capability multiplex databases across two to eight shared workers based on available CPUs; a confirmed close releases only the closed actor, while failed or empty slots still retire.
 - **Headless node updates on Windows:** a node host running on Bun still prepares updates with npm because Bun's Windows binary launchers cannot be staged. A Windows Bun-only host logs that failure at each hourly check and keeps running its current version.
@@ -297,7 +304,8 @@ See [Bun](/install/bun) for the workflow and lifecycle trust commands.
 | Release                            | Change                                                                                                                                                                                                |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Unreleased (main)                  | Restores Node fallback/build compatibility to 24.16.0+/26.1.0+ and reports missing Node security patches as update/audit warnings. Bun requirements and fork provisioning are unchanged.              |
-| Unreleased (main)                  | Requires Bun 1.4.4+ at startup and package preinstall, retaining the pinned OpenClaw fork; removes the fixed JSC segment lookup workaround.                                                           |
+| Unreleased (main)                  | Adopts the signed OpenClaw fork release with current-trust checks for saved TLS sessions and QUIC early data. Stock Bun 1.4.4 retains the separately documented session/early-data gaps.              |
+| Unreleased (main)                  | Requires stock Bun 1.4.4+ at startup and package preinstall, and refreshes stock acquisition pins.                                                                                                    |
 | Unreleased (main)                  | Refuses Apple's system SQLite on macOS when discovery finds no supported library, naming unloadable candidates such as an arm64 Homebrew library under x64 Rosetta Bun.                               |
 | Unreleased (main)                  | Reuses SQLite workers after a native-close check passes on macOS or Linux. Stock Bun 1.4.2, Windows, and inconclusive checks retain conservative cleanup.                                             |
 | Unreleased (main)                  | Runs the macOS app's private worker and Chrome setup on the OpenClaw Bun fork, bundling the full package and signed extension-capable SQLite in one shared runtime. Gateway hosting remains external. |

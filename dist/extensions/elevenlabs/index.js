@@ -1,17 +1,3 @@
-import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
-import { t as elevenLabsMediaUnderstandingProvider } from "../../media-understanding-provider-DExUm5Oa.mjs";
-import { t as buildElevenLabsRealtimeTranscriptionProvider } from "../../realtime-transcription-provider-factory-CWCO12Ml.mjs";
-import { t as buildElevenLabsSpeechProvider } from "../../speech-provider-factory-fInLGPYR.mjs";
-//#region extensions/elevenlabs/index.ts
-var elevenlabs_default = definePluginEntry({
-	id: "elevenlabs",
-	name: "ElevenLabs Speech",
-	description: "Bundled ElevenLabs speech provider",
-	register(api) {
-		api.registerSpeechProvider(buildElevenLabsSpeechProvider);
-		api.registerMediaUnderstandingProvider(elevenLabsMediaUnderstandingProvider);
-		api.registerRealtimeTranscriptionProvider(buildElevenLabsRealtimeTranscriptionProvider);
-	}
-});
-//#endregion
-export { elevenlabs_default as default };
+import{m as readProviderJsonObjectResponse,n as assertOkOrThrowHttpError}from"../../provider-http-errors-DPs-ewzo.mjs";import{f as postMultipartRequest,h as resolveProviderHttpRequestConfig,p as requireTranscriptionText,t as buildAudioTranscriptionFormData}from"../../shared-BgjQEBzk.mjs";import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import"../../provider-http-B2mNds5v.mjs";import{r as normalizeElevenLabsBaseUrl,t as DEFAULT_ELEVENLABS_BASE_URL}from"../../shared-r7lV6_mE.mjs";import{t as buildElevenLabsRealtimeTranscriptionProvider}from"../../realtime-transcription-provider-factory-BPjQoscy.mjs";import{t as buildElevenLabsSpeechProvider}from"../../speech-provider-factory-2rUFH7e5.mjs";
+//!extensions/elevenlabs/index.ts
+const DEFAULT_ELEVENLABS_STT_MODEL=`scribe_v2`;var elevenlabs_default=definePluginEntry({id:`elevenlabs`,name:`ElevenLabs Speech`,description:`Bundled ElevenLabs speech provider`,register(e){e.registerSpeechProvider(buildElevenLabsSpeechProvider);e.registerMediaUnderstandingProvider({id:`elevenlabs`,capabilities:[`audio`],defaultModels:{audio:DEFAULT_ELEVENLABS_STT_MODEL},autoPriority:{audio:45},async transcribeAudio(e){const t=e.fetchFn??fetch;const n=e.apiKey||process.env.ELEVENLABS_API_KEY||process.env.XI_API_KEY;if(!n)throw new Error(`ElevenLabs API key missing`);const r=e.model?.trim()||DEFAULT_ELEVENLABS_STT_MODEL;const{baseUrl:i,allowPrivateNetwork:a,headers:o,dispatcherPolicy:s}=resolveProviderHttpRequestConfig({baseUrl:normalizeElevenLabsBaseUrl(e.baseUrl),defaultBaseUrl:DEFAULT_ELEVENLABS_BASE_URL,headers:e.headers,request:e.request,defaultHeaders:{"xi-api-key":n},provider:`elevenlabs`,api:`elevenlabs-speech-to-text`,capability:`audio`,transport:`media-understanding`});const c=buildAudioTranscriptionFormData({buffer:e.buffer,fileName:e.fileName,mime:e.mime,fields:{model_id:r,language_code:e.language,prompt:e.prompt}});for(const t of[`no_verbatim`,`tag_audio_events`,`diarize`]){const n=e.query?.[t];if(typeof n===`string`||typeof n===`number`||typeof n===`boolean`)c.set(t,String(n))}const{response:l,release:u}=await postMultipartRequest({url:`${i}/v1/speech-to-text`,headers:o,body:c,timeoutMs:e.timeoutMs,...e.signal?{signal:e.signal}:{},fetchFn:t,allowPrivateNetwork:a,dispatcherPolicy:s,auditContext:`elevenlabs speech-to-text`});try{await assertOkOrThrowHttpError(l,`ElevenLabs audio transcription failed`);const e=await readProviderJsonObjectResponse(l,`ElevenLabs audio transcription failed`);return{text:requireTranscriptionText(e.text,`ElevenLabs audio transcription response missing text`),model:r}}finally{await u()}}});e.registerRealtimeTranscriptionProvider(buildElevenLabsRealtimeTranscriptionProvider)}});export{elevenlabs_default as default};

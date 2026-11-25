@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function stripGatewayAllocatorEnv(e){if(delete e.MALLOC_CONF,e.LD_PRELOAD!==void 0){let t=e.LD_PRELOAD.split(/[\s:]+/u).filter(e=>e&&!/(?:^|\/)libjemalloc\.so(?:\.\d+)*$/u.test(e));t.length>0?e.LD_PRELOAD=t.join(`:`):delete e.LD_PRELOAD}}var t=e((()=>{}));export{stripGatewayAllocatorEnv as n,t};

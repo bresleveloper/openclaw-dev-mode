@@ -1,4 +1,4 @@
-//#region extensions/synthetic/models.ts
+// extensions/synthetic/models.ts
 const SYNTHETIC_BASE_URL = "https://api.synthetic.new/anthropic";
 const SYNTHETIC_DEFAULT_MODEL_ID = "hf:MiniMaxAI/MiniMax-M3";
 const SYNTHETIC_DEFAULT_MODEL_REF = `synthetic/${SYNTHETIC_DEFAULT_MODEL_ID}`;
@@ -77,5 +77,4 @@ function buildSyntheticModelDefinition(entry) {
 		maxTokens: entry.maxTokens
 	};
 }
-//#endregion
 export { SYNTHETIC_BASE_URL, SYNTHETIC_DEFAULT_MODEL_ID, SYNTHETIC_DEFAULT_MODEL_REF, SYNTHETIC_MODEL_CATALOG, buildSyntheticModelDefinition };

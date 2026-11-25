@@ -1,4 +1,1 @@
-import { i as normalizeCapabilityProviderId } from "../provider-registry-shared-Cov0065J.mjs";
-import { t as resolveTranscriptsConfig } from "../config-B42acf6V.mjs";
-import "../provider-registry-DNJY0bLH.mjs";
-export { normalizeCapabilityProviderId as normalizeTranscriptSourceProviderId, resolveTranscriptsConfig };
+import{a as normalizeCapabilityProviderId}from"../provider-registry-shared-WqkaV5jB.mjs";import{t as resolveTranscriptsConfig}from"../config-BFnE53yH.mjs";import"../provider-registry-CxE5_uke.mjs";export{normalizeCapabilityProviderId as normalizeTranscriptSourceProviderId,resolveTranscriptsConfig};

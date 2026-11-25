@@ -1,0 +1,3 @@
+import{s as isIpInCidr}from"./ip-CLwE61h2.mjs";import{n as pickMatchingExternalInterfaceAddress}from"./network-interfaces-DP7VnBjC.mjs";import os from"node:os";
+//!src/infra/tailnet.ts
+const TAILNET_IPV4_CIDR=`100.64.0.0/10`;const TAILNET_IPV6_CIDR=`fd7a:115c:a1e0::/48`;function isTailnetIPv4(e){return isIpInCidr(e,TAILNET_IPV4_CIDR)}function pickPrimaryTailnetIPv4(){return pickMatchingExternalInterfaceAddress(os.networkInterfaces(),{family:`IPv4`,matches:isTailnetIPv4})}function pickPrimaryTailnetIPv6(){return pickMatchingExternalInterfaceAddress(os.networkInterfaces(),{family:`IPv6`,matches:e=>isIpInCidr(e,TAILNET_IPV6_CIDR)})}export{pickPrimaryTailnetIPv4 as n,pickPrimaryTailnetIPv6 as r,isTailnetIPv4 as t};

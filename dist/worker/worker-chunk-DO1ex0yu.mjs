@@ -1,0 +1,1 @@
+import{a as e,i as t,n,o as r,r as i,s as a,t as o}from"./worker-chunk-ConOvs05.mjs";t();export{o as DOCTOR_CLAIM_SUFFIX,n as MAX_LEGACY_EXEC_APPROVALS_BYTES,i as detectLegacyExecApprovals,e as migrateLegacyExecApprovals,r as prepareLegacyExecApprovals,a as readLegacyExecApprovalsPreparationFacts};

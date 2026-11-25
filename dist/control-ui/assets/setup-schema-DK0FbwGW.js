@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";function t(e){return{...e,properties:Object.fromEntries(Object.entries(e.properties??{}).filter(([e])=>Object.hasOwn(n,e)||r.some(t=>t===e)))}}var n,r;function i(){return(i=e((()=>{n={accessMode:`full`,appRecommendations:!0},r=[`lastRunAt`,`lastRunVersion`,`lastRunCommit`,`lastRunCommand`,`lastRunMode`]})))()}export{t as i,r as n,i as r,n as t};
+//# sourceMappingURL=setup-schema-DK0FbwGW.js.map

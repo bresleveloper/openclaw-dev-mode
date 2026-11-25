@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,s as n}from"./worker-chunk-CHXXUV6W.mjs";import"node:path";function buildNodeShellCommand(e,t){let r=n((t??``).trim());return r.startsWith(`win`)?[`cmd.exe`,`/d`,`/s`,`/c`,e]:r===`darwin`||r.startsWith(`macos`)?[`/bin/sh`,`-c`,e]:[`/bin/sh`,`-lc`,e]}var r=e((()=>{t()}));export{r as n,buildNodeShellCommand as t};

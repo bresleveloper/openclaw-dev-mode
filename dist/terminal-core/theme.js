@@ -1,2 +1,1 @@
-import { n as isRich, r as theme, t as colorize } from "../theme-DzaUZY4q.mjs";
-export { colorize, isRich, theme };
+import{n as isRich,r as theme,t as colorize}from"../theme-DS2CtI9X.mjs";export{colorize,isRich,theme};

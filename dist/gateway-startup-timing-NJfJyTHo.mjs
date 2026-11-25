@@ -1,0 +1,3 @@
+import{r as DEFAULT_UPDATE_STEP_TIMEOUT_MS}from"./update-run-timeouts-MQiDlYE0.mjs";
+//!src/commands/gateway-startup-timing.ts
+function resolveGatewayStartupTiming(e=process.platform,t){const n=e===`win32`;const r={deadlineMs:n?3*DEFAULT_UPDATE_STEP_TIMEOUT_MS:45e3,probeTimeoutMs:n?15e3:1e4};if(!t)return r;const i=Math.max(t.migrationLeaseMs,n?r.deadlineMs:0);return{...r,deadlineMs:t.timeoutMs??i,derivation:t.timeoutMs!==void 0?`explicit --timeout`:`${i}ms startup floor`}}export{resolveGatewayStartupTiming as t};

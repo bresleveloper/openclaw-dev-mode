@@ -1,0 +1,1 @@
+import{t as e}from"./identity-avatar-file.worker-subsystem-DYMKkqy3.mjs";function logAppContainerTokenProbeFailure(t){e(`process`).debug(`AppContainer token probe failed; allowing spawn`,{error:String(t)})}export{logAppContainerTokenProbeFailure};

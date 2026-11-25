@@ -1,0 +1,1 @@
+export default {"skillDiscovery":{"search":"Skills zoeken","settings":"Instellingen voor vaardigheid","libraryStatus":"Vaardigheid uit de bibliotheek. Sessieselecties bepalen wanneer deze wordt gebruikt."}};

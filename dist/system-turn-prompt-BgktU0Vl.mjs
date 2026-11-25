@@ -1,0 +1,2 @@
+//!src/sessions/system-turn-prompt.ts
+const SYSTEM_TURN_PROMPT_PREFIX=`[System]`;function formatSystemTurnPrompt(e){const t=e.trim();return t.startsWith(SYSTEM_TURN_PROMPT_PREFIX)?t:`${SYSTEM_TURN_PROMPT_PREFIX} ${t}`}export{formatSystemTurnPrompt as t};

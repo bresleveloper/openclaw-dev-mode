@@ -1,8 +1,10 @@
-import { groqMediaUnderstandingProvider } from "./media-understanding-provider.js";
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-B7n8WBLz.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-N7cAUo3f.mjs";
+import { transcribeOpenAiCompatibleAudio } from "openclaw/plugin-sdk/media-understanding";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { createPayloadPatchStreamWrapper } from "openclaw/plugin-sdk/provider-stream-shared";
-//#region extensions/groq/index.ts
+// extensions/groq/index.ts
+const DEFAULT_GROQ_AUDIO_BASE_URL = "https://api.groq.com/openai/v1";
+const DEFAULT_GROQ_AUDIO_MODEL = "whisper-large-v3-turbo";
 function wrapGroqParsedReasoning(streamFn) {
 	return createPayloadPatchStreamWrapper(streamFn, ({ model, payload }) => {
 		if (model.id.startsWith("qwen/") && model.reasoning && payload.reasoning_effort !== "none") payload.reasoning_format = "parsed";
@@ -24,8 +26,17 @@ var groq_default = defineSingleProviderPluginEntry({
 		wrapSimpleCompletionStreamFn: (ctx) => wrapGroqParsedReasoning(ctx.streamFn)
 	},
 	register(api) {
-		api.registerMediaUnderstandingProvider(groqMediaUnderstandingProvider);
+		api.registerMediaUnderstandingProvider({
+			id: "groq",
+			capabilities: ["audio"],
+			defaultModels: { audio: DEFAULT_GROQ_AUDIO_MODEL },
+			autoPriority: { audio: 20 },
+			transcribeAudio: (req) => transcribeOpenAiCompatibleAudio({
+				...req,
+				defaultBaseUrl: DEFAULT_GROQ_AUDIO_BASE_URL,
+				defaultModel: DEFAULT_GROQ_AUDIO_MODEL
+			})
+		});
 	}
 });
-//#endregion
 export { groq_default as default };

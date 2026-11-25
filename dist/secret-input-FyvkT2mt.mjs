@@ -1,0 +1,5 @@
+import"./types.secrets-UWdyCdE6.mjs";import{Jn as string,Nt as array,Yt as discriminatedUnion,or as union}from"./schemas-DuCQi-Qb.mjs";import{i as SecretRefSchema,n as sensitive}from"./zod-schema.sensitive-DjFrxrFP.mjs";
+//!src/plugin-sdk/secret-input-schema.ts
+function buildSecretInputSchema(){return secretInputSchema}function registerSensitiveConfigSchema(e){sensitive.add(e);return e}const[envRef,fileRef,execRef,storeRef]=SecretRefSchema.options;const secretInputSchema=union([string(),discriminatedUnion(`source`,[envRef,storeRef,fileRef,execRef])]).register(sensitive);
+//!src/plugin-sdk/secret-input.ts
+function buildOptionalSecretInputSchema(){return buildSecretInputSchema().optional()}function buildSecretInputArraySchema(){return array(buildSecretInputSchema())}export{registerSensitiveConfigSchema as i,buildSecretInputArraySchema as n,buildSecretInputSchema as r,buildOptionalSecretInputSchema as t};

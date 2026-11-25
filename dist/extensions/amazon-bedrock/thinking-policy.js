@@ -1,5 +1,5 @@
 import { resolveClaudeFable5ModelIdentity, resolveClaudeModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity, resolveClaudeThinkingProfile } from "openclaw/plugin-sdk/claude-model-runtime";
-//#region extensions/amazon-bedrock/thinking-policy.ts
+// extensions/amazon-bedrock/thinking-policy.ts
 const BASE_CLAUDE_THINKING_LEVELS = [
 	{ id: "off" },
 	{ id: "minimal" },
@@ -10,9 +10,6 @@ const BASE_CLAUDE_THINKING_LEVELS = [
 function isClaude5BedrockModel(model) {
 	return Boolean(resolveClaudeFable5ModelIdentity(model) || resolveClaudeMythos5ModelIdentity(model) || resolveClaudeOpus5ModelIdentity(model) || resolveClaudeSonnet5ModelIdentity(model));
 }
-function isOpus5BedrockModelRef(modelRef) {
-	return /(?:^|[/.:])(?:(?:us|eu|ap|apac|au|jp|global)\.)?(?:anthropic\.)?claude-opus-5(?:$|[-.:/])/i.test(modelRef);
-}
 function isOpus47Or48BedrockModelRef(modelRef) {
 	return /(?:^|[/.:])(?:(?:us|eu|ap|apac|au|jp|global)\.)?(?:anthropic\.)?claude-opus-4[.-][78](?:$|[-.:/])/i.test(modelRef);
 }
@@ -20,7 +17,7 @@ function isOpus46BedrockModelRef(modelRef) {
 	return /(?:^|[/.:])(?:(?:us|eu|ap|apac|au|jp|global)\.)?(?:anthropic\.)?claude-opus-4[.-]6(?:$|[-.:/])/i.test(modelRef);
 }
 function isOpus47OrNewerBedrockModelRef(modelRef) {
-	return isOpus5BedrockModelRef(modelRef) || isOpus47Or48BedrockModelRef(modelRef);
+	return /(?:^|[/.:])(?:(?:us|eu|ap|apac|au|jp|global)\.)?(?:anthropic\.)?claude-opus-5(?:$|[-.:/])/i.test(modelRef) || isOpus47Or48BedrockModelRef(modelRef);
 }
 function isMythosPreviewBedrockModelRef(modelRef) {
 	return /(?:^|[/.:])(?:(?:us|eu|ap|apac|au|jp|global)\.)?(?:anthropic\.)?claude-mythos-preview(?:$|[-.:/])/i.test(modelRef);
@@ -115,5 +112,4 @@ function resolveBedrockClaudeThinkingProfile(modelId, params) {
 	};
 	return { levels: BASE_CLAUDE_THINKING_LEVELS };
 }
-//#endregion
 export { isClaude5BedrockModel, isLatestAdaptiveBedrockModelRef, isOpus47OrNewerBedrockModelRef, resolveBedrockClaudeThinkingProfile, resolveBedrockNativeThinkingLevelMap, supportsBedrockNativeMaxEffort };

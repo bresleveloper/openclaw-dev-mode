@@ -1,0 +1,3 @@
+import{DOMParser}from"linkedom";
+//!src/daemon/service-policy-xml.ts
+function preserveServicePolicyXml(e,t,n,r){const i=new DOMParser;const a=i.parseFromString(e,`text/xml`);const o=i.parseFromString(t,`text/xml`);const field=(e,t)=>r===`plist`?[...e.querySelectorAll(`plist > dict > key`)].find(e=>e.textContent===t)?.nextElementSibling:e.querySelector(t.replaceAll(`.`,` > `));for(const e of n){const t=field(o,e);const n=field(a,e);if(!t||!n)throw new Error(`Custom service policy ${e} disappeared before publication.`);n.replaceWith(t.cloneNode(true))}return`${e.slice(0,e.indexOf(`<${r}`))}${a.documentElement.outerHTML}\n`}export{preserveServicePolicyXml as t};

@@ -1,2 +1,1 @@
-import { n as getAgentScopedMediaLocalRoots, r as getAgentScopedMediaLocalRootsForSources } from "../local-roots-B-x-73co.mjs";
-export { getAgentScopedMediaLocalRoots, getAgentScopedMediaLocalRootsForSources };
+import{n as getAgentScopedMediaLocalRoots,r as getAgentScopedMediaLocalRootsForSources}from"../local-roots-DIT05M-v.mjs";import"../media-local-roots-DkRUDhWa.mjs";export{getAgentScopedMediaLocalRoots,getAgentScopedMediaLocalRootsForSources};

@@ -53,5 +53,4 @@ var synthetic_default = defineSingleProviderPluginEntry({
 		}
 	}
 });
-//#endregion
 export { synthetic_default as default };

@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/googlechat/index.ts
+// extensions/googlechat/index.ts
 var googlechat_default = defineBundledChannelEntry({
 	id: "googlechat",
 	name: "Google Chat",
@@ -18,5 +18,4 @@ var googlechat_default = defineBundledChannelEntry({
 		exportName: "setGoogleChatRuntime"
 	}
 });
-//#endregion
 export { googlechat_default as default };

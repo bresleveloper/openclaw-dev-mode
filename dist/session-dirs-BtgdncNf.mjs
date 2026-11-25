@@ -1,0 +1,3 @@
+import{n as ignoreMissingPath}from"./errno-DUBt6SQQ.mjs";import fs from"node:fs";import path from"node:path";import fs$1 from"node:fs/promises";
+//!src/agents/session-dirs.ts
+function mapAgentSessionDirs(e,t,n){return t.filter(e=>e.isDirectory()&&(n?.(e.name)??true)).map(t=>path.join(e,t.name,`sessions`)).sort((e,t)=>e.localeCompare(t))}function resolveAgentSessionDirsFromAgentsDirSync(e,t){let n;try{n=fs.readdirSync(e,{withFileTypes:true})}catch(e){return ignoreMissingPath(e)??[]}return mapAgentSessionDirs(e,n,t)}async function resolveAgentSessionDirs(e){const t=path.join(e,`agents`);return mapAgentSessionDirs(t,await fs$1.readdir(t,{withFileTypes:true}).catch(ignoreMissingPath)??[])}export{resolveAgentSessionDirsFromAgentsDirSync as n,resolveAgentSessionDirs as t};

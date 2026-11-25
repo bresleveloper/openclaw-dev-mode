@@ -1,0 +1,3 @@
+import{randomUUID}from"node:crypto";
+//!src/infra/update-runtime-staging.ts
+const STAGING_MARKER=`.openclaw-update-`;const STAGING_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.tmp$/u;function gitRuntimeStagingPath(e){return`${e}${STAGING_MARKER}${randomUUID()}.tmp`}function isGitRuntimeStagingName(e){const t=e.lastIndexOf(STAGING_MARKER);return t>0&&STAGING_ID.test(e.slice(t+17))}export{isGitRuntimeStagingName as n,gitRuntimeStagingPath as t};

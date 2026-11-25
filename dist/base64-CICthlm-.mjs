@@ -1,0 +1,2 @@
+//!extensions/file-transfer/src/shared/base64.ts
+function normalizeBase64ForCompare(e){return e.replace(/[=]+$/u,``).replace(/-/gu,`+`).replace(/_/gu,`/`)}function inspectStrictBase64(e){const t=/^[A-Za-z0-9+/_-]*={0,2}$/u.exec(e);if(!t||t[0].length!==e.length)return;const n=e.endsWith(`==`)?2:e.endsWith(`=`)?1:0;const r=e.length-n;const i=r%4;if(n===0)return i===1?void 0:Math.floor(r*3/4);if(n===1&&i!==3||n===2&&i!==2)return;return Math.floor(r*3/4)}export{normalizeBase64ForCompare as n,inspectStrictBase64 as t};

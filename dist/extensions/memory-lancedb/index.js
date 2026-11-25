@@ -1,11 +1,11 @@
-import { MemoryRecallEmbeddingError, buildMemoryRecallUnavailableResult, createEmbeddings, isMemoryRecallTimeoutError } from "./embeddings.js";
-import { sanitizeForMemoryCapture } from "./memory-capture-sanitization.js";
-import { MEMORY_CATEGORIES, memoryConfigSchema, vectorDimsForModel } from "./config.js";
-import { captureFingerprint, cleanMemorySearchResults, detectCategory, extractUserTextContent, findCleanDuplicateMemory, formatRecalledMemoryForModel, looksLikePromptInjection, normalizeRecallQuery, prepareAutoCaptureMessages, projectMemorySearchResult, shouldCapture } from "./memory-policy.js";
-import { startMemoryRecall } from "./recall-service.js";
-import { createAutoRecallHook } from "./auto-recall.js";
-import { MemoryDB } from "./lancedb-store.js";
-import { registerMemoryCli } from "./memory-cli.js";
+import { i as memoryConfigSchema, r as MEMORY_CATEGORIES, s as vectorDimsForModel } from "./.setup/config-C3bRv7Yn.mjs";
+import { i as isMemoryRecallTimeoutError, n as buildMemoryRecallUnavailableResult, r as createEmbeddings, t as MemoryRecallEmbeddingError } from "./.setup/embeddings-CA5O6Qvd.mjs";
+import { t as MemoryDB } from "./.setup/lancedb-store-8hxZOQdc.mjs";
+import { r as sanitizeForMemoryCapture, t as dropMediaNoteLines } from "./.setup/memory-capture-sanitization-B9y1Kc2i.mjs";
+import { a as findCleanDuplicateMemory, c as looksLikePromptInjection, d as projectMemorySearchResult, f as shouldCapture, i as extractUserTextContent, l as normalizeRecallQuery, n as cleanMemorySearchResults, o as formatRecalledMemoryForModel, r as detectCategory, s as formatRelevantMemoriesContext, t as captureFingerprint, u as prepareAutoCaptureMessages } from "./.setup/memory-policy-CuH1eGcw.mjs";
+import { t as registerMemoryCli } from "./.setup/memory-cli-ChbK3-Xe.mjs";
+import { t as startMemoryRecall } from "./.setup/recall-service-k18mFCeT.mjs";
+import { n as createLanceDbMemoryProviderRuntime, t as createEmbeddingHealthTracker } from "./.setup/provider-runtime-ItTDHNKu.mjs";
 import { resolveAgentConfig, resolveDefaultAgentId } from "openclaw/plugin-sdk/agent-scope-runtime";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { enqueueKeyedTask } from "openclaw/plugin-sdk/keyed-async-queue";
@@ -18,13 +18,36 @@ import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { truncateUtf16Safe } from "openclaw/plugin-sdk/text-utility-runtime";
 import { textResult } from "openclaw/plugin-sdk/tool-results";
 import { Type } from "typebox";
-//#region extensions/memory-lancedb/index.ts
+// extensions/memory-lancedb/index.ts
 const loadMemoryHostCoreModule = createLazyRuntimeModule(() => import("openclaw/plugin-sdk/memory-host-core"));
 const DEFAULT_TOOL_RECALL_TIMEOUT_MS = 15e3;
+const AUTO_RECALL_TIMEOUT_MS = 15e3;
+const AUTO_RECALL_OVERFETCH_LIMIT = 10;
+const AUTO_RECALL_RESULT_CAP = 3;
 const DEFAULT_RECALL_COOLDOWN_MS = 6e4;
 const DEFAULT_TOOL_RECALL_OVERFETCH_EXTRA = 10;
 const MAX_AUTO_CAPTURE_TEXTS_PER_TURN = 3;
 const MAX_RECENT_AUTO_CAPTURE_TEXTS = 60;
+const memoryRecallSchema = Type.Object({
+	query: Type.String({ description: "Search query" }),
+	limit: Type.Optional(Type.Integer({
+		description: "Max results (default: 5)",
+		minimum: 1
+	}))
+});
+const memoryStoreSchema = Type.Object({
+	text: Type.String({ description: "Information to remember" }),
+	importance: Type.Optional(Type.Number({
+		description: "Importance 0-1 (default: 0.7)",
+		minimum: 0,
+		maximum: 1
+	})),
+	category: Type.Optional(Type.Enum(MEMORY_CATEGORIES, { type: "string" }))
+});
+const memoryForgetSchema = Type.Object({
+	query: Type.Optional(Type.String({ description: "Search to find memory" })),
+	memoryId: Type.Optional(Type.String({ description: "Specific memory ID" }))
+});
 function memoryDeleteFailureResult(id) {
 	const error = `Memory ${id} was not deleted because it was not found.`;
 	return textResult(error, {
@@ -77,7 +100,7 @@ var memory_lancedb_default = definePluginEntry({
 		const autoCaptureTasks = /* @__PURE__ */ new Map();
 		let captureStopped = false;
 		const memoryRecallCooldowns = /* @__PURE__ */ new Map();
-		const resolveRuntimeConfig = () => api.runtime.config?.current?.() ?? api.config;
+		const resolveRuntimeConfig = () => api.runtime.config.current();
 		const resolveEnabledAgentId = (rawAgentId, runtimeConfig = resolveRuntimeConfig()) => {
 			if (!rawAgentId?.trim()) return;
 			const agentId = normalizeAgentId(rawAgentId);
@@ -93,7 +116,7 @@ var memory_lancedb_default = definePluginEntry({
 			return resolveDefaultAgentId(resolveRuntimeConfig());
 		};
 		const resolveCurrentHookConfig = () => {
-			const runtimePluginConfig = resolveLivePluginConfigObject(api.runtime.config?.current ? () => api.runtime.config.current() : void 0, "memory-lancedb", api.pluginConfig);
+			const runtimePluginConfig = resolveLivePluginConfigObject(() => api.runtime.config.current(), "memory-lancedb", api.pluginConfig);
 			if (!runtimePluginConfig) return disabledHookCfg;
 			const currentCfg = memoryConfigSchema.parse({
 				embedding: {
@@ -119,7 +142,8 @@ var memory_lancedb_default = definePluginEntry({
 				}
 			};
 		};
-		const embeddings = createEmbeddings(api);
+		const embeddingHealth = createEmbeddingHealthTracker(createEmbeddings(api));
+		const embeddings = embeddingHealth.embeddings;
 		const readMemoryRecallCooldown = (agentId) => {
 			const memoryRecallCooldown = memoryRecallCooldowns.get(agentId);
 			if (!memoryRecallCooldown) return;
@@ -136,10 +160,31 @@ var memory_lancedb_default = definePluginEntry({
 			});
 		};
 		api.logger.info(`memory-lancedb: plugin registered (db: ${resolvedDbPath}, lazy init)`);
-		api.registerMemoryCapability?.({ publicArtifacts: { async listArtifacts(params) {
-			const { listMemoryHostPublicArtifacts } = await loadMemoryHostCoreModule();
-			return await listMemoryHostPublicArtifacts(params);
-		} } });
+		api.registerMemoryCapability({
+			publicArtifacts: { async listArtifacts(params) {
+				const { listMemoryHostPublicArtifacts } = await loadMemoryHostCoreModule();
+				return await listMemoryHostPublicArtifacts(params);
+			} },
+			providerRuntime: createLanceDbMemoryProviderRuntime({
+				providerId: "memory-lancedb",
+				db,
+				embeddings,
+				resolveCurrentConfig: resolveCurrentHookConfig,
+				resolveEnabledAgentId,
+				countMemories: async (agentId) => {
+					const { readMemoryStats } = await import("./memory-stats.js");
+					return await readMemoryStats({
+						dbPath: resolvedDbPath,
+						storageOptions: cfg.storageOptions
+					}, agentId);
+				},
+				lastEmbeddingFailure: embeddingHealth.lastFailure,
+				readRecallCooldown: readMemoryRecallCooldown,
+				recordRecallCooldown: recordMemoryRecallCooldown,
+				isRecallTimeoutError: isMemoryRecallTimeoutError,
+				logger: api.logger
+			})
+		});
 		const registerMemoryTool = (name, create) => {
 			api.registerTool((ctx) => {
 				const agentId = resolveEnabledAgentId(ctx.agentId, ctx.getRuntimeConfig?.() ?? ctx.runtimeConfig ?? ctx.config ?? resolveRuntimeConfig());
@@ -152,13 +197,7 @@ var memory_lancedb_default = definePluginEntry({
 		registerMemoryTool("memory_recall", (ctx, agentId) => ({
 			label: "Memory Recall",
 			description: "Search through long-term memories. Use when you need context about user preferences, past decisions, or previously discussed topics.",
-			parameters: Type.Object({
-				query: Type.String({ description: "Search query" }),
-				limit: Type.Optional(Type.Integer({
-					description: "Max results (default: 5)",
-					minimum: 1
-				}))
-			}),
+			parameters: memoryRecallSchema,
 			async execute(_toolCallId, params) {
 				assertRetainedToolEnabled(agentId, ctx.getRuntimeConfig);
 				const rawParams = params;
@@ -204,15 +243,7 @@ var memory_lancedb_default = definePluginEntry({
 		registerMemoryTool("memory_store", (ctx, agentId) => ({
 			label: "Memory Store",
 			description: "Save important information in long-term memory. Text over the configured capture limit is rejected. Success means the exact text already exists or the database commit completed; it does not guarantee semantic recall.",
-			parameters: Type.Object({
-				text: Type.String({ description: "Information to remember" }),
-				importance: Type.Optional(Type.Number({
-					description: "Importance 0-1 (default: 0.7)",
-					minimum: 0,
-					maximum: 1
-				})),
-				category: Type.Optional(Type.Enum(MEMORY_CATEGORIES, { type: "string" }))
-			}),
+			parameters: memoryStoreSchema,
 			async execute(_toolCallId, params) {
 				assertRetainedToolEnabled(agentId, ctx.getRuntimeConfig);
 				const currentCfg = resolveCurrentHookConfig();
@@ -255,10 +286,7 @@ var memory_lancedb_default = definePluginEntry({
 		registerMemoryTool("memory_forget", (ctx, agentId) => ({
 			label: "Memory Forget",
 			description: "Delete specific memories. GDPR-compliant.",
-			parameters: Type.Object({
-				query: Type.Optional(Type.String({ description: "Search to find memory" })),
-				memoryId: Type.Optional(Type.String({ description: "Specific memory ID" }))
-			}),
+			parameters: memoryForgetSchema,
 			async execute(_toolCallId, params) {
 				assertRetainedToolEnabled(agentId, ctx.getRuntimeConfig);
 				const { query, memoryId } = params;
@@ -303,15 +331,56 @@ var memory_lancedb_default = definePluginEntry({
 			dbPath: resolvedDbPath,
 			storageOptions: cfg.storageOptions
 		});
-		api.on("before_prompt_build", createAutoRecallHook({
-			logger: api.logger,
-			db,
-			embeddings,
-			resolveCurrentConfig: resolveCurrentHookConfig,
-			resolveEnabledAgentId,
-			readCooldown: readMemoryRecallCooldown,
-			recordCooldown: recordMemoryRecallCooldown
-		}), { requiresToolAuthority: true });
+		api.on("before_prompt_build", async (event, ctx) => {
+			if (isIncognitoSessionKey(ctx.sessionKey)) return;
+			const currentCfg = resolveCurrentHookConfig();
+			const recallMaxChars = currentCfg.recallMaxChars;
+			if (!currentCfg.autoRecall) return;
+			const toolAuthority = ctx.toolAuthority;
+			if (!toolAuthority) {
+				api.logger.debug?.("memory-lancedb: auto-recall skipped because this prompt has no turn tool authority");
+				return;
+			}
+			toolAuthority.assertActive();
+			if (!toolAuthority.allows("memory_recall")) {
+				api.logger.debug?.("memory-lancedb: auto-recall skipped by turn tool policy");
+				return;
+			}
+			const agentId = resolveEnabledAgentId(ctx.agentId);
+			if (!agentId || !event.prompt || event.prompt.length < 5) return;
+			const cooldown = readMemoryRecallCooldown(agentId);
+			if (cooldown) {
+				api.logger.debug?.(`memory-lancedb: auto-recall skipped during recall cooldown: ${cooldown.error}`);
+				return;
+			}
+			try {
+				const recallQuery = normalizeRecallQuery(dropMediaNoteLines(event.prompt), recallMaxChars);
+				if (!recallQuery) return;
+				toolAuthority.assertActive();
+				const recallOperation = startMemoryRecall({
+					timeoutMs: AUTO_RECALL_TIMEOUT_MS,
+					embed: (timeoutMs) => embeddings.embed(agentId, recallQuery, currentCfg.embedding, timeoutMs()),
+					beforeSearch: () => toolAuthority.assertActive(),
+					search: (vector, timeoutMs) => db.search(agentId, vector, AUTO_RECALL_OVERFETCH_LIMIT, .3, { timeoutMs })
+				});
+				const recall = await recallOperation.result;
+				toolAuthority.assertActive();
+				if (recall.status === "timeout") {
+					if (recallOperation.phase === "embedding") recordMemoryRecallCooldown(agentId, `auto-recall timed out after ${Math.round(AUTO_RECALL_TIMEOUT_MS / 1e3)}s`);
+					api.logger.warn?.(`memory-lancedb: auto-recall timed out after ${AUTO_RECALL_TIMEOUT_MS}ms; skipping memory injection to avoid stalling agent startup`);
+					return;
+				}
+				const cleanResults = cleanMemorySearchResults(recall.value).map(({ entry }) => entry).slice(0, AUTO_RECALL_RESULT_CAP);
+				if (cleanResults.length === 0) return;
+				api.logger.info?.(`memory-lancedb: injecting ${cleanResults.length} memories into context`);
+				const context = formatRelevantMemoriesContext(cleanResults, recallMaxChars);
+				return context ? { prependContext: context } : void 0;
+			} catch (err) {
+				if (err instanceof MemoryRecallEmbeddingError && isMemoryRecallTimeoutError(err.originalError)) recordMemoryRecallCooldown(agentId, formatErrorMessage(err.originalError));
+				api.logger.warn(`memory-lancedb: recall failed: ${String(err)}`);
+				return;
+			}
+		}, { requiresToolAuthority: true });
 		api.on("agent_end", async (event, ctx) => {
 			if (captureStopped || !ctx.agentId?.trim() || !event.success || !event.messages?.length || isIncognitoSessionKey(ctx.sessionKey)) return;
 			const agentId = normalizeAgentId(ctx.agentId);
@@ -393,6 +462,7 @@ var memory_lancedb_default = definePluginEntry({
 		api.registerService({
 			id: "memory-lancedb",
 			start: () => {
+				db.start();
 				embeddings.start();
 				captureStopped = false;
 				api.logger.info(`memory-lancedb: initialized (db: ${resolvedDbPath}, model: ${cfg.embedding.model})`);
@@ -404,7 +474,7 @@ var memory_lancedb_default = definePluginEntry({
 					await embeddings.close?.();
 				} finally {
 					autoCaptureSessions.clear();
-					db.close();
+					await db.close();
 					memoryRecallCooldowns.clear();
 					api.logger.info("memory-lancedb: stopped");
 				}
@@ -412,5 +482,4 @@ var memory_lancedb_default = definePluginEntry({
 		});
 	}
 });
-//#endregion
 export { memory_lancedb_default as default };

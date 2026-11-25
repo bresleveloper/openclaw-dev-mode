@@ -1,2 +1,1 @@
-import { t as readByteStreamWithLimit } from "../read-byte-stream-with-limit-CNew-qG0.mjs";
-export { readByteStreamWithLimit };
+import{t as readByteStreamWithLimit}from"../read-byte-stream-with-limit-Ockoa332.mjs";export{readByteStreamWithLimit};

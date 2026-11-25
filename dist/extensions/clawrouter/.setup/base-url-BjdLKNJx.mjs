@@ -1,0 +1,2 @@
+//!extensions/clawrouter/base-url.ts
+const CLAWROUTER_DEFAULT_BASE_URL=`https://clawrouter.openclaw.ai`;function normalizeClawRouterRootUrl(e){const t=(e?.trim()||CLAWROUTER_DEFAULT_BASE_URL).replace(/\/+$/,``);return t.endsWith(`/v1`)?t.slice(0,-3):t}function normalizeClawRouterApiBaseUrl(e){return`${normalizeClawRouterRootUrl(e)}/v1`}export{normalizeClawRouterApiBaseUrl as t};

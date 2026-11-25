@@ -1,0 +1,3 @@
+import path from"node:path";
+//!src/agents/sandbox/path-utils.ts
+function normalizeContainerPathCore(e){const t=path.posix.normalize(e);return t===`.`?`/`:t}function isPathInsideContainerRoot(e,t){const n=normalizeContainerPathCore(e);const r=normalizeContainerPathCore(t);if(n===`/`)return true;return r===n||r.startsWith(`${n}/`)}function relativePathEscapesContainerRoot(e){return e===`..`||e.startsWith(`../`)||path.posix.isAbsolute(e)}export{normalizeContainerPathCore as n,relativePathEscapesContainerRoot as r,isPathInsideContainerRoot as t};

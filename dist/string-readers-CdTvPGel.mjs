@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/utils/string-readers.ts
+function isStringOption(e,t){return typeof e===`string`&&(Array.isArray(t)?t.includes(e):t.has(e))}function readTrimmedStringAlias(e,t){return readParsedField(e,t,normalizeOptionalString)}function readParsedField(e,t,n){for(const r of typeof t===`string`?[t]:t){const t=n(e[r]);if(t!==void 0)return t}}function stripChannelPrefix(e,t){if(!e)return;for(const t of[`channel:`,`chat:`,`user:`])if(e.startsWith(t))return e.slice(t.length);const n=`${t}:`;return e.startsWith(n)?e.slice(n.length):e}export{stripChannelPrefix as i,readParsedField as n,readTrimmedStringAlias as r,isStringOption as t};

@@ -1,0 +1,1 @@
+import{i as detectPluginAutoEnableCandidates,n as applyPluginAutoEnableAsync,r as materializePluginAutoEnableCandidates,t as applyPluginAutoEnable}from"./plugin-auto-enable-DxsraVq4.mjs";export{applyPluginAutoEnable,applyPluginAutoEnableAsync};

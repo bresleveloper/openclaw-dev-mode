@@ -1,3 +1,4 @@
+import { pruneMapToMaxSize } from "openclaw/plugin-sdk/collection-runtime";
 import { normalizeAccountId } from "openclaw/plugin-sdk/routing";
 import {
   normalizeOptionalString,
@@ -44,15 +45,9 @@ function ensureAccountCache(accountId?: string | null): Map<string, string | nul
 function setCacheEntry(cache: Map<string, string | null>, key: string, userId: string): void {
   const previous = cache.get(key);
   cache.delete(key);
-  // Retain ambiguity until eviction; configured aliases remain independently authoritative.
+  // Keep observed collisions unresolved until eviction; configured aliases still take precedence.
   cache.set(key, previous === undefined || previous === userId ? userId : null);
-  if (cache.size <= DISCORD_DIRECTORY_CACHE_MAX_ENTRIES) {
-    return;
-  }
-  const oldest = cache.keys().next();
-  if (!oldest.done) {
-    cache.delete(oldest.value);
-  }
+  pruneMapToMaxSize(cache, DISCORD_DIRECTORY_CACHE_MAX_ENTRIES);
 }
 
 export function rememberDiscordDirectoryUser(params: {

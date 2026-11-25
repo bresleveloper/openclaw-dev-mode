@@ -1,2 +1,1 @@
-import { t as wrapCopilotProviderStream } from "../../stream-DcBRujTC.mjs";
-export { wrapCopilotProviderStream };
+import{n as wrapCopilotSimpleCompletionStream,t as wrapCopilotProviderStream}from"../../stream-D4lN3d9B.mjs";export{wrapCopilotProviderStream,wrapCopilotSimpleCompletionStream};

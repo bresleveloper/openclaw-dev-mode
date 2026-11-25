@@ -1,0 +1,5 @@
+import{f as normalizeStringEntries}from"./string-normalization-D_oBUpO3.mjs";import{o as resolveAgentEntry}from"./agent-scope-config-a2Ym-O21.mjs";
+//!src/skills/discovery/filter.ts
+function normalizeSkillFilter(e){if(e===void 0)return;return normalizeStringEntries(e)}function matchesSkillFilter(e,t){const n=normalizeSkillFilter(e);const r=normalizeSkillFilter(t);if(n===void 0||r===void 0)return n===r;const i=new Set(r);return new Set(n).size===i.size&&n.every(e=>i.has(e))}
+//!src/skills/discovery/agent-filter.ts
+function resolveEffectiveAgentSkillFilter(e,t){if(!e)return;const n=t?resolveAgentEntry(e,t):void 0;if(n&&Object.hasOwn(n,`skills`))return normalizeSkillFilter(n.skills);return normalizeSkillFilter(e.agents?.defaults?.skills)}function resolveEffectiveAgentSkillsLimits(e,t){if(!e||!t)return;return resolveAgentEntry(e,t)?.skillsLimits}function isSessionSkillEnabled(e,t,n,r=e){const i=n&&Object.hasOwn(n,r)?n[r]:void 0;const a=t===void 0||t.includes(e);return i===true||a&&i!==false}export{normalizeSkillFilter as a,matchesSkillFilter as i,resolveEffectiveAgentSkillFilter as n,resolveEffectiveAgentSkillsLimits as r,isSessionSkillEnabled as t};

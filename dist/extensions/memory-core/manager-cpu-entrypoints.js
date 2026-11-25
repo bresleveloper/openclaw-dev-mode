@@ -1,2 +1,1 @@
-import { t as memoryCpuProcessEntrypoints } from "../../manager-cpu-entrypoints-CUaNAvfp.mjs";
-export { memoryCpuProcessEntrypoints };
+import{t as memoryCpuProcessEntrypoints}from"../../manager-cpu-entrypoints-BeG2EiRy.mjs";export{memoryCpuProcessEntrypoints};

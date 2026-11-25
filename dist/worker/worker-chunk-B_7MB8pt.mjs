@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{i as t,t as n}from"./worker-chunk-BByAv2n_.mjs";function hasTerminalControl(e){return e.search(/\p{Cc}/u)!==-1}function sanitizeTerminalText(e){return t(e).replace(/[\p{Cc}\p{Bidi_Control}]/gu,e=>e===`\r`?`\\r`:e===`
+`?`\\n`:e===`	`?`\\t`:``)}function terminalText(e,...t){let n=``,r=0;for(let i of e)n+=i,r<t.length&&(n+=sanitizeTerminalText(String(t[r++])));return n}var r=e((()=>{n()}));export{terminalText as i,r as n,sanitizeTerminalText as r,hasTerminalControl as t};

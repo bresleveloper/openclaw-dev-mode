@@ -1,0 +1,3 @@
+import path from"node:path";import{validRange}from"semver";
+//!src/infra/install-spec.ts
+function looksLikeLocalInstallSpec(e,t){return e.startsWith(`.`)||e.startsWith(`~`)||path.isAbsolute(e)||t.some(t=>e.endsWith(t))}function isRegistrySourceInstallSpec(e){const t=/[.](?:tgz|tar[.]gz|tar)$/iu;const n=/^(?:@[a-z0-9_][a-z0-9._-]*\/)?[a-z0-9_][a-z0-9._-]*$/iu;const r=e.trim();const i=r.indexOf(`@`,1);const a=i>0?r.slice(0,i):r;const o=i>0?r.slice(i+1).trim():``;if(r.startsWith(`npm:`)||o.startsWith(`npm:`))return false;if(!n.test(a)||!a.startsWith(`@`)&&t.test(a))return false;return!o.startsWith(`.`)&&!t.test(o)&&(validRange(o,true)!==null||encodeURIComponent(o)===o)}export{looksLikeLocalInstallSpec as n,isRegistrySourceInstallSpec as t};

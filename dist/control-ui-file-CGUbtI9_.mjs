@@ -1,0 +1,3 @@
+import fs from"node:fs";import path from"node:path";import{matchRootFileOpenFailure,openRootFileSync,readFileWindowFullySync}from"@openclaw/fs-safe/advanced";
+//!src/gateway/control-ui-file.ts
+const CONTROL_UI_COMPRESSIBLE_EXTENSIONS=/* @__PURE__ */ new Set([`.css`,`.html`,`.js`,`.json`,`.svg`,`.txt`,`.wasm`,`.webmanifest`]);function isControlUiCompressibleAsset(e){return CONTROL_UI_COMPRESSIBLE_EXTENSIONS.has(path.extname(e).toLowerCase())}export{isControlUiCompressibleAsset as t};

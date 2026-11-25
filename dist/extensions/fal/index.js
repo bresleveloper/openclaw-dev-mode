@@ -1,18 +1,3 @@
-import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
-import { t as buildFalImageGenerationProvider } from "../../image-generation-provider-B17k21Q0.mjs";
-import { t as buildFalMusicGenerationProvider } from "../../music-generation-provider-ll2RqJ-n.mjs";
-import { t as createFalProvider } from "../../provider-registration-CcifgzUJ.mjs";
-import { t as buildFalVideoGenerationProvider } from "../../video-generation-provider-Cl6Hvy4H.mjs";
-var fal_default = definePluginEntry({
-	id: "fal",
-	name: "fal Provider",
-	description: "Bundled fal image, video, and music generation provider",
-	register(api) {
-		api.registerProvider(createFalProvider());
-		api.registerImageGenerationProvider(buildFalImageGenerationProvider());
-		api.registerMusicGenerationProvider(buildFalMusicGenerationProvider());
-		api.registerVideoGenerationProvider(buildFalVideoGenerationProvider());
-	}
-});
-//#endregion
-export { fal_default as default };
+import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import{n as createProviderApiKeyAuthMethod}from"../../provider-api-key-auth-CoWwU-EG.mjs";import"../../provider-entry-DxFrTaUJ.mjs";import{t as buildFalImageGenerationProvider}from"../../image-generation-provider-u39k4rTP.mjs";import{t as buildFalMusicGenerationProvider}from"../../music-generation-provider-D6KY9zDa.mjs";import{t as applyFalConfig}from"../../onboard-BziUAxJg.mjs";import{n as createFalProvider,t as createFalAuthMethodMetadata}from"../../provider-contract-api-BgR_kivv.mjs";import{t as buildFalVideoGenerationProvider}from"../../video-generation-provider-bjF2nT_8.mjs";
+//!extensions/fal/index.ts
+const PROVIDER_ID=`fal`;var fal_default=definePluginEntry({id:PROVIDER_ID,name:`fal Provider`,description:`Bundled fal image, video, and music generation provider`,register(e){e.registerProvider({...createFalProvider(),auth:[createProviderApiKeyAuthMethod({providerId:PROVIDER_ID,methodId:`api-key`,...createFalAuthMethodMetadata(),optionKey:`falApiKey`,flagName:`--fal-api-key`,envVar:`FAL_KEY`,promptMessage:`Enter fal API key`,expectedProviders:[`fal`],applyConfig:e=>applyFalConfig(e)})]});e.registerImageGenerationProvider(buildFalImageGenerationProvider());e.registerMusicGenerationProvider(buildFalMusicGenerationProvider());e.registerVideoGenerationProvider(buildFalVideoGenerationProvider())}});export{fal_default as default};

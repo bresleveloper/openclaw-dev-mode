@@ -1,5 +1,5 @@
-import { r as normalizeLowercaseStringOrEmpty } from "../string-coerce-Cj8sqWHx.mjs";
-//#region packages/ai/src/internal/google-model-family.ts
+import { r as normalizeLowercaseStringOrEmpty } from "../string-coerce-CpcyRbc6.mjs";
+// packages/ai/src/internal/google-model-family.ts
 function isGoogleGemini3ProModel(modelId) {
 	const normalized = normalizeLowercaseStringOrEmpty(modelId);
 	return /(?:^|\/)gemini-(?:3(?:\.\d+)?-pro|pro-latest)(?:-|$)/.test(normalized);
@@ -15,5 +15,4 @@ function isGoogleGemini4Model(modelId) {
 function isGoogleGemini3ThinkingLevelModel(modelId) {
 	return isGoogleGemini3ProModel(modelId) || isGoogleGemini3FlashModel(modelId) || isGoogleGemini4Model(modelId);
 }
-//#endregion
 export { isGoogleGemini3FlashModel, isGoogleGemini3ProModel, isGoogleGemini3ThinkingLevelModel, isGoogleGemini4Model };

@@ -1,0 +1,3 @@
+import{r as sha256HexPrefixCore}from"./node-crypto-DPk8agfR.mjs";
+//!src/routing/conversation-ref.ts
+function normalizeConversationPeerId(e,t){let n=t.trim();const r=`${e.trim().toLowerCase()}:`;if(n.toLowerCase().startsWith(r))n=n.slice(r.length).trim();return n.replace(/^(user|channel|group|conversation|room|dm|thread):/i,``).trim()}function buildConversationRef(e){return`conv_${sha256HexPrefixCore(JSON.stringify([e.channel,e.accountId,e.kind,e.peerId,e.parentConversationRef??``,e.threadId??``]),32)}`}export{normalizeConversationPeerId as n,buildConversationRef as t};

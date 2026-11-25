@@ -18,7 +18,7 @@ import {
   releaseNotesVersionForTag,
   renderGithubReleaseNotes,
 } from "../render-github-release-notes.mts";
-import { loadChangelogCollection, readReleaseChangelogFiles } from "./release-changelog.mjs";
+import { loadChangelogCollection } from "./release-changelog.mjs";
 
 type StringFields<K extends string> = Record<K, string>;
 
@@ -93,21 +93,14 @@ export function candidateCumulativeShippedPullRequests(changelog: string, label:
   return pullRequests;
 }
 
-function requireString(value: unknown, label: string) {
-  if (typeof value !== "string") {
-    throw new TypeError(`${label} must be a string`);
-  }
-  return value;
-}
-
 export function loadCandidateShippedBaseline(ref: string, rootDir = process.cwd()) {
   const tagRef = `refs/tags/${ref}`;
-  execFileSync("git", ["rev-parse", "--verify", tagRef + "^{commit}"], {
+  execFileSync("git", ["rev-parse", "--verify", `${tagRef}^{commit}`], {
     cwd: rootDir,
     stdio: ["ignore", "ignore", "pipe"],
   });
   const changelog = loadChangelogCollection({ rootDir, ref: tagRef, recordsOnly: true });
-  const version = requireString(releaseNotesVersionForTag(ref), "release notes version");
+  const version = releaseNotesVersionForTag(ref);
   const source = loadReleaseNotesForTag({ rootDir, ref: tagRef, tag: ref, version });
   candidateContributionRecordPullRequests(
     source.record ?? source.section,
@@ -163,17 +156,14 @@ export function validateCandidateChangelogProvenance({
   const dedicatedVersion = dedicatedSectionVersionForTag(tag);
   if (typeof dedicatedVersion === "string" && dedicatedVersion !== version) {
     try {
-      section = requireString(
-        extractChangelogSection(changelog, dedicatedVersion),
-        "changelog section",
-      );
+      section = extractChangelogSection(changelog, dedicatedVersion);
       sectionVersion = dedicatedVersion;
     } catch {
       // No dedicated section; validate the base section.
     }
   }
   if (section === undefined) {
-    section = requireString(extractChangelogSection(changelog, version), "changelog section");
+    section = extractChangelogSection(changelog, version);
   }
   const recordStart = section.search(/\n### Complete contribution record\r?$/m);
   if (recordStart < 0) {
@@ -257,15 +247,16 @@ export function validateCandidateChangelogProvenance({
   };
 }
 
-// Applies pnpm check's changelog-only lints to the candidate's committed changelog
-// artifacts, so a release-notes edit fails here instead of hours into validation.
-function validateCandidateChangelogLints({
-  rootDir,
-  targetSha,
-}: StringFields<"rootDir" | "targetSha">) {
-  const violations = findChangelogAttributionViolations(
-    readReleaseChangelogFiles({ rootDir, ref: targetSha }),
-  );
+// Apply the shared attribution policy only to the selected publication inputs.
+// The standalone repository checker still owns linting the complete archive.
+function validateCandidateChangelogLints(
+  releaseChangelog: ReturnType<typeof loadReleaseNotesForTag>,
+) {
+  const files = [{ path: releaseChangelog.sourcePath, content: releaseChangelog.section }];
+  if (releaseChangelog.record !== null && releaseChangelog.recordPath !== null) {
+    files.push({ path: releaseChangelog.recordPath, content: releaseChangelog.record });
+  }
+  const violations = findChangelogAttributionViolations(files);
   if (violations.length > 0) {
     throw new Error(
       `Forbidden changelog thanks attribution (pnpm check:changelog-attributions): ${violations
@@ -281,11 +272,11 @@ export function validateCandidateChangelog({
   tag,
   targetSha,
 }: StringFields<"rootDir" | "repository" | "tag" | "targetSha">) {
-  validateCandidateChangelogLints({ rootDir, targetSha });
-  const version = requireString(releaseNotesVersionForTag(tag), "release notes version");
+  const version = releaseNotesVersionForTag(tag);
   const releaseChangelog = loadReleaseNotesForTag({ rootDir, ref: targetSha, tag, version });
+  validateCandidateChangelogLints(releaseChangelog);
   return {
-    releaseNotes: releaseChangelog.section,
+    releaseNotesText: releaseChangelog.section,
     releaseNotesCheck: validateCandidateReleaseNotes({
       changelog: releaseChangelog.section,
       repository,

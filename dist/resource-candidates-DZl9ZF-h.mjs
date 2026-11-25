@@ -1,0 +1,2 @@
+//!src/skills/runtime/resource-candidates.ts
+function resolveSkillResourceCandidates(e,t){if(!e)return;const n=[...e.resolvedSkills??[]];for(const t of e.discoverySkills??[])if(!n.some(e=>e.name===t.name))n.push(t);for(const r of t)if(e.skills.some(e=>e.name===r.skill.name)&&!n.some(e=>e.name===r.skill.name))n.push(r.skill);return n}export{resolveSkillResourceCandidates as t};

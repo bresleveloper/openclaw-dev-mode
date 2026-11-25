@@ -1,0 +1,3 @@
+import"./utils-CVVNdy3C.mjs";import"./session-key-C6YO7qUA.mjs";import"./account-lookup-CKp7uaDZ.mjs";import"./account-helpers-DHluXbEm.mjs";
+//!src/plugin-sdk/account-core.ts
+function resolveAccountWithDefaultFallback(e){const t=Boolean(e.accountId?.trim());const n=e.normalizeAccountId(e.accountId);const r=e.resolvePrimary(n);if(t||e.hasCredential(r))return r;const i=e.resolveDefaultAccountId();if(i===n)return r;const a=e.resolvePrimary(i);if(!e.hasCredential(a))return r;return a}export{resolveAccountWithDefaultFallback as t};

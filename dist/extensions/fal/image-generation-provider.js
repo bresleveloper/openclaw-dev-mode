@@ -1,2 +1,1 @@
-import { t as buildFalImageGenerationProvider } from "../../image-generation-provider-B17k21Q0.mjs";
-export { buildFalImageGenerationProvider };
+import{t as buildFalImageGenerationProvider}from"../../image-generation-provider-u39k4rTP.mjs";export{buildFalImageGenerationProvider};

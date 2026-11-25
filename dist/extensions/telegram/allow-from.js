@@ -1,2 +1,1 @@
-import { n as isNumericTelegramUserId, r as normalizeTelegramAllowFromEntry, t as isNumericTelegramSenderUserId } from "../../allow-from-Byf7JKVc.mjs";
-export { isNumericTelegramSenderUserId, isNumericTelegramUserId, normalizeTelegramAllowFromEntry };
+import{n as isNumericTelegramUserId,r as normalizeTelegramAllowFromEntry,t as isNumericTelegramSenderUserId}from"../../allow-from-Cl7XrCrw.mjs";export{isNumericTelegramSenderUserId,isNumericTelegramUserId,normalizeTelegramAllowFromEntry};

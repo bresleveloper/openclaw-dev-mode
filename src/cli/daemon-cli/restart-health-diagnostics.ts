@@ -6,7 +6,7 @@ import type {
 } from "./restart-health.types.js";
 
 const restartFailureReasons: Partial<Record<GatewayRestartWaitOutcome, string>> = {
-  "plugin-errors": "activated plugins reported load errors",
+  "auth-rejected": "the Gateway rejected this CLI's credentials",
   "channel-errors": "channel health checks failed",
   "version-mismatch": "the running Gateway version did not match the expected version",
   "build-id-mismatch": "the running Gateway build did not match the expected build",
@@ -93,9 +93,10 @@ export function formatGatewayRestartFailure(params: {
   health: GatewayRestartSnapshot;
   port: number;
   defaultTimeoutSeconds: number;
+  /** The lifecycle action to name; `gateway start` and install never restart anything. */
   action?: "start" | "restart";
 }): { statusLine: string; failMessage: string } {
-  const action = params.action ?? "restart";
+  const { action = "restart" } = params;
   const refusal = params.health.runtime?.systemd?.startRefusal;
   if (params.health.waitOutcome === "service-definition-refused" && refusal) {
     const message = `SERVICE-DEFINITION: ${refusal.message}`;

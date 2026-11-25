@@ -1,0 +1,3 @@
+import{n as runtimeProcessEntrypoints}from"./runtime-process-entrypoints-DkIke3sT.mjs";import{a as resolveRuntimeWorkerUrl}from"./runtime-worker-url-B4gxQVQi.mjs";import{t as executeOpenClawAgentWorkerPublication}from"./openclaw-agent-worker-store-DTwbfGgv.mjs";import{randomUUID}from"node:crypto";
+//!src/config/sessions/session-fork-domain.ts
+function executeSessionForkOperation(e,t,n){return executeOpenClawAgentWorkerPublication(e,{id:randomUUID(),moduleUrl:resolveRuntimeWorkerUrl(runtimeProcessEntrypoints.sessionForkDomain).href,input:{agentId:t},command:n})}export{executeSessionForkOperation as t};

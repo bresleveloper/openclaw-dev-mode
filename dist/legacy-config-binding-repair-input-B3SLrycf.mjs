@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";import{i as listAgentIds}from"./agent-roster-Cq57wKEj.mjs";
+//!src/commands/doctor/shared/legacy-config-binding-repair-input.ts
+function resolveChannelAccountBindingRepairInput(e){const t=new Set(listAgentIds(e));const n=e.bindings===void 0?[]:e.bindings;if(t.size<2||e.plugins?.enabled===false||!Array.isArray(n)||!n.every(e=>isRecord(e)&&isRecord(e.match)&&typeof e.agentId===`string`&&e.agentId.trim().length>0&&typeof e.match.channel===`string`&&(e.match.accountId===void 0||typeof e.match.accountId===`string`)))return;return{agentIds:t,bindings:n}}export{resolveChannelAccountBindingRepairInput as t};

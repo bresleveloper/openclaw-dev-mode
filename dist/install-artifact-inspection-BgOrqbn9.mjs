@@ -1,0 +1,3 @@
+import{t as isBundleCapabilitySupported}from"./bundle-capability-support-Cc2_O8t-.mjs";
+//!src/plugins/install-artifact-inspection.ts
+const PLUGIN_ARTIFACT_ADAPTER_IDENTITY=`openclaw/v1`;function inspectNativePluginArtifact(){return{format:`openclaw`,mapped:[`plugin`],unavailable:[]}}function inspectBundlePluginArtifact(e){const t=[...new Set(e.capabilities)].toSorted();return{format:e.format,mapped:t.filter(t=>isBundleCapabilitySupported(e.format,t)),unavailable:t.filter(t=>!isBundleCapabilitySupported(e.format,t))}}export{inspectBundlePluginArtifact as n,inspectNativePluginArtifact as r,PLUGIN_ARTIFACT_ADAPTER_IDENTITY as t};

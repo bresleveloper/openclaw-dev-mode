@@ -1,0 +1,1 @@
+import{n as refreshPluginRegistryAfterConfigMutation,t as invalidatePluginRuntimeDiscoveryAfterConfigMutation}from"./registry-refresh-2sMvQHTt.mjs";export{invalidatePluginRuntimeDiscoveryAfterConfigMutation,refreshPluginRegistryAfterConfigMutation};

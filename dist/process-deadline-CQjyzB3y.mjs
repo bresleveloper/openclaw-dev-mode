@@ -1,0 +1,2 @@
+//!src/process/process-deadline.ts
+function setProcessTimeout(e,t){let n;const r=setTimeout(()=>{n=setTimeout(e,0)},t);return{clear(){clearTimeout(r);clearTimeout(n)},refresh(){clearTimeout(n);n=void 0;r.refresh()}}}export{setProcessTimeout as t};

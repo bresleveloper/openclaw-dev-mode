@@ -1,0 +1,1 @@
+const e={name:`database.engine.schema`,schemaDependent:!0};export{e as t};

@@ -1,6 +1,6 @@
-import { z as isQwenCodingPlanBaseUrl } from "./.setup/models-BRg9bCBV.mjs";
+import { z as isQwenCodingPlanBaseUrl } from "./.setup/models-BHyvoc6Y.mjs";
 import { buildDashscopeVideoGenerationProvider } from "openclaw/plugin-sdk/video-generation";
-//#region extensions/qwen/video-generation-provider.ts
+// extensions/qwen/video-generation-provider.ts
 const DEFAULT_QWEN_VIDEO_BASE_URL = "https://dashscope-intl.aliyuncs.com";
 function isQwenVideoEndpointSupported(baseUrl) {
 	if (isQwenCodingPlanBaseUrl(baseUrl)) return false;
@@ -32,5 +32,4 @@ const qwenVideoGenerationProvider = buildDashscopeVideoGenerationProvider({
 		unsupportedMessage: "Qwen Wan video generation requires a Standard DashScope endpoint and a same-region Standard API key; Coding Plan and Token Plan credentials are not supported."
 	}
 });
-//#endregion
 export { qwenVideoGenerationProvider };

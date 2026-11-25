@@ -1,0 +1,2 @@
+//!src/context-engine/types.ts
+function resolveCompactionSuccessorTranscript(e){return{sessionId:(e.result?.sessionTarget)?.sessionId??e.result?.sessionId,sessionFile:e.result?.sessionFile}}export{resolveCompactionSuccessorTranscript as t};

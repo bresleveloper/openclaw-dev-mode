@@ -1,0 +1,1 @@
+import{i as e,n as t,r as n}from"./worker-chunk-BvcA4Ixh.mjs";n();export{t as getTailnetHostname,e as readTailscaleWhoisIdentity};

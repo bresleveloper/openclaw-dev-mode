@@ -1,0 +1,1 @@
+import{t as e}from"./read-only.worker-subsystem-CO1rEqtW.mjs";const t=e(`worker/idle-gc`);function reportSlowIdleWorkerGc(e){t.warn(`slow idle worker garbage collection`,e)}export{reportSlowIdleWorkerGc};

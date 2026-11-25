@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";import{t as formatHumanList}from"./human-list-C2QGgk5P.mjs";
+//!src/shared/enum-option.ts
+function createEnumOptionParser(e=Error){return(t,n,r)=>{const i=normalizeOptionalLowercaseString(t);if(!i)return;const a=n.find(e=>e.toLowerCase()===i);if(a===void 0)throw new e(`${r} must be one of ${formatHumanList(n)}`);return a}}export{createEnumOptionParser as t};

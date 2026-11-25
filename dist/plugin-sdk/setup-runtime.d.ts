@@ -1,14 +1,9 @@
-import { t as DEFAULT_ACCOUNT_ID } from "../account-id-Dh6XMgGH.js";
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { BE as ChannelSetupWizardTextInput, FE as ChannelSetupWizard, LE as ChannelSetupWizardAllowFromEntry, PE as ChannelSetupDmPolicy, RE as ChannelSetupWizardCredential, du as createEnvPatchedAccountSetupAdapter, fu as createPatchedAccountSetupAdapter, ik as WizardPrompter, pu as createSetupInputPresenceValidator } from "../config-contracts-CY87ANNp.js";
-import { d as ChannelSetupAdapter } from "../manifest-registry-DcAsDGQ5.js";
-import "../config-S5Zm-Svf.js";
-import { A as promptParsedAllowFromForAccount, B as SetupTranslator, C as noteChannelLookupSummary, D as patchChannelConfigForAccount, H as WizardI18nParams, I as setAccountAllowFromForChannel, L as setSetupChannelEnabled, N as resolveEntriesWithOptionalToken, P as resolveSetupAccountId, S as noteChannelLookupFailure, T as parseSetupEntriesAllowingWildcard, V as createSetupTranslator, b as mergeAllowFromEntries, d as createAccountScopedGroupAccessSection, g as createTopLevelChannelDmPolicy, i as createDelegatedTextInputShouldPrompt, j as promptResolvedAllowFrom, m as createStandardChannelSetupStatus, n as defineTokenCredential, o as createAllowlistSetupWizardProxy, r as createCliPathTextInput, s as createDelegatedSetupWizardProxy, t as baseUrlTextInput, u as createAccountScopedAllowFromSection, w as parseMentionOrPrefixedId, z as splitSetupEntries } from "../setup-credential-BOHSYxXF.js";
-import "@clack/prompts";
-//#region src/wizard/clack-prompter.d.ts
+import { Bf as createSetupInputPresenceValidator, Rf as createEnvPatchedAccountSetupAdapter, _A as WizardPrompter, aA as ChannelSetupDmPolicy, cA as ChannelSetupWizardAllowFromEntry, dA as ChannelSetupWizardTextInput, lA as ChannelSetupWizardCredential, oA as ChannelSetupWizard, zf as createPatchedAccountSetupAdapter } from "../config-contracts-hzlacViZ.js";
+import { t as DEFAULT_ACCOUNT_ID } from "../account-id-Dn0dJeta.js";
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import { d as ChannelSetupAdapter } from "../manifest-registry-CNNq5Vj2.js";
+import { A as promptParsedAllowFromForAccount, B as SetupTranslator, C as noteChannelLookupSummary, D as patchChannelConfigForAccount, H as WizardI18nParams, I as setAccountAllowFromForChannel, L as setSetupChannelEnabled, N as resolveEntriesWithOptionalToken, P as resolveSetupAccountId, S as noteChannelLookupFailure, T as parseSetupEntriesAllowingWildcard, V as createSetupTranslator, b as mergeAllowFromEntries, d as createAccountScopedGroupAccessSection, g as createTopLevelChannelDmPolicy, i as createDelegatedTextInputShouldPrompt, j as promptResolvedAllowFrom, m as createStandardChannelSetupStatus, n as defineTokenCredential, o as createAllowlistSetupWizardProxy, r as createCliPathTextInput, s as createDelegatedSetupWizardProxy, t as baseUrlTextInput, u as createAccountScopedAllowFromSection, w as parseMentionOrPrefixedId, z as splitSetupEntries } from "../setup-credential-6fwONHRi.js";
 export declare function createClackPrompter(output?: NodeJS.WriteStream, signal?: AbortSignal): WizardPrompter;
-//#endregion
-//#region src/channels/plugins/setup-wizard-legacy-compat.d.ts
 /** @deprecated Compatibility for plugins published before setup policy became plugin-owned. */
 export declare function createLegacyCompatChannelDmPolicy(params: {
   label: string;
@@ -33,5 +28,4 @@ export declare function promptLegacyChannelAllowFromForAccount<TAccount>(params:
   invalidWithoutTokenNote: string;
   resolveEntries: Parameters<typeof promptResolvedAllowFrom>[0]["resolveEntries"];
 }): Promise<OpenClawConfig>;
-//#endregion
 export { type ChannelSetupAdapter, type ChannelSetupDmPolicy, type ChannelSetupWizard, type ChannelSetupWizardAllowFromEntry, type ChannelSetupWizardCredential, type ChannelSetupWizardTextInput, DEFAULT_ACCOUNT_ID, type OpenClawConfig, type SetupTranslator, type WizardI18nParams, type WizardPrompter, baseUrlTextInput, createAccountScopedAllowFromSection, createAccountScopedGroupAccessSection, createAllowlistSetupWizardProxy, createCliPathTextInput, createDelegatedSetupWizardProxy, createDelegatedTextInputShouldPrompt, createEnvPatchedAccountSetupAdapter, createPatchedAccountSetupAdapter, createSetupInputPresenceValidator, createSetupTranslator, createStandardChannelSetupStatus, createTopLevelChannelDmPolicy, defineTokenCredential, mergeAllowFromEntries, noteChannelLookupFailure, noteChannelLookupSummary, parseMentionOrPrefixedId, parseSetupEntriesAllowingWildcard, patchChannelConfigForAccount, promptParsedAllowFromForAccount, promptResolvedAllowFrom, resolveEntriesWithOptionalToken, resolveSetupAccountId, setAccountAllowFromForChannel, setSetupChannelEnabled, splitSetupEntries };

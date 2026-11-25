@@ -1,146 +1,21 @@
+import { a as runOpenShellCli, i as createOpenShellSshSession, n as resolveOpenShellPluginConfig, t as createOpenShellPluginConfigSchema } from "./.setup/config-xMr6yx5f.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { buildRemoteCommand, buildRemoteWorkdirValidationCommand, buildValidatedExecRemoteCommand, createRemoteShellSandboxFsBridge, createSshSandboxSessionFromConfigText, createWritableRenameTargetResolver, disposeSshSandboxSession, prepareSshSandboxExec, registerSandboxBackend, resolvePreferredOpenClawTmpDir, resolveReadOnlyWorkspaceSkillMounts, runPluginCommandWithTimeout, runSshSandboxCommand, sanitizeEnvVars, shellEscape, withTempWorkspace } from "openclaw/plugin-sdk/sandbox";
+import { buildRemoteCommand, buildRemoteWorkdirValidationCommand, buildValidatedExecRemoteCommand, createRemoteShellSandboxFsBridge, createWritableRenameTargetResolver, disposeSshSandboxSession, prepareSshSandboxExec, registerSandboxBackend, resolvePreferredOpenClawTmpDir, resolveReadOnlyWorkspaceSkillMounts, runSshSandboxCommand, sanitizeEnvVars, shellEscape, withTempWorkspace } from "openclaw/plugin-sdk/sandbox";
+import { asOptionalRecord, normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { createHash } from "node:crypto";
 import fsSync from "node:fs";
-import fs from "node:fs/promises";
+import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { movePathWithCopyFallback } from "@openclaw/fs-safe/atomic";
 import { GUEST_FILESYSTEM_PYTHON } from "@openclaw/fs-safe/guest";
-import { createDeferred, formatPluginConfigIssue, mapPluginConfigIssues } from "openclaw/plugin-sdk/extension-shared";
-import { KeyedAsyncQueue } from "openclaw/plugin-sdk/keyed-async-queue";
+import { createDeferred } from "openclaw/plugin-sdk/extension-shared";
+import { enqueueKeyedTask } from "openclaw/plugin-sdk/keyed-async-queue";
+import { lstatIfExists } from "openclaw/plugin-sdk/path-existence-runtime";
 import { FsSafeError, canonicalPathFromExistingAncestor, extractErrorCode } from "openclaw/plugin-sdk/security-runtime";
-import { asOptionalRecord, normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { safeParseJson } from "openclaw/plugin-sdk/text-utility-runtime";
-import { buildPluginConfigSchema } from "openclaw/plugin-sdk/core";
-import { MAX_TIMER_TIMEOUT_SECONDS } from "openclaw/plugin-sdk/number-runtime";
-import { z } from "zod";
 import { assertNoSymlinkParents, isPathInside, root } from "openclaw/plugin-sdk/file-access-runtime";
 import pLimit from "p-limit";
-//#region extensions/openshell/src/cli.ts
-function buildOpenShellBaseArgv(config) {
-	const argv = [config.command];
-	if (config.gateway) argv.push("--gateway", config.gateway);
-	if (config.gatewayEndpoint) argv.push("--gateway-endpoint", config.gatewayEndpoint);
-	if (config.workspace) argv.push("--workspace", config.workspace);
-	return argv;
-}
-function applyGatewayEndpointToSshConfig(params) {
-	const endpoint = params.gatewayEndpoint?.trim();
-	if (!endpoint) return params.configText;
-	return params.configText.replace(/^(\s*ProxyCommand\s+)(.*)$/m, (line, prefix, command) => {
-		if (!command.includes("ssh-proxy")) return line;
-		if (/(^|\s)--server(\s|=)|(^|\s)--gateway-endpoint(\s|=)/.test(command)) return line;
-		return `${prefix}${command} --server ${shellEscape(endpoint)}`;
-	});
-}
-async function runOpenShellCli(params) {
-	return await runPluginCommandWithTimeout({
-		argv: [...buildOpenShellBaseArgv(params.context.config), ...params.args],
-		cwd: params.cwd,
-		timeoutMs: params.timeoutMs ?? params.context.timeoutMs ?? params.context.config.timeoutMs,
-		env: process.env
-	});
-}
-async function createOpenShellSshSession(params) {
-	const result = await runOpenShellCli({
-		context: params.context,
-		args: [
-			"sandbox",
-			"ssh-config",
-			params.context.sandboxName
-		]
-	});
-	if (result.code !== 0) throw new Error(result.stderr.trim() || "openshell sandbox ssh-config failed");
-	return await createSshSandboxSessionFromConfigText({ configText: applyGatewayEndpointToSshConfig({
-		configText: result.stdout,
-		gatewayEndpoint: params.context.config.gatewayEndpoint
-	}) });
-}
-//#endregion
-//#region extensions/openshell/src/config.ts
-const DEFAULT_COMMAND = "openshell";
-const DEFAULT_MODE = "mirror";
-const DEFAULT_SOURCE = "openclaw";
-const DEFAULT_REMOTE_WORKSPACE_DIR = "/sandbox";
-const DEFAULT_REMOTE_AGENT_WORKSPACE_DIR = "/agent";
-const DEFAULT_TIMEOUT_MS = 12e4;
-const OPEN_SHELL_MANAGED_REMOTE_PATH = /^\/(?:sandbox|agent)(?:\/|$)/;
-const nonEmptyTrimmedString = (message) => z.string({ error: message }).trim().min(1, { error: message });
-const openShellManagedRemotePath = (fieldName) => nonEmptyTrimmedString(`${fieldName} must be a non-empty string`).regex(OPEN_SHELL_MANAGED_REMOTE_PATH, { error: (issue) => String(issue.input).startsWith("/") ? `OpenShell ${fieldName} must stay under /sandbox or /agent` : `OpenShell ${fieldName} must be absolute` }).refine((value) => OPEN_SHELL_MANAGED_REMOTE_PATH.test(path.posix.normalize(value)), { error: `OpenShell ${fieldName} must stay under /sandbox or /agent` });
-const openShellWorkspaceName = z.string({ error: "workspace must be a valid OpenShell workspace name" }).trim().min(1, { error: "workspace must be a valid OpenShell workspace name" }).max(19, { error: "workspace must be at most 19 characters" }).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { error: "workspace must contain lowercase alphanumeric characters or single hyphens and must not start or end with a hyphen" });
-const OpenShellPluginConfigSchema = z.strictObject({
-	mode: z.enum(["mirror", "remote"], { error: "mode must be one of mirror, remote" }).optional(),
-	command: nonEmptyTrimmedString("command must be a non-empty string").optional(),
-	gateway: nonEmptyTrimmedString("gateway must be a non-empty string").optional(),
-	gatewayEndpoint: nonEmptyTrimmedString("gatewayEndpoint must be a non-empty string").optional(),
-	workspace: openShellWorkspaceName.optional(),
-	from: nonEmptyTrimmedString("from must be a non-empty string").optional(),
-	policy: nonEmptyTrimmedString("policy must be a non-empty string").optional(),
-	providers: z.array(z.string({ error: "providers must be an array of strings" }).trim().min(1, { error: "providers must be an array of strings" }), { error: "providers must be an array of strings" }).optional(),
-	gpu: z.boolean({ error: "gpu must be a boolean" }).optional(),
-	autoProviders: z.boolean({ error: "autoProviders must be a boolean" }).optional(),
-	remoteWorkspaceDir: openShellManagedRemotePath("remoteWorkspaceDir").optional(),
-	remoteAgentWorkspaceDir: openShellManagedRemotePath("remoteAgentWorkspaceDir").optional(),
-	timeoutSeconds: z.number({ error: `timeoutSeconds must be a number between 1 and ${MAX_TIMER_TIMEOUT_SECONDS}` }).min(1, { error: "timeoutSeconds must be a number >= 1" }).max(MAX_TIMER_TIMEOUT_SECONDS, { error: `timeoutSeconds must be a number <= ${MAX_TIMER_TIMEOUT_SECONDS}` }).optional()
-});
-function normalizeOpenShellRemotePath(value) {
-	const normalized = path.posix.normalize(value);
-	if (!OPEN_SHELL_MANAGED_REMOTE_PATH.test(normalized)) throw new Error(`OpenShell remote path must stay under /sandbox or /agent: ${value}`);
-	return normalized;
-}
-function createOpenShellPluginConfigSchema() {
-	return buildPluginConfigSchema(OpenShellPluginConfigSchema, { safeParse(value) {
-		if (value === void 0) return {
-			success: true,
-			data: void 0
-		};
-		const parsed = OpenShellPluginConfigSchema.safeParse(value);
-		if (parsed.success) return {
-			success: true,
-			data: parsed.data
-		};
-		return {
-			success: false,
-			error: { issues: mapPluginConfigIssues(parsed.error.issues) }
-		};
-	} });
-}
-function resolveOpenShellPluginConfig(value) {
-	const parsed = OpenShellPluginConfigSchema.safeParse(value === void 0 ? {} : value);
-	if (!parsed.success) {
-		const message = formatPluginConfigIssue(parsed.error.issues[0]);
-		throw new Error(`Invalid openshell plugin config: ${message}`);
-	}
-	const cfg = parsed.data;
-	return {
-		mode: cfg.mode ?? DEFAULT_MODE,
-		command: cfg.command ?? DEFAULT_COMMAND,
-		gateway: cfg.gateway,
-		gatewayEndpoint: cfg.gatewayEndpoint,
-		workspace: cfg.workspace,
-		from: cfg.from ?? DEFAULT_SOURCE,
-		policy: cfg.policy,
-		providers: [...new Set(cfg.providers ?? [])],
-		gpu: cfg.gpu ?? false,
-		autoProviders: cfg.autoProviders ?? true,
-		remoteWorkspaceDir: normalizeOpenShellRemotePath(cfg.remoteWorkspaceDir ?? DEFAULT_REMOTE_WORKSPACE_DIR),
-		remoteAgentWorkspaceDir: normalizeOpenShellRemotePath(cfg.remoteAgentWorkspaceDir ?? DEFAULT_REMOTE_AGENT_WORKSPACE_DIR),
-		timeoutMs: typeof cfg.timeoutSeconds === "number" ? Math.floor(cfg.timeoutSeconds * 1e3) : DEFAULT_TIMEOUT_MS
-	};
-}
-//#endregion
-//#region extensions/openshell/src/lstat-if-exists.ts
-/** Inspect a link itself; only ENOENT means absent, every other failure propagates. */
-async function lstatIfExists$1(filePath) {
-	try {
-		return await fs.lstat(filePath);
-	} catch (error) {
-		if (extractErrorCode(error) === "ENOENT") return;
-		throw error;
-	}
-}
-//#endregion
-//#region extensions/openshell/src/workspace-roots.ts
+// extensions/openshell/src/workspace-roots.ts
 function remotePathDepth(remote) {
 	return remote.split("/").filter(Boolean).length;
 }
@@ -157,11 +32,7 @@ function orderOpenShellWorkspaceRoots(roots) {
 function resolveOpenShellWorkspaceRoot(roots, candidate) {
 	return roots.toSorted((a, b) => remotePathDepth(b.remote) - remotePathDepth(a.remote) || workspaceRootOwnerOrder(a.owner) - workspaceRootOwnerOrder(b.owner)).find((root) => isOpenShellRemotePathInside(root.remote, candidate));
 }
-//#endregion
-//#region extensions/openshell/src/fs-bridge.ts
-function createOpenShellFsBridge(params) {
-	return new OpenShellFsBridge(params.sandbox, params.backend);
-}
+// extensions/openshell/src/fs-bridge.ts
 var OpenShellFsBridge = class {
 	constructor(sandbox, backend) {
 		this.sandbox = sandbox;
@@ -262,13 +133,7 @@ var OpenShellFsBridge = class {
 			target: to,
 			allowFinalSymlinkForUnlink: false
 		});
-		await assertRenameSourceSupported(from.hostPath);
-		if (from.mountHostRoot !== to.mountHostRoot) throw new Error("OpenShell cross-root mirror renames require pinned fs-safe support");
-		await assertSameDeviceRenameSupported({
-			fromHostPath: from.hostPath,
-			root: from.mountHostRoot,
-			toHostPath: to.hostPath
-		});
+		await assertRenameSupported(from, to);
 		await this.backend.renameRemotePath(from.containerPath, to.containerPath, params.signal);
 		const root$3 = await root(from.mountHostRoot);
 		const fromRelativePath = relativeToRoot(from, from.hostPath);
@@ -280,7 +145,7 @@ var OpenShellFsBridge = class {
 	async stat(params) {
 		const target = this.resolveTarget(params);
 		const hostPath = target.hostPath;
-		const stats = await lstatIfExists$1(hostPath);
+		const stats = await lstatIfExists(hostPath, "ENOENT");
 		if (!stats) return null;
 		await assertLocalPathSafety({
 			target,
@@ -303,7 +168,7 @@ var OpenShellFsBridge = class {
 			workdir
 		})), ...this.sandbox.readOnlyResourceMounts ?? []];
 	}
-	containerMounts(readOnlyMounts = this.readOnlyMounts()) {
+	containerMounts() {
 		const workspaceRoot = path.resolve(this.sandbox.workspaceDir);
 		const agentRoot = path.resolve(this.sandbox.agentWorkspaceDir);
 		const hasAgentMount = this.sandbox.workspaceAccess !== "none" && workspaceRoot !== agentRoot;
@@ -323,7 +188,7 @@ var OpenShellFsBridge = class {
 				writable: this.sandbox.workspaceAccess === "rw"
 			}
 		}] : []];
-		containerMounts.unshift(...readOnlyMounts.map((mount) => ({
+		containerMounts.unshift(...this.readOnlyMounts().map((mount) => ({
 			remote: mount.containerPath,
 			owner: resolveOpenShellWorkspaceRoot(containerMounts, mount.containerPath)?.owner ?? "workspace",
 			value: {
@@ -341,13 +206,9 @@ var OpenShellFsBridge = class {
 	}
 	resolveTarget(params) {
 		const workspaceRoot = path.resolve(this.sandbox.workspaceDir);
-		const agentRoot = path.resolve(this.sandbox.agentWorkspaceDir);
-		const hasAgentMount = this.sandbox.workspaceAccess !== "none" && workspaceRoot !== agentRoot;
-		const agentContainerRoot = (this.backend.remoteAgentWorkspaceDir || "/agent").replace(/\\/g, "/");
 		const workspaceContainerRoot = this.sandbox.containerWorkdir.replace(/\\/g, "/");
-		const input = params.filePath.trim();
-		const readOnlyMounts = this.readOnlyMounts();
-		const containerMounts = this.containerMounts(readOnlyMounts);
+		const input = params.filePath;
+		const containerMounts = this.containerMounts();
 		const resolveContainerTarget = (containerPath) => {
 			const containerMount = resolveOpenShellWorkspaceRoot(containerMounts, containerPath);
 			if (!containerMount) return;
@@ -372,19 +233,9 @@ var OpenShellFsBridge = class {
 		}
 		const cwd = params.cwd ? path.resolve(params.cwd) : workspaceRoot;
 		const hostPath = path.isAbsolute(input) ? path.resolve(input) : path.resolve(cwd, input);
-		for (const mount of [
-			...readOnlyMounts,
-			{
-				hostPath: workspaceRoot,
-				containerPath: workspaceContainerRoot
-			},
-			...hasAgentMount ? [{
-				hostPath: agentRoot,
-				containerPath: agentContainerRoot
-			}] : []
-		]) if (isPathInside(mount.hostPath, hostPath)) {
-			const relative = path.relative(mount.hostPath, hostPath).split(path.sep).join(path.posix.sep);
-			const target = resolveContainerTarget(path.posix.join(mount.containerPath, relative));
+		for (const mount of containerMounts) if (isPathInside(mount.value.hostRoot, hostPath)) {
+			const relative = path.relative(mount.value.hostRoot, hostPath).split(path.sep).join(path.posix.sep);
+			const target = resolveContainerTarget(path.posix.join(mount.remote, relative));
 			if (!target) throw new Error(`Sandbox path escapes allowed mounts; cannot access: ${input}`);
 			return target;
 		}
@@ -395,7 +246,7 @@ async function removeLocalRootPath(params) {
 	const root$4 = await root(params.target.mountHostRoot);
 	const relativePath = relativeToRoot(params.target, params.target.hostPath);
 	try {
-		if (params.force === false) await fs.lstat(params.target.hostPath);
+		if (params.force === false) await fsPromises.lstat(params.target.hostPath);
 		const targets = params.recursive && !relativePath ? (await root$4.list("")).map((name) => relativeToRoot(params.target, path.join(params.target.hostPath, name))) : [relativePath];
 		for (const target of targets) await root$4.remove(target, {
 			force: params.force !== false,
@@ -415,27 +266,22 @@ function relativeToRoot(target, hostPath) {
 	const relativePath = path.relative(target.mountHostRoot, hostPath);
 	return relativePath ? `.${path.sep}${relativePath}` : "";
 }
-async function assertRenameSourceSupported(fromHostPath) {
-	const stats = await fs.lstat(fromHostPath);
+async function assertRenameSupported(from, to) {
+	const stats = await fsPromises.lstat(from.hostPath);
 	if (stats.isSymbolicLink()) throw new Error("Sandbox symlink rename sources are not supported by the local mirror bridge");
 	if (stats.isFile() && stats.nlink > 1) throw new Error("Sandbox hardlinked rename sources are not supported by the local mirror bridge");
-}
-async function assertSameDeviceRenameSupported(params) {
-	const sourceStats = await fs.lstat(params.fromHostPath);
+	if (from.mountHostRoot !== to.mountHostRoot) throw new Error("OpenShell cross-root mirror renames require pinned fs-safe support");
 	const destinationParentStats = await nearestExistingDirectoryStats({
-		root: params.root,
-		targetPath: path.dirname(params.toHostPath)
+		root: from.mountHostRoot,
+		targetPath: path.dirname(to.hostPath)
 	});
-	if (sourceStats.dev !== destinationParentStats.dev) throw new Error("OpenShell cross-device mirror renames require pinned fs-safe support");
+	if (stats.dev !== destinationParentStats.dev) throw new Error("OpenShell cross-device mirror renames require pinned fs-safe support");
 }
 async function nearestExistingDirectoryStats(params) {
 	const rootPath = path.resolve(params.root);
 	let cursor = path.resolve(params.targetPath);
 	while (isPathInside(rootPath, cursor)) {
-		const stats = await fs.lstat(cursor).catch((err) => {
-			if (isNotFoundError(err)) return null;
-			throw err;
-		});
+		const stats = await lstatIfExists(cursor, "ENOENT");
 		if (stats) {
 			if (!stats.isDirectory()) throw new Error(`Sandbox rename destination parent is not a directory: ${cursor}`);
 			return stats;
@@ -444,95 +290,99 @@ async function nearestExistingDirectoryStats(params) {
 		if (next === cursor) break;
 		cursor = next;
 	}
-	return await fs.lstat(rootPath);
+	return await fsPromises.lstat(rootPath);
 }
 function isNotFoundError(err) {
 	return err instanceof FsSafeError && err.code === "not-found" || extractErrorCode(err) === "ENOENT";
 }
 async function assertLocalPathSafety(params) {
 	const { hostPath, mountHostRoot } = params.target;
-	const unlinkSymlink = params.allowFinalSymlinkForUnlink && hostPath !== mountHostRoot && (await fs.lstat(hostPath).catch((error) => {
-		if (isNotFoundError(error)) return null;
-		throw error;
-	}))?.isSymbolicLink();
+	const unlinkSymlink = params.allowFinalSymlinkForUnlink && hostPath !== mountHostRoot && (await lstatIfExists(hostPath, "ENOENT"))?.isSymbolicLink();
 	await assertNoSymlinkParents({
 		rootDir: mountHostRoot,
 		targetPath: unlinkSymlink ? path.dirname(hostPath) : hostPath,
 		messagePrefix: `Sandbox boundary checks failed: ${params.target.containerPath}`
 	});
 }
-//#endregion
-//#region extensions/openshell/src/mirror.ts
+// extensions/openshell/src/mirror.ts
 const DEFAULT_OPEN_SHELL_MIRROR_EXCLUDE_DIRS = [
 	"hooks",
 	"git-hooks",
 	".git"
 ];
+const NESTED_GIT_EXCLUDE_DIRS = [".git"];
 const COPY_TREE_FS_CONCURRENCY = 16;
-function createExcludeMatcher(excludeDirs) {
+function createExcludeMatcher(excludeDirs, literalNames = false) {
 	const excluded = new Set((excludeDirs ?? []).map((d) => normalizeLowercaseStringOrEmpty(d)));
-	return (name) => excluded.has(normalizeLowercaseStringOrEmpty(name));
+	return (name) => excluded.has(literalNames ? name.toLowerCase() : normalizeLowercaseStringOrEmpty(name));
 }
 const runLimitedFs = pLimit(COPY_TREE_FS_CONCURRENCY);
-async function lstatIfExists(targetPath) {
-	return await runLimitedFs(fs.lstat, targetPath).catch((error) => {
-		if (extractErrorCode(error) === "ENOENT") return null;
-		throw error;
-	});
-}
 async function reconcileMirrorPath(params) {
-	const targetStats = await lstatIfExists(params.targetPath);
-	if (targetStats && !targetStats.isDirectory() && !targetStats.isFile()) return true;
-	const sourceStats = params.sourcePath ? await runLimitedFs(fs.lstat, params.sourcePath) : null;
+	const targetStats = await runLimitedFs(lstatIfExists, params.targetPath, "ENOENT");
+	if (targetStats && !targetStats.isDirectory() && !targetStats.isFile()) return "other";
+	const sourceStats = params.sourcePath ? await runLimitedFs(fsPromises.lstat, params.sourcePath) : null;
 	const sourceDir = sourceStats?.isDirectory() ? params.sourcePath : void 0;
 	const sourceFile = sourceStats?.isFile() ? params.sourcePath : void 0;
-	if (!params.replace && !sourceDir && !sourceFile) return false;
+	if (!params.replace && !sourceDir && !sourceFile) return "none";
 	if (sourceDir || targetStats?.isDirectory()) {
-		if (targetStats && !targetStats.isDirectory()) await runLimitedFs(fs.rm, params.targetPath, { force: true });
+		if (targetStats && !targetStats.isDirectory()) await runLimitedFs(fsPromises.rm, params.targetPath, { force: true });
 		const preservedEntries = await reconcileMirrorDirectory({
 			sourceDir,
 			targetDir: params.targetPath,
-			replace: params.replace
+			relativePath: params.relativePath,
+			replace: params.replace,
+			excludeDirs: params.excludeDirs
 		});
-		if (sourceDir || preservedEntries) return preservedEntries;
-		await runLimitedFs(fs.rmdir, params.targetPath);
-	} else if (targetStats) await runLimitedFs(fs.rm, params.targetPath, { force: true });
-	if (sourceFile) await runLimitedFs(fs.copyFile, sourceFile, params.targetPath);
-	return false;
+		if (sourceFile && preservedEntries === "metadata") throw new Error(`OpenShell mirror cannot replace ${JSON.stringify(params.relativePath)}: the host directory contains repository metadata; download the sandbox file directly with the OpenShell CLI before another mirrored command discards it.`);
+		if (sourceDir || preservedEntries !== "none") return preservedEntries;
+		await runLimitedFs(fsPromises.rmdir, params.targetPath);
+	} else if (targetStats) await runLimitedFs(fsPromises.rm, params.targetPath, { force: true });
+	if (sourceFile) await runLimitedFs(fsPromises.copyFile, sourceFile, params.targetPath);
+	return "none";
 }
 async function reconcileMirrorDirectory(params) {
 	const { sourceDir } = params;
-	const isExcluded = createExcludeMatcher(params.excludeDirs);
-	await runLimitedFs(fs.mkdir, params.targetDir, { recursive: true });
-	const sourceEntries = new Set(sourceDir ? await runLimitedFs(async () => await fs.readdir(sourceDir)) : []);
-	const targetEntries = params.replace ? await runLimitedFs(async () => await fs.readdir(params.targetDir)) : [];
+	const isExcluded = createExcludeMatcher(params.excludeDirs, params.excludeDirs === NESTED_GIT_EXCLUDE_DIRS);
+	const nestedExcludeDirs = isExcluded(".git") ? NESTED_GIT_EXCLUDE_DIRS : void 0;
+	await runLimitedFs(fsPromises.mkdir, params.targetDir, { recursive: true });
+	const sourceEntries = new Set(sourceDir ? await runLimitedFs(() => fsPromises.readdir(sourceDir)) : []);
+	const targetEntries = params.replace ? await runLimitedFs(() => fsPromises.readdir(params.targetDir)) : [];
 	const results = await Promise.allSettled([.../* @__PURE__ */ new Set([...sourceEntries, ...targetEntries])].filter((entry) => !isExcluded(entry)).map((entry) => reconcileMirrorPath({
 		sourcePath: sourceDir && sourceEntries.has(entry) ? path.join(sourceDir, entry) : void 0,
 		targetPath: path.join(params.targetDir, entry),
-		replace: params.replace
+		relativePath: params.relativePath ? `${params.relativePath}/${entry}` : entry,
+		replace: params.replace,
+		excludeDirs: nestedExcludeDirs
 	})));
-	let preservedEntries = false;
+	let preservedEntries = targetEntries.some(isExcluded) ? "metadata" : "none";
+	const errors = [];
 	for (const result of results) {
-		if (result.status === "rejected") throw result.reason;
-		preservedEntries ||= result.value;
+		if (result.status === "rejected") {
+			errors.push(result.reason);
+			continue;
+		}
+		if (result.value === "metadata" || preservedEntries === "none") preservedEntries = result.value;
 	}
+	if (errors.length > 1) throw new AggregateError(errors, errors.map((error) => error instanceof Error ? error.message : String(error)).join("; "));
+	if (errors.length === 1) throw errors[0];
 	return preservedEntries;
 }
 async function replaceDirectoryContents(params) {
 	await reconcileMirrorDirectory({
 		...params,
+		relativePath: "",
 		replace: true
 	});
 }
 async function stageDirectoryContents(params) {
 	await reconcileMirrorDirectory({
 		...params,
+		relativePath: "",
 		replace: false
 	});
 }
-//#endregion
-//#region extensions/openshell/src/backend.ts
-const openShellWorkspaceOperations = new KeyedAsyncQueue();
+// extensions/openshell/src/backend.ts
+const openShellWorkspaceOperations = /* @__PURE__ */ new Map();
 let openShellDetachedCreateSupport;
 const MATERIALIZED_SKILLS_REMOTE_PARTS = [".openclaw", "sandbox-skills"];
 const REMOTE_MANAGED_ROOTS_EMPTY_SCRIPT = "for root in \"$@\"; do if [ -d \"$root\" ] && [ -n \"$(ls -A \"$root\")\" ]; then printf \"1\\n\"; exit 0; fi; done; printf \"0\\n\"";
@@ -649,11 +499,12 @@ function createOpenShellSandboxBackendManager(params) {
 			};
 		},
 		async removeRuntime({ entry, config }) {
+			const execContext = {
+				config: resolveOpenShellPluginConfigFromConfig(config, params.pluginConfig),
+				sandboxName: entry.containerName
+			};
 			const result = await runOpenShellCli({
-				context: {
-					config: resolveOpenShellPluginConfigFromConfig(config, params.pluginConfig),
-					sandboxName: entry.containerName
-				},
+				context: execContext,
 				args: [
 					"sandbox",
 					"delete",
@@ -716,15 +567,12 @@ var OpenShellSandboxBackendImpl = class {
 		return handle;
 	}
 	createMirrorFsBridge(sandbox) {
-		const bridge = createOpenShellFsBridge({
-			sandbox,
-			backend: {
-				remoteAgentWorkspaceDir: this.params.remoteAgentWorkspaceDir,
-				mkdirpRemotePath: (remotePath, signal) => this.mkdirpRemotePath(remotePath, signal),
-				removeRemotePath: (remotePath, params) => this.removeRemotePath(remotePath, params),
-				renameRemotePath: (from, to, signal) => this.renameRemotePath(from, to, signal),
-				syncLocalPathToRemote: (localPath, remotePath) => this.syncLocalPathToRemote(localPath, remotePath)
-			}
+		const bridge = new OpenShellFsBridge(sandbox, {
+			remoteAgentWorkspaceDir: this.params.remoteAgentWorkspaceDir,
+			mkdirpRemotePath: (remotePath, signal) => this.mkdirpRemotePath(remotePath, signal),
+			removeRemotePath: (remotePath, params) => this.removeRemotePath(remotePath, params),
+			renameRemotePath: (from, to, signal) => this.renameRemotePath(from, to, signal),
+			syncLocalPathToRemote: (localPath, remotePath) => this.syncLocalPathToRemote(localPath, remotePath)
 		});
 		return {
 			get pathMappings() {
@@ -759,15 +607,13 @@ var OpenShellSandboxBackendImpl = class {
 			config.workspace ?? process.env.OPENSHELL_WORKSPACE ?? "",
 			sandboxName
 		])}`].toSorted();
-		const releases = [];
-		for (const key of keys) {
-			const acquired = createDeferred();
-			openShellWorkspaceOperations.enqueue(key, () => new Promise(acquired.resolve));
-			releases.push(await acquired.promise);
-		}
-		return { release: () => {
-			for (const release of releases.toReversed()) release();
-		} };
+		const acquired = createDeferred();
+		enqueueKeyedTask({
+			tails: openShellWorkspaceOperations,
+			keys,
+			task: () => new Promise(acquired.resolve)
+		});
+		return { release: await acquired.promise };
 	}
 	async prepareExec(params) {
 		const remoteWorkdir = params.workdir ?? this.params.remoteWorkspaceDir;
@@ -855,11 +701,11 @@ var OpenShellSandboxBackendImpl = class {
 			const relative = path.posix.relative(root.remote, normalized);
 			if (!relative) return normalized;
 			const parts = relative.split("/");
-			if (DEFAULT_OPEN_SHELL_MIRROR_EXCLUDE_DIRS.some((excluded) => excluded === normalizeLowercaseStringOrEmpty(parts[0]))) return null;
+			if (DEFAULT_OPEN_SHELL_MIRROR_EXCLUDE_DIRS.some((excluded) => excluded === normalizeLowercaseStringOrEmpty(parts[0])) || parts.slice(1).some((part) => part.toLowerCase() === ".git")) return null;
 			let local = root.local;
 			for (const part of root.local === skillsWorkspaceDir ? ["", ...parts] : parts) {
 				local = path.join(local, part);
-				if (!(await lstatIfExists$1(local))?.isDirectory()) return null;
+				if (!(await lstatIfExists(local, "ENOENT"))?.isDirectory()) return null;
 			}
 			return normalized;
 		}
@@ -949,7 +795,7 @@ var OpenShellSandboxBackendImpl = class {
 		await this.ensureSandboxExists();
 		await this.maybeSeedRemoteWorkspace();
 		const target = this.resolveRemoteTarget(remotePath);
-		const stats = await lstatIfExists$1(localPath);
+		const stats = await lstatIfExists(localPath, "ENOENT");
 		if (!stats || stats.isSymbolicLink()) {
 			await this.removeRemotePath(remotePath, {
 				recursive: true,
@@ -1038,11 +884,13 @@ var OpenShellSandboxBackendImpl = class {
 		const getResult = await this.runCli([
 			"sandbox",
 			"get",
-			this.params.execContext.sandboxName
+			this.params.execContext.sandboxName,
+			"--output",
+			"json"
 		]);
 		if (getResult.code === 0) {
 			if (this.params.legacyRuntimeAdopted) {
-				const phase = await this.resolveLegacyRuntimePhase();
+				const phase = parseOpenShellSandboxPhase(getResult.stdout);
 				if (!phase) throw this.buildLegacyRuntimeUnavailableError("OpenShell did not report a lifecycle phase for this sandbox.");
 				if (phase !== "Ready") throw this.buildLegacyRuntimeUnavailableError(`OpenShell reports phase "${phase}".`);
 			}
@@ -1103,26 +951,6 @@ var OpenShellSandboxBackendImpl = class {
 			throw error;
 		}
 	}
-	async resolveLegacyRuntimePhase() {
-		const pageSize = 100;
-		for (let offset = 0;; offset += pageSize) {
-			const listResult = await this.runCli([
-				"sandbox",
-				"list",
-				"--limit",
-				String(pageSize),
-				"--offset",
-				String(offset),
-				"--output",
-				"json"
-			]);
-			if (listResult.code !== 0) throw this.buildLegacyRuntimeUnavailableError(listResult.stderr.trim());
-			const page = parseOpenShellSandboxPhasePage(listResult.stdout, this.params.execContext.sandboxName);
-			if (!page) throw this.buildLegacyRuntimeUnavailableError("OpenShell returned malformed sandbox lifecycle data.");
-			if (page.phase) return page.phase;
-			if (page.count < pageSize) return;
-		}
-	}
 	buildLegacyRuntimeUnavailableError(detail) {
 		const recreateCommand = `openclaw sandbox recreate --session ${shellEscape(this.params.createParams.scopeKey)}`;
 		return new Error([
@@ -1168,7 +996,7 @@ var OpenShellSandboxBackendImpl = class {
 	async syncSkillsWorkspaceToRemote() {
 		if (this.params.createParams.cfg.workspaceAccess !== "rw" || !this.params.createParams.skillsWorkspaceDir) return;
 		const remoteSkillsWorkspaceDir = resolveRemoteMaterializedSkillsWorkspaceDir(this.params.remoteWorkspaceDir);
-		const stats = await lstatIfExists$1(this.params.createParams.skillsWorkspaceDir);
+		const stats = await lstatIfExists(this.params.createParams.skillsWorkspaceDir, "ENOENT");
 		await this.runRemoteShellScriptInternal({
 			script: `${ENSURE_OPEN_SHELL_REMOTE_REAL_DIRECTORY_SCRIPT}\nfind "$1" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +`,
 			args: [remoteSkillsWorkspaceDir, this.params.remoteWorkspaceDir]
@@ -1253,7 +1081,7 @@ var OpenShellSandboxBackendImpl = class {
 				targetDir: stagedRoot,
 				excludeDirs: DEFAULT_OPEN_SHELL_MIRROR_EXCLUDE_DIRS
 			});
-			for (const entry of (await fs.readdir(stagedRoot)).toSorted()) await this.uploadFileToRemote(path.join(stagedRoot, entry), `${normalizeRemotePath(remotePath)}/`);
+			for (const entry of (await fsPromises.readdir(stagedRoot)).toSorted()) await this.uploadFileToRemote(path.join(stagedRoot, entry), `${normalizeRemotePath(remotePath)}/`);
 		});
 	}
 	async remoteManagedRootsEmpty() {
@@ -1309,18 +1137,6 @@ function resolveOpenShellSandboxName(params) {
 		legacyRuntimeAdopted: false
 	};
 }
-function parseOpenShellSandboxPhasePage(stdout, sandboxName) {
-	const parsed = safeParseJson(stdout);
-	if (!Array.isArray(parsed)) return;
-	for (const entry of parsed) {
-		const record = asOptionalRecord(entry);
-		if (record?.name === sandboxName && typeof record.phase === "string") return {
-			count: parsed.length,
-			phase: record.phase
-		};
-	}
-	return { count: parsed.length };
-}
 function parseOpenShellSandboxPhase(stdout) {
 	const parsed = asOptionalRecord(safeParseJson(stdout));
 	return typeof parsed?.phase === "string" ? parsed.phase : void 0;
@@ -1331,7 +1147,7 @@ function resolveRemoteMaterializedSkillsWorkspaceDir(remoteWorkspaceDir) {
 }
 async function removeDownloadedWorkspacePath(tmpDir, parts) {
 	if (parts.length === 0) {
-		for (const entry of await fs.readdir(tmpDir)) await fs.rm(path.join(tmpDir, entry), {
+		for (const entry of await fsPromises.readdir(tmpDir)) await fsPromises.rm(path.join(tmpDir, entry), {
 			recursive: true,
 			force: true
 		});
@@ -1340,10 +1156,10 @@ async function removeDownloadedWorkspacePath(tmpDir, parts) {
 	let cursor = tmpDir;
 	for (const [index, part] of parts.entries()) {
 		const next = path.join(cursor, part);
-		const stats = await lstatIfExists$1(next);
+		const stats = await lstatIfExists(next, "ENOENT");
 		if (!stats) return;
 		if (index === parts.length - 1 || stats.isSymbolicLink() || !stats.isDirectory()) {
-			await fs.rm(next, {
+			await fsPromises.rm(next, {
 				recursive: true,
 				force: true
 			});
@@ -1354,11 +1170,11 @@ async function removeDownloadedWorkspacePath(tmpDir, parts) {
 }
 async function moveLocalShadowAside(params) {
 	const shadowPath = path.join(params.workspaceDir, ...params.relativeParts);
-	const parentStats = await lstatIfExists$1(path.dirname(shadowPath));
+	const parentStats = await lstatIfExists(path.dirname(shadowPath), "ENOENT");
 	if (!parentStats?.isDirectory() || parentStats.isSymbolicLink()) return;
-	const shadowStats = await lstatIfExists$1(shadowPath);
+	const shadowStats = await lstatIfExists(shadowPath, "ENOENT");
 	if (!shadowStats || shadowStats.isSymbolicLink()) return;
-	const preserveRoot = await fs.mkdtemp(path.join(path.dirname(params.tmpDir), "openclaw-openshell-preserve-"));
+	const preserveRoot = await fsPromises.mkdtemp(path.join(path.dirname(params.tmpDir), "openclaw-openshell-preserve-"));
 	let preserved;
 	await movePathWithCopyFallback({
 		from: shadowPath,
@@ -1382,19 +1198,19 @@ async function restoreLocalShadow(preserved) {
 	const { shadowPath, receipt } = preserved;
 	const assertBackup = () => assertPreservedShadowIdentity(receipt);
 	const parentPath = path.dirname(shadowPath);
-	const parentStats = await lstatIfExists$1(parentPath);
+	const parentStats = await lstatIfExists(parentPath, "ENOENT");
 	if (parentStats?.isSymbolicLink()) throw new Error(`Refusing to restore workspace shadow through symlink parent: ${parentPath}`);
 	if (parentStats && !parentStats.isDirectory()) {
 		assertBackup();
-		await fs.rm(parentPath, {
+		await fsPromises.rm(parentPath, {
 			recursive: true,
 			force: true
 		});
 	}
 	assertBackup();
-	await fs.mkdir(parentPath, { recursive: true });
+	await fsPromises.mkdir(parentPath, { recursive: true });
 	assertBackup();
-	await fs.rm(shadowPath, {
+	await fsPromises.rm(shadowPath, {
 		recursive: true,
 		force: true
 	});
@@ -1404,7 +1220,7 @@ async function restoreLocalShadow(preserved) {
 		assertBeforeMutation: assertBackup
 	});
 	try {
-		await fs.rmdir(path.dirname(receipt.path));
+		await fsPromises.rmdir(path.dirname(receipt.path));
 	} catch (error) {
 		return new Error(`Workspace shadow was restored at ${shadowPath}, but preservation directory cleanup failed at ${path.dirname(receipt.path)}`, { cause: error });
 	}
@@ -1417,16 +1233,32 @@ function normalizeRemotePath(remotePath) {
 	if (!path.posix.isAbsolute(normalized)) throw new Error(`OpenShell remote path must be absolute: ${remotePath}`);
 	return normalized;
 }
-//#endregion
-//#region extensions/openshell/index.ts
+// extensions/openshell/index.ts
 var openshell_default = definePluginEntry({
 	id: "openshell",
 	name: "OpenShell Sandbox",
 	description: "OpenShell-backed sandbox runtime for agent exec and file tools.",
 	configSchema: createOpenShellPluginConfigSchema(),
 	register(api) {
+		api.registerCli(async ({ program, config }) => {
+			const { registerOpenShellWorkerCli } = await import("./.setup/worker-cli-XLe-0Q5X.mjs");
+			registerOpenShellWorkerCli(program, config);
+		}, { descriptors: [{
+			name: "openshell",
+			description: "Manage OpenShell brokered workers",
+			hasSubcommands: true
+		}] });
 		if (api.registrationMode !== "full") return;
 		const pluginConfig = resolveOpenShellPluginConfig(api.pluginConfig);
+		const workspace = pluginConfig.worker?.agentWorkspace;
+		if (workspace) api.on("before_prompt_build", (_event, context) => {
+			if (context.agentId !== workspace.agentId) return;
+			const config = api.runtime.config.current();
+			const workspaces = asOptionalRecord(config.plugins?.entries?.["file-transfer"]?.config?.workspaces);
+			const binding = asOptionalRecord(workspaces?.[workspace.agentId]);
+			if (typeof binding?.nodeId !== "string" || binding.remoteRoot !== workspace.remoteRoot) return;
+			return { appendSystemContext: "This agent's canonical workspace documents are on paired node " + JSON.stringify(binding.nodeId) + " under " + JSON.stringify(binding.remoteRoot) + ". Use file_fetch and file_write with that node and an absolute document path, subject to the existing file policy. Ordinary read/write/edit/exec tools address this session's task workspace, not those shared agent documents. Do not create a local shadow or fall back to Gateway files when the node is unavailable." };
+		});
 		const unregister = registerSandboxBackend("openshell", {
 			factory: createOpenShellSandboxBackendFactory({ pluginConfig }),
 			manager: createOpenShellSandboxBackendManager({ pluginConfig }),
@@ -1441,5 +1273,4 @@ var openshell_default = definePluginEntry({
 		});
 	}
 });
-//#endregion
 export { openshell_default as default };

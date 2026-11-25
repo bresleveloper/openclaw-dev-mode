@@ -1,3 +1,0 @@
-2
-# Two Commander table rows preserve saved endpoint pins for empty and whitespace CLI input.
-# Source-backed release regression; no shared ceiling increase.

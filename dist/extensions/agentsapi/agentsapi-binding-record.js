@@ -1,2 +1,1 @@
-import { n as readRecord, t as bindingSchema } from "../../agentsapi-binding-record-CO7NOYrI.mjs";
-export { bindingSchema, readRecord };
+import{n as readRecord,t as bindingSchema}from"../../agentsapi-binding-record-BpMov6TE.mjs";export{bindingSchema,readRecord};

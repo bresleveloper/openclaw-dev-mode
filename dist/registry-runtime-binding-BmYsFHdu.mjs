@@ -1,0 +1,2 @@
+//!src/plugins/registry-runtime-binding.ts
+const PLUGIN_REGISTRY_RUNTIME=Symbol.for(`openclaw.pluginRegistryRuntime`);function bindPluginRegistryRuntime(e,t){Object.defineProperty(e,PLUGIN_REGISTRY_RUNTIME,{configurable:false,enumerable:false,value:t,writable:false})}function getPluginRegistryRuntime(e){return e[PLUGIN_REGISTRY_RUNTIME]}export{getPluginRegistryRuntime as n,bindPluginRegistryRuntime as t};

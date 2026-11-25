@@ -1,0 +1,3 @@
+import{n as validateJsonSchemaValue}from"./schema-validator-_8KiTdxO.mjs";
+//!src/agents/subagents/swarm/swarm-output-schema.ts
+function validateStructuredOutputSchema(e){try{validateJsonSchemaValue({schema:e,cacheKey:`swarm-output-schema-preflight`,value:{},cache:false});return}catch(e){return`Invalid sessions_spawn outputSchema: ${e instanceof Error?e.message:String(e)}`}}export{validateStructuredOutputSchema as t};

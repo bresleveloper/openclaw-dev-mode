@@ -1,0 +1,3 @@
+import{l as resolveGlobalSingleton}from"./string-coerce-BBqv4GXj.mjs";import{o as resolveRuntimeProcessEntrypointUrl}from"./runtime-process-url-B6QXzypM.mjs";import{t as WorkerTaskPool}from"./worker-task-pool-U1Zi0XZD.mjs";
+//!src/logging/logger-file-worker.ts
+async function runFileLogIOInWorker(e,t){const n=resolveGlobalSingleton(Symbol.for(`openclaw.fileLogWorker`),()=>({}),async e=>{await t();await e.pool?.close();e.pool=void 0});return await(n.pool??=new WorkerTaskPool({workerUrl:resolveRuntimeProcessEntrypointUrl(`fileLog`),workerClass:`writer`})).run(e,{inputBytes:Buffer.byteLength(e.file)+(e.type===`append`?Buffer.byteLength(e.payload):0)})}export{runFileLogIOInWorker};

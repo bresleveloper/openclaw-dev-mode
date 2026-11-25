@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{a as t,t as n}from"./worker-chunk-9dfWjwEC.mjs";import{n as r,r as i}from"./worker-chunk-CNTStrrl.mjs";async function readPackageUpdateIdentity(e){let[n,r]=await Promise.all([t(e),i(e)]);return{version:n,...r?{buildId:r}:{}}}var a=e((()=>{n(),r()}));export{readPackageUpdateIdentity as n,a as t};

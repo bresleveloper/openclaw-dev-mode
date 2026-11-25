@@ -1,6 +1,6 @@
 import { MISTRAL_BASE_URL, MISTRAL_DEFAULT_MODEL_ID, MISTRAL_DEFAULT_MODEL_REF, buildMistralModelDefinition } from "./model-definitions.js";
 import { createDefaultModelsConnectionPresetAppliers, createDefaultModelsPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/mistral/onboard.ts
+// extensions/mistral/onboard.ts
 const mistralPreset = {
 	primaryModelRef: MISTRAL_DEFAULT_MODEL_REF,
 	resolveParams: () => ({
@@ -17,5 +17,4 @@ const mistralPreset = {
 };
 const { applyConfig: applyMistralConfig, applyProviderConfig: applyMistralProviderConfig } = createDefaultModelsPresetAppliers(mistralPreset);
 const { applyConfig: applyMistralConnectionConfig } = createDefaultModelsConnectionPresetAppliers(mistralPreset);
-//#endregion
 export { applyMistralConfig, applyMistralConnectionConfig, applyMistralProviderConfig };

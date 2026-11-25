@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/signal/channel-entry.ts
+// extensions/signal/channel-entry.ts
 var channel_entry_default = defineBundledChannelEntry({
 	id: "signal",
 	name: "Signal",
@@ -14,5 +14,4 @@ var channel_entry_default = defineBundledChannelEntry({
 		exportName: "setSignalRuntime"
 	}
 });
-//#endregion
 export { channel_entry_default as default };

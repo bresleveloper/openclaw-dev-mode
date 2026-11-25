@@ -47,6 +47,9 @@ Watch background behavior. See [Watch setup and limits](/platforms/ios#standalon
   "cancel" before ending the call or use the chat run's Stop control. Realtime
   detachment requires a Gateway that advertises `talk-session-close-disposition`;
   older Gateways retain their legacy aborting close.
+- Native Talk uses the Gateway's `agents.defaults.timeoutSeconds` for agent runs.
+  It keeps waiting while the Gateway reports its run in flight, including answers
+  that take longer than 30 seconds.
 - Dictation, voice-note recording, and Talk are mutually exclusive microphone
   paths; starting one stops or blocks the others.
 - Realtime Talk prefers a connected Bluetooth Classic or BLE headset

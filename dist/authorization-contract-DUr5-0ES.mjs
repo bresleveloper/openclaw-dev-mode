@@ -1,0 +1,2 @@
+//!src/agents/auth-profiles/authorization-contract.ts
+var AuthProfileAuthorizationError=class extends Error{constructor(e){super(e===`retired`?`MCP authorization was disconnected or replaced`:`MCP authorization state is temporarily unavailable`);this.name=`McpConnectionAuthorityError`;this.code=e===`retired`?`MCP_AUTHORIZATION_RETIRED`:`MCP_AUTHORIZATION_UNAVAILABLE`}};export{AuthProfileAuthorizationError as t};

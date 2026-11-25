@@ -1,0 +1,3 @@
+import{h as resolveSessionPinnedHarnessId}from"./agent-harness-session-key-DekOetuA.mjs";import{t as chatMetadataSessionFields}from"./chat-metadata-contract-mWTG_Ilk.mjs";import{createHash}from"node:crypto";
+//!src/gateway/session-model-revision.ts
+function sessionModelRevision(e,t,n){if(resolveSessionPinnedHarnessId(e)&&n===void 0)return;return createHash(`sha256`).update(JSON.stringify([...chatMetadataSessionFields.map(t=>e?.[t]),t,n?.auth,n?.modelRef?.provider,n?.modelRef?.model])).digest(`base64url`)}export{sessionModelRevision as t};

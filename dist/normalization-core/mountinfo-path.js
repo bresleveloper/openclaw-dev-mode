@@ -1,2 +1,1 @@
-import { t as decodeMountInfoPath } from "../mountinfo-path-BCOIljp0.mjs";
-export { decodeMountInfoPath };
+import{t as decodeMountInfoPath}from"../mountinfo-path-TifqQAkt.mjs";export{decodeMountInfoPath};

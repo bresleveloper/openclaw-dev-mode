@@ -1,4 +1,4 @@
-//#region \0rolldown/runtime.js
+// \0rolldown/runtime.js
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -23,8 +23,7 @@ var __copyProps = (to, from, except, desc) => {
 	return to;
 };
 var __reExport = (target, mod, secondTarget) => (__copyProps(target, mod, "default"), secondTarget && __copyProps(secondTarget, mod, "default"));
-//#endregion
-//#region packages/normalization-core/src/record-coerce.ts
+// packages/normalization-core/src/record-coerce.ts
 /** Type guard for non-array object records at browser-safe boundaries. */
 function isRecord(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -33,8 +32,7 @@ function isRecord(value) {
 function asNullableRecord(value) {
 	return isRecord(value) ? value : null;
 }
-//#endregion
-//#region src/config/channel-config-normalization.ts
+// src/config/channel-config-normalization.ts
 /** Applies one channel-specific doctor migration to every object-shaped account. */
 function normalizeChannelAccounts(params) {
 	const rawAccounts = asNullableRecord(params.entry.accounts);
@@ -110,8 +108,7 @@ function normalizeChannelConfigEntries(params) {
 		changes
 	};
 }
-//#endregion
-//#region src/plugin-sdk/legacy-webhook-listener-migration.ts
+// src/plugin-sdk/legacy-webhook-listener-migration.ts
 /** Preserve explicitly configured webhook listeners while moving ingress onto Gateway routes. */
 function createLegacyWebhookListenerDoctorContract(params) {
 	const portKey = params.portKey ?? "webhookPort";
@@ -181,13 +178,11 @@ function createLegacyWebhookListenerDoctorContract(params) {
 		}
 	};
 }
-//#endregion
-//#region \0openclaw:bundled-sdk:openclaw/plugin-sdk/runtime-doctor-migrations
+// \0openclaw:bundled-sdk:openclaw/plugin-sdk/runtime-doctor-migrations
 var runtime_doctor_migrations_exports = /* @__PURE__ */ __exportAll({ createLegacyWebhookListenerDoctorContract: () => createLegacyWebhookListenerDoctorContract });
 import * as import_openclaw_plugin_sdk_runtime_doctor_migrations from "openclaw/plugin-sdk/runtime-doctor-migrations";
 __reExport(runtime_doctor_migrations_exports, import_openclaw_plugin_sdk_runtime_doctor_migrations);
-//#endregion
-//#region extensions/longcat/doctor-contract-api.ts
+// extensions/longcat/doctor-contract-api.ts
 const MODELS_PATH = [
 	"models",
 	"providers",
@@ -216,7 +211,7 @@ function normalizeCompatibilityConfig({ cfg }) {
 	const providers = models?.providers;
 	const provider = providers?.longcat;
 	const configuredModels = provider?.models;
-	if (!provider || !hasLegacyStockLongCatModel(configuredModels) || !Array.isArray(configuredModels)) return {
+	if (!provider || !hasLegacyStockLongCatModel(configuredModels)) return {
 		config: cfg,
 		changes: []
 	};
@@ -241,5 +236,4 @@ function normalizeCompatibilityConfig({ cfg }) {
 		changes: ["Updated the historical stock LongCat-2.0 cache-write price from $0.75 to $0."]
 	};
 }
-//#endregion
 export { legacyConfigRules, normalizeCompatibilityConfig };

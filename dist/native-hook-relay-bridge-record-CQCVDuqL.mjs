@@ -1,0 +1,5 @@
+import{a as executeSqliteQueryTakeFirstSync,s as getNodeSqliteKysely}from"./kysely-sync-Dl78faM1.mjs";
+//!src/agents/harness/native-hook-relay-bridge-query.ts
+function readNativeHookRelayBridgeRow(e,t){const n=getNodeSqliteKysely(e);return executeSqliteQueryTakeFirstSync(e,n.selectFrom(`native_hook_relay_bridges`).selectAll().where(`relay_id`,`=`,t))}
+//!src/agents/harness/native-hook-relay-bridge-record.ts
+function readNativeHookRelayBridgeRecordRow(e){if(!e||typeof e.relay_id!==`string`||e.relay_id.length===0||!Number.isSafeInteger(e.pid)||e.hostname!==`127.0.0.1`||!Number.isSafeInteger(e.port)||Number(e.port)<=0||Number(e.port)>65535||typeof e.token!==`string`||e.token.length===0||!Number.isSafeInteger(e.expires_at_ms))return;return{relayId:e.relay_id,pid:Number(e.pid),hostname:e.hostname,port:Number(e.port),token:e.token,expiresAtMs:Number(e.expires_at_ms)}}export{readNativeHookRelayBridgeRow as n,readNativeHookRelayBridgeRecordRow as t};

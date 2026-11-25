@@ -1,6 +1,4 @@
-import { Wo as parseTelegramTopicConversation, iS as mergeTelegramAccountConfig } from "../../config-contracts-CY87ANNp.js";
-import { C as normalizeTelegramCommandName, S as normalizeTelegramCommandDescription, a as buildTelegramModelsProviderChannelData, i as buildCommandsPaginationKeyboard, n as TelegramInteractiveHandlerRegistration, r as TelegramInteractiveHandlerResult, t as TelegramInteractiveHandlerContext, w as resolveTelegramCustomCommands, y as TELEGRAM_COMMAND_NAME_PATTERN } from "../../interactive-dispatch-pvkEgBdy.js";
-//#region extensions/telegram/src/setup-contract.d.ts
+import { Xn as parseTelegramTopicConversation, gy as mergeTelegramAccountConfig } from "../../config-contracts-hzlacViZ.js";
+import { C as normalizeTelegramCommandName, S as normalizeTelegramCommandDescription, a as buildTelegramModelsProviderChannelData, i as buildCommandsPaginationKeyboard, n as TelegramInteractiveHandlerRegistration, r as TelegramInteractiveHandlerResult, t as TelegramInteractiveHandlerContext, w as resolveTelegramCustomCommands, y as TELEGRAM_COMMAND_NAME_PATTERN } from "../../interactive-dispatch-C4I-LXju.js";
 export declare const singleAccountKeysToMove: string[];
-//#endregion
 export { TELEGRAM_COMMAND_NAME_PATTERN, type TelegramInteractiveHandlerContext, type TelegramInteractiveHandlerRegistration, type TelegramInteractiveHandlerResult, buildCommandsPaginationKeyboard, buildTelegramModelsProviderChannelData, mergeTelegramAccountConfig, normalizeTelegramCommandDescription, normalizeTelegramCommandName, parseTelegramTopicConversation, resolveTelegramCustomCommands };

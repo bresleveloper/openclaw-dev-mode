@@ -186,21 +186,6 @@
             },
             "additionalProperties": false
           },
-          "heartbeatVisibility": {
-            "type": "object",
-            "properties": {
-              "showOk": {
-                "type": "boolean"
-              },
-              "showAlerts": {
-                "type": "boolean"
-              },
-              "useIndicator": {
-                "type": "boolean"
-              }
-            },
-            "additionalProperties": false
-          },
           "healthMonitor": {
             "type": "object",
             "properties": {
@@ -586,21 +571,6 @@
                         }
                       },
                       "additionalProperties": false
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                "heartbeatVisibility": {
-                  "type": "object",
-                  "properties": {
-                    "showOk": {
-                      "type": "boolean"
-                    },
-                    "showAlerts": {
-                      "type": "boolean"
-                    },
-                    "useIndicator": {
-                      "type": "boolean"
                     }
                   },
                   "additionalProperties": false

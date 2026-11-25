@@ -1,0 +1,4 @@
+import{t as escapeRegExp}from"./regexp-DAJp1ywh.mjs";
+//!src/plugin-sdk/memory-host-markdown.ts
+function isLineWhitespace(e){return/^[\t \r\n]*$/.test(e)}function withTrailingNewline(e){return e.endsWith(`
+`)?e:`${e}\n`}function replaceManagedMarkdownBlock(e){const t=`${e.heading?`${e.heading}\n`:``}${e.startMarker}\n${e.body}\n${e.endMarker}`;const n=e.heading?`${escapeRegExp(e.heading)}(?:[ \t]*(?:\r\n|\n|\r))+[ \t]*`:``;const r=new RegExp(`${n}${escapeRegExp(e.startMarker)}[\\s\\S]*?${escapeRegExp(e.endMarker)}`,`g`);const i=Array.from(e.original.matchAll(r));if(i.length>0){let n=``;let r=0;i.forEach((i,a)=>{const o=i.index;const s=o+i[0].length;const c=e.original.slice(r,o);if(a===0){n+=e.original.slice(0,o);n+=t}else if(!isLineWhitespace(c))n+=c;r=s});return n+e.original.slice(r)}const a=e.original.trimEnd();if(a.length===0)return`${t}\n`;return`${a}\n\n${t}\n`}export{withTrailingNewline as n,replaceManagedMarkdownBlock as t};

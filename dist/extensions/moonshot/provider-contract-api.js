@@ -1,5 +1,5 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-ByEFwJ6V.mjs";
-//#region extensions/moonshot/provider-contract-api.ts
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-Bi0KIJRp.mjs";
+// extensions/moonshot/provider-contract-api.ts
 const noopAuth = async () => ({ profiles: [] });
 function createMoonshotProvider() {
 	return {
@@ -17,5 +17,4 @@ function createMoonshotProvider() {
 		}))
 	};
 }
-//#endregion
 export { createMoonshotProvider };

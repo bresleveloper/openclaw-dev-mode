@@ -1,0 +1,5 @@
+import{a as projectGatewayUrlForDiagnostics}from"./connection-details-Zr-TMGSl.mjs";
+//!src/commands/status.gateway-connection.ts
+function logGatewayConnectionDetails(e){e.runtime.log(e.info(`Gateway connection:`));for(const t of e.message.split(`
+`))e.runtime.log(`  ${t}`);if(e.trailingBlankLine)e.runtime.log(``)}function resolveStatusAllConnectionDetails(e){if(e.nodeOnlyGateway)return e.nodeOnlyGateway.connectionDetails;if(!e.remoteUrlMissing)return e.gatewayConnection.message;return[`Gateway mode: remote`,`Gateway target: (missing gateway.remote.url)`,`Config: ${e.configPath}`,`Bind: ${e.bindMode??`loopback`}`,`Local fallback (used for checks): ${projectGatewayUrlForDiagnostics(e.gatewayConnection.url)}`,`Fix: set gateway.remote.url, or set gateway.mode=local.`].join(`
+`)}export{resolveStatusAllConnectionDetails as n,logGatewayConnectionDetails as t};

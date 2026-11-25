@@ -1,5 +1,5 @@
-import { n as __reExport, t as __exportAll } from "./.setup/rolldown-runtime-B4FMCO8f.mjs";
-//#region packages/normalization-core/src/record-coerce.ts
+import { n as __reExport, t as __exportAll } from "./.setup/rolldown-runtime-782esTHO.mjs";
+// packages/normalization-core/src/record-coerce.ts
 /** Type guard for non-array object records at browser-safe boundaries. */
 function isRecord(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -8,8 +8,7 @@ function isRecord(value) {
 function asNullableRecord(value) {
 	return isRecord(value) ? value : null;
 }
-//#endregion
-//#region src/config/channel-config-normalization.ts
+// src/config/channel-config-normalization.ts
 /** Applies one channel-specific doctor migration to every object-shaped account. */
 function normalizeChannelAccounts(params) {
 	const rawAccounts = asNullableRecord(params.entry.accounts);
@@ -85,8 +84,7 @@ function normalizeChannelConfigEntries(params) {
 		changes
 	};
 }
-//#endregion
-//#region src/plugin-sdk/legacy-webhook-listener-migration.ts
+// src/plugin-sdk/legacy-webhook-listener-migration.ts
 /** Preserve explicitly configured webhook listeners while moving ingress onto Gateway routes. */
 function createLegacyWebhookListenerDoctorContract(params) {
 	const portKey = params.portKey ?? "webhookPort";
@@ -156,13 +154,11 @@ function createLegacyWebhookListenerDoctorContract(params) {
 		}
 	};
 }
-//#endregion
-//#region \0openclaw:bundled-sdk:openclaw/plugin-sdk/runtime-doctor-migrations
+// \0openclaw:bundled-sdk:openclaw/plugin-sdk/runtime-doctor-migrations
 var runtime_doctor_migrations_exports = /* @__PURE__ */ __exportAll({ createLegacyWebhookListenerDoctorContract: () => createLegacyWebhookListenerDoctorContract });
 import * as import_openclaw_plugin_sdk_runtime_doctor_migrations from "openclaw/plugin-sdk/runtime-doctor-migrations";
 __reExport(runtime_doctor_migrations_exports, import_openclaw_plugin_sdk_runtime_doctor_migrations);
-//#endregion
-//#region extensions/clickclack/src/doctor-contract.ts
+// extensions/clickclack/src/doctor-contract.ts
 function stripTimeoutSeconds(value) {
 	const record = (0, runtime_doctor_migrations_exports.asObjectRecord)(value);
 	if (!record) return {
@@ -207,5 +203,4 @@ function normalizeCompatibilityConfig({ cfg }) {
 		changes: ["Removed retired ClickClack timeout tuning knobs."]
 	};
 }
-//#endregion
 export { normalizeCompatibilityConfig };

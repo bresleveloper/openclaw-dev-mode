@@ -1,0 +1,1 @@
+{"version":3,"entries":[{"output":"index.js","source":"extensions/gmi/index.ts"}],"chunks":[{"output":"index.js","sha256":"e7019251622b8c18a1af83dd54de3c7a504d03290894bbbdf8f310485694d9ef","facadeSource":"extensions/gmi/index.ts","sources":["extensions/gmi/index.ts","extensions/gmi/openclaw.plugin.json"]}],"unrenderedSources":[]}

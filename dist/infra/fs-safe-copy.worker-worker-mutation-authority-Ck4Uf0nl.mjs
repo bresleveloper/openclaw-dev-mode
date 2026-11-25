@@ -1,0 +1,1 @@
+function workerMutationAssertion(e,t,n){let r=new Int32Array(e);return()=>{for(n(),Atomics.store(r,0,0),t();Atomics.load(r,0)===0;)Atomics.wait(r,0,0,1e3),n();if(n(),Atomics.load(r,0)!==1)throw Error(`Worker mutation authority refused`)}}export{workerMutationAssertion};

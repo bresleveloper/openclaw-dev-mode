@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function peerKindMatches(e,t){return e===t||e===`group`&&t===`channel`||e===`channel`&&t===`group`}var t=e((()=>{}));export{peerKindMatches as n,t};

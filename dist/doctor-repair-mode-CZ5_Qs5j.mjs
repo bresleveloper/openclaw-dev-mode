@@ -1,0 +1,3 @@
+import{n as isTruthyEnvValue}from"./env-CgAf0Ri-.mjs";
+//!src/commands/doctor-repair-mode.ts
+function resolveDoctorRepairMode(e,t=process.env){const n=e.yes===true;const r=e.nonInteractive===true;const i=e.repair===true||n;const a=e.force===true;const o=process.stdin.isTTY;const s=r||!o&&!n;const c=isTruthyEnvValue(t.OPENCLAW_UPDATE_IN_PROGRESS);return{shouldRepair:i,shouldForce:a,nonInteractive:s,canPrompt:o&&!n&&!s,updateInProgress:c}}function isDoctorUpdateRepairMode(e){return e.updateInProgress&&e.nonInteractive}function shouldAutoApproveDoctorFix(e,t={}){return e.shouldRepair&&!(t.requiresForce&&!e.shouldForce)&&!(t.blockDuringUpdate&&isDoctorUpdateRepairMode(e))}export{resolveDoctorRepairMode as n,shouldAutoApproveDoctorFix as r,isDoctorUpdateRepairMode as t};

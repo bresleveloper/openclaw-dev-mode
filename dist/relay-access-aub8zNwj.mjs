@@ -1,0 +1,2 @@
+//!extensions/browser/src/browser/extension-relay/relay-access.ts
+const borrowedCdpAccess=/* @__PURE__ */ new Map;function registerBorrowedRelayCdpAccess(e,t){const n=e.replace(/\/$/u,``);borrowedCdpAccess.set(n,t);return()=>{if(borrowedCdpAccess.get(n)===t)borrowedCdpAccess.delete(n)}}function getBorrowedRelayCdpAccess(e){const t=borrowedCdpAccess.get(e.replace(/\/$/u,``));t?.client.assertCurrent();return t}export{registerBorrowedRelayCdpAccess as n,getBorrowedRelayCdpAccess as t};

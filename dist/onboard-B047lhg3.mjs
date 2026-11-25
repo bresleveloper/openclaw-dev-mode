@@ -1,0 +1,3 @@
+import{v as createProviderConnectionPresetAppliers}from"./provider-onboard-BM-9pxDY.mjs";import{a as REQUESTY_DEFAULT_MODEL_REF,c as REQUESTY_PROVIDER_ID,l as getStaticRequestyModelCatalog,t as REQUESTY_BASE_URL}from"./provider-models-Do8rSn_e.mjs";
+//!extensions/requesty/onboard.ts
+const{applyConfig:applyRequestyConfig}=createProviderConnectionPresetAppliers({primaryModelRef:REQUESTY_DEFAULT_MODEL_REF,resolveParams:()=>({providerId:REQUESTY_PROVIDER_ID,api:`openai-completions`,baseUrl:REQUESTY_BASE_URL,catalogModels:getStaticRequestyModelCatalog,aliases:[{modelRef:REQUESTY_DEFAULT_MODEL_REF,alias:`Requesty`}]})});export{applyRequestyConfig as t};

@@ -1,0 +1,3 @@
+import{n as decodeSkillXml}from"./skill-contract-DUn6H4mI.mjs";
+//!src/skills/loading/skill-prompt-catalog.ts
+const SKILL_NAME_PATTERN=/^[ ]{4}<name>(.*)<\/name>$/mu;const SKILL_LOCATION_PATTERN=/^[ ]{4}<location>(.*)<\/location>$/mu;function readSkillField(e,t){const n=t.exec(e)?.[1];return n===void 0?void 0:decodeSkillXml(n)}function parseSkillsPromptCatalog(e){const t=/<available_skills>\n([\s\S]*?)\n<\/available_skills>/u.exec(e)?.[1];if(!t)return[];const n=[];for(const e of t.matchAll(/^[ ]{2}<skill>\n([\s\S]*?)\n[ ]{2}<\/skill>$/gmu)){const t=e[1]??``;const r=readSkillField(t,SKILL_NAME_PATTERN);const i=readSkillField(t,SKILL_LOCATION_PATTERN);if(r&&i)n.push({name:r,location:i})}return n}export{parseSkillsPromptCatalog as t};

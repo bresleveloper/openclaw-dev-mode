@@ -1,2 +1,1 @@
-import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../http-request-CMyW77KD.mjs";
-export { resolveGoogleGenerativeAiHttpRequestConfig };
+import{n as resolveTrustedGoogleGenerativeAiBaseUrl,t as resolveGoogleGenerativeAiHttpRequestConfig}from"../../http-request-BxdQWV4t.mjs";export{resolveGoogleGenerativeAiHttpRequestConfig,resolveTrustedGoogleGenerativeAiBaseUrl};

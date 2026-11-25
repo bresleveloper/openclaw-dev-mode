@@ -1,0 +1,2 @@
+//!src/commands/doctor/auth-migration-findings.ts
+function createAuthMigrationWarningRecorder(e,t,n){return(r,i,a,o,s=`fix-now`,c=`https://docs.openclaw.ai/cli/doctor/running#auth-migration-recovery`)=>{e.push(r);const l={checkId:`core/doctor/auth-migration/${i}`,severity:`warning`,category:s,message:r,fixHint:a,...o?{target:o}:{},docsUrl:c};t.push(l);n?.([l],[r])}}export{createAuthMigrationWarningRecorder as t};

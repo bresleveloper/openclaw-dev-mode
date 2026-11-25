@@ -1,2 +1,1 @@
-import { getPluginRuntimeGatewayRequestScope } from "openclaw/plugin-sdk/plugin-runtime";
-export { getPluginRuntimeGatewayRequestScope };
+export { getPluginRuntimeGatewayRequestScope } from "openclaw/plugin-sdk/plugin-runtime";

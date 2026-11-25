@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"Skills i arbetsytan","learned":"Inlärda Skills","builtIn":"Inbyggda Skills","installed":"Installerade Skills","extra":"Extra Skills","other":"Övriga Skills"}};

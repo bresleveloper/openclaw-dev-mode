@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function parseModelCatalogJson(e,t=!1){if(t)try{return JSON.parse(e)}catch{}let n=e.replace(/"(?:\\.|[^"\\])*"|\/\/[^\n]*/g,e=>e[0]===`"`?e:``).replace(/"(?:\\.|[^"\\])*"|,(\s*[}\]])/g,(e,t)=>t??(e[0]===`"`?e:``));return JSON.parse(n)}var t=e((()=>{}));export{parseModelCatalogJson as n,t};

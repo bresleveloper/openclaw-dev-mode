@@ -1,0 +1,3 @@
+import{t as durationUnitMs}from"./duration-units-B9L9QyBe.mjs";import{a as formatDurationParts}from"./format-duration-CDAHVcL7.mjs";
+//!src/infra/format-time/format-duration-exact.ts
+function resolveExactDurationParts(e,t=false){if(e==null||!Number.isFinite(e)||e<0)return;let n=BigInt(Math.round(e));const r=[];for(const e of[`week`,`day`,`hour`,`minute`,`second`,`millisecond`]){const i=n/BigInt(durationUnitMs[e]);if(i>0n&&(e!==`week`||t)){r.push({value:i,unit:e});n%=BigInt(durationUnitMs[e])}}return r.length?r:[{value:0,unit:`millisecond`}]}function formatExactDuration(e,t=`n/a`,n=false){const r=resolveExactDurationParts(e,n);return r?formatDurationParts(r):t}export{formatExactDuration as t};

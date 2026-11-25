@@ -1,0 +1,3 @@
+import{t as resolveSetupSecretInputString}from"./setup.secret-input-D_aL39qi.mjs";
+//!src/wizard/setup.finalize-gateway-auth.ts
+function gatewayAuthUsesLocalPassword(e){return e===`password`||e===`trusted-proxy`}async function resolveGatewayLocalPassword(e){return await resolveSetupSecretInputString({config:e.nextConfig,value:e.nextConfig.gateway?.auth?.password,path:`gateway.auth.password`,env:e.env})??e.env.OPENCLAW_GATEWAY_PASSWORD?.trim()??``}export{resolveGatewayLocalPassword as n,gatewayAuthUsesLocalPassword as t};

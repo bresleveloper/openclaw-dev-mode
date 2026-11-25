@@ -1,47 +1,6 @@
-import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-1VuiLaaR.mjs";
-import "../../string-coerce-runtime-BbIJhy7G.mjs";
-import { n as approveDevicePairing } from "../../device-pairing-approval-JMglc3pN.mjs";
-import "../../api-C3TksAj5.mjs";
-import { n as formatPendingRequests } from "../../notify-pEd9V2yv.mjs";
-//#region extensions/device-pair/pair-command-approve.ts
-function buildMultiplePendingApprovalReply(pending) {
-	return { text: `${formatPendingRequests(pending)}\n\nMultiple pending requests found. Approve one explicitly:
+import{l as normalizeOptionalString,o as normalizeLowercaseStringOrEmpty}from"../../string-coerce-CpTFcSwY.mjs";import"../../string-coerce-runtime-BYDH9Quw.mjs";import{n as approveDevicePairing}from"../../device-pairing-approval-Cuhmw8iP.mjs";import"../../api-BozIzBxk.mjs";import{n as formatPendingRequests}from"../../notify-CJLlN2aW.mjs";
+//!extensions/device-pair/pair-command-approve.ts
+function buildMultiplePendingApprovalReply(e){return{text:`${formatPendingRequests(e)}\n\nMultiple pending requests found. Approve one explicitly:
 /pair approve <requestId>
 Or approve the most recent:
-/pair approve latest` };
-}
-function selectPendingApprovalRequest(params) {
-	const [firstPending, ...remainingPending] = params.pending;
-	if (!firstPending) return { reply: { text: "No pending device pairing requests." } };
-	if (!params.requested) return remainingPending.length === 0 ? { pending: firstPending } : { reply: buildMultiplePendingApprovalReply(params.pending) };
-	if (normalizeLowercaseStringOrEmpty(params.requested) === "latest") {
-		let latest = firstPending;
-		for (const pending of remainingPending) if ((pending.ts ?? 0) > (latest.ts ?? 0)) latest = pending;
-		return { pending: latest };
-	}
-	return {
-		pending: params.pending.find((entry) => entry.requestId === params.requested),
-		reply: void 0
-	};
-}
-function formatApprovedPairingReply(approved) {
-	const label = normalizeOptionalString(approved.device.displayName) || approved.device.deviceId;
-	const platform = normalizeOptionalString(approved.device.platform);
-	return { text: `✅ Paired ${label}${platform ? ` (${platform})` : ""}.` };
-}
-async function approvePendingPairingRequest(params) {
-	const assertCurrent = params.assertCurrent;
-	const isApprovalCurrent = assertCurrent ? () => {
-		assertCurrent();
-		return true;
-	} : void 0;
-	const approved = params.callerScopes === void 0 && !isApprovalCurrent ? await approveDevicePairing(params.requestId) : await approveDevicePairing(params.requestId, {
-		callerScopes: params.callerScopes,
-		...isApprovalCurrent ? { isApprovalCurrent } : {}
-	});
-	if (!approved) return { text: "Pairing request not found." };
-	if (approved.status === "forbidden") return { text: `⚠️ This command requires ${approved.scope ?? approved.role ?? "additional approval"} to approve this pairing request.` };
-	return formatApprovedPairingReply(approved);
-}
-//#endregion
-export { approvePendingPairingRequest, selectPendingApprovalRequest };
+/pair approve latest`}}function selectPendingApprovalRequest(e){const[t,...n]=e.pending;if(!t)return{reply:{text:`No pending device pairing requests.`}};if(!e.requested)return n.length===0?{pending:t}:{reply:buildMultiplePendingApprovalReply(e.pending)};if(normalizeLowercaseStringOrEmpty(e.requested)===`latest`){let e=t;for(const t of n)if((t.ts??0)>(e.ts??0))e=t;return{pending:e}}return{pending:e.pending.find(t=>t.requestId===e.requested)}}function formatApprovedPairingReply(e){const t=normalizeOptionalString(e.device.displayName)||e.device.deviceId;const n=normalizeOptionalString(e.device.platform);return{text:`✅ Paired ${t}${n?` (${n})`:``}.`}}async function approvePendingPairingRequest(e){const t=e.assertCurrent;const n=t?()=>{t();return true}:void 0;const r=e.callerScopes===void 0&&!n?await approveDevicePairing(e.requestId):await approveDevicePairing(e.requestId,{callerScopes:e.callerScopes,...n?{isApprovalCurrent:n}:{}});if(!r)return{text:`Pairing request not found.`};if(r.status===`forbidden`)return{text:`⚠️ This command requires ${r.scope??r.role??`additional approval`} to approve this pairing request.`};return formatApprovedPairingReply(r)}export{approvePendingPairingRequest,selectPendingApprovalRequest};

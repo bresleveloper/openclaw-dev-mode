@@ -1,0 +1,1 @@
+import{i as e,n as t,r as n,t as r}from"./worker-chunk-DRi56vqm.mjs";r();export{t as inspectLegacyPluginSourceCaptureRoots,n as pruneLegacyPluginSourceCaptures,e as pruneUnreferencedPluginNativeCaptures};

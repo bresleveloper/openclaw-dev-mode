@@ -1,4 +1,4 @@
-import { a as inspectFaceTimeNativePackage, c as uninstallFaceTimeDriver, i as inspectFaceTimeArtifacts, l as resolveFaceTimeConfig, o as inspectFaceTimeDriver, t as runFaceTimeSetup, u as validateFaceTimeConfig } from "./.setup/setup-DMPG615Z.mjs";
+import { a as inspectFaceTimeArtifacts, d as validateFaceTimeConfig, l as uninstallFaceTimeDriver, o as inspectFaceTimeNativePackage, s as inspectFaceTimeDriver, t as runFaceTimeSetup, u as resolveFaceTimeConfig } from "./.setup/setup-ByISvnBj.mjs";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { ErrorCodes, errorShape } from "openclaw/plugin-sdk/gateway-runtime";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
@@ -6,21 +6,7 @@ import { asRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-co
 import { stringEnum } from "openclaw/plugin-sdk/channel-actions";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { Type } from "typebox";
-//#region extensions/facetime/src/runtime-lifecycle.ts
-async function stopRetainedRuntime(current, clearIfCurrent) {
-	if (!current) return;
-	let runtime;
-	try {
-		runtime = await current;
-	} catch (error) {
-		clearIfCurrent(current);
-		throw error;
-	}
-	await runtime.stop();
-	clearIfCurrent(current);
-}
-//#endregion
-//#region extensions/facetime/src/static-status.ts
+// extensions/facetime/src/static-status.ts
 async function inspectFaceTimeStaticStatus(params) {
 	const [artifacts, driver] = await Promise.all([inspectFaceTimeArtifacts(), inspectFaceTimeDriver(params).then((status) => ({ status }), (error) => ({ error: formatErrorMessage(error) }))]);
 	return {
@@ -34,8 +20,7 @@ async function inspectFaceTimeStaticStatus(params) {
 		note: "Static inspection only; helper, carrier, model media, and remote audibility were not activated or tested."
 	};
 }
-//#endregion
-//#region extensions/facetime/src/tool.ts
+// extensions/facetime/src/tool.ts
 const FaceTimeCallToolSchema = Type.Object({
 	action: stringEnum([
 		"get_status",
@@ -158,15 +143,12 @@ function createFaceTimeCallTool(params) {
 		}
 	};
 }
-//#endregion
-//#region extensions/facetime/index.ts
+// extensions/facetime/index.ts
 const faceTimePlugin = definePluginEntry({
 	id: "facetime",
 	name: "FaceTime",
 	description: "Experimental private FaceTime realtime voice carrier for OpenClaw agents",
-	configSchema: { parse(value) {
-		return resolveFaceTimeConfig(value);
-	} },
+	configSchema: { parse: resolveFaceTimeConfig },
 	register(api) {
 		const config = resolveFaceTimeConfig(api.pluginConfig);
 		const validation = validateFaceTimeConfig(config);
@@ -201,9 +183,12 @@ const faceTimePlugin = definePluginEntry({
 				runCommandWithTimeout: api.runtime.system.runCommandWithTimeout
 			});
 		};
-		const stopRuntime = () => stopRetainedRuntime(runtimePromise, (stopped) => {
-			if (runtimePromise === stopped) runtimePromise = void 0;
-		});
+		const stopRuntime = async () => {
+			const current = runtimePromise;
+			if (!current) return;
+			await (await current).stop();
+			if (runtimePromise === current) runtimePromise = void 0;
+		};
 		api.registerTool(() => createFaceTimeCallTool({
 			ensureRuntime,
 			getStatus
@@ -276,7 +261,7 @@ const faceTimePlugin = definePluginEntry({
 				});
 				return {
 					ok: true,
-					guidance: "Quit and reopen FaceTime and Phone before re-enabling this plugin."
+					guidance: "Quit and reopen FaceTime before re-enabling this plugin."
 				};
 			} finally {
 				uninstalling = false;
@@ -304,5 +289,4 @@ const faceTimePlugin = definePluginEntry({
 		});
 	}
 });
-//#endregion
 export { faceTimePlugin as default };

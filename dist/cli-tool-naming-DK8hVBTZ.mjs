@@ -1,0 +1,4 @@
+import{f as OPENCLAW_MCP_TOOL_PREFIX}from"./cli-constants-Cc2K557b.mjs";
+//!extensions/anthropic/cli-tool-naming.ts
+const CLAUDE_CLI_TOOL_NAMING_HEADING=`## OpenClaw tool names in Claude Code`;const CLAUDE_CLI_TOOL_NAMING_SECTION=[CLAUDE_CLI_TOOL_NAMING_HEADING,`OpenClaw MCP: \`${OPENCLAW_MCP_TOOL_PREFIX}<name>\`. Deferred: ToolSearch \`select:${OPENCLAW_MCP_TOOL_PREFIX}<name>\` first.`].join(`
+`);const CLAUDE_CLI_MESSAGE_TOOL_GUIDANCE=`Tool-only replies: \`${OPENCLAW_MCP_TOOL_PREFIX}message(action=send)\`. Native \`SendMessage\`/\`PushNotification\` cannot deliver OpenClaw replies.`;function appendClaudeCliToolNamingGuidance(e,t=[]){if(t.length===0||!e.trim()||e.includes(CLAUDE_CLI_TOOL_NAMING_HEADING))return e;const n=t.includes(`message`)?`\n${CLAUDE_CLI_MESSAGE_TOOL_GUIDANCE}`:``;return`${e}\n\n${CLAUDE_CLI_TOOL_NAMING_SECTION}${n}\n`}export{appendClaudeCliToolNamingGuidance as t};

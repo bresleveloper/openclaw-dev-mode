@@ -9,10 +9,7 @@ import { isRecord } from "../utils.js";
 import { GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA } from "./bundled-channel-config-metadata.generated.js";
 import type { ChannelDmPolicyMetadata } from "./channel-config-metadata.js";
 import type { ConfigValidationIssue, OpenClawConfig } from "./types.js";
-import {
-  type DmPolicyAllowFromViolation,
-  evaluateDmPolicyAllowFromDependency,
-} from "./zod-schema.core.js";
+import { evaluateDmPolicyAllowFromDependency } from "./zod-schema.core.js";
 
 const bundledChannelSchemaById = new Map<string, unknown>(
   GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA.filter((entry) => entry.configurable !== false).map(
@@ -25,60 +22,6 @@ export const bundledChannelIds = Object.freeze(
     .map((entry) => normalizeLowercaseStringOrEmpty(entry.channelId))
     .filter((channelId) => channelId.length > 0),
 );
-
-const bundledChannelIdSet = new Set(bundledChannelIds);
-const bundledChannelAliases = new Map<string, string>(
-  GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA.filter((entry) => entry.configurable !== false).flatMap(
-    (entry) => {
-      const channelId = normalizeLowercaseStringOrEmpty(entry.channelId);
-      if (!channelId) {
-        return [];
-      }
-      return (entry.aliases ?? [])
-        .map((alias) => [normalizeLowercaseStringOrEmpty(alias), channelId] as const)
-        .filter(([alias]) => alias.length > 0);
-    },
-  ),
-);
-
-export function normalizeBundledChannelId(raw?: string | null): string | null {
-  const normalized = normalizeLowercaseStringOrEmpty(raw);
-  if (!normalized) {
-    return null;
-  }
-  const resolved = bundledChannelAliases.get(normalized) ?? normalized;
-  return bundledChannelIdSet.has(resolved) ? resolved : null;
-}
-
-function buildDmPolicyDependencyWarning(params: {
-  channelId: string;
-  accountId?: string;
-  allowFromSource?: "explicit" | "inherited";
-  violation: DmPolicyAllowFromViolation;
-  nested?: boolean;
-}): ConfigValidationIssue {
-  const channelBase = `channels.${params.channelId}`;
-  const scope = params.accountId ? `${channelBase}.accounts.${params.accountId}` : channelBase;
-  const policyKey = params.nested ? "dm.policy" : "dmPolicy";
-  const allowFromKey = params.nested ? "dm.allowFrom" : "allowFrom";
-  const allowFromPath = `${scope}.${allowFromKey}`;
-  const channelAllowFromPath = `${channelBase}.${allowFromKey}`;
-  const policyPath = `${scope}.${policyKey}`;
-  const inherited = params.accountId && params.allowFromSource === "inherited";
-  const allowFromSubject = inherited
-    ? `${allowFromPath} is unset and ${channelAllowFromPath}`
-    : allowFromPath;
-  const accountInheritedTarget = inherited ? ` or ${channelAllowFromPath}` : "";
-  const accountOverrideFix =
-    params.accountId && !inherited
-      ? `, remove ${allowFromPath} to inherit ${channelAllowFromPath},`
-      : "";
-  const message =
-    params.violation === "open_requires_wildcard"
-      ? `${policyPath}="open" but ${allowFromSubject} does not include "*"; DMs from unlisted senders will be dropped. Add "*" to ${allowFromPath}${accountInheritedTarget}${accountOverrideFix} or set ${policyPath} to "pairing"/"allowlist".`
-      : `${policyPath}="allowlist" but ${allowFromSubject} is empty; all DMs will be dropped. Add at least one sender ID to ${allowFromPath}${accountInheritedTarget}${accountOverrideFix} or change ${policyPath}.`;
-  return { path: allowFromPath, message };
-}
 
 // Channel map keys that are not channels and must be skipped while scanning DM policy.
 const DM_POLICY_PSEUDO_CHANNEL_KEYS = new Set(["defaults", "modelByChannel", "tools"]);
@@ -133,6 +76,8 @@ export function collectChannelDmPolicyDependencyWarnings(
     const mode: ChannelDmAllowFromMode = metadata?.dmAllowFromMode ?? "topOnly";
     const openDmRequiresAllowFromWildcard = metadata?.openDmRequiresAllowFromWildcard !== false;
     const nested = mode === "nestedOnly";
+    const policyKey = nested ? "dm.policy" : "dmPolicy";
+    const allowFromKey = nested ? "dm.allowFrom" : "allowFrom";
     const appendWarning = (account: Record<string, unknown>, accountId?: string) => {
       const parent = accountId === undefined ? undefined : channelValue;
       const accountDm = isRecord(account.dm) ? account.dm : undefined;
@@ -155,20 +100,25 @@ export function collectChannelDmPolicyDependencyWarnings(
         violation &&
         (violation !== "open_requires_wildcard" || openDmRequiresAllowFromWildcard)
       ) {
-        warnings.push(
-          buildDmPolicyDependencyWarning({
-            channelId,
-            accountId,
-            allowFromSource:
-              accountId === undefined
-                ? undefined
-                : hasConfiguredDmAllowFrom(access.account)
-                  ? "explicit"
-                  : "inherited",
-            violation,
-            nested,
-          }),
-        );
+        const channelBase = `channels.${channelId}`;
+        const scope = accountId ? `${channelBase}.accounts.${accountId}` : channelBase;
+        const allowFromPath = `${scope}.${allowFromKey}`;
+        const channelAllowFromPath = `${channelBase}.${allowFromKey}`;
+        const policyPath = `${scope}.${policyKey}`;
+        const inherited = Boolean(accountId) && !hasConfiguredDmAllowFrom(access.account);
+        const allowFromSubject = inherited
+          ? `${allowFromPath} is unset and ${channelAllowFromPath}`
+          : allowFromPath;
+        const accountInheritedTarget = inherited ? ` or ${channelAllowFromPath}` : "";
+        const accountOverrideFix =
+          accountId && !inherited
+            ? `, remove ${allowFromPath} to inherit ${channelAllowFromPath},`
+            : "";
+        const message =
+          violation === "open_requires_wildcard"
+            ? `${policyPath}="open" but ${allowFromSubject} does not include "*"; DMs from unlisted senders will be dropped. Add "*" to ${allowFromPath}${accountInheritedTarget}${accountOverrideFix} or set ${policyPath} to "pairing"/"allowlist".`
+            : `${policyPath}="allowlist" but ${allowFromSubject} is empty; all DMs will be dropped. Add at least one sender ID to ${allowFromPath}${accountInheritedTarget}${accountOverrideFix} or change ${policyPath}.`;
+        warnings.push({ path: allowFromPath, message });
       }
     };
     appendWarning(channelValue);

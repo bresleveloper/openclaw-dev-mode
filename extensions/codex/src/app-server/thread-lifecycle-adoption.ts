@@ -8,7 +8,7 @@ import {
 } from "./auth-start-options.js";
 import { assertCodexSessionRuntimeOwnership } from "./binding-connection.js";
 import { isCodexAppServerLiveThreadClaimed } from "./client-runtime.js";
-import { resolveCodexAppServerClientInstanceId } from "./client.js";
+import { CODEX_THREAD_UNLOAD_CONFIRMATION_TIMEOUT_MS } from "./client-thread-closure.js";
 import { getCodexInferenceThread } from "./inference-routing.js";
 import { assertCodexThreadAcceptsDirectInput } from "./protocol-validators.js";
 import { isJsonObject, type CodexThread } from "./protocol.js";
@@ -159,7 +159,7 @@ export async function resumePendingCodexThread(
   const prebuiltPluginThreadConfig = params.pluginThreadConfig?.enabled
     ? await lifecycleTiming.measure("plugin-config-build", () => params.pluginThreadConfig?.build())
     : undefined;
-  const clientId = resolveCodexAppServerClientInstanceId(params.client);
+  const clientId = params.client.getInstanceId();
   const resumed = await resumeExistingCodexThread(params, {
     ...context,
     prebuiltPluginThreadConfig,
@@ -207,9 +207,6 @@ async function preparePendingCodexThreadResume(
     binding.preserveNativeModel === true
   ) {
     throw fail("configuration adoption requires an OpenClaw-owned local Codex home");
-  }
-  if (isCodexAppServerLiveThreadClaimed(params.client, binding.threadId)) {
-    throw fail("the thread is claimed by active work; stop that run before resuming");
   }
   const assertCurrent = captureCodexThreadResumeAuthority(params, binding, "native-process");
   assertCurrent();
@@ -276,7 +273,7 @@ export async function prepareCodexThreadResume(
   // Reuse the lifecycle read so a missing unused thread reaches its recovery owner.
   if (
     params.inferenceRoute &&
-    binding.clientId === resolveCodexAppServerClientInstanceId(params.client) &&
+    binding.clientId === params.client.getInstanceId() &&
     !getCodexInferenceThread(params.client, binding.threadId) &&
     thread.status?.type !== "notLoaded"
   ) {
@@ -310,13 +307,6 @@ function isCodexThreadNonRunning(
 ): status is Exclude<NonNullable<CodexThread["status"]>, { type: "active" }> {
   return status?.type === "idle" || status?.type === "notLoaded" || status?.type === "systemError";
 }
-
-/**
- * Codex emits thread/closed only after the unloaded thread's shutdown_and_wait finishes,
- * and treats shutdown as slow only after 10s (app-server thread_lifecycle.rs,
- * unload_thread_without_subscribers). Live teardown with MCP servers takes about 2s.
- */
-const CODEX_THREAD_UNLOAD_CONFIRMATION_TIMEOUT_MS = 10_000;
 
 function observeCodexThreadConfiguration(
   params: CodexStartOrResumeThreadParams,
@@ -353,6 +343,7 @@ function observeCodexThreadConfiguration(
     }
   });
   return {
+    model: thread.model,
     modelProvider: thread.modelProvider,
     dispose: () => {
       clearTimeout(timer);

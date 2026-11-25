@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"Bezig met: {context}","removeContext":"Werkcontext verwijderen","includeContext":"Werkcontext opnemen","selection":"Geselecteerde tekst","attachSelection":"Geselecteerde tekst bijvoegen","attachSelectionTooltip":"Selectie bijvoegen","removeSelection":"Geselecteerde tekst verwijderen"}};

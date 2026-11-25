@@ -1,3 +1,0 @@
-4
-# Real abort entrypoint preserves accepted trailing punctuation and rejects nontrailing punctuation within bounded time.
-# Source-backed release regression; no shared ceiling increase.

@@ -1,0 +1,5 @@
+import{d as isStringRecord}from"./record-coerce-BTbqdJ3-.mjs";
+//!src/transcripts/store-errors.ts
+var TranscriptsSummaryChangedError=class extends Error{constructor(){super(`Transcript changed while generating notes; summarize it again.`)}};var TranscriptSessionConflictError=class extends Error{constructor(){super(`Transcript session ID conflicts with another capture on this date; use a new ID.`);this.name=`TranscriptSessionConflictError`}};
+//!src/transcripts/store-export-state.ts
+function parseTranscriptExportManifest(e){const t=JSON.parse(e);if(!isStringRecord(t))throw new TypeError(`Invalid transcript export manifest: expected an object of strings.`);return t}function parseTranscriptPendingExports(e){const t=JSON.parse(e);if(!Array.isArray(t)||!t.every(e=>typeof e===`string`))throw new TypeError(`Invalid pending transcript exports: expected an array of strings.`);return new Set(t)}export{TranscriptsSummaryChangedError as i,parseTranscriptPendingExports as n,TranscriptSessionConflictError as r,parseTranscriptExportManifest as t};

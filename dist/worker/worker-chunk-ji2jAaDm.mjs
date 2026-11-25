@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function getChannelAgentToolMeta(e){return t.get(e)}function setChannelAgentToolMeta(e,n){t.set(e,n)}function copyChannelAgentToolMeta(e,n){let r=t.get(e);r&&t.set(n,r)}var t,n=e((()=>{t=/* @__PURE__ */ new WeakMap}));export{setChannelAgentToolMeta as i,getChannelAgentToolMeta as n,n as r,copyChannelAgentToolMeta as t};

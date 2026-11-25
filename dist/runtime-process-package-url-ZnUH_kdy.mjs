@@ -1,0 +1,3 @@
+import{i as isEmbeddedStandaloneModule}from"./cli-invocation-BV3XSgs8.mjs";import{n as runtimeProcessEntrypoints}from"./runtime-process-entrypoints-DkIke3sT.mjs";import fs from"node:fs";import{pathToFileURL}from"node:url";import path from"node:path";
+//!src/infra/runtime-process-package-url.ts
+function resolvePackageRuntimeProcessEntrypointUrl(e,t){const n=runtimeProcessEntrypoints[e];const r=path.join(t,`dist`,n.distWorkerPath);if(isEmbeddedStandaloneModule(r)||fs.existsSync(r))return pathToFileURL(r);const i=path.join(t,n.sourceModulePath);if(fs.existsSync(i))return pathToFileURL(i);throw new Error(`Runtime process entry ${e} is missing under ${t}`)}export{resolvePackageRuntimeProcessEntrypointUrl as t};

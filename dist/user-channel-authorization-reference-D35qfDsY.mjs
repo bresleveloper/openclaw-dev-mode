@@ -1,0 +1,3 @@
+import{lr as uuid,or as union,qn as strictObject,xn as literal}from"./schemas-DuCQi-Qb.mjs";
+//!src/state/user-channel-authorization-reference.ts
+const userChannelAuthorizationReferenceSchema=strictObject({version:literal(1),id:uuid()});const commandReferenceSchema=union([userChannelAuthorizationReferenceSchema,userChannelAuthorizationReferenceSchema.extend({version:literal(2)})]);function parseCommandOwnerReference(e){return commandReferenceSchema.safeParse(e).data}function parseUserChannelAuthorizationReference(e){return userChannelAuthorizationReferenceSchema.safeParse(e).data}export{parseUserChannelAuthorizationReference as n,userChannelAuthorizationReferenceSchema as r,parseCommandOwnerReference as t};

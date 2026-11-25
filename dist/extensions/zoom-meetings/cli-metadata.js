@@ -1,5 +1,5 @@
 import { getRootOptionAwareCommandPath } from "openclaw/plugin-sdk/cli-argv";
-//#region extensions/zoom-meetings/cli-metadata.ts
+// extensions/zoom-meetings/cli-metadata.ts
 const descriptor = {
 	name: "zoommeetings",
 	description: "Join and manage Zoom meeting guests",
@@ -15,5 +15,4 @@ const ZOOM_MEETINGS_CLI_METADATA = {
 		api.registerCli(() => {}, { descriptors: [descriptor] });
 	}
 };
-//#endregion
 export { ZOOM_MEETINGS_CLI_METADATA, ZOOM_MEETINGS_CLI_METADATA as default };

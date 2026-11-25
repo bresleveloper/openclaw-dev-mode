@@ -1,48 +1,54 @@
-import { DEEPINFRA_BASE_URL } from "./media-models.js";
-import { DEFAULT_DEEPINFRA_EMBEDDING_MODEL, createDeepInfraEmbeddingProvider } from "./embedding-provider.js";
-import { embeddingProviderOwnsDestination, sanitizeEmbeddingCacheHeaders } from "openclaw/plugin-sdk/memory-core-host-engine-embeddings";
-//#region extensions/deepinfra/embedding-adapter.ts
+import { DEEPINFRA_BASE_URL, DEEPINFRA_EMBED_FALLBACK_MODELS, normalizeDeepInfraModelRef } from "./media-models.js";
+import { createRemoteEmbeddingProvider, embeddingProviderOwnsDestination, resolveRemoteEmbeddingClient, sanitizeEmbeddingCacheHeaders } from "openclaw/plugin-sdk/memory-core-host-engine-embeddings";
+// extensions/deepinfra/embedding-adapter.ts
+const DEFAULT_DEEPINFRA_EMBEDDING_MODEL = DEEPINFRA_EMBED_FALLBACK_MODELS[0];
 const EXCLUDED_EMBEDDING_HEADERS = [
 	"authorization",
 	"content-type",
 	"x-api-key",
 	"api-key"
 ];
-function buildDeepInfraEmbeddingAdapter(options) {
-	const defaultModel = options?.embedModels?.[0]?.id ?? DEFAULT_DEEPINFRA_EMBEDDING_MODEL;
-	return {
-		id: "deepinfra",
-		defaultModel,
-		transport: "remote",
-		authProviderId: "deepinfra",
-		create: async (createOptions) => {
-			const { provider, client } = await createDeepInfraEmbeddingProvider({
+const deepinfraEmbeddingProviderAdapter = {
+	id: "deepinfra",
+	defaultModel: DEFAULT_DEEPINFRA_EMBEDDING_MODEL,
+	transport: "remote",
+	authProviderId: "deepinfra",
+	create: async (createOptions) => {
+		const client = await resolveRemoteEmbeddingClient({
+			provider: "deepinfra",
+			options: {
 				...createOptions,
 				provider: "deepinfra",
-				defaultModel
-			});
-			const headers = sanitizeEmbeddingCacheHeaders(client.headers, EXCLUDED_EMBEDDING_HEADERS);
-			const usesDefaultIdentity = headers.length === 0 && embeddingProviderOwnsDestination({
-				baseUrl: client.baseUrl,
-				providerBaseUrl: DEEPINFRA_BASE_URL
-			});
-			return {
-				provider,
-				runtime: {
-					id: "deepinfra",
-					cacheKeyData: {
-						provider: "deepinfra",
-						model: client.model,
-						...usesDefaultIdentity ? {} : {
-							baseUrl: client.baseUrl,
-							headers
-						}
+				model: normalizeDeepInfraModelRef(createOptions.model, DEFAULT_DEEPINFRA_EMBEDDING_MODEL)
+			},
+			defaultBaseUrl: DEEPINFRA_BASE_URL,
+			normalizeModel: (model) => normalizeDeepInfraModelRef(model, DEFAULT_DEEPINFRA_EMBEDDING_MODEL)
+		});
+		const provider = createRemoteEmbeddingProvider({
+			id: "deepinfra",
+			client,
+			errorPrefix: "DeepInfra embeddings API error",
+			batchQueryInputs: true
+		});
+		const headers = sanitizeEmbeddingCacheHeaders(client.headers, EXCLUDED_EMBEDDING_HEADERS);
+		const usesDefaultIdentity = headers.length === 0 && embeddingProviderOwnsDestination({
+			baseUrl: client.baseUrl,
+			providerBaseUrl: DEEPINFRA_BASE_URL
+		});
+		return {
+			provider,
+			runtime: {
+				id: "deepinfra",
+				cacheKeyData: {
+					provider: "deepinfra",
+					model: client.model,
+					...usesDefaultIdentity ? {} : {
+						baseUrl: client.baseUrl,
+						headers
 					}
 				}
-			};
-		}
-	};
-}
-const deepinfraEmbeddingProviderAdapter = buildDeepInfraEmbeddingAdapter();
-//#endregion
-export { buildDeepInfraEmbeddingAdapter, deepinfraEmbeddingProviderAdapter };
+			}
+		};
+	}
+};
+export { deepinfraEmbeddingProviderAdapter };

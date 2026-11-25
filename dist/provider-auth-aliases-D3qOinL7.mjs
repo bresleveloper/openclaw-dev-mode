@@ -1,0 +1,1 @@
+import{i as resolveProviderIdForAuth,n as hasUnresolvedProviderAuthEndpoint,r as resolveProviderAuthAliasMap,t as couldResolveProviderIdForAuth}from"./provider-auth-aliases-t2zQWbu1.mjs";export{couldResolveProviderIdForAuth,hasUnresolvedProviderAuthEndpoint,resolveProviderAuthAliasMap,resolveProviderIdForAuth};

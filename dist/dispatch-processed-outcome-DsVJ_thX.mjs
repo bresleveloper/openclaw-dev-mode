@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";import{AsyncLocalStorage}from"node:async_hooks";
+//!src/auto-reply/reply/dispatch-processed-outcome.ts
+const dispatchProcessedOutcomeSink=resolveGlobalSingleton(Symbol.for(`openclaw.dispatchProcessedOutcomeSink`),()=>new AsyncLocalStorage);async function withDispatchProcessedOutcomeSink(e){const t={};return{result:await dispatchProcessedOutcomeSink.run(t,e),processedOutcome:t.current}}function noteDispatchProcessedOutcome(e){const t=dispatchProcessedOutcomeSink.getStore();if(t)t.current=e}export{withDispatchProcessedOutcomeSink as n,noteDispatchProcessedOutcome as t};

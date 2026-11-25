@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function assertionSucceeds(e){try{return e(),!0}catch{return!1}}var t=e((()=>{}));export{t as n,assertionSucceeds as t};

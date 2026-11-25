@@ -1,0 +1,2 @@
+//!src/agents/embedded-agent-runner/run/session-context-limits.ts
+function resolveEmbeddedSessionContextLimits(e){return{maxBytes:16777216,maxEvents:1e4,...e.operation===`settled-tool-finalization`?{toolResultOverflow:`omit`}:{}}}export{resolveEmbeddedSessionContextLimits as t};

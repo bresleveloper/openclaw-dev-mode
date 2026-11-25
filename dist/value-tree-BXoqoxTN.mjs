@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";
+//!src/config/value-tree.ts
+function visitConfigValueTree(e,t,n=[]){const r=[...n];const i=[{kind:`visit`,value:e}];while(i.length>0){const e=i.pop();if(e.kind===`leave`){r.pop();continue}if(e.key!==void 0){r.push(e.key);i.push({kind:`leave`})}if(!t(e.value,r))continue;const n=Array.isArray(e.value)||isRecord(e.value)?Object.entries(e.value):[];for(let e=n.length-1;e>=0;e-=1){const[t,r]=n[e];i.push({kind:`visit`,key:t,value:r})}}}function rejectConfigNonFiniteNumbers(e){visitConfigValueTree(e,e=>{if(typeof e===`number`){if(!Number.isFinite(e))throw new Error(`Value must be a finite number, got ${String(e)}`)}return true})}export{visitConfigValueTree as n,rejectConfigNonFiniteNumbers as t};

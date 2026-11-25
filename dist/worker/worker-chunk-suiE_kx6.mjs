@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function detectNodeClaudePlacement(e){if(e.backendId===`claude-cli`&&e.execHost===`node`&&!e.execNode?.trim())throw Error(`node-placed Claude CLI session is missing execNode`);return e.backendId===`claude-cli`&&e.execHost===`node`&&!!e.execNode?.trim()}var t=e((()=>{}));export{t as n,detectNodeClaudePlacement as t};

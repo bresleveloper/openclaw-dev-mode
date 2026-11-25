@@ -1,0 +1,3 @@
+import{t as createPluginRuntimeProcessEntrypoint}from"./runtime-process-manifest-BJ6oKIvE.mjs";import"./process-runtime-DW4VP5wa.mjs";
+//!extensions/memory-core/src/memory/manager-cpu-entrypoints.ts
+const memoryCpuProcessEntrypoints={search:createPluginRuntimeProcessEntrypoint(`memorySearch`,import.meta.url),index:createPluginRuntimeProcessEntrypoint(`memoryIndex`,import.meta.url),publication:createPluginRuntimeProcessEntrypoint(`memoryPublication`,import.meta.url),standingIntents:createPluginRuntimeProcessEntrypoint(`memoryStandingIntents`,import.meta.url),entryOrigins:createPluginRuntimeProcessEntrypoint(`memoryEntryOrigins`,import.meta.url)};export{memoryCpuProcessEntrypoints as t};

@@ -1,4 +1,3 @@
-//#region src/plugin-sdk/widget-html.d.ts
 /** Public static assets available to widget documents; never a connect-src grant. */
 export declare const WIDGET_CDN_ORIGINS: readonly string[];
 /** Input error surfaced by tools that accept agent-supplied widget HTML. */
@@ -12,4 +11,3 @@ export declare function assertWidgetHtmlSize(html: string, maxSize: number, opti
   inputName?: string;
   unit?: "bytes" | "characters";
 }): void;
-//#endregion

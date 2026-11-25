@@ -1,2 +1,1 @@
-import { t as resolveFeishuSessionConversation } from "./.setup/session-conversation-BSBNK5Mq.mjs";
-export { resolveFeishuSessionConversation as resolveSessionConversation };
+export { t as resolveSessionConversation } from "./.setup/session-conversation-DLgXP0-H.mjs";

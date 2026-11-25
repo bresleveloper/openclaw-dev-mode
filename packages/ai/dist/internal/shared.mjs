@@ -1,100 +1,11 @@
-import { s as readAssistantThinkingAppend } from "../event-stream-X2gmsUWv.mjs";
-import { M as hasMediaPayload, N as isImageWithMediaPayload, c as transformMessages, d as hasOnlyAssistantReasoningContent, f as isReasoningOnlyLengthAssistantTurn, l as FAILED_ASSISTANT_REPLAY_TEXT, m as resolveFailedAssistantReplay, p as isStreamErrorFallbackContent, u as STREAM_ERROR_FALLBACK_TEXT } from "../host-CWt55nnF.mjs";
-import { i as isCredentialFieldName, n as projectProviderError, r as createDiagnosticRecord } from "../provider-error-qtZD2inE.mjs";
-import { t as sanitizeSurrogates } from "../sanitize-unicode-CRGuMONI.mjs";
-import { n as normalizeStructuredPromptSection, r as sortPromptCacheToolsByName, t as normalizePromptCapabilityIds } from "../prompt-cache-stability-D_MeCQFI.mjs";
-import { C as splitSystemPromptRelocatableBoundary, S as splitSystemPromptCacheBoundary, T as stripSystemPromptRelocatableBoundary, _ as SYSTEM_PROMPT_CACHE_BOUNDARY, b as ensureSystemPromptCacheBoundary, c as serializeModelRequestBody, d as extractToolResultBlockText, f as extractToolResultText, h as preparedRequestSuffix, i as clampReasoning, l as describeToolResultMediaPlaceholder, n as buildBaseOptions, p as formatToolResultText, r as clampMaxTokensToModel, t as adjustMaxTokensForThinking, u as describeUnsupportedToolResultMedia, v as SYSTEM_PROMPT_RELOCATABLE_BOUNDARY, w as stripSystemPromptCacheBoundary, x as prependSystemPromptAdditionAfterCacheBoundary, y as SYSTEM_PROMPT_RELOCATABLE_BOUNDARY_END } from "../simple-options-xJkqrG_E.mjs";
-import { t as projectCopilotRequestFacts } from "../github-copilot-request-facts-F-EmvkpW.mjs";
-import { n as matchesContextOverflowMessage } from "../overflow-OF3PgPbw.mjs";
-//#region packages/ai/src/utils/tls-certificate-errors.ts
-const HOSTNAME_MISMATCH_CODES = /* @__PURE__ */ new Set(["ERR_TLS_CERT_ALTNAME_INVALID", "HOSTNAME_MISMATCH"]);
-const CERTIFICATE_INVALID_CODES = /* @__PURE__ */ new Set([
-	"CERT_CHAIN_TOO_LONG",
-	"CERT_HAS_EXPIRED",
-	"CERT_NOT_YET_VALID",
-	"CERT_REJECTED",
-	"CERT_REVOKED",
-	"CERT_SIGNATURE_FAILURE",
-	"CERT_UNTRUSTED",
-	"CRL_HAS_EXPIRED",
-	"CRL_NOT_YET_VALID",
-	"CRL_SIGNATURE_FAILURE",
-	"DEPTH_ZERO_SELF_SIGNED_CERT",
-	"ERROR_IN_CERT_NOT_AFTER_FIELD",
-	"ERROR_IN_CERT_NOT_BEFORE_FIELD",
-	"ERROR_IN_CRL_LAST_UPDATE_FIELD",
-	"ERROR_IN_CRL_NEXT_UPDATE_FIELD",
-	"INVALID_CA",
-	"INVALID_PURPOSE",
-	"PATH_LENGTH_EXCEEDED",
-	"SELF_SIGNED_CERT_IN_CHAIN",
-	"UNABLE_TO_DECODE_ISSUER_PUBLIC_KEY",
-	"UNABLE_TO_DECRYPT_CERT_SIGNATURE",
-	"UNABLE_TO_DECRYPT_CRL_SIGNATURE",
-	"UNABLE_TO_GET_CRL",
-	"UNABLE_TO_GET_ISSUER_CERT",
-	"UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
-	"UNABLE_TO_VERIFY_LEAF_SIGNATURE"
-]);
-const HOSTNAME_MISMATCH_PATTERNS = [
-	/hostname\/ip does not match certificate(?:'s)? altnames/i,
-	/hostname mismatch/i,
-	/host: .+ is not in the cert(?:ificate)?(?:'s)? altnames/i
-];
-const CERTIFICATE_INVALID_PATTERNS = [
-	/certificate has expired/i,
-	/certificate is not yet valid/i,
-	/self[- ]signed certificate/i,
-	/unable to get local issuer certificate/i,
-	/unable to verify the first certificate/i
-];
-const MAX_TLS_ERROR_DEPTH = 8;
-function classifyCode(code) {
-	if (HOSTNAME_MISMATCH_CODES.has(code)) return "hostname_mismatch";
-	return CERTIFICATE_INVALID_CODES.has(code) ? "certificate_invalid" : null;
-}
-function classifyMessage(message) {
-	if (HOSTNAME_MISMATCH_PATTERNS.some((pattern) => pattern.test(message))) return "hostname_mismatch";
-	return CERTIFICATE_INVALID_PATTERNS.some((pattern) => pattern.test(message)) ? "certificate_invalid" : null;
-}
-function inspectTlsCertificateErrorInternal(error, seen, depth) {
-	if (depth > MAX_TLS_ERROR_DEPTH) return null;
-	if (typeof error === "string") {
-		const kind = classifyMessage(error);
-		return kind ? {
-			kind,
-			message: error
-		} : null;
-	}
-	if (!error || typeof error !== "object" || seen.has(error)) return null;
-	seen.add(error);
-	const candidate = error;
-	const code = typeof candidate.code === "string" ? candidate.code.trim().toUpperCase() : void 0;
-	const message = typeof candidate.message === "string" && candidate.message.trim() ? candidate.message : void 0;
-	const codeKind = code ? classifyCode(code) : null;
-	if (code && codeKind) return {
-		kind: codeKind,
-		code,
-		message: message ?? code
-	};
-	const nestedErrors = Array.isArray(candidate.errors) ? candidate.errors : [];
-	for (const nested of [
-		candidate.cause,
-		candidate.error,
-		...nestedErrors
-	]) {
-		const details = inspectTlsCertificateErrorInternal(nested, seen, depth + 1);
-		if (details) return details;
-	}
-	const messageKind = message ? classifyMessage(message) : null;
-	return messageKind && message ? {
-		kind: messageKind,
-		message
-	} : null;
-}
-/** Classify deterministic Node/OpenSSL certificate validation failures. */
-function inspectTlsCertificateError(error) {
-	return inspectTlsCertificateErrorInternal(error, /* @__PURE__ */ new Set(), 0);
-}
-//#endregion
-export { FAILED_ASSISTANT_REPLAY_TEXT, STREAM_ERROR_FALLBACK_TEXT, SYSTEM_PROMPT_CACHE_BOUNDARY, SYSTEM_PROMPT_RELOCATABLE_BOUNDARY, SYSTEM_PROMPT_RELOCATABLE_BOUNDARY_END, adjustMaxTokensForThinking, buildBaseOptions, clampMaxTokensToModel, clampReasoning, createDiagnosticRecord, describeToolResultMediaPlaceholder, describeUnsupportedToolResultMedia, ensureSystemPromptCacheBoundary, extractToolResultBlockText, extractToolResultText, formatToolResultText, hasMediaPayload, hasOnlyAssistantReasoningContent, inspectTlsCertificateError, isCredentialFieldName, isImageWithMediaPayload, isReasoningOnlyLengthAssistantTurn, isStreamErrorFallbackContent, matchesContextOverflowMessage, normalizePromptCapabilityIds, normalizeStructuredPromptSection, preparedRequestSuffix, prependSystemPromptAdditionAfterCacheBoundary, projectCopilotRequestFacts, projectProviderError, readAssistantThinkingAppend, resolveFailedAssistantReplay, sanitizeSurrogates, serializeModelRequestBody, sortPromptCacheToolsByName, splitSystemPromptCacheBoundary, splitSystemPromptRelocatableBoundary, stripSystemPromptCacheBoundary, stripSystemPromptRelocatableBoundary, transformMessages };
+import { s as readAssistantThinkingAppend } from "../event-stream-Bf6cK7-d.mjs";
+import { I as hasMediaPayload, L as isImageWithMediaPayload, c as transformMessages, d as hasOnlyAssistantReasoningContent, f as isReasoningOnlyLengthAssistantTurn, l as FAILED_ASSISTANT_REPLAY_TEXT, m as resolveFailedAssistantReplay, p as isStreamErrorFallbackContent, u as STREAM_ERROR_FALLBACK_TEXT } from "../host-Dm4e6L6R.mjs";
+import { i as isCredentialFieldName, n as projectProviderError, o as projectPreparedDiagnosticValue } from "../provider-error-B7aKA_dg.mjs";
+import { t as sanitizeSurrogates } from "../sanitize-unicode-B3kUqQ-q.mjs";
+import { n as normalizeStructuredPromptSection, r as sortPromptCacheToolsByName, t as normalizePromptCapabilityIds } from "../prompt-cache-stability-oTx0nIsh.mjs";
+import { C as splitSystemPromptRelocatableBoundary, S as splitSystemPromptCacheBoundaryForWire, T as stripSystemPromptRelocatableBoundary, _ as createSystemPromptCacheBoundaryStripper, a as describeToolResultMediaPlaceholder, b as prependSystemPromptAdditionAfterCacheBoundary, c as extractToolResultText, f as preparedRequestSuffix, g as SYSTEM_PROMPT_RELOCATABLE_BOUNDARY_END, h as SYSTEM_PROMPT_RELOCATABLE_BOUNDARY, i as clampReasoning, l as formatToolResultText, m as SYSTEM_PROMPT_CACHE_BOUNDARY, n as buildBaseOptions, o as describeUnsupportedToolResultMedia, r as clampMaxTokensToModel, s as extractToolResultBlockText, t as adjustMaxTokensForThinking, v as ensureSystemPromptCacheBoundary, w as stripSystemPromptCacheBoundary, x as splitSystemPromptCacheBoundary, y as prepareSystemPrompt } from "../simple-options-Bet1Zroc.mjs";
+import { p as iterateSseFrames } from "../transport-stream-shared-DPUASGj0.mjs";
+import { serializeModelRequestBody } from "./model-request-body.mjs";
+import { t as projectCopilotRequestFacts } from "../github-copilot-request-facts-BxuLEdNF.mjs";
+import { n as matchesContextOverflowMessage } from "../overflow-CM0yZomw.mjs";
+export { FAILED_ASSISTANT_REPLAY_TEXT, STREAM_ERROR_FALLBACK_TEXT, SYSTEM_PROMPT_CACHE_BOUNDARY, SYSTEM_PROMPT_RELOCATABLE_BOUNDARY, SYSTEM_PROMPT_RELOCATABLE_BOUNDARY_END, adjustMaxTokensForThinking, buildBaseOptions, clampMaxTokensToModel, clampReasoning, createSystemPromptCacheBoundaryStripper, describeToolResultMediaPlaceholder, describeUnsupportedToolResultMedia, ensureSystemPromptCacheBoundary, extractToolResultBlockText, extractToolResultText, formatToolResultText, hasMediaPayload, hasOnlyAssistantReasoningContent, isCredentialFieldName, isImageWithMediaPayload, isReasoningOnlyLengthAssistantTurn, isStreamErrorFallbackContent, iterateSseFrames, matchesContextOverflowMessage, normalizePromptCapabilityIds, normalizeStructuredPromptSection, prepareSystemPrompt, preparedRequestSuffix, prependSystemPromptAdditionAfterCacheBoundary, projectCopilotRequestFacts, projectPreparedDiagnosticValue, projectProviderError, readAssistantThinkingAppend, resolveFailedAssistantReplay, sanitizeSurrogates, serializeModelRequestBody, sortPromptCacheToolsByName, splitSystemPromptCacheBoundary, splitSystemPromptCacheBoundaryForWire, splitSystemPromptRelocatableBoundary, stripSystemPromptCacheBoundary, stripSystemPromptRelocatableBoundary, transformMessages };

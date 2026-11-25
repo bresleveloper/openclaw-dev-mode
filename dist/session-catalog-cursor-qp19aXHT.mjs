@@ -1,0 +1,2 @@
+//!extensions/anthropic/session-catalog-cursor.ts
+const CLAUDE_SESSION_CURSOR_MAX_LENGTH=256;function isExactClaudeSessionCursor(e){return typeof e===`string`&&e.length>0&&e.length<=CLAUDE_SESSION_CURSOR_MAX_LENGTH&&e===e.trim()}export{isExactClaudeSessionCursor as t};

@@ -1,0 +1,5 @@
+import{n as sha256Hex}from"./node-crypto-DPk8agfR.mjs";
+//!src/config/sessions/conversation-delivery-store.types.ts
+var ConversationDeliveryInputError=class extends Error{constructor(...e){super(...e);this.name=`ConversationDeliveryInputError`}};var ConversationDeliveryMissingError=class extends Error{constructor(...e){super(...e);this.name=`ConversationDeliveryMissingError`}};
+//!src/config/sessions/conversation-delivery-policy.ts
+function normalizeConversationDeliveryOperationId(e){const t=e.trim();if(!t)throw new Error(`Conversation delivery operation id is required`);return t}function assertConversationDeliveryInput(e,t,n=sha256Hex(t.message)){if(e.conversationRef!==t.conversationRef||e.operationKind!==t.operationKind||e.sourceSessionKey!==(t.sourceSessionKey?.trim()||void 0)||e.messageHash!==n)throw new ConversationDeliveryInputError(`Conversation delivery operation was reused with different input: ${e.operationId}`)}export{ConversationDeliveryMissingError as i,normalizeConversationDeliveryOperationId as n,ConversationDeliveryInputError as r,assertConversationDeliveryInput as t};

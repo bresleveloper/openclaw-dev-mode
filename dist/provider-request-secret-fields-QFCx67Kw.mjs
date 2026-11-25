@@ -1,0 +1,2 @@
+//!src/secrets/provider-request-secret-fields.ts
+const TLS_SECRET_FIELDS=[`ca`,`cert`,`key`,`passphrase`];const PROVIDER_REQUEST_SECRET_FIELD_GROUPS=[{path:[`headers`],fields:`*`,registryOrder:0},{path:[`auth`],fields:[`token`,`value`],registryOrder:1},{path:[`tls`],fields:TLS_SECRET_FIELDS,registryOrder:3},{path:[`proxy`,`tls`],fields:TLS_SECRET_FIELDS,registryOrder:2}];export{TLS_SECRET_FIELDS as n,PROVIDER_REQUEST_SECRET_FIELD_GROUPS as t};

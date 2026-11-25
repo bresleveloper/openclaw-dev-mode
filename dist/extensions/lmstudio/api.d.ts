@@ -1,12 +1,10 @@
-import { M as OpenClawConfig, U as ModelProviderDeclarationConfig } from "../../types-D7I_F5Ux.js";
-import { Bh as ProviderAppGuidedSetupContext, Nh as ProviderCatalogContext, Ph as ProviderCatalogResult, Uh as ProviderAuthMethodNonInteractiveContext, WT as SecretInputMode, Wh as ProviderAuthResult, ch as ProviderPrepareDynamicModelContext, ik as WizardPrompter } from "../../config-contracts-CY87ANNp.js";
-import "../../provider-auth-ehEGHUKK.js";
-import { g as ProviderRuntimeModel } from "../../model-selection-DoE_lu2k.js";
-import "../../provider-model-shared-uYxY__EE.js";
-import { A as LMSTUDIO_PROVIDER_LABEL, C as LMSTUDIO_DEFAULT_LOAD_CONTEXT_LENGTH, D as LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER, E as LMSTUDIO_DOCKER_HOST_INFERENCE_BASE_URL, O as LMSTUDIO_MODEL_PLACEHOLDER, S as LMSTUDIO_DEFAULT_INFERENCE_BASE_URL, T as LMSTUDIO_DOCKER_HOST_BASE_URL, _ as resolveLmstudioServerBase, a as resolveLmstudioRuntimeApiKey, b as LMSTUDIO_DEFAULT_BASE_URL, c as buildLmstudioModelName, d as normalizeLmstudioConfiguredCatalogEntries, f as normalizeLmstudioConfiguredCatalogEntry, g as resolveLmstudioReasoningCompat, h as resolveLmstudioReasoningCapability, i as resolveLmstudioRequestContext, k as LMSTUDIO_PROVIDER_ID, l as mapLmstudioWireEntry, m as resolveLmstudioInferenceBase, n as resolveLmstudioConfiguredApiKey, o as LmstudioModelBase, p as normalizeLmstudioProviderConfig, r as resolveLmstudioProviderHeaders, s as LmstudioModelWire, t as buildLmstudioAuthHeaders, u as mapLmstudioWireModelsToConfig, v as resolveLoadedContextWindow, w as LMSTUDIO_DEFAULT_MODEL_ID, x as LMSTUDIO_DEFAULT_EMBEDDING_MODEL, y as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR } from "../../runtime-BXt7CKMi.js";
-import "../../setup-BgdlpmI-.js";
-import "../../provider-catalog-shared-uyXHwNom.js";
-//#region extensions/lmstudio/src/setup-prompts.d.ts
+import { Hx as ProviderPrepareDynamicModelContext, Qx as ProviderRuntimeModel, _A as WizardPrompter, aS as ProviderAuthResult, cS as SecretInputMode, iS as ProviderAuthMethodNonInteractiveContext, ix as ProviderCatalogResult, rx as ProviderCatalogContext, tS as ProviderAppGuidedSetupContext } from "../../config-contracts-hzlacViZ.js";
+import { p as ModelProviderDeclarationConfig, r as OpenClawConfig } from "../../types.openclaw-D8uW-XQA.js";
+import "../../provider-auth-QzauSf-u.js";
+import "../../provider-model-shared-OQQj5XdR.js";
+import { C as LMSTUDIO_DEFAULT_MODEL_ID, D as LMSTUDIO_MODEL_PLACEHOLDER, E as LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER, O as LMSTUDIO_PROVIDER_ID, S as LMSTUDIO_DEFAULT_LOAD_CONTEXT_LENGTH, T as LMSTUDIO_DOCKER_HOST_INFERENCE_BASE_URL, _ as resolveLoadedContextWindow, a as resolveLmstudioRuntimeApiKey, b as LMSTUDIO_DEFAULT_EMBEDDING_MODEL, c as buildLmstudioModelName, d as normalizeLmstudioConfiguredCatalogEntries, f as normalizeLmstudioProviderConfig, g as resolveLmstudioServerBase, h as resolveLmstudioReasoningCompat, i as resolveLmstudioRequestContext, k as LMSTUDIO_PROVIDER_LABEL, l as mapLmstudioWireEntry, m as resolveLmstudioReasoningCapability, n as resolveLmstudioConfiguredApiKey, o as LmstudioModelBase, p as resolveLmstudioInferenceBase, r as resolveLmstudioProviderHeaders, s as LmstudioModelWire, t as buildLmstudioAuthHeaders, u as mapLmstudioWireModelsToConfig, v as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, w as LMSTUDIO_DOCKER_HOST_BASE_URL, x as LMSTUDIO_DEFAULT_INFERENCE_BASE_URL, y as LMSTUDIO_DEFAULT_BASE_URL } from "../../runtime-DlEKNbPE.js";
+import "../../setup-Bk0qGrve.js";
+import "../../provider-catalog-shared-B0h2-zRI.js";
 type ProviderPromptText = (params: {
   message: string;
   initialValue?: string;
@@ -14,8 +12,6 @@ type ProviderPromptText = (params: {
   validate?: (value: string | undefined) => string | undefined;
 }) => Promise<string | undefined>;
 type ProviderPromptNote = (message: string, title?: string) => Promise<void> | void;
-//#endregion
-//#region extensions/lmstudio/src/catalog.d.ts
 /** Acquires live inventory for the registered catalog; public helper calls stay advisory. */
 export declare function discoverLmstudioProvider(ctx: ProviderCatalogContext): Promise<{
   provider: ModelProviderDeclarationConfig;
@@ -23,8 +19,6 @@ export declare function discoverLmstudioProvider(ctx: ProviderCatalogContext): P
 export declare function discoverLmstudioProvider(ctx: ProviderCatalogContext, options: {
   discoveryMode: "strict";
 }): Promise<ProviderCatalogResult>;
-//#endregion
-//#region extensions/lmstudio/src/setup.d.ts
 /** Read-only local discovery plus a success-gated config proposal for guided setup. */
 export declare function prepareAppGuidedLmstudioSetup(ctx: ProviderAppGuidedSetupContext & {
   modelRef?: string;
@@ -49,5 +43,4 @@ export declare function promptAndConfigureLmstudioInteractive(params: {
 /** Non-interactive setup path backed by the shared self-hosted helper. */
 export declare function configureLmstudioNonInteractive(ctx: ProviderAuthMethodNonInteractiveContext): Promise<OpenClawConfig | null>;
 export declare function prepareLmstudioDynamicModel(ctx: ProviderPrepareDynamicModelContext): Promise<ProviderRuntimeModel | undefined>;
-//#endregion
-export { LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, LMSTUDIO_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_EMBEDDING_MODEL, LMSTUDIO_DEFAULT_INFERENCE_BASE_URL, LMSTUDIO_DEFAULT_LOAD_CONTEXT_LENGTH, LMSTUDIO_DEFAULT_MODEL_ID, LMSTUDIO_DOCKER_HOST_BASE_URL, LMSTUDIO_DOCKER_HOST_INFERENCE_BASE_URL, LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER, LMSTUDIO_MODEL_PLACEHOLDER, LMSTUDIO_PROVIDER_ID, LMSTUDIO_PROVIDER_LABEL, type LmstudioModelBase, type LmstudioModelWire, buildLmstudioAuthHeaders, buildLmstudioModelName, mapLmstudioWireEntry, mapLmstudioWireModelsToConfig, normalizeLmstudioConfiguredCatalogEntries, normalizeLmstudioConfiguredCatalogEntry, normalizeLmstudioProviderConfig, resolveLmstudioConfiguredApiKey, resolveLmstudioInferenceBase, resolveLmstudioProviderHeaders, resolveLmstudioReasoningCapability, resolveLmstudioReasoningCompat, resolveLmstudioRequestContext, resolveLmstudioRuntimeApiKey, resolveLmstudioServerBase, resolveLoadedContextWindow };
+export { LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, LMSTUDIO_DEFAULT_BASE_URL, LMSTUDIO_DEFAULT_EMBEDDING_MODEL, LMSTUDIO_DEFAULT_INFERENCE_BASE_URL, LMSTUDIO_DEFAULT_LOAD_CONTEXT_LENGTH, LMSTUDIO_DEFAULT_MODEL_ID, LMSTUDIO_DOCKER_HOST_BASE_URL, LMSTUDIO_DOCKER_HOST_INFERENCE_BASE_URL, LMSTUDIO_LOCAL_API_KEY_PLACEHOLDER, LMSTUDIO_MODEL_PLACEHOLDER, LMSTUDIO_PROVIDER_ID, LMSTUDIO_PROVIDER_LABEL, type LmstudioModelBase, type LmstudioModelWire, buildLmstudioAuthHeaders, buildLmstudioModelName, mapLmstudioWireEntry, mapLmstudioWireModelsToConfig, normalizeLmstudioConfiguredCatalogEntries, normalizeLmstudioProviderConfig, resolveLmstudioConfiguredApiKey, resolveLmstudioInferenceBase, resolveLmstudioProviderHeaders, resolveLmstudioReasoningCapability, resolveLmstudioReasoningCompat, resolveLmstudioRequestContext, resolveLmstudioRuntimeApiKey, resolveLmstudioServerBase, resolveLoadedContextWindow };

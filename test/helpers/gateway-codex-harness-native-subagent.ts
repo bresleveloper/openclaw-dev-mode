@@ -356,7 +356,7 @@ export async function verifyCodexNativeSubagentBridgeProbe(
     command: `/codex resume ${childThreadId}`,
     expectedText: [
       "controlled by its parent",
-      "cannot resume an unloaded multi-agent v2 sub-agent through its parent",
+      "cannot resume an unloaded multi-agent v2 sub-agent through its parent; resume the parent first, or use thread/read to inspect it",
     ],
   });
   await requestAgentText({

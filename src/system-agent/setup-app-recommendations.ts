@@ -15,6 +15,8 @@ import {
   type OfficialExternalPluginCatalogEntry,
 } from "../plugins/official-external-plugin-catalog.js";
 import type { RuntimeEnv } from "../runtime.js";
+import { dedupeByKey } from "../shared/dedupe-by-key.js";
+import { monotonicNow } from "../shared/monotonic-time.js";
 import type { OnboardingRecommendationMatch } from "../state/onboarding-recommendations.js";
 import { completeSetupInference } from "./setup-inference.js";
 
@@ -121,13 +123,10 @@ function entrySearchText(entry: OfficialExternalPluginCatalogEntry): string {
 
 function entryMatchesApp(entry: OfficialExternalPluginCatalogEntry, appLabel: string): boolean {
   const appTokens = inventoryTokens(appLabel);
-  const searchText = entrySearchText(entry);
-  const entryTokens = inventoryTokens(searchText);
-  return appTokens.some(
-    (appToken) =>
-      searchText.includes(appToken) ||
-      entryTokens.some((entryToken) => appToken.includes(entryToken)),
-  );
+  const entryTokens = inventoryTokens(entrySearchText(entry));
+  // Candidate generation must not offer unrelated products such as LINE for
+  // Linear; the model can choose relevance among whole-word catalog matches.
+  return appTokens.some((appToken) => entryTokens.includes(appToken));
 }
 
 function officialCandidate(
@@ -155,15 +154,9 @@ function compareCandidates(left: SetupAppCandidate, right: SetupAppCandidate): n
 }
 
 function dedupeCandidates(candidates: SetupAppCandidate[]): SetupAppCandidate[] {
-  const seen = new Set<string>();
-  return candidates.toSorted(compareCandidates).filter((candidate) => {
-    const key = candidate.id.toLocaleLowerCase("en-US");
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
+  return dedupeByKey(candidates.toSorted(compareCandidates), (candidate) =>
+    candidate.id.toLocaleLowerCase("en-US"),
+  );
 }
 
 async function gatherSetupAppCandidates(
@@ -194,7 +187,7 @@ async function gatherSetupAppCandidates(
         : ("official-plugin" as const),
   }));
   const searchLimit = pLimit(CLAWHUB_SEARCH_CONCURRENCY);
-  const searchDeadline = Date.now() + CLAWHUB_SEARCH_TOTAL_BUDGET_MS;
+  const searchDeadline = monotonicNow() + CLAWHUB_SEARCH_TOTAL_BUDGET_MS;
 
   return await Promise.all(
     apps.map(async (app): Promise<SetupAppCandidateGroup> => {
@@ -206,7 +199,7 @@ async function gatherSetupAppCandidates(
         return candidate ? [candidate] : [];
       });
       const skills = await searchLimit(async () => {
-        if (Date.now() >= searchDeadline) {
+        if (monotonicNow() >= searchDeadline) {
           return [];
         }
         try {

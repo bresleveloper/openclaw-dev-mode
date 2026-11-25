@@ -1,0 +1,2 @@
+//!src/shared/node-desktop-stream.ts
+const NODE_DESKTOP_STREAM_COMMAND=`desktop.stream`;const NODE_DESKTOP_ATTACH_PATH=`/node-desktop/attach`;const NODE_PORTAL_ATTACH_PATH=`/node-portal/attach`;const NODE_STREAM_MAX_FRAME_BYTES=65536;export{NODE_STREAM_MAX_FRAME_BYTES as i,NODE_DESKTOP_STREAM_COMMAND as n,NODE_PORTAL_ATTACH_PATH as r,NODE_DESKTOP_ATTACH_PATH as t};

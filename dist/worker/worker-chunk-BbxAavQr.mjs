@@ -1,0 +1,3 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{r as t,t as n}from"./worker-chunk-BByAv2n_.mjs";function sanitizeDoctorNote(e){return e.split(`
+`).map(t).join(`
+`)}function emitDoctorNotes(e){for(let[t,n]of[[`Doctor changes`,e.changeNotes],[`Doctor info`,e.infoNotes],[`Doctor warnings`,e.warningNotes]])for(let r of n??[])e.note(sanitizeDoctorNote(r),t)}function emitDoctorRepairSequenceNotes(e){let t=e.repairSequence;emitDoctorNotes({note:e.note,changeNotes:t.changeNotes,warningNotes:e.structuredWarnings?t.displayWarningNotes:t.warningNotes});for(let n of t.configChangeNotes??[])e.emitConfigChange(n)}var r=e((()=>{n()}));export{sanitizeDoctorNote as i,emitDoctorRepairSequenceNotes as n,r,emitDoctorNotes as t};

@@ -1,0 +1,3 @@
+import{t as BoundedBuffer}from"./bounded-buffer-BjiLOmG0.mjs";
+//!src/gateway/terminal/output-ring.ts
+function surrogateSafeTail(e,t){const n=e.length-t;const r=n>0&&/[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(e.slice(n-1,n+1));return e.slice(r?n+1:n)}var TerminalOutputRing=class extends BoundedBuffer{constructor(e){super(e,{mode:`drop-oldest`,fit:surrogateSafeTail},e=>e.length)}snapshot(){return this.values.join(``)}};export{surrogateSafeTail as n,TerminalOutputRing as t};

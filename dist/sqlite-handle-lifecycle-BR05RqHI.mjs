@@ -1,0 +1,3 @@
+import{n as getDatabaseProcessRole}from"./admission-scope-DOi5x3Rq.mjs";
+//!src/infra/sqlite-handle-lifecycle.ts
+const SQLITE_IDLE_HANDLE_TTL_MS=18e5;const SQLITE_CLI_AGENT_IDLE_HANDLE_TTL_MS=3e4;function resolveAgentDatabaseIdleHandleTtlMs(){return getDatabaseProcessRole()===`cli-oneshot`?SQLITE_CLI_AGENT_IDLE_HANDLE_TTL_MS:SQLITE_IDLE_HANDLE_TTL_MS}export{resolveAgentDatabaseIdleHandleTtlMs as n,SQLITE_IDLE_HANDLE_TTL_MS as t};

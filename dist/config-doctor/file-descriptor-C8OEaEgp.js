@@ -1,0 +1,3 @@
+import path from"node:path";import fs from"node:fs";import"@openclaw/fs-safe/advanced";import{sha256FileSync}from"@openclaw/fs-safe/durability";
+//!src/infra/file-descriptor.ts
+function sameFileMutationFingerprint(e,t){return e.birthtimeNs===t.birthtimeNs&&e.ctimeNs===t.ctimeNs&&e.dev===t.dev&&e.ino===t.ino&&e.mtimeNs===t.mtimeNs&&e.size===t.size}function hashFileDescriptorSync(e,t){const{digest:n,bytes:r}=sha256FileSync(e,{maxBytes:t});return{sha256:n,sizeBytes:r}}function flushAndHashFileSync(e){const t=fs.openSync(e,`r+`);try{fs.fsyncSync(t);return hashFileDescriptorSync(t)}finally{fs.closeSync(t)}}export{hashFileDescriptorSync as n,sameFileMutationFingerprint as r,flushAndHashFileSync as t};

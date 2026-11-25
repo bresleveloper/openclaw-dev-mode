@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import type { API, EmitOutputFile } from "typescript/unstable/async";
+import { pathToFileURL } from "node:url";
+import type { API, EmitOutputFile } from "typescript/async";
 import { createDeclarationInputBoundary, resolveRepoToolBinPath } from "./local-check-runtime.mts";
 import { createDeclarationFileSystem } from "./native-declaration-filesystem.mts";
 import {
@@ -28,17 +29,14 @@ type NativeCompilationOptions = {
   emit?: boolean;
 };
 
-type NativeApiModule = typeof import("typescript/unstable/async");
+type NativeApiModule = typeof import("typescript/async");
+type NativeFsModule = typeof import("typescript/fs");
 type NativeCompiler = {
   executable: string;
   packageJson: string;
   module: NativeApiModule;
-  fakeStat: unknown;
+  fakeStat: NativeFsModule["serverFS"]["fakeStat"] | undefined;
 };
-
-function resolveFakeStat(module: unknown): unknown {
-  return isRecord(module) && isRecord(module.serverFS) ? module.serverFS.fakeStat : undefined;
-}
 
 function resolveTypeScriptPackage(compilerRoot: string) {
   try {
@@ -62,23 +60,29 @@ async function resolveNativeCompiler(compilerRoot: string | undefined): Promise<
   if (compilerRoot && packageJson) {
     const manifest: unknown = JSON.parse(fs.readFileSync(packageJson, "utf8"));
     const exports = isRecord(manifest) && isRecord(manifest.exports) ? manifest.exports : {};
-    // Node shares one cache for require(esm) and import(), so linked packages keep
-    // the client and filesystem sentinels from the same module instance.
-    const requireCompiler = createRequire(packageJson);
-    const load = (entry: unknown) =>
-      typeof entry === "string"
-        ? requireCompiler(fs.realpathSync(path.join(path.dirname(packageJson), entry)))
-        : undefined;
+    // Resolve like Node's ESM loader so a linked package keeps one module instance;
+    // filesystem sentinels are identity-checked by the client that loaded them.
+    const load = (entry: unknown) => {
+      if (typeof entry !== "string") {
+        return undefined;
+      }
+      const compilerModuleUrl = pathToFileURL(
+        fs.realpathSync(path.join(path.dirname(packageJson), entry)),
+      ).href;
+      return import(compilerModuleUrl);
+    };
     // TypeScript 7 previews before 2026-10 published the API under unstable/.
     const entry = exports["./async"] ?? exports["./unstable/async"];
     if (typeof entry === "string") {
       const module: NativeApiModule = await load(entry);
-      const fsModule: unknown = await load(exports["./fs"] ?? exports["./unstable/fs"]);
+      const fsModule: Partial<NativeFsModule> | undefined = await load(
+        exports["./fs"] ?? exports["./unstable/fs"],
+      );
       return {
         executable: resolveRepoToolBinPath("tsgo", { cwd: compilerRoot }),
         packageJson,
         module,
-        fakeStat: resolveFakeStat(fsModule),
+        fakeStat: fsModule?.serverFS?.fakeStat,
       };
     }
     if (entry !== undefined) {
@@ -88,13 +92,13 @@ async function resolveNativeCompiler(compilerRoot: string | undefined): Promise<
   // Roots without TypeScript or with TypeScript 6 predate the native API; they keep
   // the installed compiler.
   const [module, fsModule] = await Promise.all([
-    import("typescript/unstable/async"),
-    import("typescript/unstable/fs"),
+    import("typescript/async"),
+    import("typescript/fs"),
   ]);
   return {
     ...resolveInstalledNativeTypeScriptCompiler(),
     module,
-    fakeStat: resolveFakeStat(fsModule),
+    fakeStat: fsModule.serverFS.fakeStat,
   };
 }
 
@@ -140,30 +144,23 @@ export async function compileNativeProject({
     const manifestFile = admit(path.join(root, "package.json"));
     const manifestText = view.filesystem.readFile(manifestFile);
     view.assertValid();
-    if (manifestText === null && assertInput) {
+    if (manifestText === undefined && assertInput) {
       throw new Error(`Missing declaration package manifest: ${manifestFile}`);
     }
-    if (manifestText !== null) {
+    if (manifestText !== undefined) {
       const manifest: unknown = JSON.parse(manifestText);
       if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
         throw new Error(`Invalid declaration package manifest: ${manifestFile}`);
       }
     }
-    const filesystem = view.filesystem;
-    // Earlier clients use null for missing files; the stable callback API uses
-    // undefined. Keep the missing-file result local instead of requesting OS fallback.
-    const compilerFileSystem =
-      compiler.fakeStat === undefined
-        ? filesystem
-        : {
-            ...filesystem,
-            stat: compiler.fakeStat,
-            readFile: (file: string) => filesystem.readFile(file) ?? undefined,
-          };
     api = new compiler.module.API({
       cwd: root,
       tsserverPath: binary,
-      fs: compilerFileSystem,
+      // Earlier clients forward only the callbacks they know and ignore stat.
+      fs:
+        compiler.fakeStat === undefined
+          ? view.filesystem
+          : { ...view.filesystem, stat: compiler.fakeStat },
     });
     const configured = await api.parseConfigFile(config);
     view.assertValid();

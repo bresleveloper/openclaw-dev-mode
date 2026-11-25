@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";function t(e){return`'${e.replaceAll(`'`,`'\\''`)}'`}function n(){return(n=e((()=>{})))()}export{t as n,n as t};
+//# sourceMappingURL=shell-quote-C3pXf1vi.js.map

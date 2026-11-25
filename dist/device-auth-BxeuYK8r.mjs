@@ -1,0 +1,3 @@
+import{m as normalizeTrimmedStringList}from"./string-normalization-D_oBUpO3.mjs";
+//!src/shared/device-auth.ts
+function normalizeDeviceAuthRole(e){return e.trim()}function normalizeDeviceAuthScopes(e){const t=new Set(normalizeTrimmedStringList(e));if(t.has(`operator.admin`)){t.add(`operator.read`);t.add(`operator.write`)}else if(t.has(`operator.write`))t.add(`operator.read`);return[...t].toSorted()}export{normalizeDeviceAuthScopes as n,normalizeDeviceAuthRole as t};

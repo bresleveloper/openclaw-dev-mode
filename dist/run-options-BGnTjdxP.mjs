@@ -1,0 +1,3 @@
+import{n as inheritOptionFromParent}from"./command-options-Cl1CohDr.mjs";
+//!src/cli/gateway-cli/run-options.ts
+const GATEWAY_RUN_VALUE_KEYS=[`port`,`bind`,`token`,`auth`,`password`,`passwordFile`,`tailscale`,`wsLog`,`rawStreamPath`];const GATEWAY_RUN_BOOLEAN_KEYS=[`tailscaleResetOnExit`,`allowUnconfigured`,`dev`,`ambientChannels`,`devAmbientChannels`,`reset`,`taskSupervisor`,`updateCanary`,`force`,`verbose`,`cliBackendLogs`,`claudeCliLogs`,`compact`,`rawStream`];function resolveGatewayRunOptions(e,t){const n={...e};for(const e of GATEWAY_RUN_VALUE_KEYS){const r=inheritOptionFromParent(t,e);n[e]=e===`wsLog`?r??n[e]:n[e]??r}for(const e of GATEWAY_RUN_BOOLEAN_KEYS){const r=inheritOptionFromParent(t,e);n[e]=Boolean(n[e]||r)}return n}export{resolveGatewayRunOptions as t};

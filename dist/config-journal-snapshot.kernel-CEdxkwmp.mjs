@@ -1,0 +1,3 @@
+import{t as createSqliteAuditRecordKernel}from"./sqlite-audit-record.kernel-DauX66NB.mjs";
+//!src/config/config-journal-snapshot.kernel.ts
+const CONFIG_SNAPSHOT_SCOPE=`config-snapshot`;const CONFIG_SNAPSHOT_KEY=`latest`;function upsertConfigSnapshotAuditRecordInDatabase(e,t){const n=createSqliteAuditRecordKernel(e,{scope:CONFIG_SNAPSHOT_SCOPE,maxEntries:1});if(t.expectedPayloadJson!==void 0)return n.compareAndSet(CONFIG_SNAPSHOT_KEY,t.expectedPayloadJson,t.record);if(t.record)n.upsert(t.record);else n.delete(CONFIG_SNAPSHOT_KEY);return true}export{CONFIG_SNAPSHOT_SCOPE as n,upsertConfigSnapshotAuditRecordInDatabase as r,CONFIG_SNAPSHOT_KEY as t};

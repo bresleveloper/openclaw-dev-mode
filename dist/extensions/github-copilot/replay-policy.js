@@ -1,2 +1,1 @@
-import { n as sanitizeGithubCopilotReplayHistory, r as stripCopilotAssistantThinkingMessages, t as buildGithubCopilotReplayPolicy } from "../../replay-policy-DVfYebd4.mjs";
-export { buildGithubCopilotReplayPolicy, sanitizeGithubCopilotReplayHistory, stripCopilotAssistantThinkingMessages };
+import{n as stripCopilotAssistantThinkingMessages,t as buildGithubCopilotReplayPolicy}from"../../replay-policy-Dcxs3uR4.mjs";export{buildGithubCopilotReplayPolicy,stripCopilotAssistantThinkingMessages};

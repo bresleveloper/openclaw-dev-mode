@@ -1,0 +1,3 @@
+import{t as warnPluginSdkDeprecation}from"./sdk-deprecation-aWs02XK8.mjs";
+//!src/agents/sessions/session-persistence-deprecation.ts
+function warnSessionPersistenceDeprecation(e,t,n){warnPluginSdkDeprecation({family:n?.family??`session-persistence`,method:e,replacement:t,pluginId:n?.pluginId,compatibility:n?.compatibility??`Synchronous calls retain their return values and commit before returning.`,code:`DEP_SESSION_PERSISTENCE`})}export{warnSessionPersistenceDeprecation as t};

@@ -1,2 +1,1 @@
-import { t as WhatsAppChannelConfigSchema } from "./.setup/config-schema-BYA6e_Ii.mjs";
-export { WhatsAppChannelConfigSchema };
+export { t as WhatsAppChannelConfigSchema } from "./.setup/config-schema-7eD2yiMc.mjs";

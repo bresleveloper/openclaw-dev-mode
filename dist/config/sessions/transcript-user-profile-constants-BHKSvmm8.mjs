@@ -1,0 +1,1 @@
+const e=`gateway-owner`;export{e as t};

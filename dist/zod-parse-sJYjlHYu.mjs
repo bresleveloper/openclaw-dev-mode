@@ -1,0 +1,2 @@
+//!src/utils/zod-parse.ts
+function safeParseWithSchema(e,t){const n=e.safeParse(t);return n.success?n.data:null}function safeParseJsonWithSchema(e,t){try{return safeParseWithSchema(e,JSON.parse(t))}catch{return null}}export{safeParseWithSchema as n,safeParseJsonWithSchema as t};

@@ -1,0 +1,1 @@
+import{n as managedHandoffPostgresBridgeEntrypoint,r as managedHandoffRuntimeEntrypoint,t as MANAGED_HANDOFF_RUNTIME_ENTRY}from"../update-managed-service-handoff-runtime-assets-C2jFvZ7y.mjs";export{MANAGED_HANDOFF_RUNTIME_ENTRY,managedHandoffPostgresBridgeEntrypoint,managedHandoffRuntimeEntrypoint};

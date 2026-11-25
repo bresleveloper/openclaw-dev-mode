@@ -1,2 +1,1 @@
-import { n as collectRuntimeConfigAssignments, r as secretTargetRegistryEntries, t as channelSecrets } from "./.setup/secret-contract-C5i-29Hz.mjs";
-export { channelSecrets, collectRuntimeConfigAssignments, secretTargetRegistryEntries };
+export { t as channelSecrets, n as collectRuntimeConfigAssignments, r as secretTargetRegistryEntries } from "./.setup/secret-contract-0Ccz8X9F.mjs";

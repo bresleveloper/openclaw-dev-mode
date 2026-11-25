@@ -1,11 +1,68 @@
-import { M as OpenClawConfig, S as MemorySearchResult, h as MemoryCliSearchResult, m as MemoryCliSearchParams, v as MemoryOriginClass, x as MemorySearchManager } from "../../types-D7I_F5Ux.js";
-import { Fm as MemoryEmbeddingProviderRuntime, Mm as MemoryEmbeddingProviderAdapter, Nm as MemoryEmbeddingProviderCreateOptions, Pm as MemoryEmbeddingProviderCreateResult, RC as ConversationRecallContext, jm as MemoryEmbeddingProvider, zm as MemoryPluginRuntime } from "../../config-contracts-CY87ANNp.js";
-import { o as ShortTermDreamingStats, r as RepairDreamingArtifactsResult, s as ShortTermDreamingStatsEntry, t as DreamingArtifactsAuditSummary } from "../../dreaming-D2Tdqt2p.js";
-import "../../memory-core-host-engine-embeddings-BSewlUJd.js";
-import { a as repairShortTermPromotionArtifacts, c as RepairShortTermPromotionArtifactsResult, i as removeGroundedShortTermCandidates, l as ShortTermAuditSummary, n as configureMemoryCoreDreamingState, o as loadShortTermPromotionDreamingStats, r as auditShortTermPromotionArtifacts, t as MemoryCoreOpenKeyedStore } from "../../dreaming-state-Bbascr8N.js";
-import { t as resolveMemoryBackendConfig } from "../../memory-core-host-runtime-core-uGyluBS6.js";
-import "../../memory-core-host-engine-foundation-FxqvW1N9.js";
-//#region packages/memory-host-sdk/src/host/status-format.d.ts
+import "../../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig$1 } from "../../types.openclaw-D8uW-XQA.js";
+import { a as MemoryExtraPath, n as MemoryCliSearchResult, o as MemoryOriginClass, u as MemorySearchResult } from "../../types-D2yUynI0.js";
+import "../../sqlite-worker-broker.types-nFn1HEVb.js";
+import { A as MemorySearchManager, N as ConversationRecallContext, O as AcquireConfiguredProviderLocalService, T as MemoryEmbeddingProviderRuntime, c as MemoryEmbeddingProviderAdapter, h as MemoryPluginRuntime, k as MemoryCliSearchParams, l as MemoryEmbeddingProviderCreateOptions, u as MemoryEmbeddingProviderCreateResult, w as MemoryEmbeddingProvider } from "../../registry-contribution-types-2o1L1H_Q.js";
+import "../../setup-Bk0qGrve.js";
+import "../../memory-core-host-engine-foundation-B9GEQdKU.js";
+import "../../kysely-sync-Dr57gDTk.js";
+import "../../memory-core-host-runtime-core-B6UF-6o1.js";
+import { a as repairShortTermPromotionArtifacts, c as RepairShortTermPromotionArtifactsResult, d as DreamingArtifactsAuditSummary, f as RepairDreamingArtifactsResult, i as removeGroundedShortTermCandidates, l as ShortTermAuditSummary, m as ShortTermDreamingStatsEntry, n as configureMemoryCoreDreamingState, o as loadShortTermPromotionDreamingStats, p as ShortTermDreamingStats, r as auditShortTermPromotionArtifacts, t as MemoryCoreOpenKeyedStore } from "../../dreaming-state-DURGeEXv.js";
+import "../../embedding-providers-B1O6AknT.js";
+import "../../database-engine-worker-runtime-B6LH5KzA.js";
+import { DatabaseSync } from "node:sqlite";
+import { Kysely } from "kysely";
+import { Command } from "commander";
+type DmScope = "main" | "per-peer" | "per-channel-peer" | "per-account-channel-peer";
+type MemoryCitationsMode = "auto" | "on" | "off";
+type MemoryConfig = {
+  citations?: MemoryCitationsMode;
+  search?: MemorySearchConfig;
+};
+type MemorySearchConfig = {
+  enabled?: boolean;
+  rememberAcrossConversations?: boolean;
+  extraPaths?: MemoryExtraPath[];
+};
+type AgentContextLimitsConfig = {
+  memoryGetMaxChars?: number;
+};
+/** Secret reference accepted by provider header config. */
+type SecretInput = string | {
+  source: string;
+  provider: string;
+  id: string;
+};
+type AgentConfig = {
+  workspace?: string;
+  memory?: {
+    search?: MemorySearchConfig;
+  };
+  contextLimits?: AgentContextLimitsConfig;
+};
+/** Narrow OpenClaw config shape consumed by memory host utilities. */
+type OpenClawConfig = {
+  agents?: {
+    ownership?: "explicit";
+    defaults?: {
+      workspace?: string;
+      contextLimits?: AgentContextLimitsConfig;
+    };
+    entries?: Record<string, AgentConfig>;
+  };
+  session?: {
+    dmScope?: DmScope;
+  };
+  bindings?: unknown[];
+  memory?: MemoryConfig;
+  models?: {
+    providers?: Record<string, {
+      api?: string;
+      baseUrl?: string;
+      headers?: Record<string, SecretInput>;
+    }>;
+  };
+};
 /** Display tone used by memory status renderers. */
 type Tone = "ok" | "warn" | "muted";
 /** Resolve vector indexing state from enabled and availability flags. */
@@ -32,50 +89,14 @@ export declare function resolveMemoryCacheSummary(cache: {
   tone: Tone;
   text: string;
 };
-//#endregion
-//#region extensions/memory-core/src/memory/embedding-local-service.d.ts
-type MemoryCoreAcquireLocalService = (target: {
-  providerId: string;
-  baseUrl: string;
-  headers?: HeadersInit;
-}, signal?: AbortSignal | null) => Promise<{
-  release: () => void;
-} | undefined>;
-//#endregion
-//#region extensions/memory-core/src/memory/runtime-host.d.ts
-type MemoryCoreRuntimeHost = {
-  acquireLocalService?: MemoryCoreAcquireLocalService;
-  openKeyedStore?: MemoryCoreOpenKeyedStore;
-  runInBackgroundContext?: <T>(run: () => T) => T;
+type ResolvedMemoryBackendConfig = {
+  backend: "builtin";
+  citations: MemoryCitationsMode;
 };
-//#endregion
-//#region extensions/memory-core/src/memory/search-manager.d.ts
-type MemorySearchManagerPurpose = "default" | "status" | "cli";
-type MemorySearchManagerParams = {
+declare function resolveMemoryBackendConfig(params: {
   cfg: OpenClawConfig;
   agentId: string;
-  purpose?: MemorySearchManagerPurpose;
-  inspectSources?: boolean;
-  acquireLocalService?: MemoryCoreAcquireLocalService;
-  runInBackgroundContext?: MemoryCoreRuntimeHost["runInBackgroundContext"];
-};
-type MemorySearchManagerResult = {
-  manager: MemorySearchManager | null;
-  error?: string;
-  debug: {
-    backend: "builtin";
-    purpose: MemorySearchManagerPurpose;
-    managerMs: number;
-  };
-};
-export declare function getMemorySearchManager(params: MemorySearchManagerParams): Promise<MemorySearchManagerResult>;
-declare function closeAllMemorySearchManagers(): Promise<void>;
-declare function closeMemorySearchManager(params: {
-  cfg: OpenClawConfig;
-  agentId: string;
-}): Promise<void>;
-//#endregion
-//#region extensions/memory-core/src/memory/lifecycle.d.ts
+}): ResolvedMemoryBackendConfig;
 type ReloadChange = Parameters<NonNullable<MemoryPluginRuntime["prepareReload"]>>[0];
 type ReloadHandle = ReturnType<NonNullable<MemoryPluginRuntime["prepareReload"]>>;
 type MemoryReloadState = {
@@ -88,19 +109,66 @@ type MemoryManagerLifecycle = {
 };
 /** Pause new acquisition while the plugin owner replaces its adapters. */
 declare function prepareMemoryManagerReload(change: ReloadChange, lifecycle?: MemoryManagerLifecycle): ReloadHandle;
-//#endregion
-//#region extensions/memory-core/src/runtime-provider.d.ts
+type ProviderFactory = () => Promise<MemoryEmbeddingProviderCreateResult>;
+type MemoryManagerProviderFactory = (adapter: MemoryEmbeddingProviderAdapter, create: ProviderFactory) => Promise<MemoryEmbeddingProviderCreateResult>;
+type EmbeddingProviderResult = {
+  provider: MemoryEmbeddingProvider | null;
+  requestedProvider: string;
+  fallbackFrom?: string;
+  fallbackReason?: string;
+  providerUnavailableReason?: string;
+  runtime?: MemoryEmbeddingProviderRuntime;
+};
+type CreateEmbeddingProviderOptions = Omit<MemoryEmbeddingProviderCreateOptions, "dimensions"> & {
+  provider: string;
+  fallback: string;
+  outputDimensionality?: number;
+  createProvider?: MemoryManagerProviderFactory;
+};
+export declare function createEmbeddingProvider(options: CreateEmbeddingProviderOptions): Promise<EmbeddingProviderResult>;
+type MemoryCoreRuntimeHost = {
+  acquireLocalService?: AcquireConfiguredProviderLocalService;
+  openKeyedStore?: MemoryCoreOpenKeyedStore;
+  runInBackgroundContext?: <T>(run: () => T) => T;
+};
+declare function closeAllMemorySearchManagers(): Promise<void>;
+type MemorySearchManagerPurpose = "default" | "status" | "cli";
+type MemorySearchManagerParams = {
+  cfg: OpenClawConfig$1;
+  agentId: string;
+  purpose?: MemorySearchManagerPurpose;
+  inspectSources?: boolean;
+  acquireLocalService?: AcquireConfiguredProviderLocalService;
+  runInBackgroundContext?: MemoryCoreRuntimeHost["runInBackgroundContext"];
+};
+type MemorySearchManagerResult = {
+  manager: MemorySearchManager | null;
+  error?: string;
+  code?: string;
+  debug: {
+    backend: "builtin";
+    purpose: MemorySearchManagerPurpose;
+    managerMs: number;
+  };
+};
+export declare function getMemorySearchManager(params: MemorySearchManagerParams): Promise<MemorySearchManagerResult>;
+declare function closeMemorySearchManager(params: {
+  cfg: OpenClawConfig$1;
+  agentId: string;
+}): Promise<void>;
+export declare function registerMemoryCli(program: Command, hostOptions?: MemoryCoreRuntimeHost): void;
 export declare function createMemoryRuntime(host: MemoryCoreRuntimeHost): {
   searchForCli(params: MemoryCliSearchParams): Promise<MemoryCliSearchResult>;
   prepareReload: typeof prepareMemoryManagerReload;
   getMemorySearchManager(params: {
-    cfg: OpenClawConfig;
+    cfg: OpenClawConfig$1;
     agentId: string;
     purpose?: "default" | "status" | "cli";
     inspectSources?: boolean;
   }): Promise<{
     manager: MemorySearchManager | null;
     error?: string;
+    code?: string;
     debug: {
       backend: "builtin";
       purpose: "cli" | "default" | "status";
@@ -109,7 +177,7 @@ export declare function createMemoryRuntime(host: MemoryCoreRuntimeHost): {
   }>;
   resolveMemoryBackendConfig: typeof resolveMemoryBackendConfig;
   authorizeSearchHits(params: {
-    cfg: OpenClawConfig;
+    cfg: OpenClawConfig$1;
     agentId: string;
     requesterSessionKey: string | undefined;
     sandboxed: boolean;
@@ -119,7 +187,7 @@ export declare function createMemoryRuntime(host: MemoryCoreRuntimeHost): {
   }): Promise<MemorySearchResult[]>;
   supportsWorkspaceMemoryReadSources: true;
   classifyWorkspaceMemoryPaths: (params: {
-    cfg: OpenClawConfig;
+    cfg: OpenClawConfig$1;
     agentId: string;
     workspaceDir: string;
     relativePaths: string[];
@@ -134,36 +202,8 @@ export declare function createMemoryRuntime(host: MemoryCoreRuntimeHost): {
   closeAllMemorySearchManagers: typeof closeAllMemorySearchManagers;
   closeMemorySearchManager: typeof closeMemorySearchManager;
 };
-//#endregion
-//#region extensions/memory-core/src/memory/manager-registry.d.ts
-type ProviderFactory = () => Promise<MemoryEmbeddingProviderCreateResult>;
-type MemoryManagerProviderFactory = (adapter: MemoryEmbeddingProviderAdapter, create: ProviderFactory) => Promise<MemoryEmbeddingProviderCreateResult>;
-//#endregion
-//#region extensions/memory-core/src/memory/embeddings.d.ts
-type EmbeddingProvider = MemoryEmbeddingProvider;
-type EmbeddingProviderRuntime = MemoryEmbeddingProviderRuntime;
-type EmbeddingProviderResult = {
-  provider: EmbeddingProvider | null;
-  requestedProvider: string;
-  fallbackFrom?: string;
-  fallbackReason?: string;
-  providerUnavailableReason?: string;
-  runtime?: EmbeddingProviderRuntime;
-};
-type CreateEmbeddingProviderOptions = Omit<MemoryEmbeddingProviderCreateOptions, "dimensions"> & {
-  provider: string;
-  fallback: string;
-  outputDimensionality?: number;
-  acquireLocalService?: MemoryCoreAcquireLocalService;
-  createProvider?: MemoryManagerProviderFactory;
-};
-export declare function createEmbeddingProvider(options: CreateEmbeddingProviderOptions): Promise<EmbeddingProviderResult>;
-//#endregion
-//#region packages/memory-host-sdk/src/host/secret-input.d.ts
 /** Return true when a configured memory secret contains a literal value or reference. */
 export declare function hasConfiguredMemorySecretInput(value: unknown): boolean;
-//#endregion
-//#region extensions/memory-core/src/dreaming-repair.d.ts
 export declare function auditDreamingArtifacts(params: {
   workspaceDir: string;
 }): Promise<DreamingArtifactsAuditSummary>;
@@ -172,5 +212,4 @@ export declare function repairDreamingArtifacts(params: {
   archiveDiary?: boolean;
   now?: Date;
 }): Promise<RepairDreamingArtifactsResult>;
-//#endregion
 export { type DreamingArtifactsAuditSummary, type RepairDreamingArtifactsResult, type RepairShortTermPromotionArtifactsResult, type ShortTermAuditSummary, type ShortTermDreamingStats, type ShortTermDreamingStatsEntry, type Tone, auditShortTermPromotionArtifacts, configureMemoryCoreDreamingState, loadShortTermPromotionDreamingStats, removeGroundedShortTermCandidates, repairShortTermPromotionArtifacts };

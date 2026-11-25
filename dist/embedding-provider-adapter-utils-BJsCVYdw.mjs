@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";
+//!packages/memory-host-sdk/src/host/embedding-provider-adapter-utils.ts
+function isMissingEmbeddingApiKeyError(e){return e instanceof Error&&e.message.includes(`No API key found for provider`)}function sanitizeEmbeddingCacheHeaders(e,t){const n=new Set(t.map(e=>normalizeLowercaseStringOrEmpty(e)));return Object.entries(e).filter(([e])=>!n.has(normalizeLowercaseStringOrEmpty(e))).toSorted(([e],[t])=>e.localeCompare(t))}function mapBatchEmbeddingsByIndex(e,t){const n=[];for(let r=0;r<t;r+=1)n.push(e.get(String(r))??[]);return n}export{mapBatchEmbeddingsByIndex as n,sanitizeEmbeddingCacheHeaders as r,isMissingEmbeddingApiKeyError as t};

@@ -1,0 +1,1 @@
+export default {"skillStatus":{"bundled":"đi kèm","eligible":"đủ điều kiện","blocked":"bị chặn","disabled":"đã tắt","blockedAllowlist":"bị chặn bởi danh sách cho phép","blockedAgentFilter":"bị chặn bởi bộ lọc tác nhân"}};

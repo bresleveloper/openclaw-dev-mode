@@ -1,0 +1,1 @@
+export default {"agentsHome":{"pinnedAgents":"已釘選的代理","noAssistantMessage":"尚無代理程式回覆","viewSessions":"工作階段","deleteAgentConfirm":"要刪除 {agent} 嗎？","deleteAgentDetails":"其工作區、代理程式狀態和聊天記錄將移至垃圾桶。其頻道帳號設定會保留。","agentOptions":"{agent} 的選項","working":"正在執行工作"}};

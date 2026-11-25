@@ -1,14 +1,10 @@
 import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
+import { pruneMapToMaxSize } from "../infra/map-size.js";
 import type { AuthProfileStore } from "./auth-profiles/types.js";
 import { shouldUseTransientCooldownProbeSlot } from "./failover-policy.js";
 import type { FailoverReason } from "./failover/signal.js";
 import type { ModelFallbackAuthRuntime } from "./model-fallback-attempt.js";
 import type { ModelCandidate } from "./model-fallback.types.js";
-
-type CooldownAuthRuntime = Pick<
-  ModelFallbackAuthRuntime,
-  "getSoonestCooldownExpiry" | "resolveProfilesUnavailableReason"
->;
 
 const lastProbeAttempt = new Map<string, number>();
 const MIN_PROBE_INTERVAL_MS = 30_000;
@@ -29,24 +25,8 @@ function isProbeThrottleOpen(now: number, throttleKey: string): boolean {
 export function markProbeAttempt(now: number, throttleKey: string): void {
   lastProbeAttempt.delete(throttleKey);
   lastProbeAttempt.set(throttleKey, now);
-  if (lastProbeAttempt.size > MAX_PROBE_KEYS) {
-    for (const key of lastProbeAttempt.keys()) {
-      lastProbeAttempt.delete(key);
-      break;
-    }
-  }
+  pruneMapToMaxSize(lastProbeAttempt, MAX_PROBE_KEYS);
 }
-
-/** @internal – exposed for unit tests only */
-export const probeThrottleInternals = {
-  lastProbeAttempt,
-  MIN_PROBE_INTERVAL_MS,
-  PROBE_MARGIN_MS,
-  MAX_PROBE_KEYS,
-  resolveProbeThrottleKey,
-  isProbeThrottleOpen,
-  markProbeAttempt,
-} as const;
 
 type CooldownDecision =
   | { type: "skip"; reason: FailoverReason; error: string }
@@ -60,7 +40,10 @@ export function resolveCooldownDecision(params: {
   hasFallbackCandidates: boolean;
   now: number;
   probeThrottleKey: string;
-  authRuntime: CooldownAuthRuntime;
+  authRuntime: Pick<
+    ModelFallbackAuthRuntime,
+    "getSoonestCooldownExpiry" | "resolveProfilesUnavailableReason"
+  >;
   authStore: AuthProfileStore;
   profileIds: string[];
 }): CooldownDecision {
@@ -79,8 +62,7 @@ export function resolveCooldownDecision(params: {
       params.profileIds,
       { now: params.now, forModel: params.candidate.model },
     );
-    shouldProbe =
-      soonest === null || !Number.isFinite(soonest) || params.now >= soonest - PROBE_MARGIN_MS;
+    shouldProbe = soonest === null || params.now >= soonest - PROBE_MARGIN_MS;
   }
 
   const isPersistentAuthIssue = inferredReason === "auth" || inferredReason === "auth_permanent";

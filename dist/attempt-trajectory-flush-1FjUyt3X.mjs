@@ -1,0 +1,3 @@
+import{r as runAgentCleanupStep}from"./run-cleanup-timeout-C9ErKL9M.mjs";
+//!src/agents/embedded-agent-runner/run/attempt-trajectory-flush.ts
+async function flushEmbeddedAttemptTrajectoryRecorder(e){await runAgentCleanupStep({...e,step:`openclaw-trajectory-flush`,getTimeoutDetails:()=>e.trajectoryRecorder?.describeFlushState(),cleanup:async()=>{await e.trajectoryRecorder?.flush()}})}export{flushEmbeddedAttemptTrajectoryRecorder as t};

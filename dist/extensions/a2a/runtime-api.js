@@ -1,2 +1,1 @@
-import { n as setA2aChannelRuntime, t as getA2aChannelRuntime } from "../../runtime-DXuFplNo.mjs";
-export { getA2aChannelRuntime, setA2aChannelRuntime };
+import{n as setA2aChannelRuntime,t as getA2aChannelRuntime}from"../../runtime-Xt9vSSKD.mjs";export{getA2aChannelRuntime,setA2aChannelRuntime};

@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"作業中: {context}","removeContext":"作業コンテキストを削除","includeContext":"作業コンテキストを含める","selection":"選択したテキスト","attachSelection":"選択したテキストを添付","attachSelectionTooltip":"選択範囲を添付","removeSelection":"選択したテキストを削除"}};

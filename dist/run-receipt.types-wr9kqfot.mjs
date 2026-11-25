@@ -1,0 +1,2 @@
+//!src/cron/store/run-receipt.types.ts
+var CronRunReceiptRevisionError=class extends Error{constructor(e,t=`cron run configuration changed`,n=`revision-changed`){super(t);this.receiptId=e;this.reason=n;this.name=`CronRunReceiptRevisionError`}};export{CronRunReceiptRevisionError as t};

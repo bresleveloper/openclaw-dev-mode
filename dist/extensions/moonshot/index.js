@@ -1,14 +1,31 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-ByEFwJ6V.mjs";
-import { isMoonshotAlwaysThinkingModelId, isMoonshotK3NativeVideoRoute, resolveThinkingProfile } from "./provider-policy-api.js";
-import { MOONSHOT_DEFAULT_MODEL_REF, buildMoonshotProvider } from "./provider-catalog.js";
-import { moonshotMediaUnderstandingProvider } from "./media-understanding-provider.js";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-Bi0KIJRp.mjs";
+import { MOONSHOT_BASE_URL, MOONSHOT_CN_BASE_URL, isMoonshotAlwaysThinkingModelId, isMoonshotK3NativeVideoRoute, resolveThinkingProfile } from "./provider-policy-api.js";
 import { wrapMoonshotStream } from "./native-video.js";
-import { applyMoonshotConfig, applyMoonshotConfigCn } from "./onboard.js";
-import { t as createKimiWebSearchProvider } from "./.setup/kimi-web-search-provider-DCbJoku0.mjs";
+import { MOONSHOT_DEFAULT_MODEL_ID, MOONSHOT_DEFAULT_MODEL_REF, buildMoonshotProvider } from "./provider-catalog.js";
+import { t as createKimiWebSearchProvider } from "./.setup/kimi-web-search-provider-FmjLef0K.mjs";
+import { describeOpenAiCompatibleVideo } from "openclaw/plugin-sdk/media-understanding";
 import { createProviderApiKeyAuthMethod } from "openclaw/plugin-sdk/provider-auth-api-key";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildOpenAICompatibleReplayPolicy } from "openclaw/plugin-sdk/provider-model-shared";
-//#region extensions/moonshot/index.ts
+import { createDefaultModelsPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
+// extensions/moonshot/index.ts
+const moonshotPresetAppliers = createDefaultModelsPresetAppliers({
+	primaryModelRef: MOONSHOT_DEFAULT_MODEL_REF,
+	resolveParams: (cfg, baseUrl) => {
+		const defaultModel = buildMoonshotProvider().models.find(({ id }) => id === MOONSHOT_DEFAULT_MODEL_ID);
+		return defaultModel ? {
+			providerId: "moonshot",
+			api: "openai-completions",
+			baseUrl,
+			defaultModels: cfg.models?.mode === "replace" ? [defaultModel] : [],
+			defaultModelId: MOONSHOT_DEFAULT_MODEL_ID,
+			aliases: [{
+				modelRef: MOONSHOT_DEFAULT_MODEL_REF,
+				alias: "Kimi"
+			}]
+		} : null;
+	}
+});
 const PROVIDER_ID = "moonshot";
 var moonshot_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
@@ -19,7 +36,7 @@ var moonshot_default = defineSingleProviderPluginEntry({
 		label: "Moonshot",
 		docsPath: "/providers/moonshot",
 		aliases: ["moonshotai", "moonshot-ai"],
-		manifestAuth: { applyConfig: applyMoonshotConfig },
+		manifestAuth: { applyConfig: (cfg) => moonshotPresetAppliers.applyConfig(cfg, MOONSHOT_BASE_URL) },
 		extraAuth: [createProviderApiKeyAuthMethod({
 			providerId: PROVIDER_ID,
 			methodId: "api-key-cn",
@@ -30,7 +47,7 @@ var moonshot_default = defineSingleProviderPluginEntry({
 			envVar: "MOONSHOT_API_KEY",
 			promptMessage: "Enter Moonshot API key (.cn)",
 			defaultModel: MOONSHOT_DEFAULT_MODEL_REF,
-			applyConfig: applyMoonshotConfigCn,
+			applyConfig: (cfg) => moonshotPresetAppliers.applyConfig(cfg, MOONSHOT_CN_BASE_URL),
 			wizard: { groupLabel: "Moonshot AI (Kimi)" }
 		})],
 		catalog: {
@@ -60,9 +77,26 @@ var moonshot_default = defineSingleProviderPluginEntry({
 		isModernModelRef: ({ modelId }) => isMoonshotAlwaysThinkingModelId(modelId)
 	},
 	register(api) {
-		api.registerMediaUnderstandingProvider(moonshotMediaUnderstandingProvider);
+		api.registerMediaUnderstandingProvider({
+			id: "moonshot",
+			capabilities: ["image", "video"],
+			defaultModels: {
+				image: openclaw_plugin_default.mediaUnderstandingProviderMetadata.moonshot.defaultModels.image,
+				video: openclaw_plugin_default.mediaUnderstandingProviderMetadata.moonshot.defaultModels.video
+			},
+			autoPriority: { video: 20 },
+			describeImage: void 0,
+			describeImages: void 0,
+			describeVideo: async (params) => describeOpenAiCompatibleVideo({
+				...params,
+				defaultBaseUrl: MOONSHOT_BASE_URL,
+				defaultModel: openclaw_plugin_default.mediaUnderstandingProviderMetadata.moonshot.defaultModels.video,
+				defaultPrompt: "Describe the video.",
+				provider: "moonshot",
+				providerLabel: "Moonshot"
+			})
+		});
 		api.registerWebSearchProvider(createKimiWebSearchProvider());
 	}
 });
-//#endregion
 export { moonshot_default as default };

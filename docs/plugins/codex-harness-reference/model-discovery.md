@@ -22,6 +22,23 @@ ChatGPT-login model discovery reports the selected binary's version as its
 be account-scoped. Use `/codex models` on a running gateway to see the live
 catalog for that harness and account.
 
+The OpenAI provider's ChatGPT subscription list is separate. It sends the same
+OpenClaw version used by Responses requests as `client_version`. If that version
+is unavailable or is not a calendar version with a four-digit year of 2026 or
+later, it sends `99.0.0` instead.
+Versioned prereleases and build suffixes are preserved; bare labels such as
+`dev`, `beta`, and `unknown`, and `0.0.0`, use the fallback. Listing does not
+query npm or depend on the bundled or installed Codex version.
+
+New OpenAI models can require a newer Codex version than the binary your
+Codex harness runs. A Codex-harness
+turn on such a model fails and tells you to update your global Codex with
+`npm i -g @openai/codex` and restart the Gateway; OpenClaw then
+[selects the newer installed Codex](/plugins/codex-harness-reference/app-server-transport#newer-installed-codex).
+In Control UI, **Start a new session** on that failure opens a session on the
+OpenClaw harness that asks the agent to run the update. The OpenClaw harness
+runs these models without a Codex update.
+
 Automatic discovery and hosted-search model selection use visible picker entries.
 Bounded turns with an explicit model selection, including image understanding,
 structured extraction, isolated completion, and settled-turn finalization, also
@@ -44,8 +61,10 @@ current. A missing account, failed refresh, account/config mutation, or retired
 client leaves native models unavailable until discovery succeeds again. The next
 picker/catalog request or native execution reacquires retired observations.
 
-A client with no owned work retires after 30 idle seconds. Requests in that grace
-period reuse it. Active requests, turns, retained or releasing threads, native
+A client with no owned work retires after five idle minutes. Periodic discovery
+and background turns reuse the same client within that window. Background turns
+release their own thread and MCP resources without retiring the shared process;
+strict one-shot CLI runs still close their unclaimed client. Active requests, turns, retained or releasing threads, native
 children, background terminals, and ephemeral history retain their client until
 their owners release it. The existing warm-session executor and thread-retention
 policies remain in effect. Clients and accounts stay isolated by agent home.
@@ -118,33 +137,17 @@ response remains authoritative even if it contains no visible models; HTTP
 `401` and `403` return an empty catalog rather than exposing fallback models.
 
 <Note>
-The current bundled harness is `@openai/codex` `0.160.0`. A `model/list`
-check against that app-server in an isolated, unauthenticated Codex home returned
-these visible bundled catalog entries on October 2, 2026:
-
-| Model id        | Input modalities | Reasoning efforts                    | Default effort |
-| --------------- | ---------------- | ------------------------------------ | -------------- |
-| `gpt-6.1-sol`   | text, image      | low, medium, high, xhigh, max, ultra | low            |
-| `gpt-6-astra`   | text, image      | low, medium, high, xhigh, max, ultra | low            |
-| `gpt-6-sol`     | text, image      | low, medium, high, xhigh, max, ultra | medium         |
-| `gpt-6-luna`    | text, image      | low, medium, high, xhigh, max        | medium         |
-| `gpt-5.6-sol`   | text, image      | low, medium, high, xhigh, max, ultra | low            |
-| `gpt-5.6-terra` | text, image      | low, medium, high, xhigh, max, ultra | medium         |
-| `gpt-5.6-luna`  | text, image      | low, medium, high, xhigh, max        | medium         |
-| `gpt-5.5`       | text, image      | low, medium, high, xhigh             | medium         |
-
-The `gpt-6.1-sol` entry also advertises the `priority` service tier as Fast. This bundled
-snapshot does not establish account access: authenticated catalogs can differ,
-and native discovery still requires a current account. Run `/codex models`
-after starting or upgrading the gateway to inspect the actual public picker
-for your account. Existing configured model selections remain unchanged.
+The bundled harness is `@openai/codex` `0.172.0`, which exceeds the reported
+GPT-6.2 minimum version. On November 24, 2026, an unauthenticated `model/list`
+check with this version returned 11 visible entries and a default model. This
+check does not establish account access: authenticated catalogs can differ. Run `/codex models` after starting or
+upgrading the Gateway to see the picker for your account. OpenClaw does not
+change existing configured model selections on upgrade.
+</Note>
 
 OpenClaw reasoning controls preserve supported native levels, including `ultra`.
 Codex owns Ultra's proactive delegation and model-specific inference effort;
 Platform API effort metadata does not downgrade the selected runtime mode.
-Hidden models can also appear in the app-server catalog for internal or
-specialized flows without being normal model-picker choices.
-</Note>
 
 Tune discovery under `plugins.entries.codex.config.discovery`:
 

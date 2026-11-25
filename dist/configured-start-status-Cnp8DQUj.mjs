@@ -1,0 +1,3 @@
+import{s as TRANSCRIPTS_PAGE_MAX}from"./transcripts-mwkvp08M.mjs";
+//!src/transcripts/configured-start-status.ts
+let current;function beginConfiguredTranscriptStarts(){const e=/* @__PURE__ */ new Map;current=e;return{record(t,n,r){if(current===e&&t<100)e.set(t,{lifecycleToken:n,diagnostic:r})},clear(){if(current===e)current=void 0}}}function readConfiguredTranscriptStarts(){return current}export{readConfiguredTranscriptStarts as n,beginConfiguredTranscriptStarts as t};

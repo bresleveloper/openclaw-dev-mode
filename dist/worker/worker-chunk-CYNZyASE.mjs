@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,t as n}from"./worker-chunk-BL8IsHVh.mjs";function reportSlowWorkerDelivery(e){r.warn(`slow SQLite worker delivery`,e)}var r;e((()=>{t(),r=n(`worker/delivery`)}))();export{reportSlowWorkerDelivery};

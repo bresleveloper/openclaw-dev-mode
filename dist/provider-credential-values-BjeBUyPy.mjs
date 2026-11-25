@@ -1,0 +1,3 @@
+import{n as normalizeSecretInput}from"./normalize-secret-input-CEFJUjQX.mjs";
+//!src/secrets/provider-credential-values.ts
+const NON_ENV_SECRETREF_MARKER=`secretref-managed`;function resolveNonEnvSecretRefApiKeyMarker(e){return NON_ENV_SECRETREF_MARKER}function readProviderEnvValue(e){for(const t of e){const e=normalizeSecretInput(process.env[t]);if(e)return e}}export{readProviderEnvValue as n,resolveNonEnvSecretRefApiKeyMarker as r,NON_ENV_SECRETREF_MARKER as t};

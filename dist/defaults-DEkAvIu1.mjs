@@ -1,0 +1,2 @@
+//!extensions/bifrost/defaults.ts
+const BIFROST_BASE_URL=`http://localhost:8080/openai/v1`;function tryNormalizeBifrostBaseUrl(e){const t=e.trim().replace(/\/+$/,``);if(!URL.canParse(t))return;const n=new URL(t);if(n.protocol!==`http:`&&n.protocol!==`https:`)return;return t.endsWith(`/v1`)?t:`${t}/v1`}function normalizeBifrostBaseUrl(e){const t=tryNormalizeBifrostBaseUrl(e);if(!t)throw new Error(`The Bifrost gateway URL must start with http:// or https://`);return t}export{normalizeBifrostBaseUrl as n,tryNormalizeBifrostBaseUrl as r,BIFROST_BASE_URL as t};

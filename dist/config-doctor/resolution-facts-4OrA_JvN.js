@@ -1,0 +1,3 @@
+import{a as DEFAULT_SECRET_PROVIDER_ALIAS}from"./types.secrets-CpaxAqFj.js";
+//!src/config/resolution-facts.ts
+const envSecretRefsByFacts=/* @__PURE__ */ new WeakMap;function createConfigResolutionFacts(e,t=/* @__PURE__ */ new Map,n=DEFAULT_SECRET_PROVIDER_ALIAS,r=/* @__PURE__ */ new Map){const i=new Set(e.map(({configPath:e})=>e));const a=n?.trim()||`default`;if(t.size>0||r.size>0){const e=/* @__PURE__ */ new Map;for(const[n,i]of[[`pending`,t],[`resolved`,r]])for(const[t,r]of i)e.set(t,{ref:{source:`env`,provider:a,id:r},state:n});envSecretRefsByFacts.set(i,e)}return i}export{createConfigResolutionFacts as t};

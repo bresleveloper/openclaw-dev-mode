@@ -1,0 +1,3 @@
+import{t as prefixMatchPath}from"./http-path-prefix-DrwRCWkN.mjs";import{t as getPluginHttpRouteCanonicalPath}from"./http-path-BMQgnH8u.mjs";
+//!src/plugins/http-route-overlap.ts
+function findPluginHttpRouteRegistrationConflicts(e,t){const n=getPluginHttpRouteCanonicalPath(t);let r;const i=[];for(const a of e){const e=getPluginHttpRouteCanonicalPath(a);if(!r&&a.auth!==t.auth&&(e===n||a.match===`prefix`&&prefixMatchPath(n,e)||t.match===`prefix`&&prefixMatchPath(e,n)))r=a;if(a.match===t.match&&e===n)i.push(a)}return{authOverlap:r,canonicalMatches:i}}export{findPluginHttpRouteRegistrationConflicts as t};

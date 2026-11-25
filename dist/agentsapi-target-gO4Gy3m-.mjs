@@ -1,0 +1,2 @@
+//!extensions/agentsapi/agentsapi-target.ts
+function requireAgentsApiSessionTarget(e){const t=e.sessionTarget;if(!t?.agentId||!t.sessionId||!t.sessionKey||!t.storePath||t.sessionId!==e.sessionId||t.agentId!==e.agentId||t.sessionKey!==e.sessionKey)throw new Error(`Agents API requires a matching host-prepared session target`);return{...t,agentId:t.agentId,sessionId:t.sessionId,sessionKey:t.sessionKey,storePath:t.storePath}}export{requireAgentsApiSessionTarget as t};

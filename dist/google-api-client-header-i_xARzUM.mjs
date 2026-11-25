@@ -1,0 +1,3 @@
+import{t as omitNullRequestHeaders}from"./request-headers-BQjGvQvp.mjs";import{d as resolveProviderRequestHeaders}from"./provider-request-config-DMiLz9Jd.mjs";import"./provider-http-B2mNds5v.mjs";import{s as DEFAULT_GOOGLE_API_BASE_URL}from"./provider-models-DZYfrNAU.mjs";import"./provider-policy-DwA12kLP.mjs";
+//!extensions/google/google-api-client-header.ts
+function resolveGoogleApiClientHeaders(e){return omitNullRequestHeaders(resolveProviderRequestHeaders({provider:`google`,api:e?.api??`google-generative-ai`,baseUrl:e?.baseUrl??`https://generativelanguage.googleapis.com/v1beta`,capability:e?.capability??`other`,transport:e?.transport??`http`}))??{}}export{resolveGoogleApiClientHeaders as t};

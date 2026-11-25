@@ -1,0 +1,3 @@
+import{t as isStringOption}from"./string-readers-CdTvPGel.mjs";
+//!src/utils/message-channel-constants.ts
+const INTERNAL_MESSAGE_CHANNEL=`webchat`;function internalSessionConversationId(e,t){return e===`webchat`?t:void 0}const INTERNAL_NON_DELIVERY_CHANNELS=[`heartbeat`,`cron`,`webhook`,`voice`,`sessions_send`];function isInternalNonDeliveryChannel(e){return isStringOption(e,INTERNAL_NON_DELIVERY_CHANNELS)}export{internalSessionConversationId as n,isInternalNonDeliveryChannel as r,INTERNAL_MESSAGE_CHANNEL as t};

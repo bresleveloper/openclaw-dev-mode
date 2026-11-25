@@ -1,0 +1,2 @@
+//!src/commands/non-interactive-prompter.ts
+function createNonInteractiveLoggingPrompter(e,t){const unavailable=async e=>{throw new Error(t(e.message))};return{async intro(t){e.log(t)},async outro(t){e.log(t)},async note(t,n){e.log(n?`${n}\n${t}`:t)},select:unavailable,multiselect:unavailable,text:unavailable,confirm:unavailable,progress(t){e.log(t);return{update(t){e.log(t)},stop(t){if(t)e.log(t)}}}}}export{createNonInteractiveLoggingPrompter as t};

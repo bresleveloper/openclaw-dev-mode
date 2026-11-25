@@ -1,0 +1,2 @@
+//!src/cli/expected-cli-error.ts
+var ExpectedCliError=class extends Error{constructor(e){super(e.message,e.cause===void 0?void 0:{cause:e.cause});this.name=`ExpectedCliError`;this.humanOutput=e.humanOutput;this.humanOutputWritten=e.humanOutputWritten??false;this.machineOutput=e.machineOutput;this.matches=e.matches}};function throwExpectedCliError(e){throw new ExpectedCliError({message:e,humanOutput:e,machineOutput:e})}export{throwExpectedCliError as n,ExpectedCliError as t};

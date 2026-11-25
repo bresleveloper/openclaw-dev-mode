@@ -1,5 +1,4 @@
-import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/zai/provider-policy-api.ts
+// extensions/zai/provider-policy-api.ts
 const ZAI_REASONING_EFFORT_MAPS = {
 	"5.2": {
 		low: "high",
@@ -21,7 +20,7 @@ const ZAI_REASONING_EFFORT_MAPS = {
 	}
 };
 function resolveGlmReasoningEffortVersion(modelId) {
-	const normalized = normalizeLowercaseStringOrEmpty(modelId);
+	const normalized = modelId.trim().toLowerCase();
 	if (normalized.startsWith("glm-5.3")) return "5.3";
 	return normalized.startsWith("glm-5.2") ? "5.2" : void 0;
 }
@@ -80,5 +79,4 @@ function resolveThinkingProfile(ctx) {
 		defaultLevel: "off"
 	};
 }
-//#endregion
 export { resolveThinkingProfile, resolveZaiReasoningEffort };

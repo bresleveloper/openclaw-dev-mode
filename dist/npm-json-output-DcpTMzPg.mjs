@@ -1,0 +1,2 @@
+//!scripts/lib/npm-json-output.mts
+function resolveNpmJsonEntries(e){if(Array.isArray(e))return e;if(e&&typeof e===`object`){if(!(`id`in e&&typeof e.id===`string`||`name`in e&&typeof e.name===`string`||`version`in e&&typeof e.version===`string`||`filename`in e&&typeof e.filename===`string`)){const t=Object.values(e).filter(e=>Boolean(e)&&typeof e===`object`&&!Array.isArray(e));if(t.length>0)return t}}return[e]}export{resolveNpmJsonEntries as t};

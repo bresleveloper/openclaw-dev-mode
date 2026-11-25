@@ -1,0 +1,3 @@
+import{m as readResidentUserProfileId}from"./user-profile-list-Ra15A0cA.mjs";
+//!src/gateway/server-methods/user-preference-events.ts
+function publishUserPreferencesChanged(e,t,n){if(!n.length||!e.getClientConnIds)return;const r=readResidentUserProfileId(t);if(!r)return;const i=e.getClientConnIds(e=>{const t=e.authenticatedUserProfile?.profileId;return Boolean(t&&(t===r||readResidentUserProfileId(t)===r))});if(i?.size)e.broadcastToConnIds(`users.prefs.changed`,{profileId:r,keys:n},i)}export{publishUserPreferencesChanged as t};

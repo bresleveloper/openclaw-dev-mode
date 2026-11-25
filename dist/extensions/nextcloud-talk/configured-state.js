@@ -1,5 +1,5 @@
 import { DEFAULT_ACCOUNT_ID, createAccountListHelpers, hasConfiguredAccountValue, normalizeAccountId } from "openclaw/plugin-sdk/account-core";
-//#region extensions/nextcloud-talk/configured-state.ts
+// extensions/nextcloud-talk/configured-state.ts
 const { listAccountIds: listNextcloudTalkAccountIds, resolveDefaultAccountId: resolveDefaultNextcloudTalkAccountId, resolveAccountConfig: mergeNextcloudTalkAccountConfig } = createAccountListHelpers("nextcloud-talk", {
 	normalizeAccountId,
 	omitKeys: ["defaultAccount"],
@@ -17,5 +17,4 @@ function hasConfiguredNextcloudTalkChannelState(params) {
 	}
 	return Object.entries(channel?.accounts ?? {}).some(([accountId, account]) => accountId !== DEFAULT_ACCOUNT_ID && account.enabled !== false && hasConfiguredNextcloudAccount(mergeNextcloudTalkAccountConfig(params.cfg, accountId), {}));
 }
-//#endregion
 export { hasConfiguredNextcloudAccount, hasConfiguredNextcloudTalkChannelState, listNextcloudTalkAccountIds, mergeNextcloudTalkAccountConfig, resolveDefaultNextcloudTalkAccountId };

@@ -1,0 +1,2 @@
+//!src/agents/channel-tool-metadata.ts
+const channelAgentToolMeta=/* @__PURE__ */ new WeakMap;function getChannelAgentToolMeta(e){return channelAgentToolMeta.get(e)}function setChannelAgentToolMeta(e,t){channelAgentToolMeta.set(e,t)}function copyChannelAgentToolMeta(e,t){const n=channelAgentToolMeta.get(e);if(n)channelAgentToolMeta.set(t,n)}export{getChannelAgentToolMeta as n,setChannelAgentToolMeta as r,copyChannelAgentToolMeta as t};

@@ -1,14 +1,11 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import "../config-S5Zm-Svf.js";
-//#region src/plugin-sdk/secret-ref-readonly.internal.d.ts
+import "../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
 /** Checks env provider selection and allowlists without resolving a credential. */
 export declare function canResolveEnvSecretRefInReadOnlyPath(params: {
   cfg?: OpenClawConfig;
   provider: string;
   id: string;
 }): boolean;
-//#endregion
-//#region src/plugin-sdk/secret-ref-readonly.d.ts
 export type ReadOnlyEnvSecretRefResolution = {
   status: "available";
   value: string;
@@ -25,4 +22,3 @@ export declare function resolveReadOnlyEnvSecretRef(params: {
   expectedEnvId: string;
   normalizeValue: (value: unknown) => string | undefined;
 }): ReadOnlyEnvSecretRefResolution;
-//#endregion

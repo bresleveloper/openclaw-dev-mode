@@ -1,0 +1,2 @@
+//!src/commands/onboard-hooks.ts
+function enableDefaultOnboardingInternalHooks(e){const t=e.hooks?.internal;const n=t?.entries?.[`session-memory`];if(t?.enabled===false||n?.enabled===false||n?.enabled===true)return e;return{...e,hooks:{...e.hooks,internal:{...t,entries:{...t?.entries,"session-memory":{...n,enabled:true}}}}}}export{enableDefaultOnboardingInternalHooks as t};

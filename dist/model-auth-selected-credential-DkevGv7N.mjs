@@ -1,0 +1,3 @@
+import{i as normalizeProviderIdForAuth}from"./provider-id-A-8WTtLA.mjs";import{r as resolveProviderModelRouteAuthRequirement}from"./provider-model-route-auth-ClM4Emo4.mjs";
+//!src/agents/model-auth-selected-credential.ts
+function resolveSelectedModelCredential(e){if(e.runtimeAuth)return{source:`harness`};if(!e.profileId&&!e.mode)return;const t={mode:e.mode,requirement:resolveProviderModelRouteAuthRequirement(e.mode,e.authRequirement)};return e.profileId?{...t,source:`profile`,profileId:e.profileId,identityKey:`profile:${e.profileId}`}:{...t,source:`direct`,provider:normalizeProviderIdForAuth(e.provider),identityKey:`direct:${normalizeProviderIdForAuth(e.provider)}`}}export{resolveSelectedModelCredential as t};

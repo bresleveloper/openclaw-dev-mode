@@ -1,0 +1,2 @@
+//!src/agents/harness/host-requester.ts
+function buildHarnessHostRequester(e){const t=e.messageChannel??e.messageProvider;return{...t?{channel:t}:{},...e.agentAccountId?{accountId:e.agentAccountId}:{},...e.senderId?{senderId:e.senderId}:{},...e.senderIsOwner!==void 0?{senderIsOwner:e.senderIsOwner}:{},...e.memberRoleIds?.length?{roleIds:Object.freeze([...e.memberRoleIds])}:{}}}export{buildHarnessHostRequester as t};

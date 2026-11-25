@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/agents/sandbox/network-mode.ts
+function normalizeNetworkMode(e){return normalizeOptionalLowercaseString(e)||void 0}function getBlockedNetworkModeReason(e){const t=normalizeNetworkMode(e.network);if(!t)return null;if(t===`host`)return`host`;if(t.startsWith(`container:`)&&e.allowContainerNamespaceJoin!==true)return`container_namespace_join`;return null}function isDangerousNetworkMode(e){const t=normalizeNetworkMode(e);return t===`host`||t?.startsWith(`container:`)===true}export{isDangerousNetworkMode as n,normalizeNetworkMode as r,getBlockedNetworkModeReason as t};

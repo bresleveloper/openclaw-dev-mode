@@ -1,0 +1,1 @@
+import{i as e}from"./transcript-record-coerce-eN4p5mcq.mjs";function classifySessionMessageOrigin(t,n){return t.role===`assistant`?e(t.__openclaw)?.turnTainted===!0?`untrusted`:n===`owner`?`agent`:n:e(t.provenance)?.kind===`internal_system`?`system`:e(t.__openclaw)?.senderIsOwner===!0?`owner`:`untrusted`}export{classifySessionMessageOrigin as t};

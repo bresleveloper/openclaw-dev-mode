@@ -1,0 +1,2 @@
+//!src/config/sessions/session-cold-storage-backup.ts
+async function embedSessionColdArchivesInSnapshot(e){const t=e.database.location();if(!t)throw new Error(`Cold archive embedding requires a file-backed private snapshot`);const{runSqliteTranscriptArchiveWorkerOperation:n}=await import(`./session-accessor.sqlite-archive-BqvW8rZm.mjs`);await n({expectedMessageType:`done`,nativeLocations:[t],workerData:{type:`sqlite-transcript-archive-v2`,operation:`cold-embed-snapshot`,snapshotPath:t,sourceStorePath:e.sourceStorePath}})}export{embedSessionColdArchivesInSnapshot as t};

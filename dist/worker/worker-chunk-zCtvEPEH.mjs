@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function resolveCompactionSuccessorTranscript(e){return{sessionId:e.result?.sessionTarget?.sessionId??e.result?.sessionId,sessionFile:e.result?.sessionFile}}var t=e((()=>{}));export{resolveCompactionSuccessorTranscript as n,t};

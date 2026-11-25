@@ -1,35 +1,3 @@
-import { i as getLegacyPluginSdkResourceHost } from "../legacy-sdk-resource-host-DBY7FuQ8.mjs";
-import { t as bindModelCompletionOwner } from "../model-runtime-binding-DgnrsJj9.mjs";
-import { s as extractEmbeddedAssistantText } from "../embedded-agent-utils-Bl20r92X.mjs";
-import { t as completeWithPreparedSimpleCompletionModel } from "../simple-completion-execution-6SeWwCe4.mjs";
-import { t as runHostPreparedIsolatedCompletion } from "../host-prepared-isolated-completion-8MWYpEXu.mjs";
-//#region src/plugin-sdk/simple-completion-runtime.ts
-/** Preparation owns model/auth discovery; prepared execution must not cold-load it. */
-const prepareSimpleCompletionModelForAgent = async (params) => {
-	const host = getLegacyPluginSdkResourceHost();
-	return await host.track(async () => {
-		const { acquireSimpleCompletionModelForAgent } = await import("../simple-completion-runtime-C1vIxH8v.mjs");
-		host.assertOpen();
-		const acquired = await acquireSimpleCompletionModelForAgent(params);
-		if ("error" in acquired) return acquired;
-		const claim = { release: async () => await acquired[Symbol.asyncDispose]() };
-		try {
-			host.assertOpen();
-			const { [Symbol.asyncDispose]: _dispose, ...prepared } = acquired;
-			const model = bindModelCompletionOwner(prepared.model, {
-				run: (run) => host.track(run),
-				assertCurrent: () => host.assertOpen()
-			});
-			host.adopt(model, claim);
-			return {
-				...prepared,
-				model
-			};
-		} catch (error) {
-			host.releaseClaim(claim);
-			throw error;
-		}
-	});
-};
-//#endregion
-export { completeWithPreparedSimpleCompletionModel, extractEmbeddedAssistantText as extractAssistantText, prepareSimpleCompletionModelForAgent, runHostPreparedIsolatedCompletion };
+import{i as getLegacyPluginSdkResourceHost}from"../legacy-sdk-resource-host-BQ1SYUkj.mjs";import{i as getModelCompletionOwner,t as bindModelCompletionOwner}from"../model-runtime-binding-C5v05rsT.mjs";import{c as extractEmbeddedAssistantText}from"../embedded-agent-utils-CNk-Fj6-.mjs";import{t as completeWithPreparedSimpleCompletionModel}from"../simple-completion-execution-CrDJpfD6.mjs";import{t as runHostPreparedIsolatedCompletion}from"../host-prepared-isolated-completion-BfMU4ffU.mjs";
+//!src/plugin-sdk/simple-completion-runtime.ts
+const prepareSimpleCompletionModelForAgent=async e=>{const t=getLegacyPluginSdkResourceHost();return await t.track(async()=>{const{acquireSimpleCompletionModelForAgent:n}=await import(`../simple-completion-runtime-l8VOB-V9.mjs`);t.assertOpen();const r=await n(e);if(`error`in r)return r;const i={release:async()=>await r[Symbol.asyncDispose]()};try{t.assertOpen();const{[Symbol.asyncDispose]:e,authProfiles:n,...a}=r;const o=getModelCompletionOwner(a.model);if(!o)throw new Error(`Prepared completion model has no execution owner`);const s=bindModelCompletionOwner(a.model,{run:e=>t.track(()=>o.run(e)),assertCurrent:()=>{t.assertOpen();o.assertCurrent()}});t.adopt(s,i);return{...a,model:s}}catch(e){t.releaseClaim(i);throw e}})};export{completeWithPreparedSimpleCompletionModel,extractEmbeddedAssistantText as extractAssistantText,prepareSimpleCompletionModelForAgent,runHostPreparedIsolatedCompletion};

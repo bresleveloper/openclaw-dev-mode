@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";
+//!src/shared/model-param-b.ts
+function inferParamBFromIdOrName(e){const t=normalizeLowercaseStringOrEmpty(e).matchAll(/(?:^|[^a-z0-9])[b-z]?(\d+(?:\.\d+)?)b(?:[-_\s]+(\d+)e)?(?=[^a-z0-9]|$)/g);let n=null;for(const e of t){if(e[2])continue;const t=e[1];const r=Number(t);if(!Number.isFinite(r)||r<=0)continue;if(n===null||r>n)n=r}return n}function isSmallModel(e){const t=e.parameterCount===void 0?inferParamBFromIdOrName(`${e.id} ${e.name??``}`):e.parameterCount/1e9;return t!==null&&t>0&&t<34}export{isSmallModel as n,inferParamBFromIdOrName as t};

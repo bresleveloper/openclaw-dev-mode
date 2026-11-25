@@ -10,10 +10,11 @@ import { resolveConfigPath, resolveStateDir } from "../config/paths.js";
 import type { OpenClawConfig } from "../config/types.js";
 import type { GatewayRequestFunction } from "../gateway/call.js";
 import type { OperatorScope } from "../gateway/operator-scopes.js";
-import { resolveIdentityPathViaExistingAncestorSync } from "../infra/boundary-path.js";
+import type { DatabaseEngineSelection } from "../infra/database-engine/context.js";
 import type { DatabasePortRecoveryIntent } from "../infra/database-port-recovery.js";
 import { formatErrorMessage } from "../infra/errors.js";
 import type { GatewayLockIdentity } from "../infra/gateway-lock.js";
+import { resolveIdentityPathViaExistingAncestorSync } from "../infra/path-existence.js";
 import { hasCommandProcessCleanupError } from "../process/exec-result.js";
 import { createDeferredCore } from "../shared/deferred.js";
 import { registerSignalExitGate } from "./signal-exit-barrier.js";
@@ -32,7 +33,11 @@ type LocalMutationScope = {
  * without an expected-owner parameter: the method's own guard (for example a config
  * baseHash) binds the effect, and owner identity is revalidated right before dispatch.
  */
-export type OwnerRequest = <R>(method: string, params: Record<string, unknown>) => Promise<R>;
+export type OwnerRequest = <R>(
+  method: string,
+  params: Record<string, unknown>,
+  options?: { expectFinal?: boolean },
+) => Promise<R>;
 
 class LocalStateOwnerError extends Error {
   constructor(
@@ -52,8 +57,16 @@ export async function runWithLocalStateOwner<T>(params: {
   params: Record<string, unknown> | ((signal: AbortSignal) => Promise<Record<string, unknown>>);
   target: string;
   recoveryCommand?: string;
+  /** Caller-owned guidance for commands that cannot route to a running owner. */
+  onlineAlternative?: string;
   /** Internal manifest-bound recovery; never routed to or borrowed from a running owner. */
   databasePortRecovery?: DatabasePortRecoveryIntent;
+  /** Engine transitions retire native handles while retaining exclusive schema custody. */
+  databasePortMaintenance?: true;
+  /** Resolve configured engines only after offline custody, before runtime config can write state. */
+  databaseEngine?: "configured";
+  /** Bounded config repairs keep offline custody while leaving every database untouched. */
+  databaseAccess?: "none";
   requiredCapabilities?: readonly string[];
   scopes?: readonly OperatorScope[];
   timeoutMs?: number;
@@ -70,7 +83,7 @@ export async function runWithLocalStateOwner<T>(params: {
 }): Promise<T> {
   localOwnerAssertion.getStore()?.();
   const databasePortRecovery = params.databasePortRecovery
-    ? Object.freeze({ ...params.databasePortRecovery })
+    ? { ...params.databasePortRecovery }
     : undefined;
   const selectedEnv = { ...process.env };
   const selectedStateDir = resolveStateDir(selectedEnv);
@@ -80,8 +93,7 @@ export async function runWithLocalStateOwner<T>(params: {
     OPENCLAW_STATE_DIR: stateDir,
     OPENCLAW_CONFIG_PATH: resolveConfigPath(selectedEnv, selectedStateDir),
   };
-  const input =
-    typeof params.params === "function" ? params.params : structuredClone(params.params);
+  const input = params.params;
   const scopes: OperatorScope[] = [...(params.scopes ?? ["operator.admin"])];
   const [
     {
@@ -93,10 +105,12 @@ export async function runWithLocalStateOwner<T>(params: {
     },
     { captureGatewayStateOwner, tryBorrowGatewayStateOwner },
     { createOpenClawDatabaseMaintenanceScope },
+    { getScopedDatabaseEngineSelection, withDatabaseEngineSelection },
   ] = await Promise.all([
     import("../infra/gateway-lock.js"),
     import("../infra/gateway-state-owner.js"),
     import("../state/openclaw-state-db-async-lifecycle.js"),
+    import("../infra/database-engine/context.js"),
   ]);
   const paths = resolveGatewayLockPaths(env);
   const databasePath = path.join(paths.stateDir, "state", "openclaw.sqlite");
@@ -108,10 +122,12 @@ export async function runWithLocalStateOwner<T>(params: {
     params.assertTargetCurrent?.();
   };
   const guidance =
-    "Update the Gateway or fix authentication and retry. " +
-    (params.requireLocalBackendSharedAuth
-      ? "Provide the Gateway's shared secret through OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD in this CLI process; device pairing is not a substitute. "
-      : "") +
+    (params.onForeignOwner === "refuse"
+      ? `This command is offline-only. ${params.onlineAlternative ? `${params.onlineAlternative} ` : ""}`
+      : "Update the Gateway or fix authentication and retry. " +
+        (params.requireLocalBackendSharedAuth
+          ? "Provide the Gateway's shared secret through OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD in this CLI process; device pairing is not a substitute. "
+          : "")) +
     "To run offline, stop the Gateway through its service owner, wait for ownership to release, then rerun this exact command.";
   const refuse = (cause: unknown): never => {
     throw new LocalStateOwnerError(
@@ -175,6 +191,7 @@ export async function runWithLocalStateOwner<T>(params: {
       gatewayMethod: string,
       gatewayInput: Record<string, unknown>,
       primary: boolean,
+      expectFinal = primary ? params.expectFinal : undefined,
     ): Promise<R> => {
       const port = listenerPort();
       const { callGateway, isGatewayClientRequestError } = await import("../gateway/call.js");
@@ -196,7 +213,7 @@ export async function runWithLocalStateOwner<T>(params: {
             ...(params.requiredCapabilities ?? []),
           ],
           timeoutMs: params.timeoutMs ?? 600_000,
-          expectFinal: primary ? params.expectFinal : undefined,
+          expectFinal,
           signal: controller.signal,
           scopes,
           onSignalAbort: primary ? params.onGatewaySignalAbort : undefined,
@@ -260,7 +277,8 @@ export async function runWithLocalStateOwner<T>(params: {
         env,
         signal: controller.signal,
         assertCurrent: assertTargetCurrent,
-        requestOwner: (ownerMethod, ownerInput) => requestGateway(ownerMethod, ownerInput, false),
+        requestOwner: (ownerMethod, ownerInput, options) =>
+          requestGateway(ownerMethod, ownerInput, false, options?.expectFinal),
       });
       assertTargetCurrent();
       return result;
@@ -269,8 +287,7 @@ export async function runWithLocalStateOwner<T>(params: {
       return refuse(new Error("This operation requires exclusive offline state ownership"));
     }
     listenerPort();
-    const gatewayInput =
-      typeof input === "function" ? structuredClone(await input(controller.signal)) : input;
+    const gatewayInput = typeof input === "function" ? await input(controller.signal) : input;
     return await requestGateway<T>(params.method, gatewayInput, true);
   };
   try {
@@ -279,6 +296,9 @@ export async function runWithLocalStateOwner<T>(params: {
     if (hosted) {
       if (databasePortRecovery) {
         return refuse(new Error("Database port recovery requires exclusive offline ownership"));
+      }
+      if (params.databaseAccess === "none") {
+        return refuse(new Error("Config-only repair requires exclusive offline ownership"));
       }
       return await runLocal(hosted.assertCurrent);
     }
@@ -291,9 +311,10 @@ export async function runWithLocalStateOwner<T>(params: {
       // A losing acquisition has not entered the domain or opened a writable database.
       lock = await acquireGatewayLock({
         env,
-        role: "agent-embedded",
+        role: params.databasePortMaintenance ? "sqlite-maintenance" : "agent-embedded",
         allowInTests: true,
         databasePortRecovery,
+        databaseAccess: params.databaseAccess,
       });
     } catch (error) {
       if (!databasePortRecovery && isGatewayLifecycleContentionError(error)) {
@@ -307,24 +328,90 @@ export async function runWithLocalStateOwner<T>(params: {
     if (!lock) {
       return refuse(new Error("Offline state ownership was not acquired"));
     }
-    const resources = createOpenClawDatabaseMaintenanceScope({
-      assertOwnerCurrent: () => lock.assertCurrent(),
-      assertDatabaseAccess: lock.assertDatabaseAccess,
-    });
-    let uncertainCleanup = false;
+    let selection: DatabaseEngineSelection | undefined;
     try {
-      return await resources.run(() => runLocal(lock.assertCurrent));
+      if (
+        params.databaseAccess !== "none" &&
+        params.databaseEngine === "configured" &&
+        !getScopedDatabaseEngineSelection()
+      ) {
+        const [
+          { createConfigIO },
+          errors,
+          { resolveDatabaseEngineSelection },
+          { loadDotEnvAsync },
+        ] = await Promise.all([
+          import("../config/io.js"),
+          import("../config/io.invalid-config.js"),
+          import("../infra/database-engine/config.js"),
+          import("../infra/dotenv.js"),
+        ]);
+        lock.assertCurrent();
+        assertTargetCurrent();
+        await loadDotEnvAsync({ env });
+        lock.assertCurrent();
+        assertTargetCurrent();
+        const snapshot = await createConfigIO({
+          env,
+          configPath: env.OPENCLAW_CONFIG_PATH,
+          observe: false,
+          pluginValidation: "core-only",
+        }).readConfigFileSnapshot();
+        if (errors.isConfigReadFailure(snapshot)) {
+          throw errors.createConfigReadError(snapshot);
+        }
+        if (!snapshot.valid) {
+          throw errors.createInvalidConfigError(
+            snapshot.path,
+            errors.formatInvalidConfigDetails(snapshot.issues),
+          );
+        }
+        lock.assertCurrent();
+        assertTargetCurrent();
+        selection = await resolveDatabaseEngineSelection(snapshot.config, env);
+        lock.assertCurrent();
+        assertTargetCurrent();
+      }
     } catch (error) {
-      uncertainCleanup = hasCommandProcessCleanupError(error);
-      throw error;
-    } finally {
-      // Failed cleanup keeps physical custody; release cannot race accepted worker/native work.
-      await resources.close();
-      // Stop lending this owner, but keep physical custody until uncertain children exit.
-      const retained = uncertainCleanup ? tryBorrowGatewayStateOwner(databasePath) : undefined;
       await lock.release();
-      retained?.assertCurrent();
+      throw error;
     }
+    const runOwned = async () => {
+      if (params.databaseAccess !== "none") {
+        try {
+          // The configured engine may only now be in scope; take its PostgreSQL custody first.
+          await lock.acquireConfiguredPostgresOwner?.();
+        } catch (error) {
+          await lock.release();
+          refuse(error);
+        }
+      }
+      const resources =
+        params.databasePortMaintenance || params.databaseAccess === "none"
+          ? undefined
+          : createOpenClawDatabaseMaintenanceScope({
+              assertOwnerCurrent: () => lock.assertCurrent(),
+              assertDatabaseAccess: lock.assertDatabaseAccess,
+            });
+      const { createAgentCleanupScope } = await import("../agents/run-cleanup-timeout.js");
+      const cleanup = createAgentCleanupScope();
+      let uncertainCleanup = false;
+      try {
+        return await (resources ?? lock).run(() => cleanup.run(() => runLocal(lock.assertCurrent)));
+      } catch (error) {
+        uncertainCleanup = hasCommandProcessCleanupError(error);
+        throw error;
+      } finally {
+        uncertainCleanup ||= cleanup.outcome === "uncertain";
+        // Failed cleanup keeps physical custody; release cannot race accepted worker/native work.
+        await resources?.close();
+        // Stop lending this owner, but keep physical custody until uncertain children exit.
+        const retained = uncertainCleanup ? tryBorrowGatewayStateOwner(databasePath) : undefined;
+        await lock.release();
+        retained?.assertCurrent();
+      }
+    };
+    return selection ? await withDatabaseEngineSelection(selection, runOwned) : await runOwned();
   } finally {
     finished.resolve();
     releaseExitGate();

@@ -1,2 +1,1 @@
-import { t as createGoogleGenAI } from "../../google-genai-runtime-CP-IyKpc.mjs";
-export { createGoogleGenAI };
+import{t as createGoogleGenAI}from"../../google-genai-runtime-DRIGlL5m.mjs";export{createGoogleGenAI};

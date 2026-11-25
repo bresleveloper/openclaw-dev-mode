@@ -17,7 +17,12 @@ import { upsertSessionEntryCore } from "../../config/sessions/session-accessor.j
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { hasAgentRunContextExecutionOwner } from "../../infra/agent-run-registry.js";
 import * as mutationAdmission from "../../infra/sqlite-worker-operation-admission.js";
+import {
+  bindLegacyPluginSdkResourceHost,
+  LegacyPluginSdkResourceHost,
+} from "../../plugins/legacy-sdk-resource-host.js";
 import { withPluginRuntimeGatewayContextResolver } from "../../plugins/runtime/gateway-request-scope.js";
+import { rpcSourceTesting } from "../../sessions/session-lifecycle-admission.test-support.js";
 import { closeOpenClawStateDatabaseAsync } from "../../state/openclaw-state-db.js";
 import { getUserProfileListItem } from "../../state/user-profile-list-item.test-support.js";
 import { captureResidentUserProfileAccess } from "../../state/user-profile-list.js";
@@ -39,6 +44,7 @@ import {
 } from "../device-revocation.js";
 import {
   GatewayOperatorAccessDeniedError,
+  GatewayOperatorAccessUnavailableError,
   resolveGatewayOperatorAccessAuthority,
   resumeGatewayOperatorAccessGrant,
 } from "../operator-access-policy.js";
@@ -117,6 +123,8 @@ describe("visitor access admitted caller", () => {
         const context = makeContext();
         const resolveGatewayContext = () => context;
         context.resolveGatewayContext = resolveGatewayContext;
+        const sdkResources = new LegacyPluginSdkResourceHost();
+        bindLegacyPluginSdkResourceHost(resolveGatewayContext, sdkResources);
         const connection = new AbortController();
         const client: GatewayClient = {
           ...operatorWriteCliClient([scenario === "writer" ? WRITE_SCOPE : ADMIN_SCOPE]),
@@ -258,6 +266,14 @@ describe("visitor access admitted caller", () => {
                         );
                       try {
                         [renewal] = await Promise.allSettled([invite(2)]);
+                        // Revocation fences the next request, not this admitted renewal.
+                        await expect(
+                          captureGatewayOperatorRunAuthority({
+                            client,
+                            context,
+                            hasCurrentClientAuthority: caller.isCurrent,
+                          }),
+                        ).rejects.toThrow("Gateway caller authority is no longer active");
                       } finally {
                         intercept.mockRestore();
                       }
@@ -304,7 +320,7 @@ describe("visitor access admitted caller", () => {
           try {
             await expectDefined(proof, "admitted visitor proof missing");
           } finally {
-            await waitForAssertion(() => expect(context.chatAbortControllers.size).toBe(0));
+            await waitForAssertion(() => expect(rpcSourceTesting.size).toBe(0));
           }
           expect(mocks.agentCommand).toHaveBeenCalledOnce();
           const saved = await grants.lookup(EMAIL);
@@ -323,23 +339,20 @@ describe("visitor access admitted caller", () => {
           expect(revocationState).toEqual({
             ownerBefore: true,
             callerCurrent: false,
-            ownerAfter: false,
+            ownerAfter: true,
           });
           expect(stages).toEqual(["transaction", "commit"]);
           const outcome = expectDefined(renewal, "renewal result missing");
-          expect(outcome.status).toBe("rejected");
-          if (scenario === "revoked before commit") {
-            expect(saved).toEqual(original);
-          } else {
-            const renewed = expectDefined(saved, "committed renewal was lost");
-            expect(renewed.createdAt).toBe(original.createdAt);
-            expect(renewed.expiresAt).toBeGreaterThan(original.expiresAt);
-          }
-          expect(commitGranted).toBe(scenario === "revoked after commit");
+          expect(outcome.status).toBe("fulfilled");
+          const renewed = expectDefined(saved, "committed renewal was lost");
+          expect(renewed.createdAt).toBe(original.createdAt);
+          expect(renewed.expiresAt).toBeGreaterThan(original.expiresAt);
+          expect(commitGranted).toBe(true);
         } finally {
           caller.release();
           closeGatewayDeviceRevocation(context);
           await gateway?.stop();
+          await sdkResources.close();
         }
       });
     },
@@ -412,6 +425,8 @@ describe("visitor access admitted caller", () => {
       const previousContext = makeContext();
       const resolvePreviousContext = () => previousContext;
       previousContext.resolveGatewayContext = resolvePreviousContext;
+      const previousSdkResources = new LegacyPluginSdkResourceHost();
+      bindLegacyPluginSdkResourceHost(resolvePreviousContext, previousSdkResources);
       const previousGateway = await startVisitorGateway({
         config,
         state,
@@ -431,6 +446,7 @@ describe("visitor access admitted caller", () => {
       } finally {
         closeGatewayDeviceRevocation(previousContext);
         await previousGateway.stop();
+        await previousSdkResources.close();
       }
       await closeOpenClawStateDatabaseAsync();
 
@@ -445,6 +461,8 @@ describe("visitor access admitted caller", () => {
       const context = makeContext();
       const resolveGatewayContext = () => context;
       context.resolveGatewayContext = resolveGatewayContext;
+      const sdkResources = new LegacyPluginSdkResourceHost();
+      bindLegacyPluginSdkResourceHost(resolveGatewayContext, sdkResources);
       const gateway = await startVisitorGateway({
         config: restrictedConfig,
         state,
@@ -453,29 +471,10 @@ describe("visitor access admitted caller", () => {
       });
       try {
         const grants = createVisitorGrantStore(state.env);
-        expect(provider.emails()).toEqual([active.email, retainedGuest.email, unmanaged]);
-        expect(provider.writes).toEqual(["PUT"]);
-        const qualified = expectDefined(
-          await grants.lookup(active.email),
-          "qualified grant missing",
-        );
-        const grantId = z.uuid().parse(qualified.grantId);
-        const qualifiedGuest = expectDefined(
-          await grants.lookup(retainedGuest.email),
-          "retained guest grant missing",
-        );
-        const guestGrantId = z.uuid().parse(qualifiedGuest.grantId);
-        const reopenedGrants = await grants.entries();
-        expect(reopenedGrants.map(({ key, value }) => ({ key, value }))).toEqual(
-          expect.arrayContaining([
-            { key: active.email, value: { ...active, grantId } },
-            { key: retainedGuest.email, value: { ...retainedGuest, grantId: guestGrantId } },
-          ]),
-        );
-        expect(reopenedGrants).toHaveLength(2);
+        // Invalid policy configuration is unavailable, not a decision to revoke this visitor.
         expect(() =>
           resolveGatewayOperatorAccessAuthority(unassigned.id, restrictedConfig),
-        ).toThrow(GatewayOperatorAccessDeniedError);
+        ).toThrow(GatewayOperatorAccessUnavailableError);
         for (const profile of [staff, owner]) {
           expect(resolveGatewayOperatorAccessAuthority(profile.id, restrictedConfig)).toBeNull();
         }
@@ -532,7 +531,28 @@ describe("visitor access admitted caller", () => {
             }
             return { text: block.text, details: isRecord(output) ? output.details : undefined };
           };
+          // Listing joins the service queue after the background startup sweep.
           const { text: listing, details: listedDetails } = await invoke("visitor_list");
+          expect(provider.emails()).toEqual([active.email, retainedGuest.email, unmanaged]);
+          expect(provider.writes).toEqual(["PUT"]);
+          const qualified = expectDefined(
+            await grants.lookup(active.email),
+            "qualified grant missing",
+          );
+          const grantId = z.uuid().parse(qualified.grantId);
+          const qualifiedGuest = expectDefined(
+            await grants.lookup(retainedGuest.email),
+            "retained guest grant missing",
+          );
+          const guestGrantId = z.uuid().parse(qualifiedGuest.grantId);
+          const reopenedGrants = await grants.entries();
+          expect(reopenedGrants.map(({ key, value }) => ({ key, value }))).toEqual(
+            expect.arrayContaining([
+              { key: active.email, value: { ...active, grantId } },
+              { key: retainedGuest.email, value: { ...retainedGuest, grantId: guestGrantId } },
+            ]),
+          );
+          expect(reopenedGrants).toHaveLength(2);
           const listedGrants = z
             .object({
               grants: z.array(
@@ -683,6 +703,7 @@ describe("visitor access admitted caller", () => {
         }
       } finally {
         await gateway.stop();
+        await sdkResources.close();
       }
     });
   });

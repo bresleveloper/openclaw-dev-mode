@@ -22,8 +22,11 @@
  * - `pnpm exec oxlint src/gateway/server-methods/update.ts` reports no max-lines error;
  * - no new update executor appeared: `git grep -n "startManagedServiceUpdateHandoff(\|updateCommand("`
  *   lists only update.ts, update-startup-auto-run.ts, update-command-handoff.ts (inside
- *   updateCommand), wizard.ts, doctor-update.ts and triage-failure.ts (a repair handoff, not an
- *   update);
+ *   updateCommand), update-cli.ts (the CLI command), wizard.ts, doctor-update.ts and
+ *   update-migrated-finalize.worker.ts (all callers of the hooked updateCommand), plus the two
+ *   definitions (update-command.ts, update-managed-service-handoff.ts). triage-failure.ts matched
+ *   until 2026.11.3 (a repair handoff, not an update). The other `update.*` RPCs
+ *   (status, hold, runs.*, report, recovery.cleanup) never start an update (checked 2026.11.10);
  * - test/setup.shared.ts still calls `setForkUpdateBlockForTest(false)` at module top level;
  * - src/infra/fork-update-block.test.ts passes.
  */

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";async function advanceAuthProfileCandidate(e){for(let[t,n]of e.candidates.entries())if(!(t<=e.state.profileIndex)&&(e.state.profileIndex=t,e.isAvailable(n,t)&&await e.tryPrepare(n,t)))return!0;return e.state.profileIndex=e.candidates.length,!1}var t=e((()=>{}));export{t as n,advanceAuthProfileCandidate as t};

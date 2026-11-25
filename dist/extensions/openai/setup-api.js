@@ -1,24 +1,3 @@
-import { t as createOpenAIProvider } from "./.setup/provider-contract-api-cl3eyYYC.mjs";
-import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/openai/setup-api.ts
-async function runOpenAIProviderAuthMethod(methodId, ctx) {
-	const { buildOpenAIProvider } = await import("./.setup/openai-provider-BnL0N6BU.mjs");
-	const method = buildOpenAIProvider().auth.find((entry) => entry.id === methodId);
-	if (!method) return { profiles: [] };
-	return method.run(ctx);
-}
-function buildOpenAISetupProvider() {
-	const provider = createOpenAIProvider();
-	for (const method of provider.auth) method.run = async (ctx) => runOpenAIProviderAuthMethod(method.id, ctx);
-	return provider;
-}
-var setup_api_default = definePluginEntry({
-	id: "openai",
-	name: "OpenAI Setup",
-	description: "Lightweight OpenAI setup hooks",
-	register(api) {
-		api.registerProvider(buildOpenAISetupProvider());
-	}
-});
-//#endregion
-export { buildOpenAISetupProvider, setup_api_default as default };
+import{t as createOpenAIProvider}from"./.setup/provider-contract-api-CslGHjwI.mjs";import{definePluginEntry}from"openclaw/plugin-sdk/plugin-entry";
+//!extensions/openai/setup-api.ts
+async function runOpenAIProviderAuthMethod(e,t){const{buildOpenAIProvider:n}=await import(`./.setup/openai-provider-vnzX4QEO.mjs`);const r=n().auth.find(t=>t.id===e);if(!r)return{profiles:[]};return r.run(t)}function buildOpenAISetupProvider(){const e=createOpenAIProvider();for(const t of e.auth)t.run=async e=>runOpenAIProviderAuthMethod(t.id,e);return e}var setup_api_default=definePluginEntry({id:`openai`,name:`OpenAI Setup`,description:`Lightweight OpenAI setup hooks`,register(e){e.registerProvider(buildOpenAISetupProvider())}});export{buildOpenAISetupProvider,setup_api_default as default};

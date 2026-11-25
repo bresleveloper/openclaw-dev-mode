@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{o as t}from"./worker-chunk-uw49siUx.mjs";import{i as n}from"./worker-chunk-Cb82E_9i.mjs";import r from"node:path";function resolveManagedWorktreeRoot(e,t){return t??r.join(n(e),`worktrees`)}var i=e((()=>{t()}));export{resolveManagedWorktreeRoot as n,i as t};

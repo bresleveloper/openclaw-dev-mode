@@ -1,0 +1,2 @@
+//!src/agents/sessions/session-manager-view-types.ts
+const sessionManagerReadTranscriptBranch=Symbol.for(`openclaw.session-manager.read-transcript-branch`);const sessionManagerReadToolResultProjectionEntries=Symbol.for(`openclaw.session-manager.read-tool-result-projection-entries`);export{sessionManagerReadTranscriptBranch as n,sessionManagerReadToolResultProjectionEntries as t};

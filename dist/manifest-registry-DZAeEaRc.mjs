@@ -1,0 +1,1 @@
+import{t as loadPluginManifestRegistryCore}from"./manifest-registry-DCFYolbU.mjs";export{loadPluginManifestRegistryCore};

@@ -1,0 +1,2 @@
+//!src/agents/exec-node-path-prepend.ts
+const EXEC_NODE_PATH_PREPEND_WARNING=`Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.`;function withNodePathPrependWarning(e,t){return t?`${e}\n\n${EXEC_NODE_PATH_PREPEND_WARNING}`:e}export{withNodePathPrependWarning as n,EXEC_NODE_PATH_PREPEND_WARNING as t};

@@ -1,0 +1,3 @@
+import{s as getRootOptionAwareCommandPath}from"./cli-root-options-eez2TgAl.mjs";
+//!extensions/policy/src/cli-output-mode.ts
+function isPolicyMachineOutput(e){const[,t]=getRootOptionAwareCommandPath(e.argv,2);return[`check`,`compare`,`watch`].includes(t??``)&&!e.stdoutIsTTY}const POLICY_CLI_DESCRIPTOR={name:`policy`,description:`Check policy requirements and emit audit evidence`,hasSubcommands:true,machineOutput:isPolicyMachineOutput};export{POLICY_CLI_DESCRIPTOR as t};

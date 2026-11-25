@@ -1,0 +1,2 @@
+//!extensions/browser/src/browser/bridge-auth-registry.ts
+const authByPort=/* @__PURE__ */ new Map;function setBridgeAuthForPort(e,t){if(!Number.isFinite(e)||e<=0)return;authByPort.set(e,t)}function getBridgeAuthForPort(e){return authByPort.get(e)}function deleteBridgeAuthForPort(e){authByPort.delete(e)}export{getBridgeAuthForPort as n,setBridgeAuthForPort as r,deleteBridgeAuthForPort as t};

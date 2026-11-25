@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-DyeIuPEC.mjs";import{c as t,l as n}from"./worker-chunk-6cOBEM34.mjs";var r,i;function init_runtime_process_entrypoints(){return(init_runtime_process_entrypoints=e((()=>{n(),r=`--openclaw-sqlite-readonly-child`,i=t(import.meta.url)})))()}export{init_runtime_process_entrypoints as n,i as r,r as t};

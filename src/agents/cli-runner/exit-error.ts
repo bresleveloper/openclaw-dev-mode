@@ -1,5 +1,7 @@
 import { isAbortError } from "../../infra/abort-signal.js";
 import { formatErrorMessage } from "../../infra/errors.js";
+import type { ResolvedCliBackend } from "../cli-backends.js";
+import type { CliOutput } from "../cli-output-contracts.js";
 import { extractCliErrorMessage } from "../cli-output.js";
 import {
   coerceToFailoverError,
@@ -9,18 +11,19 @@ import {
 } from "../failover-error.js";
 
 type CliResumeAttempt = {
+  // Option name the backend was invoked with, e.g. --resume-session-at.
   resumeAtArg?: string;
+  // Checkpoint value that option carried, when the attempt targeted one.
   resumeCheckpointId?: string;
 };
 
 type CliExitFailoverErrorParams = {
   context: Pick<FailoverError, "provider" | "model" | "sessionId" | "lane">;
-  // Spawn supplies stderr/stdout windows; live stdout is already structured, so it supplies stderr.
   candidates: readonly string[];
-  fallbackMessage: string;
   retryEmptyFailure: boolean;
   resumeAtArg?: string;
   resumeCheckpointId?: string;
+  classifyErrorCode?: ResolvedCliBackend["classifyErrorCode"];
 };
 
 export function createCliFailoverError(
@@ -35,6 +38,38 @@ export function createCliFailoverError(
     status: resolveFailoverStatus(reason),
     ...options,
   });
+}
+
+// A refused stream may already have started a native session; the runner decides whether to keep it.
+const refusedStreamOutputs = new WeakMap<FailoverError, CliOutput>();
+
+/** Refuses unparseable CLI output while retaining the stream's partial facts for the runner. */
+export function createCliStreamRefusalError(
+  message: string,
+  context: Pick<FailoverError, "provider" | "model" | "sessionId" | "lane">,
+  output: CliOutput | null | undefined,
+  options?: Pick<FailoverError, "code">,
+): FailoverError {
+  const error = createCliFailoverError(message, "format", context, options);
+  if (output) {
+    refusedStreamOutputs.set(error, output);
+  }
+  return error;
+}
+
+export function readCliStreamRefusalOutput(error: unknown): CliOutput | undefined {
+  return error instanceof FailoverError ? refusedStreamOutputs.get(error) : undefined;
+}
+
+/** Adds the run's tool facts to a refused stream's partial output, as a returned turn carries them. */
+export function recordCliStreamRefusalToolEffects(
+  error: unknown,
+  effects: Pick<CliOutput, "toolSummary" | "acceptedSessionSpawns">,
+): void {
+  const output = readCliStreamRefusalOutput(error);
+  if (output && error instanceof FailoverError) {
+    refusedStreamOutputs.set(error, { ...output, ...effects });
+  }
 }
 
 export function resolveCliResumeAtError(
@@ -76,7 +111,7 @@ export function createCliExitFailoverError(params: CliExitFailoverErrorParams): 
   const structuredError =
     candidates.map((candidate) => extractCliErrorMessage(candidate)).find(Boolean) ?? null;
   const resumeAtError = resolveCliResumeAtError(
-    structuredError || candidates[0] || params.fallbackMessage,
+    structuredError || candidates[0] || "CLI failed.",
     { resumeAtArg: params.resumeAtArg, resumeCheckpointId: params.resumeCheckpointId },
     params.context,
   );
@@ -86,13 +121,13 @@ export function createCliExitFailoverError(params: CliExitFailoverErrorParams): 
   const classified = [structuredError, ...candidates]
     .flatMap((candidate) => (candidate ? [coerceToFailoverError(candidate, params.context)] : []))
     .find((error) => error !== null);
-  const message = structuredError || classified?.message || candidates[0] || params.fallbackMessage;
+  const message = structuredError || classified?.message || candidates[0] || "CLI failed.";
   const reason = classified?.reason ?? "unknown";
   const code =
     reason === "context_overflow"
       ? "cli_context_overflow"
       : candidates.length === 0 && params.retryEmptyFailure
         ? "cli_unknown_empty_failure"
-        : undefined;
+        : params.classifyErrorCode?.(message);
   return createCliFailoverError(message, reason, params.context, { code });
 }

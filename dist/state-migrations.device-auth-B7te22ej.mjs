@@ -1,0 +1,1 @@
+import{n as migrateLegacyDeviceAuth,r as prepareLegacyDeviceAuth,t as detectLegacyDeviceAuth}from"./state-migrations.device-auth-BamV8P44.mjs";export{detectLegacyDeviceAuth,migrateLegacyDeviceAuth,prepareLegacyDeviceAuth};

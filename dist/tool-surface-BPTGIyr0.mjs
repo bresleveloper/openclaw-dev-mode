@@ -1,0 +1,2 @@
+//!src/agents/harness/tool-surface.ts
+function agentHarnessBuildsOpenClawTools(e){return e===`codex`||e===`copilot`}function agentHarnessExposesOpenClawTools(e){return e===`openclaw`||agentHarnessBuildsOpenClawTools(e)}export{agentHarnessExposesOpenClawTools as n,agentHarnessBuildsOpenClawTools as t};

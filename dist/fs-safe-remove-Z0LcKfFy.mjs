@@ -1,0 +1,1 @@
+import{n as isRemovalIoError,r as removePathWithinRoot,t as capturePathRemovalGuard}from"./fs-safe-remove-B-h3BvbP.mjs";export{capturePathRemovalGuard,removePathWithinRoot};

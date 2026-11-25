@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function sanitizeChatSendMessageInput(e){let t=e.normalize(`NFC`);return t.includes(`\0`)?{ok:!1,error:`message must not contain null bytes`}:{ok:!0,message:t.replace(n,``)}}var t,n,r=e((()=>{t=`\0-\b\v\f-`,n=RegExp(`[${t}]`,`g`)}));export{sanitizeChatSendMessageInput as n,r as t};

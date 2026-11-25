@@ -1,0 +1,2 @@
+//!src/config/cron-limits.ts
+const DEFAULT_CRON_MAX_CONCURRENT_RUNS=8;const DEFAULT_CRON_TRIGGER_MIN_INTERVAL_MS=3e4;function resolveCronMaxConcurrentRuns(){return 8}function resolveCronTriggerMinIntervalMs(){return DEFAULT_CRON_TRIGGER_MIN_INTERVAL_MS}export{resolveCronTriggerMinIntervalMs as n,resolveCronMaxConcurrentRuns as t};

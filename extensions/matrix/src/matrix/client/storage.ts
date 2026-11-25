@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { normalizeAccountId } from "openclaw/plugin-sdk/account-id";
+import { readDirectoryEntriesSync } from "openclaw/plugin-sdk/path-existence-runtime";
 import { getMatrixRuntime } from "../../runtime.js";
 import {
   isMatrixActiveTokenRootDirectory,
@@ -143,15 +144,7 @@ async function resolvePreferredMatrixStorageRoot(params: {
     mtimeMs: bestCurrentMtimeMs,
   };
 
-  let siblingEntries: fs.Dirent[];
-  try {
-    siblingEntries = fs.readdirSync(parentDir, { withFileTypes: true });
-  } catch {
-    return {
-      rootDir: best.rootDir,
-      tokenHash: best.tokenHash,
-    };
-  }
+  const siblingEntries = readDirectoryEntriesSync(parentDir);
 
   const populatedSiblingTokenHashes: string[] = [];
   const populatedTokenHashes = bestCurrentScore > 0 ? [params.canonicalTokenHash] : [];
@@ -250,7 +243,6 @@ export async function resolveMatrixStoragePaths(params: {
   return {
     rootDir,
     storagePath: path.join(rootDir, "bot-storage.json"),
-    cryptoPath: path.join(rootDir, "crypto"),
     recoveryKeyPath: path.join(rootDir, MATRIX_RECOVERY_KEY_FILENAME),
     idbSnapshotPath: path.join(rootDir, MATRIX_IDB_SNAPSHOT_FILENAME),
     accountKey: canonical.accountKey,
@@ -303,7 +295,7 @@ export async function maybeMigrateLegacyStorage({
   if (!persisted) {
     return;
   }
-  fs.mkdirSync(rootDir, { recursive: true });
+
   let migrated = false;
   try {
     const store = getMatrixRuntime().state.openKeyedStoreV2<
@@ -397,7 +389,6 @@ export async function writeStorageMeta(params: {
   userId: string;
   accountId?: string | null;
   deviceId?: string | null;
-  currentTokenStateClaimed?: boolean;
 }): Promise<boolean> {
   return mutateStorageMeta(params.storagePaths.rootDir, {
     kind: "initialize",
@@ -407,7 +398,6 @@ export async function writeStorageMeta(params: {
       accountId: params.accountId ?? DEFAULT_ACCOUNT_KEY,
       accessTokenHash: params.storagePaths.tokenHash,
       deviceId: params.deviceId ?? null,
-      currentTokenStateClaimed: params.currentTokenStateClaimed,
     },
   });
 }
@@ -435,16 +425,14 @@ export async function repairCurrentTokenStorageMetaDeviceId(params: {
   accountId?: string | null;
   deviceId: string;
   env?: NodeJS.ProcessEnv;
-  stateDir?: string;
 }): Promise<boolean> {
-  const { homeserver, userId, accessToken, accountId, deviceId, env, stateDir } = params;
+  const { homeserver, userId, accessToken, accountId, deviceId, env } = params;
   const storagePaths = await resolveMatrixStoragePaths({
     homeserver,
     userId,
     accessToken,
     accountId,
     env,
-    stateDir,
   });
   return writeStorageMeta({
     storagePaths,

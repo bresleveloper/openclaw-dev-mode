@@ -1,0 +1,2 @@
+//!src/skills/runtime/skill-snapshot-provenance.ts
+const EXECUTION_WORKSPACE_FILE_HOST=`executionWorkspaceFileHost`;function recordSkillRootsExecutionFileHost(e,t){if(t===void 0)Reflect.deleteProperty(e,EXECUTION_WORKSPACE_FILE_HOST);else Reflect.set(e,EXECUTION_WORKSPACE_FILE_HOST,t);return e}function resolveSkillSnapshotExecutionFileHost(e){const t=e?.skillRoots;if(!t)return;return Reflect.get(t,EXECUTION_WORKSPACE_FILE_HOST)===`gateway`?`gateway`:void 0}export{resolveSkillSnapshotExecutionFileHost as n,recordSkillRootsExecutionFileHost as t};

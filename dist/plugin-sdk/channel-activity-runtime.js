@@ -1,3 +1,1 @@
-import { n as recordChannelActivity } from "../channel-activity-Bn5LeXyE.mjs";
-import "../channel-activity-runtime-la_KkjCS.mjs";
-export { recordChannelActivity };
+import{n as recordChannelActivity}from"../channel-activity-t3O1Na9W.mjs";import"../channel-activity-runtime-CAISgiXf.mjs";export{recordChannelActivity};

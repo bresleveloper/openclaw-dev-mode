@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function resolveRuntimeExecutionProfile(e){return e?.mode===`aot`?`embedded-aot`:`dynamic-execution`}function getRuntimeExecutionProfile(){return t??=resolveRuntimeExecutionProfile(globalThis.__openclawStandaloneBuildInfo)}var t,n=e((()=>{}));export{n,getRuntimeExecutionProfile as t};

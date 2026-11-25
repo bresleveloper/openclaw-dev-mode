@@ -1,0 +1,1 @@
+import{t as e}from"./plugin-model-catalog-read.worker-subsystem-18syg77o.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

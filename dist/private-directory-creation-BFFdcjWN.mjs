@@ -1,0 +1,2 @@
+//!src/infra/private-directory-creation.ts
+const refusedCreations=/* @__PURE__ */ new WeakSet;function markPrivateDirectoryCreationRefused(e){if(e!==null&&typeof e===`object`)refusedCreations.add(e);return e}function isPrivateDirectoryCreationRefused(e){return e!==null&&typeof e===`object`&&refusedCreations.has(e)}export{markPrivateDirectoryCreationRefused as n,isPrivateDirectoryCreationRefused as t};

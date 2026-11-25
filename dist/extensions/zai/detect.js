@@ -1,7 +1,7 @@
-import { i as ZAI_CODING_GLOBAL_BASE_URL, n as ZAI_CODING_CN_BASE_URL, o as ZAI_DEFAULT_MODEL_ID, r as ZAI_CODING_DEFAULT_MODEL_ID, s as ZAI_GLOBAL_BASE_URL, t as ZAI_CN_BASE_URL } from "./.setup/model-definitions-DjGQ-3Uy.mjs";
+import { i as ZAI_CODING_GLOBAL_BASE_URL, n as ZAI_CODING_CN_BASE_URL, o as ZAI_DEFAULT_MODEL_ID, r as ZAI_CODING_DEFAULT_MODEL_ID, s as ZAI_GLOBAL_BASE_URL, t as ZAI_CN_BASE_URL } from "./.setup/model-definitions-De15FJFr.mjs";
 import { resolveTimerTimeoutMs } from "openclaw/plugin-sdk/number-runtime";
 import { createProviderOperationDeadline, createProviderOperationTimeoutResolver, readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
-//#region extensions/zai/detect.ts
+// extensions/zai/detect.ts
 const PROBE_ENDPOINTS = [{
 	endpoint: "global",
 	baseUrl: ZAI_GLOBAL_BASE_URL,
@@ -22,70 +22,71 @@ function isUnsupportedModelResult(result) {
 	const detail = `${result.errorCode ?? ""} ${result.errorMessage ?? ""}`.toLowerCase();
 	return /\bmodel\b.*\b(not found|unavailable|unsupported|does not exist)\b/.test(detail) || /模型.*(不存在|不支持|不可用)/.test(detail);
 }
-async function probeZaiChatCompletions(params) {
-	const deadline = createProviderOperationDeadline({
-		timeoutMs: params.timeoutMs,
-		label: "Z.AI endpoint check"
-	});
-	const resolveTimeoutMs = createProviderOperationTimeoutResolver({
-		deadline,
-		defaultTimeoutMs: params.timeoutMs
-	});
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), params.timeoutMs);
-	timeout.unref?.();
-	let res;
-	try {
-		res = await (params.fetchFn ?? globalThis.fetch)(`${params.baseUrl}/chat/completions`, {
-			method: "POST",
-			headers: {
-				authorization: `Bearer ${params.apiKey}`,
-				"content-type": "application/json"
-			},
-			body: JSON.stringify({
-				model: params.modelId,
-				stream: false,
-				max_tokens: 1,
-				messages: [{
-					role: "user",
-					content: "ping"
-				}]
-			}),
-			signal: controller.signal
-		});
-		if (res.ok) return { ok: true };
-		let errorCode;
-		let errorMessage;
-		try {
-			const json = await readProviderJsonResponse(res, "Z.AI endpoint check", {
-				maxBytes: ZAI_DETECT_ERROR_BODY_MAX_BYTES,
-				timeoutMs: resolveTimeoutMs,
-				chunkTimeoutMs: 0,
-				onTimeout: ({ timeoutMs }) => /* @__PURE__ */ new Error(`Z.AI check error body timed out after ${timeoutMs}ms`),
-				onOverflow: ({ maxBytes }) => /* @__PURE__ */ new Error(`Z.AI check error body exceeded size limit (${maxBytes} bytes)`)
-			});
-			const code = json?.error?.code ?? json?.code;
-			const msg = json?.error?.message ?? json?.msg ?? json?.message;
-			if (typeof code === "string") errorCode = code;
-			else if (typeof code === "number") errorCode = String(code);
-			if (typeof msg === "string") errorMessage = msg;
-		} catch {}
-		return {
-			ok: false,
-			status: res.status,
-			errorCode,
-			errorMessage
-		};
-	} catch {
-		return { ok: false };
-	} finally {
-		clearTimeout(timeout);
-		if (res?.bodyUsed !== true) await res?.body?.cancel().catch(() => void 0);
-	}
-}
 async function detectZaiEndpoint(params) {
 	if (process.env.VITEST && !params.fetchFn) return null;
 	const timeoutMs = resolveTimerTimeoutMs(params.timeoutMs, 5e3);
+	async function probeZaiChatCompletions(baseUrl, modelId) {
+		const { apiKey, fetchFn: providedFetchFn } = params;
+		const deadline = createProviderOperationDeadline({
+			timeoutMs,
+			label: "Z.AI endpoint check"
+		});
+		const resolveTimeoutMs = createProviderOperationTimeoutResolver({
+			deadline,
+			defaultTimeoutMs: timeoutMs
+		});
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), timeoutMs);
+		timeout.unref?.();
+		let res;
+		try {
+			res = await (providedFetchFn ?? globalThis.fetch)(`${baseUrl}/chat/completions`, {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${apiKey}`,
+					"content-type": "application/json"
+				},
+				body: JSON.stringify({
+					model: modelId,
+					stream: false,
+					max_tokens: 1,
+					messages: [{
+						role: "user",
+						content: "ping"
+					}]
+				}),
+				signal: controller.signal
+			});
+			if (res.ok) return { ok: true };
+			let errorCode;
+			let errorMessage;
+			try {
+				const json = await readProviderJsonResponse(res, "Z.AI endpoint check", {
+					maxBytes: ZAI_DETECT_ERROR_BODY_MAX_BYTES,
+					timeoutMs: resolveTimeoutMs,
+					chunkTimeoutMs: 0,
+					onTimeout: ({ timeoutMs: bodyTimeoutMs }) => /* @__PURE__ */ new Error(`Z.AI check error body timed out after ${bodyTimeoutMs}ms`),
+					onOverflow: ({ maxBytes }) => /* @__PURE__ */ new Error(`Z.AI check error body exceeded size limit (${maxBytes} bytes)`)
+				});
+				const code = json?.error?.code ?? json?.code;
+				const msg = json?.error?.message ?? json?.msg ?? json?.message;
+				if (typeof code === "string") errorCode = code;
+				else if (typeof code === "number") errorCode = String(code);
+				if (typeof msg === "string") errorMessage = msg;
+			} catch {}
+			return {
+				ok: false,
+				status: res.status,
+				errorCode,
+				errorMessage
+			};
+		} catch {
+			return { ok: false };
+		} finally {
+			clearTimeout(timeout);
+			if (res?.bodyUsed !== true) await res?.body?.cancel().catch(() => void 0);
+		}
+	}
 	const probeCandidates = (() => {
 		const general = PROBE_ENDPOINTS.map(({ endpoint, baseUrl }) => ({
 			endpoint,
@@ -129,13 +130,7 @@ async function detectZaiEndpoint(params) {
 	for (const candidate of probeCandidates) {
 		const priorResults = resultsByEndpoint.get(candidate.endpoint) ?? [];
 		if (candidate.fallback && (priorResults.length === 0 || !priorResults.every(isUnsupportedModelResult))) continue;
-		const result = await probeZaiChatCompletions({
-			baseUrl: candidate.baseUrl,
-			apiKey: params.apiKey,
-			modelId: candidate.modelId,
-			timeoutMs,
-			fetchFn: params.fetchFn
-		});
+		const result = await probeZaiChatCompletions(candidate.baseUrl, candidate.modelId);
 		if (result.ok) return {
 			endpoint: candidate.endpoint,
 			baseUrl: candidate.baseUrl,
@@ -146,5 +141,4 @@ async function detectZaiEndpoint(params) {
 	}
 	return null;
 }
-//#endregion
 export { detectZaiEndpoint };

@@ -1,0 +1,3 @@
+import{t as isBlockedObjectKey}from"./prototype-keys-Dc7Yq32J.mjs";import{r as normalizeAgentIdStrict}from"./agent-id-cOfqmfln.mjs";
+//!src/routing/account-id.ts
+const DEFAULT_ACCOUNT_ID=`default`;function normalizeAccountId(e){return normalizeOptionalAccountId(e)??`default`}function normalizeOptionalAccountId(e){const t=(e??``).trim();if(!t)return;const n=normalizeAgentIdStrict(t);return n.ok&&!isBlockedObjectKey(n.value)?n.value:void 0}export{normalizeAccountId as n,normalizeOptionalAccountId as r,DEFAULT_ACCOUNT_ID as t};

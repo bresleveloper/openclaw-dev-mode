@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{VN as t,WN as n}from"./_2_____________________________.js";function r(e,t){return{id:`sessions`,items:[{value:`sessions`,label:n(`tabs.sessions`)},{value:`worktrees`,label:n(`tabs.worktrees`)}],ariaLabel:n(`sessionsPage.hubTablistLabel`),panelId:`sessions-hub-panel`,onSelect:n=>{n!==e&&t(n)}}}function i(){return(i=e((()=>{t()})))()}export{r as n,i as t};
+//# sourceMappingURL=session-hub-tabs-B_jJQzvK.js.map

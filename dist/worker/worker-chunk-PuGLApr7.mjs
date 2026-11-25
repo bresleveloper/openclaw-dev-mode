@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function longestBacktickRun(e){let t=0,n=0;for(let r of e)r==="`"?(n+=1,t=Math.max(t,n)):n=0;return t}function formatInlineCodeSpan(e){let t="`".repeat(longestBacktickRun(e)+1),n=e.startsWith("`")||e.endsWith("`")||e.includes(`
+`)||e.startsWith(` `)&&e.endsWith(` `)&&/[^ ]/.test(e)?` `:``;return`${t}${n}${e}${n}${t}`}function formatFencedCodeBlock(e,t){let n="`".repeat(Math.max(3,longestBacktickRun(e)+1));return`${n}${t??``}\n${e}\n${n}`}var t=e((()=>{}));export{formatInlineCodeSpan as n,t as r,formatFencedCodeBlock as t};

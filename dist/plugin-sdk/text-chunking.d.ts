@@ -1,6 +1,5 @@
-import { t as avoidTrailingHighSurrogateBreak } from "../utf16-slice-C5Uh1nl-.js";
-import { n as MarkdownTableMode, t as convertMarkdownTables } from "../tables-BAppoNmX.js";
-//#region packages/markdown-core/src/reasoning-tag-parser.d.ts
+import { t as avoidTrailingHighSurrogateBreak } from "../utf16-slice-6nYU5s3H.js";
+import { n as MarkdownTableMode, t as convertMarkdownTables } from "../tables-CrEryc7Z.js";
 type MarkdownCodeRegion = {
   start: number;
   end: number;
@@ -34,35 +33,12 @@ type MarkdownOwnershipOptions = {
 };
 /** Returns parser-owned CommonMark/GFM code ranges with block ownership. */
 declare function findMarkdownCodeRegions(text: string, options?: MarkdownOwnershipOptions): MarkdownCodeRegion[];
-//#endregion
-//#region src/shared/text/code-regions.d.ts
 /** Public range inputs need only offsets; parser-owned metadata belongs to discovered regions. */
 interface CodeRegion {
   start: number;
   end: number;
 }
 export declare function isInsideCode(pos: number, regions: CodeRegion[]): boolean;
-//#endregion
-//#region src/utils/directive-tags.d.ts
-type InlineDirectiveParseResult = {
-  text: string;
-  audioAsVoice: boolean;
-  replyToId?: string;
-  replyToExplicitId?: string;
-  replyToCurrent: boolean;
-  hasAudioTag: boolean;
-  hasReplyTag: boolean;
-};
-type StripInlineDirectiveTagsResult = {
-  text: string;
-  changed: boolean;
-};
-export declare function stripInlineDirectiveTagsForDisplay(text: string): StripInlineDirectiveTagsResult;
-export declare function stripInlineDirectiveTagsForDelivery(text: string, options?: {
-  preserveTrailingWhitespace?: boolean;
-}): StripInlineDirectiveTagsResult;
-//#endregion
-//#region packages/markdown-core/src/chunk-text.d.ts
 type TextChunkRange = {
   start: number;
   end: number;
@@ -76,8 +52,6 @@ type ChunkTextRangesOptions = {
  * Preferred mode selects paragraph, newline, then whitespace boundaries.
  */
 export declare function chunkTextRanges(text: string, options: ChunkTextRangesOptions): TextChunkRange[];
-//#endregion
-//#region packages/markdown-core/src/html-tags.d.ts
 type HtmlTagToken = {
   raw: string;
   start: number;
@@ -88,8 +62,6 @@ type HtmlTagToken = {
 };
 /** Tokenizes valid open/close HTML tags with Markdown-It's quote-aware grammar. */
 export declare function tokenizeHtmlTags(html: string): Generator<HtmlTagToken>;
-//#endregion
-//#region packages/markdown-core/src/format-capabilities.d.ts
 type FormatConstruct = keyof typeof NATIVE_FORMAT_CONSTRUCTS;
 type ConstructSupport = "native" | "fallback" | "strip";
 /** Static formatting capabilities declared by an outbound channel. */
@@ -126,7 +98,7 @@ type DefinedChunk<Chunk extends FormatCapabilityProfile["chunk"]> = Omit<FormatC
   unit: Chunk["unit"];
 };
 /** Defines a channel profile with native support as the default for each construct. */
-declare function defineFormatProfile<const Mechanism extends FormatCapabilityProfile["mechanism"], const Overrides extends Partial<FormatCapabilityProfile["constructs"]> = Record<never, never>, const Chunk extends FormatCapabilityProfile["chunk"] = FormatCapabilityProfile["chunk"]>(profile: {
+declare function defineFormatProfile<const Mechanism extends FormatCapabilityProfile["mechanism"], const Overrides extends Partial<FormatCapabilityProfile["constructs"]> = object, const Chunk extends FormatCapabilityProfile["chunk"] = FormatCapabilityProfile["chunk"]>(profile: {
   mechanism: Mechanism;
   constructs?: Overrides & Record<Exclude<keyof Overrides, FormatConstruct>, never>;
   chunk: Chunk;
@@ -139,12 +111,9 @@ declare function defineFormatProfile<const Mechanism extends FormatCapabilityPro
 export declare const FormatCapabilityProfile: {
   define: typeof defineFormatProfile;
 };
-//#endregion
-//#region packages/markdown-core/src/assistant-transcript-headers.d.ts
-type AssistantTranscriptRole = "assistant" | "developer" | "system" | "user";
+type AssistantTranscriptRole = (typeof TRANSCRIPT_ROLES)[number];
 type AssistantTranscriptRoleHeaderKind = "angle_role_header" | "role_timestamp_bracket" | "timestamp_role_colon";
-//#endregion
-//#region packages/markdown-core/src/ir-spans.d.ts
+declare const TRANSCRIPT_ROLES: readonly ["assistant", "developer", "system", "user"];
 /** A replacement in the original text's UTF-16 coordinates; equal bounds insert text. */
 type MarkdownTextEdit = {
   start: number;
@@ -156,7 +125,8 @@ export declare function applyMarkdownTextEdits(text: string, edits: readonly Mar
   text: string;
   mapOffset: (offset: number) => number;
 };
-type MarkdownStyle = "bold" | "italic" | "underline" | "strikethrough" | "code" | "code_block" | "spoiler" | "blockquote" | "heading_1" | "heading_2" | "heading_3" | "heading_4" | "heading_5" | "heading_6";
+declare const MARKDOWN_STYLE_ORDER: readonly ["blockquote", "code_block", "code", "heading_1", "heading_2", "heading_3", "heading_4", "heading_5", "heading_6", "bold", "italic", "underline", "strikethrough", "spoiler"];
+type MarkdownStyle = (typeof MARKDOWN_STYLE_ORDER)[number];
 type MarkdownStyleSpan = {
   start: number;
   end: number;
@@ -175,8 +145,6 @@ type MarkdownAnnotationSpan = {
   kind: AssistantTranscriptRoleHeaderKind;
   role: AssistantTranscriptRole;
 };
-//#endregion
-//#region packages/markdown-core/src/ir-metadata.d.ts
 type MarkdownHtmlMetadata = {
   /** Complete authored HTML tags in UTF-16 offsets; omitted from serialized IR. */
   htmlTags?: HtmlTagToken[];
@@ -199,11 +167,47 @@ type MarkdownListItemMarker = {
   start?: number;
   end?: number;
 };
-//#endregion
-//#region packages/markdown-core/src/ir-slice.d.ts
+type MarkdownListItemMetadata = {
+  /** Rendered content owned by this item after its native marker. */
+  contentStart?: number;
+  contentEnd?: number;
+  /** True when the source marker line itself contains no item content. */
+  markerOnly?: true;
+  /** Original Markdown source ownership, attached without changing legacy serialization. */
+  sourceMarker?: {
+    start: number;
+    end: number;
+  };
+  sourceContent?: {
+    start: number;
+    end: number;
+  };
+  sourceIndent?: number;
+  sourceStartLine?: number;
+  sourceEndLine?: number;
+};
+type MarkdownListItemWithMetadata = MarkdownListItemMarker & MarkdownListItemMetadata;
+type MarkdownBlockSpan = {
+  kind: "blockquote" | "code_block" | "heading" | "thematic_break";
+  start: number;
+  end: number;
+  /** Parser-owned container nesting depth, starting at one. */
+  depth: number;
+  blockquoteDepth?: number;
+  codeOrigin?: "fenced" | "indented";
+  codeClosed?: boolean;
+  headingLevel?: number;
+  headingOrigin?: "atx" | "setext";
+  language?: string;
+  sourceStartLine?: number;
+  sourceEndLine?: number;
+};
+type MarkdownIRWithMetadata = Omit<MarkdownIR, "listItems"> & {
+  /** Parser-owned block metadata, attached without changing legacy serialization. */
+  blocks?: MarkdownBlockSpan[];
+  listItems?: MarkdownListItemWithMetadata[];
+};
 export declare function sliceMarkdownIR(ir: MarkdownIR, start: number, end: number): MarkdownIR;
-//#endregion
-//#region packages/markdown-core/src/ir.d.ts
 type MarkdownIR = MarkdownHtmlMetadata & {
   text: string;
   styles: MarkdownStyleSpan[];
@@ -260,13 +264,11 @@ type MarkdownParseOptions = {
 };
 export declare function markdownToIR(markdown: string, options?: MarkdownParseOptions): MarkdownIR;
 export declare function markdownToIRWithMeta(markdown: string, options?: MarkdownParseOptions): {
-  ir: MarkdownIR;
+  ir: MarkdownIRWithMetadata;
   hasTables: boolean;
   tables: MarkdownTableMeta[];
 };
 export declare function chunkMarkdownIR(ir: MarkdownIR, limit: number): MarkdownIR[];
-//#endregion
-//#region packages/markdown-core/src/render-aware-chunking.d.ts
 type RenderedMarkdownChunk<TRendered> = {
   /** Rendered payload for this chunk after caller-specific escaping/link rewriting. */
   rendered: TRendered;
@@ -284,8 +286,6 @@ type RenderMarkdownIRChunksWithinLimitOptions<TRendered> = {
 };
 /** Chunks Markdown IR by rendered size while preserving styles, links, and whitespace. */
 export declare function renderMarkdownIRChunksWithinLimit<TRendered>(options: RenderMarkdownIRChunksWithinLimitOptions<TRendered>): RenderedMarkdownChunk<TRendered>[];
-//#endregion
-//#region packages/markdown-core/src/render-attributed.d.ts
 type AttributedRange<TStyle extends string> = {
   start: number;
   length: number;
@@ -306,8 +306,6 @@ export declare function renderMarkdownWithAttributedRanges<TStyle extends string
   text: string;
   ranges: AttributedRange<TStyle>[];
 };
-//#endregion
-//#region packages/markdown-core/src/render.d.ts
 type RenderStyleMarker = {
   open: string | ((span: MarkdownStyleSpan) => string);
   close: string;
@@ -332,6 +330,8 @@ type MarkdownLinkOrigin = "authored" | "linkify";
 type RenderOptions = {
   styleMarkers: RenderStyleMap;
   annotationMarkers?: RenderAnnotationMap;
+  /** Line-oriented targets repeat this before each nonempty blockquote line. */
+  blockquotePrefix?: string;
   escapeText: (text: string) => string;
   buildLink?: (link: MarkdownLinkSpan, text: string, context: {
     origin: MarkdownLinkOrigin;
@@ -339,18 +339,14 @@ type RenderOptions = {
 };
 /** Renders Markdown IR by nesting configured style markers and optional link markers. */
 export declare function renderMarkdownWithMarkers(ir: MarkdownIR, options: RenderOptions, profile?: FormatCapabilityProfile): string;
-//#endregion
-//#region src/shared/text/tool-call-xml.d.ts
+export declare function stripAssistantInternalScaffolding(text: string): string;
 type StripToolCallXmlOptions = {
   stripFunctionCallsXmlPayloads?: boolean;
   stripFunctionResponseAfterPluralToolCalls?: boolean;
 };
 export declare function stripToolCallXmlTags(input: string, options?: StripToolCallXmlOptions): string;
-//#endregion
-//#region src/shared/text/assistant-visible-text.d.ts
 type AssistantVisibleTextSanitizerProfile = "delivery" | "final-answer-delivery" | "history" | "internal-scaffolding" | "tool-progress";
 export declare function sanitizeAssistantVisibleTextWithProfile(text: string, profile?: AssistantVisibleTextSanitizerProfile, streaming?: boolean): string;
-export declare function stripAssistantInternalScaffolding(text: string): string;
 /**
  * Canonical user-visible assistant text sanitizer for delivery and history
  * extraction paths. Keeps prose, removes internal scaffolding.
@@ -363,12 +359,8 @@ export declare function sanitizeAssistantVisibleText(text: string): string;
 export declare function sanitizeAssistantVisibleTextWithOptions(text: string, options?: {
   trim?: "none" | "both";
 }): string;
-//#endregion
-//#region src/shared/text/auto-linked-file-ref.d.ts
 export declare const FILE_REF_EXTENSIONS_WITH_TLD: Set<string>;
 export declare function isAutoLinkedFileRef(href: string, label: string): boolean;
-//#endregion
-//#region src/shared/text/reasoning-tags.d.ts
 type ReasoningTagMode = "strict" | "preserve";
 type ReasoningTagTrim = "none" | "start" | "both";
 type ReasoningTagScope = "all" | "leading";
@@ -379,8 +371,6 @@ export declare function stripReasoningTagsFromText(text: string, options?: {
   scope?: ReasoningTagScope;
   recoverUnclosed?: boolean;
 }): string;
-//#endregion
-//#region src/shared/text/strip-markdown.d.ts
 type StripMarkdownOptions = {
   /** Mark parsed assistant transcript-role headers in transports without rich text. */
   assistantTranscriptRoleHeaders?: boolean;
@@ -395,25 +385,34 @@ type StripMarkdownOptions = {
 };
 /** Parse Markdown, then protect role headers exposed by the final plain-text projection. */
 export declare function stripMarkdown(text: string, options?: StripMarkdownOptions, profile?: FormatCapabilityProfile): string;
-//#endregion
-//#region packages/terminal-core/src/safe-text.d.ts
 /**
- * Normalize untrusted text for single-line terminal/log rendering.
+ * Normalize untrusted text for single-line rendering, including bidirectional controls.
  */
 export declare function sanitizeTerminalText(input: string): string;
-//#endregion
-//#region src/infra/system-message.d.ts
 export declare const SYSTEM_MARK = "⚙️";
 /** Return true when text already carries the system-message prefix. */
 export declare function hasSystemMark(text: string): boolean;
 /** Prefix non-empty text as a system message without double-prefixing. */
 export declare function prefixSystemMessage(text: string): string;
-//#endregion
-//#region src/utils/chunk-items.d.ts
+type InlineDirectiveParseResult = {
+  text: string;
+  audioAsVoice: boolean;
+  replyToId?: string;
+  replyToExplicitId?: string;
+  replyToCurrent: boolean;
+  hasAudioTag: boolean;
+  hasReplyTag: boolean;
+};
+type StripInlineDirectiveTagsResult = {
+  text: string;
+  changed: boolean;
+};
+export declare function stripInlineDirectiveTagsForDisplay(text: string): StripInlineDirectiveTagsResult;
+export declare function stripInlineDirectiveTagsForDelivery(text: string, options?: {
+  preserveTrailingWhitespace?: boolean;
+}): StripInlineDirectiveTagsResult;
 /** Splits items into fixed-size chunks, preserving order and returning one row for non-positive sizes. */
 export declare function chunkItems<T>(items: readonly T[], size: number): T[][];
-//#endregion
-//#region src/plugin-sdk/text-chunking.d.ts
 /**
  * Splits outbound channel text into chunks no longer than the requested limit.
  * Newline boundaries win over spaces; text without usable separators falls back
@@ -423,5 +422,4 @@ export declare function chunkTextForOutbound(text: string, limit: number, option
   preserveWhitespace?: boolean;
   formatting?: unknown;
 }): string[];
-//#endregion
 export { type AssistantVisibleTextSanitizerProfile, type AttributedRenderOptions, type ChunkTextRangesOptions, type CodeRegion, type InlineDirectiveParseResult, type MarkdownIR, type MarkdownLinkSpan, type MarkdownParseOptions, type MarkdownStyle, type MarkdownStyleSpan, type MarkdownTableCell, type MarkdownTableMeta, type MarkdownTextEdit, type ReasoningTagMode, type ReasoningTagTrim, type RenderLink, type RenderMarkdownIRChunksWithinLimitOptions, type RenderOptions, type RenderStyleMap, type RenderStyleMarker, type TextChunkRange, avoidTrailingHighSurrogateBreak, convertMarkdownTables, findMarkdownCodeRegions as findCodeRegions };

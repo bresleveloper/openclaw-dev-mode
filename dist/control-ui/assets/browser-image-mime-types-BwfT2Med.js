@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";var t;function n(){return(n=e((()=>{t=new Set([`image/avif`,`image/gif`,`image/jpeg`,`image/png`,`image/webp`])})))()}export{n,t};
+//# sourceMappingURL=browser-image-mime-types-BwfT2Med.js.map

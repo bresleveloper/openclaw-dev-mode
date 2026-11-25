@@ -1,0 +1,3 @@
+import{f as shortenHomePath}from"./utils-CVVNdy3C.mjs";import{t as formatErrorMessage}from"./errors-CRXp6JVo.mjs";import{t as note}from"./note-e4DtVgg2.mjs";
+//!src/commands/doctor-agent-database-operation.ts
+function runDoctorAgentDatabaseOperation(e){try{return{ok:true,value:e.run()}}catch(t){noteDoctorAgentDatabaseFailure(e,t);return{ok:false}}}async function runDoctorAgentDatabaseOperationAsync(e){try{return{ok:true,value:await e.run()}}catch(t){noteDoctorAgentDatabaseFailure(e,t);return{ok:false}}}function noteDoctorAgentDatabaseFailure(e,t){note(`- Agent ${e.agentId} database ${shortenHomePath(e.path)}: ${formatErrorMessage(t)}`,`Doctor warnings`)}export{runDoctorAgentDatabaseOperationAsync as n,runDoctorAgentDatabaseOperation as t};

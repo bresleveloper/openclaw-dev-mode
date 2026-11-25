@@ -1,0 +1,2 @@
+//!extensions/telegram/src/allow-from.ts
+function normalizeTelegramAllowFromEntry(e){return(typeof e===`string`?e:typeof e===`number`?String(e):``).trim().replace(/^(telegram|tg):/i,``).trim()}function isNumericTelegramUserId(e){return/^-?\d+$/.test(e)}function isNumericTelegramSenderUserId(e){return/^\d+$/.test(e)}export{isNumericTelegramUserId as n,normalizeTelegramAllowFromEntry as r,isNumericTelegramSenderUserId as t};

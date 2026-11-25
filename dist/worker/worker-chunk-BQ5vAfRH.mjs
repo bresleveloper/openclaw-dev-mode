@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function isTranscriptArtifactProvider(e){return e===t}var t,n=e((()=>{t=`openclaw`}));export{n,isTranscriptArtifactProvider as r,t};

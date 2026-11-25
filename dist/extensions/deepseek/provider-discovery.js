@@ -1,5 +1,5 @@
 import { buildDeepSeekProvider } from "./provider-catalog.js";
-//#region extensions/deepseek/provider-discovery.ts
+// extensions/deepseek/provider-discovery.ts
 const deepSeekProviderDiscovery = {
 	id: "deepseek",
 	label: "DeepSeek",
@@ -10,5 +10,4 @@ const deepSeekProviderDiscovery = {
 		run: async () => ({ provider: buildDeepSeekProvider() })
 	}
 };
-//#endregion
 export { deepSeekProviderDiscovery as default };

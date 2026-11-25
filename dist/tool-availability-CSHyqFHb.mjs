@@ -1,0 +1,2 @@
+//!extensions/skill-workshop/src/tool-availability.ts
+function resolveSkillWorkshopToolConstructionBlock(e){if(e.sandboxed)return{detail:`"skill_workshop" is unavailable in sandboxed runs.`,fix:`Use a non-sandboxed session for this agent, or manage its learned skills with the openclaw skills workshop CLI.`}}export{resolveSkillWorkshopToolConstructionBlock as t};

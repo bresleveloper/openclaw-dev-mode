@@ -1,8 +1,1 @@
-import { t as CONFIG_DIR } from "../utils-gjJ-tD2q.mjs";
-import { t as resolveBrewExecutable } from "../brew-D_VHatKs.mjs";
-import { t as formatCliCommand } from "../command-format-CYoE8cOC.mjs";
-import { c as extractArchive } from "../archive-R2ClviiB.mjs";
-import { t as detectBinary } from "../detect-binary-BlNusQ8Q.mjs";
-import { t as formatDocsLink } from "../links-4Bgsoz0M.mjs";
-import "../setup-tools-CXw-D_tA.mjs";
-export { CONFIG_DIR, detectBinary, extractArchive, formatCliCommand, formatDocsLink, resolveBrewExecutable };
+import{t as CONFIG_DIR}from"../utils-CVVNdy3C.mjs";import{t as formatCliCommand}from"../command-format-vlx1VIWT.mjs";import{t as resolveBrewExecutable}from"../brew-T1ky9AU_.mjs";import{t as detectBinary}from"../detect-binary-IdzCa2lh.mjs";import{t as formatDocsLink}from"../links-C_FK9uVv.mjs";import{c as extractArchive}from"../archive-BAuHVLxp.mjs";import"../setup-tools-t4_35zjT.mjs";export{CONFIG_DIR,detectBinary,extractArchive,formatCliCommand,formatDocsLink,resolveBrewExecutable};

@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{mi as t,pi as n}from"./_4____________________________.js";import{zC as r}from"./_2_____________________________.js";var i,a;function o(){return(o=e((()=>{t(),i={channels:{hub:{setUp:`Set up`}},modelProviders:{status:{apiKey:`API key`}}},a=Object.assign(()=>r(n,i),{catalog:i})})))()}export{a as n,o as t};
+//# sourceMappingURL=en-model-provider-auth-aD39wOb1.js.map

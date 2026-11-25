@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{r as truncateUtf16Safe}from"./utf16-slice-DA3Mllbx.mjs";import"./utils-CVVNdy3C.mjs";import{t as sanitizeRunStatusText}from"./run-status-text-C3xF2yc4.mjs";
+//!src/auto-reply/reply/subagents-utils.ts
+function resolveSubagentLabel(e){return normalizeOptionalString(e.label)??normalizeOptionalString(e.task)??`subagent`}function formatRunLabel(e,t){const n=sanitizeRunStatusText(resolveSubagentLabel(e))||`subagent`;const r=t?.maxLength??72;return n.length>r?`${truncateUtf16Safe(n,r).trimEnd()}…`:n}export{resolveSubagentLabel as n,formatRunLabel as t};

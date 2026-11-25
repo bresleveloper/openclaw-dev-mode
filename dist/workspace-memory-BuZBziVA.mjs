@@ -1,0 +1,3 @@
+import{a as createWorkspaceMemoryFileClient}from"./agent-workspace-runtime-DGVXumv2.mjs";import{t as runNodeWorkspaceWorker}from"./workspace-worker-Crlll6C8.mjs";
+//!extensions/file-transfer/src/workspace-memory.ts
+function createNodeWorkspaceMemory(e){return createWorkspaceMemoryFileClient({workspaceDir:e.workspaceDir,remoteWorkspaceDir:e.remoteRoot,signal:e.signal,request:(t,n,r)=>runNodeWorkspaceWorker({...e,assertCurrent:r},`workspace.memory`,{request:t,watch:false},n),subscribe:async(t,n,r)=>{await runNodeWorkspaceWorker(e,`workspace.memory`,{request:t,watch:true},r,n)}})}export{createNodeWorkspaceMemory};

@@ -1,0 +1,1 @@
+export default {"agentsHome":{"pinnedAgents":"เอเจนต์ที่ปักหมุด","noAssistantMessage":"ยังไม่มีคำตอบจากเอเจนต์","viewSessions":"เซสชัน","deleteAgentConfirm":"ลบ {agent} หรือไม่?","deleteAgentDetails":"พื้นที่ทำงาน สถานะเอเจนต์ และประวัติแชตจะถูกย้ายไปที่ถังขยะ บัญชีช่องทางของเอเจนต์จะยังคงตั้งค่าไว้","agentOptions":"ตัวเลือกสำหรับ {agent}","working":"กำลังทำงาน"}};

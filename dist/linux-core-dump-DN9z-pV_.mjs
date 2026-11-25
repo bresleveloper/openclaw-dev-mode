@@ -1,0 +1,3 @@
+import{t as resolveSystemBin}from"./resolve-system-bin-ByEoMSaj.mjs";
+//!src/process/linux-core-dump.ts
+function prepareAgentCoreDumpLimit(e,t,n){if(process.platform!==`linux`||n!==`agent-tool`)return{command:e,args:t};const r=resolveSystemBin(`prlimit`);if(!r)throw new Error(`Linux agent execution requires prlimit; install util-linux in a system directory.`);return{command:r,args:[`--core=0:0`,`--`,e,...t]}}export{prepareAgentCoreDumpLimit as t};

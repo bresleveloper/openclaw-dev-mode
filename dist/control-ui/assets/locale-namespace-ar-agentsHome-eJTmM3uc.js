@@ -1,0 +1,1 @@
+export default {"agentsHome":{"pinnedAgents":"الوكلاء المثبّتون","noAssistantMessage":"لا يوجد رد من الوكيل بعد","viewSessions":"الجلسات","deleteAgentConfirm":"هل تريد حذف {agent}؟","deleteAgentDetails":"تُنقل مساحة عمله وحالة الوكيل وسجل المحادثات إلى سلة المهملات. وتظل حسابات قنواته مهيأة.","agentOptions":"خيارات {agent}","working":"يعمل الآن"}};

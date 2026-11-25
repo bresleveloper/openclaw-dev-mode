@@ -2,10 +2,9 @@ import { SLACK_HUDDLES_CLI_METADATA } from "./cli-metadata.js";
 import { MeetingPlatformAdapter } from "openclaw/plugin-sdk/meeting-runtime";
 import { addTimerTimeoutGraceMs } from "openclaw/plugin-sdk/number-runtime";
 import { REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME } from "openclaw/plugin-sdk/realtime-voice";
-//#region extensions/slack-huddles/src/errors.ts
+// extensions/slack-huddles/src/errors.ts
 var SlackHuddlesInvalidRequestError = class extends Error {};
-//#endregion
-//#region extensions/slack-huddles/src/transports/slack-huddles-selectors.ts
+// extensions/slack-huddles/src/transports/slack-huddles-selectors.ts
 const SLACK_HUDDLE_SELECTORS = {
 	preview: ["[data-qa=\"huddle_join_preview_modal\"]"],
 	join: ["[data-qa=\"huddle_join_preview_modal_go\"]"],
@@ -60,30 +59,7 @@ const SLACK_HUDDLE_SELECTORS = {
 	captionAuthor: [".p-huddle_closed_caption_event__member_name"],
 	captionText: [".p-huddle_closed_caption_event__event_text span[data-qa=\"huddle_closed_caption_event\"]", "[data-qa=\"huddle_transcribe_event\"]"]
 };
-//#endregion
-//#region extensions/slack-huddles/src/transports/slack-huddles-status-call-source.ts
-const slackHuddleStatusCall = {
-	liveOwnershipSource: "authorityHolds()",
-	afterAudioRoutingSource: `if (inCall && !authorityHolds()) inCall = false;
-  if (inCall && allowMicrophone) {
-    refreshAudioInput();
-    if (canMutateSession && !audioInputRouted && readMicrophone() === "on") await setMicrophone("off");
-  }`,
-	captionEnableSource: `if (inCall && !authorityHolds()) {
-      inCall = false;
-      notes.push("Slack huddle membership changed during status; captions were not collected.");
-    }
-    if (inCall && captureCaptions && !captionsEnabledNow) {
-      notes.push("Slack captions are off or not visible. Enable the Slack preference to turn on captions by default when joining huddles.");
-    }`,
-	extraResultSource: `inCall: inCall && authorityHolds(),
-    meetingTitle: inCall && authorityHolds() ? text(firstRaw(selectors.title)) || undefined : undefined,
-    participantCount: inCall && authorityHolds()
-      ? new Set(selectors.participants.flatMap((selector) => [...document.querySelectorAll(selector)])).size
-      : undefined,`
-};
-//#endregion
-//#region extensions/slack-huddles/src/transports/slack-huddles-status-prejoin-source.ts
+// extensions/slack-huddles/src/transports/slack-huddles-status-prejoin-source.ts
 const SLACK_HUDDLE_JOIN_SETTLE_MS = 3e4;
 const slackHuddleStatusPrelude = {
 	controlLookupSource: `const findTextButton = (root, pattern) => [...(root?.querySelectorAll("button") || [])]
@@ -125,7 +101,7 @@ const slackHuddleStatusPrelude = {
     let pageTeam;
     try {
       pageTeam = new URL(location.href).pathname.match(/^\\/(?:client|huddle)\\/([TE][A-Z0-9]{8,})\\//)?.[1];
-    } catch {}
+    } catch { /* An unparseable page URL cannot establish workspace membership. */ }
     if (pageTeam) {
       (window.__openclawSlackHuddleWorkspaces ||= {})[expectedIdentity] = pageTeam;
       workspaceBound = true;
@@ -195,7 +171,8 @@ const slackHuddleStatusPrelude = {
     /^\\/(?:signin|workspace-signin|get-started|check-login|ssb\\/signin)(?:\\/|$)/i.test(location.pathname);
   let microphonePermissionState;
   if (allowMicrophone && navigator.permissions?.query) {
-    try { microphonePermissionState = (await navigator.permissions.query({ name: "microphone" })).state; } catch {}
+    try { microphonePermissionState = (await navigator.permissions.query({ name: "microphone" })).state; }
+    catch { /* Unsupported permission queries leave permission state unknown. */ }
   }
   if (committedOwnerConflict && !canMutateSession) {
     manualAction = manualActionFor("slack-session-conflict", "This Slack tab is owned by another active huddle session.");
@@ -324,8 +301,7 @@ const slackHuddleStatusPrelude = {
   }`,
 	manualActionSource: ""
 };
-//#endregion
-//#region extensions/slack-huddles/src/transports/slack-huddles-urls.ts
+// extensions/slack-huddles/src/transports/slack-huddles-urls.ts
 function parseSlackHuddleIdentity(input) {
 	if (!input) return;
 	const value = input.trim();
@@ -364,10 +340,22 @@ function isSameSlackHuddleUrl(left, right) {
 function isRecoverableSlackHuddleTab(tab, url) {
 	return url ? isSameSlackHuddleUrl(tab.url, url) : Boolean(normalizeSlackHuddleUrlForReuse(tab.url));
 }
-//#endregion
-//#region extensions/slack-huddles/src/transports/slack-huddles-page-scripts.ts
-function pageIdentityFunctionSource(expectedIdentity) {
-	return `const meetingIdentity = (rawUrl) => {
+// extensions/slack-huddles/src/transports/slack-huddles-page-scripts.ts
+const slackHuddlePageScripts = MeetingPlatformAdapter.createPageScripts({
+	platform: {
+		audioOutputElementIdPrefix: "openclaw-slack-huddle-audio-output-",
+		manualActionReasonPrefix: "slack",
+		displayName: "Slack huddle",
+		globals: {
+			audioOutputs: "__openclawSlackHuddleAudioOutputs",
+			captionArchive: "__openclawSlackHuddleCaptionArchive",
+			captions: "__openclawSlackHuddleCaptions",
+			meeting: "__openclawSlackHuddle"
+		}
+	},
+	normalizeUrl: normalizeSlackHuddleUrlForReuse,
+	pageIdentitySource: (expectedIdentity) => {
+		return `const meetingIdentity = (rawUrl) => {
     try {
       const url = new URL(rawUrl);
       if (url.protocol !== "https:" || url.port || url.username || url.password ||
@@ -383,9 +371,9 @@ function pageIdentityFunctionSource(expectedIdentity) {
       // The URL names only the viewed channel. While a call is live, only Slack's membership header for
       // that channel (or this session's own settling Join) vouches for it; anything else fails closed.
       const hooks = ${JSON.stringify({
-		inHuddle: SLACK_HUDDLE_SELECTORS.channelHeaderInHuddle,
-		inCall: SLACK_HUDDLE_SELECTORS.inCall
-	})};
+			inHuddle: SLACK_HUDDLE_SELECTORS.channelHeaderInHuddle,
+			inCall: SLACK_HUDDLE_SELECTORS.inCall
+		})};
       const found = (list) => list.some((selector) => document.querySelector(selector));
       const marker = window.__openclawSlackHuddle;
       const settlingJoin = marker?.identity === identity && marker.joinRequested === true &&
@@ -399,21 +387,7 @@ function pageIdentityFunctionSource(expectedIdentity) {
         : identity;
     } catch { return undefined; }
   };`;
-}
-const slackHuddlePageScripts = MeetingPlatformAdapter.createPageScripts({
-	platform: {
-		audioOutputElementIdPrefix: "openclaw-slack-huddle-audio-output-",
-		manualActionReasonPrefix: "slack",
-		displayName: "Slack huddle",
-		globals: {
-			audioOutputs: "__openclawSlackHuddleAudioOutputs",
-			captionArchive: "__openclawSlackHuddleCaptionArchive",
-			captions: "__openclawSlackHuddleCaptions",
-			meeting: "__openclawSlackHuddle"
-		}
 	},
-	normalizeUrl: normalizeSlackHuddleUrlForReuse,
-	pageIdentitySource: pageIdentityFunctionSource,
 	selectors: SLACK_HUDDLE_SELECTORS,
 	toggleStateFunction: () => `(input) => {
       if (input?.ariaChecked === "true") return "on";
@@ -423,7 +397,26 @@ const slackHuddlePageScripts = MeetingPlatformAdapter.createPageScripts({
       return undefined;
     }`,
 	statusPrelude: slackHuddleStatusPrelude,
-	statusCall: slackHuddleStatusCall,
+	statusCall: {
+		liveOwnershipSource: "authorityHolds()",
+		afterAudioRoutingSource: `if (inCall && !authorityHolds()) inCall = false;
+  if (inCall && allowMicrophone) {
+    refreshAudioInput();
+    if (canMutateSession && !audioInputRouted && readMicrophone() === "on") await setMicrophone("off");
+  }`,
+		captionEnableSource: `if (inCall && !authorityHolds()) {
+      inCall = false;
+      notes.push("Slack huddle membership changed during status; captions were not collected.");
+    }
+    if (inCall && captureCaptions && !captionsEnabledNow) {
+      notes.push("Slack captions are off or not visible. Enable the Slack preference to turn on captions by default when joining huddles.");
+    }`,
+		extraResultSource: `inCall: inCall && authorityHolds(),
+    meetingTitle: inCall && authorityHolds() ? text(firstRaw(selectors.title)) || undefined : undefined,
+    participantCount: inCall && authorityHolds()
+      ? new Set(selectors.participants.flatMap((selector) => [...document.querySelectorAll(selector)])).size
+      : undefined,`
+	},
 	audioOwnershipSource: ({ expectedIdentity, pageIdentitySource }) => `
       ${pageIdentitySource}
       const expectedIdentity = ${JSON.stringify(expectedIdentity)};
@@ -462,11 +455,7 @@ const slackHuddlePageScripts = MeetingPlatformAdapter.createPageScripts({
       (!state?.sessionId && currentIdentity === expectedIdentity && (!state?.identity || state.identity === expectedIdentity));`
 	}
 });
-//#endregion
-//#region extensions/slack-huddles/src/transports/slack-huddles-platform-adapter.ts
-function slackHuddleOrigin(meetingUrl) {
-	return normalizeSlackHuddleUrlForReuse(meetingUrl) ? "https://app.slack.com" : void 0;
-}
+// extensions/slack-huddles/src/transports/slack-huddles-platform-adapter.ts
 const SLACK_HUDDLES_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 	id: "slack-huddles",
 	displayName: "Slack huddles",
@@ -507,12 +496,11 @@ const SLACK_HUDDLES_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 		manualActionReasonPrefix: "slack",
 		retryCaptions: false,
 		unavailableMessage: "Open the OpenClaw browser profile, finish Slack sign-in, admission, or permission prompt, then retry.",
-		origin: slackHuddleOrigin,
+		origin: (meetingUrl) => normalizeSlackHuddleUrlForReuse(meetingUrl) ? "https://app.slack.com" : void 0,
 		scripts: slackHuddlePageScripts
 	})
 });
-//#endregion
-//#region extensions/slack-huddles/index.ts
+// extensions/slack-huddles/index.ts
 const slackHuddlesPlugin = MeetingPlatformAdapter.defineBrowserMeetingPlugin({
 	platform: SLACK_HUDDLES_PLATFORM_ADAPTER,
 	labels: {
@@ -559,5 +547,4 @@ const slackHuddlesPlugin = MeetingPlatformAdapter.defineBrowserMeetingPlugin({
 	}
 });
 var slack_huddles_default = slackHuddlesPlugin.plugin;
-//#endregion
 export { slack_huddles_default as default, slackHuddlesPlugin };

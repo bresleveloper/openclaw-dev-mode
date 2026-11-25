@@ -2,22 +2,75 @@
 
 Keep existing insertion anchors when extending these patches: pnpm 12 can apply a zero-context, zero-length insertion one line early. After regeneration and installation, verify installed files against the patch's target blob hashes before testing.
 
-`@awesome.me/webawesome@3.13.0` retains its approved dropdown, submenu, select, tooltip, and animation lifecycle repairs. The dropdown initializes focus after its popup becomes usable, before joining animation cleanup or completion, and preserves a newer composed focus target during popup rendering. Freshly mounted open menus also join the popup's initial anchor resolution before focusing; already anchored menus retain their existing visibility and native occlusion across reopen. Initial-focus handlers can close or disconnect the menu; the existing transition owner fences those reentrant paths before starting an animation. Opening completion never resets a newer item, submenu, or outside focus. Both published distributions carry the same owner. The tooltip trigger handler uses upstream's `containsComposedNode` helper to retain the 3.13 fix for hover across Shadow DOM slots; the port also preserves upstream overflow-tag size and pill styling.
+`acorn@8.19.0` has an approved optional-member token-context patch. Keywords
+and contextual names (`of` and generator `yield`) after `?.` end a property
+access, just as after `.`, so a following slash remains division. Both published
+module formats are regenerated from upstream commit
+`0e0ece7cc7202624d4aca531be4b515b0114b5d0`. In `acorn/src/tokencontext.js`,
+extend the keyword property's `tt.dot` condition to `tt.questionDot`, and exclude
+`tt.questionDot` alongside `tt.dot` in `tt.name.updateContext`. In
+`acorn/src/expression.js`, keep `parseIdentNode` from popping a `class`/`function`
+context after either member operator, since neither now pushes one. Run upstream's
+`npm run build:main` with its locked Rollup 4.60.1 and
+`@rollup/plugin-buble@1.0.3`, copy the two generated runtime files into a
+`pnpm patch acorn@8.19.0` edit directory, then use `pnpm patch-commit`.
+The unmodified build reproduces the published runtime hashes below exactly.
 
-Remove the dropdown focus hunk when an upstream release passes `ui/src/e2e/chat-attachment-focus.e2e.test.ts`, the unchanged platform attachment menu suite, and both `web-awesome-dropdown*.browser.test.ts` lifecycle suites without a consumer animation wait. These tests use real CSS animation boundaries, native keyboard input, and the actual browser filechooser; mobile identities are emulated, not native OS-picker certification. Retain the other patch owners until their respective regressions pass upstream.
-
-The popup disposes its previous Floating UI subscription before starting another and releases the new subscription if a synchronous reposition listener disconnects or deactivates it. Remove both popup hunks when an upstream release passes the public resize/disconnect lifecycle cases in `ui/src/components/web-awesome.test.ts` without retaining resize work after removal.
-
-`chrome-devtools-mcp@1.10.1` has an approved exact-version snapshot-identity patch, backported from [ChromeDevTools/chrome-devtools-mcp#2788](https://github.com/ChromeDevTools/chrome-devtools-mcp/pull/2788) at `06c8d4bc44f68bde8bd3fcd97dcc47375df81fe9` and forward-ported onto tag commit `e52c6b59b476c5e04d8dd9fd4bd017ba3b3d65df`. Stable IDs include the frame's captured CDP session and document generation; ambiguous IDs stay capture-local, and stale lazy handles cannot resolve into a replacement renderer. Frame-local lookup and retained extra handles preserve actions and labeled screenshots. The 1.10.1 CSS-style lookup resolves the same guarded handle and stays within its captured renderer, failing closed when the embedded DevTools target cannot represent a cross-renderer frame. Version 1.10.1 already exports its bundled `CdpFrame`, so the patch changes only the snapshot owner and its DOM-result caller. Original license notices remain intact, with modifications recorded in `build/src/OPENCLAW_PATCH_NOTICE.md`.
-
-The published integrity is `sha512-Klw6HWDqHC/XS1JwZldd2r49aUhbUJN9m9Mvcx4SEueIPXtzuQX+QelxAViobv8YUkDZ7HWDrmViR6LeYK0wAw==`; the patch SHA-256 is `d31d6e7e187ea9fd4dad87ed3ad08073c77ffcfddd52bc4761b39a2dfce0ac1e`.
+The published integrity is
+`sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw==`;
+the patch SHA-256 is
+`2abf815a7e66bb39548d0a14081a6fde06f22eb1f6b5bd5f242d4c11a66db77a`.
 
 | Target | Published SHA-256 | Patched SHA-256 |
 | --- | --- | --- |
-| `build/src/TextSnapshot.js` | `f3496989b93d174723fcf394628fabc36936b37e6a815fd85cbe20fba46d5ea0` | `299833ad0e4cfc171a417afaec41df594e4862fe53a7ada6ba160409f979788b` |
-| `build/src/McpPage.js` | `d49b2666cb9c6c5b4d7b9130235c476cb8a3af580363ff224796d9dbde99538d` | `47aa13c6b28cc11e1b0883532edea97cfde7563d78d143035850852d09809975` |
-| `build/src/third_party/index.js` | `c988e0684584b75e87ae04b768c4f8ae7064401afe5187ec0d4878b2c6833f12` | Unchanged |
-| `build/src/OPENCLAW_PATCH_NOTICE.md` | Added | `4bf44b52a80b5860b2160bc83407a5f0dd09f1801c85d0a2b6e4fec26bd7045d` |
+| `dist/acorn.js` | `b95392d79457d0357555c5ed3e56302d074b92dff119bcf3b44179500b10e9df` | `31913109325741386772ce3470877ba1ecc3d0ffb95211e34cab7c9a504c8543` |
+| `dist/acorn.mjs` | `76254fc76529713b4dfd2532972d17a991ffd9aafeebb1f977445b5506b9fb0b` | `d6ec452ae1a66ac40815ddf44bb88d0c46389c14cc0d48766772f0f058a02451` |
+
+The root package bundles Acorn so npm installations retain the patched runtime.
+Codex explicitly bundles only Acorn while retaining its native-heavy full-closure
+opt-out; the shared npm/ClawHub packaging owner preserves that selected patch.
+Remove this patch, its registration, Acorn bundle entries, and exact-version guard when
+an upstream release passes `src/agents/code-mode-engine-parity.test.ts` and the
+existing syntax/module-access controls without the patch. Upstream commit
+`e4516ce0f49aea06b98ae1a551644119958ed4e1` still has both ordinary-dot-only guards.
+Acorn's contribution policy excludes AI-written code; do not submit this patch
+upstream as a generated contribution.
+
+`@solidjs/web@2.0.0-rc.18` has an approved retention patch in its production,
+development, and observe browser builds. The lazy select-insertion callback is
+declared at module scope so it cannot retain the first value-bound select through
+V8's shared closure context. Selection, option insertion, change listeners, and
+the same-turn microtask retry are unchanged. Upstream is `solidjs/solid`, branch
+`next`, package `packages/web`; this release was published from
+`225014bf8757421a2ea0a9c6ddc148b965eed000`.
+
+Remove this patch and its exact-version guard entry when a published upstream
+version passes `scripts/control-ui-retention/dependency-retention.test.ts` without
+the patch. That probe uses a fresh browser document per runtime build and checks
+that the first select and its enclosing form are collectible after disposal.
+
+`@solidjs/signals@2.0.0-rc.18`, from the same upstream revision, has an approved
+idle-disposal patch in production, development, and observe builds. Disposing a
+computation schedules the existing pending-queue drain when the queue has
+entries, including readers queued by an idle rejection without a staged flag.
+Already-drained nodes do not schedule empty flushes. This preserves the existing
+transaction and stale-reader scheduling conditions without a synchronous flush
+or queue scan during disposal.
+
+Remove this patch and its exact-version guard entry when the dependency probe
+passes with an upstream release. The idle case requires collection without
+subsequent reactive work. An explicit `flush()` is a no-op when no work is scheduled.
+
+`chrome-devtools-mcp@1.11.0` has an approved exact-version snapshot-identity patch, backported from [ChromeDevTools/chrome-devtools-mcp#2788](https://github.com/ChromeDevTools/chrome-devtools-mcp/pull/2788) at `06c8d4bc44f68bde8bd3fcd97dcc47375df81fe9` and forward-ported onto tag commit `a878bcad39584337e055778353246820deafa7c0`. Stable IDs include the frame's captured CDP session and document generation; ambiguous IDs stay capture-local, and stale lazy handles cannot resolve into a replacement renderer. Frame-local lookup and retained extra handles preserve actions and labeled screenshots. The 1.11.0 CSS-style lookup resolves the same guarded handle and stays within its captured renderer, failing closed when the embedded DevTools target cannot represent a cross-renderer frame. Version 1.11.0 already exports its bundled `CdpFrame`, so the patch changes only the snapshot owner and its DOM-result caller. Original license notices remain intact, with modifications recorded in `build/src/OPENCLAW_PATCH_NOTICE.md`.
+
+The published integrity is `sha512-CytJ/5tnzrS+J/74be2P5aCOsS/mmGRHys/Si+IYC4ucrbnWAmES/dYdxGJjeUCECRcoFUilZAysdjlwqUjXIA==`; the patch SHA-256 is `c2e391b196607620c519f04eb1563dc4a8f01aebed3b70bd77e6635ae03a5c9a`.
+
+| Target | Published SHA-256 | Patched SHA-256 |
+| --- | --- | --- |
+| `build/src/McpPage.js` | `ad350b4b067b7c8e34706488d543869e71a7bcba73f2df45e35f7d518469f358` | `4044a30df6292a5d4517f718c32818e9c85f8051c318ec88bef7aa127d883a36` |
+| `build/src/OPENCLAW_PATCH_NOTICE.md` | Added | `41aada055258ec8754581f6cee1e3ed505499be8373969e6267031ebabc00594` |
+| `build/src/TextSnapshot.js` | `c81a4b9d989524256d365e252c2610ec1e8d8883f976da18e4d6b115e274b83d` | `5c647c3d0b416bdfc1bcaf1b1136f6a7682db05cf59982e3ab6f17d00d2d17ac` |
+| `build/src/third_party/index.js` | `b047499006b0027bd37165fa8197fa6fa5caa9b8c07d938992857659270ec493` | Unchanged |
 
 The root package bundles this patched dependency so npm installations preserve the same bytes as pnpm source installs. Browser launches the packaged CLI directly with the runtime running OpenClaw, Node or Bun. Remove this patch, its registration, and the patch-specific package checks when a published upstream version passes `pnpm test:e2e:browser-mcp` and the installed-package stdio proof, including renderer replacement, cross-origin frames, cancellation, and snapshot → wait → action.
 
@@ -25,16 +78,18 @@ The root package bundles this patched dependency so npm installations preserve t
 
 Remove the noVNC patch, its registration, and its exact-version guard exception when an upstream version passes the Desktop panel and document browser suites (`test/vitest/vitest.ui-e2e.config.ts`) and the live view-only selection/type stress check. The regression uses the real noVNC parser, covers coalesced and fragmented payload delivery, and requires the next framebuffer update without a reconnect.
 
-`matrix-js-sdk@42.4.0` has an approved temporary patch for saved-sync verification replay. Classic sync propagates its existing cache provenance through ordinary client events, and the crypto listener ignores restored events. This preserves room history, sync cursors, ordinary event listeners, fresh verification events, and to-device processing while preventing cached verification requests from restarting after a clean client shutdown. Version 42.4.0 still routes restored events into crypto, so the patch remains necessary.
+`matrix-js-sdk@44.0.0` has an approved temporary patch for saved-sync verification replay. Classic sync propagates its existing cache provenance through ordinary client events, and the crypto listener ignores restored events. This preserves room history, sync cursors, ordinary event listeners, fresh verification events, and to-device processing while preventing cached verification requests from restarting after a clean client shutdown. Version 44.0.0 still routes restored events into crypto, so the patch remains necessary.
 
-Remove the Matrix patch, its registration, and its exact-version guard exception when an upstream release passes `node scripts/run-vitest.mjs extensions/matrix/src/matrix/client/file-sync-store.sdk.test.ts` and the full Matrix QA catalog, including the original DM SAS-to-QR sequence. The regression exercises the real SQLite sync store, SDK cache hydration, and crypto event wiring; it observes crypto input rather than substituting for native verification proof.
+The published integrity is `sha512-5wjcYMIX1aqhJC9hSUGjfSW+7SWEaLC8NUaek0xH5KGXqAO11M4Z5Mk7Voodsk+16Jm9PYB8/wMtyqIKFm0VAQ==`; the patch SHA-256 is `c3ad7f3afbd9ded4643fbfa31f5862d48d4e05d198cb438efbb4fcdaa845b0cc`.
+
+Remove the Matrix patch, its registration, and its exact-version guard exception when an upstream release passes `node scripts/run-vitest.mjs extensions/matrix/src/matrix/client/file-sync-store.test.ts` and the full Matrix QA catalog, including the original DM SAS-to-QR sequence. The regression exercises the real SQLite sync store, SDK cache hydration, and crypto event wiring; it observes crypto input rather than substituting for native verification proof.
 
 `vitest@5.0.5` has one approved exact-version pnpm patch. Vitest 5 bundles the
 runner, and `@vitest/runner@5.0.0` is not published, so no standalone runner
 dependency or patch remains. The published package integrity is
 `sha512-cPODOMF8YnkiiYtDdHo6n4wWmBrOBBbOIYH2d33M4l3CdNn72h+qMmO6uXffUN6A5AZFXNND/d+krS9mgkXRfg==`.
 The patch SHA-256 is
-`c7225d77fb8a242bd88070b9787737119caea3ba29fdccb38419b9fe4c196e92`
+`abb35069c56858589f463527013088f26c8da59c6cccfd5c48b35c472caac355`
 and it changes exactly these nine published files:
 
 | Target | Published SHA-256 | Patched SHA-256 |
@@ -129,78 +184,122 @@ WhatsApp plugins retain the adapter. Remove this patch and its registration
 when an upstream Baileys version accepts the current decoder and passes the
 same voice-note regression.
 
-## Zod 3.25.76 early collection bounds
+`apache-arrow@21.2.0` replaces per-builder JavaScript generation for null
+sentinels with a direct predicate for the common `[null]` case and a snapshot
+`Set` for other sentinels. NaN, signed zero, undefined, bigint, and literal
+strings retain their equality semantics. Both CommonJS and ESM distributions,
+the TypeScript source, declarations, and maps are generated from the same owner.
+This lets LanceDB serialize memory writes when code generation from strings is
+disabled and avoids compiling a predicate for each column on ordinary Node/Bun.
 
-zod@3.25.76.patch is a local Zod-3 adaptation of the early upper-size rejection
-behavior in Colin McDonnell's upstream Zod commit
-a0ebf970f2d752e5f58527cd2942ff48be4f46bd (colinhacks/zod#6652).
-It is not an upstream Zod-3 release, a cherry-pick, or an A2UI/Zod-4 migration.
-The implementation changes three branches in each of src/v3/types.ts,
-v3/types.js, and v3/types.cjs: oversized array max/exact length and set max
-return the existing aborted result before visiting elements. Set exact size
-already delegates to max/min. No declaration, export, A2UI source, license or
-Zod-4 implementation is replaced.
+Remove this patch and its registration when an upstream release passes
+`extensions/memory-lancedb/arrow-null-predicates.test.ts` and the existing
+`lancedb-store.delete.test.ts` and `lancedb-store.staleness.test.ts` contracts. The former exercises both module formats in a
+Node process with `--disallow-code-generation-from-strings`; the latter covers
+memory writes, vector search, agent isolation, and reopened tables.
 
-This mitigates collection traversal only where an upper bound is declared.
-A2UI 0.12's catalog JSON-schema loader translates maxItems into such a bound;
-0.11's loader does not, so its integration regression instead exercises a
-custom bounded function schema through the public Catalog invoker. This does
-not add protocol-wide message limits or protect unbounded arrays.
-
-An oversized collection now aborts instead of returning dirty: element and
-outer refinements do not run, and a failing union may report invalid_union
-instead of the dirty branch's too_big. Valid transforms, preprocessing,
-lower-bound failures and wrong-type rejection are covered by regressions.
-The exact-version patch also affects other consumers resolving Zod 3.25.76,
-including zod-to-json-schema; the separate parser embedded in Discord's SDK
-and the package's v4 subpath are not changed. No global advisory clearance is
-claimed. Keep source attribution and original copyright notices intact.
-
-Run node --test test/scripts/a2ui-zod-bounds.regression.mjs and the native
-node scripts/run-vitest.mjs run test/scripts/a2ui-zod-bounds.test.ts.
-
-The package-patch guard registers only zod@3.25.76 at
-patches/zod@3.25.76.patch. Other versions, paths and package-local patch
-registrations remain rejected; no guard or blanket exception is disabled.
-Remove this registration and patch when a maintained upstream release retains
-Zod 3 public contracts and passes the same baseline/fixed Catalog regressions,
-public declaration checks and Canvas bundle checks. Independent full-context
-review and required hosted checks still gate readiness.
-
-Patch SHA-256: 2f14d2000a3645bf519c1a1cc4848a71d55185327a9a976a4f033e7d507b727d
-
-`@discord/embedded-app-sdk@2.5.0` vendors Zod 3 in both `output/lib/zod/lib/index.mjs`
-and `index.cjs`; changing the separately installed Zod package does not repair
-the browser SDK. This patch is a local Zod-3 adaptation of the early upper-size
-guard in Colin McDonnell's upstream Zod commit
-`a0ebf970f2d752e5f58527cd2942ff48be4f46bd`
-([colinhacks/zod#6652](https://github.com/colinhacks/zod/pull/6652)), referenced by
-[GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
-It is not a cherry-pick, a Zod version upgrade, or a claim that all installed
-Zod copies are fixed. Only the bundled array `.max()` / oversized `.length()`
-and set `.max()` / oversized `.size()` branches change: return the existing
-invalid result before iterating elements or invoking outer refinements.
-The bundled Zod-3 map API has no upper-size constraint. Valid values, lower
-limits, individual bound messages, enum fallback handling, declarations, and
-exports stay on the existing API. Early rejection intentionally omits element
-and refinement issues; unions may report an `invalid_union` wrapper rather than
-the previous direct bound issue.
-
-As checked on 2026-10-29, the maintained SDK stable release is still 2.5.0 and
-3.0.0-beta.3 still depends on Zod 3. Upstream's Zod-4 migration
-([discord/embedded-app-sdk#318](https://github.com/discord/embedded-app-sdk/pull/318),
-authored by `renovate-bot`, head `81e49dfa871e935641d9b9591ed789e837dc89e1`)
-is open, not an available compatible stable fix. This six-branch adapter avoids
-replacing the entire embedded parser and changing the public schema major.
-Remove the patch and its exact-version registration when a published SDK
-passes `test/scripts/discord-sdk-zod.test.ts` without it, including the
-production browser build. Keep the root dependency-advisory disposition
-separate; this patch deliberately does not suppress audit findings.
+`@shinyoshiaki/binary-data@0.6.1` uses ordinary closures for its finite numeric,
+stream, transaction, and BufferList methods instead of compiling functions at
+module initialization. This keeps the existing codec API and endian, byte-count,
+fragmented-read, and transactional-consumption behavior while allowing the
+OpenAI realtime WebRTC transport to load with JavaScript string compilation
+disabled. No runtime globals or werift call sites are patched.
 
 The patch SHA-256 is
-`016b529034315344702f9c7ac79ce5538b0934cf55381229946597b54343fdfd`.
+`231e04c1ca6a2f66dda30dfe23c1178d2df9fbc2161d9eac7689e3a751a85a9b`.
+Remove this patch and its registration when an upstream dependency release
+passes `extensions/openai/realtime-binary-codecs.test.ts` unmodified. The test
+covers all numeric codec wire bytes and fragmented transactional reads, plus a
+real werift DTLS handshake and encrypted application-data exchange over an
+in-memory datagram transport, with string compilation disabled throughout.
 
-| Target | Published SHA-256 | Patched SHA-256 |
-| --- | --- | --- |
-| `output/lib/zod/lib/index.mjs` | `3030e5b032805870bb4a8674e36fd916885552832e52c6a0f2465a929ecec231` | `c520fe1f39ce21e24425fdfc49ab7905e23a2be049450eb549649ef87faabe75` |
-| `output/lib/zod/lib/index.cjs` | `feb2389d716ac303c1e7df76df1d7c4c4d7fb35d5aef3456d43718b68cf46aa1` | `a7ad12c2c2f0cf5b5435d7b4232f4c78adc19812ec9c4ddada333518e06cd92a` |
+`@openclaw/crabline@0.1.30` uses fixed generated protobuf codecs for Feishu frames instead of building codecs from a reflected schema on first use. The protobuf wire format, required fields, decimal uint64 IDs, object conversion, and private schema ownership are unchanged. The runtime imports only `protobufjs/minimal.js`; no dynamic-code-generation setting is required.
+
+The patch includes the canonical `dist/src/servers/feishu-wire.proto` plus `dist/src/servers/generate-feishu-wire.mjs`. Regenerate in the extracted package with `node dist/src/servers/generate-feishu-wire.mjs` (the generator uses pinned protobufjs-cli 2.7.0 and protobufjs 8.8.0 at build time). The original reflection source map is removed with its source-map reference rather than shipping incorrect debugger mappings. Existing public declarations remain unchanged; the new codec is an internal JavaScript module.
+
+Remove this patch and its registration when an upstream release passes `extensions/qa-lab/src/crabline-feishu-wire.test.ts`, including the real installed dependency round trip under Node's string-code-generation ban. The synthetic fixtures cover uint64 values beyond JavaScript's safe-integer range, negative int32, UTF-8 headers, arbitrary payload bytes, optional fields, unknown fields, malformed/truncated frames, and invalid IDs. They make no live Feishu or Gateway request.
+
+The owning plugin manifests bundle these patched runtime dependencies. Selected-plugin distributions carry those bundle declarations and their installed dependency closures into Docker and node artifacts; the default core package does not gain optional media or QA dependencies.
+`playwright-core@1.64.1` has an approved syntax-only normalizer patch. Acorn
+parses serialized callbacks in the same function-body grammar instead of
+constructing a host Function. Execution remains in the target browser; ordinary
+functions, method shorthand, and async methods retain Playwright's normalization.
+The package extension supplies Acorn, and the root and browser plugin packages
+bundle the patched runtime for npm installs. Remove the patch, extension, and
+exact-version guard when upstream passes the browser serialization regression
+with host string compilation disabled.
+
+The same Playwright patch removes graceful-fs's obsolete process-wide `cwd` and
+`chdir` cache. Importing the browser runtime leaves those functions owned by the
+host, and relative filesystem access continues to use the native implementation.
+The remaining graceful-fs behavior and L7's syntax normalizer are unchanged.
+Upstream follow-up: [graceful-fs](https://github.com/isaacs/node-graceful-fs) should
+remove this historical process polyfill, then
+[Playwright](https://github.com/microsoft/playwright) can refresh its bundled copy.
+Remove this hunk when `extensions/browser/src/browser/playwright-import.test.ts`
+passes with the published dependency.
+
+`@homebridge/ciao@1.3.12` adds an explicit `@homebridge/ciao/native.js` entry that
+does not install source-map-support. The historical root entry retains its
+published behavior. Responder diagnostics accept an optional typed logger;
+custom loggers receive separate responders, while default responder pooling is
+unchanged. Bonjour uses this entry and its existing plugin logger instead of
+replacing process-wide console functions. The published JavaScript, declarations,
+and source maps were regenerated from the upstream v1.3.12 TypeScript source.
+
+Upstream follow-up: offer the native-source-map entry and per-responder logger to
+[homebridge/ciao](https://github.com/homebridge/ciao). Remove the patch and its
+registration when an upstream release supports both contracts and passes
+`extensions/bonjour/src/ciao-runtime.test.ts` and `advertiser.test.ts` without the
+patch. The root and Bonjour packages bundle the patched dependency so npm installs
+and installed plugin artifacts retain the same entry and logger behavior as source
+installs.
+
+`proper-lockfile@4.1.2`, used by Crabline's recorder, uses native `node:fs` and
+installs its own exit/signal listeners only while locks are held. Importing it
+no longer loads graceful-fs or signal-exit's process-method wrappers. The
+cleanup owner preserves application signal handlers, signal-exit v3/v4 observers
+and vetoes, separately installed lockfile copies, and the original termination
+signal. Release and compromise remove listeners when the last lock is gone.
+
+Upstream follow-up: submit the native-fs default and owned cleanup to
+`moxystudio/node-proper-lockfile`; keep the existing custom `fs` option. Remove
+this patch and its registration when an upstream version passes
+`extensions/qa-lab/src/proper-lockfile-runtime.test.ts`, including Crabline
+recorder writes, import identity, contention, stale recovery, compromise,
+normal exit, and signal cleanup. Its package file list explicitly retains the
+published changelog during patch regeneration. The existing Crabline package
+patch is unchanged.
+
+`@clawdbot/lobster@2026.9.16` has an approved temporary validation patch. Its two
+fixed LLM payload/envelope checks are generated with Ajv at build time. A scoped
+compiler callback lets the OpenClaw plugin use the shared codegen-free validator
+on AOT hosts while keeping native Ajv validation on Node and JIT Bun. The scope
+belongs to one async tool request; schema caches remain separate for each native
+Ajv owner. No process-global engine setter or format-registry write is added.
+
+Regenerate fixed checks inside a `pnpm patch` edit directory with
+`pnpm lobster:validators:gen --package-dir <directory>`, then run
+`pnpm patch-commit <directory>`. `pnpm lobster:validators:check` checks the installed
+patch without editing `node_modules`. The generator owns the generated file;
+never edit its patch hunk directly.
+The generated header records the Ajv version and canonical Unicode helper hash;
+the existing CI generated-validator gate checks both through `pnpm validators:check`.
+
+Normalize pnpm's trailing header tabs, then refresh the native patch hash:
+
+```sh
+node --input-type=module <<'JS'
+import { readFileSync, writeFileSync } from "node:fs";
+const patch = "patches/@clawdbot__lobster@2026.9.16.patch";
+const source = readFileSync(patch, "utf8");
+writeFileSync(patch, source.replace(/^(?:---|\+\+\+) .+\t$/gm, (line) => line.slice(0, -1)));
+JS
+pnpm install --fix-lockfile
+pnpm lobster:validators:check
+```
+
+Upstream follow-up: port the generated fixed checks and request-scoped compiler
+hook to [openclaw/lobster](https://github.com/openclaw/lobster), then remove this
+patch and its exact-version guard when a published version passes the Lobster
+runner validation suite and the AOT/codegen-ban probe without the patch.

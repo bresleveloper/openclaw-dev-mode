@@ -2,7 +2,7 @@ import { normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "opencl
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { tryReadSecretFileSync } from "openclaw/plugin-sdk/secret-file-runtime";
-//#region extensions/anthropic-vertex/region.ts
+// extensions/anthropic-vertex/region.ts
 /**
 * Anthropic Vertex region, project, and ADC auth detection helpers. They keep
 * credential probing local to the provider plugin.
@@ -64,5 +64,4 @@ function hasAnthropicVertexAvailableAuth(env = process.env) {
 function resolveAnthropicVertexConfigApiKey(env = process.env) {
 	return hasAnthropicVertexAvailableAuth(env) ? GCP_VERTEX_CREDENTIALS_MARKER : void 0;
 }
-//#endregion
 export { hasAnthropicVertexAvailableAuth, hasAnthropicVertexCredentials, resolveAnthropicVertexAdcCredentials, resolveAnthropicVertexConfigApiKey, resolveAnthropicVertexProjectId, resolveAnthropicVertexRegion };

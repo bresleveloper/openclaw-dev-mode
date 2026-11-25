@@ -1,0 +1,1 @@
+import"./fs-safe-copy.worker-errno-CsW5NI8i.mjs";import{a as e}from"./fs-safe-copy.worker-error-coercion-AIKMMQJR.mjs";import{s as t}from"./fs-safe-copy.worker-redact-CJgOY_r-.mjs";function formatErrorMessage(n){return e(n,{redact:t})}export{formatErrorMessage as t};

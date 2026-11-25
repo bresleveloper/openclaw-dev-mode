@@ -1,7 +1,3 @@
-import { t as resolveOpenRouterThinkingProfile } from "../../thinking-policy-DqOqcerC.mjs";
-//#region extensions/openrouter/provider-policy-api.ts
-function resolveThinkingProfile(params) {
-	return resolveOpenRouterThinkingProfile(params.modelId, params);
-}
-//#endregion
-export { resolveThinkingProfile };
+import{t as resolveOpenRouterThinkingProfile}from"../../thinking-policy-Dg_N-zYK.mjs";
+//!extensions/openrouter/provider-policy-api.ts
+function resolveThinkingProfile(e){return resolveOpenRouterThinkingProfile(e.modelId,e)}export{resolveThinkingProfile};

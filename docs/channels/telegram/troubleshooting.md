@@ -46,25 +46,6 @@ Symptom-first checks for a Telegram bot that is not behaving.
 
   </Accordion>
 
-  <Accordion title="A final reply fails during a network interruption">
-
-    OpenClaw retries an ordinary text or rich-text final reply once after an
-    ambiguous network failure. Recovery sends the saved reply; it does not run
-    the model or repeat completed tools. A delivery notice appears only if
-    recovery also fails.
-
-    Telegram does not provide an idempotency key or chat-history lookup for
-    these sends. If the original reply arrived but its acknowledgment was lost,
-    the retry can produce a duplicate. This tradeoff applies only to final text
-    without known accepted chunks. Media, interactive payloads, and
-    tool-initiated message actions are not blindly replayed.
-
-    Gateway logs include available transport error codes and system calls.
-    A generic `Network request ... failed` message alone does not show whether
-    Telegram received the request.
-
-  </Accordion>
-
   <Accordion title="Messages fail with runtime owner was not published">
 
     OpenClaw tries to rebuild an agent's failed model runtime when the next
@@ -78,6 +59,27 @@ Symptom-first checks for a Telegram bot that is not behaving.
     Check `openclaw logs --follow` for the underlying publication error, correct
     the reported model or plugin problem, and resend the message. The failed
     queue entry retains the original input for operator inspection.
+
+  </Accordion>
+
+  <Accordion title="A final reply fails during a network interruption or restart">
+
+    OpenClaw resends an ordinary text or rich-text final reply once after an
+    ambiguous network failure, or after the Gateway stopped while the send was
+    in flight. This covers replies to your messages and routed replies such as
+    background exec completions. Recovery sends the saved reply; it does not run
+    the model or repeat completed tools. A delivery notice appears only if the
+    resend also fails or is interrupted.
+
+    Telegram does not provide an idempotency key or chat-history lookup for
+    these sends. If the original reply arrived but its acknowledgment was lost,
+    the retry can produce a duplicate. This tradeoff applies only to final text
+    without known accepted chunks. Media, interactive payloads, and
+    tool-initiated message actions are not blindly replayed.
+
+    Gateway logs include available transport error codes and system calls.
+    A generic `Network request ... failed` message alone does not show whether
+    Telegram received the request.
 
   </Accordion>
 

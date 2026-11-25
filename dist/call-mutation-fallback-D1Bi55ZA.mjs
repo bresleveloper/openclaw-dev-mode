@@ -1,0 +1,3 @@
+import{s as isGatewayTransportError}from"./transport-error-B5LHZkda.mjs";import{u as isGatewayCredentialsRequiredError}from"./call-CjhBsatG.mjs";
+//!src/gateway/call-mutation-fallback.ts
+function resolveGatewayMutationFallback(e){const{error:t,localTarget:n}=e;const r=isGatewayTransportError(t)&&t.kind===`closed`&&t.code===void 0?`unreachable`:isGatewayCredentialsRequiredError(t)?`credentials-required`:void 0;return r&&!n?`non-local`:r}export{resolveGatewayMutationFallback as t};

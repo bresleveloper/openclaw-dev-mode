@@ -1,0 +1,3 @@
+import{r as getWindowsPowerShellExePath}from"./windows-install-roots-DhwMsIDT.mjs";import{spawnSync}from"node:child_process";
+//!src/infra/windows-user-sid.ts
+function readWindowsUserSid(){if(process.platform!==`win32`)return;try{const e=spawnSync(getWindowsPowerShellExePath(),[`-NoProfile`,`-NonInteractive`,`-Command`,`[Security.Principal.WindowsIdentity]::GetCurrent().User.Value`],{encoding:`utf8`,windowsHide:true,timeout:5e3});const t=e.stdout?.trim();return!e.error&&e.status===0&&/^S-1-\d+(?:-\d+)+$/.test(t)?t:void 0}catch{return}}export{readWindowsUserSid as t};

@@ -1,6 +1,6 @@
 import { buildInworldSpeechProvider } from "./speech-provider.js";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/inworld/index.ts
+// extensions/inworld/index.ts
 var inworld_default = definePluginEntry({
 	id: "inworld",
 	name: "Inworld Speech",
@@ -9,5 +9,4 @@ var inworld_default = definePluginEntry({
 		api.registerSpeechProvider(buildInworldSpeechProvider());
 	}
 });
-//#endregion
 export { inworld_default as default };

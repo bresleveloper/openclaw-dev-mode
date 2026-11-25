@@ -1,7 +1,7 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-const require_rolldown_runtime = require("./.setup/rolldown-runtime-BloeesfJ.cjs");
-const require_token_config = require("./.setup/token-config-bEpua_Q7.cjs");
-const require_delegated_state = require("./.setup/delegated-state-Bv5cWuec.cjs");
+const require_rolldown_runtime = require("./.setup/rolldown-runtime-CiKaZLfC.cjs");
+const require_token_config = require("./.setup/token-config-7K6UbNCo.cjs");
+const require_delegated_state = require("./.setup/delegated-state-DhIHahf1.cjs");
 const require_doctor_backup_resources = require("./doctor-backup-resources.cjs");
 let openclaw_plugin_sdk_string_coerce_runtime = require("openclaw/plugin-sdk/string-coerce-runtime");
 let openclaw_plugin_sdk_error_runtime = require("openclaw/plugin-sdk/error-runtime");
@@ -10,7 +10,7 @@ node_path = require_rolldown_runtime.__toESM(node_path, 1);
 let node_fs_promises = require("node:fs/promises");
 node_fs_promises = require_rolldown_runtime.__toESM(node_fs_promises, 1);
 let openclaw_plugin_sdk_session_store_paths = require("openclaw/plugin-sdk/session-store-paths");
-//#region packages/normalization-core/src/record-coerce.ts
+// packages/normalization-core/src/record-coerce.ts
 /** Type guard for non-array object records at browser-safe boundaries. */
 function isRecord$1(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -19,8 +19,7 @@ function isRecord$1(value) {
 function asNullableRecord(value) {
 	return isRecord$1(value) ? value : null;
 }
-//#endregion
-//#region src/config/channel-config-normalization.ts
+// src/config/channel-config-normalization.ts
 /** Applies one channel-specific doctor migration to every object-shaped account. */
 function normalizeChannelAccounts(params) {
 	const rawAccounts = asNullableRecord(params.entry.accounts);
@@ -96,8 +95,7 @@ function normalizeChannelConfigEntries(params) {
 		changes
 	};
 }
-//#endregion
-//#region src/plugin-sdk/legacy-webhook-listener-migration.ts
+// src/plugin-sdk/legacy-webhook-listener-migration.ts
 /** Preserve explicitly configured webhook listeners while moving ingress onto Gateway routes. */
 function createLegacyWebhookListenerDoctorContract(params) {
 	const portKey = params.portKey ?? "webhookPort";
@@ -167,12 +165,10 @@ function createLegacyWebhookListenerDoctorContract(params) {
 		}
 	};
 }
-//#endregion
-//#region \0openclaw:bundled-sdk:openclaw/plugin-sdk/runtime-doctor-migrations
+// \0openclaw:bundled-sdk:openclaw/plugin-sdk/runtime-doctor-migrations
 var runtime_doctor_migrations_exports = /* @__PURE__ */ require_rolldown_runtime.__exportAll({ createLegacyWebhookListenerDoctorContract: () => createLegacyWebhookListenerDoctorContract });
 require_rolldown_runtime.__reExport(runtime_doctor_migrations_exports, require("openclaw/plugin-sdk/runtime-doctor-migrations"));
-//#endregion
-//#region extensions/msteams/config-doctor-api.ts
+// extensions/msteams/config-doctor-api.ts
 const webhookMigration = createLegacyWebhookListenerDoctorContract({
 	channelKey: "msteams",
 	defaultPort: 3978,
@@ -203,8 +199,7 @@ function normalizeCompatibilityConfig({ cfg }) {
 		historicalWebhookAccountIds: webhook.historicalWebhookAccountIds
 	};
 }
-//#endregion
-//#region extensions/msteams/doctor-contract-api.ts
+// extensions/msteams/doctor-contract-api.ts
 const MSTEAMS_PLUGIN_ID = "Microsoft Teams";
 function listAgentIds(config) {
 	const ids = /* @__PURE__ */ new Set(["main"]);
@@ -314,17 +309,9 @@ const stateMigrations = [
 				};
 			}
 			if (!existing) try {
-				await store.registerIfAbsent(require_delegated_state.MSTEAMS_DELEGATED_TOKEN_KEY, token);
+				if (!await store.registerIfAbsent("current", token)) throw new Error("Canonical state appeared during offline import.");
 			} catch (error) {
 				warnings.push(`Failed importing ${MSTEAMS_PLUGIN_ID} delegated OAuth token: ${String(error)}; left legacy source in place`);
-				return {
-					changes,
-					warnings
-				};
-			}
-			const persisted = require_delegated_state.normalizeMSTeamsDelegatedTokens(await store.lookup(require_delegated_state.MSTEAMS_DELEGATED_TOKEN_KEY));
-			if (!persisted || JSON.stringify(persisted) !== JSON.stringify(token)) {
-				warnings.push(`Failed verifying ${MSTEAMS_PLUGIN_ID} delegated OAuth token in plugin state; left legacy source in place`);
 				return {
 					changes,
 					warnings
@@ -346,7 +333,6 @@ const stateMigrations = [
 	},
 	retiredJsonMigration("feedback-learnings", "feedback learnings", hasRetiredLearnings)
 ];
-//#endregion
 exports.historicalWebhookListener = historicalWebhookListener;
 exports.legacyConfigRules = legacyConfigRules;
 exports.normalizeCompatibilityConfig = normalizeCompatibilityConfig;

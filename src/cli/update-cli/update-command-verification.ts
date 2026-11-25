@@ -1,14 +1,15 @@
+import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
 import { theme } from "../../../packages/terminal-core/src/theme.js";
 import { resolveStateDir } from "../../config/paths.js";
 import { resolveGatewayRestartLogPath } from "../../daemon/restart-logs.js";
 import type { SystemdServiceStartRefusal } from "../../daemon/service-inspection-error.js";
 import type { GatewayServiceRuntime } from "../../daemon/service-runtime.js";
 import { resolveGatewayService } from "../../daemon/service.js";
+import { inspectPortUsage } from "../../infra/ports-inspect.js";
 import {
   normalizeUpdateFailureFacts,
   type UpdateFailureFact,
 } from "../../infra/update-failure-facts.js";
-import type { UpdateRepairValidation } from "../../infra/update-repair-protocol.js";
 import {
   getUpdateRun,
   recordUpdateRunStep,
@@ -31,7 +32,9 @@ import {
   renderRestartDiagnostics,
   type GatewayRestartSnapshot,
 } from "../daemon-cli/restart-health.js";
+import { allListenersOwnedByRuntimePid } from "../daemon-cli/restart-port-ownership.js";
 import type { UpdateCommandOptions } from "./shared.js";
+import type { FinishUpdateParams } from "./update-command-finish-types.js";
 import {
   createPluginUpdateWarning,
   type PluginUpdateWarning,
@@ -43,8 +46,8 @@ import {
   verifyPreviousGatewayForUpdate,
   type UpdateGatewayReadinessParams,
 } from "./update-command-readiness.js";
+import { isPackageManagerUpdateMode } from "./update-command-service-command.js";
 import type { PreManagedServiceStop } from "./update-command-service-context-types.js";
-import { formatPostUpdateGatewayRecoveryInstructions } from "./update-command-service-recovery.js";
 
 /** Observe native state when a restart fails before health probes. */
 export async function readFailedUpdateGatewayState(
@@ -110,6 +113,111 @@ export async function readFailedUpdateGatewayState(
   };
 }
 
+/**
+ * Positive evidence that the restarted service still runs the expected build: the native
+ * runtime still reports the process that answered as that version. Readiness facts are read
+ * before polling ends, so a candidate that exited since then is no evidence; neither is an
+ * accepted or queued restart.
+ */
+async function hasObservedGatewayLaunch(
+  params: Pick<FinishUpdateParams, "opts" | "preManagedServiceStop">,
+  result: UpdateRunResult,
+): Promise<boolean> {
+  const expectedVersion = result.after?.version;
+  const previousVersion = result.before?.version;
+  // An unknown or unchanged version cannot tell the candidate from the build it replaced.
+  if (!expectedVersion || !previousVersion || expectedVersion === previousVersion) {
+    return false;
+  }
+  const run = params.opts.run;
+  const env = params.preManagedServiceStop?.serviceEnv ?? run?.env ?? process.env;
+  let verified: UpdateRunResult["verification"];
+  try {
+    // Returns the recorded identity only while the same native process is still running.
+    verified = await readFailedUpdateGatewayState(run, env);
+  } catch (error) {
+    if (hasCommandProcessCleanupError(error)) {
+      throw error;
+    }
+    // An unreadable record or runtime is no evidence; the caller keeps its stronger refusal.
+    return false;
+  }
+  // Observations merge, so a match flag alone may describe an earlier process: require the
+  // recorded version itself, no build mismatch, and the candidate's build when it is known
+  // (an identity fallback can answer a version without a build).
+  const pid = verified?.pid;
+  const expectedBuildId = result.after?.buildId;
+  if (
+    verified?.serviceRunning !== true ||
+    typeof pid !== "number" ||
+    typeof verified.port !== "number" ||
+    verified.runningVersion !== expectedVersion ||
+    verified.versionMatch === false ||
+    (expectedBuildId && verified.runningBuildId !== expectedBuildId)
+  ) {
+    return false;
+  }
+  try {
+    // The version came from whatever answered on the port; only a port whose every listener
+    // the managed process owns ties that answer to it. Another owner on any bind address, or
+    // an unattributed listener, leaves the answer ambiguous.
+    const usage = await inspectPortUsage(verified.port, {
+      knownRuntimePid: pid,
+      signal: AbortSignal.timeout(GATEWAY_RESTART_PROBE_TIMEOUT_MS),
+    });
+    return allListenersOwnedByRuntimePid(usage.listeners, pid);
+  } catch (error) {
+    if (hasCommandProcessCleanupError(error)) {
+      throw error;
+    }
+    return false;
+  }
+}
+
+/**
+ * A migrated-state rollback block marks data at risk because no build may own that state.
+ * When the expected build is observed still running on it after a failed health check, that
+ * build owns it: the failure is restart health, not data risk. Releases the block and
+ * records the rollback outcome; rollback stays unattempted, since it would hand the
+ * migrated state to a build that cannot read it. A split-root update keeps its
+ * original-service compensation and the block.
+ */
+export async function releaseLaunchedState(
+  params: Pick<
+    FinishUpdateParams,
+    "opts" | "rollbackBlockedReason" | "originalManagedServiceRuntime" | "preManagedServiceStop"
+  >,
+  restarted: string,
+  result: UpdateRunResult,
+): Promise<boolean> {
+  const run = params.opts.run;
+  if (
+    !run ||
+    restarted !== "restart-health-failed" ||
+    params.rollbackBlockedReason !== "state-migrated-no-rollback" ||
+    params.originalManagedServiceRuntime ||
+    !(await hasObservedGatewayLaunch(params, result))
+  ) {
+    return false;
+  }
+  // The run keeps the migration fact for status and final recovery; an unrecorded fact keeps
+  // the block instead.
+  try {
+    recordUpdateRunVerification(
+      run.runId,
+      { rollbackOutcome: { status: "not-attempted", reason: "state-migrated-no-rollback" } },
+      run,
+    );
+  } catch (error) {
+    if (hasCommandProcessCleanupError(error)) {
+      throw error;
+    }
+    return false;
+  }
+  params.rollbackBlockedReason = undefined;
+  return true;
+}
+
 export async function recordFailedUpdateGatewayState(
   run: UpdateCommandOptions["run"],
   env: NodeJS.ProcessEnv,
@@ -119,7 +227,7 @@ export async function recordFailedUpdateGatewayState(
   const facts = await readFailedUpdateGatewayState(run, env, timeoutMs);
   assertCurrent();
   if (run && facts) {
-    recordUpdateRunVerification(run.runId, facts, { env: run.env });
+    recordUpdateRunVerification(run.runId, facts, run);
   }
 }
 
@@ -167,7 +275,7 @@ export async function verifyPreviousManagedGatewayForUpdate(
           : "Previous gateway was not verified; automatic rollback cannot restart it.",
         endedAtMs: Date.now(),
       },
-      { env: run.env },
+      run,
     );
   }
 }
@@ -185,7 +293,8 @@ function updateGatewayHealthFacts(
         : health.runtime.status === "stopped"
           ? false
           : undefined,
-    ...(typeof health.runtime.pid === "number" ? { pid: health.runtime.pid } : {}),
+    // Each observation names its own process; a PID from an earlier one must not survive.
+    pid: typeof health.runtime.pid === "number" ? health.runtime.pid : undefined,
     port,
     runningVersion: health.gatewayVersion ?? undefined,
     runningBuildId: health.gatewayBuildId ?? undefined,
@@ -211,13 +320,16 @@ export async function verifyUpdatedGateway(
     opts: UpdateCommandOptions;
     onVerified?: (verifiedAtMs: number) => void;
     purpose?: "recovery" | "package-replacement";
+    /** A rollback refusal, so failure advice must not offer the old version. */
+    rollbackBlockedReason?: FinishUpdateParams["rollbackBlockedReason"];
   },
-): Promise<
-  UpdateRepairValidation & {
-    pluginWarnings?: PluginUpdateWarning[];
-    serviceDefinitionRefusal?: SystemdServiceStartRefusal;
-  }
-> {
+): Promise<{
+  ok: boolean;
+  summary: string;
+  stopReason?: string;
+  pluginWarnings?: PluginUpdateWarning[];
+  serviceDefinitionRefusal?: SystemdServiceStartRefusal;
+}> {
   const startedAtMs = Date.now();
   const { proofOptions, assertCurrent } = captureUpdateGatewayReadinessOwner(params);
   const { health, readyz, http, launchAgentRecovery } = await observeUpdateGatewayReadiness({
@@ -236,6 +348,14 @@ export async function verifyUpdatedGateway(
     verificationWarnings.push(
       redactSupportDiagnosticLine(
         `Gateway RPC authentication rejected (${health.authenticationError}); verified through local HTTP readiness and runtime identity.`,
+        { env: params.serviceEnv, stateDir: resolveStateDir(params.serviceEnv) },
+      ),
+    );
+  }
+  if (health.healthy && health.protocolMismatch) {
+    verificationWarnings.push(
+      redactSupportDiagnosticLine(
+        `Gateway RPC protocol differs from this updater (${health.protocolMismatch}); verified through local HTTP readiness and runtime identity.`,
         { env: params.serviceEnv, stateDir: resolveStateDir(params.serviceEnv) },
       ),
     );
@@ -260,7 +380,7 @@ export async function verifyUpdatedGateway(
     recordUpdateRunVerification(
       proofOptions.run.runId,
       updateGatewayHealthFacts(health, params.gatewayPort, readyz, http?.coreReady),
-      { env: proofOptions.run.env },
+      proofOptions.run,
     );
   }
   const serviceDefinitionRefusal = health.runtime?.systemd?.startRefusal;
@@ -271,7 +391,6 @@ export async function verifyUpdatedGateway(
   ) {
     return {
       ok: false,
-      score: 0,
       summary: serviceDefinitionRefusal.message,
       serviceDefinitionRefusal,
     };
@@ -280,8 +399,8 @@ export async function verifyUpdatedGateway(
     failureFacts?: UpdateFailureFact[],
     detail?: string,
     warning?: string,
+    endedAtMs = Date.now(),
   ) => {
-    const endedAtMs = Date.now();
     const step: UpdateStepResult = {
       name:
         params.purpose === "recovery"
@@ -316,12 +435,15 @@ export async function verifyUpdatedGateway(
     const run = proofOptions.run;
     if (run && params.purpose !== "recovery") {
       for (const row of updateRunStepsFromResultStep(step)) {
+        if (row.step === step.name) {
+          row.startedAtMs = startedAtMs;
+        }
         // A recheck must clear failure facts from the previous observation.
         assertCurrent();
         recordUpdateRunStep(
           run.runId,
           { failureFacts: undefined, ...row, endedAtMs, detail: row.detail ?? detail },
-          { env: run.env },
+          run,
         );
       }
     }
@@ -341,7 +463,7 @@ export async function verifyUpdatedGateway(
     const verifiedAtMs = Date.now();
     params.onVerified?.(verifiedAtMs);
     assertCurrent();
-    recordVerificationStep();
+    recordVerificationStep(undefined, undefined, undefined, verifiedAtMs);
 
     if (!params.opts.json) {
       defaultRuntime.log(
@@ -360,7 +482,6 @@ export async function verifyUpdatedGateway(
     }
     return {
       ok: true,
-      score: 7,
       summary: health.authenticationError
         ? "Gateway service, version, and readiness verified through local HTTP; RPC authentication needs attention."
         : verificationWarnings.length > 0
@@ -382,7 +503,6 @@ export async function verifyUpdatedGateway(
     defaultRuntime.error(detail);
     return {
       ok: false,
-      score: 0,
       summary: "Gateway is still starting; readiness remains unverified.",
       stopReason:
         health.waitOutcome === "still-starting" ? "still-starting" : "gateway-readiness-pending",
@@ -409,19 +529,47 @@ export async function verifyUpdatedGateway(
       : []),
     `Restart log: ${resolveGatewayRestartLogPath(params.serviceEnv)}`,
     `Run \`${formatCliCommand("openclaw gateway status --deep")}\` for details.`,
-    ...formatPostUpdateGatewayRecoveryInstructions(params.result),
   ];
+  const platform = process.platform;
+  const restartCommand = formatCliCommand("openclaw gateway restart");
+  const installCommand = formatCliCommand("openclaw gateway install --force");
+  const statusCommand = formatCliCommand("openclaw gateway status --deep");
+  const condition =
+    platform === "darwin"
+      ? "LaunchAgent is installed but not loaded"
+      : platform === "linux"
+        ? "systemd user service is missing, stale, or not active"
+        : platform === "win32"
+          ? "gateway Scheduled Task or Windows login item is missing, stale, or not running"
+          : "local service manager reports the gateway service is missing, stale, or not running";
+  const session = platform === "darwin" ? "logged-in macOS user session" : "same user account";
+  diagnosticLines.push(
+    `Recovery: run \`${restartCommand}\`; if the ${condition}, run \`${installCommand}\` from the ${session}, then rerun \`${statusCommand}\`.`,
+  );
+  const beforeVersion = normalizeOptionalString(params.result.before?.version);
+  // Final recovery verifies again after rollback settled; its recorded refusal still holds.
+  const refusal = params.rollbackBlockedReason ?? params.result.rollbackOutcome?.reason;
+  if (refusal === "state-migrated-no-rollback" || refusal === "rollback-state-unverified") {
+    // Older code may not read this state; reinstalling it is not a recovery path.
+    diagnosticLines.push(
+      refusal === "state-migrated-no-rollback"
+        ? "Rollback: unavailable; update state was migrated, so keep this installation installed."
+        : "Rollback: unavailable; rollback safety could not be verified, so keep this installation installed.",
+    );
+  } else if (isPackageManagerUpdateMode(params.result.mode) && beforeVersion) {
+    diagnosticLines.push(
+      `Rollback: reinstall OpenClaw ${beforeVersion} with the same package manager, then rerun \`${installCommand}\`.`,
+    );
+  }
   const reason = health.versionMismatch
     ? "version-mismatch"
     : health.buildIdMismatch
       ? "build-id-mismatch"
-      : health.activatedPluginErrors?.length
-        ? "plugin-errors"
-        : httpFailed
-          ? "readyz-unhealthy"
-          : !serviceRunning
-            ? "service-not-running"
-            : (health.waitOutcome ?? "restart-unhealthy");
+      : httpFailed
+        ? "readyz-unhealthy"
+        : !serviceRunning
+          ? "service-not-running"
+          : (health.waitOutcome ?? "restart-unhealthy");
   const facts: UpdateFailureFact[] = [];
   for (const [mismatch, label, code] of [
     [health.versionMismatch, "version", "version-mismatch"],
@@ -449,9 +597,6 @@ export async function verifyUpdatedGateway(
       message: `Managed Gateway service status: ${health.runtime.status ?? "unknown"}.`,
     });
   }
-  for (const { id: pluginId, error: message } of health.activatedPluginErrors ?? []) {
-    facts.push({ check: "pluginErrors", code: "plugin-errors", pluginId, message });
-  }
   if (!facts.length || health.waitOutcome === "timeout") {
     facts.push({
       check: "settled",
@@ -476,16 +621,7 @@ export async function verifyUpdatedGateway(
       defaultRuntime.log(theme.muted(line));
     }
   }
-  const score = [
-    serviceRunning,
-    !health.versionMismatch,
-    !health.buildIdMismatch,
-    !health.activatedPluginErrors?.length,
-    !health.channelProbeErrors?.length,
-    health.healthy,
-    readyz,
-  ].filter(Boolean).length;
-  return { ok: params.purpose === "package-replacement", score, summary: reason };
+  return { ok: params.purpose === "package-replacement", summary: reason };
 }
 
 export { verifyPreviousGatewayForUpdate } from "./update-command-readiness.js";

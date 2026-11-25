@@ -1,0 +1,3 @@
+import{b as resolveAuthProfileDatabasePath}from"./sqlite-DAEAdSbk.mjs";import{d as resolveSharedAuthStorePath}from"./path-resolve-CyKtUHVc.mjs";
+//!src/secrets/runtime-auth-profile-owner.ts
+function resolveAuthProfileSecretOwnerId(e){const t=e.agentDir?resolveAuthProfileDatabasePath(e.agentDir):resolveSharedAuthStorePath();return JSON.stringify([t,e.profileId])}function listAuthProfileSecretOwnerIds(e){return new Set(e.flatMap(({agentDir:e,store:t})=>Object.keys(t.profiles).map(t=>resolveAuthProfileSecretOwnerId({agentDir:e,profileId:t}))))}export{resolveAuthProfileSecretOwnerId as n,listAuthProfileSecretOwnerIds as t};

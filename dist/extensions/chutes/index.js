@@ -6,7 +6,7 @@ import { buildOauthProviderAuthResult, resolveOAuthApiKeyMarker } from "openclaw
 import { createProviderApiKeyAuthMethod } from "openclaw/plugin-sdk/provider-auth-api-key";
 import { runLiveProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { normalizeOptionalString, readStringValue } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/chutes/index.ts
+// extensions/chutes/index.ts
 const PROVIDER_ID = "chutes";
 async function runChutesOAuth(ctx) {
 	const isRemote = ctx.isRemote;
@@ -148,5 +148,4 @@ var chutes_default = definePluginEntry({
 		});
 	}
 });
-//#endregion
 export { chutes_default as default };

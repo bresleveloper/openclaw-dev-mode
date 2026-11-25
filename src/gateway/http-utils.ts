@@ -110,7 +110,7 @@ function assertKnownAgentId(agentId: string, cfg = getRuntimeConfig()): void {
   }
 }
 
-export function resolveAgentIdFromModel(
+function resolveAgentIdFromModel(
   model: string | undefined,
   cfg = getRuntimeConfig(),
 ): string | undefined {
@@ -304,6 +304,7 @@ export async function authorizeOpenAiCompatibleHttpSession(params: {
   const client = createSyntheticPluginRuntimeClient({
     ...(authenticatedUserProfile ? { authenticatedUserProfile } : {}),
     operatorRoleActor: params.requestAuth.operatorRoleActor,
+    openclawIdPrincipal: params.requestAuth.openclawIdPrincipal,
     operatorAccessAuthority: params.requestAuth.operatorAccessAuthority,
     scopes: params.senderIsOwner ? [ADMIN_SCOPE] : [],
   });

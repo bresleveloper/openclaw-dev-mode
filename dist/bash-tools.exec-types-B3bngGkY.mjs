@@ -1,0 +1,2 @@
+//!src/agents/bash-tools.exec-types.ts
+function cloneExecElevatedDefaults(e){return{enabled:e.enabled,allowed:e.allowed,defaultLevel:e.defaultLevel,...e.fullAccessAvailable!==void 0?{fullAccessAvailable:e.fullAccessAvailable}:{},...e.fullAccessBlockedReason!==void 0?{fullAccessBlockedReason:e.fullAccessBlockedReason}:{}}}export{cloneExecElevatedDefaults as t};

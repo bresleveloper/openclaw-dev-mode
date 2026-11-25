@@ -1,6 +1,6 @@
 import { truncateUtf16Safe } from "openclaw/plugin-sdk/speech-provider";
 import { readResponseWithLimit } from "openclaw/plugin-sdk/response-limit-runtime";
-//#region extensions/inworld/tts.ts
+// extensions/inworld/tts.ts
 const DEFAULT_INWORLD_BASE_URL = "https://api.inworld.ai";
 const DEFAULT_INWORLD_VOICE_ID = "Sarah";
 const DEFAULT_INWORLD_MODEL_ID = "inworld-tts-1.5-max";
@@ -27,7 +27,14 @@ const INWORLD_TTS_MODELS = [
 	"inworld-tts-1.5-max",
 	"inworld-tts-1.5-mini",
 	"inworld-tts-1-max",
-	"inworld-tts-1"
+	"inworld-tts-1",
+	"inworld-tts-2",
+	"inworld-tts-2-flash"
+];
+const INWORLD_DELIVERY_MODES = [
+	"STABLE",
+	"BALANCED",
+	"CREATIVE"
 ];
 function normalizeInworldBaseUrl(baseUrl) {
 	return (baseUrl?.trim())?.replace(/\/+$/, "") || DEFAULT_INWORLD_BASE_URL;
@@ -41,6 +48,40 @@ function ssrfPolicyFromInworldBaseUrl(baseUrl) {
 		return;
 	}
 }
+async function requestInworldText(params, request, maxAudioBytes, parse) {
+	const baseUrl = normalizeInworldBaseUrl(params.baseUrl);
+	const isTts = request.kind === "tts";
+	const apiLabel = isTts ? "TTS" : "voices";
+	const bodyLabel = isTts ? "TTS audio stream" : "voices response";
+	const { fetchWithSsrFGuard } = await import("openclaw/plugin-sdk/ssrf-runtime");
+	const { response, release } = await fetchWithSsrFGuard({
+		url: `${baseUrl}/${isTts ? "tts/v1/voice:stream" : "voices/v1/voices"}`,
+		init: {
+			method: isTts ? "POST" : "GET",
+			headers: {
+				...isTts ? { "Content-Type": "application/json" } : {},
+				Authorization: `Basic ${params.apiKey}`
+			},
+			...request.kind === "tts" ? { body: request.body } : {}
+		},
+		timeoutMs: isTts ? params.timeoutMs : params.timeoutMs ?? INWORLD_UPSTREAM_IDLE_TIMEOUT_MS,
+		policy: ssrfPolicyFromInworldBaseUrl(baseUrl),
+		auditContext: isTts ? "inworld-tts" : "inworld-voices"
+	});
+	try {
+		if (!response.ok) {
+			const errorBody = await readInworldErrorBodySnippet(response);
+			throw new Error(`Inworld ${apiLabel} API error (${response.status}): ${errorBody}`);
+		}
+		return parse((await readResponseWithLimit(response, maxAudioBytes * (isTts ? 2 : 1), {
+			chunkTimeoutMs: INWORLD_UPSTREAM_IDLE_TIMEOUT_MS,
+			onOverflow: ({ size, maxBytes }) => /* @__PURE__ */ new Error(`Inworld ${bodyLabel} too large: ${size} bytes (limit: ${maxBytes} bytes)`),
+			onIdleTimeout: ({ chunkTimeoutMs }) => /* @__PURE__ */ new Error(`Inworld ${bodyLabel} stalled: no data received for ${chunkTimeoutMs}ms`)
+		})).toString("utf8"));
+	} finally {
+		await release();
+	}
+}
 /**
 * Calls the Inworld streaming TTS endpoint and concatenates every audio chunk
 * into a single buffer. The stream returns newline-delimited JSON, each line
@@ -48,44 +89,22 @@ function ssrfPolicyFromInworldBaseUrl(baseUrl) {
 */
 async function inworldTTS(params) {
 	const { canonicalizeBase64, MAX_AUDIO_BYTES } = await import("openclaw/plugin-sdk/media-runtime");
-	const INWORLD_TTS_BODY_MAX_BYTES = MAX_AUDIO_BYTES * 2;
-	const baseUrl = normalizeInworldBaseUrl(params.baseUrl);
-	const url = `${baseUrl}/tts/v1/voice:stream`;
-	const requestBody = JSON.stringify({
-		text: params.text,
-		voiceId: params.voiceId ?? "Sarah",
-		modelId: params.modelId ?? "inworld-tts-1.5-max",
-		audioConfig: {
-			audioEncoding: params.audioEncoding ?? "MP3",
-			...params.sampleRateHertz && { sampleRateHertz: params.sampleRateHertz }
-		},
-		...params.temperature != null && { temperature: params.temperature }
-	});
-	const { fetchWithSsrFGuard } = await import("openclaw/plugin-sdk/ssrf-runtime");
-	const { response, release } = await fetchWithSsrFGuard({
-		url,
-		init: {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Basic ${params.apiKey}`
+	const modelId = params.modelId ?? "inworld-tts-1.5-max";
+	return await requestInworldText(params, {
+		kind: "tts",
+		body: JSON.stringify({
+			text: params.text,
+			voiceId: params.voiceId ?? "Sarah",
+			modelId,
+			audioConfig: {
+				audioEncoding: params.audioEncoding ?? "MP3",
+				...params.sampleRateHertz && { sampleRateHertz: params.sampleRateHertz },
+				...params.speakingRate != null && { speakingRate: params.speakingRate }
 			},
-			body: requestBody
-		},
-		timeoutMs: params.timeoutMs,
-		policy: ssrfPolicyFromInworldBaseUrl(baseUrl),
-		auditContext: "inworld-tts"
-	});
-	try {
-		if (!response.ok) {
-			const errorBody = await readInworldErrorBodySnippet(response);
-			throw new Error(`Inworld TTS API error (${response.status}): ${errorBody}`);
-		}
-		const body = (await readResponseWithLimit(response, INWORLD_TTS_BODY_MAX_BYTES, {
-			chunkTimeoutMs: INWORLD_UPSTREAM_IDLE_TIMEOUT_MS,
-			onOverflow: ({ size, maxBytes }) => /* @__PURE__ */ new Error(`Inworld TTS audio stream too large: ${size} bytes (limit: ${maxBytes} bytes)`),
-			onIdleTimeout: ({ chunkTimeoutMs }) => /* @__PURE__ */ new Error(`Inworld TTS audio stream stalled: no data received for ${chunkTimeoutMs}ms`)
-		})).toString("utf8");
+			...params.temperature != null && { temperature: params.temperature },
+			...modelId === "inworld-tts-2" && params.deliveryMode ? { deliveryMode: params.deliveryMode } : {}
+		})
+	}, MAX_AUDIO_BYTES, (body) => {
 		const chunks = [];
 		let decodedAudioBytes = 0;
 		for (const line of body.split("\n")) {
@@ -110,36 +129,11 @@ async function inworldTTS(params) {
 		}
 		if (chunks.length === 0) throw new Error("Inworld TTS returned no audio data");
 		return Buffer.concat(chunks);
-	} finally {
-		await release();
-	}
+	});
 }
 async function listInworldVoices(params) {
 	const { MAX_AUDIO_BYTES } = await import("openclaw/plugin-sdk/media-runtime");
-	const INWORLD_VOICES_BODY_MAX_BYTES = MAX_AUDIO_BYTES;
-	const baseUrl = normalizeInworldBaseUrl(params.baseUrl);
-	const url = `${baseUrl}/voices/v1/voices${params.language ? `?languages=${encodeURIComponent(params.language)}` : ""}`;
-	const { fetchWithSsrFGuard } = await import("openclaw/plugin-sdk/ssrf-runtime");
-	const { response, release } = await fetchWithSsrFGuard({
-		url,
-		init: {
-			method: "GET",
-			headers: { Authorization: `Basic ${params.apiKey}` }
-		},
-		timeoutMs: params.timeoutMs ?? INWORLD_UPSTREAM_IDLE_TIMEOUT_MS,
-		policy: ssrfPolicyFromInworldBaseUrl(baseUrl),
-		auditContext: "inworld-voices"
-	});
-	try {
-		if (!response.ok) {
-			const errorBody = await readInworldErrorBodySnippet(response);
-			throw new Error(`Inworld voices API error (${response.status}): ${errorBody}`);
-		}
-		const voicesBody = (await readResponseWithLimit(response, INWORLD_VOICES_BODY_MAX_BYTES, {
-			chunkTimeoutMs: INWORLD_UPSTREAM_IDLE_TIMEOUT_MS,
-			onOverflow: ({ size, maxBytes }) => /* @__PURE__ */ new Error(`Inworld voices response too large: ${size} bytes (limit: ${maxBytes} bytes)`),
-			onIdleTimeout: ({ chunkTimeoutMs }) => /* @__PURE__ */ new Error(`Inworld voices response stalled: no data received for ${chunkTimeoutMs}ms`)
-		})).toString("utf8");
+	return await requestInworldText(params, { kind: "voices" }, MAX_AUDIO_BYTES, (voicesBody) => {
 		let json;
 		try {
 			json = JSON.parse(voicesBody);
@@ -153,9 +147,6 @@ async function listInworldVoices(params) {
 			locale: voice.langCode || void 0,
 			gender: voice.tags?.find((t) => t === "male" || t === "female") || void 0
 		})).filter((voice) => voice.id.length > 0) : [];
-	} finally {
-		await release();
-	}
+	});
 }
-//#endregion
-export { DEFAULT_INWORLD_MODEL_ID, DEFAULT_INWORLD_VOICE_ID, INWORLD_TTS_MODELS, inworldTTS, listInworldVoices, normalizeInworldBaseUrl };
+export { DEFAULT_INWORLD_MODEL_ID, DEFAULT_INWORLD_VOICE_ID, INWORLD_DELIVERY_MODES, INWORLD_TTS_MODELS, inworldTTS, listInworldVoices, normalizeInworldBaseUrl };

@@ -1,5 +1,4 @@
 import type { ModelCatalogContextWindowOption } from "@openclaw/model-catalog-core/model-catalog-types";
-/** Shared normalization for thinking, verbosity, tracing, reasoning, and usage directives. */
 import {
   type FastMode,
   normalizeFastMode,
@@ -53,6 +52,10 @@ export type ThinkingCatalogEntry = {
     supportedReasoningEfforts?: readonly string[] | null;
     reasoningEffortMap?: Record<string, string>;
     defaultThinkingLevel?: string;
+    thinkingLevels?: readonly string[];
+    adaptiveThinking?: boolean;
+    thinkingRequired?: boolean;
+    thinkingLevelLabels?: Record<string, string>;
   } | null;
 };
 

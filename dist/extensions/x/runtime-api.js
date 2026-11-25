@@ -1,2 +1,1 @@
-import { n as setXRuntime } from "../../runtime-B1HOiKKH.mjs";
-export { setXRuntime };
+import{n as setXRuntime}from"../../runtime-MKMYvmVS.mjs";export{setXRuntime};

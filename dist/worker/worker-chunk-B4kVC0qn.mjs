@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,u as n}from"./worker-chunk-CHXXUV6W.mjs";function isParentOwnedBackgroundAcpSession(e){return!!(e?.acp&&(n(e.spawnedBy)||n(e.parentSessionKey)))}var r=e((()=>{t()}));export{isParentOwnedBackgroundAcpSession as n,r as t};

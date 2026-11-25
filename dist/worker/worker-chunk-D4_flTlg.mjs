@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function resolveBootstrapMode(e){return!e.bootstrapPending||e.runKind===`cron`||!e.isPrimaryRun||!e.isInteractiveUserFacing?`none`:e.hasBootstrapFileAccess&&e.isCanonicalWorkspace?`full`:`limited`}var t=e((()=>{}));export{resolveBootstrapMode as n,t};

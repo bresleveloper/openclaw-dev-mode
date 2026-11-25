@@ -1,0 +1,2 @@
+//!src/shared/model-ref-override.ts
+function resolveModelRefOverride(e){const t=e?.trim();if(!t)return{};const n=t.indexOf(`/`);if(n<=0||n===t.length-1)return{model:t};return{provider:t.slice(0,n),model:t.slice(n+1)}}export{resolveModelRefOverride as t};

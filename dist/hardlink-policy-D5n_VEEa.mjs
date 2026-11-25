@@ -1,0 +1,3 @@
+import{a as pluginCacheRealpathSync}from"./plugin-cache-files-C0Dii67T.mjs";import{C as resolveIsNixMode}from"./paths-DxXULbkO.mjs";import path from"node:path";
+//!src/plugins/hardlink-policy.ts
+const NIX_STORE_ROOT=`/nix/store`;function isNixStorePluginRoot(e){const t=pluginCacheRealpathSync(e)??path.resolve(e);return t===NIX_STORE_ROOT||t.startsWith(`${NIX_STORE_ROOT}/`)}function shouldRejectHardlinkedPluginFiles(e){if(e.origin===`bundled`)return false;if(resolveIsNixMode(e.env)&&isNixStorePluginRoot(e.rootDir))return false;return true}export{shouldRejectHardlinkedPluginFiles as t};

@@ -1,10 +1,1 @@
-import { n as normalizeAccountId, t as DEFAULT_ACCOUNT_ID } from "../account-id-ifCOO7_9.mjs";
-import { o as getChatChannelMeta } from "../registry-DqsL4UWB.mjs";
-import { i as buildChannelConfigSchema } from "../config-schema-CJhF0RIe.mjs";
-import { n as formatPairingApproveHint } from "../helpers-CYrCYT-h.mjs";
-import { a as setAccountEnabledInConfigSection, i as deleteAccountFromConfigSection, t as clearAccountEntryFields } from "../config-helpers-D0Ap6vek.mjs";
-import { r as emptyPluginConfigSchema } from "../config-schema-dqR2I9Q2.mjs";
-import { o as migrateBaseNameToDefaultAccount, t as applyAccountNameToChannelSection } from "../setup-helpers-BkS00G-w.mjs";
-import { t as PAIRING_APPROVED_MESSAGE } from "../pairing-message-C9w9gv4K.mjs";
-import "../channel-plugin-common-DJxvaPDc.mjs";
-export { DEFAULT_ACCOUNT_ID, PAIRING_APPROVED_MESSAGE, applyAccountNameToChannelSection, buildChannelConfigSchema, clearAccountEntryFields, deleteAccountFromConfigSection, emptyPluginConfigSchema, formatPairingApproveHint, getChatChannelMeta, migrateBaseNameToDefaultAccount, normalizeAccountId, setAccountEnabledInConfigSection };
+import{n as normalizeAccountId,t as DEFAULT_ACCOUNT_ID}from"../account-id-3yqrEsRn.mjs";import{n as getChatChannelMeta}from"../chat-meta-DGmmCieT.mjs";import{i as buildChannelConfigSchema}from"../config-schema-CQzIWj4v.mjs";import{t as PAIRING_APPROVED_MESSAGE}from"../pairing-message-DW8IrMyI.mjs";import{n as formatPairingApproveHint}from"../helpers-CcI0WUvT.mjs";import{r as emptyPluginConfigSchema}from"../config-schema-BQYgWf1D.mjs";import{a as setAccountEnabledInConfigSection,i as deleteAccountFromConfigSection,t as clearAccountEntryFields}from"../config-helpers-C2HiLg-F.mjs";import{o as migrateBaseNameToDefaultAccount,t as applyAccountNameToChannelSection}from"../setup-helpers-XD9mpaqi.mjs";import"../channel-plugin-common-CVtLNoUn.mjs";export{DEFAULT_ACCOUNT_ID,PAIRING_APPROVED_MESSAGE,applyAccountNameToChannelSection,buildChannelConfigSchema,clearAccountEntryFields,deleteAccountFromConfigSection,emptyPluginConfigSchema,formatPairingApproveHint,getChatChannelMeta,migrateBaseNameToDefaultAccount,normalizeAccountId,setAccountEnabledInConfigSection};

@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";import{f as isLoopbackIpAddress,h as isRfc1918Ipv4Address}from"./ip-CLwE61h2.mjs";
+//!src/agents/model-provider-local.ts
+function isLocalProviderBaseUrl(e,t){try{let n=normalizeLowercaseStringOrEmpty(new URL(e).hostname);if(n.startsWith(`[`)&&n.endsWith(`]`))n=n.slice(1,-1);return n===`localhost`||n===`0.0.0.0`||n.endsWith(`.local`)||t?.has(n)===true||isLoopbackIpAddress(n)||isRfc1918Ipv4Address(n)}catch{return false}}export{isLocalProviderBaseUrl as t};

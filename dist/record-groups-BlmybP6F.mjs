@@ -1,0 +1,2 @@
+//!src/plugins/record-groups.ts
+const PLUGIN_ORIGIN_PRIORITIES={config:{explicit:0,provider:0},workspace:{explicit:1,provider:3},global:{explicit:2,provider:2},bundled:{explicit:3,provider:1}};function groupPluginRecords(e,t){const n=/* @__PURE__ */ new Map;for(const r of e){const e=t(r);const i=n.get(e);if(i)i.push(r);else n.set(e,[r])}return n}export{groupPluginRecords as n,PLUGIN_ORIGIN_PRIORITIES as t};

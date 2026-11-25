@@ -1,35 +1,3 @@
-import { n as parseR2Settings, r as r2Endpoint } from "../../settings-CCGlcL60.mjs";
-import { n as require_dist_cjs, t as createR2Backend } from "../../s3-backend-BRk8zjjS.mjs";
-//#region extensions/cloudflare/runtime-api.ts
-var import_dist_cjs = require_dist_cjs();
-async function openR2Backend(params) {
-	const settings = parseR2Settings(params.settings);
-	params.signal?.throwIfAborted();
-	let credentials;
-	try {
-		const [accessKeyId, secretAccessKey, sessionToken] = await Promise.all([
-			params.resolveSecret(settings.accessKeyId),
-			params.resolveSecret(settings.secretAccessKey),
-			settings.sessionToken ? params.resolveSecret(settings.sessionToken) : void 0
-		]);
-		if (!accessKeyId || !secretAccessKey || settings.sessionToken && !sessionToken) throw new Error("Empty credential");
-		credentials = {
-			accessKeyId,
-			secretAccessKey,
-			sessionToken
-		};
-	} catch {
-		throw new Error("R2 credentials could not be resolved; check the configured SecretRefs and their secret providers.");
-	}
-	params.signal?.throwIfAborted();
-	return createR2Backend(settings, new import_dist_cjs.S3Client({
-		endpoint: r2Endpoint(settings),
-		region: "auto",
-		credentials,
-		forcePathStyle: true,
-		requestChecksumCalculation: "WHEN_REQUIRED",
-		responseChecksumValidation: "WHEN_REQUIRED"
-	}));
-}
-//#endregion
-export { openR2Backend };
+import{n as parseR2Settings,r as r2Endpoint}from"../../settings-rIOFhCaP.mjs";import{n as require_dist_cjs,t as createR2Backend}from"../../s3-backend-CwYTHrcD.mjs";
+//!extensions/cloudflare/runtime-api.ts
+var import_dist_cjs=require_dist_cjs();async function openR2Backend(e){const t=parseR2Settings(e.settings);e.signal?.throwIfAborted();let n;try{const[r,i,a]=await Promise.all([e.resolveSecret(t.accessKeyId),e.resolveSecret(t.secretAccessKey),t.sessionToken?e.resolveSecret(t.sessionToken):void 0]);if(!r||!i||t.sessionToken&&!a)throw new Error(`Empty credential`);n={accessKeyId:r,secretAccessKey:i,sessionToken:a}}catch{throw new Error(`R2 credentials could not be resolved; check the configured SecretRefs and their secret providers.`)}e.signal?.throwIfAborted();return createR2Backend(t,new import_dist_cjs.S3Client({endpoint:r2Endpoint(t),region:`auto`,credentials:n,forcePathStyle:true,requestChecksumCalculation:`WHEN_REQUIRED`,responseChecksumValidation:`WHEN_REQUIRED`}))}export{openR2Backend};

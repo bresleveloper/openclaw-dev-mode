@@ -1,0 +1,3 @@
+import{a as resolveGlobalSet}from"./global-singleton-BoQ13xsk.mjs";
+//!src/gateway/session-reset-notifications.ts
+const listeners=resolveGlobalSet(Symbol.for(`openclaw.gatewaySessionResetListeners`),`close-and-restart`);function onGatewaySessionReset(e){listeners.add(e);return()=>listeners.delete(e)}function notifyGatewaySessionReset(e,t){for(const n of listeners)try{n(e,t)}catch{}}export{onGatewaySessionReset as n,notifyGatewaySessionReset as t};

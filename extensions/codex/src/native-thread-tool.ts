@@ -4,6 +4,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { resolveSessionAgentIdsStrict } from "openclaw/plugin-sdk/agent-scope-runtime";
 import type { AnyAgentTool, PluginRuntime } from "openclaw/plugin-sdk/core";
+import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 import { readStringParam } from "openclaw/plugin-sdk/param-readers";
 import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
 import type { captureSessionEntryCurrentCheckAsync } from "openclaw/plugin-sdk/session-binding-runtime";
@@ -30,6 +31,24 @@ import {
 import type { CodexAppServerBindingStore } from "./app-server/session-binding.js";
 import { assertCodexArchiveDescendantsUnowned } from "./app-server/thread-archive-guard.js";
 import type { codexControlRequest, CodexControlRequestOptions } from "./command-rpc.js";
+
+const loadSessionBindingRuntime = createLazyRuntimeModule(
+  () => import("openclaw/plugin-sdk/session-binding-runtime"),
+);
+const loadCommandRpc = createLazyRuntimeModule(() => import("./command-rpc.js"));
+const loadModelSessionRuntime = createLazyRuntimeModule(
+  () => import("openclaw/plugin-sdk/model-session-runtime"),
+);
+const loadBindingConnection = createLazyRuntimeModule(
+  () => import("./app-server/binding-connection.js"),
+);
+const loadConfigRuntime = createLazyRuntimeModule(() => import("./app-server/config-runtime.js"));
+const loadThreadOwnership = createLazyRuntimeModule(
+  () => import("./app-server/thread-ownership.js"),
+);
+const loadAttemptClientCleanup = createLazyRuntimeModule(
+  () => import("./app-server/attempt-client-cleanup.js"),
+);
 
 function threadActionSchema<Action extends string, Properties extends TProperties>(
   action: Action,
@@ -186,8 +205,7 @@ export function createCodexThreadsTool(options: CodexThreadsToolOptions): AnyAge
         }
         return {
           sessionId,
-          // Lock policy loads later; keep the session fields observed at admission.
-          entry: entry ? { ...entry } : undefined,
+          entry,
         };
       };
 
@@ -219,7 +237,7 @@ export function createCodexThreadsTool(options: CodexThreadsToolOptions): AnyAge
       }
       const run = async (archiveThreadId?: string) => {
         const { captureSessionEntryCurrentCheckAsync, composeSessionEntryCommitGuards } =
-          await import("openclaw/plugin-sdk/session-binding-runtime");
+          await loadSessionBindingRuntime();
         prepared =
           sessionKey && agentId
             ? await captureSessionEntryCurrentCheckAsync({
@@ -244,13 +262,12 @@ export function createCodexThreadsTool(options: CodexThreadsToolOptions): AnyAge
                 identity: currentIdentity(archiveSession.sessionId),
               }
             : undefined;
-        const request = options.request ?? (await import("./command-rpc.js")).codexControlRequest;
+        const request = options.request ?? (await loadCommandRpc()).codexControlRequest;
         const { isModelSelectionLocked, ModelSelectionLockedError } =
-          await import("openclaw/plugin-sdk/model-session-runtime");
+          await loadModelSessionRuntime();
         const { codexBindingConnectionSelection, resolveCodexBindingAppServerConnection } =
-          await import("./app-server/binding-connection.js");
-        const { resolveCodexSupervisionAppServerRuntimeOptions } =
-          await import("./app-server/config-runtime.js");
+          await loadBindingConnection();
+        const { resolveCodexSupervisionAppServerRuntimeOptions } = await loadConfigRuntime();
         const requestOptions = async (): Promise<CodexControlRequestOptions> => {
           const base = {
             agentId,
@@ -283,7 +300,7 @@ export function createCodexThreadsTool(options: CodexThreadsToolOptions): AnyAge
           ) {
             const connection = await resolveCodexBindingAppServerConnection({
               binding,
-              pluginConfig: admissionConfig,
+              pluginConfig: admissionPlugin,
               config: base.config,
               agentDir: base.agentDir,
               assertCurrent,
@@ -304,7 +321,7 @@ export function createCodexThreadsTool(options: CodexThreadsToolOptions): AnyAge
           return {
             ...base,
             startOptions: resolveCodexSupervisionAppServerRuntimeOptions({
-              pluginConfig: admissionConfig,
+              pluginConfig: admissionPlugin,
             }).start,
             authProfileId: null,
             assertCurrent,
@@ -314,7 +331,7 @@ export function createCodexThreadsTool(options: CodexThreadsToolOptions): AnyAge
         const scopedRequest = async <M extends CodexControlMethod & CodexAppServerRequestMethod>(
           method: M,
           requestParams: CodexAppServerRequestParams<M>,
-        ) => request(admissionConfig, method, requestParams, await requestOptions());
+        ) => request(admissionPlugin, method, requestParams, await requestOptions());
         if (action === "list") {
           const cursor = readStringParam(params, "cursor");
           const searchTerm = readStringParam(params, "search");
@@ -431,15 +448,14 @@ export function createCodexThreadsTool(options: CodexThreadsToolOptions): AnyAge
         const {
           retainCodexAppServerBindingSubscription,
           rollbackCodexAppServerBindingSubscription,
-        } = await import("./app-server/thread-ownership.js");
-        const { closeCodexStartupClientBestEffort } =
-          await import("./app-server/attempt-client-cleanup.js");
+        } = await loadThreadOwnership();
+        const { closeCodexStartupClientBestEffort } = await loadAttemptClientCleanup();
         if (attach) {
           assertCodexBindingMayBeReplaced(binding, "attaching a different native fork");
           // Codex can snapshot an active source as interrupted. Attached forks require a known-safe
           // local status and the exact source identity before App Server may create that snapshot.
           const current = await request(
-            admissionConfig,
+            admissionPlugin,
             CODEX_CONTROL_METHODS.readThread,
             { threadId, includeTurns: false },
             forkOptions,
@@ -447,7 +463,7 @@ export function createCodexThreadsTool(options: CodexThreadsToolOptions): AnyAge
           assertThreadIdle(current, threadId, "fork");
         }
         const response = await request(
-          admissionConfig,
+          admissionPlugin,
           CODEX_CONTROL_METHODS.forkThread,
           { threadId, threadSource: "user", excludeTurns: true },
           {

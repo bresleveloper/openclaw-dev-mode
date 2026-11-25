@@ -1,0 +1,1 @@
+var PluginBlobStoreError=class extends Error{constructor(e,t){super(e,{cause:t.cause}),this.name=`PluginBlobStoreError`,this.code=t.code,this.operation=t.operation,t.path&&(this.path=t.path)}};export{PluginBlobStoreError as t};

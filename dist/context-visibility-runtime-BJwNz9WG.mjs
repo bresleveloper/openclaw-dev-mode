@@ -1,0 +1,3 @@
+import"./session-key-C6YO7qUA.mjs";import{n as normalizeAccountId}from"./account-id-3yqrEsRn.mjs";import{r as resolveChannelAccountEntry}from"./account-lookup-CKp7uaDZ.mjs";
+//!src/config/context-visibility.ts
+function resolveChannelContextVisibilityMode(e){if(e.configuredContextVisibility)return e.configuredContextVisibility;const t=e.cfg.channels?.[e.channel];const n=normalizeAccountId(e.accountId);return resolveChannelAccountEntry(t?.accounts,n,e.channel)?.contextVisibility??t?.contextVisibility??e.cfg.channels?.defaults?.contextVisibility??`all`}export{resolveChannelContextVisibilityMode as t};

@@ -1,0 +1,3 @@
+import{P as resolveIntegerOption}from"./number-coercion-B3CfI447.mjs";import{n as monotonicNow}from"./monotonic-time-DjtFTu2s.mjs";
+//!src/infra/fixed-window-rate-limit.ts
+function createFixedWindowBudget(e){const t=resolveIntegerOption(e.maxRequests,1,{min:1});const n=resolveIntegerOption(e.windowMs,1,{min:1});const r=e.now??monotonicNow;let i=0;let a;return{consume(){const e=r();if(a===void 0||e-a>=n){a=e;i=0}if(i>=t)return{allowed:false,retryAfterMs:Math.max(0,a+n-e)};i+=1;return{allowed:true,retryAfterMs:0}}}}export{createFixedWindowBudget as t};

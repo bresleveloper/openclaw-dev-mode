@@ -1,0 +1,3 @@
+import{n as isTruthyEnvValue}from"./env-CgAf0Ri-.mjs";import{t as startGmailWatcher}from"./gmail-watcher-B-naFNtu.mjs";
+//!src/hooks/gmail-watcher-lifecycle.ts
+async function startGmailWatcherWithLogs(e){if(isTruthyEnvValue(process.env.OPENCLAW_SKIP_GMAIL_WATCHER)){e.onSkipped?.();return}try{const t=await startGmailWatcher(e.cfg,{signal:e.signal,scheduler:e.scheduler});if(t.started){e.log.info(`gmail watcher started`);return}if(t.reason&&t.reason!==`hooks not enabled`&&t.reason!==`no gmail account configured`)e.log.warn(`gmail watcher not started: ${t.reason}`)}catch(t){e.log.error(`gmail watcher failed to start: ${String(t)}`)}}export{startGmailWatcherWithLogs};

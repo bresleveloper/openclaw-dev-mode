@@ -1,0 +1,3 @@
+import{t as pluginCohortPublicationContext}from"./update-plugin-cohort-context-CV-FghMb.mjs";
+//!src/config/plugin-cohort-publication.ts
+function prepareRootPluginCohortIntent(e,t,n,r){preparePluginCohortConfigPublication({rootConfigPath:e.path,filePath:e.path,targetPath:t.targetPath,pathSnapshot:t,beforeRaw:e.raw,afterRaw:n},r)}function preparePluginCohortConfigPublication(e,t){const n=pluginCohortPublicationContext.getStore();if(!n||e.beforeRaw===e.afterRaw)return;n.prepareConfigPublication(e,t)}export{prepareRootPluginCohortIntent as n,preparePluginCohortConfigPublication as t};

@@ -1,0 +1,3 @@
+import{a as runInDetachedAsyncContext}from"./plugin-instance-invocation-D2U32-yV.mjs";import"@openclaw/fs-safe/path";import path from"node:path";import{resolvePathViaExistingAncestorSync,resolveRootPathSync}from"@openclaw/fs-safe/advanced";
+//!src/infra/boundary-path.ts
+function resolvePathViaExistingAncestorSync$1(e){return runInDetachedAsyncContext(()=>resolvePathViaExistingAncestorSync(e))}export{resolveRootPathSync as n,resolvePathViaExistingAncestorSync$1 as t};

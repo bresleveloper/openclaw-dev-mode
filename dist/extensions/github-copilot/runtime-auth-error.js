@@ -1,2 +1,1 @@
-import { t as CopilotRuntimeAuthError } from "../../runtime-auth-error-CQZde1c0.mjs";
-export { CopilotRuntimeAuthError };
+import{t as CopilotRuntimeAuthError}from"../../runtime-auth-error-BLmzAlcy.mjs";export{CopilotRuntimeAuthError};

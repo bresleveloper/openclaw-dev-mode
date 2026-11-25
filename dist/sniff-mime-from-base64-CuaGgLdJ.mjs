@@ -1,0 +1,3 @@
+import{r as inspectBase64}from"./base64-BbBj85Rq.mjs";import{n as detectMime}from"./mime-ZmYZsEjx.mjs";
+//!src/media/sniff-mime-from-base64.ts
+const BASE64_SNIFF_PREFIX_CHARS=256;async function sniffMimeFromBase64(e,t={}){const n=typeof e===`string`?inspectBase64(e,`canonical`):e;if(!n?.canonicalPadBits)return;const r=Math.min(BASE64_SNIFF_PREFIX_CHARS,n.base64.length);const i=r-r%4;const a=typeof e===`string`?void 0:e.buffer;const o=i<8?void 0:a?.subarray(0,i/4*3)??Buffer.from(n.base64.slice(0,i),`base64`);return await detectMime({...t,buffer:o})}export{sniffMimeFromBase64 as t};

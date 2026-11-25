@@ -1,0 +1,1 @@
+import{i as e,t}from"./worker-chunk-Bt-zkiKd.mjs";e();export{t as USER_BOOTSTRAP_MAX_CHARS};

@@ -5,12 +5,13 @@ import type {
 } from "../../agents/embedded-agent-runner/run/internal-params.js";
 import { runEmbeddedAgent } from "../../agents/embedded-agent.js";
 import { resolveAgentHarnessPolicy } from "../../agents/harness/policy.js";
-import { resolveOpenAIRuntimeProvider } from "../../agents/openai-routing.js";
 import type { ReplyDeliveryState } from "../../agents/reply-completion.js";
-import type { CompactionRequestBudget } from "../../agents/sessions/compaction/request-budget.js";
+import type { CompactionRequestBudget } from "../../agents/sessions/compaction/preparation.types.js";
 import { resolveGroupSessionKey } from "../../config/sessions.js";
+import { readSessionEntryInWorker } from "../../config/sessions/session-entry-read-runtime.js";
 import { logVerbose } from "../../globals.js";
 import { resolveSessionPinnedHarnessId } from "../../sessions/agent-harness-session-key.js";
+import { markReplyOperationGlobalLaneWaitProgress } from "../../sessions/session-controller.js";
 import {
   isMarkdownCapableMessageChannel,
   resolveMessageChannel,
@@ -24,11 +25,11 @@ import {
 } from "./agent-runner-event-handler.js";
 import type { CompletedAgentAuthSelection } from "./agent-runner-execution.types.js";
 import type { AgentFallbackCandidateCommonParams } from "./agent-runner-fallback-cycle.types.js";
+import { runMemoryFlushIfNeeded } from "./agent-runner-memory.js";
 import { buildFallbackCandidateTurnParams } from "./agent-runner-run-params.js";
 import { buildEmbeddedRunExecutionParams } from "./agent-runner-utils.js";
 import type { DirectBlockDelivery } from "./reply-delivery.js";
 import { resolveReplyOperationTerminationFields } from "./reply-operation-abort.js";
-import { markReplyOperationGlobalLaneWaitProgress } from "./reply-run-registry.js";
 import {
   bindSourceReplyDeliveryRuntime,
   readSourceReplyDeliveryRuntime,
@@ -106,25 +107,13 @@ export async function runEmbeddedFallbackCandidate(
         agentId: turn.followupRun.run.agentId,
         sessionKey: turn.followupRun.run.runtimePolicySessionKey ?? turn.sessionKey,
       });
-  const embeddedRunProvider = resolveOpenAIRuntimeProvider({
-    provider: params.provider,
-    harnessRuntime: agentHarnessPolicy.runtime,
-    authProfileProvider: runBaseParams.authProfileId?.split(":", 1)[0],
-    authProfileId: runBaseParams.authProfileId,
-    config: params.runtimeConfig,
-    workspaceDir: turn.followupRun.run.workspaceDir,
-  });
-  const embeddedRunHarnessOverride =
-    params.agentHarnessRuntimeOverride ??
-    (agentHarnessPolicy.runtime === "openclaw" && embeddedRunProvider !== params.provider
-      ? "openclaw"
-      : undefined);
   let attemptCompactionCount = 0;
   let postCompactionModelAttempted = false;
   let compactionAccounting: CompactionAccountingFact | undefined;
   const lifecycleBackstop = createAgentLifecycleTerminalBackstop({
     runId: params.runId,
     sessionKey: turn.sessionKey,
+    onTerminalEvent: turn.followupRun.run.internalEventExecution?.onTerminalEvent,
     getLifecycleGeneration: params.getLifecycleGeneration,
     resolveTerminationFields: (error) =>
       resolveReplyOperationTerminationFields(error, params.runAbortSignal, turn.replyOperation),
@@ -142,7 +131,43 @@ export async function runEmbeddedFallbackCandidate(
     const result = await params.timing.measure("embedded_run", () => {
       const embeddedRunParams: RunEmbeddedAgentInternalParams = {
         ...runBaseParams,
-        ...params.scheduledInference?.runParams,
+        beforeRecoveryCompaction: async (recovery) => {
+          if (turn.recoveryMemoryFlushAttempted) {
+            return "skipped: already attempted this turn";
+          }
+          turn.recoveryMemoryFlushAttempted = true;
+          const entry =
+            turn.sessionKey && turn.storePath
+              ? await readSessionEntryInWorker({
+                  storePath: turn.storePath,
+                  sessionKey: turn.sessionKey,
+                })
+              : turn.getActiveSessionEntry();
+          if (entry?.sessionId !== recovery.sessionId) {
+            return "skipped: source session changed";
+          }
+          const flushed = await runMemoryFlushIfNeeded({
+            cfg: params.runtimeConfig,
+            followupRun: {
+              ...turn.followupRun,
+              abortSignal: params.runAbortSignal ?? turn.followupRun.abortSignal,
+              run: { ...candidateRun, ...recovery },
+            },
+            recoveryContextTokenBudget: recovery.contextTokenBudget,
+            defaultModel: recovery.model,
+            resolvedVerboseLevel: turn.resolvedVerboseLevel,
+            sessionEntry: entry,
+            sessionStore: turn.activeSessionStore,
+            sessionKey: turn.sessionKey,
+            runtimePolicySessionKey: turn.runtimePolicySessionKey,
+            storePath: turn.storePath,
+            replyOperation: turn.replyOperation,
+            abortSignal: params.runAbortSignal,
+            opts: { runId: params.runId },
+          });
+          return flushed.outcome;
+        },
+        ...params.scheduledInference?.runParams(params.provider),
         lifecycleGeneration: params.getLifecycleGeneration(),
         allowGatewaySubagentBinding: true,
         cronCreatorAuthorityCapability: turn.opts?.cronCreatorAuthorityCapability,
@@ -155,9 +180,10 @@ export async function runEmbeddedFallbackCandidate(
         groupSpace: normalizeOptionalString(turn.sessionCtx.GroupSpace),
         ...buildFallbackCandidateTurnParams(params),
         contextWindow: turn.getActiveSessionEntry()?.contextWindow,
-        provider: embeddedRunProvider,
+        sessionPromptDelivery: turn.getActiveSessionEntry()?.delivery,
+        provider: params.provider,
         agentHarnessId: resolveSessionPinnedHarnessId(turn.getActiveSessionEntry()),
-        agentHarnessRuntimeOverride: embeddedRunHarnessOverride,
+        agentHarnessRuntimeOverride: params.agentHarnessRuntimeOverride,
         agentHarnessRuntimePreparationHint:
           agentHarnessPolicy.runtimeSource !== "implicit" ? agentHarnessPolicy.runtime : undefined,
         sandboxSessionKey: turn.runtimePolicySessionKey,
@@ -176,6 +202,14 @@ export async function runEmbeddedFallbackCandidate(
           turn.followupRun.run.suppressTranscriptOnlyAssistantPersistence,
         assistantErrorTranscript: params.assistantErrorTranscript,
         authProfileFailurePolicy: params.authProfileFailurePolicy,
+        ...(params.cyberAccessProgram
+          ? {
+              cyberAccessProgram: params.cyberAccessProgram,
+              ...(params.authProfileId
+                ? { authProfileId: params.authProfileId, authProfileIdSource: "user" as const }
+                : {}),
+            }
+          : {}),
         onAutoCompactionSucceeded: (count) => {
           attemptCompactionCount = Math.max(attemptCompactionCount, count);
         },
@@ -186,10 +220,9 @@ export async function runEmbeddedFallbackCandidate(
         toolProgressDetail: turn.toolProgressDetail,
         // Marks reply-owned policy; final attempt preparation binds its concrete route.
         toolAuthorityFingerprint: turn.replyOperation?.toolAuthorityFingerprint,
-        enableHeartbeatTool: turn.opts?.enableHeartbeatTool,
-        forceHeartbeatTool: turn.opts?.forceHeartbeatTool,
         deferTerminalLifecycle: true,
         onAttemptStart: lifecycleBackstop.beginAttempt,
+        onAttemptTerminalReplaced: lifecycleBackstop.replaceAttemptTerminal,
         onCompactionAccounting: (fact) => {
           compactionAccounting = fact;
         },
@@ -207,33 +240,10 @@ export async function runEmbeddedFallbackCandidate(
             await params.prepareAgentRunStart();
           }
           if (turn.followupRun.run.scheduledAutomation) {
-            try {
-              await turn.followupRun.run.internalEventExecution?.beforeScheduledStart?.(
-                params.runId,
-              );
-              params.runAbortSignal?.throwIfAborted();
-              turn.followupRun.run.internalEventExecution?.assertCurrent?.();
-              const automation = turn.followupRun.run.scheduledAutomation;
-              const sessionKey = turn.sessionKey ?? turn.followupRun.run.sessionKey;
-              if (automation && sessionKey) {
-                automation.onExecutionStarted?.({
-                  runId: params.runId,
-                  sessionId: turn.followupRun.run.sessionId,
-                  sessionKey,
-                  provider: params.provider,
-                  model: params.model,
-                  ...(params.isFallbackRetry ? { isFallback: true } : {}),
-                });
-              }
-            } catch (error) {
-              if (!params.hasAgentRunStarted()) {
-                lifecycleBackstop.note({
-                  stream: "lifecycle",
-                  data: { phase: "finishing", executionStarted: false, providerStarted: false },
-                });
-              }
-              throw error;
-            }
+            await params.notifyScheduledExecutionStarted(
+              lifecycleBackstop,
+              () => turn.sessionKey ?? turn.followupRun.run.sessionKey,
+            );
           }
         },
         onExecutionPhase: (info) => {
@@ -346,7 +356,10 @@ export async function runEmbeddedFallbackCandidate(
           : undefined,
       };
       embeddedRunParams.onSuccessfulAuthProfile = (profileId) => {
-        params.scheduledInference?.runParams.onSuccessfulAuthProfile?.(profileId);
+        const scheduled = params.scheduledInference?.runParams(params.provider);
+        if (scheduled && "onSuccessfulAuthProfile" in scheduled) {
+          scheduled.onSuccessfulAuthProfile?.(profileId);
+        }
         maintenanceAuthProfile = {
           authProfileId: profileId,
           authProfileIdSource: profileId

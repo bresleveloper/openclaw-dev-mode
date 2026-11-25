@@ -1,0 +1,2 @@
+//!src/plugins/hook-policy-decisions.ts
+function resolvePromptInjectionAllowed(e){return e?.allowPromptModification!==false}function resolveConversationAccessAllowed(e,t){return e===`bundled`?t?.allowConversationAccess!==false:t?.allowConversationAccess===true}export{resolvePromptInjectionAllowed as n,resolveConversationAccessAllowed as t};

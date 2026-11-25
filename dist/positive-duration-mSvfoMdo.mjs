@@ -1,0 +1,2 @@
+//!src/shared/positive-duration.ts
+function positiveDurationError(e,t){return/* @__PURE__ */ new Error(`${e} must be a positive duration (1–${Number.MAX_SAFE_INTEGER}${t} after rounding; e.g. ${t===`ms`?`500ms, 10s, 1m`:`1, 2.5, 10`}).`)}export{positiveDurationError as t};

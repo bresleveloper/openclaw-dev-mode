@@ -1,2 +1,1 @@
-import { t as zaloPlugin } from "./.setup/channel-CT98l7I6.mjs";
-export { zaloPlugin };
+export { t as zaloPlugin } from "./.setup/channel-D_1R3bFK.mjs";

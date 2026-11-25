@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";
+//!src/infra/agent-run-deadline.ts
+function getRenewers(){return resolveGlobalSingleton(Symbol.for(`openclaw.agentRunDeadline.renewers`),()=>/* @__PURE__ */ new Map)}function registerAgentRunDeadlineRenewer(e,t){const n=getRenewers();n.set(e,t);return()=>{if(n.get(e)===t)n.delete(e)}}function renewAgentRunDeadline(e){return e?getRenewers().get(e)?.()??false:false}export{renewAgentRunDeadline as n,registerAgentRunDeadlineRenewer as t};

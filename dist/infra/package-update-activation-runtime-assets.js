@@ -1,0 +1,1 @@
+import{t as packageActivationRuntimeEntrypoint}from"../package-update-activation-runtime-assets-B54G7Hh5.mjs";export{packageActivationRuntimeEntrypoint};

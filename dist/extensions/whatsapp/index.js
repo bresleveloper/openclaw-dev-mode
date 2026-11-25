@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry, loadBundledEntryExportSync } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/whatsapp/index.ts
+// extensions/whatsapp/index.ts
 function registerWhatsAppAgentTools(api) {
 	loadBundledEntryExportSync(import.meta.url, {
 		specifier: "./agent-tools-api.js",
@@ -21,5 +21,4 @@ var whatsapp_default = defineBundledChannelEntry({
 	},
 	registerFull: registerWhatsAppAgentTools
 });
-//#endregion
 export { whatsapp_default as default };

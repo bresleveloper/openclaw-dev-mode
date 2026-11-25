@@ -1,0 +1,2 @@
+//!src/shared/agent-run-status.ts
+const NON_TERMINAL_AGENT_RUN_STATUSES=/* @__PURE__ */ new Set([`accepted`,`started`,`in_flight`]);function isNonTerminalAgentRunStatus(e){return typeof e===`string`&&NON_TERMINAL_AGENT_RUN_STATUSES.has(e)}export{isNonTerminalAgentRunStatus as t};

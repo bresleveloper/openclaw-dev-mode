@@ -1,5 +1,5 @@
 import { getRootOptionAwareCommandPath } from "openclaw/plugin-sdk/cli-argv";
-//#region extensions/slack-huddles/cli-metadata.ts
+// extensions/slack-huddles/cli-metadata.ts
 const descriptor = {
 	name: "slackhuddles",
 	description: "Join and manage Slack huddle participants",
@@ -15,5 +15,4 @@ const SLACK_HUDDLES_CLI_METADATA = {
 		api.registerCli(() => {}, { descriptors: [descriptor] });
 	}
 };
-//#endregion
 export { SLACK_HUDDLES_CLI_METADATA, SLACK_HUDDLES_CLI_METADATA as default };

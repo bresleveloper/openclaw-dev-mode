@@ -15,7 +15,7 @@ OpenClaw Amazon Bedrock Mantle provider plugin for OpenAI Responses, Chat Comple
 ## Distribution
 
 - Package: `@openclaw/amazon-bedrock-mantle-provider`
-- Install route: npm or ClawHub: `clawhub:@openclaw/amazon-bedrock-mantle-provider`
+- Install route: npm or ClawHub: `@openclaw/amazon-bedrock-mantle-provider`
 
 ## Surface
 

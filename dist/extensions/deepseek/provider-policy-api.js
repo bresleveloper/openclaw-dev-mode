@@ -1,53 +1,34 @@
-import { n as DEEPSEEK_MODEL_CATALOG } from "./.setup/models-D843Tvyg.mjs";
-import { resolveDeepSeekV4ThinkingProfile } from "./thinking.js";
-//#region extensions/deepseek/provider-policy-api.ts
-const PREVIOUS_BUNDLED_METADATA = {
-	"deepseek-v4-flash": {
-		contextWindow: 1e6,
-		maxTokens: 384e3,
-		cost: {
-			input: .14,
-			output: .28,
-			cacheRead: .028,
-			cacheWrite: 0
-		}
-	},
-	"deepseek-v4-pro": {
-		contextWindow: 1e6,
-		maxTokens: 384e3,
-		cost: {
-			input: 1.74,
-			output: 3.48,
-			cacheRead: .145,
-			cacheWrite: 0
-		}
-	},
-	"deepseek-chat": {
-		contextWindow: 131072,
-		maxTokens: 8192,
-		cost: {
-			input: .28,
-			output: .42,
-			cacheRead: .028,
-			cacheWrite: 0
-		}
-	},
-	"deepseek-reasoner": {
-		contextWindow: 131072,
-		maxTokens: 65536,
-		cost: {
-			input: .28,
-			output: .42,
-			cacheRead: .028,
-			cacheWrite: 0
-		}
-	}
-};
-const ZERO_COST = {
-	input: 0,
-	output: 0,
-	cacheRead: 0,
-	cacheWrite: 0
+import { DEEPSEEK_MODEL_CATALOG } from "./models.js";
+// extensions/deepseek/provider-policy-api.ts
+const PREVIOUS_BUNDLED_COSTS = {
+	"deepseek-v4-flash": [{
+		input: .14,
+		output: .28,
+		cacheRead: .028,
+		cacheWrite: 0
+	}, {
+		input: .14,
+		output: .28,
+		cacheRead: .0028,
+		cacheWrite: 0
+	}],
+	"deepseek-v4-pro": [{
+		input: 1.74,
+		output: 3.48,
+		cacheRead: .145,
+		cacheWrite: 0
+	}, {
+		input: .435,
+		output: .87,
+		cacheRead: .003625,
+		cacheWrite: 0
+	}],
+	"deepseek-v4-flash-vision-exp": [{
+		input: .44,
+		output: 1.32,
+		cacheRead: .014,
+		cacheWrite: 0
+	}]
 };
 function isPositiveNumber(value) {
 	return typeof value === "number" && Number.isFinite(value) && value > 0;
@@ -63,12 +44,8 @@ function hasSameCost(left, right) {
 	if (Object.hasOwn(cost, "tieredPricing")) return false;
 	return cost.input === right.input && cost.output === right.output && cost.cacheRead === right.cacheRead && cost.cacheWrite === right.cacheWrite;
 }
-function isShippedZeroCostAliasSnapshot(raw, previous) {
-	return (raw.id === "deepseek-chat" || raw.id === "deepseek-reasoner") && raw.contextWindow === previous?.contextWindow && raw.maxTokens === previous?.maxTokens && hasSameCost(raw.cost, ZERO_COST);
-}
-function isPreviousBundledMetadataSnapshot(raw, previous) {
-	if (!previous) return false;
-	return raw.contextWindow === previous.contextWindow && raw.maxTokens === previous.maxTokens && (hasSameCost(raw.cost, previous.cost) || isShippedZeroCostAliasSnapshot(raw, previous));
+function isPreviousBundledMetadataSnapshot(raw) {
+	return raw.contextWindow === 1e6 && raw.maxTokens === 384e3 && (PREVIOUS_BUNDLED_COSTS[raw.id]?.some((cost) => hasSameCost(raw.cost, cost)) ?? false);
 }
 /**
 * Provider policy surface for DeepSeek.
@@ -84,7 +61,7 @@ function normalizeConfig(params) {
 	const nextModels = providerConfig.models.map((model) => {
 		const catalogEntry = catalog.get(model.id);
 		if (!catalogEntry) return model;
-		const hasPreviousBundledMetadata = isPreviousBundledMetadataSnapshot(model, PREVIOUS_BUNDLED_METADATA[model.id]);
+		const hasPreviousBundledMetadata = isPreviousBundledMetadataSnapshot(model);
 		const patched = {};
 		for (const key of ["contextWindow", "maxTokens"]) if ((!isPositiveNumber(model[key]) || hasPreviousBundledMetadata && model[key] !== catalogEntry[key]) && isPositiveNumber(catalogEntry[key])) patched[key] = catalogEntry[key];
 		if ((!hasCostValues(model.cost) || hasPreviousBundledMetadata) && hasCostValues(catalogEntry.cost) && !hasSameCost(model.cost, catalogEntry.cost)) patched.cost = catalogEntry.cost;
@@ -101,8 +78,4 @@ function normalizeConfig(params) {
 		models: nextModels
 	};
 }
-function resolveThinkingProfile(params) {
-	return params.provider.trim().toLowerCase() === "deepseek" ? resolveDeepSeekV4ThinkingProfile(params.modelId) : null;
-}
-//#endregion
-export { normalizeConfig, resolveThinkingProfile };
+export { normalizeConfig };

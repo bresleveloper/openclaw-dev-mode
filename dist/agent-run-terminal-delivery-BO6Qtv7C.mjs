@@ -1,0 +1,2 @@
+//!src/agents/agent-run-terminal-delivery.ts
+function normalizeAgentRunTerminalDeliverySnapshot(e){if(!e||typeof e!==`object`||Array.isArray(e))return;const t=e;if(typeof t.resultCount!==`number`||!Number.isSafeInteger(t.resultCount)||t.resultCount<0)return;switch(t.status){case`sent`:case`suppressed`:case`partial_failed`:case`failed`:return{status:t.status,resultCount:t.resultCount};default:return}}export{normalizeAgentRunTerminalDeliverySnapshot as t};

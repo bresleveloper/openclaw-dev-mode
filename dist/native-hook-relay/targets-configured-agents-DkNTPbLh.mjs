@@ -1,0 +1,3 @@
+import{n as normalizeAgentId}from"./agent-id-0RKGHEYi.mjs";import{h as listAgentIds,m as listAgentEntries}from"./agent-scope-config-DIJ4NXpt.mjs";import"./session-key-C7QrtJ_S.mjs";
+//!src/config/sessions/targets-configured-agents.ts
+function listConfiguredSessionStoreAgentIds(e){const t=new Set(listAgentIds(e).map(e=>normalizeAgentId(e)));const addAcpAgentId=e=>{const n=e?.trim()??``;if(!n||n===`*`)return;t.add(normalizeAgentId(n))};addAcpAgentId(e.acp?.defaultAgent);for(const t of e.acp?.allowedAgents??[])addAcpAgentId(t);for(const t of listAgentEntries(e))if(t.runtime?.type===`acp`)addAcpAgentId(t.runtime.acp?.agent??t.id);return[...t]}export{listConfiguredSessionStoreAgentIds as t};

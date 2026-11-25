@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";import{AsyncLocalStorage}from"node:async_hooks";
+//!src/shared/async-context.ts
+const context=resolveGlobalSingleton(Symbol.for(`openclaw.asyncContext`),()=>new AsyncLocalStorage);var AsyncContext=class{constructor(e){this.key=e}getStore(){return context.getStore()?.[this.key]}run(e,t){const n=context.getStore();const r=n?.[this.key];if(Object.is(r,e))return t();const i={...n,[this.key]:e};context.enterWith(i);try{return t()}finally{const e=context.getStore();context.enterWith(e===i?n:{...e,[this.key]:r})}}exit(e){return this.run(void 0,e)}enterWith(e){context.enterWith({...context.getStore(),[this.key]:e})}};export{AsyncContext as t};

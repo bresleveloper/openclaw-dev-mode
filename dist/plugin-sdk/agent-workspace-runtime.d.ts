@@ -1,27 +1,23 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { Db as SandboxFsBridge, TC as PluginHookSkillChangedEvent, ck as UserTurnTranscriptRecorder, jr as createWorkspaceBootstrapFilePolicy, wC as PluginHookSkillArtifact } from "../config-contracts-CY87ANNp.js";
-import { t as SkillLibraryFile } from "../skill-library-DVzEZ7Hi.js";
-import "../index-8f56f6LD.js";
-import { n as MediaFact } from "../media-facts-DFJC5G1o.js";
-import { a as SkillInstallSpec, d as Skill, i as SkillEntry, o as SkillResourceSourceReader, u as SkillsInstallPreferences } from "../types-CeA70ktN.js";
-import { t as MemoryWorkspaceFiles } from "../workspace-files-OMI5Gbjs.js";
-import { a as ArchiveLogger } from "../archive-DSpJVZFx.js";
+import { Dl as createWorkspaceBootstrapFilePolicy, GE as SandboxFsBridge, Xj as UserTurnTranscriptRecorder, bT as PluginHookSkillChangedEvent, yT as PluginHookSkillArtifact } from "../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import { t as SkillLibraryFile } from "../skill-library-BvLRZwrU.js";
+import "../index-DSy-_0fC.js";
+import { n as MediaFact } from "../media-facts-CgEpeeNR.js";
+import { a as SkillInstallSpec, d as Skill, i as SkillEntry, o as SkillResourceSourceReader, u as SkillsInstallPreferences } from "../types-BLzNI-JA.js";
+import { t as MemoryWorkspaceFiles } from "../workspace-files-CjG65XFh.js";
+import { a as ArchiveLogger } from "../archive-CYdLYJm9.js";
 import { Static, Type } from "typebox";
-//#region src/infra/clawhub-artifacts.d.ts
 type ClawHubDownloadResult = {
   archivePath: string;
   integrity: string;
   sha256Hex: string;
   artifact: "archive" | "clawpack";
   clawpackHeaderSha256?: string;
-  clawpackHeaderSpecVersion?: number;
   npmIntegrity?: string;
   npmShasum?: string;
   npmTarballName?: string;
   cleanup: () => Promise<void>;
 };
-//#endregion
-//#region src/infra/clawhub-skills.d.ts
 declare const CLAWHUB_SKILLS_SH_TRUST_STATE: "not-scanned-by-clawhub";
 type ClawHubSkillsShTrustState = typeof CLAWHUB_SKILLS_SH_TRUST_STATE;
 type ClawHubSkillVerificationDecision = "pass" | "fail" | (string & {});
@@ -45,14 +41,10 @@ type ClawHubSkillVerificationResponse = {
   security: unknown;
   signature: unknown;
 };
-//#endregion
-//#region src/infra/install-package-dir.d.ts
 type PackageDirInstallTransaction = {
   commit(assertCurrent?: () => void): Promise<void>;
   rollback(assertCurrent?: () => void): Promise<void>;
 };
-//#endregion
-//#region src/skills/lifecycle/install-types.d.ts
 type SkillInstallSkipReason = "brew" | "go" | "uv";
 type SkillInstallResult = {
   ok: boolean;
@@ -63,8 +55,6 @@ type SkillInstallResult = {
   skipReason?: SkillInstallSkipReason;
   warnings?: string[];
 };
-//#endregion
-//#region src/skills/lifecycle/skill-tree-digest.d.ts
 /** File fingerprints captured before a ClawHub update or removal. */
 type ClawHubSkillFileState = {
   slug: string;
@@ -72,8 +62,6 @@ type ClawHubSkillFileState = {
   skillFileSha256: string;
   fileTreeSha256: string;
 };
-//#endregion
-//#region src/skills/lifecycle/workspace-types.d.ts
 /** Result shape for installing a skill archive into a workspace skills dir. */
 type SkillArchiveInstallResult = {
   ok: true;
@@ -228,6 +216,7 @@ type SkillSourceOrigin = {
 type CommittedSkillChange = {
   action: PluginHookSkillChangedEvent["action"];
   source: PluginHookSkillChangedEvent["source"];
+  pluginId?: string;
   workspaceDir: string;
   before?: PluginHookSkillArtifact;
   after?: PluginHookSkillArtifact;
@@ -349,8 +338,6 @@ type LocalSkillCardStatus = {
   path: string;
   sizeBytes: number;
 };
-//#endregion
-//#region src/skills/discovery/status.types.d.ts
 /** Filesystem facts, separate from Gateway policy and execution-host requirements. */
 type WorkspaceSkillStatusFacts = {
   workspaceDir: string;
@@ -364,14 +351,10 @@ type WorkspaceSkillStatusFacts = {
     };
   }>;
 };
-//#endregion
-//#region src/skills/loading/plugin-skill-root.d.ts
 type PluginSkillRoot = {
   dir: string;
   rejectHardlinks: boolean;
 };
-//#endregion
-//#region src/skills/loading/workspace-skill-sources.types.d.ts
 type ResolvedSkillDiscoveryLimits = {
   maxCandidatesPerRoot: number;
   maxSkillsLoadedPerSource: number;
@@ -423,15 +406,11 @@ type WorkspaceSkillSourcePlan = {
   stateDir?: string;
   userHomeDir?: string;
 };
-//#endregion
-//#region src/agents/workspace-attachments.local.d.ts
 type LocalAttachmentExecutionContext = {
   config?: OpenClawConfig;
   readAllowed: boolean;
   maxChars: number;
 };
-//#endregion
-//#region src/agents/workspace-access.d.ts
 type WorkspaceAttachmentTurn = {
   abortSignal?: AbortSignal;
   config?: OpenClawConfig;
@@ -489,16 +468,12 @@ export declare function prepareAgentWorkspaceAttachments(params: {
   /** Reject declared attachments that cannot be prepared for execution. */
   requirePreparation?: boolean;
 }): Promise<string | undefined>;
-//#endregion
-//#region src/agents/workspace-attachment-preparer.d.ts
 /** Reuse an owned filesystem transport for admitted inputs; this does not establish a backend. */
 export declare function createWorkspaceAttachmentPreparer(params: {
   /** Wrap the same backend for this turn; check authority before every physical command. */
   createBridge: (assertCurrent: () => void, signal: AbortSignal) => Pick<SandboxFsBridge, "readFile" | "stat"> & Required<Pick<SandboxFsBridge, "createFileExclusive">>;
   remoteRoot: string;
 }): NonNullable<AgentWorkspaceAccess["prepareTurnAttachments"]>;
-//#endregion
-//#region src/agents/workspace-memory-client.d.ts
 /** Client for the packaged, same-version Memory file worker, independent of its transport. */
 export declare function createWorkspaceMemoryFileClient(options: {
   workspaceDir: string;
@@ -510,15 +485,14 @@ export declare function createWorkspaceMemoryFileClient(options: {
   /** Deliver one JSON line, stream reply lines, and close the remote worker on abort. */
   subscribe: (request: string, onLine: (line: string) => void, signal: AbortSignal) => Promise<void>;
 }): MemoryWorkspaceFiles;
-//#endregion
-//#region src/skills/runtime/resources.d.ts
 declare function readSkillResourceFiles(skill: Skill, options: {
   allowMissingRoot: boolean;
   assertFileAccess?: (requestedPath: string, canonicalPath: string) => void;
 }): Promise<SkillLibraryFile[] | null>;
-//#endregion
-//#region src/agents/workspace-worker.d.ts
 /** Resolve the installed or source worker without adapters depending on core file layout. */
+export declare function resolveWorkspaceWorkerUrl(kind: "memory" | "skills"): URL;
+/** Preserve the source host's config when a worker imports source plugins. */
+export declare function resolveWorkspaceWorkerExecArgv(kind: "memory" | "skills"): string[];
 export declare function resolveWorkspaceWorkerArgv(kind: "memory" | "skills"): string[];
 /** Reuse the native bounded Skill reader with host-owned per-file authorization. */
 export declare function readWorkspaceSkillResources(...args: Parameters<typeof readSkillResourceFiles>): Promise<{
@@ -527,5 +501,4 @@ export declare function readWorkspaceSkillResources(...args: Parameters<typeof r
   encoding?: "base64" | "utf8" | undefined;
   executable?: boolean | undefined;
 }[] | null>;
-//#endregion
 export { type AgentWorkspaceAccess, createWorkspaceBootstrapFilePolicy };

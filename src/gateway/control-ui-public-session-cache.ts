@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { sessionChanges } from "../sessions/session-row-changes.js";
 import { onInternalSessionTranscriptUpdate } from "../sessions/transcript-events.js";
 
@@ -17,8 +16,6 @@ export type PublicSessionRepresentationKind = "transcript" | "card";
 type Entry = {
   sessionKey: string;
   kind: PublicSessionRepresentationKind;
-  config: OpenClawConfig;
-  current: boolean;
   bytes: number;
   representation?: PublicSessionRepresentation;
 };
@@ -27,9 +24,7 @@ type Entry = {
 export function createPublicSessionRepresentationCache() {
   const entries = new Map<string, Entry>();
   let bytes = 0;
-  let active = true;
   const remove = (key: string, entry: Entry) => {
-    entry.current = false;
     bytes -= entry.bytes;
     entries.delete(key);
   };
@@ -57,13 +52,9 @@ export function createPublicSessionRepresentationCache() {
     ),
   ];
   return {
-    get(key: string, config: OpenClawConfig): PublicSessionRepresentation | undefined {
+    get(key: string): PublicSessionRepresentation | undefined {
       const entry = entries.get(key);
-      if (!active || !entry) {
-        return undefined;
-      }
-      if (entry.config !== config) {
-        remove(key, entry);
+      if (!entry) {
         return undefined;
       }
       if (entry.representation) {
@@ -72,12 +63,7 @@ export function createPublicSessionRepresentationCache() {
       }
       return entry.representation;
     },
-    begin(
-      key: string,
-      sessionKey: string,
-      config: OpenClawConfig,
-      kind: PublicSessionRepresentationKind,
-    ) {
+    begin(key: string, sessionKey: string, kind: PublicSessionRepresentationKind) {
       const previous = entries.get(key);
       if (previous) {
         remove(key, previous);
@@ -92,22 +78,15 @@ export function createPublicSessionRepresentationCache() {
       const entry: Entry = {
         sessionKey,
         kind,
-        config,
-        current: active,
         bytes: 0,
       };
-      const isCurrent = () => active && entry.current;
-      if (active) {
-        entries.set(key, entry);
-      }
+      entries.set(key, entry);
+      const isCurrent = () => entries.get(key) === entry;
       return {
         isCurrent,
         complete(body: string | Buffer): PublicSessionRepresentation | undefined {
           if (!isCurrent()) {
             return undefined;
-          }
-          if (entry.representation) {
-            return entry.representation;
           }
           const representation: PublicSessionRepresentation = {
             body,
@@ -119,28 +98,28 @@ export function createPublicSessionRepresentationCache() {
             remove(key, entry);
             return representation;
           }
+          // Completion, not build admission, makes this representation most recently used.
+          entries.delete(key);
+          entries.set(key, entry);
           for (const [oldestKey, oldest] of entries) {
             if (bytes + size <= MAX_BYTES) {
               break;
             }
             remove(oldestKey, oldest);
           }
-          if (entry.current) {
-            entry.bytes = size;
-            entry.representation = representation;
-            bytes += size;
-          }
+          entry.bytes = size;
+          entry.representation = representation;
+          bytes += size;
           return representation;
         },
         cancel() {
-          if (entry.current) {
+          if (entries.get(key) === entry) {
             remove(key, entry);
           }
         },
       };
     },
     dispose() {
-      active = false;
       for (const unsubscribe of stop) {
         unsubscribe();
       }

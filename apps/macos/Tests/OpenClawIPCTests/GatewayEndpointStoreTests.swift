@@ -254,8 +254,8 @@ struct GatewayEndpointStoreTests {
         ["gateway": ["auth": [key: value]]]
     }
 
-    private func makeStore(
-        sourceSnapshot: @escaping @Sendable () async -> GatewayEndpointStore.SourceSnapshot,
+    func makeStore(
+        sourceSnapshot: @escaping @Sendable () async throws -> GatewayEndpointStore.SourceSnapshot,
         token: @escaping @Sendable () -> String? = { nil },
         remoteRouteIfRunning: @escaping @Sendable () async -> RemoteTunnelManager.Route? = { nil },
         remoteRouteIsCurrent: @escaping @Sendable (RemoteTunnelManager.Route) async -> Bool = { _ in true },
@@ -400,8 +400,12 @@ struct GatewayEndpointStoreTests {
         isRemote: Bool) throws
     {
         let kind = try #require(GatewayEndpointStore.Credential(rawValue: credential))
+        var configuredAuth = [credential: "  configured-secret  "]
+        if !isRemote {
+            configuredAuth["mode"] = credential
+        }
         let root: [String: Any] = [
-            "gateway": [isRemote ? "remote" : "auth": [credential: "  configured-secret  "]],
+            "gateway": [isRemote ? "remote" : "auth": configuredAuth],
         ]
         let resolved = GatewayEndpointStore.resolveGatewayCredential(
             kind,
@@ -409,8 +413,8 @@ struct GatewayEndpointStoreTests {
             root: root,
             env: ["OPENCLAW_GATEWAY_\(credential.uppercased())": "stale-environment-secret"],
             launchdSnapshot: self.makeLaunchAgentSnapshot(
-                token: credential == "token" ? "service-token" : nil,
-                password: credential == "password" ? "service-password" : nil))
+                token: "service-token",
+                password: "service-password"))
 
         #expect(resolved == (isRemote ? "stale-environment-secret" : "configured-secret"))
     }
@@ -747,7 +751,7 @@ struct GatewayEndpointStoreTests {
             (trustedProxyRemotePasswordRoot, nil, nil, false, noAuthSnapshot),
         ]
         for testCase in cases {
-            let config = GatewayEndpointStore._testLocalConfig(
+            let config = try GatewayEndpointStore._testLocalConfig(
                 root: testCase.root,
                 env: [:],
                 launchdSnapshot: testCase.launchdSnapshot)
@@ -783,7 +787,7 @@ struct GatewayEndpointStoreTests {
         }
     }
 
-    @Test func `inferred gateway auth selects one typed credential surface`() {
+    @Test func `inferred gateway auth selects one typed credential surface`() throws {
         let tokenRoot: [String: Any] = [
             "gateway": ["auth": [
                 "token": ["source": "env", "provider": "restricted", "id": "GW_TOKEN"],
@@ -824,7 +828,7 @@ struct GatewayEndpointStoreTests {
             (passwordRoot, passwordWithAmbientToken, "ambient-token", nil),
         ]
         for (root, snapshot, expectedToken, expectedPassword) in cases {
-            let config = GatewayEndpointStore._testLocalConfig(
+            let config = try GatewayEndpointStore._testLocalConfig(
                 root: root,
                 env: [:],
                 launchdSnapshot: snapshot)
@@ -833,9 +837,9 @@ struct GatewayEndpointStoreTests {
         }
     }
 
-    @Test func `inferred gateway auth follows service environment over app only fallback`() {
+    @Test func `inferred gateway auth follows service environment over app only fallback`() throws {
         let snapshot = self.makeLaunchAgentTokenSnapshot("service-token")
-        let config = GatewayEndpointStore._testLocalConfig(
+        let config = try GatewayEndpointStore._testLocalConfig(
             root: [:],
             env: ["OPENCLAW_GATEWAY_PASSWORD": "app-password"], // pragma: allowlist secret
             launchdSnapshot: snapshot)
@@ -844,7 +848,7 @@ struct GatewayEndpointStoreTests {
         #expect(config.password == nil)
     }
 
-    @Test func `inferred gateway auth masks ambient password behind unresolved local password ref`() {
+    @Test func `inferred gateway auth masks ambient password behind unresolved local password ref`() throws {
         let snapshot = self.makeLaunchAgentSnapshot(
             env: [
                 "OPENCLAW_GATEWAY_TOKEN": "service-token",
@@ -863,7 +867,7 @@ struct GatewayEndpointStoreTests {
                 "allowlist": ["MISSING_SERVICE_PASSWORD"],
             ]]],
         ]
-        let config = GatewayEndpointStore._testLocalConfig(
+        let config = try GatewayEndpointStore._testLocalConfig(
             root: root,
             env: [:],
             launchdSnapshot: snapshot)
@@ -1869,7 +1873,7 @@ extension GatewayEndpointStoreTests {
         #expect(host == "192.168.1.10")
     }
 
-    @Test func `local config uses local gateway auth and host resolution`() {
+    @Test func `local config uses local gateway auth and host resolution`() throws {
         let snapshot = self.makeLaunchAgentSnapshot(
             env: [:],
             token: "launchd-token",
@@ -1886,7 +1890,7 @@ extension GatewayEndpointStoreTests {
             ],
         ]
 
-        let config = GatewayEndpointStore._testLocalConfig(
+        let config = try GatewayEndpointStore._testLocalConfig(
             root: root,
             env: [:],
             launchdSnapshot: snapshot,

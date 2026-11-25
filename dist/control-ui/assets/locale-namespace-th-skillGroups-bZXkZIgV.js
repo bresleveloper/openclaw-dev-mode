@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"Skills ในพื้นที่ทำงาน","learned":"ทักษะที่เรียนรู้","builtIn":"Skills ในตัว","installed":"Skills ที่ติดตั้งแล้ว","extra":"Skills เพิ่มเติม","other":"Skills อื่น ๆ"}};

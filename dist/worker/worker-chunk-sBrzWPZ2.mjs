@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{setMaxListeners as t}from"node:events";function announcementOwner(){let e=new AbortController;return t(0,e.signal),e}function getTailscalePublishedOrigin(){return n?{origin:n.origin,mode:n.mode,signal:n.owner.signal}:void 0}var n,r=e((()=>{announcementOwner()}));export{r as n,getTailscalePublishedOrigin as t};

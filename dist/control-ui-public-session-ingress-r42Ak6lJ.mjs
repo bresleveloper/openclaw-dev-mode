@@ -1,0 +1,3 @@
+import{s as isLoopbackHost,y as resolveHostName}from"./net-Dvn8LP7m.mjs";import{TLSSocket}from"node:tls";
+//!src/gateway/control-ui-public-session-ingress.ts
+function isSecurePublicSessionIngress(e,t,n){const r=n?.startsWith(`https://`)===true;const i=e.headers[`x-forwarded-proto`];return e.socket instanceof TLSSocket||t.kind===`direct-local`&&isLoopbackHost(resolveHostName(e.headers.host))||t.kind===`trusted-proxy`&&r&&typeof i===`string`&&i.trim().toLowerCase()===`https`||(t.kind===`tailscale-serve`||t.kind===`tailscale-funnel`)&&r}export{isSecurePublicSessionIngress as t};

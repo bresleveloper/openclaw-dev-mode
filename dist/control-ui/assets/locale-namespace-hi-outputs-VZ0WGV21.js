@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"सभी देखें","files":"फ़ाइलें","loading":"आउटपुट लोड हो रहे हैं…","updating":"आउटपुट अपडेट हो रहे हैं…","loadingDashboard":"डैशबोर्ड लोड हो रहा है…","emptyTitle":"अभी तक कोई आउटपुट नहीं है।","emptyDescription":"इस सत्र की फ़ाइलें और डैशबोर्ड यहाँ दिखाई देंगे।"}};

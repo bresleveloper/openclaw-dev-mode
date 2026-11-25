@@ -1,0 +1,2 @@
+//!src/commands/models/alias-name.ts
+function normalizeAlias(e){const t=e.trim();if(!t)throw new Error(`Alias cannot be empty.`);if(!/^[A-Za-z0-9_.:-]+$/.test(t))throw new Error(`Alias must use letters, numbers, dots, underscores, colons, or dashes.`);return t}export{normalizeAlias as t};

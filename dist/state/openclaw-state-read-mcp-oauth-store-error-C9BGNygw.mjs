@@ -1,0 +1,1 @@
+var McpOAuthStoreCorruptionError=class extends Error{constructor(e,t,n){super(`MCP OAuth store ${e} is invalid: ${t}`,n),this.name=`McpOAuthStoreCorruptionError`}};export{McpOAuthStoreCorruptionError as t};

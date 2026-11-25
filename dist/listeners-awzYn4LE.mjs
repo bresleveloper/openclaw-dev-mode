@@ -1,0 +1,2 @@
+//!src/shared/listeners.ts
+function notifyListeners(e,t,n){for(const r of e)try{r(t)}catch(e){n?.(e)}}function registerListener(e,t){e.add(t);return()=>e.delete(t)}function createChangeListeners(e){const t=/* @__PURE__ */ new Set;return{subscribe:e=>registerListener(t,e),publish:()=>{for(const n of e?.snapshot?[...t]:t)n()},clear:()=>t.clear()}}export{notifyListeners as n,registerListener as r,createChangeListeners as t};

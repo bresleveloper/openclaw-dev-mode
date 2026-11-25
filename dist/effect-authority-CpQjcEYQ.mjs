@@ -1,0 +1,2 @@
+//!src/shared/effect-authority.ts
+function captureEffectAuthority(){return{active:false,run(e){return e()},async initiate(e){return e()}}}function withEffectAuthority(e,t){return e?e.run(t):t()}export{withEffectAuthority as n,captureEffectAuthority as t};

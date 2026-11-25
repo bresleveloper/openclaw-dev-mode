@@ -1,4 +1,2 @@
-import { FT as StorageBackend, RT as StorageProviderOpenParams } from "../../config-contracts-CY87ANNp.js";
-//#region extensions/cloudflare/runtime-api.d.ts
+import { SC as StorageProviderOpenParams, yC as StorageBackend } from "../../config-contracts-hzlacViZ.js";
 export declare function openR2Backend(params: StorageProviderOpenParams): Promise<StorageBackend>;
-//#endregion

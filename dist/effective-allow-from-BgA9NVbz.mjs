@@ -1,0 +1,3 @@
+import{i as mergeDmAllowFromSources,o as resolveGroupAllowFromSources}from"./allow-from-DWjUTXyB.mjs";
+//!src/channels/message-access/effective-allow-from.ts
+function resolveChannelIngressEffectiveAllowFromLists(e){const t=Array.isArray(e.allowFrom)?e.allowFrom:void 0;const n=Array.isArray(e.groupAllowFrom)?e.groupAllowFrom:void 0;const r=Array.isArray(e.storeAllowFrom)?e.storeAllowFrom:void 0;return{effectiveAllowFrom:mergeDmAllowFromSources({allowFrom:t,storeAllowFrom:r,dmPolicy:e.dmPolicy??void 0}),effectiveGroupAllowFrom:resolveGroupAllowFromSources({allowFrom:t,groupAllowFrom:n,fallbackToAllowFrom:e.groupAllowFromFallbackToAllowFrom??void 0})}}export{resolveChannelIngressEffectiveAllowFromLists as t};

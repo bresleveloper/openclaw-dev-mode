@@ -1,2 +1,1 @@
-import { t as buildAgentsApiMcpTools } from "../../agentsapi-mcp-BBxWgvQu.mjs";
-export { buildAgentsApiMcpTools };
+import{t as buildAgentsApiMcpTools}from"../../agentsapi-mcp-BsC2mhzg.mjs";export{buildAgentsApiMcpTools};

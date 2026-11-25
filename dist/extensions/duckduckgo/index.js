@@ -1,6 +1,6 @@
-import { t as createDuckDuckGoWebSearchProvider } from "./.setup/ddg-search-provider-C555DOZE.mjs";
+import { t as createDuckDuckGoWebSearchProvider } from "./.setup/ddg-search-provider-dPkRSeDL.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/duckduckgo/index.ts
+// extensions/duckduckgo/index.ts
 var duckduckgo_default = definePluginEntry({
 	id: "duckduckgo",
 	name: "DuckDuckGo Plugin",
@@ -9,5 +9,4 @@ var duckduckgo_default = definePluginEntry({
 		api.registerWebSearchProvider(createDuckDuckGoWebSearchProvider());
 	}
 });
-//#endregion
 export { duckduckgo_default as default };

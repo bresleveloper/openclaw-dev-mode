@@ -1,9 +1,9 @@
-import { d as resolveMatrixAuthContext } from "./.setup/client-BEl7PU1_.mjs";
+import { l as resolveMatrixAuthContext } from "./.setup/client-BVgnwwz0.mjs";
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/matrix/src/plugin-entry.runtime.ts
-const loadMatrixVerificationRuntime = createLazyRuntimeModule(() => import("./.setup/verification-CuT5ZBDO.mjs").then((n) => n.y));
+// extensions/matrix/src/plugin-entry.runtime.ts
+const loadMatrixVerificationRuntime = createLazyRuntimeModule(() => import("./.setup/verification-DIxfxgMv.mjs").then((n) => n.y));
 function sendError(respond, err) {
 	respond(false, { error: formatErrorMessage(err) });
 }
@@ -79,5 +79,4 @@ async function handleVerificationStatus({ params, respond, context }) {
 		sendError(respond, err);
 	}
 }
-//#endregion
 export { handleVerificationBootstrap, handleVerificationStatus, handleVerifyRecoveryKey };

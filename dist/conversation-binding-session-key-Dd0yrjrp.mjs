@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";import crypto from"node:crypto";
+//!src/plugins/conversation-binding-session-key.ts
+function normalizeChannel(e){return normalizeOptionalLowercaseString(e)??``}function buildPluginBindingSessionKey(e){const t=crypto.createHash(`sha256`).update(JSON.stringify({pluginId:e.pluginId,channel:normalizeChannel(e.channel),accountId:e.accountId,conversationId:e.conversationId})).digest(`hex`).slice(0,24);return`plugin-binding:${e.pluginId}:${t}`}export{normalizeChannel as n,buildPluginBindingSessionKey as t};

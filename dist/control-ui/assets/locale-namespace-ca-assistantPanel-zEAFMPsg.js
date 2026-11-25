@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"Treballant en: {context}","removeContext":"Elimina el context de treball","includeContext":"Inclou el context de treball","selection":"Text seleccionat","attachSelection":"Adjunta el text seleccionat","attachSelectionTooltip":"Adjunta la selecció","removeSelection":"Elimina el text seleccionat"}};

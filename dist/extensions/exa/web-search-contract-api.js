@@ -1,3 +1,2 @@
-import { t as createExaWebSearchProvider } from "./.setup/exa-web-search-provider-UdcmLdNp.mjs";
+export { t as createExaWebSearchProvider } from "./.setup/exa-web-search-provider-DxaUoEgY.mjs";
 import "./web-search-provider.js";
-export { createExaWebSearchProvider };

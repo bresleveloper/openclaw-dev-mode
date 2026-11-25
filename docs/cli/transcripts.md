@@ -37,6 +37,10 @@ back during capture, summarization, or listing. Default state directory is
 from the session start time; the session directory is a filesystem-safe slug
 derived from the session id.
 
+When `show` or `path` cannot find a session or its summary, the CLI prints the
+specific reason on stderr and exits with status `1`. JSON inspection of an
+existing session without a summary remains available.
+
 ## Read transcripts in the Control UI
 
 In the [Control UI](/web/control-ui/settings#meetings-page), open the sidebar's pencil menu
@@ -161,7 +165,11 @@ write permissions.
 `list` returns newest meetings first, with a selector, start time, title or
 provider name, utterance count, and participants. `limit` defaults to 20 and
 accepts integers from 1 to 50. The text is bounded; structured results are in
-`details.sessions`.
+`details.sessions`. Each call examines at most 200 stored meetings, including
+meetings the caller cannot access. When `details.nextOffset` is present, call
+`list` again with that value as `offset` to continue, even if this page returned
+no accessible meetings. New captures or deletions between calls can shift offsets;
+start again without `offset` to refresh the list.
 
 ```json validate=false
 { "action": "show", "selector": "2026-05-22/notes-room-one" }
@@ -279,7 +287,10 @@ larger exports.
 
 Status reports registered subscriptions, not confirmed recording. `armed`,
 `not-active`, and `unknown` remain distinct; a sanitized URL alone cannot prove
-which original invitation started a capture. Provider, configured-source, and
+which original invitation started a capture. During a configuration change,
+source health may briefly reflect the previous entry until the auto-start service
+reindexes it; this display does not grant capture or stop authority.
+Provider, configured-source, and
 active lists are limited to 100 entries with omitted counts. Saved utterance
 counts come from durable rows. The latest transcript is the most recently
 updated session containing utterances; source speech times are not ingestion

@@ -1,0 +1,2 @@
+//!src/agents/sessions/agent-session-types.ts
+const agentSessionDeferThresholdCompaction=Symbol(`openclaw.agent-session.defer-threshold-compaction`);const agentSessionRunProviderCompaction=Symbol(`openclaw.agent-session.run-provider-compaction`);export{agentSessionRunProviderCompaction as n,agentSessionDeferThresholdCompaction as t};

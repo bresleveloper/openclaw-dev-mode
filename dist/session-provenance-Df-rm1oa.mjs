@@ -1,0 +1,3 @@
+import{a as asOptionalRecord}from"./record-coerce-BTbqdJ3-.mjs";
+//!packages/memory-host-sdk/src/host/session-provenance.ts
+function classifySessionMessageOrigin(e,t){if(e.role===`assistant`){if(asOptionalRecord(e[`__openclaw`])?.turnTainted===true)return`untrusted`;return t===`owner`?`agent`:t}if(asOptionalRecord(e.provenance)?.kind===`internal_system`)return`system`;return asOptionalRecord(e[`__openclaw`])?.senderIsOwner===true?`owner`:`untrusted`}export{classifySessionMessageOrigin as t};

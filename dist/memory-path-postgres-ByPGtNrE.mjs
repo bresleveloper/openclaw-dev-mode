@@ -1,0 +1,4 @@
+//!packages/memory-host-sdk/src/host/memory-path-postgres.ts
+function memoryPathPostgresExpressions(e){const t=`pg_catalog.lower(pg_catalog.normalize(pg_catalog.regexp_replace(pg_catalog.replace(pg_catalog.btrim(${e}), E'\\\\', '/'), '^\\./', ''), 'NFC'))`;const n=`pg_catalog.regexp_replace(${t}, '^.*/', '')`;const r=`pg_catalog.regexp_replace(${n}, '^(.+)\\.[^.]*$', '\\1')`;return{normalized:t,basename:n,stem:r,keys:[t,n,r].map(e=>`pg_catalog.md5(${e})`)}}const MEMORY_PATH_POSTGRES_INDEXES=[`exact_path`,`basename`,`stem`].map((e,t)=>{const n=`idx_memory_index_sources_${e}`;return{name:n,sql:`CREATE INDEX "${n}" ON "memory_index_sources" ((${memoryPathPostgresExpressions(`path`).keys[t]}));`}});const MEMORY_PATH_POSTGRES_INDEX_SQL=MEMORY_PATH_POSTGRES_INDEXES.map(e=>e.sql).join(`
+
+`);export{MEMORY_PATH_POSTGRES_INDEX_SQL as n,memoryPathPostgresExpressions as r,MEMORY_PATH_POSTGRES_INDEXES as t};

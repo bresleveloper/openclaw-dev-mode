@@ -1,0 +1,2 @@
+//!src/templates/add-mutation-error.ts
+var TemplateAddMutationError=class extends Error{constructor(e,t){super(t);this.code=e;this.name=`TemplateAddMutationError`}};export{TemplateAddMutationError as t};

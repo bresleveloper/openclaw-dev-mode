@@ -1,21 +1,16 @@
 import { For, Show, createMemo } from "solid-js";
 import type { SystemAgentSetupDetectResult } from "../../api/types.ts";
+import { SettingsSectionHeader } from "../../components/solid/settings-ui.tsx";
 import { registerModelSetupEnglish } from "../../i18n/locales/en-model-setup.ts";
 import { formatUiExternalText } from "../../lib/format-error.ts";
 import { t } from "../../lib/reactive/i18n.ts";
 import { renderProviderIcon } from "./model-setup-icon-loader.tsx";
-import { activationTargetId, type ModelSetupActivationState } from "./state.ts";
+import { activationTargetId } from "./state.ts";
+import type { ModelSetupViewProps } from "./view-types.ts";
 
 registerModelSetupEnglish();
 
 type Candidate = SystemAgentSetupDetectResult["candidates"][number];
-export type CandidateRowsProps = Parameters<typeof renderProviderIcon>[0] & {
-  activation: ModelSetupActivationState;
-  actionsDisabled: boolean;
-  detecting?: boolean;
-  embedded?: boolean;
-  onActivateCandidate: (candidate: Candidate) => void;
-};
 
 function candidateStatus(candidate: Candidate): string {
   if (candidate.modelTarget === "utility") {
@@ -34,7 +29,7 @@ function candidateStatus(candidate: Candidate): string {
 }
 
 export function CandidateRows(
-  props: CandidateRowsProps & { result: SystemAgentSetupDetectResult },
+  props: ModelSetupViewProps & { result: SystemAgentSetupDetectResult },
 ) {
   // Saved credentials can replace the current connection for the same model.
   const candidates = createMemo(() => {
@@ -54,9 +49,7 @@ export function CandidateRows(
   return (
     <Show when={candidates().length > 0}>
       <section class="settings-section">
-        <div class="settings-section__header">
-          <h2>{t("modelSetup.candidates.title")}</h2>
-        </div>
+        <SettingsSectionHeader title={t("modelSetup.candidates.title")} />
         <div class="model-setup__rows">
           <For
             each={candidates()}

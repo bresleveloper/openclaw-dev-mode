@@ -1,0 +1,2 @@
+//!src/shared/string-sample.ts
+function summarizeStringEntries(e){const t=e.entries??[];if(t.length===0)return e.emptyText??``;const n=e.limit??6;const r=Number.isFinite(n)?Math.max(1,Math.floor(n)):6;const i=t.slice(0,r);const a=t.length>i.length?` (+${t.length-i.length})`:``;return`${i.join(`, `)}${a}`}export{summarizeStringEntries as t};

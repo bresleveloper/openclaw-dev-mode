@@ -1,0 +1,3 @@
+import{WindowsJob,retainCurrentProcessJobUntilExit}from"@openclaw/proc-safe/windows-job";
+//!src/process/supervisor/service-child-windows-job-native.ts
+let retainedProcessJob=false;function retainWindowsProcessJobUntilExit(e){if(retainedProcessJob)return;const t=WindowsJob.create();try{retainCurrentProcessJobUntilExit(t);retainedProcessJob=true}finally{t.close()}}export{retainWindowsProcessJobUntilExit};

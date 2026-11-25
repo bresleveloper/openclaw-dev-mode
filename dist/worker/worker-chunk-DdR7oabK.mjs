@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{i as t,s as n}from"./worker-chunk-eMiXlecI.mjs";async function ensureProfileIdForEmail(e,n={},r){return r?.(),(await t(e,{...n,assertCurrent:r})).id}var r=e((()=>{n()}));export{r as n,ensureProfileIdForEmail as t};

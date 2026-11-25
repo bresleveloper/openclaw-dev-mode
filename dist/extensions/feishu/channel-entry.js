@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/feishu/channel-entry.ts
+// extensions/feishu/channel-entry.ts
 var channel_entry_default = defineBundledChannelEntry({
 	id: "feishu",
 	name: "Feishu",
@@ -18,5 +18,4 @@ var channel_entry_default = defineBundledChannelEntry({
 		exportName: "setFeishuRuntime"
 	}
 });
-//#endregion
 export { channel_entry_default as default };

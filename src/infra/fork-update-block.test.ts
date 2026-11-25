@@ -83,7 +83,7 @@ describe("FIX-09 fork update block", { timeout: 300_000 }, () => {
           confirm,
           outro: vi.fn(),
         }),
-      ).resolves.toEqual({ updated: false });
+      ).resolves.toBe(false);
     } finally {
       if (ttyDescriptor) {
         Object.defineProperty(process.stdin, "isTTY", ttyDescriptor);

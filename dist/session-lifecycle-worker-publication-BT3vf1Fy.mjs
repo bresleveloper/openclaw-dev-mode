@@ -1,0 +1,3 @@
+import{n as emitSessionLifecycleEvent}from"./session-lifecycle-events-CO8Hgbje.mjs";import{a as startSessionTranscriptIndexReconcile}from"./session-transcript-reconcile-BAFktwRH.mjs";
+//!src/config/sessions/session-lifecycle-worker-publication.ts
+function publishSessionLifecycleWorkerEffects(e,t){if(e.kind!==`lifecycle-projection-commit`||t.kind!==e.kind)return;for(const n of t.value.projectionReconcileSessionIds??[])startSessionTranscriptIndexReconcile({...e.databaseOptions,preferredSessionId:n});for(const n of t.value.progressCardResetKeys??[])emitSessionLifecycleEvent({agentId:e.agentId,sessionKey:n,reason:`progress-card-reset`})}export{publishSessionLifecycleWorkerEffects as t};

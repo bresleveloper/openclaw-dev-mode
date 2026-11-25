@@ -1,0 +1,3 @@
+import{n as getLoadedChannelPlugin}from"./registry-DLUepoZ0.mjs";import"./plugins-DKCYlQ5g.mjs";
+//!src/channels/thread-addressing.ts
+function getLoadedChannelThreadingAdapter(e){if(!e)return;return getLoadedChannelPlugin(e)?.threading}function resolveChannelThreadAddressing(e){return getLoadedChannelThreadingAdapter(e)?.threadAddressing??`address`}export{resolveChannelThreadAddressing as n,getLoadedChannelThreadingAdapter as t};

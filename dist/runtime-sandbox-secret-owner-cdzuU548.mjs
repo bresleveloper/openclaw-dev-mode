@@ -1,0 +1,3 @@
+import{n as normalizeAgentId}from"./agent-id-cOfqmfln.mjs";import"./session-key-C6YO7qUA.mjs";import{r as assertSecretOwnerAvailable}from"./runtime-degraded-state-ByHHwMie.mjs";
+//!src/secrets/runtime-sandbox-secret-owner.ts
+function runtimeSandboxSecretOwnerId(e){return`agent-sandbox:${normalizeAgentId(e)}`}function assertRuntimeSandboxSecretOwnerAvailable(e){assertSecretOwnerAvailable(`capability`,runtimeSandboxSecretOwnerId(e))}export{runtimeSandboxSecretOwnerId as n,assertRuntimeSandboxSecretOwnerAvailable as t};

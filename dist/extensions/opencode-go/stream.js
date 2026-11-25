@@ -1,2 +1,1 @@
-import { n as createOpencodeGoWrapper, t as createOpencodeGoWireWrapper } from "../../stream-PD3_zK2R.mjs";
-export { createOpencodeGoWireWrapper, createOpencodeGoWrapper };
+import{n as createOpencodeGoWrapper,t as createOpencodeGoWireWrapper}from"../../stream-CBxpeSe6.mjs";export{createOpencodeGoWireWrapper,createOpencodeGoWrapper};

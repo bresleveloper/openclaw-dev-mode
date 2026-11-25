@@ -1,0 +1,3 @@
+import{n as getResidentUserProfileDisplay}from"./user-profile-list-Ra15A0cA.mjs";import{s as buildControlUiUserAvatarPath}from"./control-ui-resource-routes-DrYH_3y1.mjs";import"./control-ui-contract-BJ8xy8WN.mjs";
+//!src/gateway/current-user-profile-display.ts
+function resolveCurrentUserProfileDisplay(e,t=getResidentUserProfileDisplay){try{const n=t(e);if(!n)return{kind:`unresolved`};const r=n.displayName??void 0;return{kind:`resolved`,profileId:n.id,...r?{label:r}:{},avatarUrl:buildControlUiUserAvatarPath(n.id,n.avatarRevision)}}catch{return{kind:`unresolved`}}}export{resolveCurrentUserProfileDisplay as t};

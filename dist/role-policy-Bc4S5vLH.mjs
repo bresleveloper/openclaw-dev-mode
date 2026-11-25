@@ -1,0 +1,3 @@
+import{i as isCoreNodeGatewayMethod}from"./core-method-policy-DeU1xgVA.mjs";
+//!src/gateway/role-policy.ts
+function parseGatewayRole(e){if(e===`operator`||e===`node`)return e;return null}function roleCanSkipDeviceIdentity(e,t){return e===`operator`&&t}function isRoleAuthorizedForMethod(e,t){if(isCoreNodeGatewayMethod(t))return e===`node`;return e===`operator`}export{parseGatewayRole as n,roleCanSkipDeviceIdentity as r,isRoleAuthorizedForMethod as t};

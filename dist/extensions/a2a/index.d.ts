@@ -1,6 +1,4 @@
-import { NE as ChannelPlugin } from "../../config-contracts-CY87ANNp.js";
-import { n as BundledChannelEntryContract } from "../../channel-entry-contract-Dbe_ndAQ.js";
-//#region extensions/a2a/index.d.ts
+import { iA as ChannelPlugin } from "../../config-contracts-hzlacViZ.js";
+import { n as BundledChannelEntryContract } from "../../channel-entry-contract-Dm4ulETw.js";
 declare const _default: BundledChannelEntryContract<ChannelPlugin>;
-//#endregion
 export { _default as default };

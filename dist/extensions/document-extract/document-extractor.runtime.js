@@ -1,2 +1,1 @@
-import { t as extractPdfContent } from "../../document-extractor.runtime-CsXtrTKH.mjs";
-export { extractPdfContent };
+import{t as extractPdfContent}from"../../document-extractor.runtime-DU57Zb4L.mjs";export{extractPdfContent};

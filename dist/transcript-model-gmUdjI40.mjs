@@ -1,0 +1,2 @@
+//!packages/agent-core/src/harness/session/transcript-model.ts
+const OPENCLAW_TRANSCRIPT_ARTIFACT_PROVIDER=`openclaw`;function isTranscriptArtifactProvider(e){return e===OPENCLAW_TRANSCRIPT_ARTIFACT_PROVIDER}export{isTranscriptArtifactProvider as n,OPENCLAW_TRANSCRIPT_ARTIFACT_PROVIDER as t};

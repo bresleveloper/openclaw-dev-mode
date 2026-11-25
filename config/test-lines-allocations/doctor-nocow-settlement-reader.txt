@@ -1,2 +1,0 @@
-# Keep the isolated attribution reader inside the no-native-process settlement fixture.
-3

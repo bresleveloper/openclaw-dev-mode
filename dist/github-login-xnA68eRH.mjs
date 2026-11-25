@@ -1,0 +1,2 @@
+//!src/utils/github-login.ts
+const GITHUB_LOGIN_PATTERN=/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/u;function normalizeGitHubLogin(e){const t=e.trim();return GITHUB_LOGIN_PATTERN.test(t)?t:void 0}export{normalizeGitHubLogin as t};

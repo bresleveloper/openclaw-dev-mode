@@ -4,13 +4,13 @@ import path from "node:path";
 import process from "node:process";
 import { sessionCatalogPaging } from "openclaw/plugin-sdk/session-catalog";
 import { mkdtemp, rm } from "node:fs/promises";
-import { pruneMapToMaxSize } from "openclaw/plugin-sdk/collection-runtime";
+import { createStaleWhileRevalidateCache } from "openclaw/plugin-sdk/collection-runtime";
 import { createSubsystemLogger } from "openclaw/plugin-sdk/logging-core";
 import { runCommandBuffered } from "openclaw/plugin-sdk/process-runtime";
 import { resolvePreferredOpenClawTmpDir } from "openclaw/plugin-sdk/temp-path";
 import { truncateUtf16Safe } from "openclaw/plugin-sdk/text-utility-runtime";
 import { materializeWindowsSpawnProgram, resolveWindowsSpawnProgram } from "openclaw/plugin-sdk/windows-spawn";
-//#region extensions/opencode/session-catalog.ts
+// extensions/opencode/session-catalog.ts
 const LOCAL_HOST_ID = "gateway";
 const MAX_SEARCH_LENGTH = 500;
 const MAX_CLI_LIST_SESSIONS = 1e4;
@@ -40,27 +40,26 @@ const SAFE_ENV_KEYS = [
 	"XDG_DATA_HOME",
 	"XDG_STATE_HOME"
 ];
-const openCodeQueryCache = /* @__PURE__ */ new Map();
+const openCodeQueryCache = createStaleWhileRevalidateCache({
+	ttlMs: OPENCODE_QUERY_CACHE_TTL_MS,
+	maxEntries: OPENCODE_QUERY_CACHE_MAX_ENTRIES,
+	maxPending: Infinity
+});
+const cliVersionCache = createStaleWhileRevalidateCache({
+	ttlMs: OPENCODE_QUERY_CACHE_TTL_MS,
+	maxEntries: 1,
+	maxPending: Infinity
+});
 const log = createSubsystemLogger("opencode/session-catalog");
-let cliVersion;
 async function isOpenCodeV2() {
 	const key = SAFE_ENV_KEYS.map((name) => process.env[name] ?? "").join("\0");
-	if (!cliVersion || cliVersion.key !== key || cliVersion.expiresAt <= Date.now()) {
-		const result = runOpenCode(["--version"]).then((output) => {
-			const major = /^(?:opencode v)?(\d+)\./.exec(output.trim())?.[1];
-			if (major !== "1" && major !== "2") throw new Error("Unsupported OpenCode CLI version");
-			return major === "2";
-		});
-		cliVersion = {
-			key,
-			expiresAt: Date.now() + OPENCODE_QUERY_CACHE_TTL_MS,
-			result
-		};
-		result.catch(() => {
-			if (cliVersion?.result === result) cliVersion = void 0;
-		});
-	}
-	return cliVersion.result;
+	const { value } = await cliVersionCache.read(key, async () => {
+		const output = await runOpenCode(["--version"]);
+		const major = /^(?:opencode v)?(\d+)\./.exec(output.trim())?.[1];
+		if (major !== "1" && major !== "2") throw new Error("Unsupported OpenCode CLI version");
+		return major === "2";
+	}, { allowStale: false });
+	return value;
 }
 function openCodeQueryCacheKey(query) {
 	return `${SAFE_ENV_KEYS.map((key) => `${key}=${process.env[key] ?? ""}`).join("\0")}\0${query}`;
@@ -175,32 +174,11 @@ async function queryOpenCodeSessions(query, count) {
 	return sessions;
 }
 async function queryCachedOpenCodeSessions(query, count, options) {
-	const key = openCodeQueryCacheKey(query);
-	const cached = openCodeQueryCache.get(key);
-	if (options.forceRefresh !== true && cached && cached.expiresAt > Date.now()) {
-		openCodeQueryCache.delete(key);
-		openCodeQueryCache.set(key, cached);
-		return await cached.result;
-	}
-	if (cached) openCodeQueryCache.delete(key);
-	const result = queryOpenCodeSessions(query, count);
-	const entry = {
-		expiresAt: Date.now() + OPENCODE_QUERY_CACHE_TTL_MS,
-		result
-	};
-	openCodeQueryCache.set(key, entry);
-	pruneMapToMaxSize(openCodeQueryCache, OPENCODE_QUERY_CACHE_MAX_ENTRIES);
-	try {
-		const value = await result;
-		entry.resolved = true;
-		return value;
-	} catch (error) {
-		if (openCodeQueryCache.get(key) === entry) {
-			if (cached?.resolved) openCodeQueryCache.set(key, cached);
-			else openCodeQueryCache.delete(key);
-		}
-		throw error;
-	}
+	const { value } = await openCodeQueryCache.read(openCodeQueryCacheKey(query), () => queryOpenCodeSessions(query, count), {
+		allowStale: false,
+		refresh: options.forceRefresh
+	});
+	return value;
 }
 async function exportOpenCodeSession(threadId) {
 	if (!await isOpenCodeV2()) return JSON.parse(await runOpenCode([
@@ -292,7 +270,7 @@ async function listLocalOpenCodeSessionPage(value, options = {}) {
 		`ORDER BY time_updated DESC, id DESC LIMIT ${String(requestedCount)}`
 	].join(" "), requestedCount, options);
 	if (!Array.isArray(parsed) || parsed.length > MAX_CLI_LIST_SESSIONS) throw new Error("OpenCode returned an invalid session list");
-	const needle = params.searchTerm?.toLocaleLowerCase();
+	const needle = params.searchTerm?.toLocaleLowerCase().normalize("NFC");
 	const sessions = parsed.flatMap((entry) => {
 		const session = parseOpenCodeSession(entry);
 		return session ? [session] : [];
@@ -302,7 +280,7 @@ async function listLocalOpenCodeSessionPage(value, options = {}) {
 			session.threadId,
 			session.name,
 			session.cwd
-		].some((field) => field?.toLocaleLowerCase().includes(needle));
+		].some((field) => field?.toLocaleLowerCase().normalize("NFC").includes(needle));
 	});
 	const page = sessions.slice(offset, offset + params.limit);
 	return {
@@ -318,10 +296,10 @@ async function requireLocalOpenCodeSession(threadId) {
 	if (!session) throw new Error("OpenCode session is unavailable");
 	return session;
 }
-function jsonText(value, maxLength = 2e4) {
+function jsonText(value) {
 	try {
 		const text = JSON.stringify(value);
-		return text.length > maxLength ? `${truncateUtf16Safe(text, maxLength)}…` : text;
+		return text.length > 2e4 ? `${truncateUtf16Safe(text, 2e4)}…` : text;
 	} catch {
 		return;
 	}
@@ -405,5 +383,4 @@ async function readLocalOpenCodeTranscriptPage(value) {
 		...page
 	};
 }
-//#endregion
 export { exportOpenCodeSession, isExactOpenCodeSessionCursor, isOpenCodeV2, listLocalOpenCodeSessionPage, queryOpenCodeDatabase, readLocalOpenCodeTranscriptPage, requireLocalOpenCodeSession, runOpenCodeApi };

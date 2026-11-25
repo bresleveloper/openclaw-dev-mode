@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";
+//!src/sessions/session-controller.cleanup-context.ts
+const cleanupContext=resolveGlobalSingleton(Symbol.for(`openclaw.sessionControllerCleanupContext`),()=>({}));function bindSessionControllerCleanupContext(e){cleanupContext.exit=t=>e.exit(t)}function runWithSessionControllerCleanup(e){return cleanupContext.exit?cleanupContext.exit(e):e()}export{runWithSessionControllerCleanup as n,bindSessionControllerCleanupContext as t};

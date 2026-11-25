@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{GN as t,JN as n}from"./_2_____________________________.js";import{a as r,f as i,i as a}from"./lobster-dex-BayK4YCq.js";function o(){return n({read:a,subscribe:i},{read:e=>e.read(),subscribe:(e,t)=>e.subscribe(t),equality:`revision`})}function s(){return(s=e((()=>{r(),t()})))()}export{o as n,s as t};
+//# sourceMappingURL=events-browser-BYnRukpV.js.map

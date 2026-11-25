@@ -1,0 +1,2 @@
+//!src/auto-reply/reply/context-text.ts
+function resolveCommandContextText(e){return e.commandText.trim()}function hasExplicitCommandContextText(e){const t=resolveCommandContextText(e);return t.startsWith(`/`)||t.startsWith(`!`)}export{resolveCommandContextText as n,hasExplicitCommandContextText as t};

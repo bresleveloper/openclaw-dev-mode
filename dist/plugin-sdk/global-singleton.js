@@ -1,3 +1,1 @@
-import { a as resolveGlobalSingleton, r as resolveGlobalMap } from "../global-singleton-DrXvEBww.mjs";
-import "../global-singleton-la_KkjCS.mjs";
-export { resolveGlobalMap, resolveGlobalSingleton };
+import{i as resolveGlobalMap,o as resolveGlobalSingleton}from"../global-singleton-BoQ13xsk.mjs";import"../global-singleton-CAISgiXf.mjs";export{resolveGlobalMap,resolveGlobalSingleton};

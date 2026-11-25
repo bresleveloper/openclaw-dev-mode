@@ -1,0 +1,3 @@
+import{t as enableProviderPluginInConfig}from"./provider-enable-config-7cCrcYdB.mjs";import{t as createBaseWebSearchProviderContractFields}from"./provider-web-search-contract-fields-BU0F0PUo.mjs";
+//!src/plugin-sdk/provider-web-search-contract.ts
+function createWebSearchProviderContractFields(e){const t=e.selectionPluginId;return{...createBaseWebSearchProviderContractFields(e),...t?{applySelectionConfig:e=>enableProviderPluginInConfig(e,t).config}:{}}}export{createWebSearchProviderContractFields as t};

@@ -1,0 +1,1 @@
+import"./model-catalog-pricing-DEEpCd96.mjs";export{};

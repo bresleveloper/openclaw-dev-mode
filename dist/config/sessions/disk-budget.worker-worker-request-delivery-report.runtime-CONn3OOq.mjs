@@ -1,0 +1,1 @@
+import{t as e}from"./disk-budget.worker-subsystem-D9aLEgRd.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

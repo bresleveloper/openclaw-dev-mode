@@ -1,0 +1,3 @@
+import{a as QUESTIONS_SCOPE}from"./operator-scopes-bEvB7E5X.mjs";import{n as operatorScopeSatisfied}from"./operator-scope-compat-TmgAKmD2.mjs";
+//!src/gateway/question-access.ts
+function usesOwnRunQuestionAccess(e){return Boolean(e?.connect&&!operatorScopeSatisfied(`operator.questions`,e.connect.scopes??[]))}function canSelectQuestion(e,t,n){const r=e.observe(t)?.authorizeClient;if(r)return r(n);return!usesOwnRunQuestionAccess(n)||e.observe(t)?.sessionAccess?.canSelect(n)===true}export{usesOwnRunQuestionAccess as n,canSelectQuestion as t};

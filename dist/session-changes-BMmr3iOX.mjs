@@ -1,0 +1,3 @@
+import{M as parseAgentSessionKey}from"./session-key-C6YO7qUA.mjs";import{o as sessionChanges}from"./session-row-changes-DtCVGQrx.mjs";
+//!src/plugins/runtime/session-changes.ts
+const subscribeRuntimeSessionChanges=e=>sessionChanges.subscribeProjection(t=>{if(!(`sessionKey`in t))return;const n=t.agentId??parseAgentSessionKey(t.sessionKey)?.agentId;if(!n)return;const r=t.factsInvalidated??(t.facts?.kind===`category`?`category`:void 0);e({agentId:n,sessionKey:t.sessionKey,...r===void 0?{}:{factsInvalidated:String(r)}})});export{subscribeRuntimeSessionChanges as t};

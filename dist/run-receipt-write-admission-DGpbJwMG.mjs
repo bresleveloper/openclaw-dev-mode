@@ -1,0 +1,3 @@
+import{a as tableExists}from"./openclaw-state-db-schema-helpers-4Hs1ye38.mjs";
+//!src/cron/store/run-receipt-write-admission.ts
+function prepareCronRunReceiptWriteSchema(e){if(!e.isTransaction)throw new Error(`Cron receipt schema admission requires the owning write transaction`);return{executionOwnerLifecycleBindings:tableExists(e,`execution_owner_lifecycle_bindings`),cronRunReceipts:tableExists(e,`cron_run_receipts`)}}export{prepareCronRunReceiptWriteSchema as t};

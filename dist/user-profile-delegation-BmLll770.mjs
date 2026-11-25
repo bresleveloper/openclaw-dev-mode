@@ -1,0 +1,2 @@
+//!src/state/user-profile-delegation.ts
+const delegatedProfileAuthority=`oce`;const delegatedUserSubjectPrefix=`${`oce`}:v1:`;const delegatedProfileProvider=`${`oce`}.external`;function isDelegatedUserSubject(e){return e.startsWith(delegatedUserSubjectPrefix)&&/^[0-9a-f]{64}$/u.test(e.slice(delegatedUserSubjectPrefix.length))}export{isDelegatedUserSubject as n,delegatedProfileProvider as t};

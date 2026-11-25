@@ -1,21 +1,76 @@
-import { opencodeMediaUnderstandingProvider } from "./media-understanding-provider.js";
 import { OPENCODE_ZEN_DEFAULT_MODEL_REF, applyOpencodeZenProviderConfig } from "./onboard.js";
-import { a as prepareOpencodeZenModel, c as openclaw_plugin_default, i as normalizeOpencodeZenBaseUrl, n as buildStaticOpencodeZenProviderConfig, o as resolveOpencodeZenModel, r as listOpencodeZenModelCatalogEntries, s as resolveOpencodeZenStarterModel, t as buildOpencodeZenLiveProviderConfig } from "./.setup/provider-catalog-XEhgAiH9.mjs";
+import { a as prepareOpencodeZenModel, c as openclaw_plugin_default, i as normalizeOpencodeZenBaseUrl, n as buildStaticOpencodeZenProviderConfig, o as resolveOpencodeZenModel, r as listOpencodeZenModelCatalogEntries, s as resolveOpencodeZenStarterModel, t as buildOpencodeZenLiveProviderConfig } from "./.setup/provider-catalog-7CVtc4r7.mjs";
 import { resolveThinkingProfile } from "./provider-policy-api.js";
 import { registerOpenCodeSessionCatalog } from "./session-catalog-plugin.js";
 import { wrapOpencodeProviderStream } from "./stream.js";
+import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
+import { describeImageWithModelPayloadTransform, describeImagesWithModelPayloadTransform } from "openclaw/plugin-sdk/media-understanding";
+import { buildOauthProviderAuthResult, resolveOAuthApiKeyMarker } from "openclaw/plugin-sdk/provider-auth";
 import { runLiveProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { resolveFirstProviderCatalogAuth } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildProviderReplayFamilyHooks, matchesExactOrPrefix } from "openclaw/plugin-sdk/provider-model-shared";
-import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/opencode/index.ts
+import { isRecord, normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
+// extensions/opencode/index.ts
 const PROVIDER_ID = "opencode";
+const loadConsoleOAuth = createLazyRuntimeModule(() => import("./console-oauth.js"));
+async function signInWithOpencodeConsole(ctx) {
+	const credentials = await (await loadConsoleOAuth()).loginOpencodeConsole(ctx);
+	const notes = ["OpenClaw is signed in to the OpenCode Console workspace you picked. Tokens refresh automatically."];
+	ctx.assertCurrent?.();
+	const credentialOnly = {
+		profiles: [{
+			profileId: `${PROVIDER_ID}:default`,
+			credential: {
+				type: "oauth",
+				provider: PROVIDER_ID,
+				...credentials
+			}
+		}],
+		notes
+	};
+	if (ctx.credentialOnly) return credentialOnly;
+	const defaultModel = await resolveOpencodeZenStarterModel({
+		apiKey: credentials.access,
+		preferredModelRef: OPENCODE_ZEN_DEFAULT_MODEL_REF,
+		...ctx.signal ? { signal: ctx.signal } : {}
+	});
+	ctx.assertCurrent?.();
+	if (!defaultModel) return credentialOnly;
+	return buildOauthProviderAuthResult({
+		providerId: PROVIDER_ID,
+		defaultModel,
+		access: credentials.access,
+		refresh: credentials.refresh,
+		expires: credentials.expires,
+		profileName: "default",
+		notes
+	});
+}
 const MINIMAX_MODERN_MODEL_MATCHERS = ["minimax-m2.7"];
+const stripDisabledResponsesReasoning = (payload) => {
+	if (!isRecord(payload)) return;
+	const reasoning = payload.reasoning;
+	if (reasoning === "none" || isRecord(reasoning) && reasoning.effort === "none") delete payload.reasoning;
+};
+const opencodeMediaUnderstandingProvider = {
+	id: "opencode",
+	capabilities: ["image"],
+	defaultModels: { image: "minimax-m3" },
+	describeImage: (request) => describeImageWithModelPayloadTransform(request, stripDisabledResponsesReasoning),
+	describeImages: (request) => describeImagesWithModelPayloadTransform(request, stripDisabledResponsesReasoning)
+};
 function isModernOpencodeModel(modelId) {
 	const lower = normalizeLowercaseStringOrEmpty(modelId);
 	if (lower.endsWith("-free") || lower === "alpha-glm-4.7") return false;
 	return !matchesExactOrPrefix(lower, MINIMAX_MODERN_MODEL_MATCHERS);
+}
+function normalizeZenBaseUrl(value) {
+	const baseUrl = normalizeOpencodeZenBaseUrl(value);
+	return baseUrl && baseUrl !== value.baseUrl ? {
+		...value,
+		baseUrl
+	} : void 0;
 }
 var opencode_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
@@ -46,36 +101,28 @@ var opencode_default = defineSingleProviderPluginEntry({
 			].join("\n"),
 			noteTitle: "OpenCode"
 		},
-		normalizeConfig: ({ providerConfig }) => {
-			const normalizedBaseUrl = normalizeOpencodeZenBaseUrl({
-				api: providerConfig.api,
-				baseUrl: providerConfig.baseUrl
-			});
-			return normalizedBaseUrl && normalizedBaseUrl !== providerConfig.baseUrl ? {
-				...providerConfig,
-				baseUrl: normalizedBaseUrl
-			} : void 0;
-		},
-		normalizeResolvedModel: ({ model }) => {
-			const normalizedBaseUrl = normalizeOpencodeZenBaseUrl({
-				api: model.api,
-				baseUrl: model.baseUrl
-			});
-			return normalizedBaseUrl && normalizedBaseUrl !== model.baseUrl ? {
-				...model,
-				baseUrl: normalizedBaseUrl
-			} : void 0;
-		},
-		normalizeTransport: ({ api: apiLocal, baseUrl }) => {
-			const normalizedBaseUrl = normalizeOpencodeZenBaseUrl({
-				api: apiLocal,
-				baseUrl
-			});
-			return normalizedBaseUrl && normalizedBaseUrl !== baseUrl ? {
-				api: apiLocal,
-				baseUrl: normalizedBaseUrl
-			} : void 0;
-		},
+		extraAuth: [{
+			id: "oauth",
+			label: "OpenCode Console browser sign-in",
+			hint: "Sign in with your browser and pick a Console workspace",
+			kind: "device_code",
+			wizard: {
+				choiceId: "opencode-console",
+				choiceLabel: "OpenCode Console (browser sign-in)",
+				choiceHint: "Sign in in your browser and pick an OpenCode Console workspace",
+				groupId: "opencode",
+				groupLabel: "OpenCode",
+				groupHint: "Browser sign-in or shared Zen + Go API key"
+			},
+			run: signInWithOpencodeConsole
+		}],
+		refreshOAuth: async (credential) => (await loadConsoleOAuth()).refreshOpencodeConsoleCredential(credential),
+		normalizeConfig: ({ providerConfig }) => normalizeZenBaseUrl(providerConfig),
+		normalizeResolvedModel: ({ model }) => normalizeZenBaseUrl(model),
+		normalizeTransport: ({ api, baseUrl }) => normalizeZenBaseUrl({
+			api,
+			baseUrl
+		}),
 		resolveDynamicModel: ({ modelId }) => resolveOpencodeZenModel(modelId),
 		prepareDynamicModel: async (ctx) => {
 			const profileProvider = ctx.authProfileId ? ctx.config?.auth?.profiles?.[ctx.authProfileId]?.provider : void 0;
@@ -86,7 +133,8 @@ var opencode_default = defineSingleProviderPluginEntry({
 			order: "simple",
 			run: async (ctx) => {
 				if (ctx.providerIds !== void 0 && !ctx.providerIds.includes(PROVIDER_ID)) return null;
-				const auth = resolveFirstProviderCatalogAuth(ctx.resolveProviderApiKey, [PROVIDER_ID, "opencode-go"]);
+				const oauth = ctx.resolveProviderAuth(PROVIDER_ID, { oauthMarker: resolveOAuthApiKeyMarker(PROVIDER_ID) });
+				const auth = oauth.mode === "oauth" && oauth.discoveryApiKey ? oauth : resolveFirstProviderCatalogAuth(ctx.resolveProviderApiKey, [PROVIDER_ID, "opencode-go"]);
 				if (!auth) return null;
 				if (!auth.discoveryApiKey) return { provider: buildStaticOpencodeZenProviderConfig(auth.apiKey) };
 				return await runLiveProviderCatalog({
@@ -112,5 +160,4 @@ var opencode_default = defineSingleProviderPluginEntry({
 		registerOpenCodeSessionCatalog(api);
 	}
 });
-//#endregion
 export { opencode_default as default };

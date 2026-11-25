@@ -1,0 +1,2 @@
+//!src/gateway/session-transcript-summary.ts
+async function prepareSessionTranscriptSummaryReader(e){if(e.kind===`mcp-app`){const{selectMcpAppReconstructionData:t}=await import(`./mcp-app-transcript-B0_U-wV5.mjs`);return n=>({kind:`mcp-app`,data:t(n,e.lookup)})}const{createSessionTranscriptUsageAccumulator:t}=await import(`./session-transcript-derived-readers-DdS9lKhW.mjs`);return e=>{const n=t();e(n.add);return{kind:`usage`,usage:n.finish()}}}export{prepareSessionTranscriptSummaryReader as t};

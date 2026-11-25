@@ -1,8 +1,8 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/codex/cli-metadata.ts
+// extensions/codex/cli-metadata.ts
 function registerCodexCliMetadata(api) {
 	api.registerCli(async ({ program }) => {
-		const { registerCodexSessionCli } = await import("./.setup/session-cli-3rpcj3Jk.mjs");
+		const { registerCodexSessionCli } = await import("./.setup/session-cli-DE-FTkLt.mjs");
 		registerCodexSessionCli(program);
 	}, { descriptors: [{
 		name: "codex",
@@ -16,5 +16,4 @@ var cli_metadata_default = definePluginEntry({
 	description: "Codex app-server harness and native session supervision.",
 	register: registerCodexCliMetadata
 });
-//#endregion
 export { cli_metadata_default as default, registerCodexCliMetadata };

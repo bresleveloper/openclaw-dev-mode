@@ -1,0 +1,1 @@
+export default {"skillDiscovery":{"search":"Rechercher des compétences","settings":"Paramètres de la compétence","libraryStatus":"Compétence de la bibliothèque. Les sélections de la session déterminent quand elle est utilisée."}};

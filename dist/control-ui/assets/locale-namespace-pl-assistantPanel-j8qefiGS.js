@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"Praca nad: {context}","removeContext":"Usuń kontekst pracy","includeContext":"Uwzględnij kontekst pracy","selection":"Zaznaczony tekst","attachSelection":"Dołącz zaznaczony tekst","attachSelectionTooltip":"Dołącz zaznaczenie","removeSelection":"Usuń zaznaczony tekst"}};

@@ -15,15 +15,6 @@ import {
 
 type MatrixMonitorStatusSink = (patch: ChannelAccountSnapshot) => void;
 
-function cloneLastDisconnect(
-  value: ChannelAccountSnapshot["lastDisconnect"],
-): ChannelAccountSnapshot["lastDisconnect"] {
-  if (!value || typeof value === "string") {
-    return value ?? null;
-  }
-  return { ...value };
-}
-
 function formatSyncError(error: unknown): string | null {
   if (!error) {
     return null;
@@ -34,13 +25,10 @@ function formatSyncError(error: unknown): string | null {
   return formatErrorMessage(error);
 }
 
-export type MatrixMonitorStatusController = ReturnType<typeof createMatrixMonitorStatusController>;
-
 export function createMatrixMonitorStatusController(params: {
   accountId: string;
   baseUrl?: string;
   statusSink?: MatrixMonitorStatusSink;
-  deferReadyUntilStartupComplete?: boolean;
 }) {
   const status: ChannelAccountSnapshot = {
     accountId: params.accountId,
@@ -54,13 +42,12 @@ export function createMatrixMonitorStatusController(params: {
   };
 
   const emit = () => {
-    params.statusSink?.({
-      ...status,
-      lastDisconnect: cloneLastDisconnect(status.lastDisconnect),
-    });
+    params.statusSink?.({ ...status });
   };
 
-  let startupComplete = params.deferReadyUntilStartupComplete !== true;
+  // Ready waits for markStartupComplete: hard-restart consumers act on ready, and startup
+  // maintenance plus crypto ownership must settle before they may interrupt the monitor.
+  let startupComplete = false;
   let pendingReadyAt: number | null = null;
   let pendingTransportActivity = false;
 

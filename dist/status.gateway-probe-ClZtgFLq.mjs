@@ -1,0 +1,3 @@
+import{t as resolveGatewayProbeTarget}from"./probe-target-C8WdFewu.mjs";import{r as resolveGatewayProbeAuthSafeWithSecretInputs}from"./probe-auth-UkZEJ7i3.mjs";
+//!src/commands/status.gateway-probe.ts
+async function resolveGatewayProbeAuthResolution(e,t=process.env){const n=resolveGatewayProbeTarget(e);return resolveGatewayProbeAuthSafeWithSecretInputs({cfg:e,mode:n.mode,env:t})}export{resolveGatewayProbeAuthResolution};

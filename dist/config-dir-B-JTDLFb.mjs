@@ -1,0 +1,3 @@
+import{c as resolveUserPath}from"./home-dir-aZetQWeY.mjs";import{r as resolveStateDir}from"./state-dir-BwbNjuVe.mjs";import path from"node:path";import os from"node:os";
+//!src/infra/config-dir.ts
+function resolveConfigDir(e=process.env,t=os.homedir){const n=e.OPENCLAW_STATE_DIR?.trim();if(n)return resolveUserPath(n,e,t);const r=e.OPENCLAW_CONFIG_PATH?.trim();if(r)return path.dirname(resolveUserPath(r,e,t));return resolveStateDir(e,t)}export{resolveConfigDir as t};

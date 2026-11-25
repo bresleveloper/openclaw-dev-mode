@@ -198,7 +198,6 @@ function collectTopLevelPublicSurfaceEntriesFromFiles(relativeFiles) {
 }
 
 function collectTrackedBundledPluginFiles(cwd) {
-  // Extracted source trees may live below another checkout; its index does not own their files.
   if (!fs.existsSync(path.join(cwd, ".git"))) {
     return null;
   }

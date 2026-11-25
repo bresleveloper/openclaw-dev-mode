@@ -1,0 +1,3 @@
+import{i as parseModelCatalogRef}from"./model-catalog-refs-eJnrGUHo.mjs";import{n as normalizeBuiltInProviderModelId,s as stripSelfProviderModelPrefix}from"./provider-model-id-normalization-CBsl47ji.mjs";
+//!src/plugins/model-allowlist.ts
+function compileModelAllowlist(e){const t=/* @__PURE__ */ new Set;let n=false;for(const r of e.values??[]){const i=r.trim();if(i===`*`){n=true;continue}const a=parseModelCatalogRef(i);if(!a)continue;const o=normalizeBuiltInProviderModelId(a.provider,stripSelfProviderModelPrefix(a.provider,a.modelId));t.add(e.formatKey(a.provider,o))}return{configured:e.configured,allowAny:n,models:t}}export{compileModelAllowlist as t};

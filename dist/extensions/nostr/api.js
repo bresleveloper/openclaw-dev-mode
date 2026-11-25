@@ -1,18 +1,18 @@
-import { s as resolveNostrAccount } from "./.setup/setup-surface-CadI9603.mjs";
+import { s as resolveNostrAccount } from "./.setup/setup-surface-fC0kex9d.mjs";
 import { getPluginRuntimeGatewayRequestScope } from "./runtime-api.js";
-import { n as NostrProfileSchema } from "./.setup/channel.setup-B2tWt-Ro.mjs";
-import { a as getNostrRuntime, i as contentToProfile, n as nostrPlugin, o as setNostrRuntime, r as publishNostrProfile, t as getNostrProfileState } from "./.setup/channel-DgBGsryg.mjs";
+import { n as NostrProfileSchema } from "./.setup/channel.setup-DeVyQy6t.mjs";
+import { a as getNostrRuntime, i as contentToProfile, n as nostrPlugin, o as setNostrRuntime, r as publishNostrProfile, t as getNostrProfileState } from "./.setup/channel-B4fpUOPw.mjs";
 import { getPluginRuntimeGatewayRequestScope as getPluginRuntimeGatewayRequestScope$1 } from "openclaw/plugin-sdk/plugin-runtime";
 import { isRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalLowercaseString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { z } from "zod";
 import { SimplePool } from "nostr-tools";
 import { createFixedWindowRateLimiter } from "openclaw/plugin-sdk/webhook-ingress";
 import { raceWithTimeout } from "openclaw/plugin-sdk/time-runtime";
+import { sendJson } from "openclaw/plugin-sdk/http-response-runtime";
 import { KeyedAsyncQueue } from "openclaw/plugin-sdk/keyed-async-queue";
 import { isBlockedHostnameOrIp, isLoopbackHost } from "openclaw/plugin-sdk/ssrf-runtime";
 import { readJsonBodyWithLimit, requestBodyErrorToText } from "openclaw/plugin-sdk/webhook-request-guards";
-import { resolveTimerTimeoutMs } from "openclaw/plugin-sdk/number-runtime";
-//#region extensions/nostr/src/nostr-profile-url-safety.ts
+// extensions/nostr/src/nostr-profile-url-safety.ts
 function normalizeNostrProfileUrlForRuntime(urlStr) {
 	return urlStr.replace(/^([a-z][a-z\d+.-]*:\/\/\[[\da-f:]*:)(0|[1-9]\d{0,2})\.(0|[1-9]\d{0,2})\.(0|[1-9]\d{0,2})\.(0|[1-9]\d{0,2})(\].*)$/iu, (original, prefix, a, b, c, d, suffix) => {
 		const octets = [
@@ -47,27 +47,10 @@ function validateUrlSafety(urlStr) {
 		};
 	}
 }
-//#endregion
-//#region extensions/nostr/src/nostr-profile-import.ts
-const DEFAULT_TIMEOUT_MS = 5e3;
-function sanitizeProfileUrls(profile) {
-	const result = { ...profile };
-	for (const field of [
-		"picture",
-		"banner",
-		"website"
-	]) {
-		const value = result[field];
-		if (value && typeof value === "string") {
-			if (!validateUrlSafety(value).ok) delete result[field];
-		}
-	}
-	return result;
-}
+// extensions/nostr/src/nostr-profile-import.ts
 /** Import the latest verified kind:0 profile across the configured relays. */
 async function importProfileFromRelays(opts) {
 	const { pubkey, relays } = opts;
-	const timeoutMs = resolveTimerTimeoutMs(opts.timeoutMs, DEFAULT_TIMEOUT_MS);
 	if (!pubkey || !/^[0-9a-fA-F]{64}$/.test(pubkey)) return {
 		ok: false,
 		error: "Invalid pubkey format (must be 64 hex characters)",
@@ -79,7 +62,7 @@ async function importProfileFromRelays(opts) {
 		relaysQueried: []
 	};
 	const pool = new SimplePool();
-	const relaysQueried = [...relays];
+	const relaysQueried = relays;
 	const subscriptions = [];
 	try {
 		const events = [];
@@ -103,7 +86,7 @@ async function importProfileFromRelays(opts) {
 				}
 			});
 			subscriptions.push(subscription);
-		}))), timeoutMs, () => void 0, { ref: false });
+		}))), 1e4, () => void 0, { ref: false });
 		if (events.length === 0) return {
 			ok: false,
 			error: "No profile found on any relay",
@@ -131,8 +114,18 @@ async function importProfileFromRelays(opts) {
 			relaysQueried,
 			sourceRelay: bestEvent.relay
 		};
-		const sanitizedProfile = sanitizeProfileUrls(contentToProfile(parsedContent));
-		const validatedProfile = NostrProfileSchema.safeParse(sanitizedProfile);
+		const profile = contentToProfile(parsedContent);
+		for (const field of [
+			"picture",
+			"banner",
+			"website"
+		]) {
+			const value = profile[field];
+			if (value && typeof value === "string") {
+				if (!validateUrlSafety(value).ok) delete profile[field];
+			}
+		}
+		const validatedProfile = NostrProfileSchema.safeParse(profile);
 		if (!validatedProfile.success) return {
 			ok: false,
 			error: "Profile event content has invalid fields",
@@ -170,8 +163,7 @@ function mergeProfiles(local, imported) {
 		lud16: local.lud16 ?? imported.lud16
 	};
 }
-//#endregion
-//#region extensions/nostr/src/nostr-profile-http.ts
+// extensions/nostr/src/nostr-profile-http.ts
 const profileRateLimiter = createFixedWindowRateLimiter({
 	windowMs: 6e4,
 	maxRequests: 5,
@@ -212,11 +204,6 @@ function restoreProfileUpdateUrlInputs(profile, value) {
 		...typeof value.banner === "string" ? { banner: value.banner } : {},
 		...typeof value.website === "string" ? { website: value.website } : {}
 	};
-}
-function sendJson(res, status, body) {
-	res.statusCode = status;
-	res.setHeader("Content-Type", "application/json; charset=utf-8");
-	res.end(JSON.stringify(body));
 }
 async function readJsonBody(req) {
 	const result = await readJsonBodyWithLimit(req, {
@@ -359,10 +346,11 @@ async function handleUpdateProfile(accountId, ctx, req, res) {
 	}
 	const parseResult = ProfileUpdateSchema.safeParse(normalizeProfileUpdateUrlInputs(body));
 	if (!parseResult.success) {
+		const errors = parseResult.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
 		sendJson(res, 400, {
 			ok: false,
 			error: "Validation failed",
-			details: parseResult.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)
+			details: errors
 		});
 		return true;
 	}
@@ -437,8 +425,7 @@ async function handleImportProfile(accountId, ctx, req, res) {
 	ctx.log?.info(`[${accountId}] Importing profile for ${pubkey.slice(0, 8)}...`);
 	const result = await importProfileFromRelays({
 		pubkey,
-		relays,
-		timeoutMs: 1e4
+		relays
 	});
 	if (!result.ok) {
 		sendJson(res, 200, {
@@ -466,5 +453,4 @@ async function handleImportProfile(accountId, ctx, req, res) {
 	});
 	return true;
 }
-//#endregion
 export { createNostrProfileHttpHandler, getNostrRuntime, getPluginRuntimeGatewayRequestScope, nostrPlugin, resolveNostrAccount, setNostrRuntime };

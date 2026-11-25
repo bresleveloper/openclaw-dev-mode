@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Mostra-ho tot","files":"Fitxers","loading":"S'estan carregant els resultats…","updating":"S'estan actualitzant els resultats…","loadingDashboard":"S'està carregant el tauler…","emptyTitle":"Encara no hi ha resultats.","emptyDescription":"Els fitxers i els taulers d’aquesta sessió apareixen aquí."}};

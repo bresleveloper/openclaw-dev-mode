@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry, loadBundledEntryExportSync } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/mattermost/index.ts
+// extensions/mattermost/index.ts
 function registerSlashCommandRoute(api) {
 	loadBundledEntryExportSync(import.meta.url, {
 		specifier: "./slash-route-api.js",
@@ -27,5 +27,4 @@ var mattermost_default = defineBundledChannelEntry({
 		registerSlashCommandRoute(api);
 	}
 });
-//#endregion
 export { mattermost_default as default };

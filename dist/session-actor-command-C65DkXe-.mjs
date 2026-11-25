@@ -1,0 +1,2 @@
+//!src/config/sessions/session-actor-command.ts
+function projectSessionActorAuthority(e,t){const{target:n,entry:r}=e;if(t&&r===t.entry)return{target:n,entryReference:t.writeToken};return{target:n,entry:r}}function isSessionActorCommand(e){return e.type.startsWith(`session.actor.`)}export{projectSessionActorAuthority as n,isSessionActorCommand as t};

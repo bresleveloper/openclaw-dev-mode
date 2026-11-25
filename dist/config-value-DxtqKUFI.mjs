@@ -1,0 +1,2 @@
+//!src/auto-reply/reply/config-value.ts
+function parseConfigValue(e){const t=e.trim();if(!t)return{error:`Missing value.`};const n=t.startsWith(`{`)||t.startsWith(`[`);const r=t.startsWith(`"`)&&t.endsWith(`"`)||t.startsWith(`'`)&&t.endsWith(`'`);if(n||r)try{return{value:JSON.parse(t)}}catch(e){return n?{error:`Invalid JSON: ${String(e)}`}:{value:t.slice(1,-1)}}if(t===`true`||t===`false`||t===`null`)return{value:t===`null`?null:t===`true`};if(/^-?\d+(\.\d+)?$/.test(t)){const e=Number(t);if(Number.isFinite(e))return{value:e}}return{value:t}}export{parseConfigValue as t};

@@ -1,0 +1,2 @@
+//!src/gateway/node-computer-use-descriptor.ts
+function resolveEffectiveComputerUseDescriptor(e){return e.commands.includes(`computer.act`)&&e.commands.includes(`screen.snapshot`)?e.declared:void 0}export{resolveEffectiveComputerUseDescriptor as t};

@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/irc/index.ts
+// extensions/irc/index.ts
 var irc_default = defineBundledChannelEntry({
 	id: "irc",
 	name: "IRC",
@@ -18,5 +18,4 @@ var irc_default = defineBundledChannelEntry({
 		exportName: "setIrcRuntime"
 	}
 });
-//#endregion
 export { irc_default as default };

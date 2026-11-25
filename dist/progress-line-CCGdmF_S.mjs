@@ -1,0 +1,2 @@
+//!packages/terminal-core/src/progress-line.ts
+let activeStream=null;function registerActiveProgressLine(e){if(!e.isTTY)return;activeStream=e}function clearActiveProgressLine(){if(!activeStream?.isTTY)return;activeStream.write(`\r\x1B[2K`)}function unregisterActiveProgressLine(e){if(activeStream===e)activeStream=null}export{registerActiveProgressLine as n,unregisterActiveProgressLine as r,clearActiveProgressLine as t};

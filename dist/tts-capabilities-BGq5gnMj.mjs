@@ -1,0 +1,3 @@
+import{i as normalizeChatChannelId}from"./ids-BOHgsxan.mjs";import{t as normalizeAnyChannelId}from"./registry-normalize-BP0gv89S.mjs";import"./registry-BSoXy46h.mjs";import{t as getChannelPlugin}from"./registry-DLUepoZ0.mjs";
+//!src/channels/plugins/tts-capabilities.ts
+function resolveChannelTtsVoiceDelivery(e){const t=normalizeAnyChannelId(e)??normalizeChatChannelId(e);if(!t)return;return getChannelPlugin(t)?.capabilities.tts?.voice}export{resolveChannelTtsVoiceDelivery as t};

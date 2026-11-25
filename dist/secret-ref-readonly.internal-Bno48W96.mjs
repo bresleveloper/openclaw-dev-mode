@@ -1,0 +1,3 @@
+import{s as isBuiltInDefaultSecretProviderRef}from"./ref-contract-CdpCUlb6.mjs";
+//!src/plugin-sdk/secret-ref-readonly.internal.ts
+function canResolveEnvSecretRefInReadOnlyPath(e){const t=e.cfg?.secrets?.providers?.[e.provider];if(t?.source===`env`){const n=t.allowlist;return!n||n.includes(e.id)}return isBuiltInDefaultSecretProviderRef(e.cfg??{},{source:`env`,provider:e.provider,id:e.id})}export{canResolveEnvSecretRefInReadOnlyPath as t};

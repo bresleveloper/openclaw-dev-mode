@@ -1,0 +1,3 @@
+import{t as resolveGatewayPublicOrigin}from"./gateway-public-origin-BbL1ndHu.mjs";
+//!src/gateway/control-ui-shared.ts
+function normalizeControlUiBasePath(e){const t=e?.trim()??``;if(!t||t===`/`)return``;const n=t.startsWith(`/`)?t:`/${t}`;return n.endsWith(`/`)?n.slice(0,-1):n}function resolveControlUiWebPushUrl(e,t){const n=resolveGatewayPublicOrigin(e);if(!n)return t;const r=normalizeControlUiBasePath(e.gateway?.controlUi?.basePath);const i=`${n.replace(/^https:/u,`wss:`).replace(/^http:/u,`ws:`)}${r}`;return`${t}#${new URLSearchParams({gatewayUrl:i})}`}export{resolveControlUiWebPushUrl as n,normalizeControlUiBasePath as t};

@@ -11,7 +11,7 @@ import {
 import type { EmbeddedRunAttemptResult } from "./attempt-terminal.js";
 import { emitCodexAppServerEvent, runCodexAgentEndHook } from "./run-attempt-lifecycle.js";
 import type { CodexAttemptNotificationController } from "./run-attempt-notification-controller.js";
-import type { CodexAttemptResources } from "./run-attempt-resources.js";
+import type { StartedCodexAttemptResources } from "./run-attempt-start.js";
 import {
   isCodexActiveCompactTurnError,
   clearCodexBindingAfterInvalidImagePayload,
@@ -30,7 +30,7 @@ import {
 import { buildCodexUserPromptMessage } from "./user-prompt-message.js";
 
 export async function startCodexAttemptTurn(
-  resources: CodexAttemptResources,
+  resources: StartedCodexAttemptResources,
   turnRuntime: CodexAttemptTurnState,
   notifications: CodexAttemptNotificationController,
   requestRuntime: Awaited<ReturnType<typeof prepareCodexAttemptTurnRequest>>,
@@ -116,6 +116,7 @@ export async function startCodexAttemptTurn(
           );
         } else {
           resourceState.thread = await resourceState.restartContextEngineCodexThread();
+          prompt.adoptThreadBaseInstructions(resourceState.thread);
           void emitCodexAppServerEvent(params, {
             stream: "codex_app_server.lifecycle",
             data: { phase: "thread_ready_retry", threadId: resourceState.thread.threadId },
@@ -129,6 +130,7 @@ export async function startCodexAttemptTurn(
     if (started === undefined) {
       const startupFailure = await resolveCodexTurnStartError({
         client: resourceState.client,
+        model: params.modelId,
         error: turnStartError,
         errorNotification: state.latestStartupErrorNotification,
         rateLimitsRevisionBeforeTurnStart: state.rateLimitsRevisionBeforeLastTurnStart,

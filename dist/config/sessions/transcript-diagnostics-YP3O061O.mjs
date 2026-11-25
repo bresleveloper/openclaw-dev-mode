@@ -1,0 +1,1 @@
+import"typebox/guard";new TextEncoder;export{};

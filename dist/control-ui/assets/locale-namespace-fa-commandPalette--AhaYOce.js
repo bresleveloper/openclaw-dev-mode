@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"تنظیمات نشست جدید","rememberSettings":"به‌خاطرسپردن تنظیمات برای {shortcut}","rememberSettingsNoShortcut":"این تنظیمات را به خاطر بسپار","rememberUnavailable":"برای ذخیرهٔ تنظیمات، دوباره متصل شوید.","settingsSaveFailed":"ذخیرهٔ تنظیمات ممکن نشد. دوباره تلاش کنید."}};

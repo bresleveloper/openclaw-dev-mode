@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function createSessionManagerRuntimeRegistry(){let e=/* @__PURE__ */ new WeakMap;return{set:(t,n)=>{t&&typeof t==`object`&&(n===null?e.delete(t):e.set(t,n))},get:t=>t&&typeof t==`object`?e.get(t)??null:null}}var t=e((()=>{}));export{t as n,createSessionManagerRuntimeRegistry as t};

@@ -1,6 +1,6 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { UE as ChannelAllowlistAdapter, wA as ChannelId } from "../config-contracts-CY87ANNp.js";
-//#region src/plugin-sdk/allowlist-config-edit.d.ts
+import { yA as ChannelAllowlistAdapter } from "../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import { m as ChannelId } from "../manifest-registry-CNNq5Vj2.js";
 type AllowlistConfigPaths = {
   readPaths: string[][];
   writePath: string[];
@@ -111,4 +111,4 @@ export declare function buildLegacyDmAccountAllowlistAdapter<ResolvedAccount>(pa
   resolveGroupPolicy?: (account: ResolvedAccount) => string | null | undefined;
   resolveGroupOverrides?: (account: ResolvedAccount) => AllowlistGroupOverride[] | undefined;
 }): Pick<ChannelAllowlistAdapter, "supportsScope" | "readConfig" | "applyConfigEdit">;
-//#endregion
+export {};

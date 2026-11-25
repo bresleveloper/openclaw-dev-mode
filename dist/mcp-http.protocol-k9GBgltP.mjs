@@ -1,0 +1,2 @@
+//!src/gateway/mcp-http.protocol.ts
+const MCP_LOOPBACK_SERVER_NAME=`openclaw`;const MCP_LOOPBACK_SERVER_VERSION=`0.1.0`;const MCP_LOOPBACK_SUPPORTED_PROTOCOL_VERSIONS=[`2025-03-26`,`2024-11-05`];function jsonRpcResult(e,t){return{jsonrpc:`2.0`,id:e??null,result:t}}function jsonRpcError(e,t,n){return{jsonrpc:`2.0`,id:e??null,error:{code:t,message:n}}}export{jsonRpcResult as a,jsonRpcError as i,MCP_LOOPBACK_SERVER_VERSION as n,MCP_LOOPBACK_SUPPORTED_PROTOCOL_VERSIONS as r,MCP_LOOPBACK_SERVER_NAME as t};

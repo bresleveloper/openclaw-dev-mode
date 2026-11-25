@@ -1,0 +1,4 @@
+import{n as resolveManifestDeprecatedProviderAuthChoice}from"./provider-auth-choices-BoJJXNsV.mjs";
+//!src/commands/auth-choice-legacy.ts
+function resolveLegacyOnboardAuthChoice(e,t){if(e===`oauth`)return{authChoice:`setup-token`};if(e!==`claude-cli`)return{authChoice:e};const n=resolveManifestDeprecatedProviderAuthChoice(e,t);if(!n)return{authChoice:e};const r=n.choiceLabel.trim()||`the replacement auth choice`;return{authChoice:n.choiceId,deprecated:{message:`Auth choice "${e}" is deprecated; using ${r} setup instead.`,nonInteractiveError:[`Auth choice "${e}" is deprecated.`,`Use "--auth-choice ${n.choiceId}".`].join(`
+`)}}}export{resolveLegacyOnboardAuthChoice as t};

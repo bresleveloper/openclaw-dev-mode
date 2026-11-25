@@ -1,0 +1,2 @@
+//!src/infra/embedded-mode.ts
+let embeddedModeValue=false;function setEmbeddedMode(e){embeddedModeValue=e}function isEmbeddedMode(){return embeddedModeValue}export{setEmbeddedMode as n,isEmbeddedMode as t};

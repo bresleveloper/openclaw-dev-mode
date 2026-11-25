@@ -1,0 +1,2 @@
+//!packages/gateway-client/src/cloudflare-access.ts
+const CF_ACCESS_CLIENT_ID_HEADER=`CF-Access-Client-Id`;const CF_ACCESS_CLIENT_SECRET_HEADER=`CF-Access-Client-Secret`;function buildCloudflareAccessHeaders(e){return{[CF_ACCESS_CLIENT_ID_HEADER]:e.clientId,[CF_ACCESS_CLIENT_SECRET_HEADER]:e.clientSecret}}export{CF_ACCESS_CLIENT_SECRET_HEADER as n,buildCloudflareAccessHeaders as r,CF_ACCESS_CLIENT_ID_HEADER as t};

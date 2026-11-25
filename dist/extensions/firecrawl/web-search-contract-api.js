@@ -1,3 +1,2 @@
-import { n as createFirecrawlWebSearchProvider, t as createFirecrawlFreeWebSearchProvider } from "./.setup/firecrawl-search-provider-D_gyroLO.mjs";
+export { t as createFirecrawlFreeWebSearchProvider, n as createFirecrawlWebSearchProvider } from "./.setup/firecrawl-search-provider-B2xWch6a.mjs";
 import "./web-search-provider.js";
-export { createFirecrawlFreeWebSearchProvider, createFirecrawlWebSearchProvider };

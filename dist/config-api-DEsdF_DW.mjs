@@ -1,0 +1,1 @@
+import"./config-compat-IK1blXnA.mjs";export{};

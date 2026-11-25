@@ -1,7 +1,7 @@
-import { i as openclaw_plugin_default, n as CHUTES_MODEL_CATALOG, t as CHUTES_BASE_URL } from "./.setup/models-mN33VNCv.mjs";
+import { i as openclaw_plugin_default, n as CHUTES_MODEL_CATALOG, t as CHUTES_BASE_URL } from "./.setup/models-DnSR_ZQn.mjs";
 import { readManifestProviderDefaultModelRef } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { applyAgentDefaultModelPrimary, createModelCatalogPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/chutes/onboard.ts
+// extensions/chutes/onboard.ts
 const CHUTES_DEFAULT_MODEL_ID = openclaw_plugin_default.modelCatalog.providers.chutes.defaultModel;
 const CHUTES_DEFAULT_MODEL_REF = readManifestProviderDefaultModelRef(openclaw_plugin_default, "chutes");
 const { applyProviderConfig: applyChutesProviderConfig } = createModelCatalogPresetAppliers({
@@ -10,7 +10,7 @@ const { applyProviderConfig: applyChutesProviderConfig } = createModelCatalogPre
 		providerId: "chutes",
 		api: "openai-completions",
 		baseUrl: CHUTES_BASE_URL,
-		catalogModels: cfg.models?.mode === "replace" ? structuredClone(CHUTES_MODEL_CATALOG) : [],
+		catalogModels: cfg.models?.mode === "replace" ? CHUTES_MODEL_CATALOG : [],
 		aliases: [
 			...CHUTES_MODEL_CATALOG.map((model) => `chutes/${model.id}`),
 			{
@@ -47,5 +47,4 @@ function applyChutesConfig(cfg) {
 function applyChutesApiKeyConfig(cfg) {
 	return applyAgentDefaultModelPrimary(applyChutesProviderConfig(cfg), CHUTES_DEFAULT_MODEL_REF);
 }
-//#endregion
 export { CHUTES_DEFAULT_MODEL_ID, CHUTES_DEFAULT_MODEL_REF, applyChutesApiKeyConfig, applyChutesConfig, applyChutesProviderConfig };

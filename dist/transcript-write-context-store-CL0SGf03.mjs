@@ -1,0 +1,3 @@
+import{t as AsyncContext}from"./async-context-DsCOzW-V.mjs";import{l as runWithCliHistoryWriter}from"./cli-history-boundary-CWmCWedk.mjs";
+//!src/config/sessions/transcript-write-context-store.ts
+const ownedTranscriptWriteContext=new AsyncContext(Symbol(`ownedTranscriptWriteContext`));function runWithoutOwnedSessionTranscriptWrites(e){return ownedTranscriptWriteContext.exit(()=>runWithCliHistoryWriter(void 0,e))}export{runWithoutOwnedSessionTranscriptWrites as n,ownedTranscriptWriteContext as t};

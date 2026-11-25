@@ -1,1 +1,0 @@
-import{c as e,s as t}from"./worker-chunk-_n7tjh3L.mjs";t();export{e as initializeSqliteRuntimeCapabilities};

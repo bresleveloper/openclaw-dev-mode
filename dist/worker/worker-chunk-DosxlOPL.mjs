@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function foldSearchCase(e){return e.toLowerCase().replace(/ς/g,`σ`)}var t=e((()=>{}));export{t as n,foldSearchCase as t};

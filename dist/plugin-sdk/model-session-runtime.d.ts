@@ -1,11 +1,11 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { Fo as prepareAuthProfileProvider, Ob as AgentModelPrimaryWriteTarget, Oy as StickyModelSelectionDispatchOutcome, V as resolveSessionModelRef, n as SessionEntry, t as InternalSessionEntry } from "../config-contracts-CY87ANNp.js";
-import "../types-CRfF42Lb.js";
-import { o as ModelVisibilityPolicy, p as ModelCatalogEntry } from "../model-selection-DoE_lu2k.js";
-import { r as PluginMetadataSnapshot } from "../plugin-metadata-snapshot-C_ou8VB5.js";
-import { n as ThinkLevel } from "../thinking.shared-COcvrWJf.js";
-import "../model-visibility-policy-B7QpSRrk.js";
-//#region src/model-picker/apply-session-model-selection.d.ts
+import { Bn as resolveSessionModelRef, ZS as prepareAuthProfileProvider, dE as AgentModelPrimaryWriteTarget, n as SessionEntry, pk as PluginMetadataSnapshot, t as InternalSessionEntry, ul as ModelVisibilityPolicy } from "../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import "../types-ACDCRjU-.js";
+import { r as ThinkLevel } from "../thinking.shared-CbDUpGH9.js";
+import "../provider-request-config.types-BDimJcpZ.js";
+import { C as ModelCatalogEntry } from "../provider-context-BvC7EnIY.js";
+import "../model-visibility-policy-WSpkRJ6C.js";
+type StickyModelSelectionDispatchOutcome = "requested" | "skipped-immutable";
 type SessionModelSelectionRequest = {
   provider: string;
   model: string;
@@ -75,11 +75,7 @@ type ApplySessionModelSelectionResult = {
   status: "conflict";
   message: string;
 };
-//#endregion
-//#region src/channels/channel-config.d.ts
 type ChannelMatchSource = "direct" | "parent" | "wildcard";
-//#endregion
-//#region src/channels/model-overrides.d.ts
 type ChannelModelOverride = {
   channel: string;
   model: string;
@@ -97,25 +93,17 @@ type ChannelModelOverrideParams = {
   directUserIds?: (string | null | undefined)[];
 };
 export declare function resolveChannelModelOverride(params: ChannelModelOverrideParams): ChannelModelOverride | null;
-//#endregion
-//#region src/config/agent-limits.d.ts
 /** Resolves top-level agent concurrency, flooring finite values and clamping to at least one. */
 export declare function resolveAgentMaxConcurrent(cfg?: OpenClawConfig): number;
-//#endregion
-//#region src/agents/session-runtime-compat.d.ts
 /** Persisted runtime fields used to recover session runtime compatibility. */
 type SessionRuntimeCompatEntry = Pick<SessionEntry, "agentHarnessId" | "agentRuntimeOverride" | "modelSelectionLocked" | "pluginOwnerId">;
 /** Resolves the persisted runtime id, preserving locked transcript ownership. */
 export declare function resolvePersistedSessionRuntimeId(entry?: SessionRuntimeCompatEntry): string | undefined;
-//#endregion
-//#region src/sessions/model-selection-error.d.ts
 export declare const MODEL_SELECTION_LOCKED_MESSAGE = "Model selection is locked for this session.";
 /** Retains the caller-visible refusal across the database worker boundary. */
 export declare class ModelSelectionLockedError extends Error {
   constructor(message?: string);
 }
-//#endregion
-//#region src/sessions/model-overrides.d.ts
 /** User or automatic model/provider override selection for a session entry. */
 type ModelOverrideSelection = {
   provider: string;
@@ -136,8 +124,6 @@ export declare function applyModelOverrideToSessionEntry(params: {
 }): {
   updated: boolean;
 };
-//#endregion
-//#region src/sessions/auth-profile-preservation.d.ts
 type SessionAuthProfilePreservationParams = {
   cfg: OpenClawConfig;
   agentDir: string;
@@ -154,8 +140,5 @@ type SessionAuthProfilePreservationParams = {
 export declare function applyModelOverrideWithAuthProfileCompatibility(params: Omit<SessionAuthProfilePreservationParams, "provider"> & Omit<Parameters<typeof applyModelOverrideToSessionEntry>[0], "preserveAuthProfileOverride">): {
   updated: boolean;
 };
-//#endregion
-//#region src/plugin-sdk/model-session-runtime.d.ts
 export declare const applySessionModelSelection: (params: ApplySessionModelSelectionParams) => Promise<ApplySessionModelSelectionResult>;
-//#endregion
 export { type ApplySessionModelSelectionParams, type ApplySessionModelSelectionResult, type SessionModelSelectionRequest, prepareAuthProfileProvider, resolveSessionModelRef };

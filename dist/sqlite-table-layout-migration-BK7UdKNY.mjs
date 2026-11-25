@@ -1,0 +1,7 @@
+import{l as quoteSqliteIdentifier,n as findSqlCharacter,r as findSqlClosingParenthesis}from"./sqlite-schema-sql-XrfUK8rp.mjs";import{_ as captureSqliteSchemaFacts,o as getAdmittedSqliteSchemaFacts}from"./sqlite-schema-facts-Edd-ttp_.mjs";import{i as readTableColumns}from"./openclaw-state-db-schema-helpers-4Hs1ye38.mjs";
+//!src/state/sqlite-table-layout-migration.ts
+function migrateSqliteTableWithoutRowid(e,t){const n=getAdmittedSqliteSchemaFacts(e)??captureSqliteSchemaFacts(e);const r=n.tableSql.get(t);if(!r)return false;const i=findSqlCharacter(r,`(`);const a=findSqlClosingParenthesis(r,i);const o=r.slice(a+1).replace(/;\s*$/u,``).trim();if(/\bWITHOUT\s+ROWID\b/iu.test(o))return false;const s=quoteSqliteIdentifier(t);const c=quoteSqliteIdentifier(`${t}_without_rowid_migration`);const l=[...readTableColumns(e,t)].map(quoteSqliteIdentifier).join(`, `);e.exec(`CREATE TABLE ${c} ${r.slice(i,a+1)}
+      ${o?`${o}, `:``}WITHOUT ROWID;
+    INSERT INTO ${c} (${l}) SELECT ${l} FROM ${s};
+    DROP TABLE ${s};
+    ALTER TABLE ${c} RENAME TO ${s};`);for(const r of[...n.indexDefinitions.values(),...n.triggers.values()])if(r.table===t&&typeof r.sql===`string`)e.exec(r.sql);return true}export{migrateSqliteTableWithoutRowid as t};

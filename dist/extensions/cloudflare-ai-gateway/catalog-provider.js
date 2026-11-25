@@ -1,7 +1,7 @@
 import { buildCloudflareAiGatewayModelDefinition, resolveCloudflareAiGatewayBaseUrl } from "./models.js";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { coerceSecretRef, resolveNonEnvSecretRefApiKeyMarker } from "openclaw/plugin-sdk/secret-input";
-//#region extensions/cloudflare-ai-gateway/catalog-provider.ts
+// extensions/cloudflare-ai-gateway/catalog-provider.ts
 function resolveCloudflareAiGatewayApiKey(cred) {
 	if (!cred || cred.type !== "api_key") return;
 	const keyRef = coerceSecretRef(cred.keyRef);
@@ -30,5 +30,4 @@ function buildCloudflareAiGatewayCatalogProvider(params) {
 		models: [buildCloudflareAiGatewayModelDefinition()]
 	};
 }
-//#endregion
 export { buildCloudflareAiGatewayCatalogProvider };

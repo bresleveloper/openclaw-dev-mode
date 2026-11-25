@@ -1,2 +1,1 @@
-import { n as recordTaskOwnership, t as readReplayedTaskId } from "../../cli-runtime-tasks-CX4wQKWC.mjs";
-export { readReplayedTaskId, recordTaskOwnership };
+import{i as recordTaskOwnership,n as readReplayedTaskId,r as recordRunningDescendants,t as acquireBackgroundTaskHolds}from"../../cli-runtime-tasks-C26J-KE-.mjs";export{acquireBackgroundTaskHolds,readReplayedTaskId,recordRunningDescendants,recordTaskOwnership};

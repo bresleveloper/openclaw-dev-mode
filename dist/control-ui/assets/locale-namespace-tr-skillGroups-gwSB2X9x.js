@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"Çalışma alanı becerileri","learned":"Öğrenilmiş beceriler","builtIn":"Yerleşik beceriler","installed":"Yüklü beceriler","extra":"Ek beceriler","other":"Diğer beceriler"}};

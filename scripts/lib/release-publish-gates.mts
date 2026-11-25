@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { validateReleaseManifestAdvisoryJobs } from "../full-release-validation-policy.mjs";
 import { isRecord } from "./record-shared.mjs";
+import { readReleaseManifestWaivers } from "./release-manifest-waivers.mts";
 import { resolveReleasePublishInputs } from "./release-publish-inputs.mjs";
 import { parseReleaseVersion } from "./release-version.mjs";
 
@@ -35,6 +36,7 @@ export function evaluateReleasePublishGates(input: {
   consumer: ReleasePublishConsumer;
   expectedSha?: string;
   expectedReleaseProfile?: string;
+  readWorkflowSource?: (sha: string, path: string) => string;
 }): ReleasePublishGate[] {
   const { manifest, consumer } = input;
   const gates: ReleasePublishGate[] = [];
@@ -66,7 +68,7 @@ export function evaluateReleasePublishGates(input: {
       "publish-inputs",
       false,
       error instanceof Error ? error.message : String(error),
-      "Reseal publication inputs for the exact release source and npm selector without waivers.",
+      "Reseal publication inputs for the exact release source and npm selector.",
     );
   }
   const rerunGroup = scalar(field(manifest, "rerunGroup"));
@@ -137,10 +139,12 @@ export function evaluateReleasePublishGates(input: {
   const knownFlakyJobs = field(field(manifest, "validationInputs"), "knownFlakyJobsJson");
   let selectedLanesError =
     waived || (knownFlakyJobs !== undefined && knownFlakyJobs !== "[]")
-      ? "Release waiver and known-flaky inputs are no longer accepted."
+      ? "Runtime waiver and known-flaky inputs are no longer accepted."
       : "";
   try {
-    validateReleaseManifestAdvisoryJobs(manifest);
+    validateReleaseManifestAdvisoryJobs(manifest, {
+      waiverPolicy: readReleaseManifestWaivers(manifest, input.readWorkflowSource),
+    });
   } catch (error) {
     selectedLanesError ||= error instanceof Error ? error.message : String(error);
   }
@@ -148,7 +152,7 @@ export function evaluateReleasePublishGates(input: {
     "selected-lanes",
     selectedLanesError === "",
     selectedLanesError,
-    "Use authenticated Full Release Validation evidence with every selected lane passing and no waivers.",
+    "Use successful Full Release Validation evidence evaluated under checked-in release-tooling policy.",
   );
   if (consumer === "stable-closeout") {
     for (const gate of gates) {

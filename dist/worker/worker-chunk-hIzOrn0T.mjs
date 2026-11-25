@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-DyeIuPEC.mjs";function isGitCoauthorCreditEnabled(e){return e===void 0||e===!0}var t,n;function init_user_profile_constants(){return(init_user_profile_constants=e((()=>{t=`gateway-owner`,n=`git.coauthor.enabled`})))()}export{isGitCoauthorCreditEnabled as i,n,init_user_profile_constants as r,t};

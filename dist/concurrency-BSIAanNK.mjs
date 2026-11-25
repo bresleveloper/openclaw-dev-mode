@@ -1,0 +1,3 @@
+import pMap from"p-map";
+//!packages/memory-host-sdk/src/host/concurrency.ts
+async function runWithConcurrency(e,t){const n=/* @__PURE__ */ new Set;try{return await pMap(e,e=>{const t=Promise.resolve().then(e);n.add(t);t.then(()=>n.delete(t),()=>n.delete(t));return t},{concurrency:Math.max(1,Math.floor(t)),stopOnError:true})}catch(e){await Promise.allSettled(n);throw e}}export{runWithConcurrency as t};

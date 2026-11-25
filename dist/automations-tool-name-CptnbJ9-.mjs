@@ -1,0 +1,2 @@
+//!src/agents/tools/automations-tool-name.ts
+const AUTOMATIONS_TOOL_NAME=`automations`;const CRON_SCOPED_READ_ACTIONS=[`list`,`get`,`runs`];function isAutomationsToolName(e){return e===`automations`||e===`cron`}export{CRON_SCOPED_READ_ACTIONS as n,isAutomationsToolName as r,AUTOMATIONS_TOOL_NAME as t};

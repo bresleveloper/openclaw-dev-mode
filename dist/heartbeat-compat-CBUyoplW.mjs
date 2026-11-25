@@ -1,0 +1,1 @@
+import{n as setLegacyHeartbeatsEnabled,t as applyLegacyHeartbeatPromptContribution}from"./heartbeat-compat-DkTWZvrc.mjs";export{applyLegacyHeartbeatPromptContribution};

@@ -1,6 +1,6 @@
 import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { matchesExactOrPrefix, resolveClaudeThinkingProfile } from "openclaw/plugin-sdk/provider-model-shared";
-//#region extensions/vercel-ai-gateway/thinking.ts
+// extensions/vercel-ai-gateway/thinking.ts
 const UPSTREAM_OPENAI_PREFIX = "openai/";
 const UPSTREAM_ANTHROPIC_PREFIX = "anthropic/";
 const BASE_OPENAI_THINKING_LEVELS = [
@@ -27,17 +27,13 @@ function stripTrustedUpstreamPrefix(modelId, prefix) {
 	if (!normalized.startsWith(prefix)) return null;
 	return normalized.slice(prefix.length).trim() || null;
 }
-function hasVercelSpecificClaudeProfile(profile) {
-	return Boolean(profile.defaultLevel || profile.levels.some((level) => level.id === "adaptive" || level.id === "xhigh" || level.id === "max"));
-}
 function resolveVercelAiGatewayThinkingProfile(modelId) {
 	const openAiModelId = stripTrustedUpstreamPrefix(modelId, UPSTREAM_OPENAI_PREFIX);
 	if (openAiModelId) return matchesExactOrPrefix(openAiModelId, VERCEL_OPENAI_XHIGH_MODEL_IDS) ? { levels: [...BASE_OPENAI_THINKING_LEVELS, { id: "xhigh" }] } : void 0;
 	const anthropicModelId = stripTrustedUpstreamPrefix(modelId, UPSTREAM_ANTHROPIC_PREFIX);
 	if (anthropicModelId) {
 		const profile = resolveClaudeThinkingProfile(anthropicModelId);
-		return hasVercelSpecificClaudeProfile(profile) ? profile : void 0;
+		return profile.defaultLevel || profile.levels.some((level) => level.id === "adaptive" || level.id === "xhigh" || level.id === "max") ? profile : void 0;
 	}
 }
-//#endregion
 export { resolveVercelAiGatewayThinkingProfile };

@@ -1,0 +1,2 @@
+//!src/shared/path-array-index.ts
+const MAX_CONFIG_PATH_ARRAY_INDEX=1e5;const CANONICAL_ARRAY_INDEX_SEGMENT=/^(0|[1-9]\d*)$/;function parseConfigPathArrayIndex(e){if(!CANONICAL_ARRAY_INDEX_SEGMENT.test(e))return;const t=Number(e);return Number.isSafeInteger(t)&&t<=MAX_CONFIG_PATH_ARRAY_INDEX?t:void 0}export{parseConfigPathArrayIndex as t};

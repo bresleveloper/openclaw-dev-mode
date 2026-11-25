@@ -8,7 +8,7 @@ import {
   type ProviderModel,
   type ProviderStreamOptions,
 } from "../provider-types.js";
-import type { Model } from "../types.js";
+import type { Model, ModelRequestHeaders } from "../types.js";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 import { stripSystemPromptCacheBoundary } from "../utils/system-prompt-cache-boundary.js";
 import {
@@ -16,41 +16,33 @@ import {
   type GoogleApiType,
   type GoogleProviderOptions,
 } from "./google-shared.js";
+import { googleToolParameters, mapGoogleToolArguments } from "./google-tool-parameters.js";
 import {
   createGoogleVideoPlaceholder,
   GOOGLE_VIDEO_SLOT_OMISSION,
   type GoogleVideoSlots,
 } from "./google-video-slots.js";
 
-const DEFAULT_GOOGLE_API_BASE_URL = "https://generativelanguage.googleapis.com";
-
 let packageVersionMemo: string | undefined;
 
-function resolvePackageVersion(): string {
-  if (!packageVersionMemo) {
-    packageVersionMemo =
-      (typeof process !== "undefined" && process.env?.OPENCLAW_VERSION) || packageManifest.version;
-  }
-  return packageVersionMemo;
-}
-
-export function resolveGoogleApiClientHeaders(params?: {
-  api?: string;
-  baseUrl?: string;
-  model?: Model;
-}): Record<string, string> {
+export function resolveGoogleApiClientHeaders(params: {
+  baseUrl: string;
+  model: Model;
+}): ModelRequestHeaders {
   const hostHeaders = getAiTransportHost().resolveProviderRequestHeaders({
     provider: "google",
-    api: params?.api ?? params?.model?.api ?? "google-generative-ai",
-    baseUrl: params?.baseUrl ?? DEFAULT_GOOGLE_API_BASE_URL,
-    model: params?.model,
+    api: "google-generative-ai",
+    baseUrl: params.baseUrl,
+    model: params.model,
   });
   if (hostHeaders?.["x-goog-api-client"]) {
     return hostHeaders;
   }
   return {
     ...hostHeaders,
-    "x-goog-api-client": `openclaw/${resolvePackageVersion()}`,
+    "x-goog-api-client": `openclaw/${(packageVersionMemo ||=
+      (typeof process !== "undefined" && process.env?.OPENCLAW_VERSION) ||
+      packageManifest.version)}`,
   };
 }
 
@@ -100,6 +92,7 @@ export type GoogleInteractionsRequestBody = {
     temperature?: number;
     top_p?: number;
     top_k?: number;
+    seed?: number;
     max_output_tokens?: number;
     stop_sequences?: string[];
     thinking_level?: string;
@@ -108,6 +101,7 @@ export type GoogleInteractionsRequestBody = {
   };
   store: boolean;
   stream: boolean;
+  service_tier?: "standard" | "flex" | "priority";
 };
 
 function convertMessages<T extends GoogleApiType>(
@@ -220,7 +214,7 @@ function convertMessages<T extends GoogleApiType>(
         type: "function_call",
         id: block.id,
         name: block.name,
-        arguments: block.arguments,
+        arguments: mapGoogleToolArguments(context.tools, block.name, block.arguments, "encode"),
       });
     }
     flushText();
@@ -270,6 +264,9 @@ export function buildGoogleInteractionsParams<T extends GoogleApiType>(
   if (options.topP !== undefined) {
     generationConfig.top_p = options.topP;
   }
+  if (options.seed !== undefined) {
+    generationConfig.seed = options.seed;
+  }
   if (options.maxTokens !== undefined) {
     generationConfig.max_output_tokens = options.maxTokens;
   }
@@ -295,7 +292,7 @@ export function buildGoogleInteractionsParams<T extends GoogleApiType>(
     type: "function",
     name: tool.name,
     description: tool.description || "",
-    parameters: asRecord(tool.parameters),
+    parameters: googleToolParameters(tool.parameters),
   }));
   return {
     model: model.id,

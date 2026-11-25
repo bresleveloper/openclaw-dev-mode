@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { DatabaseSync } from "node:sqlite";
+import type { EngineConnection } from "../../infra/sql-connection.js";
 import { readSqliteDatabaseScopedWriteToken } from "../../infra/sqlite-database-admission.js";
 import { hasUncommittedSqliteWrites } from "../../infra/sqlite-schema-facts.js";
 import type { SessionTranscriptContextVersion } from "./session-transcript-context-version.types.js";
@@ -15,15 +15,15 @@ export function withSessionTranscriptProjectionReceipt<T>(
   return projectionReceipts.run(receipt, read);
 }
 
-function readCurrentReceipt(
-  database: { db: DatabaseSync; path: string },
+/** Worker transport already isolated these facts; readers borrow them within this task. */
+export function readSessionTranscriptProjectionReceipt(
+  database: { db: EngineConnection; path: string },
   sessionId: string,
   version?: SessionTranscriptContextVersion,
 ) {
   const receipt = projectionReceipts.getStore();
   if (
     !receipt ||
-    receipt.path !== database.path ||
     receipt.sessionId !== sessionId ||
     hasUncommittedSqliteWrites(database.db) ||
     (receipt.contextOnly
@@ -32,34 +32,21 @@ function readCurrentReceipt(
         version.generation !== receipt.contextStatsVersion.generation ||
         version.rawSeq !== receipt.contextStatsVersion.rawSeq ||
         version.updatedAt !== receipt.contextStatsVersion.updatedAt
-      : readSqliteDatabaseScopedWriteToken(database.db, receipt.writeScopes) !== receipt.writeToken)
+      : // The scoped token binds the admitted physical store and its committed revision.
+        readSqliteDatabaseScopedWriteToken(database.db, receipt.writeScopes) !== receipt.writeToken)
   ) {
     return undefined;
   }
   return receipt;
 }
 
-export function readSessionTranscriptProjectionReceipt(
-  database: { db: DatabaseSync; path: string },
-  sessionId: string,
-  version?: SessionTranscriptContextVersion,
-) {
-  const receipt = readCurrentReceipt(database, sessionId, version);
-  return (
-    receipt &&
-    structuredClone({
-      facts: receipt.facts,
-      contextStats: receipt.contextStats,
-      contextOnly: receipt.contextOnly,
-    })
-  );
-}
-
 /** Accounting needs row validity, already established by the complete actor postimage. */
 export function hasSessionTranscriptEntryReceipt(
-  database: { db: DatabaseSync; path: string },
+  database: { db: EngineConnection; path: string },
   sessionId: string,
   sessionKey: string,
 ): boolean {
-  return readCurrentReceipt(database, sessionId)?.entrySessionKey === sessionKey;
+  return (
+    readSessionTranscriptProjectionReceipt(database, sessionId)?.entrySessionKey === sessionKey
+  );
 }

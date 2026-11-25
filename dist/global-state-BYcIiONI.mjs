@@ -1,0 +1,2 @@
+//!src/global-state.ts
+let globalVerbose=false;let globalYes=false;function setVerbose(e){globalVerbose=e}function isVerbose(){return globalVerbose}function setYes(e){globalYes=e}function isYes(){return globalYes}export{setYes as i,isYes as n,setVerbose as r,isVerbose as t};

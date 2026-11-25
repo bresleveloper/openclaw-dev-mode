@@ -1,3 +1,3 @@
-import { a as ControlUiLinkReaderPreview, i as ControlUiLinkReaderMetadata, n as ControlUiLinkReaderDetailParams, o as ControlUiLinkReaderPreviewParams, r as ControlUiLinkReaderDocument, t as ControlUiLinkReaderDescriptor } from "../control-ui-link-reader-xJxo2y-a.js";
-import "../control-ui-link-reader-ChTCD2ne.js";
+import { a as ControlUiLinkReaderPreview, i as ControlUiLinkReaderMetadata, n as ControlUiLinkReaderDetailParams, o as ControlUiLinkReaderPreviewParams, r as ControlUiLinkReaderDocument, t as ControlUiLinkReaderDescriptor } from "../control-ui-link-reader-DaJ2Fr9p.js";
+import "../control-ui-link-reader-CZZT_gMB.js";
 export type { ControlUiLinkReaderDescriptor, ControlUiLinkReaderDetailParams, ControlUiLinkReaderDocument, ControlUiLinkReaderMetadata, ControlUiLinkReaderPreview, ControlUiLinkReaderPreviewParams };

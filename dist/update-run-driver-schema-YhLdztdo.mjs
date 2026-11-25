@@ -1,0 +1,3 @@
+import{Fn as object,Jn as string,Pn as number}from"./schemas-DuCQi-Qb.mjs";
+//!src/infra/update-run-driver-schema.ts
+const UpdateRunDriverSchema=object({host:string().min(1).max(255),pid:number().int().positive().max(Number.MAX_SAFE_INTEGER),startIdentity:string().max(128).regex(/^\d+$/)});const RecordedUpdateRunDriverSchema=UpdateRunDriverSchema.extend({namespace:string().regex(/^\["(?:linux|darwin|win32|freebsd)","[\w:.-]{1,40}",(?:null|"pid:\[\d{1,20}\]"),(?:null|"[a-f0-9]{64}")\]$/u).nullable().optional()});export{UpdateRunDriverSchema as n,RecordedUpdateRunDriverSchema as t};

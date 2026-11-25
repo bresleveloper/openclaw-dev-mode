@@ -6,15 +6,18 @@
 // from disk:
 //   1. legacy migrations: addDoctorLegacyIssues -> applyLegacyCompatibilityStep
 //   2. value-format repairs: normalizeCompatibilityConfigValues
-//   3. unknown-key removal: applyUnknownConfigKeyStep
+//   3. unknown-key removal: stripUnknownConfigKeys + protectActiveAuthProfileConfig (the unknown-key
+//      half of applyRetiredConfigStep; until 2026.11.3 it was applyUnknownConfigKeyStep)
 // then writes the way doctor's write step does (runWriteConfigHealth in
 // src/flows/doctor-health-contribution-runners.config.ts): restoreDoctorConfigEnvRefs puts the
 // ${VAR} references back, transformConfigFile commits against the hash that was read.
-// Nothing else from doctor --fix runs: no preflight or state migrations, no agent-roster
-// persistence, no plugin installs/auto-enable/pruning, no binding, Tailscale, auth, token,
-// session-store or cron repairs. Unlike doctor, a candidate that fails validation is never
-// written, and the writer's size-drop guard stays on. Must stay under src/commands/doctor/:
-// only doctor may import the legacy migration modules (shared/legacy-config-write-ownership.test.ts).
+// Nothing else from doctor --fix runs: no preflight or state migrations, no heartbeat retirement
+// (applyRetiredConfigStep's other half, which writes the cron store: `agents.*.heartbeat` stays in
+// the file, and a build that refuses it reports "still-invalid"), no agent-roster persistence, no
+// plugin installs/auto-enable/pruning, no binding, Tailscale, auth, token, session-store or cron
+// repairs. Unlike doctor, a candidate that fails validation is never written, and the writer's
+// size-drop guard stays on. Must stay under src/commands/doctor/: only doctor may import the
+// legacy migration modules (shared/legacy-config-write-ownership.test.ts).
 //
 // Agent roster: the reader materializes an implicit `agents.entries.main` placeholder when the
 // file authors no roster (src/config/implicit-agent-roster.ts; sourceConfig carries it,
@@ -24,9 +27,13 @@
 // doctor; only the reader's placeholder is dropped before writing.
 //
 // Regression checklist after an upstream upgrade:
-// - doctor-config-flow.ts: same stage functions, same arguments, same order? Same
-//   rosterMigrationNeeded check (LEGACY_AGENT_ROSTER_RULES + listAgentEntries on
-//   sourceConfigBeforeMigrations, ownership stamp on the loaded config)?
+// - doctor-config-flow.ts: same stage functions, same arguments, same order (addDoctorLegacyIssues
+//   and normalizeCompatibilityConfigValues are async since 2026.11.10)? Same unknown-key half in
+//   applyRetiredConfigStep (config-flow-steps.ts)? Same rosterMigrationNeeded check
+//   (LEGACY_AGENT_ROSTER_RULES + listAgentEntries on sourceConfigBeforeMigrations, ownership
+//   stamp on the loaded config)? At 2026.11.10 doctor also treats an EMPTY roster as a migration
+//   (`listAgentEntries(sourceRosterConfig).length === 0`); this file still lets such a file through
+//   and drops the reader's placeholder.
 // - runWriteConfigHealth: still restoreDoctorConfigEnvRefs + transformConfigFile?
 // - io.snapshot.ts: still applies the implicit roster to sourceConfig only?
 // - io.write.ts: still writes an invalid file's candidate as-is (roster tests in the test file)?
@@ -37,14 +44,15 @@ import { formatCliCommand } from "../../cli/command-format.js";
 import { readConfigFileSnapshot, transformConfigFile } from "../../config/config.js";
 import { INCLUDE_KEY } from "../../config/includes.js";
 import { formatConfigIssueLines } from "../../config/issue-format.js";
-import { findLegacyConfigRuleIssues } from "../../config/legacy.js";
+import { findLegacyConfigRuleIssues } from "../../config/legacy.shared.js";
 import type { ConfigValidationIssue, OpenClawConfig } from "../../config/types.js";
 import { validateConfigObjectRawWithPlugins } from "../../config/validation.js";
 import { formatErrorMessage } from "../../infra/errors.js";
 import { isRecord } from "../../utils.js";
+import { protectActiveAuthProfileConfig } from "../doctor-auth-profile-config.js";
+import { stripUnknownConfigKeys } from "../doctor-config-analysis.js";
 import {
   applyLegacyCompatibilityStep,
-  applyUnknownConfigKeyStep,
   prepareDoctorConfigReferenceSource,
   restoreDoctorConfigEnvRefs,
 } from "./shared/config-flow-steps.js";
@@ -152,7 +160,7 @@ export async function fixConfigContent(
   }
   const implicitMainRoster = listAgentEntries(sourceRosterConfig).length === 0;
 
-  const snapshot = addDoctorLegacyIssues(read);
+  const snapshot = await addDoctorLegacyIssues(read);
   let state: DoctorConfigMutationState = {
     cfg: snapshot.sourceConfig,
     candidate: structuredClone(snapshot.sourceConfig),
@@ -174,25 +182,41 @@ export async function fixConfigContent(
   const detectedLegacyLines = new Set(formatConfigIssueLines(snapshot.legacyIssues, "-"));
 
   const blockedCodexProviderPlan = collectBlockedLegacyOpenAICodexProviderPlan(state.candidate);
-  const normalized = normalizeCompatibilityConfigValues(state.candidate, {
+  const normalized = await normalizeCompatibilityConfigValues(state.candidate, {
     blockedModelIdentities: new Set(blockedCodexProviderPlan.blockedModelIdentities),
     sourceRaw: snapshot.parsed,
   });
   state = applyDoctorConfigMutation({ state, mutation: normalized, shouldRepair: true });
 
-  const unknownStep = applyUnknownConfigKeyStep({ state, shouldRepair: true, doctorFixCommand });
-  state = unknownStep.state;
+  // The unknown-key half of upstream's applyRetiredConfigStep (shared/config-flow-steps.ts), which
+  // replaced applyUnknownConfigKeyStep at 2026.11.10. The other half, retireHeartbeatWithDoctor,
+  // moves heartbeat settings into the cron store (a state migration) and is NOT run here, so
+  // stripUnknownConfigKeys leaves `agents.*.heartbeat` and `channels.*.heartbeatVisibility` in
+  // the file for doctor. Deferred plugin migrations (its preservedPaths argument) only come from
+  // `openclaw update`, which FIX-09 blocks.
+  const unknown = stripUnknownConfigKeys(state.candidate);
+  const protectedAuth =
+    unknown.removed.length > 0
+      ? protectActiveAuthProfileConfig({ before: state.candidate, after: unknown.config })
+      : { config: state.candidate, repairs: [], warnings: [] };
+  if (unknown.removed.length > 0) {
+    state = applyDoctorConfigMutation({
+      state,
+      mutation: { config: protectedAuth.config, changes: unknown.removed },
+      shouldRepair: true,
+    });
+  }
 
   const changes = [
     ...legacyStep.changeLines,
     ...normalized.changes,
-    ...unknownStep.removed.map((removedPath) => `Removed unknown config key: ${removedPath}`),
-    ...unknownStep.repairs,
+    ...unknown.removed.map((removedPath) => `Removed unknown config key: ${removedPath}`),
+    ...protectedAuth.repairs,
   ];
   const warnings = [
     ...legacyStep.issueLines.filter((line) => !detectedLegacyLines.has(line)),
     ...(normalized.warnings ?? []),
-    ...unknownStep.warnings,
+    ...protectedAuth.warnings,
   ];
   if (!state.pendingChanges) {
     return { ...report, status: "unchanged", warnings };

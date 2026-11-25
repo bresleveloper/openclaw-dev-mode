@@ -1,0 +1,3 @@
+import{n as getWindowsInstallRoots}from"./windows-install-roots-DhwMsIDT.mjs";import{t as resolveSystemBin}from"./resolve-system-bin-ByEoMSaj.mjs";import path from"node:path";
+//!src/infra/ssh-client.ts
+function resolveSshClient(){if(process.platform!==`win32`)return resolveSystemBin(`ssh`,{trust:`strict`});const{systemRoot:e}=getWindowsInstallRoots();const t=path.win32.join(e,`System32`,`OpenSSH`);return resolveSystemBin(`ssh`,{trust:`strict`,extraDirs:[t]})}export{resolveSshClient as t};

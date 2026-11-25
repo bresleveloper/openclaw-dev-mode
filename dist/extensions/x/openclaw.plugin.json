@@ -17,11 +17,15 @@
     "properties": {}
   },
   "controlUi": {
-    "entry": "dist/control-ui/df3cf5b4a34d0508117436eeea020c0cbe71b55407982d0e00e773e16e1d6e74/index.js",
+    "entry": "dist/control-ui/4f7196920aab6da3d3b36b3eb9f71a8fe596445a4cd91f30fe62f372aba66fa4/index.js",
     "styles": [
-      "dist/control-ui/df3cf5b4a34d0508117436eeea020c0cbe71b55407982d0e00e773e16e1d6e74/index.css"
+      "dist/control-ui/4f7196920aab6da3d3b36b3eb9f71a8fe596445a4cd91f30fe62f372aba66fa4/index.css"
     ]
   },
+  "recommendedPrompts": [
+    "Help me plan an X mention bot with a narrow audience and cost budget.",
+    "Draft a concise public reply to an X mention I provide without posting it."
+  ],
   "channelConfigs": {
     "x": {
       "schema": {
@@ -595,6 +599,28 @@
             "type": "string",
             "maxLength": 140
           },
+          "failureRoute": {
+            "type": "object",
+            "properties": {
+              "channel": {
+                "type": "string",
+                "minLength": 1
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1
+              },
+              "accountId": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "channel",
+              "to"
+            ],
+            "additionalProperties": false
+          },
           "accounts": {
             "type": "object",
             "properties": {},
@@ -1167,6 +1193,28 @@
                 "replySignature": {
                   "type": "string",
                   "maxLength": 140
+                },
+                "failureRoute": {
+                  "type": "object",
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "to": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "accountId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "channel",
+                    "to"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "additionalProperties": false

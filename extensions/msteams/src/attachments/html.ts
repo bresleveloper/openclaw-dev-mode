@@ -14,6 +14,15 @@ import type {
   MSTeamsInboundMedia,
 } from "./types.js";
 
+function collectHtmlAttachmentIds(html: string, ids: Set<string>): void {
+  for (const value of htmlTagAttributeValues(html, "attachment", "id")) {
+    const id = value.trim();
+    if (id) {
+      ids.add(id);
+    }
+  }
+}
+
 /**
  * Extract every `<attachment id="...">` reference from the HTML attachments in
  * the inbound activity. Returns the complete (non-sliced) list; callers that
@@ -22,22 +31,14 @@ import type {
 export function extractMSTeamsHtmlAttachmentIds(
   attachments: MSTeamsAttachmentLike[] | undefined,
 ): string[] {
-  const list = Array.isArray(attachments) ? attachments : [];
-  if (list.length === 0) {
-    return [];
-  }
+  const list = attachments ?? [];
   const ids = new Set<string>();
   for (const att of list) {
     const html = extractHtmlFromAttachment(att);
     if (!html) {
       continue;
     }
-    for (const value of htmlTagAttributeValues(html, "attachment", "id")) {
-      const id = value.trim();
-      if (id) {
-        ids.add(id);
-      }
-    }
+    collectHtmlAttachmentIds(html, ids);
   }
   return Array.from(ids);
 }
@@ -45,16 +46,12 @@ export function extractMSTeamsHtmlAttachmentIds(
 export function summarizeMSTeamsHtmlAttachments(
   attachments: MSTeamsAttachmentLike[] | undefined,
 ): MSTeamsHtmlAttachmentSummary | undefined {
-  const list = Array.isArray(attachments) ? attachments : [];
-  if (list.length === 0) {
-    return undefined;
-  }
+  const list = attachments ?? [];
   let htmlAttachments = 0;
   let imgTags = 0;
   let dataImages = 0;
   let cidImages = 0;
   const srcHosts = new Set<string>();
-  let attachmentTags = 0;
   const attachmentIds = new Set<string>();
 
   for (const att of list) {
@@ -77,13 +74,7 @@ export function summarizeMSTeamsHtmlAttachments(
       }
     }
 
-    for (const value of htmlTagAttributeValues(html, "attachment", "id")) {
-      attachmentTags += 1;
-      const id = value.trim();
-      if (id) {
-        attachmentIds.add(id);
-      }
-    }
+    collectHtmlAttachmentIds(html, attachmentIds);
   }
 
   if (htmlAttachments === 0) {
@@ -95,7 +86,6 @@ export function summarizeMSTeamsHtmlAttachments(
     dataImages,
     cidImages,
     srcHosts: Array.from(srcHosts).slice(0, 5),
-    attachmentTags,
     attachmentIds: Array.from(attachmentIds).slice(0, 5),
   };
 }
@@ -127,10 +117,7 @@ function createAdvertisedMediaFact(
 export function resolveMSTeamsAdvertisedMedia(
   attachments: MSTeamsAttachmentLike[] | undefined,
 ): MSTeamsInboundMedia[] {
-  const list = Array.isArray(attachments) ? attachments : [];
-  if (list.length === 0) {
-    return [];
-  }
+  const list = attachments ?? [];
   const fileAttachments = list.filter(isAdvertisedFileAttachment);
   const inlineMedia = extractInlineImageReferences(list).map((candidate) =>
     createAdvertisedMediaFact("image", candidate.sourceId),

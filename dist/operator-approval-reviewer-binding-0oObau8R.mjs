@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{v as normalizeUniqueTrimmedStringList}from"./string-normalization-D_oBUpO3.mjs";
+//!src/gateway/operator-approval-reviewer-binding.ts
+function matchesOperatorApprovalReviewerBinding(e,t){const n=normalizeOptionalString(t);const r=normalizeUniqueTrimmedStringList([...e.reviewerDeviceIds??[]]);if(r.length>0)return Boolean(n&&r.includes(n));return true}export{matchesOperatorApprovalReviewerBinding as t};

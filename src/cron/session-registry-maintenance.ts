@@ -16,7 +16,7 @@ import {
 import { createRetainedAgentDatabaseMatcherFromSnapshot } from "../state/agent-deletion-discovery.js";
 import { prepareAgentDatabaseDeletionSnapshotRead } from "../state/agent-deletion-journal.read.js";
 import { OPENCLAW_AGENT_SCHEMA_VERSION } from "../state/openclaw-agent-db-contract.js";
-import { loadCronJobsStore } from "./store.js";
+import { loadCronJobsStoreWithConfigJobsReadOnly } from "./store/read-only.js";
 
 const log = createSubsystemLogger("cron/maintenance");
 
@@ -66,9 +66,9 @@ type RunningCronJobIds =
 
 async function readRunningCronJobIds(cronStorePath: string): Promise<RunningCronJobIds> {
   try {
-    const runningJobs = (await loadCronJobsStore(cronStorePath)).jobs.filter(
-      (job) => typeof job.state?.runningAtMs === "number",
-    );
+    const runningJobs = (
+      await loadCronJobsStoreWithConfigJobsReadOnly(cronStorePath)
+    ).store.jobs.filter((job) => typeof job.state?.runningAtMs === "number");
     // A running detached job may have been retargeted after its session was created. Keep its
     // explicit session segment because the registry has no producer metadata for the transcript.
     const ids = new Set<string>();
@@ -215,16 +215,16 @@ export async function runSessionRegistryMaintenance(params: {
           ? store.nextSweepAtMs === null
             ? []
             : [store.nextSweepAtMs]
-          : store.skippedReason === "agent-deletion-complete"
-            ? []
-            : [Date.now() + 60_000],
+          : store.skippedReason === "agent-deletion-pending"
+            ? [Date.now() + 60_000]
+            : [],
       );
       if (incompleteInventory) {
         deadlines.push(Date.now() + 60_000);
       }
       return {
-        ...(incompleteInventory ? { skippedReason: "session child inventory incomplete" } : {}),
         nextSweepAtMs: deadlines.length > 0 ? Math.min(...deadlines) : null,
+        ...(incompleteInventory ? { skippedReason: "session child inventory incomplete" } : {}),
         retentionMs: SESSION_REGISTRY_RETENTION_MS,
         runningCronJobs: runningCronJobs.count,
         pruned: stores.reduce((total, store) => total + ("pruned" in store ? store.pruned : 0), 0),

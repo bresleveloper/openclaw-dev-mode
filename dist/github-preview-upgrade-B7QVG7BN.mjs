@@ -1,0 +1,3 @@
+import{t as loadBundledPluginPublicArtifactModuleFromCandidatesSync}from"./public-surface-loader-BfDPD6QJ.mjs";
+//!src/commands/doctor/shared/github-preview-upgrade.ts
+function collectGitHubUpgradeWarnings(e){return loadBundledPluginPublicArtifactModuleFromCandidatesSync({dirName:`github`,artifactCandidates:[`upgrade-api.js`]})?.collectGitHubUpgradeWarnings(e)??[]}export{collectGitHubUpgradeWarnings};

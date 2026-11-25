@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/sms/index.ts
+// extensions/sms/index.ts
 var sms_default = defineBundledChannelEntry({
 	id: "sms",
 	name: "SMS",
@@ -14,5 +14,4 @@ var sms_default = defineBundledChannelEntry({
 		exportName: "setSmsRuntime"
 	}
 });
-//#endregion
 export { sms_default as default };

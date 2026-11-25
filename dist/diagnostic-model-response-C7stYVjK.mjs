@@ -1,0 +1,2 @@
+//!src/agents/diagnostic-model-response.ts
+function resolveDiagnosticModelResponse(e){if(e.meta.livenessState===`blocked`||e.meta.providerStarted===false)return;const t=e.meta.finalAssistantMessageRawText??e.meta.finalAssistantRawText;return t?.trim()?t:void 0}export{resolveDiagnosticModelResponse as t};

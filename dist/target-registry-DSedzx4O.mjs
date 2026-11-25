@@ -1,0 +1,1 @@
+import"./target-registry-query-BOiHjxwo.mjs";export{};

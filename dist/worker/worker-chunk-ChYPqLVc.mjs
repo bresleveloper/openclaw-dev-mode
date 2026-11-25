@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";var t,packageUpdateRefusal,n=e((()=>{t=[`package-recovery-permissions-unsafe`,`managed-handoff-lease-identity-changed`],packageUpdateRefusal=(e,t)=>Object.assign(Error(t),{code:e})}));export{n,packageUpdateRefusal as r,t};

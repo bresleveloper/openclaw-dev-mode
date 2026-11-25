@@ -1,0 +1,1 @@
+import{v as e}from"./openclaw-state-read-home-dir-BQZX1pD2.mjs";e(Symbol.for(`openclaw.gatewayOperatorAccessUnavailableError`),()=>class extends Error{constructor(){super(`Gateway access policy is unavailable; retry the operation.`),this.name=`GatewayOperatorAccessUnavailableError`}});export{};

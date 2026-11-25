@@ -1,0 +1,2 @@
+//!src/gateway/live-text-continuity.ts
+function isLiveTextAppend(e,t){return e!==void 0&&t.snapshot.length===e.length+t.delta.length&&t.snapshot.startsWith(e)&&t.snapshot.endsWith(t.delta)}export{isLiveTextAppend as t};

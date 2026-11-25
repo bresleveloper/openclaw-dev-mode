@@ -1,2 +1,1 @@
-import { i as isMattermostSenderAllowed } from "./.setup/monitor-auth-rr4M-8gH.mjs";
-export { isMattermostSenderAllowed };
+export { i as isMattermostSenderAllowed } from "./.setup/monitor-auth-C9TiGGVQ.mjs";

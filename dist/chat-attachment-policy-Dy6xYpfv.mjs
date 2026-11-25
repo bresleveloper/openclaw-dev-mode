@@ -1,0 +1,5 @@
+import{r as MAX_IMAGE_BYTES}from"./constants-cCp4CBUF.mjs";import{t as MAX_PAYLOAD_BYTES}from"./payload-limits-B_UjsOw2.mjs";
+//!src/shared/chat-attachment-frame-budget.ts
+const WS_FRAME_ENVELOPE_SLACK_BYTES=262144;function resolveChatAttachmentFrameBudgetBytes(e){return Math.max(0,Math.floor((e-WS_FRAME_ENVELOPE_SLACK_BYTES)*3/4))}
+//!src/gateway/chat-attachment-policy.ts
+const DEFAULT_CHAT_ATTACHMENT_MAX_MB=20;const MAX_ADVERTISED_ATTACHMENT_BYTES=resolveChatAttachmentFrameBudgetBytes(MAX_PAYLOAD_BYTES);const DEFAULT_CHAT_ATTACHMENT_MAX_BYTES=DEFAULT_CHAT_ATTACHMENT_MAX_MB*1024*1024;function resolveChatAttachmentMaxBytes(e){const t=e.agents?.defaults?.mediaMaxMb??DEFAULT_CHAT_ATTACHMENT_MAX_MB;return Math.min(Number.MAX_SAFE_INTEGER,Math.max(1,Math.floor(t*1024*1024)))}function resolveChatAttachmentPolicy(e){const t=Math.min(resolveChatAttachmentMaxBytes(e),MAX_ADVERTISED_ATTACHMENT_BYTES);return{maxBytes:t,maxImageBytes:Math.min(t,MAX_IMAGE_BYTES)}}export{resolveChatAttachmentFrameBudgetBytes as i,resolveChatAttachmentMaxBytes as n,resolveChatAttachmentPolicy as r,DEFAULT_CHAT_ATTACHMENT_MAX_BYTES as t};

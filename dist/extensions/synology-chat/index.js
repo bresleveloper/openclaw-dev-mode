@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/synology-chat/index.ts
+// extensions/synology-chat/index.ts
 var synology_chat_default = defineBundledChannelEntry({
 	id: "synology-chat",
 	name: "Synology Chat",
@@ -14,5 +14,4 @@ var synology_chat_default = defineBundledChannelEntry({
 		exportName: "setSynologyRuntime"
 	}
 });
-//#endregion
 export { synology_chat_default as default };

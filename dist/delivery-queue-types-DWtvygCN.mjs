@@ -1,0 +1,2 @@
+//!src/infra/outbound/delivery-queue-types.ts
+function hasActiveDeliveryOwner(e,t){if(typeof e.availableAt!==`number`||!(e.availableAt>t))return false;return e.requiresProducerClaim===true?e.recoveryState===`producer_claimed`||e.recoveryState===`send_attempt_started`||e.recoveryState===`unknown_after_send`:(typeof e.completionRetention===`object`||e.completionRetention===`permanent`)&&e.recoveryState===`producer_claimed`}export{hasActiveDeliveryOwner as t};

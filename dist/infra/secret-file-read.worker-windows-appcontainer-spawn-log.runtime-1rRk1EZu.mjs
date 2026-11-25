@@ -1,0 +1,1 @@
+import{t as e}from"./secret-file-read.worker-subsystem-BiFXJtsX.mjs";function logAppContainerTokenProbeFailure(t){e(`process`).debug(`AppContainer token probe failed; allowing spawn`,{error:String(t)})}export{logAppContainerTokenProbeFailure};

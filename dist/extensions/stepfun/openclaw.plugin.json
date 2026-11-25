@@ -51,6 +51,7 @@
       "stepfun": {
         "baseUrl": "https://api.stepfun.ai/v1",
         "api": "openai-completions",
+        "family": "stepfun",
         "models": [
           {
             "id": "step-3.7-flash",
@@ -120,6 +121,7 @@
       "stepfun-plan": {
         "baseUrl": "https://api.stepfun.ai/step_plan/v1",
         "api": "openai-completions",
+        "family": "stepfun",
         "models": [
           {
             "id": "step-3.7-flash",

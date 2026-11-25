@@ -1,0 +1,2 @@
+//!src/cron/store/runtime-mutation.worker.ts
+function createCronMutationLogger(e){const record=t=>(n,r)=>{e.push({level:t,fields:n,message:r})};return{debug:record(`debug`),info:record(`info`),warn:record(`warn`),error:record(`error`)}}export{createCronMutationLogger as t};

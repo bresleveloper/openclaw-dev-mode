@@ -1,0 +1,5 @@
+//!src/flows/health-check-adapter.ts
+function normalizeHealthCheck(e){return{id:e.id,kind:e.kind,description:e.description,source:e.source,defaultEnabled:e.defaultEnabled,updateReadiness:e.updateReadiness,detect:(t,n)=>e.detect(t,n),repair:e.repair===void 0?void 0:(t,n)=>e.repair?.(t,n)??Promise.resolve({changes:[]})}}function securityAuditFindingToHealthFinding(e){const[t,...n]=e.detail.split(`
+`);const r=[...n,...e.remediation?.split(`
+`)??[]].join(`
+`);return{checkId:`core/doctor/security`,requirement:e.checkId,severity:e.severity===`critical`?`error`:e.severity===`warn`?`warning`:`info`,message:`${e.title}${t?`: ${t}`:``}`,...r?{fixHint:r}:{}}}export{securityAuditFindingToHealthFinding as n,normalizeHealthCheck as t};

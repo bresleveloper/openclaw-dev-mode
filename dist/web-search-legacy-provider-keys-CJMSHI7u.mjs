@@ -1,0 +1,2 @@
+//!src/config/web-search-legacy-provider-keys.ts
+const LEGACY_WEB_SEARCH_PROVIDER_CONFIG_KEYS=/* @__PURE__ */ new Set([`brave`,`duckduckgo`,`exa`,`firecrawl`,`gemini`,`grok`,`kimi`,`minimax`,`ollama`,`perplexity`,`searxng`,`tavily`]);function isLegacyWebSearchProviderConfigKey(e){return LEGACY_WEB_SEARCH_PROVIDER_CONFIG_KEYS.has(e)}export{isLegacyWebSearchProviderConfigKey as n,LEGACY_WEB_SEARCH_PROVIDER_CONFIG_KEYS as t};

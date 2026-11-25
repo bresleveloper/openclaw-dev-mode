@@ -1,0 +1,1 @@
+import{n as listActiveChannelSetupPlugins,r as listChannelSetupPlugins,t as getChannelSetupPlugin}from"./setup-registry-Bmco0VYC.mjs";export{getChannelSetupPlugin,listActiveChannelSetupPlugins,listChannelSetupPlugins};

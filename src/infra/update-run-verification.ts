@@ -42,7 +42,7 @@ export function recordUpdateRunVerificationRecord(
   }
   record.verification = {
     ...record.verification,
-    // A released observer cannot inherit a newer core readiness proof.
+    // A released observer's readiness verdict cannot inherit a newer core proof.
     ...(verification.readyz !== undefined && verification.coreReady === undefined
       ? { coreReady: undefined }
       : {}),

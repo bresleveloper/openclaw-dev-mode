@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-B2jtfsbQ.mjs";t();export{e as preparePluginDoctorMigrationResources};

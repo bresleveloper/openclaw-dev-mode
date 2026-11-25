@@ -1,0 +1,3 @@
+import{t as isPromiseLike}from"./promise-like-OKzBwzLG.mjs";
+//!src/infra/sql-connection.ts
+function assertSyncTransactionResult(e){if(isPromiseLike(e))throw new Error(`SQLite write transactions must be synchronous; Promise returns are not supported.`)}const postgresConnectionBrand=Symbol.for(`openclaw.postgres-sync-connection`);function isPostgresSqlConnection(e){return postgresConnectionBrand in e&&e[postgresConnectionBrand]===true}function sqlPublicationAnchor(e){return isPostgresSqlConnection(e)?e.anchor:e}export{isPostgresSqlConnection as n,sqlPublicationAnchor as r,assertSyncTransactionResult as t};

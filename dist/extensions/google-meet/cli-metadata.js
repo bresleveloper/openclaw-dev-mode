@@ -1,6 +1,6 @@
-import { t as GOOGLE_MEET_CLI_DESCRIPTOR } from "./.setup/cli-output-mode-BwH_6tH8.mjs";
+import { t as GOOGLE_MEET_CLI_DESCRIPTOR } from "./.setup/cli-output-mode-DztqqVeZ.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/google-meet/cli-metadata.ts
+// extensions/google-meet/cli-metadata.ts
 var cli_metadata_default = definePluginEntry({
 	id: "google-meet",
 	name: "Google Meet",
@@ -9,5 +9,4 @@ var cli_metadata_default = definePluginEntry({
 		api.registerCli(() => {}, { descriptors: [GOOGLE_MEET_CLI_DESCRIPTOR] });
 	}
 });
-//#endregion
 export { cli_metadata_default as default };

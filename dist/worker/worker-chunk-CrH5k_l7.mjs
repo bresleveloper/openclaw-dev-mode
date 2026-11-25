@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-1MP0oaS1.mjs";t();export{e as loadPluginMetadataRegistrySnapshot};

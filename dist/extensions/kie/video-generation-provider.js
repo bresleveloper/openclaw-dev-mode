@@ -1,2 +1,1 @@
-import { t as buildKieVideoGenerationProvider } from "../../video-generation-provider-BgSzMZVS.mjs";
-export { buildKieVideoGenerationProvider };
+import{t as buildKieVideoGenerationProvider}from"../../video-generation-provider-BVM-vJNh.mjs";export{buildKieVideoGenerationProvider};

@@ -1,0 +1,2 @@
+//!src/shared/provider-auth-result.ts
+var ProviderCredentialsSavedError=class extends Error{constructor(e,t){super(e,t);this.name=`ProviderCredentialsSavedError`}};var ProviderAuthConfigApplyError=class extends ProviderCredentialsSavedError{constructor(e){super(`Credentials saved, but provider settings could not be applied: ${e instanceof Error?e.message:String(e)}`,{cause:e});this.name=`ProviderAuthConfigApplyError`}};export{ProviderCredentialsSavedError as n,ProviderAuthConfigApplyError as t};

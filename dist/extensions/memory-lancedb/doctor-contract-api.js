@@ -1,15 +1,16 @@
-import { o as __toESM } from "./.setup/rolldown-runtime-BMI-E3GI.mjs";
-import { resolveDefaultDbPath, resolveEnvVars } from "./config.js";
-import { MEMORY_AGENT_ID_COLUMN, MEMORY_TABLE_NAME, hasAgentScopeColumn, memoryAgentPredicate, quoteLanceSqlString } from "./lancedb-schema.js";
+import { o as __toESM } from "./.setup/rolldown-runtime-C1I3wEg2.mjs";
+import { a as resolveDefaultDbPath, o as resolveEnvVars } from "./.setup/config-C3bRv7Yn.mjs";
+import { t as acquireMemoryTableUsage } from "./.setup/lancedb-custody-BXEYogVG.mjs";
+import { i as hasAgentScopeColumn, o as memoryAgentPredicate, r as MEMORY_TABLE_NAME, s as quoteLanceSqlString, t as MEMORY_AGENT_ID_COLUMN } from "./.setup/lancedb-schema-Cn7oifJZ.mjs";
 import { resolveDefaultAgentId } from "openclaw/plugin-sdk/agent-scope-runtime";
 import { normalizeAgentId } from "openclaw/plugin-sdk/routing";
 import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { escapeRegExp } from "openclaw/plugin-sdk/text-utility-runtime";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import os from "node:os";
-import { fileURLToPath } from "node:url";
-//#region extensions/memory-lancedb/doctor-contract-api.ts
+// extensions/memory-lancedb/doctor-contract-api.ts
 const LEGACY_ENVELOPE_DELETE_BATCH_SIZE = 500;
 function resolveLegacyMemoryOwner(config) {
 	const explicitSystemAgentId = config.agents?.ownership === "explicit" ? config.agents.defaults?.systemAgent?.agentId?.trim() : void 0;
@@ -79,17 +80,22 @@ async function openMemoryTable(params) {
 		table: null,
 		dbPath
 	};
-	const lancedb = await import("./.setup/dist-C_AfbPLz.mjs").then((m) => /* @__PURE__ */ __toESM(m.default, 1));
-	const storageOptions = resolveStorageOptions(params.config, params.env);
-	const connection = await lancedb.connect(dbPath, storageOptions ? { storageOptions } : {});
+	const usage = await acquireMemoryTableUsage(dbPath);
+	let connection = null;
 	try {
+		const lancedb = await import("./.setup/dist-DJT3wNEe.mjs").then((m) => /* @__PURE__ */ __toESM(m.default, 1));
+		const storageOptions = resolveStorageOptions(params.config, params.env);
+		connection = await lancedb.connect(dbPath, storageOptions ? { storageOptions } : {});
+		const table = (await connection.tableNames()).includes("memories") ? await connection.openTable(MEMORY_TABLE_NAME) : null;
 		return {
 			connection,
-			table: (await connection.tableNames()).includes("memories") ? await connection.openTable(MEMORY_TABLE_NAME) : null,
-			dbPath
+			table,
+			dbPath,
+			usage
 		};
 	} catch (error) {
-		connection.close();
+		connection?.close();
+		await usage?.release();
 		throw error;
 	}
 }
@@ -100,6 +106,7 @@ async function withMemoryTable(params, run) {
 	} finally {
 		opened.table?.close();
 		opened.connection?.close();
+		await opened.usage?.release();
 	}
 }
 function createMemoryLanceDbStateMigrations(pluginRoot = DEFAULT_PLUGIN_ROOT) {
@@ -182,5 +189,4 @@ function createMemoryLanceDbStateMigrations(pluginRoot = DEFAULT_PLUGIN_ROOT) {
 	}];
 }
 const stateMigrations = createMemoryLanceDbStateMigrations();
-//#endregion
 export { createMemoryLanceDbStateMigrations, resolveMemoryLanceDbPluginRoot, stateMigrations };

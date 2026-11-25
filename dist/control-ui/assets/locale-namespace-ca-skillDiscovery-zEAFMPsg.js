@@ -1,0 +1,1 @@
+export default {"skillDiscovery":{"search":"Cerca habilitats","settings":"Configuració de l’habilitat","libraryStatus":"Habilitat de la biblioteca. Les seleccions de la sessió determinen quan s’utilitza."}};

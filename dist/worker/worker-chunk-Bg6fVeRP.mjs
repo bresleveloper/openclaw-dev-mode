@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isAutomationsToolName(e){return e===`automations`||e===`cron`}var t,n=e((()=>{t=`automations`}));export{n,isAutomationsToolName as r,t};

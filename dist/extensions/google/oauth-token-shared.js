@@ -1,2 +1,1 @@
-import { n as parseGoogleOauthApiKey, t as formatGoogleOauthApiKey } from "../../oauth-token-shared-x4Fku5bG.mjs";
-export { formatGoogleOauthApiKey, parseGoogleOauthApiKey };
+import{n as parseGoogleOauthApiKey,t as formatGoogleOauthApiKey}from"../../oauth-token-shared-B6FA_Gvc.mjs";export{formatGoogleOauthApiKey,parseGoogleOauthApiKey};

@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"모두 보기","files":"파일","loading":"결과물 불러오는 중…","updating":"결과물 업데이트 중…","loadingDashboard":"대시보드 불러오는 중…","emptyTitle":"아직 결과물이 없습니다.","emptyDescription":"이 세션의 파일과 대시보드가 여기에 표시됩니다."}};

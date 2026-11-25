@@ -1,0 +1,3 @@
+import{t as isPromiseLike}from"./promise-like-OKzBwzLG.mjs";
+//!src/agents/embedded-agent-subscribe.callback.ts
+function serializeAgentEventCallback(e){if(!e)return;let t;return n=>{const r=t?t.then(()=>e(n)):e(n);if(!isPromiseLike(r))return;const i=Promise.resolve(r);const a=i.then(()=>{},()=>{});t=a;a.then(()=>{if(t===a)t=void 0});return i}}function runBestEffortCallback(e){const failed=t=>{e.onError?.(t);e.log.warn(`${e.label} callback failed: ${String(t)}`)};try{const t=e.callback();if(isPromiseLike(t)){const n=Promise.resolve(t).then(()=>e.onSuccess?.(),failed);if(e.pending){e.pending.add(n);n.finally(()=>e.pending?.delete(n))}}else e.onSuccess?.()}catch(e){failed(e)}}export{serializeAgentEventCallback as n,runBestEffortCallback as t};

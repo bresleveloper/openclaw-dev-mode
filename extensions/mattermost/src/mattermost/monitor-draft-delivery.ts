@@ -46,25 +46,6 @@ type MattermostDraftPreviewDeliverParams = {
   findPostAfterPreview?: (previewPostId: string) => Promise<string | undefined>;
 };
 
-function combineMattermostVisibleDeliveryResults(
-  results: readonly (LivePreviewDeliveryResult | undefined)[],
-  outcome: "text" | "media",
-): MattermostReplyDeliveryResult | undefined {
-  const visibleResults = results.filter(
-    (result): result is LivePreviewDeliveryResult => result?.visibleReplySent === true,
-  );
-  if (visibleResults.length === 0) {
-    return undefined;
-  }
-  return {
-    outcome,
-    ...createAcceptedChannelDeliveryResult({
-      deliveryResults: visibleResults,
-      content: joinMattermostVisibleContent(visibleResults.map((result) => result.content)),
-    }),
-  };
-}
-
 export async function deliverMattermostReplyWithDraftPreview(
   params: MattermostDraftPreviewDeliverParams,
 ): Promise<MattermostReplyDeliveryResult> {
@@ -196,7 +177,7 @@ export async function deliverMattermostReplyWithDraftPreview(
                   ...payload,
                   text: resolvedDeliveryText?.trim() ? resolvedDeliveryText : supplement.spokenText,
                 }
-              : payload.isError !== true && typeof resolvedDeliveryText === "string"
+              : payload.isError !== true && resolvedDeliveryText !== undefined
                 ? { ...payload, text: resolvedDeliveryText }
                 : payload;
         const delivered = await params.deliverPayload(deliveryPayload);
@@ -208,16 +189,23 @@ export async function deliverMattermostReplyWithDraftPreview(
       onNormalDelivered: params.recordThreadParticipation,
     });
 
-    return (
-      combineMattermostVisibleDeliveryResults(
-        [confirmedPreviewDelivery, finalization.deliveryResult],
-        outcome,
-      ) ?? {
+    const visibleResults = [confirmedPreviewDelivery, finalization.deliveryResult].filter(
+      (result): result is LivePreviewDeliveryResult => result?.visibleReplySent === true,
+    );
+    if (visibleResults.length === 0) {
+      return {
         outcome: "empty",
         visibleReplySent: false,
         suppression: { reason: "no_visible_result" },
-      }
-    );
+      };
+    }
+    return {
+      outcome,
+      ...createAcceptedChannelDeliveryResult({
+        deliveryResults: visibleResults,
+        content: joinMattermostVisibleContent(visibleResults.map((result) => result.content)),
+      }),
+    };
   } catch (error: unknown) {
     // Core owns receipts from this delivery. Only prepend earlier sealed
     // assistant generations that were not part of its send/edit operation.

@@ -1,7 +1,7 @@
 import { createLazyCliRuntimeLoader, createLiveTransportQaCliRegistration, runLiveTransportQaSuiteCommand } from "openclaw/plugin-sdk/qa-runner-runtime";
-//#region extensions/buzz/src/qa/cli.ts
+// extensions/buzz/src/qa/cli.ts
 const DEFAULT_BUZZ_QA_SCENARIOS = ["channel-canary", "channel-mention-gating"];
-const loadBuzzQaAdapterRuntime = createLazyCliRuntimeLoader(() => import("./.setup/adapter.runtime-jZgfATz7.mjs"));
+const loadBuzzQaAdapterRuntime = createLazyCliRuntimeLoader(() => import("./.setup/adapter.runtime-DRp3aJVZ.mjs"));
 async function runQaBuzz(options) {
 	await runLiveTransportQaSuiteCommand({
 		channelId: "buzz",
@@ -10,8 +10,7 @@ async function runQaBuzz(options) {
 		selectScenarioIds: ({ scenarioIds }) => scenarioIds?.length ? [...scenarioIds] : [...DEFAULT_BUZZ_QA_SCENARIOS]
 	});
 }
-//#endregion
-//#region extensions/buzz/qa-runner-api.ts
+// extensions/buzz/qa-runner-api.ts
 const qaRunnerCliRegistrations = [createLiveTransportQaCliRegistration({
 	commandName: "buzz",
 	credentialFileHelp: "JSON credential file for local Buzz QA",
@@ -35,5 +34,4 @@ const qaRunnerCliRegistrations = [createLiveTransportQaCliRegistration({
 	sutAccountHelp: "Normalized Buzz SUT account id in QA artifacts",
 	run: runQaBuzz
 })];
-//#endregion
 export { qaRunnerCliRegistrations };

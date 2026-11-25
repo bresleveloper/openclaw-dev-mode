@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Xem tất cả","files":"Tệp","loading":"Đang tải đầu ra…","updating":"Đang cập nhật đầu ra…","loadingDashboard":"Đang tải bảng tổng quan…","emptyTitle":"Chưa có đầu ra.","emptyDescription":"Các tệp và bảng điều khiển từ phiên này sẽ xuất hiện ở đây."}};

@@ -22,10 +22,7 @@ import {
   type UserProfileAvatarInspection,
 } from "./user-profiles-avatar.types.js";
 import { UserProfileNotFoundError } from "./user-profiles-schema.js";
-import {
-  fetchTailscaleAvatar,
-  type TailscaleAvatarFetchOptions,
-} from "./user-profiles-tailscale-avatar.js";
+import { fetchTailscaleAvatar } from "./user-profiles-tailscale-avatar.js";
 import type { ProfileDisplayRow, UserProfile } from "./user-profiles.types.js";
 
 type PreparedProfileAvatar = UserProfileAvatarInspection & {
@@ -222,7 +219,7 @@ export function createProfileAvatarReader(
         ...snapshot,
         isCurrent,
         loadBytes() {
-          if (!isCurrent()) {
+          if (!isCurrent() || !snapshot.avatar) {
             return Promise.resolve(undefined);
           }
           const cached = avatarBytes.get(prepared);
@@ -254,10 +251,10 @@ export function createProfileAvatarReader(
       };
       if (
         row &&
-        snapshot.avatar &&
         snapshot.profile?.id === row.id &&
-        snapshot.avatar.sha256 === row.avatar_sha256 &&
-        snapshot.avatar.mime === row.avatar_mime
+        (snapshot.avatar
+          ? snapshot.avatar.sha256 === row.avatar_sha256 && snapshot.avatar.mime === row.avatar_mime
+          : row.has_avatar === 0)
       ) {
         cacheAvatar(row, prepared);
       }
@@ -279,7 +276,6 @@ export async function adoptTailscaleProfileAvatar(
   profileId: string,
   profilePic: string | undefined,
   options: OpenClawStateDatabaseOptions = {},
-  fetchOptions: TailscaleAvatarFetchOptions = {},
 ) {
   const first = captureOpenClawStateWorkerContext({
     ...options,
@@ -295,7 +291,7 @@ export async function adoptTailscaleProfileAvatar(
   if (before.hasAvatar || !profilePic) {
     return initial;
   }
-  const avatar = await fetchTailscaleAvatar(profilePic, fetchOptions);
+  const avatar = await fetchTailscaleAvatar(profilePic);
   // Fetching does not retain database admission; close/reopen preserves the selected path.
   const context = captureOpenClawStateWorkerContext({
     ...options,

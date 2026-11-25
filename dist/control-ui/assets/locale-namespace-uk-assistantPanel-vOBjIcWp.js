@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"Працюємо над: {context}","removeContext":"Вилучити робочий контекст","includeContext":"Додати робочий контекст","selection":"Виділений текст","attachSelection":"Додати виділений текст","attachSelectionTooltip":"Прикріпити виділене","removeSelection":"Вилучити виділений текст"}};

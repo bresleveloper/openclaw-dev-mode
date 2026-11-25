@@ -1,0 +1,3 @@
+import{r as resolveStateDir}from"./state-dir-BwbNjuVe.mjs";import{n as ProfileFailure}from"./diagnostic-profile-CmHmfa2e.mjs";import path from"node:path";import fs from"node:fs/promises";
+//!src/logging/diagnostic-profile-file.ts
+async function reserveDiagnosticProfileFile(e,t,n=0){const r=path.join(resolveStateDir(),`diagnostics`);await fs.mkdir(r,{recursive:true,mode:448});if(n>0){const e=await fs.statfs(r);if(e.bavail*e.bsize<n)throw new ProfileFailure(`insufficient-disk-space`)}t();const i=path.join(r,`${e}-${(/* @__PURE__ */ new Date()).toISOString().replaceAll(`:`,`-`)}.${e===`cpu`?`cpuprofile`:e===`heap`?`heapsnapshot`:`heapprofile`}`);return{path:i,handle:await fs.open(i,`wx`,384)}}export{reserveDiagnosticProfileFile as t};

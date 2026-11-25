@@ -1,0 +1,3 @@
+import{r as createLazyRuntimeModule}from"./lazy-runtime-Ds6M7vp4.mjs";
+//!extensions/google/decision-provider.ts
+const loadRuntime=createLazyRuntimeModule(()=>import(`./extensions/google/decision-provider.runtime.js`));function buildGoogleDecisionProvider(){return{id:`google`,contractVersion:2,async evaluate(e,t){t.signal.throwIfAborted();const{evaluateGeminiDecision:n}=await loadRuntime();t.signal.throwIfAborted();return n(e,t)}}}export{buildGoogleDecisionProvider as t};

@@ -1,6 +1,4 @@
 import { Buffer } from "node:buffer";
-import { writeFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 
 /** Runner mode belongs to the fixture, not the test harness's ambient CI environment. */
 export function testRunnerFixtureEnv(
@@ -11,6 +9,8 @@ export function testRunnerFixtureEnv(
   delete env.CI;
   delete env.GITHUB_ACTIONS;
   delete env.OPENCLAW_NODE_TEST_PLAN_CONTINUE_ON_FAILURE;
+  delete env.OPENCLAW_CI_TEST_RUNTIME_POLICY;
+  delete env.OPENCLAW_CI_TEST_RUNTIME;
   return { ...env, ...overrides };
 }
 
@@ -40,10 +40,10 @@ export function preparedScriptWrapperPreload(
 `
     : "";
   return `import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
+import nodeModule from "node:module";
 const modules = ${JSON.stringify(modules)};
 const sources = new Map(Object.entries(modules).map(([source, prepared]) => [prepared, source]));
-registerHooks({
+nodeModule.registerHooks({
   resolve(specifier, context, nextResolve) {
 ${resolveVirtual}    const prepared = modules[context.parentURL];
     const resolved = nextResolve(specifier, prepared && specifier.startsWith(".")
@@ -63,20 +63,11 @@ export function preparedScriptWrapperEnv(
   entries: ReadonlyArray<readonly [source: URL, prepared: URL]>,
   env: NodeJS.ProcessEnv = process.env,
   virtualModules: ReadonlyArray<readonly [source: URL, prepared: URL]> = [],
-  // Caller owns this file until all fixture children have joined.
-  preloadFile?: string,
 ): NodeJS.ProcessEnv {
   const preload = preparedScriptWrapperPreload(entries, virtualModules);
   if (!preload) {
     return { ...env };
   }
-  // Large real dependency graphs can exceed the per-environment-entry exec limit.
-  // A fixture-owned file keeps the identical loader and mapping out of NODE_OPTIONS.
-  if (preloadFile) {
-    writeFileSync(preloadFile, preload);
-  }
-  const url = preloadFile
-    ? pathToFileURL(preloadFile).href
-    : `data:text/javascript;base64,${Buffer.from(preload).toString("base64")}`;
+  const url = `data:text/javascript;base64,${Buffer.from(preload).toString("base64")}`;
   return { ...env, NODE_OPTIONS: [env.NODE_OPTIONS, `--import=${url}`].filter(Boolean).join(" ") };
 }

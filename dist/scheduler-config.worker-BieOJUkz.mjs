@@ -1,0 +1,2 @@
+//!src/cron/store/scheduler-config.worker.ts
+const snapshots=/* @__PURE__ */ new Map;function installCronSchedulerSnapshot(e,t,n){snapshots.set(JSON.stringify([n,e]),t);return t}function getCronSchedulerSnapshot(e,t){return snapshots.get(JSON.stringify([t,e]))}function removeCronSchedulerSnapshot(e,t){snapshots.delete(JSON.stringify([t,e]))}export{installCronSchedulerSnapshot as n,removeCronSchedulerSnapshot as r,getCronSchedulerSnapshot as t};

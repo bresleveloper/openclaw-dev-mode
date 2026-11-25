@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function encodeOwnedBuffer(e,t=`utf8`){let n=Buffer.allocUnsafeSlow(Buffer.byteLength(e,t));return n.write(e,t),n}function copyOwnedBuffer(e){let t=Buffer.allocUnsafeSlow(e.byteLength);return t.set(e),t}var t=e((()=>{}));export{encodeOwnedBuffer as n,t as r,copyOwnedBuffer as t};

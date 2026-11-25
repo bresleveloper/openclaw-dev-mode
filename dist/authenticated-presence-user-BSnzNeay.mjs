@@ -1,0 +1,3 @@
+import{s as buildControlUiUserAvatarPath}from"./control-ui-resource-routes-DrYH_3y1.mjs";import"./control-ui-contract-BJ8xy8WN.mjs";
+//!src/gateway/authenticated-presence-user.ts
+function buildAuthenticatedPresenceUser(e){if(!e.authenticatedUserProfile){const t=e.authenticatedUserId;return t&&(e.authenticatedUserIsTailscaleProvider||!t.includes(`@`))?{id:t}:void 0}return{id:e.authenticatedUserProfile.profileId,identity:{type:`profile`,id:e.authenticatedUserProfile.profileId},...e.authenticatedUserProfile.displayName?{name:e.authenticatedUserProfile.displayName}:{},avatarUrl:buildControlUiUserAvatarPath(e.authenticatedUserProfile.profileId,e.authenticatedUserProfile.avatarRevision)}}export{buildAuthenticatedPresenceUser as t};

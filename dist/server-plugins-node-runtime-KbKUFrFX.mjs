@@ -1,0 +1,1 @@
+import{i as projectGatewayRuntimeNodes,n as openGatewayNodeDuplex,r as openOwnedGatewayNodeDuplex,t as hasInProcessGatewayContext}from"./server-plugins-node-runtime-CGz14DyT.mjs";export{openOwnedGatewayNodeDuplex};

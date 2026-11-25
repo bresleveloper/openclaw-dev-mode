@@ -1,5 +1,5 @@
 import { withAgentModelAliases } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/opencode/onboard.ts
+// extensions/opencode/onboard.ts
 const OPENCODE_ZEN_DEFAULT_MODEL_REF = "opencode/claude-opus-5";
 function applyOpencodeZenProviderConfig(cfg) {
 	return {
@@ -16,5 +16,4 @@ function applyOpencodeZenProviderConfig(cfg) {
 		}
 	};
 }
-//#endregion
 export { OPENCODE_ZEN_DEFAULT_MODEL_REF, applyOpencodeZenProviderConfig };

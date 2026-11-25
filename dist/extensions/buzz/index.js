@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/buzz/index.ts
+// extensions/buzz/index.ts
 var buzz_default = defineBundledChannelEntry({
 	id: "buzz",
 	name: "Buzz",
@@ -18,5 +18,4 @@ var buzz_default = defineBundledChannelEntry({
 		exportName: "setBuzzRuntime"
 	}
 });
-//#endregion
 export { buzz_default as default };

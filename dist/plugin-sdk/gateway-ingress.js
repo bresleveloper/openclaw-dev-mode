@@ -1,3 +1,1 @@
-import { t as GatewayControlUiIngressError } from "../gateway-ingress.types-Bor6uDqj.mjs";
-import "../gateway-ingress-la_KkjCS.mjs";
-export { GatewayControlUiIngressError };
+import{t as GatewayControlUiIngressError}from"../gateway-ingress.types-DALxR2gc.mjs";import{t as captureGatewayIngressPersonPrincipal}from"../remote-ingress-principal-admission-BZcrCA_4.mjs";import"../gateway-ingress-4CKObDYH.mjs";export{GatewayControlUiIngressError,captureGatewayIngressPersonPrincipal};

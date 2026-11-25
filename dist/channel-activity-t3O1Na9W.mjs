@@ -1,0 +1,2 @@
+//!src/infra/channel-activity.ts
+const activity=/* @__PURE__ */ new Map;function keyFor(e){const t=e.accountId?.trim()||`default`;return`${e.channel}:${t}`}function recordChannelActivity(e){const t=typeof e.at===`number`?e.at:Date.now();const n=keyFor(e);const r=activity.get(n)??{inboundAt:null,outboundAt:null};activity.set(n,r);if(e.direction===`inbound`)r.inboundAt=t;if(e.direction===`outbound`)r.outboundAt=t}function getChannelActivity(e){return activity.get(keyFor(e))??{inboundAt:null,outboundAt:null}}export{recordChannelActivity as n,getChannelActivity as t};

@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";
+//!src/config/implicit-agent-roster.ts
+function applyImplicitAgentRosterDefaults(e){if(!isRecord(e)||e.agents!==void 0&&!isRecord(e.agents))return e;const t=isRecord(e.agents)?e.agents:{};if(t.ownership===`explicit`||Object.hasOwn(t,`list`)&&(!Array.isArray(t.list)||t.list.length>0)||t.entries!==void 0&&(!isRecord(t.entries)||Object.keys(t.entries).length>0))return e;const{list:n,...r}=t;return{...e,agents:{...r,entries:{main:{}}}}}export{applyImplicitAgentRosterDefaults as t};

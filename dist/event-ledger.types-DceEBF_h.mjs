@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";import"./utils-CVVNdy3C.mjs";
+//!src/acp/event-ledger.types.ts
+function createAcpPromptUpdates(e){return e.map(e=>({sessionUpdate:`user_message_chunk`,content:structuredClone(e)}))}function normalizeAcpLedgerEvent(e){if(!isRecord(e)||!isRecord(e.update))return;const t=e.seq;const n=e.at;const r=e.sessionId;const i=e.sessionKey;const a=e.runId;const o=e.update.sessionUpdate;if(typeof t!==`number`||!Number.isInteger(t)||t<0||typeof n!==`number`||!Number.isFinite(n)||typeof r!==`string`||typeof i!==`string`||typeof o!==`string`)return;return{seq:t,at:n,sessionId:r,sessionKey:i,...typeof a===`string`&&a?{runId:a}:{},update:e.update}}export{normalizeAcpLedgerEvent as n,createAcpPromptUpdates as t};

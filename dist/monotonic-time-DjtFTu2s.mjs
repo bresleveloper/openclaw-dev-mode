@@ -1,0 +1,2 @@
+//!src/shared/monotonic-time.ts
+function monotonicNow(){return performance.now()}function monotonicDeadlineAfter(e){return monotonicNow()+e}function remainingMonotonicMs(e){return e-monotonicNow()}export{monotonicNow as n,remainingMonotonicMs as r,monotonicDeadlineAfter as t};

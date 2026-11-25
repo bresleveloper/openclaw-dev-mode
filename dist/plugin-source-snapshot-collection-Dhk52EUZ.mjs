@@ -1,0 +1,1 @@
+import{t as collectInstalledPluginSourceSnapshots}from"./plugin-source-snapshot-collection-0-8av2oN.mjs";export{collectInstalledPluginSourceSnapshots};

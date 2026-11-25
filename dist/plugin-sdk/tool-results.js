@@ -1,3 +1,1 @@
-import { n as textResult, t as jsonResult } from "../tool-results-BCM3fdVS.mjs";
-import "../tool-results-la_KkjCS.mjs";
-export { jsonResult, textResult };
+import{i as textResult,n as jsonResult}from"../tool-results-BkLNMSCi.mjs";import"../tool-results-CAISgiXf.mjs";export{jsonResult,textResult};

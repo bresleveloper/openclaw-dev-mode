@@ -13,6 +13,8 @@ export type AcceptedSessionSpawn = {
   label?: string;
   /** True only when this child owns a terminal completion for its requester. */
   expectsCompletionMessage?: boolean;
+  /** Host-recorded: the requester still collects this child itself (sessions_spawn collect=true). */
+  collector?: true;
 };
 
 // Accounting follows the exact admission through provider fallback and plugin
@@ -39,15 +41,34 @@ export function mergeAcceptedSessionSpawnsForRun(
   return receipts ? [...receipts.values()] : [];
 }
 
-/** Retire only the exact receipt resolved by an inline result or confirmed cancellation. */
+/** Confirmed settlement preserves acceptance but ends its owed completion. */
 export function retireAcceptedSessionSpawnCompletionForRun(
   instance: OperationalRunInstanceRef,
-  accepted: Pick<AcceptedSessionSpawn, "runId" | "childSessionKey">,
+  spawn: Pick<AcceptedSessionSpawn, "runId" | "childSessionKey">,
 ): void {
   const receipts = acceptedSpawnsByRun.get(instance);
-  const receipt = receipts?.get(accepted.runId);
-  if (receipt?.childSessionKey === accepted.childSessionKey) {
-    receipts?.set(accepted.runId, { ...receipt, expectsCompletionMessage: false });
+  const accepted = receipts?.get(spawn.runId);
+  if (
+    receipts &&
+    accepted?.childSessionKey === spawn.childSessionKey &&
+    accepted.expectsCompletionMessage === true
+  ) {
+    receipts.set(spawn.runId, { ...accepted, expectsCompletionMessage: false });
+  }
+}
+
+/** A collected result preserves acceptance but ends its owed collection. */
+export function retireAcceptedSessionSpawnCollectionForRun(
+  instance: OperationalRunInstanceRef,
+  runIds: readonly string[],
+): void {
+  const receipts = acceptedSpawnsByRun.get(instance);
+  for (const runId of runIds) {
+    const accepted = receipts?.get(runId);
+    if (receipts && accepted?.collector) {
+      const { collector: _collected, ...settled } = accepted;
+      receipts.set(runId, settled);
+    }
   }
 }
 
@@ -87,4 +108,13 @@ export function hasCompletionMessageSessionSpawn(
   acceptedSessionSpawns?: readonly AcceptedSessionSpawn[],
 ): boolean {
   return acceptedSessionSpawns?.some((spawn) => spawn.expectsCompletionMessage === true) === true;
+}
+
+/** Return true when an accepted child owes the requester a completion or awaits its collection. */
+export function hasOwedSessionSpawn(acceptedSessionSpawns?: readonly AcceptedSessionSpawn[]) {
+  return (
+    acceptedSessionSpawns?.some(
+      (spawn) => spawn.expectsCompletionMessage === true || spawn.collector === true,
+    ) === true
+  );
 }

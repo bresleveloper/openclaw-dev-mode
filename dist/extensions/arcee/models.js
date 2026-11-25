@@ -1,4 +1,4 @@
-//#region extensions/arcee/models.ts
+// extensions/arcee/models.ts
 const ARCEE_BASE_URL = "https://api.arcee.ai/api/v1";
 const ARCEE_MODEL_CATALOG = [
 	{
@@ -50,16 +50,8 @@ const ARCEE_MODEL_CATALOG = [
 ];
 function buildArceeModelDefinition(model) {
 	return {
-		id: model.id,
-		name: model.name,
-		api: "openai-completions",
-		reasoning: model.reasoning,
-		input: model.input,
-		cost: model.cost,
-		contextWindow: model.contextWindow,
-		maxTokens: model.maxTokens,
-		...model.compat ? { compat: model.compat } : {}
+		...model,
+		api: "openai-completions"
 	};
 }
-//#endregion
 export { ARCEE_BASE_URL, ARCEE_MODEL_CATALOG, buildArceeModelDefinition };

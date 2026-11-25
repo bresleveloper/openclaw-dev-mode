@@ -1,0 +1,1 @@
+import{V as e}from"./openclaw-state-read-map-size-5HvZnNwy.mjs";import{k as t}from"./openclaw-state-read-root-symlink-policy-AldRD6ik.mjs";import"node:path";function resolvePathViaExistingAncestorSync(n){return e(()=>t(n))}export{resolvePathViaExistingAncestorSync as t};

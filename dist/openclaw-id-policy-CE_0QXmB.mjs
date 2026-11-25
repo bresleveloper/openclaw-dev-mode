@@ -1,0 +1,2 @@
+//!src/shared/openclaw-id-policy.ts
+function isOpenClawIdEnabled(e){return e?.enabled===true}function isOpenClawIdPluginVisible(e,t){return e!==`openclaw-id-access`||isOpenClawIdEnabled(t?.gateway?.openclawId)}function idFeatureVisible(e){return t=>isOpenClawIdPluginVisible(t.id,e)}export{isOpenClawIdEnabled as n,isOpenClawIdPluginVisible as r,idFeatureVisible as t};

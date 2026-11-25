@@ -1,36 +1,43 @@
-import { C as resolveClaudeOpus55ModelIdentity, E as resolveClaudeSonnet5ModelIdentity, M as supportsClaudeNativeXhighEffort, O as supportsClaudeAdaptiveThinking, S as resolveClaudeNativeThinkingLevelMap, T as resolveClaudeSonnet55ModelIdentity, _ as requiresClaudeMandatoryAdaptiveThinking, b as resolveClaudeModelIdentity, g as requiresClaudeDefaultSampling, h as requiresClaudeBetweenToolsThinking, j as supportsClaudeNativeMaxEffort, m as bindsClaudeThinkingPrefix, v as resolveClaudeFable5ModelIdentity, w as resolveClaudeOpus5ModelIdentity, x as resolveClaudeMythos5ModelIdentity, y as resolveClaudeHaiku55ModelIdentity } from "../index-DSprYWaz.mjs";
-import { $ as StopReason, Et as AssistantMessageDiagnostic, Q as SimpleStreamOptions, d as Context, k as Model, pt as Usage, tt as StreamFunction } from "../types-CVYzKrMl.mjs";
-import { i as AnthropicThinkingDisplay, n as AnthropicEffort, r as AnthropicOptions, t as AnthropicContextManagementOptions } from "../provider-options-DAzsyi49.mjs";
-import "../types-CBJthzJX.mjs";
-import { a as prepareAnthropicInputSchema, c as resolveOriginalAnthropicToolName, i as normalizeAnthropicToolChoice, l as toClaudeCodeToolName, n as AnthropicToolProjection, o as projectAnthropicTools, r as normalizeAnthropicToolCallId, s as reconcileAnthropicToolChoice, t as AnthropicProjectedToolChoice } from "../anthropic-tool-projection-C2-d1eZ3.mjs";
-import { a as buildAnthropicSystemBlocks, p as resolveAnthropicServerCompactionPlan, s as isDirectAnthropicModel } from "../anthropic-payload-policy-C0ki72BT.mjs";
-//#region packages/ai/src/providers/anthropic.d.ts
+import { D as supportsClaudeNativeMaxEffort, O as supportsClaudeNativeXhighEffort, S as resolveClaudeSonnet5ModelIdentity, _ as resolveClaudeMythos5ModelIdentity, b as resolveClaudeOpus5ModelIdentity, c as bindsClaudeThinkingPrefix, d as requiresClaudeBetweenToolsThinking, f as requiresClaudeDefaultSampling, g as resolveClaudeModelIdentity, h as resolveClaudeHaiku55ModelIdentity, m as resolveClaudeFable5ModelIdentity, p as requiresClaudeMandatoryAdaptiveThinking, v as resolveClaudeNativeThinkingLevelMap, w as supportsClaudeAdaptiveThinking, x as resolveClaudeSonnet55ModelIdentity, y as resolveClaudeOpus55ModelIdentity } from "../observe-async-iterator-DeB_Vxes.mjs";
+import { M as ModelRequestHeaders, d as Context, gt as Usage, it as StreamFunction, k as Model, kt as AssistantMessageDiagnostic, nt as StopReason, tt as SimpleStreamOptions } from "../types-B1ZIh9Ch.mjs";
+import "../index-94l3uJ39.mjs";
+import "../types-CeCl7cJZ.mjs";
+import { i as AnthropicThinkingDisplay, n as AnthropicEffort, r as AnthropicOptions, t as AnthropicContextManagementOptions } from "../provider-options-BOGPCBFr.mjs";
+import { a as prepareAnthropicInputSchema, c as resolveOriginalAnthropicToolName, i as normalizeAnthropicToolChoice, l as toClaudeCodeToolName, n as AnthropicToolProjection, o as projectAnthropicTools, r as normalizeAnthropicToolCallId, s as reconcileAnthropicToolChoice, t as AnthropicProjectedToolChoice } from "../anthropic-tool-projection-u94eGqZM.mjs";
+import { a as buildAnthropicSystemBlocks, h as applyAnthropicThinkingOptions, p as resolveAnthropicServerCompactionPlan, s as isDirectAnthropicModel } from "../anthropic-payload-policy-CePIh-nh.mjs";
 type AnthropicCompactionOptions = AnthropicOptions & {
   authProfileId?: string;
 };
 export declare const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicCompactionOptions>;
-type AnthropicSimpleStreamOptions = SimpleStreamOptions & AnthropicContextManagementOptions & {
+export declare const streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleStreamOptions & AnthropicContextManagementOptions & {
   authProfileId?: string;
   toolChoice?: AnthropicCompactionOptions["toolChoice"];
   thinkingDisplay?: AnthropicOptions["thinkingDisplay"];
-};
-export declare const streamSimpleAnthropic: StreamFunction<"anthropic-messages", AnthropicSimpleStreamOptions>;
-//#endregion
-//#region packages/ai/src/providers/anthropic-auth-headers.d.ts
+  onClaudeCodeVersionRequired?: AnthropicOptions["onClaudeCodeVersionRequired"];
+  onFastModeUnsupported?: AnthropicOptions["onFastModeUnsupported"];
+}>;
 /** Inspect resolved credential shape for auth routing without exposing its value. */
 export declare function isAnthropicOAuthApiKey(apiKey: unknown): boolean;
-type AnthropicAuthModel = {
+export declare function usesFoundryBearerAuth(model: {
   provider?: string;
   authHeader?: boolean;
-  headers?: Record<string, string>;
-};
-export declare function usesFoundryBearerAuth(model: AnthropicAuthModel): boolean;
-export declare function omitFoundryBearerCredentialHeaders(headers?: Record<string, string>): Record<string, string> | undefined;
-//#endregion
-//#region packages/ai/src/providers/anthropic-model-contract.d.ts
+  headers?: ModelRequestHeaders;
+}): boolean;
+export declare function omitFoundryBearerCredentialHeaders(headers?: ModelRequestHeaders): ModelRequestHeaders | undefined;
 export declare const ANTHROPIC_CLAUDE_CODE_VERSION = "2.1.280";
+/**
+ * Read the Claude Code version Anthropic requires from a
+ * claude_code_version_too_old rejection (SDK APIError or transport error body).
+ */
+export declare function readRequiredClaudeCodeVersion(error: unknown): string | undefined;
+/** Adopt a version Anthropic required; true when it raised the floor and a retry can help. */
+export declare function raiseClaudeCodeVersionFloor(required: string): boolean;
+/** Test seam: forget the learned requirement. */
+export declare function resetLearnedClaudeCodeVersionForTest(): void;
+/** Whether Anthropic rejected a request because the model has no native fast mode. */
+export declare function isUnsupportedClaudeFastModeError(error: unknown): boolean;
 /** Build OAuth headers and the matching billing identity from one request snapshot. */
-export declare function buildAnthropicClaudeCodeIdentity(betaHeader: string | undefined, ...headerSources: (Record<string, string> | undefined)[]): {
+export declare function buildAnthropicClaudeCodeIdentity(betaHeader: string | undefined, ...headerSources: (ModelRequestHeaders | undefined)[]): {
   headers: Record<string, string>;
   version: string;
 };
@@ -69,31 +76,23 @@ export declare function resolveAnthropicThinkingEffort(model: Model<"anthropic-m
 export declare function mapAnthropicStopReason(reason: string | undefined): StopReason;
 /** Remove unsupported assistant prefills while preserving completed tool-use turns. */
 export declare function prepareClaudeNoPrefillRequestContext(model: Model, context: Context): Context;
-type ClaudeSamplingRequestParams = {
+export declare function applyClaudeRequestContract(params: {
   temperature?: unknown;
   top_p?: unknown;
   top_k?: unknown;
   service_tier?: unknown;
-};
-export declare function applyClaudeRequestContract(params: ClaudeSamplingRequestParams, model: {
+}, model: {
   id?: string;
   params?: Record<string, unknown>;
   api?: string;
 }): void;
-export declare function resolveModelBoundThinkingReplayMode(params: {
-  source: ReplayModelRef;
-  target: ReplayModelRef;
-}): "default" | "preserve" | "drop";
-//#endregion
-//#region packages/ai/src/providers/anthropic-refusal.d.ts
-type AnthropicRefusalOutput = {
+/** The destination is fixed during one synchronous history transform. */
+export declare function prepareModelBoundThinkingReplay(target: Pick<Model, "api" | "provider" | "id" | "params">): (source: ReplayModelRef) => "default" | "preserve" | "drop";
+export declare function applyAnthropicRefusal(output: {
   stopReason: string;
   errorMessage?: string;
   diagnostics?: AssistantMessageDiagnostic[];
-};
-export declare function applyAnthropicRefusal(output: AnthropicRefusalOutput, stopDetails: unknown, provider: string): void;
-//#endregion
-//#region packages/ai/src/providers/anthropic-server-fallback.d.ts
+}, stopDetails: unknown, provider: string): void;
 /** Anthropic beta that re-serves safety refusals on an allowed fallback model. */
 export declare const ANTHROPIC_SERVER_SIDE_FALLBACK_BETA = "server-side-fallback-2026-07-01";
 /** Let Anthropic select the recommended model for each refusal category. */
@@ -131,8 +130,6 @@ export declare function applyAnthropicFallbackBoundary(params: {
   boundary: AnthropicFallbackBoundary;
   provider: string;
 }): void;
-//#endregion
-//#region packages/ai/src/providers/anthropic-thinking-replay.d.ts
 export declare const ANTHROPIC_OMITTED_REASONING_TEXT = "[assistant reasoning omitted]";
 export declare function applyAnthropicThinkingBindingControls(params: {
   thinking?: unknown;
@@ -144,8 +141,6 @@ export declare function logAnthropicThinkingDrops(transformations: unknown[] | u
  * turn's signed thinking even when the next request disables new thinking.
  */
 export declare function findActiveAnthropicToolTurnAssistantIndex(messages: readonly unknown[]): number;
-//#endregion
-//#region packages/ai/src/providers/anthropic-usage.d.ts
 type AnthropicUsagePayload = {
   input_tokens?: unknown;
   output_tokens?: unknown;
@@ -183,5 +178,4 @@ export declare function readLastAnthropicIterationUsage(usage: AnthropicUsagePay
 export declare function applyAnthropicMessageStartUsage(target: Usage, payload: AnthropicUsagePayload): AnthropicPromptUsageSnapshot | undefined;
 /** Keep billing and context distinct; omitted usage preserves the last snapshot. */
 export declare function applyAnthropicMessageDeltaUsage(target: Usage, usage: AnthropicUsagePayload | undefined, messageStartPromptUsage: AnthropicPromptUsageSnapshot | undefined): void;
-//#endregion
-export { type AnthropicEffort, type AnthropicOptions, AnthropicProjectedToolChoice, type AnthropicThinkingDisplay, AnthropicToolProjection, bindsClaudeThinkingPrefix, buildAnthropicSystemBlocks, isDirectAnthropicModel, normalizeAnthropicToolCallId, normalizeAnthropicToolChoice, prepareAnthropicInputSchema, projectAnthropicTools, reconcileAnthropicToolChoice, requiresClaudeBetweenToolsThinking, requiresClaudeDefaultSampling, requiresClaudeMandatoryAdaptiveThinking, resolveAnthropicServerCompactionPlan, resolveClaudeFable5ModelIdentity, resolveClaudeHaiku55ModelIdentity, resolveClaudeModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeNativeThinkingLevelMap, resolveClaudeOpus55ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet55ModelIdentity, resolveClaudeSonnet5ModelIdentity, resolveOriginalAnthropicToolName, supportsClaudeAdaptiveThinking, supportsClaudeNativeMaxEffort, supportsClaudeNativeXhighEffort, toClaudeCodeToolName };
+export { type AnthropicEffort, type AnthropicOptions, AnthropicProjectedToolChoice, type AnthropicThinkingDisplay, AnthropicToolProjection, applyAnthropicThinkingOptions, bindsClaudeThinkingPrefix, buildAnthropicSystemBlocks, isDirectAnthropicModel, normalizeAnthropicToolCallId, normalizeAnthropicToolChoice, prepareAnthropicInputSchema, projectAnthropicTools, reconcileAnthropicToolChoice, requiresClaudeBetweenToolsThinking, requiresClaudeDefaultSampling, requiresClaudeMandatoryAdaptiveThinking, resolveAnthropicServerCompactionPlan, resolveClaudeFable5ModelIdentity, resolveClaudeHaiku55ModelIdentity, resolveClaudeModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeNativeThinkingLevelMap, resolveClaudeOpus55ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet55ModelIdentity, resolveClaudeSonnet5ModelIdentity, resolveOriginalAnthropicToolName, supportsClaudeAdaptiveThinking, supportsClaudeNativeMaxEffort, supportsClaudeNativeXhighEffort, toClaudeCodeToolName };

@@ -1,0 +1,4 @@
+import{n as sanitizeTerminalText}from"./safe-text-B_QTgn0s.mjs";import{t as formatPluginCapabilityConsentLines}from"./plugin-capability-consent-Dp3QDMUm.mjs";
+//!src/wizard/plugin-capability-consent.ts
+function createPluginCapabilityConsentPrompter(e,t){return async n=>{await e.note(formatPluginCapabilityConsentLines(n).join(`
+`),`Plugin capabilities`);if(!await e.confirm({message:`Accept these capabilities for "${sanitizeTerminalText(n.pluginId)}"?`,initialValue:false}))return e.cancel?.(`Plugin capability review was declined.`);await t?.();return{reviewToken:n.reviewToken}}}export{createPluginCapabilityConsentPrompter as t};

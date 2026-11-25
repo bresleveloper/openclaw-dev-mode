@@ -1,7 +1,7 @@
 import { SYNTHETIC_BASE_URL, SYNTHETIC_MODEL_CATALOG, buildSyntheticModelDefinition } from "./models.js";
 import { resolveDefaultModelMaxTokens } from "openclaw/plugin-sdk/provider-model-shared";
 import { asOptionalRecord, asPositiveSafeInteger, filterStringEntries, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/synthetic/provider-catalog.ts
+// extensions/synthetic/provider-catalog.ts
 function buildSyntheticProvider() {
 	return {
 		baseUrl: SYNTHETIC_BASE_URL,
@@ -56,5 +56,4 @@ const SYNTHETIC_MODEL_DISCOVERY = {
 	},
 	projectRows: projectSyntheticModels
 };
-//#endregion
 export { SYNTHETIC_MODEL_DISCOVERY, buildSyntheticProvider };

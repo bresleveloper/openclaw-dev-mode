@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function resolveReplyTurnKind(e){return e?.internalEventExecution?`queued_followup`:`visible`}function resolveReplyRunTrigger(e){return e.followupRun.run.scheduledAutomation?`cron`:e.followupRun.run.internalEventExecution?`event`:`user`}var t=e((()=>{}));export{resolveReplyRunTrigger as n,resolveReplyTurnKind as r,t};

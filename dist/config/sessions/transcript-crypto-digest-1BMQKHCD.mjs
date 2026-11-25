@@ -1,0 +1,1 @@
+import{hash as e}from"node:crypto";import{closeSync as t,openSync as n}from"node:fs";import{sha256FileSync as r}from"@openclaw/fs-safe/durability";function sha256Base64Url(t){return e(`sha256`,t,`base64url`)}function sha256FileSync$1(e){let i=n(e,`r`);try{return r(i).digest}finally{t(i)}}export{sha256FileSync$1 as n,sha256Base64Url as t};

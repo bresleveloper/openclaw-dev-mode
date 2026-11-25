@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"مهارات مساحة العمل","learned":"المهارات المكتسبة","builtIn":"المهارات المدمجة","installed":"المهارات المثبّتة","extra":"المهارات الإضافية","other":"مهارات أخرى"}};

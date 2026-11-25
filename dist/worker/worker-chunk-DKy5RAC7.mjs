@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";var CronStoreSelectionRequiredError,t=e((()=>{CronStoreSelectionRequiredError=class extends Error{constructor(e){super(e.message),this.selection=e,this.code=`CRON_STORE_SELECTION_REQUIRED`,this.name=`CronStoreSelectionRequiredError`}}}));export{t as n,CronStoreSelectionRequiredError as t};

@@ -1,7 +1,7 @@
-import { Hm as SessionDiscussionProvider, Um as SessionDiscussionState, Vm as SessionDiscussionInfo } from "../config-contracts-CY87ANNp.js";
-//#region packages/session-url-contract/src/index.d.ts
+import { C as SessionDiscussionProvider } from "../registry-contribution-types-2o1L1H_Q.js";
+import { n as SessionDiscussionState, t as SessionDiscussionInfo } from "../session-discussion-CE9W2c7K.js";
 type ControlUiSessionNamespace = "chat" | "dashboard";
-type BuildControlUiSessionPathParams = {
+export declare function buildControlUiSessionPath(params: {
   namespace: ControlUiSessionNamespace;
   sessionKey: string;
   fallbackAgentId?: string;
@@ -10,10 +10,6 @@ type BuildControlUiSessionPathParams = {
   exactKey?: boolean;
   mainKey?: string;
   shortIdLength?: number;
-};
-export declare function buildControlUiSessionPath(params: BuildControlUiSessionPathParams): string | null;
-//#endregion
-//#region src/plugins/session-discussion-registry.d.ts
+}): string | null;
 export declare function registerSessionDiscussionProvider(provider: SessionDiscussionProvider): void;
-//#endregion
 export type { SessionDiscussionInfo, SessionDiscussionProvider, SessionDiscussionState };

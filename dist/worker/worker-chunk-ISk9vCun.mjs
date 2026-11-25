@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";var t,n=e((()=>{t=`data-openclaw-control-ui-build-id`}));export{n,t};

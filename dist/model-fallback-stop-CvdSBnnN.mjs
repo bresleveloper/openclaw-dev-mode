@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";
+//!src/agents/model-fallback-stop.ts
+const modelFallbackStops=resolveGlobalSingleton(Symbol.for(`openclaw.modelFallbackStops`),()=>/* @__PURE__ */ new WeakSet);function recordModelFallbackStop(e){modelFallbackStops.add(e)}function isRecordedModelFallbackStop(e){return e instanceof Error&&modelFallbackStops.has(e)}export{recordModelFallbackStop as n,isRecordedModelFallbackStop as t};

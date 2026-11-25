@@ -1,0 +1,2 @@
+//!packages/media-core/src/media-source-url.ts
+const REMOTE_MEDIA_URL_RE=/^(?:https?|mxc|buffer):\/\//i;function isPassThroughRemoteMediaSource(e){const t=e?.trim()??``;return REMOTE_MEDIA_URL_RE.test(t)}export{isPassThroughRemoteMediaSource as t};

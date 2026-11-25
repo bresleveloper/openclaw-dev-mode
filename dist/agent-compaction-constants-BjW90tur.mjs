@@ -1,0 +1,2 @@
+//!src/agents/agent-compaction-constants.ts
+const MAX_COMPACTION_RESERVE_RATIO=.25;function resolveEffectiveCompactionReserveTokens(e){const t=Math.max(1,Math.floor(e.contextTokenBudget));return Math.min(Math.max(0,Math.floor(e.reserveTokens)),Math.floor(t*MAX_COMPACTION_RESERVE_RATIO))}export{resolveEffectiveCompactionReserveTokens as t};

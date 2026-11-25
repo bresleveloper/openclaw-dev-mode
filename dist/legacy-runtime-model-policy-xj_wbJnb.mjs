@@ -1,0 +1,1 @@
+import{i as modelEntryWithRuntimePolicy,n as maybeOfferModelAllowlistWildcards,r as migrateExplicitDefaultModelAllowPolicy,t as collectLegacyDefaultModelAllowRefs}from"./legacy-runtime-model-policy-BIiwS_03.mjs";export{maybeOfferModelAllowlistWildcards};

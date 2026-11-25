@@ -1,12 +1,13 @@
+import { r as registerZalouserRuntimeLifecycle } from "./.setup/session-runtime-DP2xn27T.mjs";
 import { defineBundledChannelSetupEntry } from "openclaw/plugin-sdk/channel-entry-contract";
 import { fileURLToPath } from "node:url";
-//#region extensions/zalouser/setup-entry.ts
+// extensions/zalouser/setup-entry.ts
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-0-qv_txJ.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-8Eqw2PTa.mjs", import.meta.url).href),
 		exportName: "zalouserSetupPlugin"
-	}
+	},
+	registerSetupRuntime: registerZalouserRuntimeLifecycle
 });
-//#endregion
 export { setup_entry_default as default };

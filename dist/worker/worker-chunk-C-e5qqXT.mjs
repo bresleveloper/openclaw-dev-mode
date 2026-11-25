@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function createGatewayLifecycleMutationReporter(e){return t=>{try{e?.({mode:t})}catch{}}}var t=e((()=>{}));export{t as n,createGatewayLifecycleMutationReporter as t};

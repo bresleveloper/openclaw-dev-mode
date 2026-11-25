@@ -1,0 +1,3 @@
+import{z as runInDetachedAsyncContext}from"./paths-B1tj13JF.js";import path from"node:path";import"@openclaw/fs-safe/path";import{resolvePathViaExistingAncestorSync}from"@openclaw/fs-safe/advanced";
+//!src/infra/boundary-path.ts
+function resolvePathViaExistingAncestorSync$1(e){return runInDetachedAsyncContext(()=>resolvePathViaExistingAncestorSync(e))}export{resolvePathViaExistingAncestorSync$1 as t};

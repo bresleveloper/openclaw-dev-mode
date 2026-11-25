@@ -1,0 +1,2 @@
+//!src/shared/chat-image-renditions.ts
+const DEFAULT_CHAT_IMAGE_RENDITION_WIDTH=960;const CHAT_IMAGE_RENDITION_MAX_BYTES={480:98304,960:262144,1920:524288};function normalizeChatImageRenditionWidth(e){if(e===480||e===`480`)return 480;if(e===1920||e===`1920`)return 1920;return 960}export{normalizeChatImageRenditionWidth as n,CHAT_IMAGE_RENDITION_MAX_BYTES as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-DyeIuPEC.mjs";import{a as t,r as n}from"./worker-chunk-6cOBEM34.mjs";async function settlesWithin(e,n){return await t(e.then(()=>!0),n,()=>!1,{ref:!1})}function init_settle_within(){return(init_settle_within=e((()=>{n()})))()}export{settlesWithin as n,init_settle_within as t};

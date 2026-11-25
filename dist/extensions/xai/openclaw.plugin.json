@@ -58,6 +58,7 @@
       "xai": {
         "baseUrl": "https://api.x.ai/v1",
         "api": "openai-responses",
+        "family": "xai",
         "models": [
           {
             "id": "grok-4.7",
@@ -74,7 +75,16 @@
               "cacheWrite": 0
             },
             "contextWindow": 500000,
-            "maxTokens": 64000
+            "maxTokens": 64000,
+            "compat": {
+              "thinkingLevels": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "defaultThinkingLevel": "high"
+            }
           },
           {
             "id": "grok-4.6",
@@ -91,7 +101,16 @@
               "cacheWrite": 0
             },
             "contextWindow": 500000,
-            "maxTokens": 64000
+            "maxTokens": 64000,
+            "compat": {
+              "thinkingLevels": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "defaultThinkingLevel": "high"
+            }
           },
           {
             "id": "grok-4.5",
@@ -108,7 +127,15 @@
               "cacheWrite": 0
             },
             "contextWindow": 500000,
-            "maxTokens": 64000
+            "maxTokens": 64000,
+            "compat": {
+              "thinkingLevels": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "defaultThinkingLevel": "high"
+            }
           },
           {
             "id": "grok-build-0.1",
@@ -125,7 +152,13 @@
               "cacheWrite": 0
             },
             "contextWindow": 256000,
-            "maxTokens": 64000
+            "maxTokens": 64000,
+            "compat": {
+              "thinkingLevels": [
+                "off"
+              ],
+              "defaultThinkingLevel": "off"
+            }
           },
           {
             "id": "grok-4.3",
@@ -142,7 +175,17 @@
               "cacheWrite": 0
             },
             "contextWindow": 1000000,
-            "maxTokens": 64000
+            "maxTokens": 64000,
+            "compat": {
+              "thinkingLevels": [
+                "off",
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ],
+              "defaultThinkingLevel": "low"
+            }
           },
           {
             "id": "grok-4.20-0309-reasoning",
@@ -159,7 +202,13 @@
               "cacheWrite": 0
             },
             "contextWindow": 1000000,
-            "maxTokens": 30000
+            "maxTokens": 30000,
+            "compat": {
+              "thinkingLevels": [
+                "off"
+              ],
+              "defaultThinkingLevel": "off"
+            }
           },
           {
             "id": "grok-4.20-0309-non-reasoning",
@@ -323,7 +372,7 @@
     },
     "xSearch.enabled": {
       "label": "Enable X Search",
-      "help": "Expose x_search on active xAI models; true opts in when the active provider is known non-xAI, false disables, and a missing active provider keeps the tool disabled. Requires xAI auth; xAI bills $5/1,000 calls plus model tokens."
+      "help": "Expose x_search on active xAI models, and with Grok OAuth on any known provider using only the subscription credential; true opts in to API-key billing when the active provider is known non-xAI, false disables, and a missing active provider keeps the tool disabled. Requires xAI auth; xAI bills API keys $5/1,000 calls plus model tokens."
     },
     "xSearch.model": {
       "label": "X Search Model",

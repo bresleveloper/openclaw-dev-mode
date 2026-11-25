@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import"./string-coerce-runtime-BYDH9Quw.mjs";import{n as parseGoogleOauthApiKey}from"./oauth-token-shared-B6FA_Gvc.mjs";
+//!extensions/google/gemini-auth.ts
+function parseGeminiAuth(e){const t=e.startsWith(`{`)?parseGoogleOauthApiKey(e):null;return{headers:{...t?.token?{Authorization:`Bearer ${t.token}`}:{"x-goog-api-key":e},"Content-Type":`application/json`}}}function resolveGoogleEnvApiKey(){return normalizeOptionalString(process.env.GEMINI_API_KEY)??normalizeOptionalString(process.env.GOOGLE_API_KEY)}export{resolveGoogleEnvApiKey as n,parseGeminiAuth as t};

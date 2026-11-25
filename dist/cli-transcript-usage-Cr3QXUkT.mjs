@@ -1,0 +1,2 @@
+//!src/agents/cli-transcript-usage.ts
+const CLI_TRANSCRIPT_UNAVAILABLE_USAGE={input:0,output:0,cacheRead:0,cacheWrite:0,total:0,contextUsage:{state:`unavailable`}};function resolveCliTranscriptUsage(e,t){if(!e)return CLI_TRANSCRIPT_UNAVAILABLE_USAGE;const n=t??e;if(e.contextUsage)return{...n,contextUsage:e.contextUsage};const r=(e.input??0)+(e.cacheRead??0)+(e.cacheWrite??0);return{...n,contextUsage:r>0?{state:`available`,promptTokens:r,totalTokens:r+(e.output??0)}:{state:`unavailable`}}}export{resolveCliTranscriptUsage as t};

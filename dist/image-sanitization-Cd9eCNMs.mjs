@@ -1,0 +1,2 @@
+//!src/agents/image-sanitization.ts
+const DEFAULT_IMAGE_MAX_DIMENSION_PX=1200;const DEFAULT_IMAGE_MAX_BYTES=5242880;function resolveImageSanitizationLimits(e){const t=e?.agents?.defaults?.imageMaxDimensionPx;if(t===void 0)return{};return{maxDimensionPx:t}}export{DEFAULT_IMAGE_MAX_DIMENSION_PX as n,resolveImageSanitizationLimits as r,DEFAULT_IMAGE_MAX_BYTES as t};

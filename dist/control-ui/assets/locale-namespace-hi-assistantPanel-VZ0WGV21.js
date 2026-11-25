@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"इस पर काम हो रहा है: {context}","removeContext":"कार्य संदर्भ हटाएँ","includeContext":"कार्य संदर्भ शामिल करें","selection":"चयनित टेक्स्ट","attachSelection":"चयनित टेक्स्ट संलग्न करें","attachSelectionTooltip":"चुनी गई सामग्री अटैच करें","removeSelection":"चयनित टेक्स्ट हटाएँ"}};

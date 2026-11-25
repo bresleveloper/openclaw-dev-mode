@@ -1,0 +1,3 @@
+import{Buffer}from"node:buffer";
+//!src/utils/utf8-truncate.ts
+function isContinuationByte(e){return e!==void 0&&(e&192)===128}function truncateUtf8Suffix(e,t){if(t<=0)return``;if(e.length<=t&&Buffer.byteLength(e)<=t)return e;const n=Buffer.from(Number.isInteger(t)?e.slice(-t-1):e);let r=n.byteLength-t;while(r<n.byteLength&&isContinuationByte(n[r]))r+=1;return n.subarray(r).toString(`utf8`)}export{truncateUtf8Suffix as t};

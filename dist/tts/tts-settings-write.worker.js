@@ -1,0 +1,3 @@
+import{n as readTtsPrefs}from"../tts-config-CyUHKCwb.mjs";import{r as writePrivateTextFileAtomicSync}from"../private-file-store-BjRsyVmB.mjs";import{n as serveWorkerTasks}from"../worker-task-server-BDP9evHw.mjs";import{d as normalizeTtsPersonaId}from"../tts-settings-DMTMPgor.mjs";
+//!src/tts/tts-settings-write.worker.ts
+serveWorkerTasks(({prefsPath:e,stateDir:t,patch:n})=>{const r=readTtsPrefs(e,{forUpdate:true});const i={...r.tts,...n};if(n.auto!==void 0)delete i.enabled;if(Object.hasOwn(n,`persona`))i.persona=normalizeTtsPersonaId(n.persona)??null;r.tts=i;writePrivateTextFileAtomicSync(e,JSON.stringify(r,null,2),t)});export{};

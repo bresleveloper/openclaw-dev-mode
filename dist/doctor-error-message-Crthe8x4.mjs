@@ -1,0 +1,3 @@
+import{r as truncateUtf16Safe}from"./utf16-slice-DA3Mllbx.mjs";
+//!src/flows/doctor-error-message.ts
+const ERR_MESSAGE_MAX_LEN=256;function scrubDoctorErrorMessage(e){const t=e instanceof Error?e.message:String(e);let n=``;for(let e=0;e<t.length;e++){const r=t.charCodeAt(e);if(r===9||r===10||r===13)n+=` `;else if(r>31&&r!==127)n+=t.charAt(e)}n=n.replace(/ {2,}/gu,` `).trim();if(n.length<=ERR_MESSAGE_MAX_LEN)return n;return`${truncateUtf16Safe(n,253)}...`}export{scrubDoctorErrorMessage as t};

@@ -1,0 +1,2 @@
+//!src/config/sessions/session-entry-patch-authority.ts
+function assertSessionEntryPatchAuthority(e){if(e?.kind===`source`&&typeof e.source.prepareSessionSource!==`function`)throw new Error(`Session entry source authority requires a prepared source capability; use kind: host for SQLite-free checks or the deprecated patchSessionEntry API for legacy callbacks`)}export{assertSessionEntryPatchAuthority as t};

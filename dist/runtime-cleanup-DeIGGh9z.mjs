@@ -1,0 +1,3 @@
+import{o as throwSettledAggregate}from"./error-graph-internal-Bt2pFJBM.mjs";import{o as registerSignalExitBarrier}from"./signal-exit-barrier-qB5oamee.mjs";
+//!src/proxy-capture/runtime-cleanup.ts
+const finalizers=/* @__PURE__ */ new Set;function registerActiveDebugProxyCapture(e){finalizers.add(e);const t=registerSignalExitBarrier(e);return()=>{finalizers.delete(e);t()}}async function finalizeActiveDebugProxyCaptures(){const e=await Promise.allSettled([...finalizers].map(async e=>await e()));throwSettledAggregate(e,`Capture finalization failed.`)}export{registerActiveDebugProxyCapture as n,finalizeActiveDebugProxyCaptures as t};

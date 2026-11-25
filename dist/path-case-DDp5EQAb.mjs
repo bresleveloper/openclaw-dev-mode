@@ -1,0 +1,3 @@
+import{probePathCaseInsensitiveSync,probePathCaseInsensitiveSync as tryResolvePathCaseInsensitive}from"@openclaw/fs-safe/advanced";
+//!src/infra/path-case.ts
+function swapAsciiCase(e){return e.replace(/[A-Za-z]/g,e=>{const t=e.toLowerCase();return e===t?e.toUpperCase():t})}function sameFsObject(e,t){return e.dev===t.dev&&e.ino===t.ino}function isPathCaseInsensitive(e){return probePathCaseInsensitiveSync(e)??(process.platform===`darwin`||process.platform===`win32`)}export{tryResolvePathCaseInsensitive as i,sameFsObject as n,swapAsciiCase as r,isPathCaseInsensitive as t};

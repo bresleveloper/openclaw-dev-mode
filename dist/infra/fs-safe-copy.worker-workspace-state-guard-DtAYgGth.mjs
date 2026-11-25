@@ -1,0 +1,1 @@
+export{t as assertWorkspaceFilesystemEvidence}from"./fs-safe-copy.worker-workspace-state-guard-BVqMPKpk.mjs";

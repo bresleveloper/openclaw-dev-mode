@@ -1,0 +1,3 @@
+import{t as createLazyRuntimeMethod}from"./lazy-runtime-Ds6M7vp4.mjs";import"./device-bootstrap-profile-BUP1gDw9.mjs";import"./device-pairing-BJTK_zD1.mjs";import"./device-pairing-approval-Cuhmw8iP.mjs";import"./device-bootstrap-Byj5feiQ.mjs";
+//!src/plugin-sdk/device-bootstrap.ts
+const resolvePairingGatewayUrl=createLazyRuntimeMethod(()=>import(`./setup-code-BN3GcSJw.mjs`),e=>e.resolvePairingGatewayUrl);export{resolvePairingGatewayUrl as t};

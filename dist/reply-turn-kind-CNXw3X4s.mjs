@@ -1,0 +1,2 @@
+//!src/auto-reply/reply/reply-turn-kind.ts
+function resolveReplyTurnKind(e){return e?.internalEventExecution?`queued_followup`:`visible`}function resolveReplyRunTrigger(e){return e.followupRun.run.scheduledAutomation?`cron`:e.followupRun.run.internalEventExecution?`event`:`user`}export{resolveReplyTurnKind as n,resolveReplyRunTrigger as t};

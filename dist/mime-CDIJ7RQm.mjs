@@ -1,0 +1,3 @@
+import{u as mimeTypeFromFilePath}from"./mime-ZmYZsEjx.mjs";import"./media-mime-ByOG-or6.mjs";
+//!extensions/file-transfer/src/shared/mime.ts
+const IMAGE_MIME_INLINE_SET=/* @__PURE__ */ new Set([`image/png`,`image/jpeg`,`image/webp`,`image/gif`]);const TEXT_INLINE_MAX_BYTES=8192;function mimeFromExtension(e){return mimeTypeFromFilePath(e)??`application/octet-stream`}export{TEXT_INLINE_MAX_BYTES as n,mimeFromExtension as r,IMAGE_MIME_INLINE_SET as t};

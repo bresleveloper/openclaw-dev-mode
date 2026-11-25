@@ -1,0 +1,3 @@
+import{s as resolveControlPlaneRegistryParams}from"./plugin-registry-snapshot-Buo49KNF.mjs";import{i as refreshPersistedInstalledPluginIndex}from"./installed-plugin-index-store-write-u3Zlxc5E.mjs";
+//!src/plugins/plugin-registry-refresh.ts
+async function refreshPluginRegistry(e){return await refreshPersistedInstalledPluginIndex(resolveControlPlaneRegistryParams(e))}export{refreshPluginRegistry as t};

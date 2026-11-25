@@ -1,0 +1,1 @@
+import{t as e}from"./plugin-preparation-runtime-process-manifest-BNtrgdg-.mjs";const t=`--openclaw-sqlite-readonly-child`,n=e(import.meta.url);export{n,t};

@@ -1,0 +1,3 @@
+import{o as deferSqliteWorkerCommitReceipt}from"./sqlite-worker-operation-settlement-DuQEnRRH.mjs";import"./sqlite-worker-operation-admission-B-DuUaOb.mjs";import{c as sessionUpstreamPresencePublication}from"./session-upstream-links.kernel-wqu3jFnS.mjs";
+//!src/sessions/session-upstream-links-publication.worker.ts
+function captureSessionUpstreamMutation(e,t){const{result:n,receipt:r}=sessionUpstreamPresencePublication.capture(e,t);if(r.facts.size>0)deferSqliteWorkerCommitReceipt(e,{upstreamPresence:sessionUpstreamPresencePublication.bound(r)});return n}export{captureSessionUpstreamMutation as t};

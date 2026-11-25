@@ -1,4 +1,5 @@
-import { t as EngineConnection } from "../sql-connection-B21fTbHP.js";
-import { r as DatabaseEngineInput } from "../config-D5r1YFWG.js";
-import { a as DatabaseEngineAdapter, i as openEngineStore, n as runEngineWorkerWrite, o as StoreSchema, r as withEngineStoreAdmission, t as runEngineStoreReadSnapshot } from "../database-engine-worker-runtime-DSU40AON.js";
-export { type DatabaseEngineAdapter, type DatabaseEngineInput, type EngineConnection, type StoreSchema, openEngineStore, runEngineStoreReadSnapshot, runEngineWorkerWrite, withEngineStoreAdmission };
+import { t as EngineConnection } from "../sql-connection-CSeUqY2a.js";
+import { r as DatabaseEngineInput } from "../types-C6Nim0qi.js";
+import { a as StoreSchema, c as VectorIndex, d as TextIndex, f as TextIndexDefinition, i as SearchStore, l as VectorSearch, n as DatabaseEngineAdapter, o as StoreSearchCapabilities, p as TextQuery, r as SearchSchema, s as VectorCapability, u as FullTextCapability } from "../contract-Bt-nPs2h.js";
+import { a as postgresIndexOrderingMigration, c as openEngineStore, i as admitStoreSearch, n as runEngineStoreReadSnapshot, o as withLegacyPostgresIndexOrdering, r as runEngineWorkerWrite, s as withEngineStoreAdmission, t as jsonPathValue } from "../database-engine-worker-runtime-B6LH5KzA.js";
+export { type DatabaseEngineAdapter, type DatabaseEngineInput, type EngineConnection, type FullTextCapability, type SearchSchema, type SearchStore, type StoreSchema, type StoreSearchCapabilities, type TextIndex, type TextIndexDefinition, type TextQuery, type VectorCapability, type VectorIndex, type VectorSearch, admitStoreSearch, jsonPathValue, openEngineStore, postgresIndexOrderingMigration, runEngineStoreReadSnapshot, runEngineWorkerWrite, withEngineStoreAdmission, withLegacyPostgresIndexOrdering };

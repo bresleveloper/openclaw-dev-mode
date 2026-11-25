@@ -1,0 +1,3 @@
+import{t as sha256Base64Url}from"./crypto-digest-T8X5EZni.mjs";
+//!src/gateway/server/ws-shared-generation.ts
+function resolveSharedGatewaySessionGeneration(e,t){const n=e.mode===`token`||e.mode===`password`?e[e.mode]:void 0;if(typeof n===`string`&&n.trim().length>0)return sha256Base64Url(`${e.mode}\u0000${n}`);if(e.mode===`trusted-proxy`)return sha256Base64Url(JSON.stringify({mode:e.mode,trustedProxy:{userHeader:e.trustedProxy?.userHeader,requiredHeaders:(e.trustedProxy?.requiredHeaders??[]).toSorted(),allowUsers:(e.trustedProxy?.allowUsers??[]).toSorted(),allowLoopback:e.trustedProxy?.allowLoopback},trustedProxies:(t??[]).toSorted()}))}export{resolveSharedGatewaySessionGeneration as t};

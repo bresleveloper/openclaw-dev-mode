@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"مهارت‌های فضای کاری","learned":"مهارت‌های آموخته‌شده","builtIn":"مهارت‌های داخلی","installed":"مهارت‌های نصب‌شده","extra":"مهارت‌های اضافی","other":"سایر مهارت‌ها"}};

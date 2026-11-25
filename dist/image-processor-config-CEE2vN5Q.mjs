@@ -1,0 +1,3 @@
+import{r as resolvePreferredOpenClawTmpDir}from"./tmp-openclaw-dir-BisosRri.mjs";import{t as resolveSystemBin}from"./resolve-system-bin-ByEoMSaj.mjs";import{createRastermill}from"rastermill";
+//!src/media/image-processor-config.ts
+const MAX_IMAGE_INPUT_PIXELS=25e6;const MAX_IMAGE_DOWNSCALE_SOURCE_PIXELS=64e6;function createLocalImageProcessor(e,t={inputPixels:MAX_IMAGE_INPUT_PIXELS,outputPixels:MAX_IMAGE_INPUT_PIXELS}){return createRastermill({execution:e,limits:t,temp:{rootDir:resolvePreferredOpenClawTmpDir(),prefix:`openclaw-img-`},commandResolver:e=>resolveSystemBin(e,{trust:e===`powershell`?`strict`:`standard`})})}export{MAX_IMAGE_INPUT_PIXELS as n,createLocalImageProcessor as r,MAX_IMAGE_DOWNSCALE_SOURCE_PIXELS as t};

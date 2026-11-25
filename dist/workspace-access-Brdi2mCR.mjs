@@ -1,0 +1,1 @@
+import{a as isWorkspaceAccessUnavailableError,i as getAgentWorkspaceAccess,n as captureAgentWorkspaceOutboundMedia,o as prepareAgentWorkspaceAttachments,r as declareAgentWorkspaceAccess,s as registerAgentWorkspaceAccess,t as WorkspaceAccessUnavailableError}from"./workspace-access-Cws8w2A2.mjs";export{prepareAgentWorkspaceAttachments};

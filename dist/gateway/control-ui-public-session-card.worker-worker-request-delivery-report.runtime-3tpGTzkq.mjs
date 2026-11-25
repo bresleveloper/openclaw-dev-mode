@@ -1,0 +1,1 @@
+import{t as e}from"./control-ui-public-session-card.worker-subsystem-CMzSNBBo.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

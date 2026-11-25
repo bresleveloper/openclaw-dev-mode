@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{a as t,n,r}from"./worker-chunk-Bw6XAo3v.mjs";function retainWindowsProcessJobUntilExit(e){if(i)return;let r=n.create();try{t(r),i=!0}finally{r.close()}}var i;e((()=>{r(),i=!1}))();export{retainWindowsProcessJobUntilExit};

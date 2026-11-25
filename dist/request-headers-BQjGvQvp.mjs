@@ -1,0 +1,2 @@
+//!packages/llm-core/src/utils/request-headers.ts
+function omitNullRequestHeaders(e){if(!e)return;const t={};for(const[n,r]of Object.entries(e))if(r!==null)t[n]=r;return t}export{omitNullRequestHeaders as t};

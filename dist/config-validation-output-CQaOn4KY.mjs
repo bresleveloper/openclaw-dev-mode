@@ -1,0 +1,3 @@
+import{o as writeRuntimeJson}from"./runtime-DIcLIHcp.mjs";import{f as shortenHomePath}from"./utils-CVVNdy3C.mjs";import{i as normalizeConfigIssues}from"./issue-format-CeCSO2Ku.mjs";import{t as configFailureHeading}from"./io.invalid-config-B2POcxOa.mjs";import{r as formatCliJsonFailure}from"./failure-output-DigaChvV.mjs";import{n as formatInvalidConfigRepairHint}from"./config-recovery-hints-BurwcVjm.mjs";
+//!src/cli/config-validation-output.ts
+function writeInvalidConfigCliJson(e,t){writeRuntimeJson(e,{...formatCliJsonFailure(`${configFailureHeading(t)}: ${shortenHomePath(t.path)}`),repairHint:formatInvalidConfigRepairHint(t,`to repair, then retry.`),issues:normalizeConfigIssues(t.issues)})}export{writeInvalidConfigCliJson as t};

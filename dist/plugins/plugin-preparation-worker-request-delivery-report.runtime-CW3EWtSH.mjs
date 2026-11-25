@@ -1,0 +1,1 @@
+import{t as e}from"./plugin-preparation-subsystem-DCCMxG-8.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

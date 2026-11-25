@@ -1,0 +1,2 @@
+//!src/plugins/plugin-entry-order.ts
+function comparePluginEntryIdentity(e,t){return e.id.localeCompare(t.id)||e.pluginId.localeCompare(t.pluginId)}function sortPluginEntriesById(e){return e.toSorted(comparePluginEntryIdentity)}function sortPluginEntriesForAutoDetect(e){return e.toSorted((e,t)=>{const n=e.autoDetectOrder??Number.MAX_SAFE_INTEGER;const r=t.autoDetectOrder??Number.MAX_SAFE_INTEGER;if(n!==r)return n-r;return comparePluginEntryIdentity(e,t)})}export{sortPluginEntriesForAutoDetect as n,sortPluginEntriesById as t};

@@ -1,0 +1,5 @@
+import{i as resolveGlobalSingleton}from"./global-singleton-CTnqrmaI.js";import"@openclaw/fs-safe/path";import path from"node:path";import{resolvePathViaExistingAncestorSync}from"@openclaw/fs-safe/advanced";
+//!src/shared/detached-async-context.ts
+const asyncHooks=typeof process===`undefined`?void 0:process.getBuiltinModule?.(`node:async_hooks`);const detachedAsyncContext=asyncHooks?resolveGlobalSingleton(Symbol.for(`openclaw.detachedAsyncContext`),()=>new asyncHooks.AsyncResource(`openclaw.detached-async-context`)):void 0;function runInDetachedAsyncContext(e){return detachedAsyncContext?detachedAsyncContext.runInAsyncScope(e):e()}
+//!src/infra/boundary-path.ts
+function resolvePathViaExistingAncestorSync$1(e){return runInDetachedAsyncContext(()=>resolvePathViaExistingAncestorSync(e))}export{runInDetachedAsyncContext as n,resolvePathViaExistingAncestorSync$1 as t};

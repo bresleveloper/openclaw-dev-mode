@@ -1,0 +1,3 @@
+import fs from"node:fs";import{spawn}from"node:child_process";
+//!extensions/file-transfer/src/node-host/dir-fetch-archive.worker.ts
+function main(){const[e,t,n,r,i]=process.argv.slice(2);if(!e||!i){process.exitCode=1;return}try{process.chdir(e)}catch{process.exitCode=1;return}if(fs.realpathSync(`.`)!==t){process.exitCode=78;return}const a=fs.statSync(`.`,{bigint:true});if(String(a.dev)!==n||String(a.ino)!==r){process.exitCode=78;return}const o=spawn(i,[`-czf`,`-`,`.`],{stdio:[`ignore`,`inherit`,`inherit`]});let s=false;o.once(`error`,()=>{s=true});o.once(`close`,e=>{process.exitCode=s?1:e??1})}main();export{};

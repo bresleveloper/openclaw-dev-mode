@@ -9,7 +9,7 @@ import { Readable, Writable } from "node:stream";
 import { extractErrorCode, toErrorObject } from "openclaw/plugin-sdk/error-runtime";
 import { isPathInside } from "openclaw/plugin-sdk/file-access-runtime";
 import { raceWithTimeout } from "openclaw/plugin-sdk/time-runtime";
-//#region extensions/lobster/src/lobster-runner.ts
+// extensions/lobster/src/lobster-runner.ts
 const workflowExts = /* @__PURE__ */ new Set([
 	".lobster",
 	".yaml",
@@ -18,7 +18,7 @@ const workflowExts = /* @__PURE__ */ new Set([
 ]);
 function resolveLobsterCwd(cwdRaw) {
 	if (typeof cwdRaw !== "string" || !cwdRaw.trim()) return process.cwd();
-	const cwd = cwdRaw.trim();
+	const cwd = cwdRaw;
 	if (path.isAbsolute(cwd)) throw new Error("cwd must be a relative path");
 	const base = process.cwd();
 	const resolved = path.resolve(base, cwd);
@@ -55,13 +55,13 @@ function normalizeEnvelope(envelope, maxStdoutBytes) {
 			type: "input_request"
 		} } : {}
 	};
-	if (Buffer.byteLength(JSON.stringify(normalized, null, 2), "utf8") > maxStdoutBytes) throw new Error("lobster runtime result exceeded maxStdoutBytes");
+	if (Buffer.byteLength(JSON.stringify(normalized), "utf8") > maxStdoutBytes) throw new Error("lobster runtime result exceeded maxStdoutBytes");
 	return normalized;
 }
 async function detectWorkflowFile(candidate, cwd) {
 	const trimmed = candidate.trim();
 	if (!trimmed || trimmed.includes("|") || !workflowExts.has(path.extname(trimmed).toLowerCase())) return null;
-	const resolved = path.isAbsolute(trimmed) ? trimmed : path.resolve(cwd, trimmed);
+	const resolved = path.isAbsolute(candidate) ? candidate : path.resolve(cwd, candidate);
 	try {
 		if (!(await stat(resolved)).isFile()) throw new Error("Workflow path is not a file");
 		return resolved;
@@ -71,17 +71,24 @@ async function detectWorkflowFile(candidate, cwd) {
 	}
 }
 async function loadEmbeddedToolRuntimeFromPackage() {
-	return await import([
+	const { getRuntimeExecutionProfile } = await import("openclaw/plugin-sdk/runtime-profile");
+	const profile = getRuntimeExecutionProfile();
+	const runtime = await import([
 		"@clawdbot",
 		"lobster",
 		"core"
 	].join("/"));
+	if (profile !== "embedded-aot") return runtime;
+	const { compileLobsterSchema } = await import("./.setup/lobster-schema-compiler-T2XZzavY.mjs");
+	return {
+		runToolRequest: (params) => runtime.withSchemaCompiler(compileLobsterSchema, () => runtime.runToolRequest(params)),
+		resumeToolRequest: (params) => runtime.withSchemaCompiler(compileLobsterSchema, () => runtime.resumeToolRequest(params))
+	};
 }
-function createEmbeddedLobsterRunner(options) {
-	const loadRuntime = options?.loadRuntime ?? loadEmbeddedToolRuntimeFromPackage;
+function createEmbeddedLobsterRunner() {
 	let runtimePromise;
 	return { async run(params) {
-		runtimePromise ??= loadRuntime();
+		runtimePromise ??= loadEmbeddedToolRuntimeFromPackage();
 		const runtime = await runtimePromise;
 		const controller = new AbortController();
 		return await raceWithTimeout(async () => {
@@ -97,8 +104,8 @@ function createEmbeddedLobsterRunner(options) {
 			};
 			let envelope;
 			if (params.action === "run") {
-				const pipeline = params.pipeline?.trim() ?? "";
-				if (!pipeline) throw new Error("pipeline required");
+				const pipeline = params.pipeline ?? "";
+				if (!pipeline.trim()) throw new Error("pipeline required");
 				const filePath = await detectWorkflowFile(pipeline, params.cwd);
 				if (filePath) {
 					const parsedArgsJson = params.argsJson?.trim() ?? "";
@@ -151,27 +158,27 @@ function createEmbeddedLobsterRunner(options) {
 		});
 	} };
 }
-//#endregion
-//#region extensions/lobster/src/lobster-tool.ts
-function createLobsterTool(api) {
+// extensions/lobster/src/lobster-tool.ts
+const LobsterParameters = Type.Object({
+	action: Type.Enum(["run", "resume"], { type: "string" }),
+	pipeline: Type.Optional(Type.String()),
+	argsJson: Type.Optional(Type.String()),
+	token: Type.Optional(Type.String()),
+	approvalId: Type.Optional(Type.String()),
+	approve: Type.Optional(Type.Boolean()),
+	responseJson: Type.Optional(Type.String({ description: "User's answer as JSON for an input checkpoint. Use instead of approve." })),
+	cancel: Type.Optional(Type.Literal(true)),
+	cwd: Type.Optional(Type.String({ description: "Relative working directory (optional). Must stay within the gateway working directory." })),
+	timeoutMs: optionalPositiveIntegerSchema(),
+	maxStdoutBytes: optionalPositiveIntegerSchema()
+});
+function createLobsterTool() {
 	const runner = createEmbeddedLobsterRunner();
 	return {
 		name: "lobster",
 		label: "Lobster Workflow",
 		description: "Run Lobster workflows with resumable approvals and structured input. For needs_input, ask the user the returned prompt, then resume with their answer as responseJson matching responseSchema. For approvals, resume with approve. Use cancel: true to cancel a checkpoint.",
-		parameters: Type.Object({
-			action: Type.Enum(["run", "resume"], { type: "string" }),
-			pipeline: Type.Optional(Type.String()),
-			argsJson: Type.Optional(Type.String()),
-			token: Type.Optional(Type.String()),
-			approvalId: Type.Optional(Type.String()),
-			approve: Type.Optional(Type.Boolean()),
-			responseJson: Type.Optional(Type.String({ description: "User's answer as JSON for an input checkpoint. Use instead of approve." })),
-			cancel: Type.Optional(Type.Literal(true)),
-			cwd: Type.Optional(Type.String({ description: "Relative working directory (optional). Must stay within the gateway working directory." })),
-			timeoutMs: optionalPositiveIntegerSchema(),
-			maxStdoutBytes: optionalPositiveIntegerSchema()
-		}),
+		parameters: LobsterParameters,
 		async execute(_id, params) {
 			const action = typeof params.action === "string" ? params.action.trim() : "";
 			if (!action) throw new Error("action required");
@@ -179,7 +186,6 @@ function createLobsterTool(api) {
 			const cwd = resolveLobsterCwd(params.cwd);
 			const timeoutMs = readPositiveIntegerParam(params, "timeoutMs") ?? 2e4;
 			const maxStdoutBytes = readPositiveIntegerParam(params, "maxStdoutBytes") ?? 512e3;
-			if (api.runtime?.version && api.logger?.debug) api.logger.debug(`lobster plugin runtime=${api.runtime.version}`);
 			const runnerParams = {
 				action,
 				...typeof params.pipeline === "string" ? { pipeline: params.pipeline } : {},
@@ -198,8 +204,7 @@ function createLobsterTool(api) {
 		}
 	};
 }
-//#endregion
-//#region extensions/lobster/index.ts
+// extensions/lobster/index.ts
 var lobster_default = definePluginEntry({
 	id: "lobster",
 	name: "Lobster",
@@ -207,12 +212,11 @@ var lobster_default = definePluginEntry({
 	register(api) {
 		api.registerTool((ctx) => {
 			if (ctx.sandboxed) return null;
-			return createLobsterTool(api);
+			return createLobsterTool();
 		}, {
 			optional: true,
 			workspaceAccess: "execute"
 		});
 	}
 });
-//#endregion
 export { lobster_default as default };

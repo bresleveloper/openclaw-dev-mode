@@ -1,6 +1,6 @@
 import { createTokenjuiceAgentToolResultMiddleware } from "./tool-result-middleware.js";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/tokenjuice/index.ts
+// extensions/tokenjuice/index.ts
 var tokenjuice_default = definePluginEntry({
 	id: "tokenjuice",
 	name: "tokenjuice",
@@ -9,5 +9,4 @@ var tokenjuice_default = definePluginEntry({
 		api.registerAgentToolResultMiddleware(createTokenjuiceAgentToolResultMiddleware());
 	}
 });
-//#endregion
 export { tokenjuice_default as default };

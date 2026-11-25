@@ -1,0 +1,3 @@
+import{i as withEngineStoreAdmission}from"./admission-scope-DOi5x3Rq.mjs";import{h as withExistingOpenClawStateDatabaseCurrentReadOnly,p as withExistingOpenClawStateDatabaseArtifactPreservingReadOnly}from"./openclaw-state-db-readonly-BzXGNN0v.mjs";import{a as isStatePostgres}from"./openclaw-state-db-engine-D6XIrck-.mjs";
+//!src/infra/update-run-read-admission.ts
+function withUpdateRunRead(e,t,n){if(isStatePostgres())return withEngineStoreAdmission(()=>withExistingOpenClawStateDatabaseCurrentReadOnly(e,t));return(t.allowNativeRead?withExistingOpenClawStateDatabaseCurrentReadOnly:withExistingOpenClawStateDatabaseArtifactPreservingReadOnly)(e,t,n)}export{withUpdateRunRead as t};

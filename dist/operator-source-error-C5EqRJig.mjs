@@ -1,0 +1,2 @@
+//!src/cron/operator-source-error.ts
+var CronOperatorSourceError=class extends Error{constructor(e){const t=e instanceof Error?e.message:String(e);super(`The operator authority that created this automation was refused (device, access grant, role or definition changed); recreate it from an authenticated turn. Cause: ${t}`,{cause:e})}};export{CronOperatorSourceError as t};

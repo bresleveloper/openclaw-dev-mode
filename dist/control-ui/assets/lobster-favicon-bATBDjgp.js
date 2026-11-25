@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{a as t,r as n}from"./lobster-dex-BayK4YCq.js";import{n as r,t as i}from"./lobster-image-DlaDGdmk.js";async function a(e){if(!n().has(e))return null;let t=await r(e);return n().has(e)?t:null}function o(){return(o=e((()=>{t(),i()})))()}o();export{a as loadUnlockedLobsterFavicon};
+//# sourceMappingURL=lobster-favicon-bATBDjgp.js.map

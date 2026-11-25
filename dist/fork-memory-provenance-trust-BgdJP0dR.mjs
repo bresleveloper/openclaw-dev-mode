@@ -1,0 +1,2 @@
+//!src/memory/fork-memory-provenance-trust.ts
+function forkTrustsAllMemoryFiles(){return process.env.OPENCLAW_DEV_MODE===`1`}function resolveForkMemoryOriginClass(e){return forkTrustsAllMemoryFiles()?`agent`:e}export{resolveForkMemoryOriginClass as n,forkTrustsAllMemoryFiles as t};

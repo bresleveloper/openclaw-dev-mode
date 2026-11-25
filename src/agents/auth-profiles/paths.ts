@@ -3,11 +3,8 @@
  * Import through this file for canonical SQLite display and lock paths.
  */
 import path from "node:path";
-import { toErrorObject } from "@openclaw/normalization-core/error-coercion";
-import type { Result } from "@openclaw/normalization-core/result";
 import { cloneEnvWithPlatformSemantics } from "../../config/config-env-vars.js";
 import { resolveStateDir } from "../../config/paths.js";
-import { withSqliteWorkerCleanupFailure } from "../../infra/sqlite-worker-broker-reply.js";
 import { warnPluginSdkDeprecation } from "../../plugins/sdk-deprecation.js";
 import { captureOpenClawStateWorkerContext } from "../../state/openclaw-state-worker-context.js";
 import { resolveUserPath } from "../../utils.js";
@@ -17,11 +14,9 @@ import {
   resolveSharedAuthStorePath,
 } from "./path-resolve.js";
 import { prepareSharedAuthStoreOwnershipForNative } from "./path-resolve.native.js";
+import { withAuthProfileReaderCleanup } from "./reader-cleanup.js";
 import { prepareAgentAuthProfileRowsRead } from "./sqlite-read.js";
-import {
-  inspectPersistedAuthProfileStoreRaw,
-  resolveAuthProfileDatabaseOwnerId,
-} from "./sqlite.js";
+import { inspectPersistedAuthProfileStoreRaw } from "./sqlite.js";
 import type { AuthProfileRowRead } from "./types.js";
 
 export { resolveOAuthRefreshLockPath };
@@ -71,43 +66,32 @@ export async function resolveAuthStorePathForDisplayAsync(
     ? path.join(resolveUserPath(agentDir, capturedEnv), "openclaw-agent.sqlite")
     : undefined;
   const local = localPath
-    ? prepareAgentAuthProfileRowsRead({
+    ? await prepareAgentAuthProfileRowsRead({
         databasePath: localPath,
-        agentId: resolveAuthProfileDatabaseOwnerId(path.dirname(localPath)),
         env: capturedEnv,
       })
     : undefined;
-  let result: Result<string, unknown>;
-  try {
-    let selected: string | undefined;
-    if (local) {
-      const rows = await local.read();
-      selected = selectLocalDisplayPath(localPath, rows.store.status);
-    }
-    if (selected === undefined) {
-      await resolveSharedAuthStoreOwnershipAsync(
-        captureOpenClawStateWorkerContext({ env: capturedEnv }),
-      );
-      selected = resolveSharedAuthStorePath(capturedEnv);
-    }
-    result = { ok: true, value: normalizeDisplayPath(selected, capturedEnv) };
-  } catch (error) {
-    result = { ok: false, error };
-  }
-  try {
-    await local?.dispose();
-  } catch (error) {
-    throw result.ok
-      ? error
-      : withSqliteWorkerCleanupFailure(
-          toErrorObject(result.error, "Auth display path read failed"),
-          error,
+  return withAuthProfileReaderCleanup(
+    async () => {
+      let selected: string | undefined;
+      if (local) {
+        const rows = await local.read();
+        selected = selectLocalDisplayPath(localPath, rows.store.status);
+      }
+      if (selected === undefined) {
+        await resolveSharedAuthStoreOwnershipAsync(
+          captureOpenClawStateWorkerContext({ env: capturedEnv }),
         );
-  }
-  if (!result.ok) {
-    throw result.error;
-  }
-  return result.value;
+        selected = resolveSharedAuthStorePath(capturedEnv);
+      }
+      return normalizeDisplayPath(selected, capturedEnv);
+    },
+    local ? [local] : [],
+    {
+      read: "Auth display path read failed",
+      cleanup: "Auth display path reader cleanup failed",
+    },
+  );
 }
 
 /** Private model preparation checks its caller authority once before consuming the label. */

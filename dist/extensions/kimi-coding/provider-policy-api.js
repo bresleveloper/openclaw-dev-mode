@@ -1,12 +1,18 @@
-//#region extensions/kimi-coding/provider-policy-api.ts
-const KIMI_K3_1_MODEL_IDS = ["k3.1-pro", "k3.1-pro-highspeed"];
-const KIMI_K3_MODEL_IDS = [
-	"k3",
-	"k3-256k",
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-IIHLKnoD.mjs";
+// extensions/kimi-coding/provider-policy-api.ts
+const MODELS = openclaw_plugin_default.modelCatalog.providers.kimi.models;
+const KIMI_K3_MODEL_IDS = /* @__PURE__ */ new Set([
+	...MODELS.flatMap((row) => row.compat?.supportedReasoningEfforts ? [row.id] : []),
 	"kimi-k3",
-	...KIMI_K3_1_MODEL_IDS
-];
-const KIMI_K3_LEGACY_MODEL_IDS = ["k3[1m]"];
+	"k3[1m]"
+]);
+const KIMI_CODE_ENABLED_ONLY_MODEL_IDS = /* @__PURE__ */ new Set([
+	...MODELS.flatMap((row) => row.thinkingLevelMap && "off" in row.thinkingLevelMap && row.thinkingLevelMap.off === null ? [row.id] : []),
+	"kimi-for-coding",
+	"kimi-for-coding-highspeed",
+	"kimi-code",
+	"k2p5"
+]);
 const KIMI_K3_THINKING_EFFORTS = {
 	minimal: "low",
 	low: "low",
@@ -26,19 +32,24 @@ const KIMI_K3_THINKING_LEVELS = [
 	{ id: "max" }
 ];
 function isKimiK3ModelId(modelId) {
-	const normalized = modelId.trim().toLowerCase();
-	return KIMI_K3_MODEL_IDS.includes(normalized) || KIMI_K3_LEGACY_MODEL_IDS.includes(normalized);
+	return KIMI_K3_MODEL_IDS.has(modelId.trim().toLowerCase());
 }
-/** Kimi Code K3.1 Pro models, whose backend rejects disabled thinking. */
-function isKimiK31ModelId(modelId) {
-	const normalized = modelId.trim().toLowerCase();
-	return KIMI_K3_1_MODEL_IDS.some((id) => id === normalized);
+/** Kimi Code models whose backend cannot honor disabled thinking. */
+function isKimiCodeEnabledOnlyModelId(modelId) {
+	return KIMI_CODE_ENABLED_ONLY_MODEL_IDS.has(modelId.trim().toLowerCase());
 }
 function resolveThinkingProfile({ modelId }) {
 	if (isKimiK3ModelId(modelId)) return {
-		levels: isKimiK31ModelId(modelId) ? KIMI_K3_THINKING_LEVELS.filter(({ id }) => id !== "off") : KIMI_K3_THINKING_LEVELS,
+		levels: isKimiCodeEnabledOnlyModelId(modelId) ? KIMI_K3_THINKING_LEVELS.filter(({ id }) => id !== "off") : KIMI_K3_THINKING_LEVELS,
 		defaultLevel: modelId.trim().toLowerCase() === "kimi-k3" ? "off" : "high",
 		preserveWhenCatalogReasoningFalse: true
+	};
+	if (isKimiCodeEnabledOnlyModelId(modelId)) return {
+		levels: [{
+			id: "low",
+			label: "on"
+		}],
+		defaultLevel: "low"
 	};
 	return {
 		levels: [{
@@ -51,5 +62,4 @@ function resolveThinkingProfile({ modelId }) {
 		defaultLevel: "off"
 	};
 }
-//#endregion
-export { KIMI_K3_MODEL_IDS, KIMI_K3_THINKING_EFFORTS, isKimiK31ModelId, isKimiK3ModelId, resolveThinkingProfile };
+export { KIMI_K3_THINKING_EFFORTS, isKimiCodeEnabledOnlyModelId, isKimiK3ModelId, resolveThinkingProfile };

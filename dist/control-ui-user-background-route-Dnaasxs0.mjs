@@ -1,0 +1,3 @@
+import{i as isBackgroundAssetId}from"./background-preferences-wUIWS_BF.mjs";import{t as normalizeControlUiBasePath}from"./control-ui-shared-Ch8iHnEl.mjs";
+//!src/gateway/control-ui-user-background-route.ts
+const PREFIX=`/__openclaw__/users/background/`;function parseControlUiUserBackgroundPath(e,t){const n=normalizeControlUiBasePath(t);const r=n&&e.startsWith(n+PREFIX)?e.slice(n.length):e;if(!r.startsWith(PREFIX))return{matched:false};const i=r.slice(31);return{matched:true,assetId:isBackgroundAssetId(i)?i:void 0}}export{parseControlUiUserBackgroundPath as t};

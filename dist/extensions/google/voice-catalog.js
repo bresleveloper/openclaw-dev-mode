@@ -1,2 +1,1 @@
-import { t as GOOGLE_PREBUILT_VOICES } from "../../voice-catalog-D5KYybOO.mjs";
-export { GOOGLE_PREBUILT_VOICES };
+import{t as GOOGLE_PREBUILT_VOICES}from"../../voice-catalog-TdGxajGc.mjs";export{GOOGLE_PREBUILT_VOICES};

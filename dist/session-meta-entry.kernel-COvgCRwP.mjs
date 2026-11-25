@@ -1,0 +1,3 @@
+import{t as matchesAcpSessionControlBinding}from"./session-control-owner-BqV0U5Wp.mjs";
+//!src/acp/runtime/session-meta-entry.kernel.ts
+function captureAcpSessionEntryBinding({sessionId:e,lifecycleRevision:t,sessionStartedAt:n}){return{sessionId:e,lifecycleRevision:t,sessionStartedAt:n}}function assertAcpSessionMutationEntry(e,t,n,r){if(!(t===null?e===void 0:e!==void 0&&e.sessionId===t.sessionId&&e.lifecycleRevision===t.lifecycleRevision&&(t.lifecycleRevision!==void 0||e.sessionStartedAt===t.sessionStartedAt))||n&&!matchesAcpSessionControlBinding(e,n))throw new Error(`Canonical ACP session changed before ${r}.`)}export{captureAcpSessionEntryBinding as n,assertAcpSessionMutationEntry as t};

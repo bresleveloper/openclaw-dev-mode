@@ -1,0 +1,3 @@
+import{t as toStringifiedError}from"./stringified-error-B2ELAgdP.mjs";
+//!src/infra/native-error-response.ts
+function nativeErrorDetails(e){const t=e;return{message:e.message,code:t.code,errcode:t.errcode}}function serializeNativeErrorResponse(e){const t=toStringifiedError(e);return{name:t.name,...nativeErrorDetails(t),...t.cause instanceof Error?{cause:nativeErrorDetails(t.cause)}:{}}}function restoreNativeErrorResponse(e){const t=e.cause?Object.assign(new Error(e.cause.message),e.cause):void 0;return Object.assign(new Error(e.message,t?{cause:t}:void 0),{name:e.name,code:e.code,errcode:e.errcode})}export{serializeNativeErrorResponse as n,restoreNativeErrorResponse as t};

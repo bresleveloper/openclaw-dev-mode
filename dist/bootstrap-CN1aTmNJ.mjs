@@ -1,0 +1,1 @@
+import{a as resolveBootstrapTotalMaxChars,i as resolveBootstrapMaxChars,n as buildBootstrapContextFiles,r as buildBootstrapContextForFiles,t as USER_BOOTSTRAP_MAX_CHARS}from"./bootstrap-CmLTnApg.mjs";export{USER_BOOTSTRAP_MAX_CHARS};

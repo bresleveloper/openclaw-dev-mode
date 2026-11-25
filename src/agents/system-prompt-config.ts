@@ -9,8 +9,10 @@ import { shouldHandleTextCommands } from "../auto-reply/commands-text-routing.js
 import { isRestartEnabled } from "../config/commands.flags.js";
 import { resolveNativeCommandsEnabled } from "../config/commands.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { classifyAgentToolSource } from "../plugins/tool-metadata.js";
+import { describeSystemAgentConfigConflict } from "../system-agent/setup-config-snapshot.js";
 import type { PreparedTtsPreferences } from "../tts/tts-preferences.js";
-import { buildTtsSystemPromptHint } from "../tts/tts-settings.js";
+import { buildTtsSystemPromptHintAsync } from "../tts/tts-settings.js";
 import { resolveMainSessionDelegationMode } from "./delegation-guidance.js";
 import type { PreparedModelRuntimeSnapshot } from "./prepared-model-runtime.types.js";
 import { buildAgentSystemPrompt } from "./system-prompt.js";
@@ -34,7 +36,7 @@ function buildModelAliasLines(owner: ConfiguredAgentSystemPromptParams["prepared
 }
 
 /** Builds the agent system prompt after applying config-derived prompt fields. */
-export function buildConfiguredAgentSystemPrompt(params: ConfiguredAgentSystemPromptParams) {
+export async function buildConfiguredAgentSystemPrompt(params: ConfiguredAgentSystemPromptParams) {
   const {
     config,
     tools,
@@ -47,6 +49,25 @@ export function buildConfiguredAgentSystemPrompt(params: ConfiguredAgentSystemPr
   if (tools) {
     renderParams.toolNames = tools.map((tool) => tool.name);
     renderParams.messageTool = tools.find((tool) => tool.name.trim().toLowerCase() === "message");
+    /**
+     * Server-level MCP guidance for the servers that still back at least one tool in this
+     * prompt. Deriving it from the effective tool set keeps servers whose tools were all
+     * filtered out, denied, or catalog-hidden from contributing guidance.
+     */
+    const byServer = new Map<string, string>();
+    for (const tool of tools) {
+      const mcp = classifyAgentToolSource(tool).mcp;
+      const server = mcp?.serverName?.trim();
+      const instructions = mcp?.instructions?.trim();
+      if (!server || !instructions || byServer.has(server)) {
+        continue;
+      }
+      byServer.set(server, instructions);
+    }
+    renderParams.mcpServerInstructions = [...byServer].map(([server, instructions]) => ({
+      server,
+      instructions,
+    }));
   }
   if (!config) {
     return buildAgentSystemPrompt(renderParams);
@@ -56,6 +77,8 @@ export function buildConfiguredAgentSystemPrompt(params: ConfiguredAgentSystemPr
     renderParams.promptMode !== "minimal" && renderParams.promptMode !== "none";
   return buildAgentSystemPrompt({
     ...renderParams,
+    openClawSetupIssue: describeSystemAgentConfigConflict(config),
+    restartCommandsEnabled: isRestartEnabled(config),
     reasoningCommandsEnabled:
       shouldHandleTextCommands({ cfg: config, surface: channel }) ||
       resolveNativeCommandsEnabled({
@@ -64,7 +87,6 @@ export function buildConfiguredAgentSystemPrompt(params: ConfiguredAgentSystemPr
         globalSetting: config.commands?.native,
         config,
       }),
-    restartCommandsEnabled: isRestartEnabled(config),
     ownerDisplay: "raw",
     ownerDisplaySecret: undefined,
     subagentDelegationMode: resolveMainSessionDelegationMode({
@@ -73,7 +95,7 @@ export function buildConfiguredAgentSystemPrompt(params: ConfiguredAgentSystemPr
       sessionKey: renderParams.runtimeInfo?.sessionKey,
     }),
     ttsHint: includeFullSections
-      ? buildTtsSystemPromptHint(config, agentId, {
+      ? await buildTtsSystemPromptHintAsync(config, agentId, {
           preparedTtsPreferences,
           messageToolOnly: renderParams.sourceReplyDeliveryMode === "message_tool_only",
         })

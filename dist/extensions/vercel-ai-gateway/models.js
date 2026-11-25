@@ -1,12 +1,11 @@
+import { buildLiveModelProviderConfig } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { withTrustedEnvProxyGuardedFetchMode } from "openclaw/plugin-sdk/fetch-runtime";
 import { parseStrictFiniteNumber } from "openclaw/plugin-sdk/number-runtime";
-import { buildLiveModelProviderConfig } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
 import { asOptionalObjectRecord, asPositiveSafeInteger, isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/vercel-ai-gateway/models.ts
+// extensions/vercel-ai-gateway/models.ts
 const VERCEL_AI_GATEWAY_PROVIDER_ID = "vercel-ai-gateway";
 const VERCEL_AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh";
-const VERCEL_AI_GATEWAY_DEFAULT_MODEL_ID = "anthropic/claude-opus-4.6";
 const VERCEL_AI_GATEWAY_DEFAULT_CONTEXT_WINDOW = 2e5;
 const VERCEL_AI_GATEWAY_DEFAULT_MAX_TOKENS = 128e3;
 const VERCEL_AI_GATEWAY_DEFAULT_COST = {
@@ -15,6 +14,7 @@ const VERCEL_AI_GATEWAY_DEFAULT_COST = {
 	cacheRead: 0,
 	cacheWrite: 0
 };
+const vercelAiGatewayFetchGuard = (params) => fetchWithSsrFGuard(withTrustedEnvProxyGuardedFetchMode(params));
 const VERCEL_AI_GATEWAY_DISCOVERY_CACHE_TTL_MS = 6e4;
 const VERCEL_AI_GATEWAY_DISCOVERY_TIMEOUT_MS = 5e3;
 const STATIC_VERCEL_AI_GATEWAY_MODEL_CATALOG = [
@@ -76,15 +76,6 @@ function toPerMillionCost(value) {
 	const price = (parseStrictFiniteNumber(value) ?? 0) * 1e6;
 	return Number.isFinite(price) && price >= 0 ? price : 0;
 }
-function normalizeCost(value) {
-	const pricing = asOptionalObjectRecord(value);
-	return {
-		input: toPerMillionCost(pricing?.input),
-		output: toPerMillionCost(pricing?.output),
-		cacheRead: toPerMillionCost(pricing?.input_cache_read),
-		cacheWrite: toPerMillionCost(pricing?.input_cache_write)
-	};
-}
 function buildStaticModelDefinition(model) {
 	return {
 		...model,
@@ -121,12 +112,19 @@ function buildDiscoveredModelDefinition(value) {
 	const fallback = getStaticFallbackModel(id);
 	const contextWindow = asPositiveSafeInteger(model.context_window) ?? fallback?.contextWindow ?? 2e5;
 	const maxTokens = asPositiveSafeInteger(model.max_tokens) ?? fallback?.maxTokens ?? 128e3;
-	const normalizedCost = normalizeCost(model.pricing);
+	const pricing = asOptionalObjectRecord(model.pricing);
+	const normalizedCost = {
+		input: toPerMillionCost(pricing?.input),
+		output: toPerMillionCost(pricing?.output),
+		cacheRead: toPerMillionCost(pricing?.input_cache_read),
+		cacheWrite: toPerMillionCost(pricing?.input_cache_write)
+	};
+	const tags = Array.isArray(model.tags) ? model.tags : void 0;
 	return {
 		id,
 		name: (typeof model.name === "string" ? model.name.trim() : "") || fallback?.name || id,
-		reasoning: Array.isArray(model.tags) && model.tags.includes("reasoning") ? true : fallback?.reasoning ?? false,
-		input: Array.isArray(model.tags) ? model.tags.includes("vision") ? ["text", "image"] : ["text"] : fallback?.input ?? ["text"],
+		reasoning: tags?.includes("reasoning") ? true : fallback?.reasoning ?? false,
+		input: tags ? tags.includes("vision") ? ["text", "image"] : ["text"] : fallback?.input ?? ["text"],
 		contextWindow,
 		maxTokens,
 		cost: normalizedCost.input > 0 || normalizedCost.output > 0 || normalizedCost.cacheRead > 0 || normalizedCost.cacheWrite > 0 ? normalizedCost : fallback?.cost ?? VERCEL_AI_GATEWAY_DEFAULT_COST
@@ -145,9 +143,8 @@ async function discoverVercelAiGatewayModels(options = {}) {
 		timeoutMs: VERCEL_AI_GATEWAY_DISCOVERY_TIMEOUT_MS,
 		ttlMs: VERCEL_AI_GATEWAY_DISCOVERY_CACHE_TTL_MS,
 		auditContext: "vercel-ai-gateway.models",
-		fetchGuard: (params) => fetchWithSsrFGuard(withTrustedEnvProxyGuardedFetchMode(params)),
+		fetchGuard: vercelAiGatewayFetchGuard,
 		projectRows: (rows) => rows.map(buildDiscoveredModelDefinition).filter((entry) => entry !== null)
 	})).models;
 }
-//#endregion
-export { VERCEL_AI_GATEWAY_BASE_URL, VERCEL_AI_GATEWAY_DEFAULT_CONTEXT_WINDOW, VERCEL_AI_GATEWAY_DEFAULT_COST, VERCEL_AI_GATEWAY_DEFAULT_MAX_TOKENS, VERCEL_AI_GATEWAY_DEFAULT_MODEL_ID, VERCEL_AI_GATEWAY_PROVIDER_ID, discoverVercelAiGatewayModels, getStaticVercelAiGatewayModelCatalog, resolveVercelAiGatewayDynamicModel };
+export { VERCEL_AI_GATEWAY_BASE_URL, VERCEL_AI_GATEWAY_DEFAULT_CONTEXT_WINDOW, VERCEL_AI_GATEWAY_DEFAULT_COST, VERCEL_AI_GATEWAY_DEFAULT_MAX_TOKENS, VERCEL_AI_GATEWAY_PROVIDER_ID, discoverVercelAiGatewayModels, getStaticVercelAiGatewayModelCatalog, resolveVercelAiGatewayDynamicModel, vercelAiGatewayFetchGuard };

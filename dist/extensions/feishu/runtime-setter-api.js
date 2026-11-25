@@ -1,2 +1,1 @@
-import { n as setFeishuRuntime } from "./.setup/runtime-C5JxBWZp.mjs";
-export { setFeishuRuntime };
+export { n as setFeishuRuntime } from "./.setup/runtime-6V3uDMw5.mjs";

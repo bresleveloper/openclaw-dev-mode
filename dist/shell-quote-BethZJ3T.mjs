@@ -1,0 +1,2 @@
+//!src/shared/shell-quote.ts
+function shellEscape(e){return`'${e.replaceAll(`'`,`'"'"'`)}'`}function shellEscapeBackslash(e){return`'${e.replaceAll(`'`,`'\\''`)}'`}export{shellEscapeBackslash as n,shellEscape as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{a as t,t as n}from"./worker-chunk-KXyvY2Ci.mjs";import r from"node:path";async function prepareAgentExecScratch(e){let n=await t(e,{symlinks:`reject`});await n.mkdir(`.openclaw/tmp`);let i=r.join(n.rootReal,`.openclaw`,`tmp`);return{TMPDIR:i,TMP:i,TEMP:i}}var i=e((()=>{n()}));export{prepareAgentExecScratch as n,i as t};

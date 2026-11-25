@@ -1,13 +1,13 @@
 import { createRequire } from "node:module";
-import fs from "node:fs/promises";
+import asyncFs from "node:fs/promises";
 import path from "node:path";
-import fs$1, { closeSync, openSync, readSync, readdirSync } from "node:fs";
+import fs, { closeSync, openSync, readSync, readdirSync } from "node:fs";
 import os, { platform } from "node:os";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { execFile, spawn } from "node:child_process";
 import { getSystemErrorName, promisify, types } from "node:util";
 import { URL as URL$1, fileURLToPath } from "node:url";
-//#region \0rolldown/runtime.js
+// \0rolldown/runtime.js
 var __esmMin = (fn, res, err) => () => {
 	if (err) throw err[0];
 	try {
@@ -16,10 +16,9 @@ var __esmMin = (fn, res, err) => () => {
 		throw err = [e], e;
 	}
 };
-var __commonJSMin = (cb, mod) => () => (mod || (cb((mod = { exports: {} }).exports, mod), cb = null), mod.exports);
+var __commonJSMin = (cb, mod) => () => (mod || (cb((mod = { exports: {} }).exports, mod, mod.exports), cb = null), mod.exports);
 var __require = /* #__PURE__ */ (() => createRequire(import.meta.url))();
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/errors.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/errors.js
 function categorizeFsSafeError(code) {
 	return OPERATIONAL_CODES.has(code) ? "operational" : "policy";
 }
@@ -31,6 +30,7 @@ var init_errors = __esmMin((() => {
 		"not-empty",
 		"not-found",
 		"not-removable",
+		"permission-denied",
 		"permission-unverified",
 		"read-failed",
 		"timeout",
@@ -49,8 +49,7 @@ var init_errors = __esmMin((() => {
 		}
 	};
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-binding.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/native-binding.js
 function captureNativeFdClose(binding) {
 	if (typeof binding.closeOwnedFd !== "function") throw new FsSafeError("helper-unavailable", "native descriptor ownership is unavailable");
 	return binding.closeOwnedFd.bind(binding);
@@ -58,8 +57,7 @@ function captureNativeFdClose(binding) {
 var init_native_binding = __esmMin((() => {
 	init_errors();
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-config.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/native-config.js
 function parseMode(value) {
 	if (!value) return;
 	const normalized = value.trim().toLowerCase();
@@ -67,8 +65,16 @@ function parseMode(value) {
 	if (normalized === "1" || normalized === "true" || normalized === "on" || normalized === "auto") return "auto";
 	if (normalized === "required" || normalized === "require") return "require";
 }
+function rejectLegacyMode() {
+	for (const source of ["FS_SAFE_PYTHON_MODE", "OPENCLAW_FS_SAFE_PYTHON_MODE"]) {
+		if (process.env[source] === void 0) continue;
+		const mode = parseMode(process.env[source]) ?? "auto";
+		throw new Error(`${source} has been removed. Set FS_SAFE_NATIVE_MODE=${mode} or configureFsSafeNative({ mode: "${mode}" }) before using fs-safe, then remove ${source}. Legacy mode settings no longer select native policy.`);
+	}
+	return "auto";
+}
 function getFsSafeNativeConfig() {
-	return { mode: overrideConfig.mode ?? parseMode(process.env.FS_SAFE_NATIVE_MODE) ?? parseMode(process.env.OPENCLAW_FS_SAFE_NATIVE_MODE) ?? "auto" };
+	return { mode: overrideConfig.mode ?? parseMode(process.env.FS_SAFE_NATIVE_MODE) ?? parseMode(process.env.OPENCLAW_FS_SAFE_NATIVE_MODE) ?? rejectLegacyMode() };
 }
 /** Internal provenance; keep the public configuration shape unchanged. */
 function getNativeModeSetting() {
@@ -84,7 +90,7 @@ function getNativeModeSetting() {
 		};
 	}
 	return {
-		mode: "auto",
+		mode: rejectLegacyMode(),
 		source: "default"
 	};
 }
@@ -92,8 +98,7 @@ var overrideConfig;
 var init_native_config = __esmMin((() => {
 	overrideConfig = {};
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/native.js
 function loadFailure(error, packageName) {
 	try {
 		return classifyLoadFailure(error, packageName);
@@ -130,11 +135,22 @@ function getNativeFallbackDiagnostic(...capabilities) {
 	const setting = getNativeModeSetting();
 	const target = targetDescription === void 0 ? bundledTarget() : selectedTarget;
 	const packageName = target === void 0 ? void 0 : nativePackageForTarget(target);
-	const manifest = require$1("../package.json");
 	const expected = {
 		target: targetDescription,
 		packageName,
-		packageVersion: packageName === void 0 ? void 0 : manifest.optionalDependencies[packageName]
+		packageVersion: packageName === void 0 ? void 0 : { "optionalDependencies": {
+			"@openclaw/fs-safe-darwin-arm64": "0.27.1",
+			"@openclaw/fs-safe-darwin-x64": "0.27.1",
+			"@openclaw/fs-safe-freebsd-arm64": "0.27.1",
+			"@openclaw/fs-safe-freebsd-x64": "0.27.1",
+			"@openclaw/fs-safe-linux-arm64-gnu": "0.27.1",
+			"@openclaw/fs-safe-linux-arm64-musl": "0.27.1",
+			"@openclaw/fs-safe-linux-x64-gnu": "0.27.1",
+			"@openclaw/fs-safe-linux-x64-musl": "0.27.1",
+			"@openclaw/fs-safe-win32-arm64-msvc": "0.27.1",
+			"@openclaw/fs-safe-win32-x64-msvc": "0.27.1",
+			"jszip": "^3.10.2"
+		} }.optionalDependencies[packageName]
 	};
 	if (setting.mode === "off") return {
 		...expected,
@@ -304,8 +320,7 @@ var init_native = __esmMin((() => {
 	resolvePackage = (name) => require$1.resolve(name);
 	loadOutcome = { reason: "not-probed" };
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-appcontainer.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/windows-appcontainer.js
 /** The native owner caches immutable primary-token membership across Workers. */
 function isWindowsAppContainer(binding) {
 	if (!binding.isWindowsAppContainer) return void 0;
@@ -326,22 +341,19 @@ var init_windows_appcontainer = __esmMin((() => {
 	init_errors();
 	init_native();
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/error-detail.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/error-detail.js
 const UNSAFE_ERROR_DETAIL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu;
 function formatErrorDetail(value) {
 	return value.replace(UNSAFE_ERROR_DETAIL_CHARACTERS, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-security-helper.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/windows-security-helper.js
 function windowsSecurityHelperPath() {
 	return fileURLToPath(new URL("./windows-security-helper.exe", import.meta.url));
 }
 function explainWindowsSecurityHelperFailure(error) {
 	error.message += "; Windows security helper could not complete; rebuild with pnpm build:windows-helper or reinstall @openclaw/fs-safe";
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/permission-exec.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/permission-exec.js
 init_windows_appcontainer();
 const execFileAsync = promisify(execFile);
 const DEFAULT_PERMISSION_EXEC_TIMEOUT_MS = 3e4;
@@ -506,8 +518,7 @@ async function executePermissionCommand(command, args, timeoutMs = DEFAULT_PERMI
 		throw error;
 	}
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/string-coerce.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/string-coerce.js
 function normalizeNullableString(value) {
 	if (typeof value !== "string") return null;
 	const trimmed = value.trim();
@@ -523,11 +534,10 @@ function normalizeLowercaseStringOrEmpty(value) {
 	return normalizeOptionalLowercaseString(value) ?? "";
 }
 var init_string_coerce = __esmMin((() => {}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/realpath.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/realpath.js
 function resolve(input, native) {
 	if (native && process.platform === "win32") try {
-		return fs$1.realpathSync.native(input);
+		return fs.realpathSync.native(input);
 	} catch (error) {
 		if (error.code !== "EPERM" || error.syscall !== "realpath") throw error;
 		let binding;
@@ -564,7 +574,7 @@ function resolve(input, native) {
 		}
 		if (getFsSafeNativeConfig().mode === "require") throw new FsSafeError("helper-unavailable", "native fs-safe canonicalization is unavailable");
 	}
-	return native ? fs$1.realpathSync.native(input) : fs$1.realpathSync(input);
+	return native ? fs.realpathSync.native(input) : fs.realpathSync(input);
 }
 var runtimePlatform, bunPosix, realpathSync;
 var init_realpath = __esmMin((() => {
@@ -576,8 +586,7 @@ var init_realpath = __esmMin((() => {
 	bunPosix = runtimePlatform === "darwin" || runtimePlatform === "linux" ? runtimePlatform : void 0;
 	realpathSync = Object.assign((input) => resolve(input, false), { native: (input) => resolve(input, true) });
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-path-syntax.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/windows-path-syntax.js
 function isWindowsSeparator(value, offset) {
 	const code = value.charCodeAt(offset);
 	return code === 47 || code === 92;
@@ -630,8 +639,7 @@ function windowsShareOrDeviceRoot(value) {
 	return asciiLowercase(head === "unc" ? `\\\\${authority[1]}\\${authority[2]}` : `${spelled.slice(0, 4)}${authority[0]}`);
 }
 var init_windows_path_syntax = __esmMin((() => {}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-path-alias.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/windows-path-alias.js
 function isExactlyUnderWindowsPath(trusted, value) {
 	const root = trusted.replaceAll("/", "\\").replace(/(?<=.)\\+$/, "");
 	const candidate = value.replaceAll("/", "\\");
@@ -714,8 +722,7 @@ var init_windows_path_alias = __esmMin((() => {
 	init_errors();
 	init_windows_path_syntax();
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-security-facts.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/windows-security-facts.js
 init_errors();
 const SID_RE$2 = /^s-\d+-\d+(?:-\d+)+$/;
 const APP_CONTAINER_SID_RE = /^s-1-15-2(?:-\d+){7,}$/;
@@ -756,7 +763,7 @@ function validateAce(value, allowUnknownFlags) {
 	return fields.every(([field, bit]) => typeof flags[field] === "boolean" && flags[field] === ((raw & bit) !== 0));
 }
 function validateDescriptor(value, allowUnknownFlags) {
-	if (!record$1(value) || typeof value.ownerSid !== "string" || !SID_RE$2.test(value.ownerSid) || typeof value.currentUserSid !== "string" || !SID_RE$2.test(value.currentUserSid) || value.currentAppContainerSid != null && (typeof value.currentAppContainerSid !== "string" || !APP_CONTAINER_SID_RE.test(value.currentAppContainerSid)) || typeof value.daclPresent !== "boolean" || typeof value.isLocal !== "boolean" || typeof value.aceListComplete !== "boolean" || !Array.isArray(value.unsupportedAceTypes) || !value.unsupportedAceTypes.every(uint32) || !Array.isArray(value.aces) || !value.aces.every((ace) => validateAce(ace, allowUnknownFlags))) unverified("Windows descriptor ACL facts were malformed");
+	if (!record$1(value) || typeof value.ownerSid !== "string" || !SID_RE$2.test(value.ownerSid) || typeof value.currentUserSid !== "string" || !SID_RE$2.test(value.currentUserSid) || value.currentAppContainerSid != null && (typeof value.currentAppContainerSid !== "string" || !APP_CONTAINER_SID_RE.test(value.currentAppContainerSid)) || typeof value.daclPresent !== "boolean" || typeof value.isLocal !== "boolean" || value.isVolumeRoot !== void 0 && typeof value.isVolumeRoot !== "boolean" || typeof value.aceListComplete !== "boolean" || !Array.isArray(value.unsupportedAceTypes) || !value.unsupportedAceTypes.every(uint32) || !Array.isArray(value.aces) || !value.aces.every((ace) => validateAce(ace, allowUnknownFlags))) unverified("Windows descriptor ACL facts were malformed");
 	if (!value.daclPresent && value.aces.length !== 0 || value.aceListComplete && value.unsupportedAceTypes.length !== 0) unverified("Windows descriptor DACL facts were inconsistent");
 	return value;
 }
@@ -819,8 +826,7 @@ function validateSecureWindowsSecurityFacts(value) {
 	if (facts.worldReadable !== summary.worldReadable || facts.worldWritable !== summary.worldWritable || facts.groupReadable !== summary.groupReadable || facts.groupWritable !== summary.groupWritable) unverified("Windows descriptor ACL summary was inconsistent");
 	return facts;
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-owner.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/windows-owner.js
 init_windows_appcontainer();
 init_errors();
 init_realpath();
@@ -894,8 +900,7 @@ async function inspectWindowsOwner(params) {
 		};
 	}
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/permissions-windows.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/permissions-windows.js
 init_errors();
 init_native();
 init_string_coerce();
@@ -1137,8 +1142,7 @@ function formatWindowsAclSummary(summary) {
 	const untrusted = [...summary.untrustedWorld, ...summary.untrustedGroup];
 	return untrusted.length === 0 ? "trusted-only" : untrusted.map((entry) => `${entry.principal}:${entry.rawRights}`).join(", ");
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/permissions.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/permissions.js
 init_windows_path_alias();
 function failedSafeStat(error) {
 	return {
@@ -1153,7 +1157,7 @@ function failedSafeStat(error) {
 }
 async function safeStatAdmitted(targetPath) {
 	try {
-		const lst = fs$1.lstatSync(pathForWindowsFilesystem(targetPath));
+		const lst = fs.lstatSync(pathForWindowsFilesystem(targetPath));
 		return {
 			ok: true,
 			isSymlink: lst.isSymbolicLink(),
@@ -1184,7 +1188,7 @@ async function inspectPathPermissions(targetPath, opts) {
 	let effectiveMode = st.mode;
 	let effectiveIsDir = st.isDir;
 	if (st.isSymlink) try {
-		const target = fs$1.statSync(targetPath);
+		const target = fs.statSync(targetPath);
 		effectiveMode = typeof target.mode === "number" ? target.mode : st.mode;
 		effectiveIsDir = target.isDirectory();
 	} catch {}
@@ -1219,8 +1223,7 @@ function isWorldReadable(bits) {
 function isGroupReadable(bits) {
 	return bits != null && (bits & 32) !== 0;
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-guidance.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/native-guidance.js
 /** Shared, path-free next steps for status reports and fallback warnings. */
 function nativeGuidance(reason, modeSource) {
 	switch (reason) {
@@ -1232,8 +1235,7 @@ function nativeGuidance(reason, modeSource) {
 		default: return;
 	}
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/native-fallback-warning.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/native-fallback-warning.js
 init_native();
 init_native_config();
 const warnedFeatures = /* @__PURE__ */ new Set();
@@ -1259,8 +1261,7 @@ function warnNativeFallback(feature, limitation, ...capabilities) {
 		type: "FsSafeWarning"
 	});
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/windows-security-command.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/windows-security-command.js
 init_windows_appcontainer();
 init_errors();
 const MAX_OUTPUT_BYTES = 1048576;
@@ -1525,14 +1526,12 @@ async function inspectWindowsDescriptorCommand(fd) {
 		security: parseWindowsSecurityCommandFacts(response.security)
 	};
 }
-//#endregion
-//#region packages/normalization-core/src/record-coerce.ts
+// packages/normalization-core/src/record-coerce.ts
 /** Type guard for non-array object records at browser-safe boundaries. */
 function isRecord$1(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js
 var require_identity = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const ALIAS = Symbol.for("yaml.alias");
 	const DOC = Symbol.for("yaml.document");
@@ -1581,8 +1580,7 @@ var require_identity = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.isScalar = isScalar;
 	exports.isSeq = isSeq;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js
 var require_visit = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	const BREAK = Symbol("break visit");
@@ -1772,8 +1770,7 @@ var require_visit = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.visit = visit;
 	exports.visitAsync = visitAsync;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js
 var require_directives = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var visit = require_visit();
@@ -1936,8 +1933,7 @@ var require_directives = /* @__PURE__ */ __commonJSMin(((exports) => {
 	Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
 	exports.Directives = Directives;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js
 var require_anchors = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var visit = require_visit();
@@ -2003,8 +1999,7 @@ var require_anchors = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.createNodeAnchors = createNodeAnchors;
 	exports.findNewAnchor = findNewAnchor;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Applies the JSON.parse reviver algorithm as defined in the ECMA-262 spec,
@@ -2045,8 +2040,7 @@ var require_applyReviver = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.applyReviver = applyReviver;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	/**
@@ -2082,8 +2076,7 @@ var require_toJS = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.toJS = toJS;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js
 var require_Node = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var applyReviver = require_applyReviver();
 	var identity = require_identity();
@@ -2116,8 +2109,7 @@ var require_Node = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 	exports.NodeBase = NodeBase;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var anchors = require_anchors();
 	var visit = require_visit();
@@ -2212,8 +2204,7 @@ var require_Alias = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.Alias = Alias;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Node = require_Node();
@@ -2239,8 +2230,7 @@ var require_Scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Scalar = Scalar;
 	exports.isScalarValue = isScalarValue;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js
 var require_createNode = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Alias = require_Alias();
 	var identity = require_identity();
@@ -2302,8 +2292,7 @@ var require_createNode = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.createNode = createNode;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var createNode = require_createNode();
 	var identity = require_identity();
@@ -2423,8 +2412,7 @@ var require_Collection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.collectionFromPath = collectionFromPath;
 	exports.isEmptyPath = isEmptyPath;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Stringifies a comment.
@@ -2443,8 +2431,7 @@ var require_stringifyComment = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.lineComment = lineComment;
 	exports.stringifyComment = stringifyComment;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const FOLD_FLOW = "flow";
 	const FOLD_BLOCK = "block";
@@ -2563,8 +2550,7 @@ var require_foldFlowLines = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.FOLD_QUOTED = FOLD_QUOTED;
 	exports.foldFlowLines = foldFlowLines;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	var foldFlowLines = require_foldFlowLines();
@@ -2787,8 +2773,7 @@ var require_stringifyString = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.stringifyString = stringifyString;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var anchors = require_anchors();
 	var identity = require_identity();
@@ -2895,8 +2880,7 @@ var require_stringify = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.createStringifyContext = createStringifyContext;
 	exports.stringify = stringify;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Scalar = require_Scalar();
@@ -2992,24 +2976,22 @@ var require_stringifyPair = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.stringifyPair = stringifyPair;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js
 var require_log = /* @__PURE__ */ __commonJSMin(((exports) => {
-	var node_process$2 = __require("process");
+	var node_process = __require("process");
 	function debug(logLevel, ...messages) {
 		if (logLevel === "debug") console.log(...messages);
 	}
 	function warn(logLevel, warning) {
 		if (logLevel === "debug" || logLevel === "warn") {
-			if (typeof node_process$2.emitWarning === "function") node_process$2.emitWarning(warning);
+			if (typeof node_process.emitWarning === "function") node_process.emitWarning(warning);
 			else console.warn(warning);
 		}
 	}
 	exports.debug = debug;
 	exports.warn = warn;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Scalar = require_Scalar();
@@ -3051,8 +3033,7 @@ var require_merge = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.isMergeKey = isMergeKey;
 	exports.merge = merge;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var log = require_log();
 	var merge = require_merge();
@@ -3102,8 +3083,7 @@ var require_addPairToJSMap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.addPairToJSMap = addPairToJSMap;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var createNode = require_createNode();
 	var stringifyPair = require_stringifyPair();
@@ -3135,8 +3115,7 @@ var require_Pair = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Pair = Pair;
 	exports.createPair = createPair;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var stringify = require_stringify();
@@ -3253,8 +3232,7 @@ var require_stringifyCollection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.stringifyCollection = stringifyCollection;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var stringifyCollection = require_stringifyCollection();
 	var addPairToJSMap = require_addPairToJSMap();
@@ -3362,8 +3340,7 @@ var require_YAMLMap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.YAMLMap = YAMLMap;
 	exports.findPair = findPair;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js
 var require_map = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var YAMLMap = require_YAMLMap();
@@ -3379,8 +3356,7 @@ var require_map = /* @__PURE__ */ __commonJSMin(((exports) => {
 		createNode: (schema, obj, ctx) => YAMLMap.YAMLMap.from(schema, obj, ctx)
 	};
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var createNode = require_createNode();
 	var stringifyCollection = require_stringifyCollection();
@@ -3485,8 +3461,7 @@ var require_YAMLSeq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.YAMLSeq = YAMLSeq;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js
 var require_seq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var YAMLSeq = require_YAMLSeq();
@@ -3502,8 +3477,7 @@ var require_seq = /* @__PURE__ */ __commonJSMin(((exports) => {
 		createNode: (schema, obj, ctx) => YAMLSeq.YAMLSeq.from(schema, obj, ctx)
 	};
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js
 var require_string = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var stringifyString = require_stringifyString();
 	exports.string = {
@@ -3517,8 +3491,7 @@ var require_string = /* @__PURE__ */ __commonJSMin(((exports) => {
 		}
 	};
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js
 var require_null = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	const nullTag = {
@@ -3532,8 +3505,7 @@ var require_null = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 	exports.nullTag = nullTag;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js
 var require_bool$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	const boolTag = {
@@ -3551,8 +3523,7 @@ var require_bool$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 	exports.boolTag = boolTag;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = /* @__PURE__ */ __commonJSMin(((exports) => {
 	function stringifyNumber({ format, minFractionDigits, tag, value }) {
 		if (typeof value === "bigint") return String(value);
@@ -3572,8 +3543,7 @@ var require_stringifyNumber = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.stringifyNumber = stringifyNumber;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js
 var require_float$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	var stringifyNumber = require_stringifyNumber();
@@ -3613,8 +3583,7 @@ var require_float$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.floatExp = floatExp;
 	exports.floatNaN = floatNaN;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js
 var require_int$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var stringifyNumber = require_stringifyNumber();
 	const intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -3654,8 +3623,7 @@ var require_int$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.intHex = intHex;
 	exports.intOct = intOct;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js
 var require_schema$2 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var map = require_map();
 	var _null = require_null();
@@ -3678,8 +3646,7 @@ var require_schema$2 = /* @__PURE__ */ __commonJSMin(((exports) => {
 		float.float
 	];
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js
 var require_schema$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	var map = require_map();
@@ -3740,8 +3707,7 @@ var require_schema$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 		}
 	});
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var node_buffer = __require("buffer");
 	var Scalar = require_Scalar();
@@ -3796,8 +3762,7 @@ var require_binary = /* @__PURE__ */ __commonJSMin(((exports) => {
 		}
 	};
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Pair = require_Pair();
@@ -3857,8 +3822,7 @@ var require_pairs = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.pairs = pairs;
 	exports.resolvePairs = resolvePairs;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var toJS = require_toJS();
@@ -3922,8 +3886,7 @@ var require_omap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.YAMLOMap = YAMLOMap;
 	exports.omap = omap;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	function boolStringify({ value, source }, ctx) {
@@ -3949,8 +3912,7 @@ var require_bool = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.falseTag = falseTag;
 	exports.trueTag = trueTag;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	var stringifyNumber = require_stringifyNumber();
@@ -3993,8 +3955,7 @@ var require_float = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.floatExp = floatExp;
 	exports.floatNaN = floatNaN;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var stringifyNumber = require_stringifyNumber();
 	const intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -4066,8 +4027,7 @@ var require_int = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.intHex = intHex;
 	exports.intOct = intOct;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Pair = require_Pair();
@@ -4135,8 +4095,7 @@ var require_set = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.YAMLSet = YAMLSet;
 	exports.set = set;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var stringifyNumber = require_stringifyNumber();
 	/** Internal types handle bigint as number, because TS can't figure it out. */
@@ -4218,8 +4177,7 @@ var require_timestamp = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.intTime = intTime;
 	exports.timestamp = timestamp;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var map = require_map();
 	var _null = require_null();
@@ -4258,8 +4216,7 @@ var require_schema = /* @__PURE__ */ __commonJSMin(((exports) => {
 		timestamp.timestamp
 	];
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js
 var require_tags = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var map = require_map();
 	var _null = require_null();
@@ -4344,8 +4301,7 @@ var require_tags = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.coreKnownTags = coreKnownTags;
 	exports.getTags = getTags;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js
 var require_Schema = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var map = require_map();
@@ -4372,8 +4328,7 @@ var require_Schema = /* @__PURE__ */ __commonJSMin(((exports) => {
 		}
 	};
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var stringify = require_stringify();
@@ -4434,8 +4389,7 @@ var require_stringifyDocument = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.stringifyDocument = stringifyDocument;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js
 var require_Document = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Alias = require_Alias();
 	var Collection = require_Collection();
@@ -4715,8 +4669,7 @@ var require_Document = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.Document = Document;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js
 var require_errors = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var YAMLError = class extends Error {
 		constructor(name, pos, code, message) {
@@ -4768,8 +4721,7 @@ var require_errors = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.YAMLWarning = YAMLWarning;
 	exports.prettifyError = prettifyError;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = /* @__PURE__ */ __commonJSMin(((exports) => {
 	function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
 		let spaceBefore = false;
@@ -4875,8 +4827,7 @@ var require_resolve_props = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.resolveProps = resolveProps;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = /* @__PURE__ */ __commonJSMin(((exports) => {
 	function containsNewline(key) {
 		if (!key) return null;
@@ -4904,8 +4855,7 @@ var require_util_contains_newline = /* @__PURE__ */ __commonJSMin(((exports) => 
 	}
 	exports.containsNewline = containsNewline;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var utilContainsNewline = require_util_contains_newline();
 	function flowIndentCheck(indent, fc, onError) {
@@ -4916,8 +4866,7 @@ var require_util_flow_indent_check = /* @__PURE__ */ __commonJSMin(((exports) =>
 	}
 	exports.flowIndentCheck = flowIndentCheck;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	function mapIncludes(ctx, items, search) {
@@ -4928,8 +4877,7 @@ var require_util_map_includes = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.mapIncludes = mapIncludes;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Pair = require_Pair();
 	var YAMLMap = require_YAMLMap();
@@ -5016,8 +4964,7 @@ var require_resolve_block_map = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.resolveBlockMap = resolveBlockMap;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var YAMLSeq = require_YAMLSeq();
 	var resolveProps = require_resolve_props();
@@ -5061,8 +5008,7 @@ var require_resolve_block_seq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.resolveBlockSeq = resolveBlockSeq;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = /* @__PURE__ */ __commonJSMin(((exports) => {
 	function resolveEnd(end, offset, reqSpace, onError) {
 		let comment = "";
@@ -5099,8 +5045,7 @@ var require_resolve_end = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.resolveEnd = resolveEnd;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Pair = require_Pair();
@@ -5262,8 +5207,7 @@ var require_resolve_flow_collection = /* @__PURE__ */ __commonJSMin(((exports) =
 	}
 	exports.resolveFlowCollection = resolveFlowCollection;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Scalar = require_Scalar();
@@ -5314,8 +5258,7 @@ var require_compose_collection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.composeCollection = composeCollection;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	function resolveBlockScalar(ctx, scalar, onError) {
@@ -5491,8 +5434,7 @@ var require_resolve_block_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.resolveBlockScalar = resolveBlockScalar;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	var resolveEnd = require_resolve_end();
@@ -5696,8 +5638,7 @@ var require_resolve_flow_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.resolveFlowScalar = resolveFlowScalar;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Scalar = require_Scalar();
@@ -5757,8 +5698,7 @@ var require_compose_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.composeScalar = composeScalar;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = /* @__PURE__ */ __commonJSMin(((exports) => {
 	function emptyScalarPosition(offset, before, pos) {
 		if (before) {
@@ -5784,8 +5724,7 @@ var require_util_empty_scalar_position = /* @__PURE__ */ __commonJSMin(((exports
 	}
 	exports.emptyScalarPosition = emptyScalarPosition;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Alias = require_Alias();
 	var identity = require_identity();
@@ -5875,8 +5814,7 @@ var require_compose_node = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.composeEmptyNode = composeEmptyNode;
 	exports.composeNode = composeNode;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Document = require_Document();
 	var composeNode = require_compose_node();
@@ -5917,10 +5855,9 @@ var require_compose_doc = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.composeDoc = composeDoc;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js
 var require_composer = /* @__PURE__ */ __commonJSMin(((exports) => {
-	var node_process$1 = __require("process");
+	var node_process = __require("process");
 	var directives = require_directives();
 	var Document = require_Document();
 	var errors = require_errors();
@@ -6037,7 +5974,7 @@ var require_composer = /* @__PURE__ */ __commonJSMin(((exports) => {
 		}
 		/** Advance the composer by one CST token. */
 		*next(token) {
-			if (node_process$1.env.LOG_STREAM) console.dir(token, { depth: null });
+			if (node_process.env.LOG_STREAM) console.dir(token, { depth: null });
 			switch (token.type) {
 				case "directive":
 					this.directives.add(token.source, (offset, message, warning) => {
@@ -6115,8 +6052,7 @@ var require_composer = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 	exports.Composer = Composer;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var resolveBlockScalar = require_resolve_block_scalar();
 	var resolveFlowScalar = require_resolve_flow_scalar();
@@ -6382,8 +6318,7 @@ var require_cst_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.resolveAsScalar = resolveAsScalar;
 	exports.setScalarValue = setScalarValue;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Stringify a CST document, token, or collection item
@@ -6433,8 +6368,7 @@ var require_cst_stringify = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.stringify = stringify;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const BREAK = Symbol("break visit");
 	const SKIP = Symbol("skip children");
@@ -6524,8 +6458,7 @@ var require_cst_visit = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 	exports.visit = visit;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js
 var require_cst = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var cstScalar = require_cst_scalar();
 	var cstStringify = require_cst_stringify();
@@ -6603,8 +6536,7 @@ var require_cst = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.prettyToken = prettyToken;
 	exports.tokenType = tokenType;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js
 var require_lexer = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var cst = require_cst();
 	function isEmpty(ch) {
@@ -7136,8 +7068,7 @@ var require_lexer = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 	exports.Lexer = Lexer;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Tracks newlines during parsing in order to provide an efficient API for
@@ -7183,8 +7114,7 @@ var require_line_counter = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 	exports.LineCounter = LineCounter;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js
 var require_parser = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var node_process = __require("process");
 	var cst = require_cst();
@@ -8049,8 +7979,7 @@ var require_parser = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 	exports.Parser = Parser;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js
 var require_public_api = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var composer = require_composer();
 	var Document = require_Document();
@@ -8138,8 +8067,7 @@ var require_public_api = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.parseDocument = parseDocument;
 	exports.stringify = stringify;
 }));
-//#endregion
-//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js
+// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js
 var require_dist = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var composer = require_composer();
 	var Document = require_Document();
@@ -8186,16 +8114,14 @@ var require_dist = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.visit = visit.visit;
 	exports.visitAsync = visit.visitAsync;
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/byte-budget.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/byte-budget.js
 function normalizeMaxBytes(value, options = {}) {
 	const selected = value === void 0 ? options.defaultValue : value;
 	if (selected === void 0 || selected === Number.POSITIVE_INFINITY) return selected;
 	if (!Number.isSafeInteger(selected) || selected < 0) throw new RangeError("maxBytes must be a non-negative safe integer or Infinity");
 	return selected;
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/file-observation.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/file-observation.js
 function recordFileObservationFailure(error, kind) {
 	const failures = active.getStore();
 	if (!failures) return;
@@ -8207,8 +8133,7 @@ var active;
 var init_file_observation = __esmMin((() => {
 	active = new AsyncLocalStorage();
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/strict-file-identity.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/strict-file-identity.js
 function fileIdentityMismatchError() {
 	const error = new FsSafeError("path-mismatch", "file identity changed or could not be verified");
 	recordFileObservationFailure(error, "identity");
@@ -8249,8 +8174,7 @@ var init_strict_file_identity = __esmMin((() => {
 	init_errors();
 	init_file_observation();
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/local-file-access.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/local-file-access.js
 function isFileUrl(input) {
 	return FILE_URL_PREFIX_RE.test(input);
 }
@@ -8295,8 +8219,7 @@ var init_local_file_access = __esmMin((() => {
 	ENCODED_FILE_URL_SEPARATOR_RE = /%(?:2f|5c)/i;
 	FILE_URL_PREFIX_RE = /^file:\/\//i;
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/device-path.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/device-path.js
 function trimTrailingWindowsSeparators(value) {
 	let end = value.length;
 	while (end > 0 && value.charCodeAt(end - 1) === WINDOWS_SEPARATOR_CHAR_CODE) end -= 1;
@@ -8418,8 +8341,7 @@ var init_device_path = __esmMin((() => {
 	WINDOWS_IGNORED_SPACE_CHAR_CODE = 32;
 	WINDOWS_IGNORED_DOT_CHAR_CODE = 46;
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/path.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/path.js
 function normalizeWindowsPathForComparison(input) {
 	let normalized = path.win32.normalize(input);
 	if (normalized.startsWith("\\\\?\\")) {
@@ -8466,59 +8388,7 @@ var init_path = __esmMin((() => {
 	]);
 	POSIX_SEPARATOR_CHAR_CODE = 47;
 }));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/read-open-flags.js
-function resolveReadOpenFlags(options) {
-	const constants = options?.constants ?? fs$1.constants;
-	const noFollow = process.platform !== "win32" && options?.followSymlinks !== true && typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0;
-	const nonBlocking = process.platform !== "win32" && typeof constants.O_NONBLOCK === "number" ? constants.O_NONBLOCK : 0;
-	return constants.O_RDONLY | noFollow | nonBlocking;
-}
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/exact-identity.js
-init_errors();
-/** Copy scalars from one observation; never try to recover rounded identity bits. */
-function exactFileIdentity(stat) {
-	const { dev, ino } = stat;
-	if (typeof dev !== "bigint" && !Number.isSafeInteger(dev) || typeof ino !== "bigint" && !Number.isSafeInteger(ino)) throw new FsSafeError("path-mismatch", "file identity is not exact");
-	return Object.freeze({
-		dev: BigInt(dev),
-		ino: BigInt(ino)
-	});
-}
-/** Node stores unsigned libuv fields in a signed BigInt64Array. */
-function numberStatScalar(value) {
-	return typeof value === "bigint" ? Number(BigInt.asUintN(64, value)) : Number(value);
-}
-/** Legacy metadata view of the very same bigint observation. */
-function numberStats(stat) {
-	const result = Object.create(fs$1.Stats.prototype);
-	for (const field of [
-		"dev",
-		"mode",
-		"nlink",
-		"uid",
-		"gid",
-		"rdev",
-		"blksize",
-		"ino",
-		"size",
-		"blocks"
-	]) result[field] = numberStatScalar(stat[field]);
-	for (const field of [
-		"atime",
-		"mtime",
-		"ctime",
-		"birthtime"
-	]) {
-		const ns = stat[`${field}Ns`];
-		const remainder = (ns % 1000000000n + 1000000000n) % 1000000000n;
-		result[`${field}Ms`] = Number((ns - remainder) / 1000000000n) * 1e3 + Number(remainder) / 1e6;
-	}
-	return result;
-}
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/bounded-read.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/bounded-read.js
 init_errors();
 const READ_CHUNK_BYTES = 65536;
 const MAX_INITIAL_READ_BYTES = 16777216;
@@ -8592,14 +8462,13 @@ function readFileHandleBoundedWithSize(handle, maxBytes, initialSize) {
 }
 function regularFileSize(fd) {
 	try {
-		const stat = fs$1.fstatSync(fd);
+		const stat = fs.fstatSync(fd);
 		return stat.isFile() && Number.isSafeInteger(stat.size) && stat.size >= 0 ? stat.size : void 0;
 	} catch {
 		return;
 	}
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/timing.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/timing.js
 const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 function scheduleTimeout(callback, ms) {
 	let timer;
@@ -8614,8 +8483,56 @@ function scheduleTimeout(callback, ms) {
 	} else timer = setTimeout(callback, ms);
 	return () => clearTimeout(timer);
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/effective-uid.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/read-open-flags.js
+function resolveReadOpenFlags(options) {
+	const constants = options?.constants ?? fs.constants;
+	const noFollow = process.platform !== "win32" && options?.followSymlinks !== true && typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0;
+	const nonBlocking = process.platform !== "win32" && typeof constants.O_NONBLOCK === "number" ? constants.O_NONBLOCK : 0;
+	return constants.O_RDONLY | noFollow | nonBlocking;
+}
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/exact-identity.js
+init_errors();
+/** Copy scalars from one observation; never try to recover rounded identity bits. */
+function exactFileIdentity(stat) {
+	const { dev, ino } = stat;
+	if (typeof dev !== "bigint" && !Number.isSafeInteger(dev) || typeof ino !== "bigint" && !Number.isSafeInteger(ino)) throw new FsSafeError("path-mismatch", "file identity is not exact");
+	return Object.freeze({
+		dev: BigInt(dev),
+		ino: BigInt(ino)
+	});
+}
+/** Node stores unsigned libuv fields in a signed BigInt64Array. */
+function numberStatScalar(value) {
+	return typeof value === "bigint" ? Number(BigInt.asUintN(64, value)) : Number(value);
+}
+/** Legacy metadata view of the very same bigint observation. */
+function numberStats(stat) {
+	const result = Object.create(fs.Stats.prototype);
+	for (const field of [
+		"dev",
+		"mode",
+		"nlink",
+		"uid",
+		"gid",
+		"rdev",
+		"blksize",
+		"ino",
+		"size",
+		"blocks"
+	]) result[field] = numberStatScalar(stat[field]);
+	for (const field of [
+		"atime",
+		"mtime",
+		"ctime",
+		"birthtime"
+	]) {
+		const ns = stat[`${field}Ns`];
+		const remainder = (ns % 1000000000n + 1000000000n) % 1000000000n;
+		result[`${field}Ms`] = Number((ns - remainder) / 1000000000n) * 1e3 + Number(remainder) / 1e6;
+	}
+	return result;
+}
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/effective-uid.js
 function unavailable(cause) {
 	return new Error("Effective user identity is unavailable.", { ...cause === void 0 ? {} : { cause } });
 }
@@ -8631,8 +8548,7 @@ function resolveEffectiveUid() {
 	if (!(typeof uid === "number" && Number.isSafeInteger(uid) && uid >= 0)) throw unavailable();
 	return uid;
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/secure-file-windows.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/secure-file-windows.js
 init_strict_file_identity();
 init_native();
 init_native_config();
@@ -8700,8 +8616,7 @@ async function inspectSecureWindowsFile(params) {
 	}
 	return inspectDescriptorResult(params, result, nativeAvailable ? "native" : "system-command");
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.26.5/node_modules/@openclaw/fs-safe/dist/secure-file.js
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/secure-file.js
 init_device_path();
 init_errors();
 init_local_file_access();
@@ -8775,7 +8690,7 @@ async function openSecureHandle(options, maxBytes) {
 	if (!isAbsolutePathname(options.filePath)) throw new FsSafeError("invalid-path", `${label(options)} must be an absolute path.`);
 	let preStat;
 	try {
-		preStat = fs$1.lstatSync(options.filePath);
+		preStat = fs.lstatSync(options.filePath);
 	} catch (err) {
 		throw new FsSafeError("not-found", `${label(options)} is not readable: ${options.filePath}`, { cause: err });
 	}
@@ -8784,14 +8699,14 @@ async function openSecureHandle(options, maxBytes) {
 	} else if (!preStat.isFile()) throw new FsSafeError("not-file", `${label(options)} must be a file: ${options.filePath}`);
 	let handle;
 	try {
-		handle = await fs.open(options.filePath, resolveReadOpenFlags({ followSymlinks: options.trust?.allowSymlink === true }));
+		handle = await asyncFs.open(options.filePath, resolveReadOpenFlags({ followSymlinks: options.trust?.allowSymlink === true }));
 	} catch (err) {
 		if (isSymlinkOpenError(err)) throw new FsSafeError("symlink", `${label(options)} symlink open blocked`, { cause: err });
 		throw err;
 	}
 	try {
 		const openedIdentity = inspectFileIdentitySync(() => {
-			const observed = fs$1.fstatSync(handle.fd, { bigint: true });
+			const observed = fs.fstatSync(handle.fd, { bigint: true });
 			if (!observed.isFile()) throw new FsSafeError("not-file", `${label(options)} must be a file: ${options.filePath}`);
 			return observed;
 		});
@@ -8799,7 +8714,7 @@ async function openSecureHandle(options, maxBytes) {
 		if (!openedStat.isFile()) throw new FsSafeError("not-file", `${label(options)} must be a file: ${options.filePath}`);
 		assertNotHardlinked(options, openedIdentity);
 		inspectFileIdentitySync(() => {
-			const pathStat = options.trust?.allowSymlink ? fs$1.statSync(options.filePath, { bigint: true }) : fs$1.lstatSync(options.filePath, { bigint: true });
+			const pathStat = options.trust?.allowSymlink ? fs.statSync(options.filePath, { bigint: true }) : fs.lstatSync(options.filePath, { bigint: true });
 			if (!options.trust?.allowSymlink && pathStat.isSymbolicLink()) throw new FsSafeError("symlink", `${label(options)} must not be a symlink: ${options.filePath}`);
 			assertNotHardlinked(options, pathStat);
 			return pathStat;
@@ -8807,7 +8722,7 @@ async function openSecureHandle(options, maxBytes) {
 		const realPath = realpathSync.native(options.filePath);
 		assertNoWindowsPathAlias(realPath, "filesystem", `${label(options)} resolved path uses a Windows filesystem namespace alias`);
 		inspectFileIdentitySync(() => {
-			const realPathStat = fs$1.statSync(realPath, { bigint: true });
+			const realPathStat = fs.statSync(realPath, { bigint: true });
 			assertNotHardlinked(options, realPathStat);
 			return realPathStat;
 		}, openedIdentity);
@@ -8911,7 +8826,7 @@ async function readSecureFile(options) {
 		assertTrustedDirs(options, opened.realPath);
 		const permissions = await assertSecurePermissions(options, opened, opened.handle.fd);
 		const buffer = await readHandleWithTimeout(opened.handle, options.io?.timeoutMs, maxBytes);
-		const finalIdentity = inspectFileIdentitySync(() => fs$1.fstatSync(opened.handle.fd, { bigint: true }), opened.identity);
+		const finalIdentity = inspectFileIdentitySync(() => fs.fstatSync(opened.handle.fd, { bigint: true }), opened.identity);
 		if (!finalIdentity.isFile()) throw new FsSafeError("not-file", `${label(options)} must remain a file: ${options.filePath}`);
 		assertNotHardlinked(options, finalIdentity);
 		return {
@@ -8925,12 +8840,17 @@ async function readSecureFile(options) {
 		await opened.handle.close().catch(() => void 0);
 	}
 }
-//#endregion
-//#region src/agents/github-exec-credential.ts
+// src/agents/github-host.ts
 var import_dist = require_dist();
+function resolveConfiguredGitHubHost(config) {
+	const host = config?.gateway?.github?.host?.trim().toLowerCase() || "github.com";
+	if (!/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/u.test(host) || host.includes("..")) throw new Error("gateway.github.host must be a hostname");
+	return host;
+}
+// src/agents/github-exec-credential.ts
 const GITHUB_EXEC_CREDENTIAL_UNAVAILABLE = "GitHub Identity credential is unavailable or insecure. Reconnect or change GitHub Identity, then retry.";
 async function privateProfileStat(profileDir) {
-	const stat = await fs.lstat(profileDir);
+	const stat = await asyncFs.lstat(profileDir);
 	if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(GITHUB_EXEC_CREDENTIAL_UNAVAILABLE);
 	if (process.platform === "win32") {
 		const permissions = await inspectPathPermissions(profileDir);
@@ -8939,12 +8859,13 @@ async function privateProfileStat(profileDir) {
 	return stat;
 }
 /** Called only inside the local launcher, never by the Gateway or its supervision pipeline. */
-async function readGitHubExecToken(profileDir) {
+async function readGitHubExecToken(profileDir, host) {
 	try {
+		const githubHost = resolveConfiguredGitHubHost({ gateway: { github: { host } } });
 		const profile = await privateProfileStat(profileDir);
-		const realProfileDir = await fs.realpath(profileDir);
+		const realProfileDir = await asyncFs.realpath(profileDir);
 		const filePath = path.join(profileDir, "hosts.yml");
-		const hosts = await fs.lstat(filePath);
+		const hosts = await asyncFs.lstat(filePath);
 		if (!hosts.isFile() || hosts.isSymbolicLink() || hosts.nlink !== 1) throw new Error(GITHUB_EXEC_CREDENTIAL_UNAVAILABLE);
 		const snapshot = await readSecureFile({
 			filePath,
@@ -8960,8 +8881,8 @@ async function readGitHubExecToken(profileDir) {
 			const document = (0, import_dist.parseDocument)(snapshot.buffer.toString("utf8"), { prettyErrors: false });
 			if (document.errors.length || document.warnings.length) throw new Error(GITHUB_EXEC_CREDENTIAL_UNAVAILABLE);
 			const parsed = document.toJS({ maxAliasCount: 0 });
-			const host = isRecord$1(parsed) ? parsed["github.com"] : void 0;
-			const token = isRecord$1(host) && typeof host.oauth_token === "string" ? host.oauth_token.trim() : "";
+			const hostEntry = isRecord$1(parsed) ? parsed[githubHost] : void 0;
+			const token = isRecord$1(hostEntry) && typeof hostEntry.oauth_token === "string" ? hostEntry.oauth_token.trim() : "";
 			if (!token || /[\r\n\0]/u.test(token)) throw new Error(GITHUB_EXEC_CREDENTIAL_UNAVAILABLE);
 			return token;
 		} finally {
@@ -8971,20 +8892,18 @@ async function readGitHubExecToken(profileDir) {
 		throw new Error(GITHUB_EXEC_CREDENTIAL_UNAVAILABLE);
 	}
 }
-//#endregion
-//#region src/agents/github-exec-launcher.ts
+// src/agents/github-exec-launcher.ts
 async function resolveCredential() {
-	const token = await readGitHubExecToken(process.argv[2] ?? "");
+	const token = await readGitHubExecToken(process.argv[2] ?? "", process.argv[3]);
 	process.stdout.write(token);
 }
-function credentialUnavailable() {
+function credentialUnavailable(stage) {
 	process.exitCode = 1;
-	process.stderr.write(`${GITHUB_EXEC_CREDENTIAL_UNAVAILABLE}\n`);
+	process.stderr.write(`${GITHUB_EXEC_CREDENTIAL_UNAVAILABLE}\nGitHub Identity stage: ${stage}\n`);
 }
-process.stdout.on("error", credentialUnavailable);
+process.stdout.on("error", () => credentialUnavailable("credential-output"));
 process.stderr.on("error", () => {
 	process.exitCode = 1;
 });
-resolveCredential().catch(credentialUnavailable);
-//#endregion
+resolveCredential().catch(() => credentialUnavailable("credential-read"));
 export {};

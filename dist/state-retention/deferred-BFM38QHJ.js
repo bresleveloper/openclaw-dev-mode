@@ -1,0 +1,5 @@
+import{H as collectNestedErrorCandidates}from"./paths-B1tj13JF.js";
+//!src/infra/error-graph-internal.ts
+function throwSettledAggregate(e,t){const n=e.flatMap(e=>e.status===`rejected`?[e.reason]:[]);if(n.length)throw new AggregateError(n,t)}function materializeErrorStack(e){try{for(const t of collectNestedErrorCandidates(e))try{if(!(t instanceof Error))continue;try{t.stack=String(t.stack)}catch{t.stack=`Stack trace unavailable: custom formatter failed`}}catch{}}catch{}}function collectSynchronousErrors(e,t){const n=[];for(const r of e)try{t(r)}catch(e){n.push(e)}return n}
+//!src/shared/deferred.ts
+const promiseWithResolvers=Promise;function createDeferredCore(){return promiseWithResolvers.withResolvers()}export{throwSettledAggregate as i,collectSynchronousErrors as n,materializeErrorStack as r,createDeferredCore as t};

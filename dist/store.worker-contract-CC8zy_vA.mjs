@@ -1,0 +1,2 @@
+//!src/agents/auth-profiles/store.worker-contract.ts
+function createAuthProfileUsageReceipt(e){return{store:e,result:void 0,publication:{credentialsChanged:false,profileSetChanged:false,stateChanged:false,selectionChanged:false,profileIds:[]}}}export{createAuthProfileUsageReceipt as t};

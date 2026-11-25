@@ -1,7 +1,6 @@
-import { n as RuntimeEnv } from "../runtime-M_jncu14.js";
-import { a as resolveGroupAllowFromSources, n as isSenderIdAllowed, r as mergeDmAllowFromSources, t as firstDefined } from "../allow-from-DFqtsHlu.js";
-import { a as AllowlistMatchSource, c as formatAllowlistMatchMeta, d as resolveAllowlistMatchSimple, f as resolveCompiledAllowlistMatch, i as AllowlistMatch, l as resolveAllowlistCandidates, o as CompiledAllowlist, s as compileAllowlist, t as isAllowedParsedChatSender, u as resolveAllowlistMatchByCandidates } from "../chat-target-prefixes-B57oBdKY.js";
-//#region src/channels/allowlists/resolve-utils.d.ts
+import { Ld as isAllowedParsedChatSender, PA as ChannelResolveResult, cf as AllowlistMatch, df as compileAllowlist, ff as formatAllowlistMatchMeta, gf as resolveCompiledAllowlistMatch, hf as resolveAllowlistMatchSimple, lf as AllowlistMatchSource, mf as resolveAllowlistMatchByCandidates, pf as resolveAllowlistCandidates, uf as CompiledAllowlist } from "../config-contracts-hzlacViZ.js";
+import { n as RuntimeEnv } from "../runtime-C7vMCRi6.js";
+import { a as resolveGroupAllowFromSources, n as isSenderIdAllowed, r as mergeDmAllowFromSources, t as firstDefined } from "../allow-from-BbSIDWoC.js";
 type AllowlistUserResolutionLike = {
   input: string;
   resolved: boolean;
@@ -36,8 +35,6 @@ export declare function patchAllowlistUsersInConfigEntries<T extends AllowlistUs
 /** Collects concrete user lookup targets from one config entry, excluding wildcard policy entries. */
 export declare function addAllowlistUserEntriesFromConfigEntry(target: Set<string>, entry: unknown): void;
 export declare function summarizeMapping(label: string, mapping: string[], unresolved: string[], runtime: RuntimeEnv): void;
-//#endregion
-//#region src/plugin-sdk/allow-from.d.ts
 /** Lowercase and optionally strip prefixes from allowlist entries before sender comparisons. */
 export declare function formatAllowFromLowercase(params: {
   /** Raw allowlist entries from config or channel-specific overrides. */
@@ -89,18 +86,7 @@ export declare function isNormalizedSenderAllowed(params: {
   stripPrefixRe?: RegExp;
 }): boolean;
 /** Serializable allowlist resolution record used by setup/status UI surfaces. */
-export type BasicAllowlistResolutionEntry = {
-  /** Original allowlist input. */
-  input: string;
-  /** Whether resolution found a concrete account/user id. */
-  resolved: boolean;
-  /** Resolved id when available. */
-  id?: string;
-  /** Resolved display name when available. */
-  name?: string;
-  /** Optional resolver note for UI or docs output. */
-  note?: string;
-};
+export type BasicAllowlistResolutionEntry = ChannelResolveResult;
 /** Map allowlist inputs sequentially so resolver side effects stay ordered and predictable. */
 export declare function mapAllowlistResolutionInputs<T>(params: {
   /** Ordered allowlist inputs to resolve. */
@@ -108,5 +94,4 @@ export declare function mapAllowlistResolutionInputs<T>(params: {
   /** Resolver callback invoked once per input in order. */
   mapInput: (input: string) => Promise<T> | T;
 }): Promise<T[]>;
-//#endregion
 export { type AllowlistMatch, type AllowlistMatchSource, type AllowlistUserResolutionLike, type CompiledAllowlist, compileAllowlist, firstDefined, formatAllowlistMatchMeta, isAllowedParsedChatSender, isSenderIdAllowed, mergeDmAllowFromSources, resolveAllowlistCandidates, resolveAllowlistMatchByCandidates, resolveAllowlistMatchSimple, resolveCompiledAllowlistMatch, resolveGroupAllowFromSources };

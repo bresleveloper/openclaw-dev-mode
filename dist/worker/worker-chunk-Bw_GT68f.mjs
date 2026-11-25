@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";var t,n,r,i,a,o,s,c,resolveLauncherStopTimeoutMs,l=e((()=>{t=6e4,n=1e4,r=5e3,i=325e3,a=33e4,o=1e3,s=1e3,c=21e5,resolveLauncherStopTimeoutMs=({platform:e,foreground:t,update:n=!1})=>(n?c:e!==`win32`&&t?328e3:o)+s}));export{r as a,resolveLauncherStopTimeoutMs as c,i,a as n,s as o,n as r,l as s,t};

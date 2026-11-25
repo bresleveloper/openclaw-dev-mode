@@ -1,12 +1,11 @@
-import "../index-DSprYWaz.mjs";
-import { M as ModelThinkingLevel, Q as SimpleStreamOptions, U as ProviderStreamOptions, a as AssistantMessage, d as Context, k as Model, n as Api, nt as StreamOptions, pt as Usage, s as AssistantMessageEventStreamContract } from "../types-CVYzKrMl.mjs";
-import { i as getEventStreamCompletion } from "../event-stream-CzpE1g_o.mjs";
-import { a as RegisteredApiProvider, t as ApiProvider } from "../api-registry-gDt0faai.mjs";
-import { m as getDefaultAiTransportHost } from "../host-jJOffdlW.mjs";
-import "../types-CBJthzJX.mjs";
-import { n as isContextOverflow, t as sanitizeSurrogates } from "../sanitize-unicode-ZqVLLEKC.mjs";
-import { v as parseTerminalToolCallArguments } from "../transport-stream-shared-8ru8eX4s.mjs";
-//#region packages/ai/src/internal/default-runtime.d.ts
+import { G as ProviderStreamOptions, N as ModelThinkingLevel, a as AssistantMessage, at as StreamOptions, d as Context, gt as Usage, k as Model, n as Api, s as AssistantMessageEventStreamContract, tt as SimpleStreamOptions } from "../types-B1ZIh9Ch.mjs";
+import "../index-94l3uJ39.mjs";
+import { i as getEventStreamCompletion } from "../event-stream-MivcTu-M.mjs";
+import { a as RegisteredApiProvider, t as ApiProvider } from "../api-registry-BZQ-Qwa8.mjs";
+import "../types-CeCl7cJZ.mjs";
+import { SessionResourceCleanup, SessionResourceOwner, cleanupSessionResources, getSessionResourceOwnerId, registerSessionResourceCleanup } from "./session-resources.mjs";
+import { n as isContextOverflow, t as sanitizeSurrogates } from "../sanitize-unicode-Ba_nhygY.mjs";
+import { b as parseTerminalToolCallArguments } from "../transport-stream-shared-CJrl4Yd5.mjs";
 export declare const defaultApiRegistry: {
   registerApiProvider: <TApi extends Api, TOptions extends StreamOptions>(provider: ApiProvider<TApi, TOptions>, sourceId?: string) => void;
   getApiProvider: (api: Api) => RegisteredApiProvider | undefined;
@@ -49,8 +48,6 @@ declare const { stream, complete, streamSimple, completeSimple }: {
   completeSimple: <TApi extends Api>(model: Model<TApi>, context: Context, options?: SimpleStreamOptions) => Promise<AssistantMessage>;
   cleanupSessionResources: (sessionId?: string) => void;
 };
-//#endregion
-//#region packages/ai/src/env-api-keys.d.ts
 /**
  * Find configured environment variables that can provide an API key for a provider.
  *
@@ -65,8 +62,6 @@ export declare function findEnvKeys(provider: string): string[] | undefined;
  * Will not return API keys for providers that require OAuth tokens.
  */
 export declare function getEnvApiKey(provider: string): string | undefined;
-//#endregion
-//#region packages/ai/src/model-utils.d.ts
 /** Calculates and stores model cost fields from token usage and per-million pricing. */
 export declare function calculateCost<TApi extends Api>(model: Model<TApi>, usage: Usage): Usage["cost"];
 /** Replaces the catalog estimate when the provider reports an authoritative billed total. */
@@ -77,38 +72,17 @@ export declare function getSupportedThinkingLevels<TApi extends Api>(model: Mode
 export declare function clampThinkingLevel<TApi extends Api>(model: Model<TApi>, level: ModelThinkingLevel): ModelThinkingLevel;
 /** Compares model identity by provider and id. */
 export declare function modelsAreEqual<TApi extends Api>(a: Model<TApi> | null | undefined, b: Model<TApi> | null | undefined): boolean;
-//#endregion
-//#region packages/ai/src/session-resources.d.ts
-/** Runtime transport owner attached to retained provider resources. */
-export type SessionResourceOwner = ReturnType<typeof getDefaultAiTransportHost>;
-/** Cleanup callback for resources tied to an LLM session or all sessions. */
-export type SessionResourceCleanup = (sessionId?: string, owner?: SessionResourceOwner) => void;
-/** Returns a process-local key that keeps retained resources separated by runtime owner. */
-export declare function getSessionResourceOwnerId(owner: SessionResourceOwner): number;
-/** Registers a session-resource cleanup hook and returns an unregister function. */
-export declare function registerSessionResourceCleanup(cleanup: SessionResourceCleanup): () => void;
-/** Runs all registered cleanup hooks, aggregating failures after every hook has run. */
-export declare function cleanupSessionResources(sessionId?: string, owner?: SessionResourceOwner): void;
-//#endregion
-//#region packages/ai/src/utils/deferred-event-buffer.d.ts
-type EventSink<T> = {
+export declare function createDeferredEventBuffer<T>(sink: {
   push(event: T): void;
-};
-export declare function createDeferredEventBuffer<T>(sink: EventSink<T>, onBufferedEvent?: () => void): {
+}): {
   push(event: T): void;
   flush(): void;
   discard(): void;
 };
-//#endregion
-//#region packages/ai/src/utils/hash.d.ts
 /** Fast deterministic hash to shorten long strings */
 export declare function shortHash(str: string): string;
-//#endregion
-//#region packages/ai/src/utils/headers.d.ts
 /** Converts a Headers object to a plain record for provider request handling. */
 export declare function headersToRecord(headers: Headers): Record<string, string>;
-//#endregion
-//#region packages/ai/src/utils/json-parse.d.ts
 /**
  * Repairs malformed JSON string literals by:
  * - escaping raw control characters inside strings
@@ -141,12 +115,9 @@ export type ToolArgumentPreviewSchedule = (accumulatedChars: number) => boolean;
  * staleness, linear total parse work.
  */
 export declare function createToolArgumentPreviewSchedule(): ToolArgumentPreviewSchedule;
-//#endregion
-//#region packages/ai/src/utils/llm-request-activity.d.ts
-export declare function notifyLlmRequestActivity(signal: AbortSignal | undefined, progress?: boolean): void;
-export declare function onLlmRequestActivity(signal: AbortSignal, listener: (progress: boolean) => void): () => void;
-//#endregion
-//#region packages/ai/src/utils/oauth/openai-chatgpt-jwt.d.ts
+type ActivityListener = (progress: boolean, progressTimeoutMs?: number) => void;
+export declare function notifyLlmRequestActivity(signal: AbortSignal | undefined, progress?: boolean, progressTimeoutMs?: number): void;
+export declare function onLlmRequestActivity(signal: AbortSignal, listener: ActivityListener): () => void;
 declare const OPENAI_CODEX_AUTH_CLAIM = "https://api.openai.com/auth";
 export type OpenAICodexJwtPayload = {
   [OPENAI_CODEX_AUTH_CLAIM]?: {
@@ -156,40 +127,12 @@ export type OpenAICodexJwtPayload = {
 };
 export declare function decodeOpenAICodexJwtPayload(token: string): OpenAICodexJwtPayload | null;
 export declare function resolveOpenAICodexAccountId(token: string): string | null;
-//#endregion
-//#region packages/markdown-core/src/reasoning-tag-parser.d.ts
-type ReasoningTagTextDelta = {
-  kind: "text";
-  text: string;
-} | {
-  kind: "thinking";
-  text: string;
-};
-//#endregion
-//#region packages/markdown-core/src/reasoning-tags.d.ts
-interface ReasoningTagTextPartitioner {
-  markStrict(): void;
-  push(chunk: string): ReasoningTagTextDelta[];
-  pushVisible(chunk: string): ReasoningTagTextDelta[];
-  flush(options?: {
-    recoverUnclosed?: boolean;
-  }): ReasoningTagTextDelta[];
-  hasPending(): boolean;
-  /** Whether more input can change buffered Markdown or reasoning-tag ownership. */
-  hasPendingSyntax(): boolean;
-  isInsideReasoning(): boolean;
-}
-/** Creates a block-incremental parser that emits only Markdown-stable text. */
-export declare function createReasoningTagTextPartitioner(): ReasoningTagTextPartitioner;
-//#endregion
-//#region packages/ai/src/utils/stream-first-event-timeout.d.ts
-type StreamStage = "responses" | "completions";
 export type FirstStreamEventTimeoutContext = {
   provider?: string;
   api?: string;
   model?: string;
   timeoutMs: number;
-  stage?: StreamStage;
+  stage?: "responses" | "completions";
   hint?: string;
   abort?: (reason: Error) => void;
   onTimeout?: (reason: Error) => void;
@@ -209,8 +152,6 @@ export declare function getFirstStreamEventTimeoutHandler(options: unknown): ((r
 export declare function createFirstStreamEventTimeoutError(context: FirstStreamEventTimeoutContext): Error;
 export declare function createFirstStreamEventAbortController(parentSignal?: AbortSignal): FirstStreamEventAbortController;
 export declare function withFirstStreamEventTimeout<T>(stream: AsyncIterable<T>, context: FirstStreamEventTimeoutContext): AsyncIterable<T>;
-//#endregion
-//#region packages/ai/src/utils/streaming-byte-guard.d.ts
 /** Bounds cumulative stream bytes without waiting for reader cleanup after overflow. */
 export type SseStreamOverflow = {
   size: number;
@@ -230,5 +171,4 @@ export type SseByteGuard = {
 export declare function createSseByteGuard(reader: ReadableStreamDefaultReader<Uint8Array>, opts: ReadSseStreamWithLimitOptions): SseByteGuard;
 /** Lazily bound an SDK response while preserving upstream cancellation. */
 export declare function boundResponseBody(response: Response, options: ReadSseStreamWithLimitOptions): Response;
-//#endregion
-export { type ReasoningTagTextDelta, type ReasoningTagTextPartitioner, complete, completeSimple, getApiProvider, getApiProviders, getEventStreamCompletion, isContextOverflow, parseTerminalToolCallArguments, sanitizeSurrogates, stream, streamSimple };
+export { SessionResourceCleanup, SessionResourceOwner, cleanupSessionResources, complete, completeSimple, getApiProvider, getApiProviders, getEventStreamCompletion, getSessionResourceOwnerId, isContextOverflow, parseTerminalToolCallArguments, registerSessionResourceCleanup, sanitizeSurrogates, stream, streamSimple };

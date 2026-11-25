@@ -1,3 +1,3 @@
-import { n as zaloSetupWizard } from "./.setup/setup-surface-C1uIvO1X.mjs";
-import { r as zaloSetupAdapter } from "./.setup/setup-core-BohTbM6i.mjs";
+import { r as zaloSetupAdapter } from "./.setup/setup-core-B9x2V3Eq.mjs";
+import { n as zaloSetupWizard } from "./.setup/setup-surface-D5kOiuNu.mjs";
 export { zaloSetupAdapter, zaloSetupWizard };

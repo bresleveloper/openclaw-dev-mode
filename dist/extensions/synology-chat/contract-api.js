@@ -1,2 +1,1 @@
-import { t as collectSynologyChatSecurityAuditFindings } from "./.setup/security-audit-DIsaxIaB.mjs";
-export { collectSynologyChatSecurityAuditFindings };
+export { t as collectSynologyChatSecurityAuditFindings } from "./.setup/security-audit-B7M7CYCn.mjs";

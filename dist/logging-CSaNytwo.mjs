@@ -1,0 +1,4 @@
+import{r as terminalText}from"./safe-text-B_QTgn0s.mjs";import{r as resolveStateDir}from"./state-dir-BwbNjuVe.mjs";import{a as displayPath}from"./utils-CVVNdy3C.mjs";import{m as resolveConfigPath}from"./paths-DxXULbkO.mjs";import{r as theme}from"./theme-DS2CtI9X.mjs";import fs from"node:fs";
+//!src/config/logging.ts
+function formatConfigFilePath(e=resolveConfigPath(process.env,resolveStateDir())){return displayPath(e)}function formatConfigUpdatedMessage(e,t={}){const n=theme.muted(formatConfigFilePath(e));const r=t.suffix?terminalText` ${t.suffix}`:``;const i=t.backupPath===void 0?`${e}.bak`:t.backupPath;const a=[`Updated config: ${n}${r}`];if(i&&fs.existsSync(i))a.push(`  Backup: ${theme.muted(formatConfigFilePath(i))}`);return a.join(`
+`)}function logConfigUpdated(e,t={}){e.log(formatConfigUpdatedMessage(t.path??resolveConfigPath(process.env,resolveStateDir()),t))}export{formatConfigUpdatedMessage as n,logConfigUpdated as r,formatConfigFilePath as t};

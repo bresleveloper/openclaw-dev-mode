@@ -1,0 +1,3 @@
+import fs from"node:fs";
+//!src/infra/container-environment.ts
+let containerEnvironmentCache;function isContainerEnvironment(){return containerEnvironmentCache??=detectContainerEnvironment()}function detectContainerEnvironment(){if(process.env.FLY_MACHINE_ID?.trim()&&process.env.FLY_APP_NAME?.trim())return true;for(const e of[`/.dockerenv`,`/run/.containerenv`,`/var/run/.containerenv`])try{fs.accessSync(e,fs.constants.F_OK);return true}catch{}try{const e=fs.readFileSync(`/proc/1/cgroup`,`utf8`);if(/\/docker\/|cri-containerd-[0-9a-f]|containerd\/[0-9a-f]{64}|\/kubepods[/.]|\blxc\b/.test(e))return true}catch{}return false}export{isContainerEnvironment as t};

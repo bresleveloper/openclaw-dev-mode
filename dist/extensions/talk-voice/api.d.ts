@@ -1,2 +1,2 @@
-import { It as OpenClawPluginApi, Mg as PluginRuntime, oC as definePluginEntry } from "../../config-contracts-CY87ANNp.js";
+import { Gt as OpenClawPluginApi, J as PluginRuntime, vb as definePluginEntry } from "../../config-contracts-hzlacViZ.js";
 export { type OpenClawPluginApi, type PluginRuntime, definePluginEntry };

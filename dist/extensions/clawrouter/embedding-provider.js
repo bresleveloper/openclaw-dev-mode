@@ -1,0 +1,1 @@
+import{t as clawrouterEmbeddingProvider}from"../../embedding-provider-Bqu_Pyoz.mjs";export{clawrouterEmbeddingProvider};

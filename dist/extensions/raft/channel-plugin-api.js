@@ -1,4 +1,4 @@
-import { n as RAFT_CHANNEL_ID, t as raftSetupPlugin } from "./.setup/setup-D1PKbHyr.mjs";
+import { n as RAFT_CHANNEL_ID, t as raftSetupPlugin } from "./.setup/setup-Rk5wm4FQ.mjs";
 import { describeAccountSnapshot } from "openclaw/plugin-sdk/account-helpers";
 import { createChatChannelPlugin } from "openclaw/plugin-sdk/channel-core";
 import { detectBinary } from "openclaw/plugin-sdk/setup-tools";
@@ -7,16 +7,19 @@ import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { buildChannelConfigSchema, buildMultiAccountChannelSchema } from "openclaw/plugin-sdk/channel-config-schema";
 import { z } from "zod";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { once } from "node:events";
 import { createServer } from "node:http";
 import process from "node:process";
 import { keepHttpServerTaskAlive, waitUntilAbort } from "openclaw/plugin-sdk/channel-outbound";
 import { channelReadyPatch } from "openclaw/plugin-sdk/gateway-runtime";
+import { sendJsonNoStore } from "openclaw/plugin-sdk/http-response-runtime";
 import { KeyedAsyncQueue } from "openclaw/plugin-sdk/keyed-async-queue";
 import { createChannelReplayGuard } from "openclaw/plugin-sdk/persistent-dedupe";
 import { killProcessTree, spawnOomScoreAdjusted } from "openclaw/plugin-sdk/process-runtime";
 import { safeEqualSecret } from "openclaw/plugin-sdk/security-runtime";
 import { WEBHOOK_BODY_READ_DEFAULTS, readJsonBodyWithLimit, sendHttpRequestRejection } from "openclaw/plugin-sdk/webhook-request-guards";
-//#region extensions/raft/src/config-schema.ts
+import { shellEscape } from "openclaw/plugin-sdk/string-normalization-runtime";
+// extensions/raft/src/config-schema.ts
 const RaftAccountSchema = z.object({
 	name: z.string().optional(),
 	enabled: z.boolean().optional(),
@@ -25,12 +28,8 @@ const RaftAccountSchema = z.object({
 }).strict();
 const RaftConfigSchema = buildMultiAccountChannelSchema(RaftAccountSchema);
 const raftChannelConfigSchema = buildChannelConfigSchema(RaftConfigSchema);
-//#endregion
-//#region extensions/raft/src/inbound.ts
+// extensions/raft/src/inbound.ts
 const WAKE_TEXT = "Raft wake hint received. Check Raft for pending messages, then reply through the Raft CLI.";
-function shellQuote(value) {
-	return `'${value.replaceAll("'", `'"'"'`)}'`;
-}
 async function dispatchRaftWake(ctx) {
 	const channelRuntime = ctx.channelRuntime;
 	const profile = ctx.account.profile;
@@ -45,7 +44,7 @@ async function dispatchRaftWake(ctx) {
 		}
 	});
 	const timestamp = Date.now();
-	const command = `raft --profile ${shellQuote(profile)}`;
+	const command = `raft --profile ${shellEscape(profile)}`;
 	await channelRuntime.inbound.run({
 		channel: RAFT_CHANNEL_ID,
 		accountId: ctx.accountId,
@@ -107,8 +106,7 @@ async function dispatchRaftWake(ctx) {
 		}
 	});
 }
-//#endregion
-//#region extensions/raft/src/gateway.ts
+// extensions/raft/src/gateway.ts
 const BRIDGE_HOST = "127.0.0.1";
 const ACTIVITY_DRAIN_PATH = "/activity/drain";
 const HEALTH_PATH = "/health";
@@ -143,26 +141,6 @@ var WakeRequestError = class extends Error {
 		this.closeAfterResponse = closeAfterResponse;
 	}
 };
-function spawnRaftBridge(params) {
-	return spawnOomScoreAdjusted("raft", [
-		"--profile",
-		params.profile,
-		"agent",
-		"bridge",
-		"--wake-adapter",
-		"wake-channel",
-		"--wake-channel-endpoint",
-		params.endpoint
-	], {
-		env: {
-			...process.env,
-			RAFT_CHANNEL_TOKEN: params.token
-		},
-		detached: process.platform !== "win32",
-		stdio: "ignore",
-		windowsHide: true
-	});
-}
 function hasMatchingToken(request, expected) {
 	const value = request.headers[WAKE_TOKEN_HEADER];
 	if (typeof value !== "string") return false;
@@ -198,13 +176,6 @@ function resolveWakeDedupeKey(payload) {
 	const eventId = resolveWakeEventId(payload);
 	return eventId ? createHash("sha256").update(`id:${eventId}`).digest("hex") : void 0;
 }
-function sendJson(response, statusCode, body) {
-	response.writeHead(statusCode, {
-		"content-type": "application/json; charset=utf-8",
-		"cache-control": "no-store"
-	});
-	response.end(JSON.stringify(body));
-}
 function closeServer(server, sockets) {
 	for (const socket of sockets) socket.destroy();
 	if (server.listening) server.close();
@@ -217,13 +188,7 @@ function stopBridge(child) {
 	});
 }
 async function listenLoopback(server) {
-	await new Promise((resolve, reject) => {
-		server.once("error", reject);
-		server.listen(0, BRIDGE_HOST, () => {
-			server.off("error", reject);
-			resolve();
-		});
-	});
+	await once(server.listen(0, BRIDGE_HOST), "listening");
 	const address = server.address();
 	if (!address || typeof address === "string") throw new Error("Raft wake server did not bind a TCP port.");
 	return address.port;
@@ -262,15 +227,15 @@ async function startRaftGatewayAccount(ctx) {
 	const server = createServer((request, response) => {
 		(async () => {
 			if (request.method === "GET" && request.url === HEALTH_PATH) {
-				sendJson(response, 200, { ok: true });
+				sendJsonNoStore(response, 200, { ok: true });
 				return;
 			}
 			if (request.method === "GET" && new URL(request.url ?? "/", `http://${BRIDGE_HOST}`).pathname === ACTIVITY_DRAIN_PATH) {
 				if (!hasMatchingToken(request, token)) {
-					sendJson(response, 401, { error: "unauthorized" });
+					sendJsonNoStore(response, 401, { error: "unauthorized" });
 					return;
 				}
-				sendJson(response, 200, {
+				sendJsonNoStore(response, 200, {
 					schema: RAFT_ACTIVITY_DRAIN_SCHEMA,
 					events: [],
 					dropped: 0
@@ -278,11 +243,11 @@ async function startRaftGatewayAccount(ctx) {
 				return;
 			}
 			if (request.method !== "POST" || request.url !== WAKE_PATH) {
-				sendJson(response, 404, { error: "not found" });
+				sendJsonNoStore(response, 404, { error: "not found" });
 				return;
 			}
 			if (!hasMatchingToken(request, token)) {
-				sendJson(response, 401, { error: "unauthorized" });
+				sendJsonNoStore(response, 401, { error: "unauthorized" });
 				return;
 			}
 			const payload = await readWakePayload(request);
@@ -305,7 +270,7 @@ async function startRaftGatewayAccount(ctx) {
 					await dispatchRaftWake(ctx);
 				})).kind === "processed";
 			});
-			sendJson(response, 202, {
+			sendJsonNoStore(response, 202, {
 				ok: true,
 				accepted: true,
 				runtimeSession,
@@ -324,7 +289,7 @@ async function startRaftGatewayAccount(ctx) {
 				await sendHttpRequestRejection(request, response, statusCode, JSON.stringify({ error: message }), "application/json; charset=utf-8");
 				return;
 			}
-			sendJson(response, statusCode, { error: message });
+			sendJsonNoStore(response, statusCode, { error: message });
 		});
 	});
 	server.on("connection", (socket) => {
@@ -340,10 +305,24 @@ async function startRaftGatewayAccount(ctx) {
 	};
 	try {
 		const port = await listenLoopback(server);
-		bridge = spawnRaftBridge({
+		const endpoint = `http://${BRIDGE_HOST}:${port}${WAKE_PATH}`;
+		bridge = spawnOomScoreAdjusted("raft", [
+			"--profile",
 			profile,
-			endpoint: `http://${BRIDGE_HOST}:${port}${WAKE_PATH}`,
-			token
+			"agent",
+			"bridge",
+			"--wake-adapter",
+			"wake-channel",
+			"--wake-channel-endpoint",
+			endpoint
+		], {
+			env: {
+				...process.env,
+				RAFT_CHANNEL_TOKEN: token
+			},
+			detached: process.platform !== "win32",
+			stdio: "ignore",
+			windowsHide: true
 		});
 		bridge.once("error", (error) => {
 			if (!stopped) {
@@ -395,8 +374,7 @@ async function startRaftGatewayAccount(ctx) {
 		});
 	}
 }
-//#endregion
-//#region extensions/raft/src/channel.ts
+// extensions/raft/src/channel.ts
 const raftPlugin = createChatChannelPlugin({ base: {
 	...raftSetupPlugin,
 	reload: { configPrefixes: ["channels.raft"] },
@@ -439,7 +417,7 @@ const raftPlugin = createChatChannelPlugin({ base: {
 		}),
 		resolveAccountSnapshot: ({ account }) => ({
 			accountId: account.accountId,
-			name: account.name ?? void 0,
+			name: account.name,
 			enabled: account.enabled,
 			configured: account.configured,
 			extra: { profile: account.profile }
@@ -447,5 +425,4 @@ const raftPlugin = createChatChannelPlugin({ base: {
 	}),
 	gateway: { startAccount: startRaftGatewayAccount }
 } });
-//#endregion
 export { raftPlugin };

@@ -1,0 +1,2 @@
+//!src/session-cards/progress-card-values.ts
+function normalizeProgressCardWrite(e){return{markdown:e.markdown?.trim()?e.markdown:void 0,steps:e.steps&&e.steps.length>0?e.steps:void 0,expectedRevision:e.expectedRevision}}export{normalizeProgressCardWrite as t};

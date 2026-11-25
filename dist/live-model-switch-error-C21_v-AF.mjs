@@ -1,0 +1,2 @@
+//!src/agents/live-model-switch-error.ts
+var LiveSessionModelSwitchError=class extends Error{constructor(e){super(`Live session model switch requested: ${e.provider}/${e.model}`);this.name=`LiveSessionModelSwitchError`;this.provider=e.provider;this.model=e.model;this.agentRuntimeOverride=e.agentRuntimeOverride;this.authProfileId=e.authProfileId;this.authProfileIdSource=e.authProfileIdSource}};export{LiveSessionModelSwitchError as t};

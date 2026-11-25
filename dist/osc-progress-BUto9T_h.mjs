@@ -1,0 +1,2 @@
+//!packages/terminal-core/src/osc-progress.ts
+const OSC_PROGRESS_PREFIX=`\x1B]9;4;`;const OSC_PROGRESS_ST=`\x1B\\`;function supportsOscProgress(e){const t=(e.TERM_PROGRAM??``).toLowerCase();return t.includes(`ghostty`)||t.includes(`wezterm`)||Boolean(e.WT_SESSION)}function formatOscProgress(e,t){return`${OSC_PROGRESS_PREFIX}${e};${Math.max(0,Math.min(100,Math.round(t)))}${OSC_PROGRESS_ST}`}export{supportsOscProgress as n,formatOscProgress as t};

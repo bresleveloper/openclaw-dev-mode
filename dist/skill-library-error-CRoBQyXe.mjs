@@ -1,0 +1,2 @@
+//!src/skills/skill-library-error.ts
+var SkillLibraryError=class extends Error{constructor(e,t,n,r){super(t,r);this.code=e;this.currentRevision=n;this.name=`SkillLibraryError`}};export{SkillLibraryError as t};

@@ -1,0 +1,1 @@
+const e=`operator.admin`,t=`operator.read`,n=`operator.write`,r=`operator.cron`,i=`operator.sessions.read`,a=`operator.sessions.write`,o=`operator.approvals`,s=`operator.questions`,c=`operator.pairing`,l=`operator.talk`,u=`operator.talk.secrets`;export{s as a,a as c,n as d,c as i,l,o as n,t as o,r,i as s,e as t,u};

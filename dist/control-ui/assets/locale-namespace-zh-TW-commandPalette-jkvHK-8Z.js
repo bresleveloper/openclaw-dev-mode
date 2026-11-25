@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"新工作階段設定","rememberSettings":"記住 {shortcut} 的設定","rememberSettingsNoShortcut":"記住這些設定","rememberUnavailable":"請重新連線以記住設定。","settingsSaveFailed":"無法儲存設定。請再試一次。"}};

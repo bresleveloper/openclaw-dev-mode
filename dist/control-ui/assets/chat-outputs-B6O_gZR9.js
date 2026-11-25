@@ -1,0 +1,1 @@
+import"./chat-details-styles-uJfNiL9z.js";import{n as e,r as t,t as n}from"./chat-outputs-CcB5BSI_.js";t();export{n as ChatOutputsDesktop,e as ChatOutputsMobile};

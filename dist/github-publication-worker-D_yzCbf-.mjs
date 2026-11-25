@@ -1,0 +1,1 @@
+import{n as readGitHubPublicationInWorker,t as createGitHubPublicationWorkerScope}from"./github-publication-worker-CVOlNar3.mjs";export{readGitHubPublicationInWorker};

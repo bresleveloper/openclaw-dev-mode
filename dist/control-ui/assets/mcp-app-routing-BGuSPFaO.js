@@ -1,0 +1,2 @@
+import{n as e,r as t}from"./rolldown-runtime-CNOWq4Kh.js";import{i as n,r,t as i}from"./mcp-app-route-Cpin61MG.js";var a=t({navigateMcpAppLink:()=>o});function o(e,t){let i=n(t);return i?(e.navigate(`apps`,{search:r(i)}),!0):!1}function s(){return(s=e((()=>{i()})))()}export{a as n,o as r,s as t};
+//# sourceMappingURL=mcp-app-routing-BGuSPFaO.js.map

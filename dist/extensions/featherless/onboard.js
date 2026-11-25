@@ -1,6 +1,6 @@
-import { a as FEATHERLESS_DEFAULT_MODEL_REF, l as buildFeatherlessCatalogModels, t as FEATHERLESS_BASE_URL } from "./.setup/models-BN2vG1Qe.mjs";
+import { a as FEATHERLESS_DEFAULT_MODEL_REF, l as buildFeatherlessCatalogModels, t as FEATHERLESS_BASE_URL } from "./.setup/models-2eLGnbkC.mjs";
 import { createModelCatalogPresetAppliers, createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/featherless/onboard.ts
+// extensions/featherless/onboard.ts
 const featherlessPreset = {
 	primaryModelRef: FEATHERLESS_DEFAULT_MODEL_REF,
 	resolveParams: () => ({
@@ -16,5 +16,4 @@ const featherlessPreset = {
 };
 const { applyConfig: applyFeatherlessConfig } = createModelCatalogPresetAppliers(featherlessPreset);
 const { applyConfig: applyFeatherlessConnectionConfig } = createProviderConnectionPresetAppliers(featherlessPreset);
-//#endregion
 export { FEATHERLESS_DEFAULT_MODEL_REF, applyFeatherlessConfig, applyFeatherlessConnectionConfig };

@@ -1,11 +1,12 @@
-import { f as resolveManagedCodexNativeCommand, g as CODEX_APP_SERVER_VERSION, m as runCodexVersionCommand, s as parseCodexVersion, t as CODEX_VERSION_TIMEOUT_MS } from "./.setup/managed-binary-CN7ii1MZ.mjs";
-import { t as codexNativeProfileRecoveryHealthCheck } from "./.setup/auth-profile-health-BVPZU9I8.mjs";
-import { n as findCodexAppServerSpawnError, t as describeCodexSpawnError } from "./.setup/spawn-error-CL3n6MAa.mjs";
-import { t as resolveCodexDoctorStartOptions } from "./.setup/doctor-start-options-CbIofkQS.mjs";
+import { c as parseCodexVersion, f as resolveManagedCodexNativeCommand, g as CODEX_APP_SERVER_VERSION, m as runCodexVersionCommand, t as CODEX_VERSION_TIMEOUT_MS } from "./.setup/managed-binary-ARII6CR1.mjs";
+import { t as codexNativeProfileRecoveryHealthCheck } from "./.setup/auth-profile-health-C-RDFJxy.mjs";
+import { n as findCodexAppServerSpawnError, t as describeCodexSpawnError } from "./.setup/spawn-error-DnFx1wgz.mjs";
+import { t as resolveCodexDoctorStartOptions } from "./.setup/doctor-start-options-CGn6Vx3o.mjs";
+import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 import path from "node:path";
 import { coerceErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { fileURLToPath } from "node:url";
-//#region extensions/codex/src/doctor.ts
+// extensions/codex/src/doctor.ts
 const CODEX_MANAGED_APP_SERVER_CHECK_ID = "codex/managed-app-server";
 function managedCodexFindings(params) {
 	return [{
@@ -18,8 +19,7 @@ function managedCodexFindings(params) {
 		...params.fixHint ? { fixHint: params.fixHint } : {}
 	}];
 }
-function createCodexManagedAppServerHealthCheck(params) {
-	const resolveNativeCommand = params.deps?.resolveNativeCommand ?? resolveManagedCodexNativeCommand;
+function createCodexManagedAppServerHealthCheck(pluginRoot) {
 	return {
 		id: CODEX_MANAGED_APP_SERVER_CHECK_ID,
 		kind: "plugin",
@@ -36,21 +36,20 @@ function createCodexManagedAppServerHealthCheck(params) {
 				selection = await resolveCodexDoctorStartOptions({
 					cfg: ctx.cfg,
 					env,
-					pluginRoot: params.pluginRoot,
-					managedOnly: true,
-					deps: params.deps
+					pluginRoot,
+					managedOnly: true
 				});
 			} catch (error) {
 				return managedCodexFindings({
 					message: `Managed Codex app-server could not be resolved: ${coerceErrorMessage(error)}`,
-					path: params.pluginRoot,
+					path: pluginRoot,
 					requirement: `an executable Codex ${CODEX_APP_SERVER_VERSION} managed artifact`,
 					fixHint: "Reinstall the staged OpenClaw package with its @openai/codex platform dependency, then rerun the candidate check."
 				});
 			}
 			if (selection.status === "skipped") return [];
 			const resolved = selection.start;
-			const nativeCommand = resolveNativeCommand(resolved.command);
+			const nativeCommand = resolveManagedCodexNativeCommand(resolved.command);
 			if (!nativeCommand) return managedCodexFindings({
 				message: "Managed Codex app-server resolved a launcher without a native artifact.",
 				path: resolved.command,
@@ -59,7 +58,7 @@ function createCodexManagedAppServerHealthCheck(params) {
 			});
 			let output;
 			try {
-				output = await (params.deps?.runVersionCommand ? params.deps.runVersionCommand(nativeCommand) : runCodexVersionCommand(nativeCommand, env));
+				output = await runCodexVersionCommand(nativeCommand, env);
 			} catch (error) {
 				const spawnFailure = findCodexAppServerSpawnError(describeCodexSpawnError(error, nativeCommand));
 				return managedCodexFindings({
@@ -71,7 +70,7 @@ function createCodexManagedAppServerHealthCheck(params) {
 				});
 			}
 			const detectedVersion = parseCodexVersion(output);
-			if (detectedVersion !== "0.164.0") return managedCodexFindings({
+			if (detectedVersion !== "0.172.0") return managedCodexFindings({
 				severity: versionFailureSeverity,
 				message: detectedVersion ? `Managed Codex app-server version mismatch: expected ${CODEX_APP_SERVER_VERSION}, detected ${detectedVersion}.` : `Managed Codex app-server did not report a parseable version; expected ${CODEX_APP_SERVER_VERSION}.`,
 				path: nativeCommand,
@@ -82,19 +81,16 @@ function createCodexManagedAppServerHealthCheck(params) {
 		}
 	};
 }
-function registerCodexManagedAppServerDoctorChecks$1(host, deps) {
+function registerCodexManagedAppServerDoctorChecks$1(host) {
 	if (host.getHealthCheck("codex/managed-app-server")) return;
-	host.registerHealthCheck(createCodexManagedAppServerHealthCheck({
-		pluginRoot: host.pluginRoot,
-		deps
-	}));
+	host.registerHealthCheck(createCodexManagedAppServerHealthCheck(host.pluginRoot));
 }
-//#endregion
-//#region extensions/codex/api.ts
+// extensions/codex/api.ts
 const CODEX_PLUGIN_ROOT = path.dirname(fileURLToPath(import.meta.url));
+const loadWorkspaceWriteSandboxProbe = createLazyRuntimeModule(() => import("./.setup/workspace-write-sandbox-probe-Bczzg0Wi.mjs"));
 async function probeCodexWorkspaceWriteSandbox(params) {
 	try {
-		const { probeCodexWorkspaceWriteSandbox: probe } = await import("./.setup/workspace-write-sandbox-probe-BoJp6Lyj.mjs");
+		const { probeCodexWorkspaceWriteSandbox: probe } = await loadWorkspaceWriteSandboxProbe();
 		return await probe({
 			...params,
 			pluginRoot: CODEX_PLUGIN_ROOT
@@ -113,5 +109,4 @@ function registerCodexManagedAppServerDoctorChecks(host) {
 	});
 	if (!host.getHealthCheck(codexNativeProfileRecoveryHealthCheck.id)) host.registerHealthCheck(codexNativeProfileRecoveryHealthCheck);
 }
-//#endregion
 export { CODEX_MANAGED_APP_SERVER_CHECK_ID, probeCodexWorkspaceWriteSandbox, registerCodexManagedAppServerDoctorChecks };

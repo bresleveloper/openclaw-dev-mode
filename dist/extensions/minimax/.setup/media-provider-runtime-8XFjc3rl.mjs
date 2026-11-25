@@ -1,0 +1,3 @@
+import{asOptionalRecord,normalizeOptionalString,readStringField}from"openclaw/plugin-sdk/string-coerce-runtime";import"openclaw/plugin-sdk/provider-http";
+//!extensions/minimax/media-provider-runtime.ts
+function assertMinimaxBaseResp(e,t){const n=asOptionalRecord(e);if(n&&typeof n.status_code===`number`&&n.status_code!==0)throw new Error(`${t} (${n.status_code}): ${readStringField(n,`status_msg`)??`unknown error`}`)}function normalizeMinimaxHexAudio(e,t){const n=e.trim();if(!/^[0-9a-f]+$/iu.test(n)||n.length%2!==0)throw new Error(`${t} returned malformed hex audio`);return n}export{assertMinimaxBaseResp,normalizeMinimaxHexAudio};

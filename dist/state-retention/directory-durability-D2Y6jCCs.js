@@ -1,0 +1,3 @@
+import fsPromises from"node:fs/promises";import{sameFileIdentity}from"@openclaw/fs-safe/advanced";import{syncDirectorySync}from"@openclaw/fs-safe/durability";import{FsSafeError}from"@openclaw/fs-safe/errors";
+//!src/infra/directory-durability.ts
+function requireDirectorySync(e,t){if(e.status!==`unsupported`||process.platform===`win32`)return;const n=e.code?` (${e.code})`:``;throw new Error(`${t} does not support crash-durable directory synchronization${n}.`)}export{syncDirectorySync as n,requireDirectorySync as t};

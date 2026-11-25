@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-DyeIuPEC.mjs";var t;function init_github_identity_profile_id(){return(init_github_identity_profile_id=e((()=>{t=/^ghp_[a-f0-9]{32}$/u})))()}export{init_github_identity_profile_id as n,t};

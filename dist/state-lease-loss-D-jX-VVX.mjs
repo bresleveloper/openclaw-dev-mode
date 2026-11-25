@@ -1,0 +1,3 @@
+import{Fn as object,Pn as number,Yt as discriminatedUnion,xn as literal}from"./schemas-DuCQi-Qb.mjs";
+//!src/shared/state-lease-loss.ts
+const milliseconds=number().int().min(0).max(Number.MAX_SAFE_INTEGER);const StateLeaseLossSchema=discriminatedUnion(`reason`,[object({reason:literal(`expired`),expiresAt:milliseconds,expiredByMs:milliseconds,heartbeatAgeMs:milliseconds,renewalTimerLateByMs:milliseconds.optional()}),object({reason:literal(`replaced`),owner:literal(`[redacted]`)}),object({reason:literal(`missing`)}),object({reason:literal(`storage-failed`)}),object({reason:literal(`admission-failed`)})]);export{StateLeaseLossSchema as t};

@@ -1,0 +1,3 @@
+import{n as assertNoRetiredStateFiles}from"./state-migrations.retired-files-CmPAorgq.mjs";import path from"node:path";
+//!src/infra/state-migrations.restart-sentinel.ts
+function listRetiredRestartSentinelFiles(e){return[path.join(e,`restart-sentinel.json`),path.join(e,`restart-sentinel.json.doctor-importing`)]}function assertNoRetiredRestartSentinelFiles(e){assertNoRetiredStateFiles(`Restart sentinel JSON`,listRetiredRestartSentinelFiles(e))}export{listRetiredRestartSentinelFiles as n,assertNoRetiredRestartSentinelFiles as t};

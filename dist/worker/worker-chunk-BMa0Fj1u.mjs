@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";var t,n=e((()=>{t=[`teal`,`amber`,`purple`,`coral`,`pink`,`blue`,`green`,`red`,`gray`]}));export{n,t};

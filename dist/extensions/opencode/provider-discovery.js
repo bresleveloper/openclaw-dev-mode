@@ -1,5 +1,5 @@
-import { n as buildStaticOpencodeZenProviderConfig } from "./.setup/provider-catalog-XEhgAiH9.mjs";
-//#region extensions/opencode/provider-discovery.ts
+import { n as buildStaticOpencodeZenProviderConfig } from "./.setup/provider-catalog-7CVtc4r7.mjs";
+// extensions/opencode/provider-discovery.ts
 const opencodeProviderDiscovery = {
 	id: "opencode",
 	label: "OpenCode Zen",
@@ -10,5 +10,4 @@ const opencodeProviderDiscovery = {
 		run: async () => ({ provider: buildStaticOpencodeZenProviderConfig() })
 	}
 };
-//#endregion
 export { opencodeProviderDiscovery as default };

@@ -1,0 +1,2 @@
+//!src/cron/system-owned-declaration.ts
+const RETIRED_SKILL_COLLECTION_REVIEW_DECLARATION_PREFIX=`skill-collection-review:`;const SYSTEM_OWNED_DECLARATION_PREFIXES=[RETIRED_SKILL_COLLECTION_REVIEW_DECLARATION_PREFIX];function systemOwnedDeclarationKeyNamespace(e){return SYSTEM_OWNED_DECLARATION_PREFIXES.find(t=>e?.startsWith(t))}export{systemOwnedDeclarationKeyNamespace as n,RETIRED_SKILL_COLLECTION_REVIEW_DECLARATION_PREFIX as t};

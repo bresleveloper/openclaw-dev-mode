@@ -1,9 +1,7 @@
-import { n as ToolInputError } from "../tool-input-error-BsUaQSlb.js";
-import { C as EMPTY_CODE_MODE_OUTPUT, D as CodeModeApiVirtualFile, E as captureCodeModeValue, S as CodeModeOutputSource, T as captureCodeModeOutput, _ as CodeModeWorkerPayload, a as CodeModeExecutorId, b as SettledBridgeRequest, c as CodeModeExecutorRunOptions, d as CodeModeWorkerResult, f as CODE_MODE_WORKER_WATCHDOG_GRACE_MS, g as CodeModeWorkerContinuation, h as CodeModeWorkerBoundary, i as CodeModeExecutorContinuation, l as CodeModeExecutorStartInput, m as CodeModeVmResult, n as CodeModeHeadlessTimeoutError, o as CodeModeExecutorInlineHost, p as CodeModeConfig, r as CodeModeExecutor, s as CodeModeExecutorResumeInput, t as CodeModeHeadlessAbortError, u as CodeModeFailureCode, v as CodeModeWorkerThreadResult, w as boundCodeModeError, x as CodeModeNamespaceDescriptor, y as PendingBridgeRequest } from "../code-mode-errors-5c5aKTif.js";
-//#region src/agents/code-mode-controller-source.d.ts
+import { At as CodeModeOutputSource, Ct as CodeModeWorkerBoundary, Dt as PendingBridgeRequest, Et as CodeModeWorkerThreadResult, Ft as CodeModeApiVirtualFile, Mt as boundCodeModeError, Nt as captureCodeModeOutput, Ot as SettledBridgeRequest, Pt as captureCodeModeValue, St as CodeModeVmResult, Tt as CodeModeWorkerPayload, _t as CodeModeExecutorStartInput, bt as CODE_MODE_WORKER_WATCHDOG_GRACE_MS, dt as CodeModeExecutor, ft as CodeModeExecutorContinuation, gt as CodeModeExecutorRunOptions, ht as CodeModeExecutorResumeInput, jt as EMPTY_CODE_MODE_OUTPUT, kt as CodeModeNamespaceDescriptor, lt as CodeModeHeadlessAbortError, mt as CodeModeExecutorInlineHost, pt as CodeModeExecutorId, ut as CodeModeHeadlessTimeoutError, vt as CodeModeFailureCode, wt as CodeModeWorkerContinuation, xt as CodeModeConfig, yt as CodeModeWorkerResult } from "../config-contracts-hzlacViZ.js";
+import { _ as ToolInputError } from "../channel-actions-CtYo87Zk.js";
+/** Console is guest-only diagnostic text, not a host logging capability. */
 export declare const CODE_MODE_CONTROLLER_SOURCE: string;
-//#endregion
-//#region src/agents/code-mode-source-location.d.ts
 export declare const USER_SOURCE_FILE = "openclaw-code-mode:user.js";
 export declare const SOURCE_LOCATION_KEY = "__openclawSourceLocation";
 type SourceLocation = {
@@ -18,8 +16,5 @@ export declare function buildUserSource(code: string, prelude?: string, columnUn
   source: string;
   location: SourceLocation;
 };
-//#endregion
-//#region src/agents/code-mode-source.d.ts
 export declare function prepareSource(code: string): string;
-//#endregion
 export { CODE_MODE_WORKER_WATCHDOG_GRACE_MS, type CodeModeApiVirtualFile, type CodeModeConfig, type CodeModeExecutor, type CodeModeExecutorContinuation, type CodeModeExecutorId, type CodeModeExecutorInlineHost, type CodeModeExecutorResumeInput, type CodeModeExecutorRunOptions, type CodeModeExecutorStartInput, type CodeModeFailureCode, CodeModeHeadlessAbortError, CodeModeHeadlessTimeoutError, type CodeModeNamespaceDescriptor, type CodeModeOutputSource, type CodeModeVmResult, type CodeModeWorkerBoundary, type CodeModeWorkerContinuation, type CodeModeWorkerPayload, type CodeModeWorkerResult, type CodeModeWorkerThreadResult, EMPTY_CODE_MODE_OUTPUT, type PendingBridgeRequest, type SettledBridgeRequest, type SourceLocation, ToolInputError, boundCodeModeError, captureCodeModeOutput, captureCodeModeValue };

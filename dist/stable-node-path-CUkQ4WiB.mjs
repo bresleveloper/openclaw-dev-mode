@@ -1,0 +1,3 @@
+import{l as pathExists}from"./fs-safe-Bxzu1j4h.mjs";import{t as stableHomebrewNodePathCandidates}from"./stable-node-path-BVNVO-Yj.mjs";import{existsSync}from"node:fs";
+//!src/infra/stable-node-path.ts
+async function resolveStableNodePath(e){for(const t of stableHomebrewNodePathCandidates(e))if(await pathExists(t))return t;return e}function resolveLaunchableNodePath(e=process.execPath){if(existsSync(e))return e;return stableHomebrewNodePathCandidates(e).find(existsSync)??e}export{resolveStableNodePath as n,resolveLaunchableNodePath as t};

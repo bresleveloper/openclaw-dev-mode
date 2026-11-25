@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/gateway/server-methods/speech-mime.ts
+function inferSpeechMimeType(e,t){const n=normalizeOptionalLowercaseString(e);const r=normalizeOptionalLowercaseString(t);if(n===`mp3`||n?.startsWith(`mp3_`)||n?.endsWith(`-mp3`)||r===`.mp3`)return`audio/mpeg`;if(n===`opus`||n?.startsWith(`opus_`)||r===`.opus`||r===`.ogg`)return`audio/ogg`;if(n?.endsWith(`-wav`)||r===`.wav`)return`audio/wav`;if(n?.endsWith(`-webm`)||r===`.webm`)return`audio/webm`}export{inferSpeechMimeType as t};

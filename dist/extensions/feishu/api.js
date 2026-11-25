@@ -1,22 +1,23 @@
-import { a as parseFeishuTargetId, i as parseFeishuDirectConversationId, n as buildFeishuModelOverrideParentCandidates, r as parseFeishuConversationId, t as buildFeishuConversationId } from "./.setup/conversation-id-D00i9uy5.mjs";
-import { a as setFeishuNamedAccountEnabled, i as feishuSetupAdapter, n as feishuSetupWizard, r as runFeishuLogin, t as feishuPlugin } from "./.setup/channel-D60cZ_Y_.mjs";
-import { $ as resolveFeishuToolAccount, J as registerFeishuDriveTools, Q as createFeishuToolClient, X as feishuExternalToolResult, Y as registerFeishuTool, Z as unknownToolActionResult, et as assertFeishuApiSuccess, gt as parseFeishuMarkdown, pt as chunkFeishuMarkdown, vt as visitFeishuMarkdown } from "./.setup/reply-delivery-result-DknmIzOB.mjs";
-import { t as getFeishuRuntime } from "./.setup/runtime-C5JxBWZp.mjs";
-import { f as resolveConfiguredHttpTimeoutMs, r as createFeishuClient } from "./.setup/client-BTiFlqqL.mjs";
-import { n as getFeishuThreadBindingManager, t as createFeishuThreadBindingManager } from "./.setup/thread-bindings-BxKmOara.mjs";
-import { o as registerFeishuChatTools } from "./.setup/chat-qj1pEIcO.mjs";
-import { n as handleFeishuSubagentEnded, t as handleFeishuSubagentDeliveryTarget } from "./.setup/subagent-hooks-CvVuM0O4.mjs";
+import { a as setFeishuNamedAccountEnabled, i as feishuSetupAdapter, n as feishuSetupWizard, r as runFeishuLogin, t as feishuPlugin } from "./.setup/channel-Bp5AqILl.mjs";
+import { a as parseFeishuTargetId, i as parseFeishuDirectConversationId, n as buildFeishuModelOverrideParentCandidates, r as parseFeishuConversationId, t as buildFeishuConversationId } from "./.setup/conversation-id-N6q3vKm-.mjs";
+import { $ as resolveFeishuToolAccount, Q as unknownToolActionResult, X as registerFeishuTool, Y as registerFeishuDriveTools, Z as feishuExternalToolResult, _t as visitFeishuMarkdown, et as assertFeishuApiSuccess, ft as chunkFeishuMarkdown, ht as parseFeishuMarkdown } from "./.setup/reply-delivery-result-DTuuSfED.mjs";
+import { t as getFeishuRuntime } from "./.setup/runtime-6V3uDMw5.mjs";
+import { f as resolveConfiguredHttpTimeoutMs, r as createFeishuClient } from "./.setup/client-BAiJnY41.mjs";
+import { n as getFeishuThreadBindingManager, t as createFeishuThreadBindingManager } from "./.setup/thread-bindings-6eyktxK_.mjs";
+import { o as registerFeishuChatTools } from "./.setup/chat-Cu_YNdXv.mjs";
+import { n as handleFeishuSubagentEnded, t as handleFeishuSubagentDeliveryTarget } from "./.setup/subagent-hooks-BRem84Mh.mjs";
 import { optionalPositiveIntegerSchema } from "openclaw/plugin-sdk/channel-actions";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
-import { normalizeLowercaseStringOrEmpty, normalizeOptionalString, readStringValue, uniqueStrings } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { filterStringEntries, normalizeLowercaseStringOrEmpty, normalizeOptionalString, readStringValue, uniqueStrings } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, isAbsolute, resolve } from "node:path";
 import { readPositiveIntegerParam } from "openclaw/plugin-sdk/param-readers";
 import { Type } from "typebox";
-import { canonicalizeBase64, estimateBase64DecodedBytes, extensionForMime } from "openclaw/plugin-sdk/media-runtime";
+import { buildOutboundMediaLoadOptions, canonicalizeBase64, estimateBase64DecodedBytes, extensionForMime } from "openclaw/plugin-sdk/media-runtime";
+import { resolveOutboundMediaAccessForConfig } from "openclaw/plugin-sdk/outbound-media";
 import { createClackPrompter } from "openclaw/plugin-sdk/setup-runtime";
-//#region extensions/feishu/src/doc-schema.ts
+// extensions/feishu/src/doc-schema.ts
 const tableCreationProperties = {
 	doc_token: Type.String({ description: "Document token" }),
 	parent_block_id: Type.Optional(Type.String({ description: "Parent block ID (default: document root)" })),
@@ -161,8 +162,7 @@ const FeishuDocSchema = Type.Union([
 		content: Type.String({ description: "Text with color markup. Tags: [red], [green], [blue], [orange], [yellow], [purple], [grey], [bold], [bg:yellow]. Example: \"Revenue [green]+15%[/green] YoY\"" })
 	})
 ]);
-//#endregion
-//#region extensions/feishu/src/docx-table-ops.ts
+// extensions/feishu/src/docx-table-ops.ts
 const MIN_COLUMN_WIDTH = 50;
 const MAX_COLUMN_WIDTH = 400;
 const DEFAULT_TABLE_WIDTH = 730;
@@ -170,9 +170,8 @@ function normalizeChildBlockIds(children) {
 	if (Array.isArray(children)) return children;
 	return typeof children === "string" ? [children] : [];
 }
-function calculateAdaptiveColumnWidths(blocks, tableBlockId, getBlockMap) {
-	const tableBlock = blocks.find((b) => b.block_id === tableBlockId && b.block_type === 31);
-	if (!tableBlock?.table?.property) return [];
+function calculateAdaptiveColumnWidths(tableBlock, getBlockMap) {
+	if (!tableBlock.table?.property) return [];
 	const { row_size, column_size, column_width: originalWidths } = tableBlock.table.property;
 	if (!row_size || !column_size) return [];
 	const totalWidth = originalWidths && originalWidths.length > 0 ? originalWidths.reduce((a, b) => a + b, 0) : DEFAULT_TABLE_WIDTH;
@@ -227,7 +226,7 @@ function cleanBlocksForDescendant(blocks) {
 		delete cleanBlock.parent_id;
 		if (cleanBlock.block_type === 32 && typeof cleanBlock.children === "string") cleanBlock.children = [cleanBlock.children];
 		if (cleanBlock.block_type === 31 && cleanBlock.table) {
-			const adaptiveWidths = block.block_id ? calculateAdaptiveColumnWidths(blocks, block.block_id, getBlockMap) : void 0;
+			const adaptiveWidths = block.block_id ? calculateAdaptiveColumnWidths(block, getBlockMap) : void 0;
 			const { row_size, column_size } = cleanBlock.table.property || {};
 			cleanBlock.table = { property: {
 				row_size,
@@ -296,15 +295,14 @@ async function patchTable(client, params) {
 		block: res.data?.block
 	};
 }
-//#endregion
-//#region extensions/feishu/src/docx-batch-insert.ts
+// extensions/feishu/src/docx-batch-insert.ts
 const BATCH_SIZE = 1e3;
 function toDescendantBlock(block) {
 	const child = readStringValue(block.children);
-	return {
+	return child ? {
 		...block,
-		...child ? { children: [child] } : {}
-	};
+		children: [child]
+	} : block;
 }
 async function insertDocxDescendants(client, docToken, descendants, firstLevelBlockIds, parentBlockId = docToken, index = -1) {
 	if (descendants.length === 0) return [];
@@ -364,8 +362,7 @@ async function insertBlocksInBatches(client, docToken, blocks, firstLevelBlockId
 	}
 	return allChildren;
 }
-//#endregion
-//#region extensions/feishu/src/docx-color-text.ts
+// extensions/feishu/src/docx-color-text.ts
 const COLORS = {
 	red: 1,
 	orange: 2,
@@ -390,9 +387,9 @@ function parseColorMarkup(content) {
 		if (match[3] === void 0) {
 			for (const tag of normalizeLowercaseStringOrEmpty(match[1]).split(/\s+/)) if (tag.startsWith("bg:")) {
 				const color = tag.slice(3);
-				if (COLORS[color]) bgColor = COLORS[color];
+				if (Object.hasOwn(COLORS, color)) bgColor = COLORS[color];
 			} else if (tag === "bold") bold = true;
-			else if (COLORS[tag]) textColor = COLORS[tag];
+			else if (Object.hasOwn(COLORS, tag)) textColor = COLORS[tag];
 		}
 		elements.push({ text_run: {
 			content: text,
@@ -421,8 +418,7 @@ async function updateColorText(client, docToken, blockId, content) {
 		block: res.data?.block
 	};
 }
-//#endregion
-//#region extensions/feishu/src/docx-markdown.ts
+// extensions/feishu/src/docx-markdown.ts
 const MAX_BREAK_PROBES = 32;
 const STABLE_LINE_CONTAINER_TYPES = /* @__PURE__ */ new Set([
 	"list",
@@ -504,9 +500,6 @@ function splitTableAtRow(source, root, target) {
 	const chunks = [source.slice(0, splitOffset), `${repeatedHeader}${source.slice(splitOffset)}`];
 	if (chunks.every((chunk) => parseFeishuMarkdown(chunk).children?.[0]?.type === "table")) return chunks;
 }
-function isFencedCodeSource(source) {
-	return /^ {0,3}(?:`{3}|~{3})/.test(source);
-}
 function createDocxMarkdownChunk(markdown) {
 	return {
 		markdown,
@@ -528,7 +521,7 @@ function splitDocxMarkdownBySize(markdown, maxChars) {
 	if (splitOffset !== void 0) return [markdown.slice(0, splitOffset), markdown.slice(splitOffset)];
 	const paragraphOffset = nearestOffset(paragraphBreakOffsets(markdown, root), target, markdown.length).slice(0, MAX_BREAK_PROBES).find((offset) => isStableBreak(markdown, offset, "paragraph"));
 	if (paragraphOffset !== void 0) return [markdown.slice(0, paragraphOffset), markdown.slice(paragraphOffset)];
-	if (root.children?.length === 1 && root.children[0]?.type === "code" && isFencedCodeSource(markdown)) return chunkFeishuMarkdown(markdown, maxChars);
+	if (root.children?.length === 1 && root.children[0]?.type === "code" && /^ {0,3}(?:`{3}|~{3})/.test(markdown)) return chunkFeishuMarkdown(markdown, maxChars);
 	const tableChunks = splitTableAtRow(markdown, root, target);
 	if (tableChunks) return tableChunks;
 	const containerType = root.children?.length === 1 ? root.children[0]?.type : void 0;
@@ -538,8 +531,7 @@ function splitDocxMarkdownBySize(markdown, maxChars) {
 	}
 	return [markdown];
 }
-//#endregion
-//#region extensions/feishu/src/docx-upload-input.ts
+// extensions/feishu/src/docx-upload-input.ts
 function resolveDocToolLocalRoots(ctx) {
 	if (ctx.fsPolicy?.workspaceOnly !== true) return;
 	const workspaceDir = ctx.workspaceDir?.trim();
@@ -599,6 +591,7 @@ async function resolveDocxUploadInput(input) {
 		const fetched = await getFeishuRuntime().channel.media.readRemoteMediaBuffer({
 			url: input.url,
 			maxBytes: input.maxBytes,
+			ssrfPolicy: buildOutboundMediaLoadOptions({ mediaAccess: input.mediaAccess }).ssrfPolicy,
 			...input.remoteReadTimeoutMs !== void 0 ? {
 				responseHeaderTimeoutMs: input.remoteReadTimeoutMs,
 				readIdleTimeoutMs: input.remoteReadTimeoutMs
@@ -626,8 +619,7 @@ async function resolveDocxUploadInput(input) {
 		fileName: input.fileName ?? "image.png"
 	};
 }
-//#endregion
-//#region extensions/feishu/src/docx.ts
+// extensions/feishu/src/docx.ts
 const BLOCK_TYPE_NAMES = {
 	1: "Page",
 	2: "Text",
@@ -662,9 +654,7 @@ async function convertMarkdown(client, markdown) {
 	};
 }
 function normalizeChildIds(children) {
-	if (Array.isArray(children)) return children.filter((child) => typeof child === "string");
-	if (typeof children === "string") return [children];
-	return [];
+	return typeof children === "string" ? [children] : filterStringEntries(children);
 }
 function normalizeConvertedBlockTree(blocks, firstLevelIds) {
 	if (blocks.length <= 1) return {
@@ -672,11 +662,7 @@ function normalizeConvertedBlockTree(blocks, firstLevelIds) {
 		rootIds: blocks.length === 1 && typeof blocks[0]?.block_id === "string" ? [blocks[0].block_id] : []
 	};
 	const byId = /* @__PURE__ */ new Map();
-	const originalOrder = /* @__PURE__ */ new Map();
-	for (const [index, block] of blocks.entries()) if (typeof block?.block_id === "string") {
-		byId.set(block.block_id, block);
-		originalOrder.set(block.block_id, index);
-	}
+	for (const block of blocks) if (typeof block?.block_id === "string") byId.set(block.block_id, block);
 	const childIds = /* @__PURE__ */ new Set();
 	for (const block of blocks) for (const childId of normalizeChildIds(block?.children)) childIds.add(childId);
 	const inferredTopLevelIds = blocks.filter((block) => {
@@ -684,7 +670,7 @@ function normalizeConvertedBlockTree(blocks, firstLevelIds) {
 		if (typeof blockId !== "string") return false;
 		const parentId = typeof block?.parent_id === "string" ? block.parent_id : "";
 		return !childIds.has(blockId) && (!parentId || !byId.has(parentId));
-	}).toSorted((a, b) => (originalOrder.get(a.block_id ?? "__missing__") ?? 0) - (originalOrder.get(b.block_id ?? "__missing__") ?? 0)).map((block) => block.block_id).filter((blockId) => typeof blockId === "string");
+	}).map((block) => block.block_id).filter((blockId) => typeof blockId === "string");
 	const rootIds = (firstLevelIds.length > 0 ? firstLevelIds : inferredTopLevelIds).filter((id) => typeof id === "string" && byId.has(id));
 	const uniqueRootIds = uniqueStrings(rootIds);
 	const orderedBlocks = [];
@@ -703,22 +689,6 @@ function normalizeConvertedBlockTree(blocks, firstLevelIds) {
 		orderedBlocks,
 		rootIds: uniqueRootIds
 	};
-}
-async function insertBlocks(client, docToken, blocks, blockId) {
-	const cleaned = blocks.filter((block) => !UNSUPPORTED_CREATE_TYPES.has(block.block_type));
-	const allInserted = [];
-	for (const block of cleaned) {
-		const res = await client.docx.documentBlockChildren.create({
-			path: {
-				document_id: docToken,
-				block_id: blockId
-			},
-			data: { children: [block] }
-		});
-		assertFeishuApiSuccess(res);
-		allInserted.push(...res.data?.children ?? []);
-	}
-	return allInserted;
 }
 /** Convert markdown in chunks to avoid document.convert content size limits. */
 async function chunkedConvertMarkdown(client, chunks, depth = 0) {
@@ -765,24 +735,6 @@ async function deleteBlockChildren(client, docToken, parentId, startIndex, endIn
 	});
 	assertFeishuApiSuccess(res);
 }
-async function deleteChildBlock(client, docToken, parentId, blockId) {
-	const children = await client.docx.documentBlockChildren.get({ path: {
-		document_id: docToken,
-		block_id: parentId
-	} });
-	assertFeishuApiSuccess(children);
-	const index = (children.data?.items ?? []).findIndex((item) => item.block_id === blockId);
-	if (index === -1) return false;
-	await deleteBlockChildren(client, docToken, parentId, index, index + 1);
-	return true;
-}
-async function clearDocumentContent(client, docToken) {
-	const existing = await client.docx.documentBlock.list({ path: { document_id: docToken } });
-	assertFeishuApiSuccess(existing);
-	const childIds = existing.data?.items?.filter((b) => b.parent_id === docToken && b.block_type !== 1).map((b) => b.block_id) ?? [];
-	if (childIds.length > 0) await deleteBlockChildren(client, docToken, docToken, 0, childIds.length);
-	return childIds.length;
-}
 async function uploadDocxMedia(client, kind, parentNode, upload, docToken) {
 	const fileToken = (await client.drive.media.uploadAll({ data: {
 		file_name: upload.fileName,
@@ -807,33 +759,18 @@ async function uploadImageToDocx(client, blockId, upload, docToken) {
 	assertFeishuApiSuccess(patchRes);
 	return fileToken;
 }
-async function processImages(client, docToken, images, insertedBlocks, maxBytes, imageReadTimeoutMs) {
-	if (images.length === 0) return 0;
-	const imageBlocks = insertedBlocks.filter((b) => b.block_type === 27);
-	let processed = 0;
-	for (let i = 0; i < Math.min(images.length, imageBlocks.length); i++) {
-		const url = images[i]?.url;
-		const blockId = imageBlocks[i]?.block_id;
-		if (!url || !blockId) continue;
-		try {
-			await uploadImageToDocx(client, blockId, await resolveDocxUploadInput({
-				url,
-				maxBytes,
-				remoteReadTimeoutMs: imageReadTimeoutMs
-			}), docToken);
-			processed++;
-		} catch (err) {
-			console.error(`Failed to process image ${url}:`, err);
-		}
-	}
-	return processed;
-}
-async function editDoc(client, params, maxBytes, imageReadTimeoutMs, logger) {
+async function editDoc(client, params, maxBytes, imageReadTimeoutMs, logger, mediaAccess) {
 	const docToken = params.doc_token;
 	const target = params.action === "insert" ? await resolveInsertTarget(client, docToken, params.after_block_id) : void 0;
 	logger?.info?.("feishu_doc: Converting markdown...");
 	const { blocks, firstLevelBlockIds, images } = await chunkedConvertMarkdown(client, createDocxMarkdownPlan(params.content).chunks);
-	const deleted = params.action === "write" ? await clearDocumentContent(client, docToken) : 0;
+	let deleted = 0;
+	if (params.action === "write") {
+		const existing = await client.docx.documentBlock.list({ path: { document_id: docToken } });
+		assertFeishuApiSuccess(existing);
+		deleted = existing.data?.items?.filter((b) => b.parent_id === docToken && b.block_type !== 1).length ?? 0;
+		if (deleted > 0) await deleteBlockChildren(client, docToken, docToken, 0, deleted);
+	}
 	if (blocks.length === 0) {
 		if (params.action !== "write") throw new Error("Content is empty");
 		return {
@@ -846,7 +783,26 @@ async function editDoc(client, params, maxBytes, imageReadTimeoutMs, logger) {
 	const { orderedBlocks, rootIds } = normalizeConvertedBlockTree(blocks, firstLevelBlockIds);
 	logger?.info?.(`feishu_doc: Converted to ${blocks.length} blocks, inserting${target ? ` at index ${target.index}` : ""}...`);
 	const inserted = blocks.length > 1e3 ? await insertBlocksInBatches(client, docToken, orderedBlocks, rootIds, logger, target?.parentBlockId, target?.index) : await insertDocxDescendants(client, docToken, cleanBlocksForDescendant(orderedBlocks), rootIds, target?.parentBlockId, target?.index);
-	const imagesProcessed = await processImages(client, docToken, images, inserted, maxBytes, imageReadTimeoutMs);
+	let imagesProcessed = 0;
+	if (images.length > 0) {
+		const imageBlocks = inserted.filter((b) => b.block_type === 27);
+		for (let i = 0; i < Math.min(images.length, imageBlocks.length); i++) {
+			const url = images[i]?.url;
+			const blockId = imageBlocks[i]?.block_id;
+			if (!url || !blockId) continue;
+			try {
+				await uploadImageToDocx(client, blockId, await resolveDocxUploadInput({
+					url,
+					maxBytes,
+					mediaAccess,
+					remoteReadTimeoutMs: imageReadTimeoutMs
+				}), docToken);
+				imagesProcessed++;
+			} catch (err) {
+				console.error(`Failed to process image ${url}:`, err);
+			}
+		}
+	}
 	logger?.info?.(`feishu_doc: Done (${blocks.length} blocks, ${imagesProcessed} images)`);
 	return {
 		success: true,
@@ -854,41 +810,6 @@ async function editDoc(client, params, maxBytes, imageReadTimeoutMs, logger) {
 		blocks_added: blocks.length,
 		images_processed: imagesProcessed,
 		...params.action !== "write" ? { block_ids: inserted.map((b) => b.block_id) } : {}
-	};
-}
-async function uploadImageBlock(client, { doc_token: docToken, parent_block_id: parentBlockId, index }, upload) {
-	const insertRes = await client.docx.documentBlockChildren.create({
-		path: {
-			document_id: docToken,
-			block_id: parentBlockId ?? docToken
-		},
-		params: { document_revision_id: -1 },
-		data: {
-			children: [{
-				block_type: 27,
-				image: {}
-			}],
-			index: index ?? -1
-		}
-	});
-	if (insertRes.code !== 0) throw new Error(`Failed to create image block: ${insertRes.msg}`);
-	const imageBlockId = insertRes.data?.children?.find((b) => b.block_type === 27)?.block_id;
-	if (!imageBlockId) throw new Error("Failed to create image block");
-	return {
-		success: true,
-		block_id: imageBlockId,
-		file_token: await uploadImageToDocx(client, imageBlockId, upload, docToken),
-		file_name: upload.fileName,
-		size: upload.buffer.length
-	};
-}
-async function uploadFileBlock(client, { doc_token: docToken }, upload) {
-	return {
-		success: true,
-		file_token: await uploadDocxMedia(client, "file", docToken, upload),
-		file_name: upload.fileName,
-		size: upload.buffer.length,
-		note: "File uploaded to drive. Use the file_token to reference it. Direct file block creation is not supported by the Feishu API."
 	};
 }
 const STRUCTURED_BLOCK_TYPES = /* @__PURE__ */ new Set([
@@ -1060,6 +981,8 @@ async function writeTableCells(client, docToken, tableBlockId, values) {
 		for (let c = 0; c < writeCols; c++) {
 			const cellId = cellIds[r * cols + c];
 			if (!cellId) continue;
+			const converted = await convertMarkdown(client, rowValues[c] ?? "");
+			const { orderedBlocks } = normalizeConvertedBlockTree(converted.blocks, converted.firstLevelBlockIds);
 			const childrenRes = await client.docx.documentBlockChildren.get({ path: {
 				document_id: docToken,
 				block_id: cellId
@@ -1067,9 +990,19 @@ async function writeTableCells(client, docToken, tableBlockId, values) {
 			assertFeishuApiSuccess(childrenRes);
 			const existingChildren = childrenRes.data?.items ?? [];
 			if (existingChildren.length > 0) await deleteBlockChildren(client, docToken, cellId, 0, existingChildren.length);
-			const converted = await convertMarkdown(client, rowValues[c] ?? "");
-			const { orderedBlocks } = normalizeConvertedBlockTree(converted.blocks, converted.firstLevelBlockIds);
-			if (orderedBlocks.length > 0) await insertBlocks(client, docToken, orderedBlocks, cellId);
+			if (orderedBlocks.length > 0) {
+				const cleaned = orderedBlocks.filter((block) => !UNSUPPORTED_CREATE_TYPES.has(block.block_type));
+				for (const block of cleaned) {
+					const res = await client.docx.documentBlockChildren.create({
+						path: {
+							document_id: docToken,
+							block_id: cellId
+						},
+						data: { children: [block] }
+					});
+					assertFeishuApiSuccess(res);
+				}
+			}
 			written++;
 		}
 	}
@@ -1102,6 +1035,7 @@ function registerFeishuDocTools(api) {
 		createExecute(ctx, cfg) {
 			const defaultAccountId = ctx.agentAccountId;
 			const mediaLocalRoots = resolveDocToolLocalRoots(ctx);
+			const mediaAccess = resolveOutboundMediaAccessForConfig(cfg);
 			const trustedRequesterOpenId = ctx.messageChannel === "feishu" ? normalizeOptionalString(ctx.requesterSenderId) : void 0;
 			return async (p) => {
 				if (p.action === "create" && Object.hasOwn(p, "content")) return feishuExternalToolResult({ error: "Feishu document creation does not support content. Call action \"create\" first, then call action \"write\" with the returned document_id as doc_token." });
@@ -1121,7 +1055,7 @@ function registerFeishuDocTools(api) {
 					case "read": return feishuExternalToolResult(await readDoc(client, p.doc_token));
 					case "write":
 					case "append":
-					case "insert": return feishuExternalToolResult(await editDoc(client, p, mediaMaxBytes, imageReadTimeoutMs, api.logger));
+					case "insert": return feishuExternalToolResult(await editDoc(client, p, mediaMaxBytes, imageReadTimeoutMs, api.logger, mediaAccess));
 					case "create": return feishuExternalToolResult(await createDoc(client, p, trustedRequesterOpenId));
 					case "list_blocks": {
 						const res = await client.docx.documentBlock.list({ path: { document_id: p.doc_token } });
@@ -1130,7 +1064,6 @@ function registerFeishuDocTools(api) {
 					}
 					case "get_block": return feishuExternalToolResult(await getBlock(client, p.doc_token, p.block_id));
 					case "update_block": {
-						await getBlock(client, p.doc_token, p.block_id);
 						const res = await client.docx.documentBlock.patch({
 							path: {
 								document_id: p.doc_token,
@@ -1147,7 +1080,16 @@ function registerFeishuDocTools(api) {
 					case "delete_block": {
 						const { block } = await getBlock(client, p.doc_token, p.block_id);
 						const parentId = block?.parent_id ?? p.doc_token;
-						if (!await deleteChildBlock(client, p.doc_token, parentId, p.block_id)) throw new Error("Block not found");
+						const docToken = p.doc_token;
+						const blockId = p.block_id;
+						const children = await client.docx.documentBlockChildren.get({ path: {
+							document_id: docToken,
+							block_id: parentId
+						} });
+						assertFeishuApiSuccess(children);
+						const index = (children.data?.items ?? []).findIndex((item) => item.block_id === blockId);
+						if (index === -1) throw new Error("Block not found");
+						await deleteBlockChildren(client, docToken, parentId, index, index + 1);
 						return feishuExternalToolResult({
 							success: true,
 							deleted_block_id: p.block_id
@@ -1163,13 +1105,49 @@ function registerFeishuDocTools(api) {
 							filePath: p.file_path,
 							maxBytes: mediaMaxBytes,
 							localRoots: mediaLocalRoots,
+							mediaAccess,
 							fileName: p.filename,
 							...p.action === "upload_image" ? {
 								image: p.image,
 								remoteReadTimeoutMs: imageReadTimeoutMs
 							} : {}
 						});
-						return feishuExternalToolResult(await (p.action === "upload_image" ? uploadImageBlock(client, p, upload) : uploadFileBlock(client, p, upload)));
+						const docToken = p.doc_token;
+						if (p.action === "upload_image") {
+							const insertRes = await client.docx.documentBlockChildren.create({
+								path: {
+									document_id: docToken,
+									block_id: p.parent_block_id ?? docToken
+								},
+								params: { document_revision_id: -1 },
+								data: {
+									children: [{
+										block_type: 27,
+										image: {}
+									}],
+									index: p.index ?? -1
+								}
+							});
+							if (insertRes.code !== 0) throw new Error(`Failed to create image block: ${insertRes.msg}`);
+							const imageBlockId = insertRes.data?.children?.find((b) => b.block_type === 27)?.block_id;
+							if (!imageBlockId) throw new Error("Failed to create image block");
+							const fileToken = await uploadImageToDocx(client, imageBlockId, upload, docToken);
+							return feishuExternalToolResult({
+								success: true,
+								block_id: imageBlockId,
+								file_token: fileToken,
+								file_name: upload.fileName,
+								size: upload.buffer.length
+							});
+						}
+						const fileToken = await uploadDocxMedia(client, "file", docToken, upload);
+						return feishuExternalToolResult({
+							success: true,
+							file_token: fileToken,
+							file_name: upload.fileName,
+							size: upload.buffer.length,
+							note: "File uploaded to drive. Use the file_token to reference it. Direct file block creation is not supported by the Feishu API."
+						});
 					}
 					case "color_text": return feishuExternalToolResult(await updateColorText(client, p.doc_token, p.block_id, p.content));
 					case "insert_table_row":
@@ -1188,16 +1166,9 @@ function registerFeishuDocTools(api) {
 		label: "Feishu App Scopes",
 		description: "List current app permissions (scopes). Use to debug permission issues or check available capabilities.",
 		parameters: Type.Object({}),
-		createExecute(ctx, cfg) {
+		createExecute(_ctx, _cfg, createClient) {
 			return async (_params) => {
-				const res = await createFeishuToolClient({
-					cfg,
-					defaultAccountId: ctx.agentAccountId,
-					requiredTool: {
-						family: "scopes",
-						label: "App Scopes"
-					}
-				}).application.scope.list({});
+				const res = await createClient(void 0, "App Scopes").application.scope.list({});
 				assertFeishuApiSuccess(res);
 				const scopes = res.data?.scopes ?? [];
 				const granted = scopes.filter((s) => s.grant_status === 1);
@@ -1217,65 +1188,9 @@ function registerFeishuDocTools(api) {
 		}
 	});
 }
-//#endregion
-//#region extensions/feishu/src/wiki-schema.ts
-const WIKI_SPACE_ID_DESCRIPTION = "Knowledge space ID. Treat as an opaque string and keep it quoted; never pass numeric-looking IDs as numbers.";
-const FeishuWikiSchema = Type.Union([
-	Type.Object({
-		action: Type.Literal("spaces"),
-		page_size: optionalPositiveIntegerSchema({
-			maximum: 50,
-			description: "Page size (1-50, default 50)"
-		}),
-		page_token: Type.Optional(Type.String({ description: "Pagination token" }))
-	}),
-	Type.Object({
-		action: Type.Literal("nodes"),
-		space_id: Type.String({ description: WIKI_SPACE_ID_DESCRIPTION }),
-		parent_node_token: Type.Optional(Type.String({ description: "Parent node token (optional, omit for root)" })),
-		page_size: optionalPositiveIntegerSchema({
-			maximum: 50,
-			description: "Page size (1-50, default 50)"
-		}),
-		page_token: Type.Optional(Type.String({ description: "Pagination token" }))
-	}),
-	Type.Object({
-		action: Type.Literal("get"),
-		token: Type.String({ description: "Wiki node token (from URL /wiki/XXX)" })
-	}),
-	Type.Object({
-		action: Type.Literal("search"),
-		query: Type.String({ description: "Search query" }),
-		space_id: Type.Optional(Type.String({ description: "Limit search to this knowledge space. Treat as an opaque string and keep it quoted; never pass numeric-looking IDs as numbers." }))
-	}),
-	Type.Object({
-		action: Type.Literal("create"),
-		space_id: Type.String({ description: WIKI_SPACE_ID_DESCRIPTION }),
-		title: Type.String({ description: "Node title" }),
-		obj_type: Type.Optional(Type.Union([
-			Type.Literal("docx"),
-			Type.Literal("sheet"),
-			Type.Literal("bitable")
-		], { description: "Object type (default: docx)" })),
-		parent_node_token: Type.Optional(Type.String({ description: "Parent node token (optional, omit for root)" }))
-	}),
-	Type.Object({
-		action: Type.Literal("move"),
-		space_id: Type.String({ description: "Source knowledge space ID. Treat as an opaque string and keep it quoted; never pass numeric-looking IDs as numbers." }),
-		node_token: Type.String({ description: "Node token to move" }),
-		target_space_id: Type.Optional(Type.String({ description: "Target knowledge space ID (optional, same space if omitted). Treat as an opaque string and keep it quoted; never pass numeric-looking IDs as numbers." })),
-		target_parent_token: Type.Optional(Type.String({ description: "Target parent node token (optional, root if omitted)" }))
-	}),
-	Type.Object({
-		action: Type.Literal("rename"),
-		space_id: Type.String({ description: WIKI_SPACE_ID_DESCRIPTION }),
-		node_token: Type.String({ description: "Node token to rename" }),
-		title: Type.String({ description: "New title" })
-	})
-]);
-//#endregion
-//#region extensions/feishu/src/wiki.ts
+// extensions/feishu/src/wiki.ts
 const WIKI_PAGE_SIZE = 50;
+const WIKI_SPACE_ID_DESCRIPTION = "Knowledge space ID. Treat as an opaque string and keep it quoted; never pass numeric-looking IDs as numbers.";
 const WIKI_ACCESS_HINT = "To grant wiki access: Open wiki space → Settings → Members → Add the bot. See: https://open.feishu.cn/document/server-docs/docs/wiki-v2/wiki-qa#a40ad4ca";
 function requireWikiSpaceId(value, fieldName) {
 	if (typeof value !== "string") throw new Error(`${fieldName} must be a string. Feishu wiki space IDs are opaque identifiers; pass them quoted to avoid JavaScript number precision loss.`);
@@ -1299,19 +1214,62 @@ function registerFeishuWikiTools(api) {
 		name: "feishu_wiki",
 		label: "Feishu Wiki",
 		description: "Feishu knowledge base operations. Actions: spaces, nodes, get, create, move, rename",
-		parameters: FeishuWikiSchema,
-		createExecute(ctx, cfg) {
-			const defaultAccountId = ctx.agentAccountId;
+		parameters: Type.Union([
+			Type.Object({
+				action: Type.Literal("spaces"),
+				page_size: optionalPositiveIntegerSchema({
+					maximum: 50,
+					description: "Page size (1-50, default 50)"
+				}),
+				page_token: Type.Optional(Type.String({ description: "Pagination token" }))
+			}),
+			Type.Object({
+				action: Type.Literal("nodes"),
+				space_id: Type.String({ description: WIKI_SPACE_ID_DESCRIPTION }),
+				parent_node_token: Type.Optional(Type.String({ description: "Parent node token (optional, omit for root)" })),
+				page_size: optionalPositiveIntegerSchema({
+					maximum: 50,
+					description: "Page size (1-50, default 50)"
+				}),
+				page_token: Type.Optional(Type.String({ description: "Pagination token" }))
+			}),
+			Type.Object({
+				action: Type.Literal("get"),
+				token: Type.String({ description: "Wiki node token (from URL /wiki/XXX)" })
+			}),
+			Type.Object({
+				action: Type.Literal("search"),
+				query: Type.String({ description: "Search query" }),
+				space_id: Type.Optional(Type.String({ description: "Limit search to this knowledge space. Treat as an opaque string and keep it quoted; never pass numeric-looking IDs as numbers." }))
+			}),
+			Type.Object({
+				action: Type.Literal("create"),
+				space_id: Type.String({ description: WIKI_SPACE_ID_DESCRIPTION }),
+				title: Type.String({ description: "Node title" }),
+				obj_type: Type.Optional(Type.Union([
+					Type.Literal("docx"),
+					Type.Literal("sheet"),
+					Type.Literal("bitable")
+				], { description: "Object type (default: docx)" })),
+				parent_node_token: Type.Optional(Type.String({ description: "Parent node token (optional, omit for root)" }))
+			}),
+			Type.Object({
+				action: Type.Literal("move"),
+				space_id: Type.String({ description: "Source knowledge space ID. Treat as an opaque string and keep it quoted; never pass numeric-looking IDs as numbers." }),
+				node_token: Type.String({ description: "Node token to move" }),
+				target_space_id: Type.Optional(Type.String({ description: "Target knowledge space ID (optional, same space if omitted). Treat as an opaque string and keep it quoted; never pass numeric-looking IDs as numbers." })),
+				target_parent_token: Type.Optional(Type.String({ description: "Target parent node token (optional, root if omitted)" }))
+			}),
+			Type.Object({
+				action: Type.Literal("rename"),
+				space_id: Type.String({ description: WIKI_SPACE_ID_DESCRIPTION }),
+				node_token: Type.String({ description: "Node token to rename" }),
+				title: Type.String({ description: "New title" })
+			})
+		]),
+		createExecute(_ctx, _cfg, createToolClient) {
 			return async (p) => {
-				const createClient = () => createFeishuToolClient({
-					cfg,
-					executeParams: p,
-					defaultAccountId,
-					requiredTool: {
-						family: "wiki",
-						label: "Wiki"
-					}
-				});
+				const createClient = () => createToolClient(p, "Wiki");
 				switch (p.action) {
 					case "spaces": {
 						const pageToken = p.page_token;
@@ -1437,8 +1395,7 @@ function registerFeishuWikiTools(api) {
 		}
 	});
 }
-//#endregion
-//#region extensions/feishu/src/perm-schema.ts
+// extensions/feishu/src/perm.ts
 const TokenType = Type.Union([
 	Type.Literal("doc"),
 	Type.Literal("docx"),
@@ -1462,49 +1419,37 @@ const Permission = Type.Union([
 	Type.Literal("edit"),
 	Type.Literal("full_access")
 ]);
-const FeishuPermSchema = Type.Union([
-	Type.Object({
-		action: Type.Literal("list"),
-		token: Type.String({ description: "File token" }),
-		type: TokenType
-	}),
-	Type.Object({
-		action: Type.Literal("add"),
-		token: Type.String({ description: "File token" }),
-		type: TokenType,
-		member_type: MemberType,
-		member_id: Type.String({ description: "Member ID (email, open_id, user_id, etc.)" }),
-		perm: Permission
-	}),
-	Type.Object({
-		action: Type.Literal("remove"),
-		token: Type.String({ description: "File token" }),
-		type: TokenType,
-		member_type: MemberType,
-		member_id: Type.String({ description: "Member ID to remove" })
-	})
-]);
-//#endregion
-//#region extensions/feishu/src/perm.ts
 function registerFeishuPermTools(api) {
 	registerFeishuTool(api, {
 		family: "perm",
 		name: "feishu_perm",
 		label: "Feishu Perm",
 		description: "Feishu permission management. Actions: list, add, remove",
-		parameters: FeishuPermSchema,
-		createExecute(ctx, cfg) {
-			const defaultAccountId = ctx.agentAccountId;
+		parameters: Type.Union([
+			Type.Object({
+				action: Type.Literal("list"),
+				token: Type.String({ description: "File token" }),
+				type: TokenType
+			}),
+			Type.Object({
+				action: Type.Literal("add"),
+				token: Type.String({ description: "File token" }),
+				type: TokenType,
+				member_type: MemberType,
+				member_id: Type.String({ description: "Member ID (email, open_id, user_id, etc.)" }),
+				perm: Permission
+			}),
+			Type.Object({
+				action: Type.Literal("remove"),
+				token: Type.String({ description: "File token" }),
+				type: TokenType,
+				member_type: MemberType,
+				member_id: Type.String({ description: "Member ID to remove" })
+			})
+		]),
+		createExecute(_ctx, _cfg, createClient) {
 			return async (p) => {
-				const client = createFeishuToolClient({
-					cfg,
-					executeParams: p,
-					defaultAccountId,
-					requiredTool: {
-						family: "perm",
-						label: "Perm"
-					}
-				});
+				const client = createClient(p, "Perm");
 				switch (p.action) {
 					case "list": {
 						const res = await client.drive.permissionMember.list({
@@ -1560,10 +1505,30 @@ function registerFeishuPermTools(api) {
 		}
 	});
 }
-//#endregion
-//#region extensions/feishu/src/bitable.ts
+// extensions/feishu/src/bitable.ts
 function ensureLarkSuccess(res, api) {
 	if (res.code !== 0) throw new Error(`[${api}] code=${res.code ?? -1} message=${res.msg ?? "unknown error"}`);
+}
+const MAX_BITABLE_METADATA_PAGES = 100;
+async function listBitableMetadata(listPage, api) {
+	const items = [];
+	const seenTokens = /* @__PURE__ */ new Set();
+	let pageToken;
+	for (let page = 0; page < MAX_BITABLE_METADATA_PAGES; page += 1) {
+		const res = await listPage({
+			page_size: 100,
+			...pageToken && { page_token: pageToken }
+		});
+		ensureLarkSuccess(res, api);
+		items.push(...res.data?.items ?? []);
+		if (!res.data?.has_more) return items;
+		const nextToken = res.data.page_token;
+		if (!nextToken?.trim()) throw new Error(`${api} returned a missing page token`);
+		if (seenTokens.has(nextToken)) throw new Error(`${api} returned a repeated page token`);
+		seenTokens.add(nextToken);
+		pageToken = nextToken;
+	}
+	throw new Error(`${api} pagination exceeded ${MAX_BITABLE_METADATA_PAGES} pages`);
 }
 const FIELD_TYPE_NAMES = {
 	1: "Text",
@@ -1618,12 +1583,17 @@ async function getBitableMeta(client, url) {
 	const res = await client.bitable.app.get({ path: { app_token: appToken } });
 	ensureLarkSuccess(res, "bitable.app.get");
 	let tables = [];
-	if (!parsed.tableId) {
-		const tablesRes = await client.bitable.appTable.list({ path: { app_token: appToken } });
-		if (tablesRes.code === 0) tables = (tablesRes.data?.items ?? []).map((t) => ({
-			table_id: t.table_id,
-			name: t.name
+	let tablesError;
+	if (!parsed.tableId) try {
+		tables = (await listBitableMetadata((params) => client.bitable.appTable.list({
+			path: { app_token: appToken },
+			params
+		}), "bitable.appTable.list")).map((table) => ({
+			table_id: table.table_id,
+			name: table.name
 		}));
+	} catch (error) {
+		tablesError = formatErrorMessage(error);
 	}
 	return {
 		app_token: appToken,
@@ -1631,7 +1601,8 @@ async function getBitableMeta(client, url) {
 		name: res.data?.app?.name,
 		url_type: parsed.isWiki ? "wiki" : "base",
 		...tables.length > 0 && { tables },
-		hint: parsed.tableId ? `Use app_token="${appToken}" and table_id="${parsed.tableId}" for other bitable tools` : `Use app_token="${appToken}" for other bitable tools. Select a table_id from the tables list.`
+		...tablesError && { tables_error: tablesError },
+		hint: parsed.tableId ? `Use app_token="${appToken}" and table_id="${parsed.tableId}" for other bitable tools` : tablesError ? `Application lookup succeeded, but table discovery failed. Retry discovery or use a known table_id with app_token="${appToken}".` : `Use app_token="${appToken}" for other bitable tools. Select a table_id from the tables list.`
 	};
 }
 const DEFAULT_CLEANUP_FIELD_TYPES = /* @__PURE__ */ new Set([
@@ -1654,69 +1625,6 @@ function isPlaceholderBitableRecord(fields) {
 	if (!fields || typeof fields !== "object" || Array.isArray(fields)) return true;
 	return Object.values(fields).every(isDefaultEmptyBitableFieldValue);
 }
-async function cleanupNewBitable(client, appToken, tableId, tableName, logger) {
-	let cleanedRows = 0;
-	let cleanedFields = 0;
-	const tablePath = {
-		app_token: appToken,
-		table_id: tableId
-	};
-	const fieldsRes = await client.bitable.appTableField.list({ path: tablePath });
-	if (fieldsRes.code === 0 && fieldsRes.data?.items) {
-		const primaryField = fieldsRes.data.items.find((f) => f.is_primary);
-		const defaultFieldsToDelete = fieldsRes.data.items.filter((f) => !f.is_primary && DEFAULT_CLEANUP_FIELD_TYPES.has(f.type ?? 0));
-		for (const field of [primaryField, ...defaultFieldsToDelete]) {
-			if (!field?.field_id) continue;
-			const isPrimary = field === primaryField;
-			const operation = isPrimary ? "update" : "delete";
-			try {
-				const path = {
-					...tablePath,
-					field_id: field.field_id
-				};
-				ensureLarkSuccess(isPrimary ? await client.bitable.appTableField.update({
-					path,
-					data: {
-						field_name: tableName.length <= 20 ? tableName : "Name",
-						type: 1
-					}
-				}) : await client.bitable.appTableField.delete({ path }), `bitable.appTableField.${operation}`);
-				cleanedFields++;
-			} catch (err) {
-				const failure = isPrimary ? "rename primary field" : `delete default field ${field.field_name}`;
-				logger.debug(`Failed to ${failure}: ${String(err)}`);
-			}
-		}
-	}
-	const recordsRes = await client.bitable.appTableRecord.list({
-		path: tablePath,
-		params: { page_size: 100 }
-	});
-	if (recordsRes.code === 0 && recordsRes.data?.items) {
-		const emptyRecordIds = recordsRes.data.items.filter((r) => isPlaceholderBitableRecord(r.fields)).map((r) => r.record_id).filter((id) => Boolean(id));
-		if (emptyRecordIds.length > 0) try {
-			ensureLarkSuccess(await client.bitable.appTableRecord.batchDelete({
-				path: tablePath,
-				data: { records: emptyRecordIds }
-			}), "bitable.appTableRecord.batchDelete");
-			cleanedRows = emptyRecordIds.length;
-		} catch {
-			for (const recordId of emptyRecordIds) try {
-				ensureLarkSuccess(await client.bitable.appTableRecord.delete({ path: {
-					...tablePath,
-					record_id: recordId
-				} }), "bitable.appTableRecord.delete");
-				cleanedRows++;
-			} catch (err) {
-				logger.debug(`Failed to delete empty row ${recordId}: ${String(err)}`);
-			}
-		}
-	}
-	return {
-		cleanedRows,
-		cleanedFields
-	};
-}
 async function createApp(client, name, folderToken, logger) {
 	const res = await client.bitable.app.create({ data: {
 		name,
@@ -1735,7 +1643,69 @@ async function createApp(client, name, folderToken, logger) {
 		const tablesRes = await client.bitable.appTable.list({ path: { app_token: appToken } });
 		if (tablesRes.code === 0) {
 			tableId = tablesRes.data?.items?.[0]?.table_id;
-			if (tableId) cleanup = await cleanupNewBitable(client, appToken, tableId, name, log);
+			if (tableId) {
+				let cleanedRows = 0;
+				let cleanedFields = 0;
+				const tablePath = {
+					app_token: appToken,
+					table_id: tableId
+				};
+				const fieldsRes = await client.bitable.appTableField.list({ path: tablePath });
+				if (fieldsRes.code === 0 && fieldsRes.data?.items) {
+					const primaryField = fieldsRes.data.items.find((f) => f.is_primary);
+					const defaultFieldsToDelete = fieldsRes.data.items.filter((f) => !f.is_primary && DEFAULT_CLEANUP_FIELD_TYPES.has(f.type ?? 0));
+					for (const field of [primaryField, ...defaultFieldsToDelete]) {
+						if (!field?.field_id) continue;
+						const isPrimary = field === primaryField;
+						const operation = isPrimary ? "update" : "delete";
+						try {
+							const path = {
+								...tablePath,
+								field_id: field.field_id
+							};
+							ensureLarkSuccess(isPrimary ? await client.bitable.appTableField.update({
+								path,
+								data: {
+									field_name: name.length <= 20 ? name : "Name",
+									type: 1
+								}
+							}) : await client.bitable.appTableField.delete({ path }), `bitable.appTableField.${operation}`);
+							cleanedFields++;
+						} catch (err) {
+							const failure = isPrimary ? "rename primary field" : `delete default field ${field.field_name}`;
+							log.debug(`Failed to ${failure}: ${String(err)}`);
+						}
+					}
+				}
+				const recordsRes = await client.bitable.appTableRecord.list({
+					path: tablePath,
+					params: { page_size: 100 }
+				});
+				if (recordsRes.code === 0 && recordsRes.data?.items) {
+					const emptyRecordIds = recordsRes.data.items.filter((r) => isPlaceholderBitableRecord(r.fields)).map((r) => r.record_id).filter((id) => Boolean(id));
+					if (emptyRecordIds.length > 0) try {
+						ensureLarkSuccess(await client.bitable.appTableRecord.batchDelete({
+							path: tablePath,
+							data: { records: emptyRecordIds }
+						}), "bitable.appTableRecord.batchDelete");
+						cleanedRows = emptyRecordIds.length;
+					} catch {
+						for (const recordId of emptyRecordIds) try {
+							ensureLarkSuccess(await client.bitable.appTableRecord.delete({ path: {
+								...tablePath,
+								record_id: recordId
+							} }), "bitable.appTableRecord.delete");
+							cleanedRows++;
+						} catch (err) {
+							log.debug(`Failed to delete empty row ${recordId}: ${String(err)}`);
+						}
+					}
+				}
+				cleanup = {
+					cleanedRows,
+					cleanedFields
+				};
+			}
 		}
 	} catch (err) {
 		log.debug(`Cleanup failed (non-critical): ${String(err)}`);
@@ -1804,19 +1774,11 @@ function registerFeishuBitableTools(api) {
 		registerFeishuTool(api, {
 			...tool,
 			family: "bitable",
-			createExecute(ctx, cfg) {
+			createExecute(_ctx, _cfg, createClient) {
 				return async (params) => {
 					return feishuExternalToolResult(await tool.execute({
 						params,
-						client: createFeishuToolClient({
-							cfg,
-							executeParams: params,
-							defaultAccountId: ctx.agentAccountId,
-							requiredTool: {
-								family: "bitable",
-								label: "Bitable"
-							}
-						})
+						client: createClient(params, "Bitable")
 					}));
 				};
 			}
@@ -1838,12 +1800,13 @@ function registerFeishuBitableTools(api) {
 		parameters: ListFieldsSchema,
 		async execute({ params, client }) {
 			const { app_token, table_id } = params;
-			const res = await client.bitable.appTableField.list({ path: {
-				app_token,
-				table_id
-			} });
-			ensureLarkSuccess(res, "bitable.appTableField.list");
-			const fields = res.data?.items ?? [];
+			const fields = await listBitableMetadata((pageParams) => client.bitable.appTableField.list({
+				path: {
+					app_token,
+					table_id
+				},
+				params: pageParams
+			}), "bitable.appTableField.list");
 			return {
 				fields: fields.map((f) => ({
 					field_id: f.field_id,
@@ -1977,5 +1940,4 @@ function registerFeishuBitableTools(api) {
 		}
 	});
 }
-//#endregion
 export { buildFeishuConversationId, buildFeishuModelOverrideParentCandidates, createClackPrompter, createFeishuThreadBindingManager, feishuPlugin, feishuSetupAdapter, feishuSetupWizard, getFeishuThreadBindingManager, handleFeishuSubagentDeliveryTarget, handleFeishuSubagentEnded, parseFeishuConversationId, parseFeishuDirectConversationId, parseFeishuTargetId, registerFeishuBitableTools, registerFeishuChatTools, registerFeishuDocTools, registerFeishuDriveTools, registerFeishuPermTools, registerFeishuWikiTools, runFeishuLogin, setFeishuNamedAccountEnabled };

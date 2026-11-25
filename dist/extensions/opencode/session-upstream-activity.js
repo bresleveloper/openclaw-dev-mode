@@ -3,7 +3,7 @@ import { exportOpenCodeSession, isOpenCodeV2, queryOpenCodeDatabase, runOpenCode
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { isExternalUserText, normalizeUserText } from "openclaw/plugin-sdk/session-catalog";
 import { runTasksWithConcurrency } from "openclaw/plugin-sdk/concurrency-runtime";
-//#region extensions/opencode/session-upstream-activity.ts
+// extensions/opencode/session-upstream-activity.ts
 const OPENCODE_EXPORT_CONCURRENCY = 4;
 const OPENCODE_REPLAY_LOOKBACK_USER_MESSAGES = 50;
 const OPENCODE_SHELL_SENTINEL = "The following tool was executed by the user";
@@ -73,10 +73,11 @@ async function readIndicators(threadIds) {
 	if (!Array.isArray(value)) throw new Error("OpenCode returned invalid upstream indicators");
 	const indicators = /* @__PURE__ */ new Map();
 	for (const row of value) {
-		const seq = isRecord(row) && row.seq === null ? 0 : isRecord(row) ? row.seq : void 0;
-		if (!isRecord(row) || typeof row.id !== "string" || !OPENCODE_SESSION_ID_PATTERN.test(row.id) || !Number.isSafeInteger(seq) || Number(seq) < 0) throw new Error("OpenCode returned invalid upstream indicators");
-		indicators.set(row.id, {
-			threadId: row.id,
+		const record = isRecord(row) ? row : void 0;
+		const seq = record?.seq === null ? 0 : record?.seq;
+		if (!record || typeof record.id !== "string" || !OPENCODE_SESSION_ID_PATTERN.test(record.id) || !Number.isSafeInteger(seq) || Number(seq) < 0) throw new Error("OpenCode returned invalid upstream indicators");
+		indicators.set(record.id, {
+			threadId: record.id,
 			seq: Number(seq)
 		});
 	}
@@ -161,42 +162,6 @@ function latestBaselineHumanMessageId(messages) {
 	for (const message of messages) if (directHumanText(message) !== void 0) latest = latestMessageId(latest, message.id);
 	return latest;
 }
-function classifyExport(params) {
-	let humanTurns = 0;
-	let occurredAt;
-	let lastHumanMessageId = params.marker.lastHumanMessageId;
-	let latestExternalMessageId;
-	const earlierUserTexts = [];
-	for (const message of params.messages) {
-		const text = directHumanText(message);
-		const replay = text !== void 0 && earlierUserTexts.slice(-50).includes(text);
-		const newerThanMarker = params.marker.lastHumanMessageId === null || message.id > params.marker.lastHumanMessageId;
-		if (text !== void 0 && message.createdAt !== void 0 && newerThanMarker) lastHumanMessageId = latestMessageId(lastHumanMessageId, message.id);
-		if (text !== void 0 && !replay && message.createdAt !== void 0 && newerThanMarker && isExternalUserText(params.probe, text)) {
-			humanTurns += 1;
-			occurredAt = Math.max(occurredAt ?? 0, message.createdAt);
-			latestExternalMessageId = message.id;
-		}
-		if (message.role === "user") {
-			earlierUserTexts.push(normalizedMessageText(message));
-			if (earlierUserTexts.length > OPENCODE_REPLAY_LOOKBACK_USER_MESSAGES) earlierUserTexts.shift();
-		}
-	}
-	const nextMarker = {
-		seq: params.seq,
-		lastHumanMessageId
-	};
-	return {
-		kind: "activity",
-		sessionKey: params.probe.sessionKey,
-		humanTurns,
-		nextMarker,
-		...humanTurns > 0 ? {
-			occurredAt: occurredAt ?? Date.now(),
-			dedupeId: latestExternalMessageId ?? String(params.seq)
-		} : {}
-	};
-}
 async function linkContinuedOpenCodeSession(sessionKey, threadId) {
 	try {
 		const indicator = (await readIndicators([threadId])).get(threadId);
@@ -229,12 +194,42 @@ async function classifyChangedProbe(probe, indicator) {
 			lastHumanMessageId: marker.lastHumanMessageId
 		}
 	};
-	return classifyExport({
-		probe,
-		marker,
-		seq: indicator.seq,
-		messages: readExportMessages(await exportOpenCodeSession(probe.threadId))
-	});
+	const seq = indicator.seq;
+	const messages = readExportMessages(await exportOpenCodeSession(probe.threadId));
+	let humanTurns = 0;
+	let occurredAt;
+	let lastHumanMessageId = marker.lastHumanMessageId;
+	let latestExternalMessageId;
+	const earlierUserTexts = [];
+	for (const message of messages) {
+		const text = directHumanText(message);
+		const replay = text !== void 0 && earlierUserTexts.slice(-50).includes(text);
+		const newerThanMarker = marker.lastHumanMessageId === null || message.id > marker.lastHumanMessageId;
+		if (text !== void 0 && message.createdAt !== void 0 && newerThanMarker) lastHumanMessageId = latestMessageId(lastHumanMessageId, message.id);
+		if (text !== void 0 && !replay && message.createdAt !== void 0 && newerThanMarker && isExternalUserText(probe, text)) {
+			humanTurns += 1;
+			occurredAt = Math.max(occurredAt ?? 0, message.createdAt);
+			latestExternalMessageId = message.id;
+		}
+		if (message.role === "user") {
+			earlierUserTexts.push(normalizedMessageText(message));
+			if (earlierUserTexts.length > OPENCODE_REPLAY_LOOKBACK_USER_MESSAGES) earlierUserTexts.shift();
+		}
+	}
+	const nextMarker = {
+		seq,
+		lastHumanMessageId
+	};
+	return {
+		kind: "activity",
+		sessionKey: probe.sessionKey,
+		humanTurns,
+		nextMarker,
+		...humanTurns > 0 ? {
+			occurredAt: occurredAt ?? Date.now(),
+			dedupeId: latestExternalMessageId ?? String(seq)
+		} : {}
+	};
 }
 async function checkOpenCodeUpstreamActivity(probes) {
 	const eligible = probes.flatMap((probe) => readProbeThreadId(probe) ? [probe] : []);
@@ -262,5 +257,4 @@ async function checkOpenCodeUpstreamActivity(probes) {
 	});
 	return outcomes.filter((outcome) => outcome !== void 0);
 }
-//#endregion
 export { checkOpenCodeUpstreamActivity, linkContinuedOpenCodeSession };

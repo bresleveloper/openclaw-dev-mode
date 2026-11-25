@@ -1,6 +1,6 @@
 import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { normalizeModelPricingCatalog, normalizeOpenRouterModelPricing } from "openclaw/plugin-sdk/model-catalog-pricing";
-//#region extensions/cerebras/pricing-api.ts
+// extensions/cerebras/pricing-api.ts
 function normalizeCerebrasModelPricing(value) {
 	const pricing = asOptionalRecord(value);
 	return pricing ? normalizeOpenRouterModelPricing({
@@ -11,5 +11,4 @@ function normalizeCerebrasModelPricing(value) {
 function parseCerebrasPricingCatalog(payload) {
 	return normalizeModelPricingCatalog(asOptionalRecord(payload)?.data, normalizeCerebrasModelPricing);
 }
-//#endregion
 export { normalizeCerebrasModelPricing, parseCerebrasPricingCatalog };

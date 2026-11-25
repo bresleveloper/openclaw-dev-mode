@@ -1,0 +1,1 @@
+import{t as createManagedWorktreeOwnerPolicy}from"./owner-protection-B5X0hbAF.mjs";export{createManagedWorktreeOwnerPolicy};

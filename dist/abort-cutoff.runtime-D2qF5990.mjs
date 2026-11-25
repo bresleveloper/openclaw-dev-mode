@@ -1,0 +1,3 @@
+import"./session-accessor-lcgyJt6_.mjs";import{i as patchSessionEntryCore}from"./session-accessor.sqlite-entry-BOP9W8Gy.mjs";import{n as hasAbortCutoff,t as applyAbortCutoffToSessionEntry}from"./abort-cutoff-DQCyQT3g.mjs";
+//!src/auto-reply/reply/abort-cutoff.runtime.ts
+async function clearAbortCutoffInSessionRuntime(e){const{sessionEntry:t,sessionStore:n,sessionKey:r,storePath:i}=e;if(!t||!n||!r||!hasAbortCutoff(t))return false;applyAbortCutoffToSessionEntry(t,void 0);const a=Date.now();t.updatedAt=a;n[r]=t;if(i)await patchSessionEntryCore({storePath:i,sessionKey:r},()=>({abortCutoffMessageSid:void 0,abortCutoffTimestamp:void 0,updatedAt:a}),{fallbackEntry:t});return true}export{clearAbortCutoffInSessionRuntime};

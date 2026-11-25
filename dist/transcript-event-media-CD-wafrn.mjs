@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";import{i as canonicalizePersistedUserMessageMedia}from"./media-facts-03ZYaqC1.mjs";
+//!src/config/sessions/transcript-event-media.ts
+function canonicalizeTranscriptEventMedia(e){if(!isRecord(e))return e;const t=e.message;if(e.type!==`message`||!isRecord(t))return e;const n=canonicalizePersistedUserMessageMedia(t);return n.changed?{...e,message:n.message}:e}export{canonicalizeTranscriptEventMedia as t};

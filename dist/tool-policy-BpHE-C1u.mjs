@@ -1,0 +1,3 @@
+import{c as normalizeToolPolicyName}from"./tool-policy-shared-KKJW93v9.mjs";import"./tool-policy-Bsc3kFBH.mjs";
+//!src/agents/cli-runner/tool-policy.ts
+function normalizeCliToolName(e){return normalizeToolPolicyName(e.replace(/([A-Z]+)([A-Z][a-z])/g,`$1_$2`).replace(/([a-z0-9])([A-Z])/g,`$1_$2`))}function resolveCliRuntimeToolsAllow(e){if(e===void 0)return;return e.some(e=>normalizeToolPolicyName(e)===`*`)?void 0:e}function isCliNativeToolCallable(e,t,n){if(!e.cliToolAvailability)return true;return e.cliToolAvailability.native.includes(t)&&!(e.trustedInternalHandoff&&n.projectNativeToolAuthority?.([t]).length)}export{normalizeCliToolName as n,resolveCliRuntimeToolsAllow as r,isCliNativeToolCallable as t};

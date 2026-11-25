@@ -1,0 +1,2 @@
+//!src/gateway/desktop/node-source-context.ts
+const NODE_DESKTOP_SERVICE_CONTEXT=Symbol(`openclaw.nodeDesktopService`);function getNodeDesktopService(e){return e[NODE_DESKTOP_SERVICE_CONTEXT]}export{getNodeDesktopService as n,NODE_DESKTOP_SERVICE_CONTEXT as t};

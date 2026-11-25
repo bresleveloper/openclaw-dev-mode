@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"إعدادات الجلسة الجديدة","rememberSettings":"تذكّر إعدادات {shortcut}","rememberSettingsNoShortcut":"تذكّر هذه الإعدادات","rememberUnavailable":"أعد الاتصال لحفظ الإعدادات.","settingsSaveFailed":"تعذّر حفظ الإعدادات. حاول مرة أخرى."}};

@@ -1,0 +1,3 @@
+import{timingSafeEqual}from"node:crypto";
+//!src/security/secret-equal.ts
+function padSecretBytes(e,t){if(e.length===t)return e;const n=Buffer.alloc(t);e.copy(n);return n}function safeEqualSecret(e,t){if(typeof e!==`string`||typeof t!==`string`)return false;const n=Buffer.from(e,`utf8`);const r=Buffer.from(t,`utf8`);const i=Math.max(n.length,r.length);if(i===0)return true;return timingSafeEqual(padSecretBytes(n,i),padSecretBytes(r,i))&&n.length===r.length}export{safeEqualSecret as t};

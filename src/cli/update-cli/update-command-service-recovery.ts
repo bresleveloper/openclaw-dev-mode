@@ -1,15 +1,16 @@
-import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
 import { theme } from "../../../packages/terminal-core/src/theme.js";
 import { resolveStateDir } from "../../config/paths.js";
 import { withGatewayServiceOperationLock } from "../../daemon/service-operation-lock.js";
 import { resolveGatewayService, type GatewayService } from "../../daemon/service.js";
 import { formatErrorMessage } from "../../infra/errors.js";
 import { readPackageVersion } from "../../infra/package-json.js";
+import { readUpdateStateSchemaVersions } from "../../infra/update-candidate-state.js";
 import {
-  readUpdateStateSchemaVersions,
   resolveUpdateStateContentVersion,
-} from "../../infra/update-candidate-state.js";
+  resolveUpdateStateTargetVersion,
+} from "../../infra/update-candidate-state.versions.js";
 import { readBuiltGatewayBuildId } from "../../infra/update-git-runtime.js";
+import { unsafeUpdateRecovery } from "../../infra/update-recovery.js";
 import {
   getUpdateRun,
   recordUpdateRunDiagnostics,
@@ -38,14 +39,13 @@ import {
   assertOriginalServiceStateCompatible,
   revalidateOriginalManagedServiceRuntime,
 } from "./update-command-original-service.js";
-import { POST_PLUGIN_DOCTOR_EXECUTION_FAILED_REASON } from "./update-command-post-plugin-validation.js";
 import {
   observeUpdateGatewayReadiness,
   verifyPreviousGatewayForUpdate,
 } from "./update-command-readiness.js";
 import { UpdateCommandRecoveryPendingError } from "./update-command-recovery-error.js";
+import { resolveGatewayRecoverySchemaPaths } from "./update-command-recovery-schema-paths.js";
 import {
-  isPackageManagerUpdateMode,
   GatewayRestartHealthError,
   restartRetainedUpdateGatewayService,
   runUpdatedInstallGatewayCommand,
@@ -60,6 +60,9 @@ import {
   readGatewayServiceStateForUpdate,
   resolveUpdatedGatewayRestartPort,
 } from "./update-command-service-plan.js";
+
+// Published updater chunks resolve this binding after replacing the installation.
+export { isPackageManagerUpdateMode } from "./update-command-service-command.js";
 
 const QUIET_SERVICE_STDOUT = createNullWriter();
 
@@ -129,7 +132,7 @@ export async function recoverLaunchAgentAndRecheckGatewayHealth(params: {
             ? launchAgentRecovery.message
             : launchAgentRecovery.detail,
       },
-      { env },
+      params.updateRun,
     );
   }
   if (launchAgentRecovery.status !== "recovered") {
@@ -144,45 +147,15 @@ export async function recoverLaunchAgentAndRecheckGatewayHealth(params: {
     signal: params.updateRun?.deadline?.signal,
     expectedVersion: params.expectedVersion,
     ...(params.expectedBuildId ? { expectedBuildId: params.expectedBuildId } : {}),
-    requirePluginHealth: false,
     requireChannelHealth: false,
     env: params.env,
     onObservation: params.onProgress
       ? (snapshot) => params.onProgress?.("recovery", renderRestartDiagnostics(snapshot).join("; "))
       : undefined,
     supervisorKeepsAlive: true,
-    settle: { probes: 12 },
   });
   assertCurrent();
   return { health, launchAgentRecovery };
-}
-
-export function formatPostUpdateGatewayRecoveryInstructions(
-  result: UpdateRunResult,
-  platform: NodeJS.Platform = process.platform,
-): string[] {
-  const restartCommand = formatCliCommand("openclaw gateway restart");
-  const installCommand = formatCliCommand("openclaw gateway install --force");
-  const statusCommand = formatCliCommand("openclaw gateway status --deep");
-  const condition =
-    platform === "darwin"
-      ? "LaunchAgent is installed but not loaded"
-      : platform === "linux"
-        ? "systemd user service is missing, stale, or not active"
-        : platform === "win32"
-          ? "gateway Scheduled Task or Windows login item is missing, stale, or not running"
-          : "local service manager reports the gateway service is missing, stale, or not running";
-  const session = platform === "darwin" ? "logged-in macOS user session" : "same user account";
-  const lines = [
-    `Recovery: run \`${restartCommand}\`; if the ${condition}, run \`${installCommand}\` from the ${session}, then rerun \`${statusCommand}\`.`,
-  ];
-  const beforeVersion = normalizeOptionalString(result.before?.version);
-  if (isPackageManagerUpdateMode(result.mode) && beforeVersion) {
-    lines.push(
-      `Rollback: reinstall OpenClaw ${beforeVersion} with the same package manager, then rerun \`${installCommand}\`.`,
-    );
-  }
-  return lines;
 }
 
 export function refuseUnsettledDoctorRecovery(
@@ -235,18 +208,13 @@ export async function admitInstalledGatewayRecovery(
   const settlement = result.steps.findLast((step) => step.name === "doctor process settlement");
   const databaseRollback = result.steps.findLast((step) => step.name === "database rollback");
   // Current-core maintenance owns its Doctor park even after a normal child exit,
-  // which needs no cancellation settlement receipt. Only an exited post-plugin Doctor
-  // reports failure facts here, after its process custody settles; data-at-risk
-  // refusals are thrown instead and still refuse recovery.
-  const plugins = result.postUpdate?.plugins;
+  // which needs no cancellation settlement receipt. Explicit writer risks still refuse recovery.
   const currentCore =
     params.coreAlreadyCurrent === true &&
     !params.packageTransaction &&
     result.status === "error" &&
     (settlement !== undefined ||
-      (plugins?.status === "error" &&
-        plugins.reason === POST_PLUGIN_DOCTOR_EXECUTION_FAILED_REASON &&
-        (plugins.failureFacts?.length ?? 0) > 0));
+      result.steps.some((step) => step.name === "post-plugin doctor" && step.exitCode !== null));
   if (
     (!currentCore && result.reason !== "state-migrated-no-rollback") ||
     (result.recovery?.serviceRestartSafe === false &&
@@ -256,8 +224,8 @@ export async function admitInstalledGatewayRecovery(
     !params.shouldRestart ||
     !params.preManagedServiceStop?.stopped ||
     databaseRollback?.exitCode === 0 ||
-    // Normal Doctor completion needs no settlement receipt. The candidate schema
-    // inspection below can also admit forward recovery after migration.
+    // Normal Doctor completion needs no settlement receipt. The candidate's
+    // schema inspection below can still admit forward recovery after migration.
     (!currentCore && !settlement && !databaseRollback && !params.candidateSchemaVersions) ||
     (result.recovery?.serviceRestartSafe === false &&
       result.recovery.reason === "source-rollback-failed")
@@ -282,6 +250,7 @@ export async function admitInstalledGatewayRecovery(
       params.opts.run?.env ??
       process.env;
     const sharedPath = resolveOpenClawStateSqlitePath(env);
+    const schemaPaths = resolveGatewayRecoverySchemaPaths(env);
     const inspect = async () => {
       const databases = await readUpdateStateSchemaVersions({
         stateDir: resolveStateDir(env),
@@ -290,11 +259,25 @@ export async function admitInstalledGatewayRecovery(
         root,
         nodeRunner: params.packageUpdateNodeRunner,
         timeoutMs: params.updateStepTimeoutMs,
+        onInventory: (files) => {
+          for (const pathname of resolveGatewayRecoverySchemaPaths(env, files)) {
+            schemaPaths.add(pathname);
+          }
+        },
       });
       assertCurrent();
       return databases.flatMap((database) => {
+        if (!schemaPaths.has(database.path)) {
+          return [];
+        }
         const observed = resolveUpdateStateContentVersion(database);
-        const expected = database.path === sharedPath ? candidate.state : candidate.agent;
+        const expected = resolveUpdateStateTargetVersion(database.path, {
+          sharedPath,
+          candidateSchemaVersions: candidate,
+        });
+        if (expected === undefined) {
+          throw new Error(`Candidate schema version is unavailable for ${database.path}.`);
+        }
         return observed !== null && observed !== expected
           ? [{ ...database, observed, expected }]
           : [];
@@ -373,12 +356,21 @@ export async function admitInstalledGatewayRecovery(
     result.reason = "post-update-failed";
   }
   result.recovery = { serviceRestartSafe: true, version, ...(buildId ? { buildId } : {}) };
+  // Health observation alone cannot distinguish an untouched installation from
+  // forward recovery. Preserve this owner's admission for later repair guidance.
+  result.steps.push({
+    name: "installed gateway recovery admission",
+    command: "admit installed gateway recovery",
+    cwd: root,
+    durationMs: 0,
+    exitCode: 0,
+  });
   if (params.opts.run) {
     recordUpdateRunDiagnostics(
       params.opts.run.runId,
       { recovery: result.recovery },
       (message) => defaultRuntime.error(message),
-      { env: params.opts.run.env },
+      params.opts.run,
     );
   }
   return true;
@@ -515,6 +507,8 @@ export async function maybeRestartServiceAfterFailedMutableUpdate(params: {
       await before.windowsTaskAutoStartRecovery?.restore(true, checkOriginal, assertOriginal);
       await checkOriginal();
     } else {
+      // Final recovery may be the first admitted activation after verification
+      // failed. Restore the task under the same ownership guard before /Run.
       await before.windowsTaskAutoStartRecovery?.restore(
         true,
         async () => {
@@ -556,7 +550,6 @@ export async function maybeRestartServiceAfterFailedMutableUpdate(params: {
       assertCurrent,
       onProgress: (stage, reason) =>
         defaultRuntime[params.jsonMode ? "error" : "log"](`Gateway recovery (${stage}): ${reason}`),
-      settle: { probes: 12 },
     });
     assertCurrent();
     if (!health.healthy || health.runtime.status !== "running") {
@@ -656,14 +649,7 @@ export async function compensateOriginalManagedService(
   return {
     result: {
       ...result,
-      recovery: {
-        ...result.recovery,
-        serviceRestartSafe: false,
-        reason:
-          result.recovery?.serviceRestartSafe === false
-            ? result.recovery.reason
-            : "runtime-verification-failed",
-      },
+      recovery: unsafeUpdateRecovery(result.recovery),
       steps: [
         ...result.steps,
         {

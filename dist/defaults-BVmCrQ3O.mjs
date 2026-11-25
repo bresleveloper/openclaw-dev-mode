@@ -1,0 +1,2 @@
+//!extensions/omlx/defaults.ts
+const OMLX_PROVIDER_ID=`omlx`;const OMLX_DEFAULT_BASE_URL=`http://127.0.0.1:8000/v1`;const OMLX_API_KEY_ENV_VAR=`OMLX_API_KEY`;const OMLX_LOCAL_API_KEY=`omlx-local`;export{OMLX_PROVIDER_ID as i,OMLX_DEFAULT_BASE_URL as n,OMLX_LOCAL_API_KEY as r,OMLX_API_KEY_ENV_VAR as t};

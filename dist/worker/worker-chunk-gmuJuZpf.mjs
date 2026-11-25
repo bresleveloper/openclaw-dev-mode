@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{randomUUID as t}from"node:crypto";function getGatewayProcessInstanceId(){return n}var n,r=e((()=>{n=t()}));export{r as n,getGatewayProcessInstanceId as t};

@@ -36,41 +36,76 @@ function ownDataValue(value: unknown, key: string): unknown {
     : undefined;
 }
 
+// OpenAI and Anthropic publish each bucket's remaining capacity and full-refill time.
+const QUOTA_RESET_HEADERS = [
+  ...["tokens", "requests", "project-tokens"].map((dimension) => ({
+    remaining: `x-ratelimit-remaining-${dimension}`,
+    reset: `x-ratelimit-reset-${dimension}`,
+    parseResetSeconds: parseQuotaResetSeconds,
+  })),
+  ...["requests", "tokens", "input-tokens", "output-tokens"].map((dimension) => ({
+    remaining: `anthropic-ratelimit-${dimension}-remaining`,
+    reset: `anthropic-ratelimit-${dimension}-reset`,
+    parseResetSeconds: parseRfc3339ResetSeconds,
+  })),
+];
+const TIMING_HEADER_NAMES = new Set([
+  "retry-after",
+  "retry-after-ms",
+  ...QUOTA_RESET_HEADERS.flatMap(({ remaining, reset }) => [remaining, reset]),
+]);
+
+/**
+ * Provider retry timing split by authority: an explicit instruction for this request
+ * (Retry-After, retry-after-ms) versus an exhausted bucket's full-refill time.
+ */
+export type RetryAfterTiming = { explicitSeconds?: number; resetSeconds?: number };
+
+function maxDefined(...values: Array<number | undefined>): number | undefined {
+  let floor: number | undefined;
+  for (const value of values) {
+    if (value !== undefined) {
+      floor = Math.max(floor ?? 0, value);
+    }
+  }
+  return floor;
+}
+
 /** Reads only retry timing metadata, without invoking provider getters or serialization hooks. */
 export function parseRetryAfterHeadersSeconds(
   headers: unknown,
   nowMs = Date.now(),
   status?: number,
 ): number | undefined {
+  const timing = parseRetryAfterHeadersTiming(headers, nowMs, status);
+  return timing?.explicitSeconds ?? timing?.resetSeconds;
+}
+
+/** Header timing with explicit retry instructions kept apart from bucket refills. */
+export function parseRetryAfterHeadersTiming(
+  headers: unknown,
+  nowMs = Date.now(),
+  status?: number,
+): RetryAfterTiming | undefined {
   if (!headers || typeof headers !== "object") {
     return undefined;
   }
   try {
     let entries: Array<[string, unknown]>;
     try {
-      entries = [
-        "retry-after",
-        "retry-after-ms",
-        "x-ratelimit-remaining-tokens",
-        "x-ratelimit-reset-tokens",
-        "x-ratelimit-remaining-requests",
-        "x-ratelimit-reset-requests",
-        "x-ratelimit-remaining-project-tokens",
-        "x-ratelimit-reset-project-tokens",
-      ].map<[string, unknown]>((key) => [key, Headers.prototype.get.call(headers, key)]);
+      entries = [...TIMING_HEADER_NAMES].map<[string, unknown]>((key) => [
+        key,
+        Headers.prototype.get.call(headers, key),
+      ]);
     } catch {
       entries = Object.getOwnPropertyNames(headers).flatMap<[string, unknown]>((key) => {
         const name = key.toLowerCase();
-        return name === "retry-after" ||
-          name === "retry-after-ms" ||
-          /^x-ratelimit-(?:remaining|reset)-(?:tokens|requests|project-tokens)$/.test(name)
-          ? [[name, ownDataValue(headers, key)]]
-          : [];
+        return TIMING_HEADER_NAMES.has(name) ? [[name, ownDataValue(headers, key)]] : [];
       });
     }
     let floor: number | undefined;
     for (const [key, value] of entries) {
-      if (key.startsWith("x-ratelimit-")) {
+      if (key !== "retry-after" && key !== "retry-after-ms") {
         continue;
       }
       const text =
@@ -94,12 +129,17 @@ export function parseRetryAfterHeadersSeconds(
         floor = Math.max(floor ?? 0, seconds);
       }
     }
-    // Reset headers describe a full quota refill, not a wait for every request.
-    // Only a rejected request with an exhausted matching bucket establishes a floor.
+    // Reset headers describe a full quota refill. Callers apply them only without an
+    // explicit instruction, and only for a rejected request whose bucket is exhausted.
+    let resetFloor: number | undefined;
     if (status === 429) {
       const values = new Map(entries);
-      for (const dimension of ["tokens", "requests", "project-tokens"]) {
-        const remaining = values.get(`x-ratelimit-remaining-${dimension}`);
+      for (const {
+        remaining: remainingKey,
+        reset: resetKey,
+        parseResetSeconds,
+      } of QUOTA_RESET_HEADERS) {
+        const remaining = values.get(remainingKey);
         const numericRemaining =
           typeof remaining === "number"
             ? remaining
@@ -109,17 +149,29 @@ export function parseRetryAfterHeadersSeconds(
         if (!Number.isFinite(numericRemaining) || numericRemaining > 0) {
           continue;
         }
-        const reset = values.get(`x-ratelimit-reset-${dimension}`);
-        const seconds = typeof reset === "string" ? parseQuotaResetSeconds(reset) : undefined;
-        if (seconds !== undefined) {
-          floor = Math.max(floor ?? 0, seconds);
-        }
+        const reset = values.get(resetKey);
+        const seconds = typeof reset === "string" ? parseResetSeconds(reset, nowMs) : undefined;
+        resetFloor = maxDefined(resetFloor, seconds);
       }
     }
-    return floor;
+    return floor === undefined && resetFloor === undefined
+      ? undefined
+      : {
+          ...(floor === undefined ? {} : { explicitSeconds: floor }),
+          ...(resetFloor === undefined ? {} : { resetSeconds: resetFloor }),
+        };
   } catch {
     return undefined;
   }
+}
+
+/** Anthropic reports bucket resets as RFC 3339 instants. */
+function parseRfc3339ResetSeconds(value: string, nowMs: number): number | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
+    return undefined;
+  }
+  const resetAtMs = Date.parse(value);
+  return Number.isFinite(resetAtMs) ? Math.max(0, (resetAtMs - nowMs) / 1000) : undefined;
 }
 
 function parseQuotaResetSeconds(value: string): number | undefined {
@@ -143,16 +195,25 @@ export function parseRetryAfterErrorSeconds(
   error: unknown,
   nowMs = Date.now(),
 ): number | undefined {
+  const timing = parseRetryAfterErrorTiming(error, nowMs);
+  return timing?.explicitSeconds ?? timing?.resetSeconds;
+}
+
+/** Header timing from an SDK error and its response, merged per authority. */
+export function parseRetryAfterErrorTiming(
+  error: unknown,
+  nowMs = Date.now(),
+): RetryAfterTiming | undefined {
   try {
     const status = ownDataValue(error, "status") ?? ownDataValue(error, "statusCode");
     const response = ownDataValue(error, "response");
     const responseStatus = ownDataValue(response, "status") ?? ownDataValue(response, "statusCode");
-    const direct = parseRetryAfterHeadersSeconds(
+    const direct = parseRetryAfterHeadersTiming(
       ownDataValue(error, "headers"),
       nowMs,
       typeof status === "number" ? status : undefined,
     );
-    const responseSeconds = parseRetryAfterHeadersSeconds(
+    const responseTiming = parseRetryAfterHeadersTiming(
       ownDataValue(response, "headers"),
       nowMs,
       typeof responseStatus === "number"
@@ -161,22 +222,17 @@ export function parseRetryAfterErrorSeconds(
           ? status
           : undefined,
     );
-    return direct === undefined && responseSeconds === undefined
+    const explicitSeconds = maxDefined(direct?.explicitSeconds, responseTiming?.explicitSeconds);
+    const resetSeconds = maxDefined(direct?.resetSeconds, responseTiming?.resetSeconds);
+    return explicitSeconds === undefined && resetSeconds === undefined
       ? undefined
-      : Math.max(direct ?? 0, responseSeconds ?? 0);
+      : {
+          ...(explicitSeconds === undefined ? {} : { explicitSeconds }),
+          ...(resetSeconds === undefined ? {} : { resetSeconds }),
+        };
   } catch {
     return undefined;
   }
-}
-
-function maxDefined(...values: Array<number | undefined>): number | undefined {
-  let floor: number | undefined;
-  for (const value of values) {
-    if (value !== undefined) {
-      floor = Math.max(floor ?? 0, value);
-    }
-  }
-  return floor;
 }
 
 /** Provider prose such as "Please try again in 6s", "retry in 32s" or "Retry-After: 7". */
@@ -220,6 +276,19 @@ export function parseRetryAfterTextSeconds(
   }
   const retryAtMs = parseRetryAfterHttpDateMs(valueText, nowMs);
   return retryAtMs === undefined ? undefined : Math.max(0, (retryAtMs - nowMs) / MS_PER_SECOND);
+}
+
+/** Whether text carries an explicit retry instruction that parseRetryAfterTextSeconds accepts. */
+export function hasExplicitRetryText(text: unknown, nowMs = Date.now()): boolean {
+  if (typeof text !== "string" || !text) {
+    return false;
+  }
+  for (const match of text.matchAll(new RegExp(RETRY_AFTER_TEXT_RE, "gi"))) {
+    if (parseRetryAfterTextSeconds(match[1]?.trim() ?? "", nowMs) !== undefined) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Only google.rpc.RetryInfo defines retryDelay; protobuf Duration JSON is decimal seconds.
@@ -288,6 +357,41 @@ export function parseGoogleRetryDelaySeconds(value: unknown): number | undefined
     );
   } catch {
     // Hostile proxies and exotic objects carry no trusted timing.
+    return undefined;
+  }
+}
+
+/**
+ * Retry time for one thrown provider error, before any lossy projection.
+ * Explicit instructions (Retry-After headers, Google RetryInfo) win; prose timing is left
+ * for text consumers; an exhausted-bucket refill applies only when neither is present.
+ */
+export function resolveProviderErrorRetrySeconds(
+  error: unknown,
+  nowMs = Date.now(),
+): number | undefined {
+  try {
+    const timing = parseRetryAfterErrorTiming(error, nowMs);
+    const explicitSeconds = maxDefined(
+      timing?.explicitSeconds,
+      parseGoogleRetryDelaySeconds(error),
+    );
+    if (explicitSeconds !== undefined || timing?.resetSeconds === undefined) {
+      return explicitSeconds;
+    }
+    const response = ownDataValue(error, "response");
+    const textSources = [
+      ownDataValue(error, "message"),
+      ownDataValue(error, "errorBody"),
+      ownDataValue(error, "body"),
+      ownDataValue(response, "body"),
+      ownDataValue(response, "data"),
+      ownDataValue(ownDataValue(error, "error"), "message"),
+    ];
+    return textSources.some((source) => hasExplicitRetryText(source, nowMs))
+      ? undefined
+      : timing.resetSeconds;
+  } catch {
     return undefined;
   }
 }
@@ -368,23 +472,8 @@ function parseHttpDateCalendarMs(
   components: Omit<HttpDateComponents, "weekday">,
 ): number | undefined {
   const { year, month, day, hours, minutes, seconds } = components;
-  if (
-    month === undefined ||
-    !Number.isInteger(year) ||
-    year < 1900 ||
-    !Number.isInteger(day) ||
-    day < 1 ||
-    day > 31 ||
-    !Number.isInteger(hours) ||
-    hours < 0 ||
-    hours > 23 ||
-    !Number.isInteger(minutes) ||
-    minutes < 0 ||
-    minutes > 59 ||
-    !Number.isInteger(seconds) ||
-    seconds < 0 ||
-    seconds > 60
-  ) {
+  // Grammar supplies decimal integers; the UTC round trip rejects calendar overflow.
+  if (month === undefined || year < 1900 || seconds > 60) {
     return undefined;
   }
 

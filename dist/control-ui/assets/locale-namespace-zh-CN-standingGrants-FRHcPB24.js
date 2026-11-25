@@ -1,0 +1,1 @@
+export default {"standingGrants":{"title":"持续授权","description":"在自动化审批中选择“始终允许”，会为该条命令创建长期授权。撤销授权后，下次执行时将再次请求批准。","historyTitle":"审批历史","empty":"暂无长期授权。在自动化审批中选择“始终允许”即可创建。","stateUntilRevoked":"撤销前有效","stateExpiresIn":"{count} 天后过期","stateExpired":"已过期","stateRevoked":"已撤销","revoke":"撤销","revoking":"正在撤销…","columns":{"uses":"使用次数"}}};

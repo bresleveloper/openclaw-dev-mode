@@ -1,0 +1,3 @@
+import{n as pickPrimaryTailnetIPv4}from"./tailnet-C5ijl6GX.mjs";import{m as pickPrimaryLanIPv4}from"./net-Dvn8LP7m.mjs";
+//!src/infra/network-discovery-display.ts
+function pickBestEffortPrimaryLanIPv4(){try{return pickPrimaryLanIPv4()}catch{return}}function pickBestEffortPrimaryTailnetIPv4(){try{return pickPrimaryTailnetIPv4()}catch{return}}export{pickBestEffortPrimaryTailnetIPv4 as n,pickBestEffortPrimaryLanIPv4 as t};

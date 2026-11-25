@@ -1,0 +1,2 @@
+//!src/agents/worktrees/template-registry.ts
+const retainedWorktreeTemplateKey=(e,t)=>`retained:${e}:${t}`;function worktreeTemplateMutationKey(e){return e.startsWith(`retained:`)?e.slice(9,e.lastIndexOf(`:`)):e}export{worktreeTemplateMutationKey as n,retainedWorktreeTemplateKey as t};

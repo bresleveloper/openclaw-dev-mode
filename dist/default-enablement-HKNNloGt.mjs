@@ -1,0 +1,2 @@
+//!src/plugins/default-enablement.ts
+function isPluginEnabledByDefaultForPlatform(e,t=process.platform){if(e.enabledByDefault===true)return true;return e.enabledByDefaultOnPlatforms?.includes(t)===true}export{isPluginEnabledByDefaultForPlatform as t};

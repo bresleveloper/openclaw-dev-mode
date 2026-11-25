@@ -1,15 +1,16 @@
-import "../types-D7I_F5Ux.js";
-import { t as SchemaContract } from "../schema-contract-v05QRSzC.js";
-import { A as RequesterSettleWakeReplay, E as GatewayContextResolver, JC as TrustedAgentToolCaller, KC as GatewayAgentRunTaskOwner, YC as TrustedSessionCreation, bE as ReplyExpectation, j as GatewayMethodDispatchResponse$1, k as GatewayRequestOptions, mw as PluginSubagentRequesterContext, qC as GatewayNodeInvokeStream, xE as SubagentCompletionToolHandoffRegistration, yE as RuntimePluginToolGrant } from "../config-contracts-CY87ANNp.js";
-import "../plugin-metadata-snapshot-C_ou8VB5.js";
-import { o as GatewayOperatorRoleActor } from "../origin-check-DKKuLlgF.js";
-import "../config-state-DeFJNtp3.js";
-//#region src/gateway/server-plugin-in-process-dispatch.types.d.ts
+import { Dn as RequesterSettleWakeReplay, En as AgentTurnStartOwner, IE as SubagentCompletionToolHandoffRegistration, On as GatewayMethodDispatchResponse$1, Sn as GatewayContextResolver, Tn as GatewayRequestOptions, YT as SessionControllerInput, Y_ as PluginSubagentRequesterContext, Zj as SubagentCompletion, fu as GatewayAgentRunTaskOwner, gu as TrustedSessionCreation, hu as TrustedAgentToolCaller, mu as GatewayNodeInvokeStream, uE as RuntimePluginToolGrant, zE as ReplyExpectation } from "../config-contracts-hzlacViZ.js";
+import "../types.openclaw-D8uW-XQA.js";
+import { t as SchemaContract } from "../schema-contract-c2sTcmgZ.js";
+import { o as GatewayOperatorRoleActor } from "../origin-check-lKhzfAIF.js";
+import "../config-activation-shared-DnlSzxwJ.js";
 type DispatchGatewayMethodInProcessOptions = {
+  /** Exact host-owned source reference for an in-process agent continuation. */
+  controllerInput?: SessionControllerInput;
   privateCompletion?: true;
   /** Trusted input-owner policy; not accepted from the wire request. */
   replyExpectation?: ReplyExpectation;
   settleWakeReplay?: RequesterSettleWakeReplay;
+  subagentCompletions?: readonly SubagentCompletion[];
   allowSyntheticModelOverride?: boolean;
   agentToolCaller?: TrustedAgentToolCaller;
   agentRunTracking?: GatewayAgentRunTaskOwner;
@@ -17,9 +18,12 @@ type DispatchGatewayMethodInProcessOptions = {
   disableSyntheticClient?: boolean;
   expectFinal?: boolean;
   forceSyntheticClient?: boolean;
+  /** Host-only, request-scoped bridge for a plugin approval prompt. */
+  allowHostPluginApprovalRequest?: boolean;
   nodeInvokeStream?: GatewayNodeInvokeStream;
   nodeInvokeApprovalSessionKey?: string;
   onAccepted?: (payload: unknown) => void;
+  onStartOwner?: (owner: AgentTurnStartOwner) => void;
   onExecution?: (execution: Promise<void>) => void;
   onExecutionStarted?: () => void;
   onSignalAbort?: () => Promise<void> | void;
@@ -41,11 +45,7 @@ type DispatchGatewayMethodInProcessOptions = {
   prepareDispatchCurrent?: () => Promise<void>;
   sessionMutationCommitGuard?: () => void;
 };
-//#endregion
-//#region src/gateway/server-plugin-in-process-dispatch.d.ts
 declare function dispatchGatewayMethodInProcessRaw(method: string, params: unknown, options?: DispatchGatewayMethodInProcessOptions): Promise<GatewayMethodDispatchResponse$1>;
-//#endregion
-//#region src/plugin-sdk/gateway-method-runtime.d.ts
 /** Error envelope returned by in-process Gateway method dispatch. */
 export type GatewayMethodDispatchError = NonNullable<GatewayMethodDispatchResponse["error"]>;
 /** Response envelope returned to plugins after dispatching a Gateway method. */
@@ -67,4 +67,4 @@ method: string,
 params?: unknown,
 /** Dispatch behavior controls for response timing and timeout handling. */
 options?: GatewayMethodDispatchOptions): Promise<GatewayMethodDispatchResponse>;
-//#endregion
+export {};

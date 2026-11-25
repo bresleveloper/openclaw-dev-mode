@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Tout afficher","files":"Fichiers","loading":"Chargement des résultats…","updating":"Mise à jour des résultats…","loadingDashboard":"Chargement du tableau de bord…","emptyTitle":"Aucun résultat pour le moment.","emptyDescription":"Les fichiers et tableaux de bord de cette session apparaissent ici."}};

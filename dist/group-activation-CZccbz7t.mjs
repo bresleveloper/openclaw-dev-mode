@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/auto-reply/group-activation.ts
+function normalizeGroupActivation(e){const t=normalizeOptionalLowercaseString(e);return t===`mention`||t===`always`?t:void 0}function parseActivationCommand(e){const t=e?.trim();if(!t)return{hasCommand:false};const n=t.replace(/^\/([^\s:]+)\s*:(.*)$/,(e,t,n)=>{const r=n.trimStart();return r?`/${t} ${r}`:`/${t}`}).match(/^\/activation(?:\s+([a-zA-Z]+))?\s*$/i);if(!n)return{hasCommand:false};return{hasCommand:true,mode:normalizeGroupActivation(n[1])}}export{parseActivationCommand as n,normalizeGroupActivation as t};

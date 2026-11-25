@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"Cài đặt phiên mới","rememberSettings":"Ghi nhớ cài đặt cho {shortcut}","rememberSettingsNoShortcut":"Ghi nhớ các cài đặt này","rememberUnavailable":"Kết nối lại để ghi nhớ cài đặt.","settingsSaveFailed":"Không thể lưu cài đặt. Hãy thử lại."}};

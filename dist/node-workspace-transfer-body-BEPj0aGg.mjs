@@ -1,0 +1,2 @@
+//!src/worker/node-workspace-transfer-body.ts
+async function*boundedWorkspaceTransferChunks(e,t){let n=0;for await(const r of e){const e=Buffer.isBuffer(r)?r:Buffer.from(r);n+=e.byteLength;if(n>t)throw new Error(`workspace transfer response exceeded its byte limit`);yield e}}async function readWorkspaceTransferBody(e,t){const n=[];for await(const r of boundedWorkspaceTransferChunks(e,t))n.push(r);return Buffer.concat(n)}export{readWorkspaceTransferBody as n,boundedWorkspaceTransferChunks as t};

@@ -1,0 +1,1 @@
+import{t as e}from"./identity-file.worker-subsystem-BgMstRgV.mjs";const t=e(`worker/idle-gc`);function reportSlowIdleWorkerGc(e){t.warn(`slow idle worker garbage collection`,e)}export{reportSlowIdleWorkerGc};

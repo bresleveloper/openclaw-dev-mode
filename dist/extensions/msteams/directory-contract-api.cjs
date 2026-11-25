@@ -1,5 +1,5 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-const require_resolve_allowlist = require("./.setup/resolve-allowlist-gI34MnpE.cjs");
+const require_resolve_allowlist = require("./.setup/resolve-allowlist-Dc_BnhPP.cjs");
 let openclaw_plugin_sdk_directory_runtime = require("openclaw/plugin-sdk/directory-runtime");
 const msteamsDirectoryContractPlugin = {
 	id: "msteams",
@@ -41,5 +41,4 @@ const msteamsDirectoryContractPlugin = {
 		}
 	}
 };
-//#endregion
 exports.msteamsDirectoryContractPlugin = msteamsDirectoryContractPlugin;

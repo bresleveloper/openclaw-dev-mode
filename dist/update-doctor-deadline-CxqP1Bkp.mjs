@@ -1,0 +1,2 @@
+//!src/infra/update-doctor-deadline.ts
+function createDoctorServiceInspectionBudget(e){const t=e===void 0?void 0:performance.now()+e-Date.now();return()=>{if(t===void 0)return;const e=Math.ceil(t-performance.now());if(e<=0)throw new Error(`Doctor service-inspection deadline has expired.`);return e}}export{createDoctorServiceInspectionBudget as t};

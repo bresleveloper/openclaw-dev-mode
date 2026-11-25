@@ -1,0 +1,3 @@
+import{i as ErrorCodes}from"./missing-scope-error-CkgBgh6d.mjs";import{t as respondError}from"./response-B8xtK-Bm.mjs";import{r as invokeNativeHookRelay}from"./native-hook-relay-DYwDqnzX.mjs";
+//!src/gateway/server-methods/native-hook-relay.ts
+const nativeHookRelayHandlers={"nativeHook.invoke":async({params:e,respond:t,client:n})=>{try{t(true,await invokeNativeHookRelay({provider:e.provider,relayId:e.relayId,generation:e.generation,event:e.event,rawPayload:e.rawPayload,requireGeneration:true},n?.connectionSignal))}catch(e){respondError(t,ErrorCodes.INVALID_REQUEST,e instanceof Error?e.message:`native hook relay failed`)}}};export{nativeHookRelayHandlers};

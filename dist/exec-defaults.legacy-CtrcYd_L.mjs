@@ -1,0 +1,3 @@
+import{a as resolveNodeExecEligibility,n as resolveExecConfigState,r as resolveExecDefaults}from"./exec-defaults-D2Y9mKM8.mjs";import{t as resolveSandboxRuntimeStatusLegacy}from"./runtime-status.legacy-Bo8DrMWS.mjs";
+//!src/agents/exec-defaults.legacy.ts
+function resolveExecDefaultsLegacy(e){const{agentId:t}=resolveExecConfigState(e);return resolveExecDefaults(e,e.sessionKey?resolveSandboxRuntimeStatusLegacy({cfg:e.cfg,sessionKey:e.sessionKey,agentId:t}):void 0)}function resolveNodeExecEligibilityLegacy(e){return resolveNodeExecEligibility(e,resolveExecDefaultsLegacy(e))}export{resolveNodeExecEligibilityLegacy as n,resolveExecDefaultsLegacy as t};

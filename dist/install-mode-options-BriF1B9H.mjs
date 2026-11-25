@@ -1,0 +1,2 @@
+//!src/infra/install-mode-options.ts
+function resolveInstallWorkTimeoutMs(e,t){return e===null?void 0:e??t}function resolveInstallModeOptions(e,t){return{logger:e.logger??t,mode:e.mode??`install`,dryRun:e.dryRun??false}}function resolveTimedInstallModeOptions(e,t){return{...resolveInstallModeOptions(e,t),timeoutMs:e.timeoutMs??12e4,workTimeoutMs:e.workTimeoutMs!==void 0?e.workTimeoutMs:e.mode===`update`?e.timeoutMs??null:void 0}}export{resolveInstallWorkTimeoutMs as n,resolveTimedInstallModeOptions as r,resolveInstallModeOptions as t};

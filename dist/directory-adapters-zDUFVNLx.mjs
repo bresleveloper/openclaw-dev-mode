@@ -1,0 +1,2 @@
+//!src/channels/plugins/directory-adapters.ts
+const nullChannelDirectorySelf=async()=>null;const emptyChannelDirectoryList=async()=>[];function createChannelDirectoryAdapter(e={}){return{...e,self:e.self??nullChannelDirectorySelf}}function createEmptyChannelDirectoryAdapter(){return createChannelDirectoryAdapter({listPeers:emptyChannelDirectoryList,listGroups:emptyChannelDirectoryList})}export{nullChannelDirectorySelf as i,createEmptyChannelDirectoryAdapter as n,emptyChannelDirectoryList as r,createChannelDirectoryAdapter as t};

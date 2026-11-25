@@ -1,2 +1,1 @@
-import { i as normalizeGithubCopilotOAuthScope } from "../../domain-VvPJpQNG.mjs";
-export { normalizeGithubCopilotOAuthScope };
+import{i as normalizeGithubCopilotOAuthScope}from"../../domain-Bn9uiqna.mjs";export{normalizeGithubCopilotOAuthScope};

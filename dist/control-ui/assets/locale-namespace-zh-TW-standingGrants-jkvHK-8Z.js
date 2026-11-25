@@ -1,0 +1,1 @@
+export default {"standingGrants":{"title":"持續授權","description":"在自動化核准中選擇「一律允許」，會為該特定指令建立持續授權。撤銷授權後，下次執行時將再次要求核准。","historyTitle":"核准記錄","empty":"尚無持續授權。在自動化核准中選擇「一律允許」即可建立。","stateUntilRevoked":"有效至撤銷為止","stateExpiresIn":"將於 {count} 天後過期","stateExpired":"已過期","stateRevoked":"已撤銷","revoke":"撤銷","revoking":"正在撤銷…","columns":{"uses":"使用次數"}}};

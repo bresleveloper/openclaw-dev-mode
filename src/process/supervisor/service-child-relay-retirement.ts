@@ -1,5 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { performance } from "node:perf_hooks";
+import { materializeErrorStack } from "../../infra/error-graph-internal.js";
 import { toErrorObject } from "../../infra/errors.js";
 import type { ProcessCleanupResult } from "./types.js";
 
@@ -42,6 +43,7 @@ export function createServiceChildRelayRetirement(params: {
     signalError = signalError
       ? new AggregateError([signalError, failure], "service child retirement signals failed")
       : failure;
+    materializeErrorStack(signalError);
   };
   const reconcile = () => {
     if (!requested || exit || !params.canRetire()) {
@@ -110,34 +112,6 @@ export function createServiceChildRelayRetirement(params: {
         : undefined;
     },
   };
-}
-
-/** Builds the hard-deadline failure; stability bundles keep messages, not cause payloads. */
-export function createServiceChildCleanupExpiryError(
-  pending: Record<string, boolean>,
-  owner: Record<string, unknown>,
-  diagnostics: ReturnType<ReturnType<typeof createServiceChildRelayRetirement>["diagnostics"]>,
-): Error {
-  const ownerError = new Error(
-    "service child cleanup owner: " +
-      JSON.stringify({
-        ...owner,
-        durationMs: diagnostics.durationMs,
-        escalationAfterMs: diagnostics.escalationAfterMs,
-      }),
-    { cause: diagnostics.signalError },
-  );
-  // Preserve live diagnostic consumers without expanding serialized Error payloads.
-  Object.defineProperties(ownerError, {
-    durationMs: { value: diagnostics.durationMs },
-    escalationAfterMs: { value: diagnostics.escalationAfterMs },
-    signalError: { value: diagnostics.signalError },
-  });
-  return new Error(
-    "service child cleanup did not complete before its hard deadline; pending: " +
-      JSON.stringify(pending),
-    { cause: ownerError },
-  );
 }
 
 /** Join startup cleanup without letting its failure replace the anchor's startup failure. */

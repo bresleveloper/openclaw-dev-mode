@@ -1,2 +1,1 @@
-import "../../manager-index.worker-B1I1qoRB.mjs";
-export {};
+import"../../manager-index.worker-CFXj7g4l.mjs";export{};

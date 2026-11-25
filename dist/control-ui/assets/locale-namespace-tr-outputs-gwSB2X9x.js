@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Tümünü görüntüle","files":"Dosyalar","loading":"Çıktılar yükleniyor…","updating":"Çıktılar güncelleniyor…","loadingDashboard":"Pano yükleniyor…","emptyTitle":"Henüz çıktı yok.","emptyDescription":"Bu oturumdaki dosyalar ve panolar burada görünür."}};

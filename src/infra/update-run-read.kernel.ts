@@ -48,9 +48,6 @@ export function decodeRun(row: UpdateRuns) {
       ?.failureFacts?.[0]?.code;
     if (dataAtRisk) {
       record.verification.recovery.dataAtRisk = dataAtRisk;
-    } else if (record.verification.recovery.reason === "state-migration-started") {
-      // Shipped pre-backport writers recorded migration risk only in this reason.
-      record.verification.recovery.dataAtRisk = "legacy-state-migration";
     }
   }
   return record;
@@ -150,7 +147,12 @@ export function canReconcileUpdateRunCandidates(
 ): boolean {
   return (
     candidates.some(
-      ({ rule }) => rule && (!input.legacyOnly || rule === LEGACY_UPDATE_RUN_EXPIRED_REASON),
+      ({ rule }) =>
+        rule &&
+        (!input.legacyOnly || rule === LEGACY_UPDATE_RUN_EXPIRED_REASON) &&
+        (!input.statusOnly ||
+          rule === LEGACY_UPDATE_RUN_EXPIRED_REASON ||
+          rule === "handoff-terminated"),
     ) &&
     !(input.explicit && candidates.some(({ record, rule }) => record.status === "running" && !rule))
   );

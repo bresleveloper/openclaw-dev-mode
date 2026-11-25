@@ -1,0 +1,5 @@
+import{t as isPromiseLike}from"./promise-like-OKzBwzLG.mjs";
+//!src/shared/listeners.ts
+function notifyListeners(e,t,n){for(const r of e)try{r(t)}catch(e){n?.(e)}}function registerListener(e,t){e.add(t);return()=>e.delete(t)}
+//!src/infra/sql-connection.ts
+function assertSyncTransactionResult(e){if(isPromiseLike(e))throw new Error(`SQLite write transactions must be synchronous; Promise returns are not supported.`)}const postgresConnectionBrand=Symbol.for(`openclaw.postgres-sync-connection`);function isPostgresSqlConnection(e){return postgresConnectionBrand in e&&e[postgresConnectionBrand]===true}function sqlPublicationAnchor(e){return isPostgresSqlConnection(e)?e.anchor:e}export{registerListener as a,notifyListeners as i,isPostgresSqlConnection as n,sqlPublicationAnchor as r,assertSyncTransactionResult as t};

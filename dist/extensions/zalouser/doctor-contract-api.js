@@ -1,11 +1,11 @@
-import { n as normalizeCompatibilityConfig, r as runtime_doctor_migrations_exports, t as legacyConfigRules } from "./.setup/doctor-contract-w11JEjcg.mjs";
-import { t as resolveZalouserDmSessionScope } from "./.setup/session-scope-BjOC6bJs.mjs";
-import { f as zalouserCredentialStoreKey, i as isZaloCredentialRevocation, l as resolveLegacyZalouserCredentialsDir, o as normalizeStoredZaloCredentials, s as normalizeZalouserCredentialProfile, t as ZALOUSER_CREDENTIALS_NAMESPACE, u as resolveLegacyZalouserCredentialsPath } from "./.setup/session-state-fejZKa1r.mjs";
+import { n as normalizeCompatibilityConfig, r as runtime_doctor_migrations_exports, t as legacyConfigRules } from "./.setup/doctor-contract-BZYFDU8s.mjs";
+import { f as zalouserCredentialStoreKey, i as isZaloCredentialRevocation, l as resolveLegacyZalouserCredentialsDir, o as normalizeStoredZaloCredentials, s as normalizeZalouserCredentialProfile, t as ZALOUSER_CREDENTIALS_NAMESPACE, u as resolveLegacyZalouserCredentialsPath } from "./.setup/session-state-yT2eReQ6.mjs";
+import { t as resolveZalouserDmSessionScope } from "./.setup/session-scope-6Av6wh6a.mjs";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
-import fsp from "node:fs/promises";
 import path from "node:path";
+import fsp from "node:fs/promises";
 import { buildAgentSessionKey, parseAgentSessionKey } from "openclaw/plugin-sdk/routing";
-//#region extensions/zalouser/doctor-contract-api.ts
+// extensions/zalouser/doctor-contract-api.ts
 const LEGACY_ZALOUSER_DM_PREFIX = "zalouser:group:";
 async function collectLegacyZalouserCredentialSources(env) {
 	const credentialsDir = resolveLegacyZalouserCredentialsDir(env);
@@ -150,14 +150,9 @@ const stateMigrations = [{
 				continue;
 			}
 			if (!existing) try {
-				await store.registerIfAbsent(key, credentials);
+				if (!await store.registerIfAbsent(key, credentials)) throw new Error("Canonical state appeared during offline import.");
 			} catch (error) {
 				warnings.push(`Failed importing Zalo Personal credentials for profile ${source.profile}: ${String(error)}; left legacy source in place`);
-				continue;
-			}
-			const persisted = normalizeStoredZaloCredentials(await store.lookup(key), source.profile);
-			if (!persisted || JSON.stringify(persisted) !== JSON.stringify(credentials)) {
-				warnings.push(`Failed verifying Zalo Personal credentials for profile ${source.profile}; left legacy source in place`);
 				continue;
 			}
 			changes.push(`Migrated Zalo Personal credentials for profile ${source.profile}`);
@@ -218,5 +213,4 @@ const stateMigrations = [{
 		};
 	}
 }];
-//#endregion
 export { legacyConfigRules, normalizeCompatibilityConfig, stateMigrations };

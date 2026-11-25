@@ -1,0 +1,1 @@
+import{t as e}from"./cron-stream-matcher.worker-subsystem-BGy0RlYC.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

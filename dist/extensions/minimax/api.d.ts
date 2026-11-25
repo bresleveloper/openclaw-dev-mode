@@ -1,12 +1,8 @@
-import { M as OpenClawConfig, U as ModelProviderDeclarationConfig, z as ModelDefinitionConfig } from "../../types-D7I_F5Ux.js";
-import "../../provider-model-shared-uYxY__EE.js";
-import "../../provider-onboard-BNuhTHon.js";
-import "../../provider-catalog-live-runtime-B4afebj8.js";
-//#region extensions/minimax/provider-catalog.d.ts
+import { l as ModelDefinitionConfig, p as ModelProviderDeclarationConfig, r as OpenClawConfig } from "../../types.openclaw-D8uW-XQA.js";
+import "../../provider-model-shared-OQQj5XdR.js";
+import "../../provider-onboard-BitR1dNE.js";
+import "../../provider-catalog-live-runtime-DnKGuU0_.js";
 export declare function buildMinimaxProvider(env?: NodeJS.ProcessEnv): ModelProviderDeclarationConfig;
-export declare function buildMinimaxPortalProvider(env?: NodeJS.ProcessEnv): ModelProviderDeclarationConfig;
-//#endregion
-//#region extensions/minimax/model-definitions.d.ts
 export declare const DEFAULT_MINIMAX_BASE_URL = "https://api.minimax.io/v1";
 export declare const MINIMAX_API_BASE_URL = "https://api.minimax.io/anthropic";
 export declare const MINIMAX_CN_API_BASE_URL = "https://api.minimaxi.com/anthropic";
@@ -42,49 +38,45 @@ export declare function buildMinimaxModelDefinition(params: {
   maxTokens: number;
 }): MinimaxTextModelDefinition;
 export declare function buildMinimaxApiModelDefinition(modelId: string): MinimaxTextModelDefinition;
-//#endregion
-//#region extensions/minimax/provider-models.d.ts
 export declare const MINIMAX_DEFAULT_MODEL_ID = "MiniMax-M3";
 export declare const MINIMAX_DEFAULT_MODEL_REF = "minimax/MiniMax-M3";
-export declare const MINIMAX_TEXT_MODEL_ORDER: readonly ["MiniMax-M3", "MiniMax-M3.1-Flash-Preview", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"];
+export declare const MINIMAX_TEXT_MODEL_ORDER: readonly ["MiniMax-M3", "MiniMax-M3.1-Flash", "MiniMax-M3.1-Flash-Preview"];
 export declare const MINIMAX_TEXT_MODEL_CATALOG: {
-  readonly "MiniMax-M3.1-Flash-Preview": {
-    readonly name: "MiniMax M3.1 Flash Preview";
+  readonly "MiniMax-M3.1-Flash": {
     readonly reasoning: true;
     readonly input: readonly ["text", "image"];
     readonly contextWindow: 1000000;
     readonly compat: {
       readonly codeMode: "preferred";
+      readonly supportsTemperature: false;
     };
+    readonly name: "MiniMax M3.1 Flash";
+  };
+  readonly "MiniMax-M3.1-Flash-Preview": {
+    readonly reasoning: true;
+    readonly input: readonly ["text", "image"];
+    readonly contextWindow: 1000000;
+    readonly compat: {
+      readonly codeMode: "preferred";
+      readonly supportsTemperature: false;
+    };
+    readonly name: "MiniMax M3.1 Flash Preview";
   };
   readonly "MiniMax-M3": {
-    readonly name: "MiniMax M3";
     readonly reasoning: true;
     readonly input: readonly ["text", "image"];
     readonly contextWindow: 1000000;
     readonly compat: {
       readonly codeMode: "preferred";
+      readonly supportsTemperature: false;
     };
-  };
-  readonly "MiniMax-M2.7": {
-    readonly name: "MiniMax M2.7";
-    readonly reasoning: true;
-    readonly input: readonly ["text"];
-    readonly contextWindow: 204800;
-  };
-  readonly "MiniMax-M2.7-highspeed": {
-    readonly name: "MiniMax M2.7 Highspeed";
-    readonly reasoning: true;
-    readonly input: readonly ["text"];
-    readonly contextWindow: 204800;
+    readonly name: "MiniMax M3";
   };
 };
 export declare const MINIMAX_TEXT_MODEL_REFS: string[];
 export declare function isMiniMaxModernModelId(modelId: string): boolean;
-//#endregion
-//#region extensions/minimax/onboard.d.ts
-export declare function applyMinimaxApiProviderConfig(cfg: OpenClawConfig, modelId?: string): OpenClawConfig;
-export declare function applyMinimaxApiConfig(cfg: OpenClawConfig, modelId?: string): OpenClawConfig;
-export declare function applyMinimaxApiProviderConfigCn(cfg: OpenClawConfig, modelId?: string): OpenClawConfig;
-export declare function applyMinimaxApiConfigCn(cfg: OpenClawConfig, modelId?: string): OpenClawConfig;
-//#endregion
+export declare const applyMinimaxApiProviderConfig: (cfg: OpenClawConfig, modelId?: string) => OpenClawConfig;
+export declare const applyMinimaxApiConfig: (cfg: OpenClawConfig, modelId?: string) => OpenClawConfig;
+export declare const applyMinimaxApiProviderConfigCn: (cfg: OpenClawConfig, modelId?: string) => OpenClawConfig;
+export declare const applyMinimaxApiConfigCn: (cfg: OpenClawConfig, modelId?: string) => OpenClawConfig;
+export {};

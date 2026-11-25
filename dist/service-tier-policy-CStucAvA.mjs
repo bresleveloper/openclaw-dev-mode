@@ -1,0 +1,3 @@
+import{i as classifyOpenAIBaseUrl}from"./base-url-Bj7R0VNs.mjs";import{i as OPENAI_DAYBREAK_MODEL_IDS}from"./model-route-contract-DltS7Xny.mjs";
+//!extensions/openai/service-tier-policy.ts
+function resolveOpenAIModelServiceTiers(e){if(e.api!==`openai-responses`||classifyOpenAIBaseUrl(e.baseUrl)!==`platform`)return;const[t,n]=OPENAI_DAYBREAK_MODEL_IDS;return e.modelId===t?[`default`,`priority`]:e.modelId===n?[`default`]:void 0}export{resolveOpenAIModelServiceTiers as t};

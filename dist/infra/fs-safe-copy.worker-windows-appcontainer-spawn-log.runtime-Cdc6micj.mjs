@@ -1,0 +1,1 @@
+import{t as e}from"./fs-safe-copy.worker-subsystem-Ue-v4hwL.mjs";function logAppContainerTokenProbeFailure(t){e(`process`).debug(`AppContainer token probe failed; allowing spawn`,{error:String(t)})}export{logAppContainerTokenProbeFailure};

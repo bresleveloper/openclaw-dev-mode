@@ -1,5 +1,5 @@
-import { i as UnsupportedInputError, r as parseWorkerRequest, t as OnnxWorkerError } from "../.setup/protocol-lN8zQ8J3.mjs";
-//#region extensions/onnx/src/inference.worker.ts
+import { n as UnsupportedInputError, t as OnnxWorkerError } from "../.setup/protocol-CG1ILdRP.mjs";
+// extensions/onnx/src/inference.worker.ts
 let config;
 let cache;
 let stopping = false;
@@ -27,33 +27,25 @@ function send(reply) {
 		if (error) stop(1);
 	});
 }
-function onMessage(value) {
+function onMessage(request) {
 	if (stopping) return;
-	if (activeTask) {
-		stop(1);
+	if (request.kind === "init") {
+		config = request.config;
 		return;
 	}
-	activeTask = handle(value);
+	activeTask = handle(request);
 	activeTask.catch(() => stop(1)).finally(() => {
 		activeTask = void 0;
 	});
 }
 process.on("disconnect", () => stop(0));
 process.on("message", onMessage);
-async function handle(value) {
-	const request = parseWorkerRequest(value);
-	if (request.kind === "init") {
-		if (config) throw new Error("Already initialized");
-		config = request.config;
-		send({ kind: "ready" });
-		return;
-	}
-	if (!config) throw new Error("Invalid worker admission");
+async function handle(request) {
 	try {
 		if (!cache) {
 			let implementation;
 			try {
-				implementation = await import("../.setup/model-loader-C6GHyZWy.mjs");
+				implementation = await import("../.setup/model-loader-DDsav9p5.mjs");
 			} catch {
 				throw new OnnxWorkerError("dependency-unavailable");
 			}
@@ -64,10 +56,7 @@ async function handle(value) {
 				if (stopping) return;
 				await cache.get(model);
 			}
-			send({
-				kind: "warmed",
-				id: request.id
-			});
+			send({ kind: "warmed" });
 		} else {
 			const model = await cache.get(request.model);
 			const results = [];
@@ -77,17 +66,14 @@ async function handle(value) {
 			}
 			send({
 				kind: "results",
-				id: request.id,
 				results
 			});
 		}
 	} catch (error) {
 		send({
 			kind: "error",
-			id: request.id,
 			code: error instanceof UnsupportedInputError ? "unsupported-input" : error instanceof OnnxWorkerError ? error.code : "runtime"
 		});
 	}
 }
-//#endregion
 export {};

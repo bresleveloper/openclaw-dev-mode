@@ -1,0 +1,3 @@
+import{g as parseSecretRef,p as normalizeSecretInputString}from"./types.secrets-UWdyCdE6.mjs";
+//!src/secrets/resolve-secret-input-string.ts
+async function materializeSecretInput(e){const t=e.normalize??normalizeSecretInputString;const n=parseSecretRef(e.value,e.config.secrets?.defaults);if(!n)return t(e.value);let r;try{const{resolveSecretRefString:t}=await import(`./resolve-WSu18DKK.mjs`);r=await t(n,{config:e.config,env:e.env})}catch(t){if(e.onResolveRefError)return e.onResolveRefError(t,n);throw t}return t(r)}export{materializeSecretInput as t};

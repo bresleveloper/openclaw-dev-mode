@@ -1,6 +1,6 @@
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
-//#region extensions/feishu/subagent-hooks-api.ts
-const loadFeishuSubagentHooksModule = createLazyRuntimeModule(() => import("./.setup/subagent-hooks-CvVuM0O4.mjs").then((n) => n.r));
+// extensions/feishu/subagent-hooks-api.ts
+const loadFeishuSubagentHooksModule = createLazyRuntimeModule(() => import("./.setup/subagent-hooks-BRem84Mh.mjs").then((n) => n.r));
 function registerFeishuSubagentHooks(api) {
 	api.on("subagent_delivery_target", async (event) => {
 		const { handleFeishuSubagentDeliveryTarget } = await loadFeishuSubagentHooksModule();
@@ -11,5 +11,4 @@ function registerFeishuSubagentHooks(api) {
 		handleFeishuSubagentEnded(event);
 	});
 }
-//#endregion
 export { registerFeishuSubagentHooks };

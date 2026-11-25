@@ -1,0 +1,3 @@
+import{S as resolveIsConfigReadOnly}from"./paths-DxXULbkO.mjs";import{t as ADMIN_SCOPE}from"./operator-scopes-bEvB7E5X.mjs";import{n as resolveStickyModelSelectionPolicy}from"./sticky-model-selection-3KaMdOCc.mjs";
+//!src/gateway/server-methods/session-model-selection-policy.ts
+function resolveGatewayModelSelectionPolicy(e){return resolveStickyModelSelectionPolicy({canPersistConfig:e.callerScopes.includes(`operator.admin`)&&!resolveIsConfigReadOnly(process.env),cfg:e.cfg})}export{resolveGatewayModelSelectionPolicy as t};

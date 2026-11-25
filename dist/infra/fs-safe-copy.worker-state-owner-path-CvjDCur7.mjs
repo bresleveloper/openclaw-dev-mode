@@ -1,0 +1,1 @@
+export{n as assertSandboxStateOwnerPathCurrent}from"./fs-safe-copy.worker-state-owner-path-B5SH78vP.mjs";

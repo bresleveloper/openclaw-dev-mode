@@ -1,2 +1,1 @@
-import { n as normalizeCompatibilityConfig, t as legacyConfigRules } from "./.setup/doctor-contract-Cd4-VzIM.mjs";
-export { legacyConfigRules, normalizeCompatibilityConfig };
+export { t as legacyConfigRules, n as normalizeCompatibilityConfig } from "./.setup/doctor-contract-BB2KJ9Ni.mjs";

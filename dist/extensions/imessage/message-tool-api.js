@@ -1,2 +1,1 @@
-import { t as describeIMessageMessageTool } from "./.setup/message-tool-api-B5NfPnFL.mjs";
-export { describeIMessageMessageTool as describeMessageTool };
+export { t as describeMessageTool } from "./.setup/message-tool-api-DtZ1wKbT.mjs";

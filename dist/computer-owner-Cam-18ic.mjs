@@ -1,0 +1,2 @@
+//!src/gateway/desktop/computer-owner.ts
+function computerRunOwner(e){return JSON.stringify([`agent`,e.operationalRunInstance.instanceId,e.operationalRunInstance.runId,e.lifecycleGeneration,e.claimId])}export{computerRunOwner as t};

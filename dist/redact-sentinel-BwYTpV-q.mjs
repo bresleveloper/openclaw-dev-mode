@@ -1,0 +1,2 @@
+//!src/config/redact-sentinel.ts
+const REDACTED_SENTINEL=`__OPENCLAW_REDACTED__`;const REDACTED_SECRET_VALUES=/* @__PURE__ */ new Set([REDACTED_SENTINEL,`REDACTED`,`xoxb-REDACTED`,`xapp-REDACTED`,`***`,`[redacted]`,`[REDACTED]`,`<redacted>`,`[REDACTED_PRIVATE_KEY]`,`[REDACTED CREDENTIAL]`]);function isRedactedSecretValue(e){return typeof e===`string`&&REDACTED_SECRET_VALUES.has(e.trim())}export{isRedactedSecretValue as n,REDACTED_SENTINEL as t};

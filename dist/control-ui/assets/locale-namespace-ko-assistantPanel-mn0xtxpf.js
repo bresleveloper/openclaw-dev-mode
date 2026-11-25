@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"작업 중: {context}","removeContext":"작업 컨텍스트 제거","includeContext":"작업 컨텍스트 포함","selection":"선택한 텍스트","attachSelection":"선택한 텍스트 첨부","attachSelectionTooltip":"선택 항목 첨부","removeSelection":"선택한 텍스트 제거"}};

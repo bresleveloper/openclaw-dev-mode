@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,t as n}from"./worker-chunk-CKoJc7ko.mjs";var r;e((()=>{n(),r={"voicewake.routing.get":async({respond:e})=>{e(!0,{config:await t()})}}}))();export{r as voicewakeRoutingHandlers};

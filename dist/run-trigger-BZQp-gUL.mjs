@@ -1,0 +1,3 @@
+import{x as readSessionForkSource}from"./input-provenance-C8_14SbD.mjs";
+//!src/agents/run-trigger.ts
+function resolveModelCallUrgency(e){const t=e.bootstrapContextRunKind===`cron`;const n=e.trigger===`cron`||e.trigger===`memory`;const r=readSessionForkSource(e.inputProvenance)!==void 0;if(t||n||r)return`background`;if(e.spawnedBy||Boolean(e.trustedInternalHandoff)||e.inputProvenance?.kind===`inter_session`||e.inputProvenance?.kind===`internal_system`)return`normal`;if(e.currentInboundEventKind===`user_request`||e.inputProvenance?.kind===`external_user`||e.trigger===`user`)return`foreground`;return`normal`}export{resolveModelCallUrgency as t};

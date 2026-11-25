@@ -1,0 +1,2 @@
+//!src/infra/package-update-backup-paths.ts
+function isLegacyPackageBackupName(e){return/^\.openclaw[.-]package-backup-\d+-\d+$/u.test(e)}function isPackageUpdateRecoveryArtifactName(e){return/^\.openclaw[.-]package-(?:backup-|activation-)/u.test(e)}export{isPackageUpdateRecoveryArtifactName as n,isLegacyPackageBackupName as t};

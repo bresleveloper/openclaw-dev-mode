@@ -198,7 +198,9 @@ function reclaimSqliteRowsInTransaction(
   }
 
   if (plan.kind === "entry") {
-    const value = runSqliteSessionDeletionTransaction<DeleteSessionEntryLifecycleResult>(
+    const value = runSqliteSessionDeletionTransaction<
+      Extract<SqliteSessionReclamationResult, { kind: "entry" }>["value"]
+    >(
       (transactionDb) => {
         callbacks.beforeMutation?.();
         const current = readValidatedSessionDeletionTarget(transactionDb, {
@@ -220,7 +222,12 @@ function reclaimSqliteRowsInTransaction(
           undefined,
           new Set(sessionKeys),
         );
-        deleteLifecycleTargetRows(transactionDb, plan.deleteParams.target);
+        const transcriptInventoryUnchanged = deleteLifecycleTargetRows(
+          transactionDb,
+          plan.deleteParams.target,
+          snapshot,
+          callbacks.preparedReferenceOwners,
+        );
         if (plan.deleteParams.deleteDeliveryArtifacts === true) {
           deleteSessionDeliveryArtifacts(
             transactionDb,
@@ -232,7 +239,10 @@ function reclaimSqliteRowsInTransaction(
         return {
           archivedTranscripts,
           deleted: true,
-          deletedEntry: structuredClone(entry),
+          deletedEntry: entry,
+          ...(plan.materializedPlans.length === 0 && transcriptInventoryUnchanged
+            ? { transcriptInventoryUnchanged: true as const }
+            : {}),
           ...(entry.sessionId ? { deletedSessionId: entry.sessionId } : {}),
         };
       },

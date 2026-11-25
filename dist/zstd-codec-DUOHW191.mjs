@@ -1,0 +1,3 @@
+import zlib from"node:zlib";
+//!src/infra/zstd-codec.ts
+let resolvedCodec;function resolveZstdCodec(){return resolvedCodec??={compress:(e,t,n)=>{if(t===void 0&&n===void 0)return zlib.zstdCompressSync(e);return zlib.zstdCompressSync(e,{params:{...t===void 0?{}:{[zlib.constants.ZSTD_c_compressionLevel]:t},...n===void 0?{}:{[zlib.constants.ZSTD_c_checksumFlag]:n}}})},decompress:(e,t)=>zlib.zstdDecompressSync(e,t===void 0?void 0:{maxOutputLength:t,chunkSize:Math.max(zlib.constants.Z_MIN_CHUNK,Math.min(zlib.constants.Z_DEFAULT_CHUNK,t+1))})}}export{resolveZstdCodec as t};

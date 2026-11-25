@@ -1,0 +1,2 @@
+//!src/infra/openclaw-exec-env.ts
+const OPENCLAW_CLI_ENV_VAR=`OPENCLAW_CLI`;const SUBAGENT_EXEC_ENV_VAR=`OPENCLAW_SUBAGENT_EXEC`;const CLI_ENV_VALUE=`1`;function markOpenClawExecEnv(e){return{...e,[OPENCLAW_CLI_ENV_VAR]:CLI_ENV_VALUE}}export{markOpenClawExecEnv as n,SUBAGENT_EXEC_ENV_VAR as t};

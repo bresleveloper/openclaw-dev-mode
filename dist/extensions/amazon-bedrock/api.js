@@ -1,2 +1,1 @@
-import { discoverBedrockModels, resolveImplicitBedrockProvider } from "./discovery.js";
-export { discoverBedrockModels, resolveImplicitBedrockProvider };
+export { discoverBedrockModels, resolveImplicitBedrockProvider } from "./discovery.js";

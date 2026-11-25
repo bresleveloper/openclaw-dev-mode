@@ -1,0 +1,2 @@
+//!src/auto-reply/reply/system-event-session-key.ts
+const REPLY_SYSTEM_EVENT_CONTEXT=Symbol(`openclaw.reply.systemEventContext`);function withReplySystemEventContext(e,t){return{...e,[REPLY_SYSTEM_EVENT_CONTEXT]:t}}function getReplySystemEventContext(e){return e?.[REPLY_SYSTEM_EVENT_CONTEXT]}export{withReplySystemEventContext as n,getReplySystemEventContext as t};

@@ -1,0 +1,3 @@
+import{t as resolvePathViaExistingAncestorSync}from"./boundary-path-DRYXObp6.mjs";import{n as isArtifactPreservingStateRead}from"./artifact-preserving-state-reads-HuTZzGCV.mjs";import{h as runSqliteReadOnlyWorkerSync}from"./sqlite-readonly-worker-T-C88pz9.mjs";
+//!src/infra/database-engine/physical-store.ts
+function readBackupEngine(e){return runSqliteReadOnlyWorkerSync(e,void 0,isArtifactPreservingStateRead(`shared`,e)?`backup-engine-preserving`:`backup-engine`)}function readBackupEngines(e){return Object.fromEntries(e.map(e=>[resolvePathViaExistingAncestorSync(e),readBackupEngine(e)]))}export{readBackupEngines as n,readBackupEngine as t};

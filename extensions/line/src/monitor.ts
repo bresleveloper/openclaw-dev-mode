@@ -4,6 +4,7 @@ import { hasFinalInboundReplyDispatch } from "openclaw/plugin-sdk/channel-inboun
 import { resolveChannelStreamingBlockEnabled } from "openclaw/plugin-sdk/channel-outbound";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
 import { channelReadyPatch, channelStoppedPatch } from "openclaw/plugin-sdk/gateway-runtime";
+import { resolveSendableOutboundReplyParts } from "openclaw/plugin-sdk/reply-payload";
 import {
   danger,
   logVerbose,
@@ -13,6 +14,7 @@ import {
 import {
   canonicalizeWebhookRouteKey,
   registerWebhookTargetWithPluginRoute,
+  resolveWebhookPath,
 } from "openclaw/plugin-sdk/webhook-ingress";
 import {
   beginWebhookRequestPipelineOrReject,
@@ -21,14 +23,12 @@ import {
 import { resolveDefaultLineAccountId, resolveLineAccount } from "./accounts.js";
 import { deliverLineAutoReply } from "./auto-reply-delivery.js";
 import { createLineBot } from "./bot.js";
-import { resolveLineDurableReplyOptions } from "./monitor-durable.js";
 import { prepareLineReplyPayload } from "./rich-messages.js";
 import { getLineRuntime } from "./runtime.js";
 import { showLoadingAnimation } from "./send.js";
 import type { LineChannelData } from "./types.js";
 import { createLineNodeWebhookHandler } from "./webhook-node.js";
 import { LineWebhookTerminalDeliveryError } from "./webhook-spool.js";
-import { resolveLineWebhookPath } from "./webhook-utils.js";
 
 interface MonitorLineProviderOptions {
   channelAccessToken: string;
@@ -38,7 +38,6 @@ interface MonitorLineProviderOptions {
   runtime: RuntimeEnv;
   buildContext?: typeof import("openclaw/plugin-sdk/channel-inbound").buildChannelInboundEventContext;
   abortSignal?: AbortSignal;
-  webhookUrl?: string;
   webhookPath?: string;
   statusSink?: (patch: Omit<ChannelAccountSnapshot, "accountId">) => void;
 }
@@ -95,11 +94,7 @@ export async function monitorLineProvider(opts: MonitorLineProviderOptions) {
         ? {
             typing: {
               start: () =>
-                showLoadingAnimation(userId, {
-                  cfg: turnConfig,
-                  accountId: ctx.accountId,
-                  loadingSeconds: 20,
-                }),
+                showLoadingAnimation(userId, { cfg: turnConfig, accountId: ctx.accountId }),
               keepaliveIntervalMs: 18_000,
               // The reply lifecycle stops it when the turn settles; keep it for long runs.
               maxDurationMs: 0,
@@ -109,11 +104,6 @@ export async function monitorLineProvider(opts: MonitorLineProviderOptions) {
           }
         : {};
 
-      // The inbound context already resolved the sender's name for the agent;
-      // reading it back costs nothing instead of asking LINE a second time.
-      logVerbose(
-        `line: received message from ${ctxPayload.SenderName ?? ctx.userId ?? ctxPayload.From} (${ctxPayload.From})`,
-      );
       let replyTokenUsed = false;
       let turnAdopted = false;
       const ingressLifecycle = deliveryControl.turnAdoptionLifecycle;
@@ -182,14 +172,23 @@ export async function monitorLineProvider(opts: MonitorLineProviderOptions) {
                 // Core renders presentations inside the outbound send pipeline only,
                 // so this path resolves them before either branch reads channelData.
                 preparePayload: (payload) => prepareLineReplyPayload(payload, ctxPayload.From),
-                durable: (payload, info) =>
-                  resolveLineDurableReplyOptions({
-                    payload,
-                    infoKind: info.kind,
-                    to: ctxPayload.From,
-                    replyToken,
-                    replyTokenUsed,
-                  }),
+                durable: (payload, info) => {
+                  if (info.kind !== "final") {
+                    return false;
+                  }
+                  if (replyToken && !replyTokenUsed) {
+                    return false;
+                  }
+                  const lineData = payload.channelData?.line;
+                  if (lineData && Object.keys(lineData).length > 0) {
+                    return false;
+                  }
+                  const reply = resolveSendableOutboundReplyParts(payload);
+                  if (reply.hasMedia || !reply.hasText) {
+                    return false;
+                  }
+                  return { to: ctxPayload.From };
+                },
                 deliver: async (payload) => {
                   const lineData = (payload.channelData?.line as LineChannelData | undefined) ?? {};
 
@@ -244,7 +243,8 @@ export async function monitorLineProvider(opts: MonitorLineProviderOptions) {
     },
   });
 
-  const normalizedPath = resolveLineWebhookPath(webhookPath);
+  const defaultPath = "/line/webhook";
+  const normalizedPath = resolveWebhookPath({ webhookPath, defaultPath }) ?? defaultPath;
   const webhookRouteKey = canonicalizeWebhookRouteKey(normalizedPath);
   const handleWebhook = createLineNodeWebhookHandler({
     getTargets: () => lineWebhookTargets.get(webhookRouteKey) ?? [],

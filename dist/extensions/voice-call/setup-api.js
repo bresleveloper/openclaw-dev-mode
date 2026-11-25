@@ -1,7 +1,6 @@
 import { asFiniteNumber, asOptionalRecord, isRecord, readStringField } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/voice-call/src/config-migration.ts
-/** Migrate legacy voice-call config input to the current canonical shape. */
+// extensions/voice-call/src/config-migration.ts
 function migrateVoiceCallLegacyConfigInput(params) {
 	const raw = asOptionalRecord(params.value) ?? {};
 	const realtime = asOptionalRecord(raw.realtime);
@@ -97,8 +96,7 @@ function migrateVoiceCallLegacyConfigInput(params) {
 		changes
 	};
 }
-//#endregion
-//#region extensions/voice-call/setup-api.ts
+// extensions/voice-call/setup-api.ts
 /** Migrate voice-call plugin config inside the full OpenClaw config object. */
 function migrateVoiceCallPluginConfig(config) {
 	const rawVoiceCallConfig = config.plugins?.entries?.["voice-call"]?.config;
@@ -108,7 +106,7 @@ function migrateVoiceCallPluginConfig(config) {
 		configPathPrefix: "plugins.entries.voice-call.config"
 	});
 	if (migration.changes.length === 0) return null;
-	const plugins = structuredClone(config.plugins ?? {});
+	const plugins = { ...config.plugins };
 	plugins.entries = {
 		...plugins.entries,
 		"voice-call": {
@@ -133,5 +131,4 @@ var setup_api_default = definePluginEntry({
 		api.registerConfigMigration(migrateVoiceCallPluginConfig);
 	}
 });
-//#endregion
 export { setup_api_default as default };

@@ -1,2 +1,1 @@
-import { n as ReefChannelConfigSchema } from "../../config-schema-D8RBnmHo.mjs";
-export { ReefChannelConfigSchema };
+import{n as ReefChannelConfigSchema}from"../../config-schema-C4_lwVNs.mjs";export{ReefChannelConfigSchema};

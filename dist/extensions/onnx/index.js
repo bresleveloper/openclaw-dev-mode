@@ -1,11 +1,12 @@
-import { n as findModel } from "./.setup/catalog-Bgbx4LHv.mjs";
-import { n as createOnnxProvider, t as InferenceWorkerClient } from "./.setup/worker-client-DUApeDD4.mjs";
-import path from "node:path";
+import { n as findModel } from "./.setup/catalog-g9or975s.mjs";
+import { r as createPreparedOnnxProvider, t as InferenceWorkerClient } from "./.setup/worker-client-DU0fIUSF.mjs";
 import { pathToFileURL } from "node:url";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { createPluginRuntimeProcessEntrypoint, resolveRuntimeWorkerUrl } from "openclaw/plugin-sdk/process-runtime";
+import path from "node:path";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 import { Type } from "typebox";
-//#region extensions/onnx/src/config.ts
+// extensions/onnx/src/config.ts
 const ConfigSchema = Type.Object({
 	modelDir: Type.Optional(Type.String({
 		minLength: 1,
@@ -33,8 +34,7 @@ function resolveOnnxConfig(config, resolvePath) {
 		maxLoadedModels
 	};
 }
-//#endregion
-//#region extensions/onnx/index.ts
+// extensions/onnx/index.ts
 function selectedModels(config) {
 	const selectors = [config.agents?.defaults?.decisionModel, ...Object.values(config.agents?.entries ?? {}).map((agent) => agent.decisionModel)];
 	return [...new Set(selectors.flatMap((selector) => {
@@ -50,29 +50,29 @@ var onnx_default = definePluginEntry({
 	configSchema: { jsonSchema: { ...ConfigSchema } },
 	register(api) {
 		if (!api.runtimeSource) throw new Error("ONNX requires runtime entrypoint metadata from its OpenClaw host.");
-		const workerUrl = new URL(`./src/inference.worker${path.extname(api.runtimeSource)}`, pathToFileURL(api.runtimeSource));
+		const workerUrl = resolveRuntimeWorkerUrl(createPluginRuntimeProcessEntrypoint("onnxInference", pathToFileURL(api.runtimeSource).href));
 		const config = resolveOnnxConfig(api.pluginConfig, api.resolvePath);
 		const client = new InferenceWorkerClient({
 			workerUrl,
 			config
 		});
-		api.registerDecisionProvider(createOnnxProvider(client, (message) => api.logger.warn(message)));
+		api.registerDecisionProvider(createPreparedOnnxProvider(client, (message) => api.logger.warn(message)));
 		api.registerService({
 			id: "onnx-worker",
 			async start(context) {
 				const models = selectedModels(context.config).slice(0, config.maxLoadedModels);
 				if (models.length === 0) return;
 				try {
-					await client.warm(models, AbortSignal.any([AbortSignal.timeout(12e4), ...api.lifecycle?.signal ? [api.lifecycle.signal] : []]));
+					await client.warm(models, AbortSignal.any([AbortSignal.timeout(12e4), ...api.lifecycle.signal ? [api.lifecycle.signal] : []]));
 				} catch {
 					context.logger.warn("ONNX models are not ready. Run openclaw onnx models and verify/download the selected artifacts.");
 				}
 			},
 			stop: () => client.stop()
 		});
-		api.lifecycle?.onDispose?.(() => client.stop());
+		api.lifecycle.onDispose?.(() => client.stop());
 		api.registerCli(async (context) => {
-			const { registerOnnxCli } = await import("./.setup/cli-Bs1V3EDP.mjs");
+			const { registerOnnxCli } = await import("./.setup/cli-CKW-ZPXS.mjs");
 			registerOnnxCli(context, config, workerUrl, api.resolvePath);
 		}, { descriptors: [{
 			name: "onnx",
@@ -81,5 +81,4 @@ var onnx_default = definePluginEntry({
 		}] });
 	}
 });
-//#endregion
 export { onnx_default as default };

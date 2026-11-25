@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";
+//!src/infra/net/hostname.ts
+function formatHostForUrl(e){return e.includes(`:`)&&!e.startsWith(`[`)?`[${e}]`:e}function normalizeHostname(e){const t=normalizeLowercaseStringOrEmpty(e).replace(/\.+$/,``);if(t.startsWith(`[`)&&t.endsWith(`]`))return t.slice(1,-1);return t}export{normalizeHostname as n,formatHostForUrl as t};

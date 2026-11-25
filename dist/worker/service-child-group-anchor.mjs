@@ -1,34 +1,204 @@
 import { createRequire } from "node:module";
 import { once } from "node:events";
-import fs, { closeSync, fstatSync, openSync, readFileSync, readSync, readdirSync } from "node:fs";
+import fs, { closeSync, fstatSync, openSync, readFile, readFileSync, readSync, readdirSync } from "node:fs";
 import { Socket } from "node:net";
-import { pipeline } from "node:stream";
-import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import path from "node:path";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { promisify } from "node:util";
+import { spawn, spawnSync } from "node:child_process";
 import { isatty } from "node:tty";
-//#region packages/normalization-core/src/record-coerce.ts
+import { PassThrough, pipeline } from "node:stream";
+import { finished } from "node:stream/promises";
+import { setTimeout as setTimeout$1 } from "node:timers/promises";
+// packages/normalization-core/src/record-coerce.ts
 /** Type guard for non-array object records at browser-safe boundaries. */
 function isRecord(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
-//#endregion
-//#region src/shared/deferred.ts
+// src/shared/deferred.ts
 const promiseWithResolvers = Promise;
 function createDeferredCore() {
 	return promiseWithResolvers.withResolvers();
 }
-//#endregion
-//#region packages/terminal-core/src/ansi-sequences.ts
-const ANSI_OSC_INTRODUCER_PATTERN = "(?:\\x1b\\]|\\x9d)";
-const ANSI_STRING_TERMINATOR_PATTERN = "(?:\\x1b\\\\|\\x07|\\x9c)";
-const ANSI_OSC_PATTERN = `${ANSI_OSC_INTRODUCER_PATTERN}[^\\x07\\x1b\\x9c]*${ANSI_STRING_TERMINATOR_PATTERN}`;
-const ANSI_COMPAT_CONTROL_SEQUENCE_PATTERN = "[\\u001B\\u009B][[\\]()#;?]*(?:\\d{1,4}(?:[;:]\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]";
-new RegExp(ANSI_OSC_PATTERN, "y");
-new RegExp(`${`${ANSI_OSC_INTRODUCER_PATTERN}[\\s\\S]*?${ANSI_STRING_TERMINATOR_PATTERN}`}|${ANSI_COMPAT_CONTROL_SEQUENCE_PATTERN}`, "y");
-new Intl.Segmenter(void 0, { granularity: "grapheme" });
-new RegExp(`[${String.fromCharCode(0)}-${String.fromCharCode(31)}${String.fromCharCode(127)}-${String.fromCharCode(159)}]`, "g");
-//#endregion
-//#region packages/normalization-core/src/string-coerce.ts
+// src/shared/monotonic-time.ts
+/** Process-local milliseconds: never persist or exchange these readings as epochs. */
+function monotonicNow() {
+	return performance.now();
+}
+function monotonicDeadlineAfter(timeoutMs) {
+	return monotonicNow() + timeoutMs;
+}
+/** Signed remaining budget; callers retain their expiration and rounding policy. */
+function remainingMonotonicMs(deadline) {
+	return deadline - monotonicNow();
+}
+// node-version.mjs
+const NODE_RELEASE_VERSION_RE = /^v?((?:0|[1-9]\d*))\.((?:0|[1-9]\d*))\.((?:0|[1-9]\d*))(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
+const NODE_RELEASE_FLOORS = [{
+	major: 24,
+	minor: 16,
+	patch: 0
+}, {
+	major: 26,
+	minor: 1,
+	patch: 0
+}];
+const HIGHEST_RELEASE_FLOOR = NODE_RELEASE_FLOORS[NODE_RELEASE_FLOORS.length - 1];
+`${NODE_RELEASE_FLOORS.map(({ major, minor, patch }, index) => `>=${major}.${minor}.${patch}${index < NODE_RELEASE_FLOORS.length - 1 ? ` <${major + 1}` : ""}`).join(" || ").replaceAll(" || ", ", ").replace(/, ([^,]+)$/, ", or $1")}`;
+/** Parses release SemVer; future-major prereleases use their numeric core for admission. */
+function parseNodeReleaseVersion(value) {
+	if (typeof value !== "string") return null;
+	const match = NODE_RELEASE_VERSION_RE.exec(value.trim());
+	if (!match) return null;
+	const version = {
+		major: Number(match[1]),
+		minor: Number(match[2]),
+		patch: Number(match[3])
+	};
+	return Object.values(version).every(Number.isSafeInteger) && (!match[4] || version.major > HIGHEST_RELEASE_FLOOR.major) ? version : null;
+}
+function renderProcessNodeVersionCheck() {
+	return `((value) => {
+  if (typeof value !== "string") return false;
+  const match = new RegExp(${JSON.stringify(NODE_RELEASE_VERSION_RE.source)}, "u").exec(value.trim());
+  if (!match) return false;
+  const version = { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) };
+  if (!Object.values(version).every(Number.isSafeInteger)) return false;
+  const floors = ${JSON.stringify(NODE_RELEASE_FLOORS)};
+  if (match[4] && version.major <= floors[floors.length - 1].major) return false;
+  const minimum = floors.find((floor) => floor.major === version.major);
+  const atLeast = (floor) =>
+    version.major > floor.major ||
+    (version.major === floor.major &&
+      (version.minor > floor.minor ||
+        (version.minor === floor.minor && version.patch >= floor.patch)));
+  return minimum ? atLeast(minimum) : version.major > floors[floors.length - 1].major;
+})(process.versions.node)`;
+}
+renderProcessNodeVersionCheck();
+// node_modules/.pnpm/@openclaw+fs-safe@0.27.1/node_modules/@openclaw/fs-safe/dist/path.js
+function isNodeError(value) {
+	return Boolean(value && typeof value === "object" && "code" in value);
+}
+function hasNodeErrorCode(value, code) {
+	return isNodeError(value) && value.code === code;
+}
+// src/shared/global-singleton.ts
+/**
+* Process-local singleton helpers for registries, caches, and SDK-visible shared state.
+* Keys must be symbols so unrelated modules cannot collide on `globalThis` property names.
+*/
+const GLOBAL_SINGLETON_RESETS_KEY = Symbol.for("openclaw.globalSingletonLifecycleResets");
+function resolveGlobalSingletonResetRegistry() {
+	const globalStore = globalThis;
+	const existing = globalStore[GLOBAL_SINGLETON_RESETS_KEY];
+	if (existing instanceof Map) return existing;
+	const created = /* @__PURE__ */ new Map();
+	globalStore[GLOBAL_SINGLETON_RESETS_KEY] = created;
+	return created;
+}
+/** Resolves a process-local singleton for caches and registries that tolerate helper lookup. */
+function resolveGlobalSingleton(key, create, reset, lifecycle = "close-and-restart") {
+	const globalStore = globalThis;
+	let value;
+	if (Object.hasOwn(globalStore, key)) value = globalStore[key];
+	else {
+		value = create();
+		globalStore[key] = value;
+	}
+	if (reset) resolveGlobalSingletonResetRegistry().set(key, {
+		lifecycle,
+		reset: () => reset(value)
+	});
+	return value;
+}
+// src/shared/detached-async-context.ts
+const asyncHooks = typeof process === "undefined" ? void 0 : process.getBuiltinModule?.("node:async_hooks");
+asyncHooks && resolveGlobalSingleton(Symbol.for("openclaw.detachedAsyncContext"), () => new asyncHooks.AsyncResource("openclaw.detached-async-context"));
+Buffer.from("\nVmRSS:");
+Buffer.from("\nVmSwap:");
+const nodeVersion = parseNodeReleaseVersion(process.versions.node);
+!process.versions.bun && nodeVersion && (nodeVersion.major === 24 && nodeVersion.minor >= 19 || nodeVersion.major === 26 && nodeVersion.minor >= 4 && nodeVersion.minor);
+promisify(readFile);
+resolveGlobalSingleton(Symbol.for("openclaw.hostExecMemory"), () => ({
+	watches: /* @__PURE__ */ new Set(),
+	sampling: false,
+	assessmentPending: false
+}));
+// src/process/linux-exec-cgroup.ts
+const cgroupMount = "/sys/fs/cgroup";
+const controllers = [
+	"cpu",
+	"io",
+	"memory"
+];
+/** Startup prepares the shared fallback before publishing an active aggregate policy. */
+function prepareAgentExecCgroupScope(directory, scopeKey) {
+	const scope = scopeKey?.trim();
+	const leaf = path.join(directory, scope ? `session-${createHash("sha256").update(scope).digest("hex").slice(0, 32)}` : "unscoped");
+	fs.mkdirSync(leaf, { recursive: true });
+	const aggregateLimits = fs.readFileSync(path.join(directory, "io.max"), "utf8").trim();
+	for (const line of aggregateLimits.split("\n")) {
+		const [device, ...fields] = line.split(/\s+/u);
+		if (!device) continue;
+		const limits = fields.map((field) => {
+			const [key, value] = field.split("=");
+			const limit = Number(value);
+			return `${key}=${limit > 0 && Number.isFinite(limit) ? Math.max(1, Math.floor(limit / 2)) : value}`;
+		});
+		fs.writeFileSync(path.join(leaf, "io.max"), [device, ...limits].join(" "));
+	}
+	return leaf;
+}
+/** Delegation is a kernel capability, resolved from this process's own service leaf. */
+function resolveGatewayServiceCgroupDirectory() {
+	const relative = /^0::(.+)$/mu.exec(fs.readFileSync("/proc/self/cgroup", "utf8"))?.[1];
+	const service = relative && /^(\/(?:[^/]+\/)*[^/]+\.service)\/(?:gateway|agent-exec(?:\/(?:session-[a-f0-9]{32}|unscoped))?)$/u.exec(relative);
+	if (!service) return;
+	const root = path.join(cgroupMount, service[1]);
+	fs.accessSync(root, fs.constants.W_OK | fs.constants.X_OK);
+	fs.accessSync(path.join(root, "cgroup.subtree_control"), fs.constants.W_OK);
+	fs.accessSync(path.join(root, "gateway", "cgroup.procs"), fs.constants.W_OK);
+	const available = new Set(fs.readFileSync(path.join(root, "cgroup.controllers"), "utf8").trim().split(/\s+/u));
+	if (!controllers.every((controller) => available.has(controller))) throw new Error("the service has not delegated cpu, io, and memory controllers");
+	if (fs.readFileSync(path.join(root, "cgroup.procs"), "utf8").trim()) throw new Error("the service root still contains processes; move its launcher into the gateway leaf");
+	return root;
+}
+/** Helpers discover the same delegated subtree even with an exact application environment. */
+function getAgentExecCgroup(scopeKey) {
+	if (process.platform !== "linux") return;
+	try {
+		const root = resolveGatewayServiceCgroupDirectory();
+		if (!root) return;
+		const enabled = new Set(fs.readFileSync(path.join(root, "cgroup.subtree_control"), "utf8").trim().split(/\s+/u));
+		const directory = path.join(root, "agent-exec");
+		fs.accessSync(directory, fs.constants.W_OK | fs.constants.X_OK);
+		fs.accessSync(path.join(directory, "cgroup.procs"), fs.constants.W_OK);
+		const ioPolicy = fs.readFileSync(path.join(directory, "io.max"), "utf8").trim();
+		const cpuWeight = fs.readFileSync(path.join(directory, "cpu.weight"), "utf8").trim();
+		if (controllers.every((controller) => enabled.has(controller)) && ioPolicy && cpuWeight === "10") {
+			const delegated = new Set(fs.readFileSync(path.join(directory, "cgroup.subtree_control"), "utf8").trim().split(/\s+/u));
+			if (!controllers.every((controller) => delegated.has(controller))) return directory;
+			try {
+				return prepareAgentExecCgroupScope(directory, scopeKey);
+			} catch (error) {
+				process.emitWarning(`Session exec IO policy unavailable; using the shared exec budget: ${String(error)}`);
+				return path.join(directory, "unscoped");
+			}
+		}
+	} catch {}
+}
+/** Dedicated anchors/PTY helpers enter before launching their first application child. */
+function enterAgentExecCgroup(scopeKey) {
+	const directory = getAgentExecCgroup(scopeKey);
+	if (directory) try {
+		fs.writeFileSync(path.join(directory, "cgroup.procs"), "0");
+	} catch (error) {
+		process.emitWarning(`Agent exec cgroup placement failed: ${String(error)}`);
+	}
+}
+// packages/normalization-core/src/string-coerce.ts
 /** Trims string input and returns null for non-strings or empty strings. */
 function normalizeNullableString(value) {
 	if (typeof value !== "string") return null;
@@ -43,8 +213,13 @@ function normalizeOptionalString(value) {
 function normalizeOptionalLowercaseString(value) {
 	return normalizeOptionalString(value)?.toLowerCase();
 }
-//#endregion
-//#region src/utils/boolean.ts
+// src/utils/boolean.ts
+/**
+* Shared boolean coercion helpers for config, env, and plugin SDK runtime inputs.
+*
+* `asBoolean` is intentionally strict; string parsing is opt-in through
+* `parseBooleanValue` so schema callers do not silently accept ambiguous text.
+*/
 const DEFAULT_TRUTHY = [
 	"true",
 	"1",
@@ -68,18 +243,8 @@ function parseBooleanValue(value, options = {}) {
 	if ((options.truthy ?? DEFAULT_TRUTHY).includes(normalized)) return true;
 	if ((options.falsy ?? DEFAULT_FALSY).includes(normalized)) return false;
 }
-//#endregion
-//#region src/process/linux-oom-score.ts
-/**
-* Linux children inherit the Gateway's OOM score, leaving the larger Gateway
-* vulnerable under memory pressure (#70404). Raise children to 1000 through a
-* shell that execs the command, or after native spawn when argv0 must be retained.
-* Raising a same-user child's score needs no CAP_SYS_RESOURCE.
-* OPENCLAW_CHILD_OOM_SCORE_ADJ=0 (also false/no/off) opts out per child or process.
-*/
+// src/process/linux-oom-score-spawn.ts
 const CHILD_OOM_SCORE_ADJ_ENV_KEY = "OPENCLAW_CHILD_OOM_SCORE_ADJ";
-const OOM_SCORE_WRAP_SHELL = "/bin/sh";
-const OOM_SCORE_WRAP_SCRIPT = "echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec \"$0\" \"$@\"";
 [
 	"echo 1000 > /proc/self/oom_score_adj 2>/dev/null; if [ \"${OC_INTERNAL_OOM_EXEC_BASH_ENV+x}\" = x ]; then BASH_ENV=\"$OC_INTERNAL_OOM_EXEC_BASH_ENV\"; export BASH_ENV; fi; unset OC_INTERNAL_OOM_EXEC_BASH_ENV",
 	"if [ \"${OC_INTERNAL_OOM_EXEC_ENV+x}\" = x ]; then ENV=\"$OC_INTERNAL_OOM_EXEC_ENV\"; export ENV; fi; unset OC_INTERNAL_OOM_EXEC_ENV",
@@ -102,7 +267,7 @@ function shouldAdjustChildOomScore(options) {
 	return parseBooleanValue(options?.env?.[CHILD_OOM_SCORE_ADJ_ENV_KEY] ?? process.env[CHILD_OOM_SCORE_ADJ_ENV_KEY]) !== false;
 }
 function isWrapped(command, args) {
-	return command === OOM_SCORE_WRAP_SHELL && args[0] === "-c" && args[1] === OOM_SCORE_WRAP_SCRIPT;
+	return command === "/bin/sh" && args[0] === "-c" && args[1] === "echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec \"$0\" \"$@\"";
 }
 /** Only small spawn owners may temporarily raise their score; never call from the Gateway. */
 function spawnWithInheritedOomScore(command, args, options) {
@@ -129,8 +294,7 @@ function spawnWithInheritedOomScore(command, args, options) {
 		}
 	}
 }
-//#endregion
-//#region src/process/release-stdin.ts
+// src/process/release-stdin.ts
 /**
 * Releases inherited stdin before a child entry point disconnects.
 *
@@ -148,8 +312,7 @@ function releaseProcessStdin() {
 	} catch {}
 	if (!fileBacked) process.stdin.destroy();
 }
-//#endregion
-//#region src/process/spawn-broker/protocol.ts
+// src/process/spawn-broker/protocol.ts
 function serializeBrokerError(error) {
 	return {
 		message: error.message,
@@ -159,11 +322,80 @@ function serializeBrokerError(error) {
 		path: error.path
 	};
 }
-//#endregion
-//#region src/process/supervisor/cancellation-policy.ts
+// src/process/supervisor/cancellation-policy.ts
 const GRACEFUL_CANCEL_TIMEOUT_MS = 5e3;
-//#endregion
-//#region packages/normalization-core/src/error-coercion.ts
+// src/process/supervisor/service-child-stdio.ts
+function setStdioEntry(stdio, fd, value) {
+	while (stdio.length <= fd) stdio.push("ignore");
+	stdio[fd] = value;
+}
+function reserveStdioEntry(stdio, value) {
+	let fd = 3;
+	while (stdio[fd] !== void 0 && stdio[fd] !== "ignore") fd += 1;
+	setStdioEntry(stdio, fd, value);
+	return fd;
+}
+// src/process/supervisor/service-child-group-anchor-io.ts
+function commandStdio(start) {
+	const stdio = [
+		start.stdinMode === "inherit" ? "inherit" : "pipe",
+		"pipe",
+		"pipe"
+	];
+	if (start.secretFd !== void 0) setStdioEntry(stdio, start.secretFd, start.secretFd);
+	const lineageFd = reserveStdioEntry(stdio, start.lineageFd ?? "pipe");
+	const inheritedLineageFds = [lineageFd, ...(start.parentLineageFds ?? []).map((fd) => reserveStdioEntry(stdio, fd))];
+	if (start.ownedWorker) stdio.push("ipc");
+	return {
+		stdio,
+		lineageFd,
+		inheritedLineageFds
+	};
+}
+function delay(ms, retainOwner = false) {
+	return new Promise((resolve) => {
+		const timer = setTimeout(resolve, ms);
+		if (!retainOwner) timer.unref?.();
+	});
+}
+/** Relay owned output, returning a handoff that drains without breaking its writer. */
+function relayCommandOutput(source, destination, settled) {
+	const relay = new PassThrough();
+	let released = false;
+	source.once("error", (error) => relay.destroy(error));
+	relay.once("close", () => {
+		if (!released) source.destroy();
+	});
+	pipeline(relay, destination, settled);
+	source.pipe(relay);
+	return async () => {
+		released = true;
+		source.unpipe(relay);
+		relay.end();
+		const drained = finished(source, { cleanup: true }).catch(() => void 0);
+		source.resume();
+		await drained;
+	};
+}
+/** Flush the anchor's last receipt, then release every host channel. */
+function finishAnchorTransport(control, code) {
+	process.exitCode = code;
+	releaseProcessStdin();
+	const disconnect = () => {
+		control?.off("close", disconnect);
+		control?.destroy();
+		if (process.connected) process.disconnect?.();
+	};
+	if (control && !control.destroyed) {
+		control.once("close", disconnect);
+		control.end(disconnect);
+	} else disconnect();
+}
+/** Close inherited descriptors once, ignoring duplicates. */
+function closeFds(fds) {
+	for (const fd of new Set(fds ?? [])) closeSync(fd);
+}
+// packages/normalization-core/src/error-coercion.ts
 function readProperty(value, key) {
 	try {
 		return value[key];
@@ -176,8 +408,7 @@ function extractErrorCode(err) {
 	const code = readProperty(err, "code");
 	return typeof code === "string" || typeof code === "number" ? String(code) : void 0;
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/errors.js
+// node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/errors.js
 var ProcSafeError = class extends Error {
 	code;
 	details;
@@ -188,8 +419,7 @@ var ProcSafeError = class extends Error {
 		this.details = options.details;
 	}
 };
-//#endregion
-//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/native-error.js
+// node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/native-error.js
 const nativeCodes = /* @__PURE__ */ new Set([
 	"unsupported-platform",
 	"helper-unavailable",
@@ -225,8 +455,7 @@ function fromNativeError(error) {
 		...code === "operation-failed" && message === "operation-failed: not-a-child" ? { details: { reason: "not-a-child" } } : {}
 	});
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/native-load-error.js
+// node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/native-load-error.js
 /** Recognize only a resolver error naming the selected package, not a missing child dependency. */
 function isMissingNativePackage(error, packageName) {
 	if (!(error instanceof Error) || !("code" in error) || error.code !== "MODULE_NOT_FOUND") return false;
@@ -234,8 +463,7 @@ function isMissingNativePackage(error, packageName) {
 	const missing = `Cannot find module '${packageName}'`;
 	return firstLine === missing || firstLine?.startsWith(`${missing} from '`) === true && firstLine.endsWith("'");
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/native.js
+// node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/native.js
 const require = createRequire(import.meta.url);
 const initialize = AsyncLocalStorage.snapshot();
 let binding;
@@ -390,8 +618,7 @@ function validatePid(pid) {
 	const max = process.platform === "win32" ? 4294967295 : 2147483647;
 	if (!Number.isInteger(pid) || pid <= 0 || pid > max) throw new ProcSafeError("invalid-argument", "pid must be a positive platform PID");
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/identity.js
+// node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/identity.js
 function platformSupported$1() {
 	return [
 		"darwin",
@@ -413,8 +640,7 @@ function readProcessIdentity(pid) {
 		throw fromNativeError(error);
 	}
 }
-//#endregion
-//#region src/shared/pid-alive.ts
+// src/shared/pid-alive.ts
 /** Unknown observations never prove death; Linux keeps its thread-aware procfs policy. */
 function readNativeLiveness(pid) {
 	if (![
@@ -433,43 +659,51 @@ function readNativeLiveness(pid) {
 function isValidPid(pid) {
 	return Number.isInteger(pid) && pid > 0;
 }
+function hasLinuxProcfs() {
+	return process.platform === "linux" || process.platform === "android";
+}
 /**
 * Reject recycled worker TIDs and terminal leaders without live sibling threads.
 * Missing or reaped procfs snapshots require a fresh existence probe.
 */
-function isExitedLinuxProcess(pid) {
-	if (process.platform !== "linux") return false;
-	try {
-		const status = fs.readFileSync(`/proc/${pid}/status`, "utf8");
-		const state = status.match(/^State:\s+(\S)/m)?.[1];
-		const threads = status.match(/^Threads:[ \t]+(\d+)[ \t]*$/m)?.[1];
-		if (threads !== "0") {
-			const tgid = status.match(/^Tgid:[ \t]+(\d+)[ \t]*$/m)?.[1];
-			return tgid !== void 0 && Number(tgid) !== pid || (state === "Z" || state === "X") && threads === "1";
-		}
-	} catch {}
+function exitedLinuxStatus(pid, status) {
+	const state = status.match(/^State:\s+(\S)/m)?.[1];
+	const threads = status.match(/^Threads:[ \t]+(\d+)[ \t]*$/m)?.[1];
+	if (threads === "0") return;
+	const tgid = status.match(/^Tgid:[ \t]+(\d+)[ \t]*$/m)?.[1];
+	return tgid !== void 0 && Number(tgid) !== pid || (state === "Z" || state === "X") && threads === "1";
+}
+function isMissingPid(pid) {
 	try {
 		process.kill(pid, 0);
 	} catch (error) {
-		return error.code === "ESRCH";
+		return hasNodeErrorCode(error, "ESRCH");
 	}
 	return false;
+}
+function isExitedLinuxProcess(pid) {
+	if (!hasLinuxProcfs()) return false;
+	try {
+		const exited = exitedLinuxStatus(pid, fs.readFileSync(`/proc/${pid}/status`, "utf8"));
+		if (exited !== void 0) return exited;
+	} catch {}
+	return isMissingPid(pid);
 }
 /** Returns true only when the PID is invalid, missing, or a known terminal task. */
 function isPidDefinitelyDead(pid) {
 	if (!isValidPid(pid)) return true;
+	let missing = false;
 	try {
 		process.kill(pid, 0);
 	} catch (error) {
-		if (error.code !== "ESRCH") return false;
-		const native = readNativeLiveness(pid);
-		return native === void 0 ? process.platform !== "freebsd" : !native;
+		const code = isNodeError(error) ? error.code : void 0;
+		if (code !== "ESRCH" && !(process.platform === "win32" && code === "EPERM")) return false;
+		missing = code === "ESRCH";
 	}
 	const native = readNativeLiveness(pid);
-	return native === void 0 ? isExitedLinuxProcess(pid) : !native;
+	return native === void 0 ? missing && process.platform !== "freebsd" || isExitedLinuxProcess(pid) : !native;
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/inspect.js
+// node_modules/.pnpm/@openclaw+proc-safe@0.4.2/node_modules/@openclaw/proc-safe/dist/inspect.js
 function commandResult(result) {
 	return Object.freeze({
 		executable: result.executable,
@@ -510,8 +744,7 @@ function listProcesses(options) {
 		throw fromNativeError(error);
 	}
 }
-//#endregion
-//#region src/process/darwin-process-inspection.ts
+// src/process/darwin-process-inspection.ts
 var DarwinProcessInspectionError = class extends Error {
 	constructor(reason, options) {
 		super(`Darwin process inspection ${reason}`, options);
@@ -582,8 +815,7 @@ function* readDarwinProcessCensus(timeoutMs) {
 	}
 	remaining(deadline);
 }
-//#endregion
-//#region src/process/supervisor/service-child-group-ownership.ts
+// src/process/supervisor/service-child-group-ownership.ts
 function readLinuxProcessUid(pid) {
 	try {
 		const lines = readFileSync(`/proc/${pid}/status`, "utf8").split("\n").filter((line) => line.startsWith("Uid:"));
@@ -605,12 +837,21 @@ function killOwnedProcessGroupMembers() {
 		}
 	}
 }
+function parseLinuxProcessGroupMember(pid, stat) {
+	const match = /^(\d+) \([\s\S]*\) (\S) (\d+) (-1|\d+)(?:\s|$)/.exec(stat);
+	if (!match || Number(match[1]) !== pid) throw new Error("Process group census is unavailable");
+	return {
+		pid,
+		ppid: Number(match[3]),
+		pgid: Number(match[4]),
+		state: match[2]
+	};
+}
 /** The caller supplies command inspection; group cleanup only reads native topology. */
 function* readProcessGroupMembers(timeoutMs, commandInspection) {
 	const includeCommand = commandInspection !== void 0;
 	if (process.platform === "linux") {
-		const startedAt = Date.now();
-		const deadline = startedAt + timeoutMs;
+		const deadline = Date.now() + timeoutMs;
 		for (const name of readdirSync("/proc")) {
 			if (Date.now() >= deadline) throw new Error("Process group census exceeded its deadline");
 			if (!/^\d+$/.test(name)) continue;
@@ -635,11 +876,8 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 				if (pid !== process.pid && ["ENOENT", "ESRCH"].includes(extractErrorCode(error) ?? "")) continue;
 				throw new Error(`Could not classify PID ${pid}: process command inspection failed (${extractErrorCode(error) ?? "unavailable"}).`, { cause: error });
 			}
-			const match = /^(\d+) \([\s\S]*\) (\S) (\d+) (\d+)(?:\s|$)/.exec(stat);
-			if (!match) throw new Error(`Process group census is unavailable: malformed stat for PID ${pid}`);
-			if (Number(match[1]) !== pid) throw new Error(`Process group census is unavailable: stat PID mismatch for PID ${pid} (stat PID=${Number(match[1])})`);
-			const now = Date.now();
-			if (now >= deadline) throw new Error(`Process group census exceeded its deadline after reading PID ${pid} (elapsed=${now - startedAt}ms, budget=${timeoutMs}ms)`);
+			const member = parseLinuxProcessGroupMember(pid, stat);
+			if (Date.now() >= deadline) throw new Error("Process group census is unavailable");
 			if (argv?.length === 0) {
 				const flags = Number(stat.slice(stat.lastIndexOf(")") + 2).split(/\s+/)[6]);
 				if (!(Number.isInteger(flags) && (flags & 2097152) !== 0) && !isPidDefinitelyDead(pid)) {
@@ -652,14 +890,14 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 			}
 			yield {
 				pid,
-				pgid: Number(match[4]),
-				state: match[2],
+				pgid: member.pgid,
+				state: member.state,
 				...argv ? { command: {
-					ppid: Number(match[3]),
+					ppid: member.ppid,
 					argv,
 					...uid === void 0 ? {} : { uid }
 				} } : opaqueForeignOwner && uid !== void 0 ? { command: {
-					ppid: Number(match[3]),
+					ppid: member.ppid,
 					argvUnavailable: true,
 					uid
 				} } : {}
@@ -670,12 +908,25 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 	}
 	if (process.platform === "darwin") {
 		for (const member of readDarwinProcessCensus(timeoutMs)) {
-			const command = includeCommand ? member.state.startsWith("Z") || member.pid === 0 ? { argv: [] } : commandInspection?.readDarwinCommand(member.pid, member.owner) : void 0;
-			if (includeCommand && !command) continue;
-			yield {
+			const row = {
 				pid: member.pid,
 				pgid: member.pgid,
-				state: member.state,
+				state: member.state
+			};
+			let command;
+			try {
+				command = includeCommand ? member.state.startsWith("Z") || member.pid === 0 ? { argv: [] } : commandInspection?.readDarwinCommand(member.pid, member.owner) : void 0;
+			} catch (error) {
+				if (!(error instanceof ProcSafeError) || error.code !== "incomplete" && error.code !== "layout-mismatch") throw error;
+				yield {
+					...row,
+					ppid: member.ppid
+				};
+				continue;
+			}
+			if (includeCommand && !command) continue;
+			yield {
+				...row,
 				...command ? { command: {
 					ppid: member.ppid,
 					owner: member.owner,
@@ -710,6 +961,9 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 	}
 	if (includeCommand && Date.now() >= deadline) throw new Error("Process group census exceeded its deadline");
 }
+function isLiveCensusMember({ pid, state }) {
+	return !state.startsWith("Z") || process.platform === "linux" && !isPidDefinitelyDead(pid);
+}
 /** Advisory retirement timing only; the host owns kernel group-disappearance proof. */
 function hasLiveOwnedProcessGroupMembers(timeoutMs = 1e3) {
 	let observedOwner = false;
@@ -717,56 +971,127 @@ function hasLiveOwnedProcessGroupMembers(timeoutMs = 1e3) {
 		for (const { pid, pgid, state } of readProcessGroupMembers(Math.max(1, Math.min(1e3, timeoutMs)))) if (pid === process.pid) {
 			if (pgid !== process.pid) return;
 			observedOwner = true;
-		} else if (pgid === process.pid && (!state.startsWith("Z") || process.platform === "linux" && !isPidDefinitelyDead(pid))) return true;
+		} else if (pgid === process.pid && isLiveCensusMember({
+			pid,
+			state
+		})) return true;
 	} catch {
 		return;
 	}
 	return observedOwner ? false : void 0;
 }
-//#endregion
-//#region src/process/supervisor/service-child-protocol.ts
+const MAX_RELEASED_COMMAND_CHARS = 200;
+function readLinuxProcessRow(pid) {
+	try {
+		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+		const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+		const command = readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0").filter(Boolean).join(" ");
+		return {
+			pid,
+			ppid: Number(fields[1]),
+			pgid: Number(fields[2]),
+			live: fields[0] !== "Z" && fields[0] !== "X",
+			command: command || void 0
+		};
+	} catch {
+		return;
+	}
+}
+function readProcessRows() {
+	if (process.platform === "linux") return readdirSync("/proc").filter((name) => /^\d+$/.test(name)).flatMap((name) => readLinuxProcessRow(Number(name)) ?? []);
+	const listing = spawnSync("/bin/ps", [
+		"-A",
+		"-o",
+		"pid=,ppid=,pgid=,stat=,command="
+	], {
+		encoding: "utf8",
+		timeout: 1e3,
+		maxBuffer: 8388608
+	});
+	if (listing.status !== 0 || listing.error) throw listing.error ?? /* @__PURE__ */ new Error(`ps exited with status ${String(listing.status)}`);
+	return listing.stdout.split("\n").flatMap((line) => {
+		const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/.exec(line);
+		return match ? [{
+			pid: Number(match[1]),
+			ppid: Number(match[2]),
+			pgid: Number(match[3]),
+			live: !match[4].startsWith("Z"),
+			command: match[5].trim() || void 0
+		}] : [];
+	});
+}
+/**
+* Name every live process a command left behind: members of the owner's group,
+* caller-observed children (adopted orphans), and all of their descendants, even
+* those that started a new session. The owner's own helpers (its direct children
+* other than the command root) and their descendants are not the command's.
+* `earlier` is a previous census: each of its processes that still runs the same
+* command stays named, even after the parent that tied it to the command exited.
+* Undefined when the process table cannot be read: the caller must then stop the
+* tree instead of releasing processes it cannot account for.
+*/
+function describeReleasedProcesses(rootPid, adoptedPids = [], earlier = []) {
+	let rows;
+	try {
+		rows = readProcessRows();
+	} catch {
+		return;
+	}
+	if (rows.length === 0) return;
+	const children = /* @__PURE__ */ new Map();
+	for (const row of rows) {
+		const siblings = children.get(row.ppid);
+		if (siblings) siblings.push(row);
+		else children.set(row.ppid, [row]);
+	}
+	const closure = (seeds) => {
+		const found = /* @__PURE__ */ new Set();
+		const queue = [...seeds];
+		for (let pid = queue.pop(); pid !== void 0; pid = queue.pop()) {
+			if (found.has(pid)) continue;
+			found.add(pid);
+			queue.push(...(children.get(pid) ?? []).map((child) => child.pid));
+		}
+		return found;
+	};
+	const helpers = closure((children.get(process.pid) ?? []).filter((row) => row.pid !== rootPid && !adoptedPids.includes(row.pid)).map((row) => row.pid));
+	const known = new Map(earlier.map(({ pid, command }) => [pid, command]));
+	const released = closure(rows.filter((row) => adoptedPids.includes(row.pid) || row.pgid === process.pid || known.has(row.pid) && known.get(row.pid) === truncateCommand(row.command)).map((row) => row.pid).filter((pid) => pid !== process.pid && !helpers.has(pid)));
+	return rows.filter((row) => row.live && released.has(row.pid) && !helpers.has(row.pid)).toSorted((left, right) => left.pid - right.pid).map(({ pid, command }) => command === void 0 ? { pid } : {
+		pid,
+		command: truncateCommand(command)
+	});
+}
+function truncateCommand(command) {
+	return command && command.length > MAX_RELEASED_COMMAND_CHARS ? `${command.slice(0, 199)}…` : command;
+}
+const RELEASE_SETTLE_MS = 2e3;
+const RELEASE_SETTLE_POLL_MS = 100;
+/**
+* After root exit, only what still runs at the end of the settle window was left
+* running on purpose: helpers that are still exiting (git, cp, tee) are not services.
+* Each census keeps the earlier survivors, so none escapes by outliving its parent.
+* A root that still runs is handed off at once. Undefined when the census fails or
+* `releasing` turns false (cancellation then owns the tree).
+*/
+async function settleSurvivors(rootPid, subreaper, releasing) {
+	const deadline = monotonicDeadlineAfter(RELEASE_SETTLE_MS);
+	let survivors = describeReleasedProcesses(rootPid, subreaper?.children());
+	while (survivors?.length && !survivors.some(({ pid }) => pid === rootPid) && remainingMonotonicMs(deadline) > 0 && releasing()) {
+		await setTimeout$1(Math.min(RELEASE_SETTLE_POLL_MS, remainingMonotonicMs(deadline)));
+		survivors = describeReleasedProcesses(rootPid, subreaper?.children(), survivors);
+	}
+	return releasing() ? survivors : void 0;
+}
+// src/process/supervisor/service-child-protocol.ts
 function encodeServiceChildMessage(message) {
 	return `${JSON.stringify(message)}\n`;
 }
-//#endregion
-//#region src/process/supervisor/service-child-stdio.ts
-function setStdioEntry(stdio, fd, value) {
-	while (stdio.length <= fd) stdio.push("ignore");
-	stdio[fd] = value;
-}
-function reserveStdioEntry(stdio, value) {
-	let fd = 3;
-	while (stdio[fd] !== void 0 && stdio[fd] !== "ignore") fd += 1;
-	setStdioEntry(stdio, fd, value);
-	return fd;
-}
-//#endregion
-//#region src/process/supervisor/service-child-group-anchor.ts
-function commandStdio(start) {
-	const stdio = [
-		start.stdinMode === "inherit" ? "inherit" : "pipe",
-		"pipe",
-		"pipe"
-	];
-	if (start.secretFd !== void 0) setStdioEntry(stdio, start.secretFd, start.secretFd);
-	const lineageFd = reserveStdioEntry(stdio, start.lineageFd ?? "pipe");
-	const inheritedLineageFds = [lineageFd, ...(start.parentLineageFds ?? []).map((fd) => reserveStdioEntry(stdio, fd))];
-	if (start.ownedWorker) stdio.push("ipc");
-	return {
-		stdio,
-		lineageFd,
-		inheritedLineageFds
-	};
-}
-function delay(ms, retainOwner = false) {
-	return new Promise((resolve) => {
-		const timer = setTimeout(resolve, ms);
-		if (!retainOwner) timer.unref?.();
-	});
-}
+// src/process/supervisor/service-child-group-anchor.ts
 function runServiceChildGroupAnchor() {
 	const launchGrant = createDeferredCore();
 	let start;
+	let subreaper;
 	let descendantsReaped = false;
 	let state = "starting";
 	let sequence = 0;
@@ -777,10 +1102,12 @@ function runServiceChildGroupAnchor() {
 	let workerStarted = false;
 	let workerLineageFds = [];
 	let control;
+	let ownedLineage;
 	let rootSettlementStarted = false;
 	let rootResultDelivery;
 	let rootExit;
 	const pendingOutput = /* @__PURE__ */ new Set(["stdout", "stderr"]);
+	let releaseOutput = [];
 	let lineageClosed = false;
 	let lineageObservationFailed = false;
 	let markHostLineageClosed;
@@ -806,20 +1133,8 @@ function runServiceChildGroupAnchor() {
 			}), () => resolve());
 		});
 	};
-	const finish = (code) => {
-		process.exitCode = code;
-		releaseProcessStdin();
-		const disconnect = () => {
-			control?.off("close", disconnect);
-			control?.destroy();
-			if (process.connected) process.disconnect?.();
-		};
-		if (control && !control.destroyed) {
-			control.once("close", disconnect);
-			control.end(disconnect);
-		} else disconnect();
-	};
-	const closeAuthority = async (reason, hardKill, deadline = Date.now() + GRACEFUL_CANCEL_TIMEOUT_MS) => {
+	const finish = (code) => finishAnchorTransport(control, code);
+	const closeAuthority = async (reason, hardKill, deadline = monotonicNow() + GRACEFUL_CANCEL_TIMEOUT_MS) => {
 		if (!start || state === "closed") return;
 		if (start.treeOwnership === "linux-subreaper") {
 			if (command && true) throw new Error("native owner cannot close before descendant extinction");
@@ -830,7 +1145,7 @@ function runServiceChildGroupAnchor() {
 				type: "closing",
 				reason
 			});
-			const acknowledged = await Promise.race([retirementReady.promise, delay(Math.max(0, deadline - Date.now())).then(() => false)]);
+			const acknowledged = await Promise.race([retirementReady.promise, delay(Math.max(0, deadline - monotonicNow())).then(() => false)]);
 			finish(acknowledged ? 0 : 1);
 			return;
 		}
@@ -841,14 +1156,14 @@ function runServiceChildGroupAnchor() {
 		}
 		const requiresAcknowledgement = start.acknowledgeClosing === true;
 		closingSequence = requiresAcknowledgement ? sequence + 1 : void 0;
-		const remainingMs = deadline - Date.now();
+		const remainingMs = deadline - monotonicNow();
 		if (remainingMs > 0) send({
 			type: "closing",
 			reason
 		}).then(() => {
 			if (!requiresAcknowledgement) retirementReady.resolve(true);
 		}, () => retirementReady.resolve(false));
-		if (remainingMs <= 0 || !await Promise.race([retirementReady.promise, delay(remainingMs).then(() => false)]) || Date.now() >= deadline || hardKill) {
+		if (remainingMs <= 0 || !await Promise.race([retirementReady.promise, delay(remainingMs).then(() => false)]) || monotonicNow() >= deadline || hardKill) {
 			process.kill(0, "SIGKILL");
 			return;
 		}
@@ -887,7 +1202,7 @@ function runServiceChildGroupAnchor() {
 			await reportStartupFailure("command startup cancelled before spawn", true);
 			return;
 		}
-		const cleanupDeadline = Date.now() + GRACEFUL_CANCEL_TIMEOUT_MS;
+		const deadline = monotonicNow() + GRACEFUL_CANCEL_TIMEOUT_MS;
 		const termGraceDone = delay(GRACEFUL_CANCEL_TIMEOUT_MS);
 		if (!start.ownedWorker && !forceCleanup && rootExit && pendingOutput.size > 0) await Promise.race([
 			rootSettledDone.promise,
@@ -895,13 +1210,15 @@ function runServiceChildGroupAnchor() {
 			forceCleanupRequested.promise
 		]);
 		if (start.ownedWorker) {
-			if (!forceCleanup) process.kill(0, "SIGTERM");
 			const settled = Promise.all([rootExited.promise, lineageDone.promise]);
-			if (!forceCleanup) await Promise.race([
-				settled,
-				termGraceDone,
-				forceCleanupRequested.promise
-			]);
+			if (!forceCleanup) {
+				process.kill(0, "SIGTERM");
+				await Promise.race([
+					settled,
+					termGraceDone,
+					forceCleanupRequested.promise
+				]);
+			}
 			if (!rootExit) command?.kill("SIGKILL");
 			if (!lineageClosed) killOwnedProcessGroupMembers();
 			await settled;
@@ -948,17 +1265,40 @@ function runServiceChildGroupAnchor() {
 		}
 		for (;;) {
 			if (forceCleanup || !rootExit || pendingOutput.size > 0 || !lineageClosed) break;
-			const remainingMs = cleanupDeadline - Date.now();
+			const remainingMs = Math.max(0, remainingMonotonicMs(deadline));
 			if (remainingMs <= 0) break;
 			if (hasLiveOwnedProcessGroupMembers(remainingMs) === false) {
-				await closeAuthority(reason, false, cleanupDeadline);
+				await closeAuthority(reason, false, deadline);
 				return;
 			}
-			const nextObservationMs = Math.min(100, cleanupDeadline - Date.now());
+			const nextObservationMs = Math.min(100, Math.max(0, remainingMonotonicMs(deadline)));
 			if (nextObservationMs <= 0) break;
 			await Promise.race([delay(nextObservationMs), forceCleanupRequested.promise]);
 		}
 		await closeAuthority(reason, true);
+	};
+	const releaseDescendants = async () => {
+		if (!start?.releaseOnRootExit || start.ownedWorker || !command || state !== "active") return;
+		const survivors = await settleSurvivors(command.pid, subreaper, () => state === "active");
+		if (!survivors) {
+			requestCleanup("cancel");
+			return;
+		}
+		state = "closed";
+		closingSequence = sequence + 1;
+		await send({
+			type: "released",
+			survivors
+		});
+		await Promise.race([retirementReady.promise, delay(GRACEFUL_CANCEL_TIMEOUT_MS)]);
+		closeFds(start.parentLineageFds);
+		ownedLineage?.destroy();
+		const drained = Promise.all(releaseOutput.map((release) => release()));
+		command.unref();
+		const transportClosed = control && !control.destroyed ? once(control, "close").catch(() => void 0) : void 0;
+		finish(0);
+		await Promise.race([transportClosed, delay(GRACEFUL_CANCEL_TIMEOUT_MS)]);
+		await drained;
 	};
 	const onControlMessage = (message) => {
 		if (!start || message.generation !== start.generation || !Number.isSafeInteger(message.sequence) || message.sequence <= lastHostSequence) return;
@@ -986,6 +1326,10 @@ function runServiceChildGroupAnchor() {
 		if (message.type === "stdin-end") {
 			inputEndRequested = true;
 			finishInput?.();
+			return;
+		}
+		if (message.type === "release") {
+			releaseDescendants();
 			return;
 		}
 		if (message.type === "worker-close") {
@@ -1052,6 +1396,7 @@ function runServiceChildGroupAnchor() {
 		socket.once("close", onControlLoss);
 		socket.once("error", onControlLoss);
 		if (process.versions.bun) socket.connect({ fd: controlFd });
+		if (next.executionIntent === "agent-tool") enterAgentExecCgroup(next.executionScopeKey);
 		lineageCompletion = (next.ownedWorker, void 0);
 		if (next.treeOwnership === "linux-subreaper") try {
 			throw new Error("portable workers require their admitted host-native process owner");
@@ -1097,7 +1442,7 @@ function runServiceChildGroupAnchor() {
 			if (lineageClosed || lineageObservationFailed) return;
 			lineageClosed = true;
 			lineageDone.resolve();
-			if (state === "active") (async () => {
+			if (state === "active" && !start?.releaseOnRootExit) (async () => {
 				await rootExited.promise;
 				if (state !== "active") return;
 				if (rootSettlementStarted) await rootSettledDone.promise;
@@ -1118,6 +1463,7 @@ function runServiceChildGroupAnchor() {
 				await requestCleanup("lineage-lost", "SIGKILL");
 				return;
 			}
+			ownedLineage = lineage;
 			lineage.once("end", markLineageClosed);
 			const markLineageFailed = () => {
 				if (lineageClosed || lineageObservationFailed) return;
@@ -1136,36 +1482,37 @@ function runServiceChildGroupAnchor() {
 			rootSettlementStarted = true;
 			await rootResultDelivery;
 			rootSettledDone.resolve();
-			if (lineageClosed && state === "active") await requestCleanup("lineage-lost");
+			if (lineageClosed && state === "active" && !start?.releaseOnRootExit) await requestCleanup("lineage-lost");
 		};
-		for (const stream of ["stdout", "stderr"]) pipeline(command[stream], process[stream], () => {
+		const outputCommand = command;
+		releaseOutput = ["stdout", "stderr"].map((stream) => relayCommandOutput(outputCommand[stream], process[stream], () => {
 			shutdownOutput?.(stream === "stdout" ? 1 : 2, 1);
 			pendingOutput.delete(stream);
 			settleRoot();
-		});
+		}));
 		if (start.stdinMode !== "inherit" && command.stdin) {
-			const input = process.stdin;
 			const destination = command.stdin;
 			const endInput = () => {
 				if (!start?.terminateOnHostLoss || inputEndRequested) destination.end();
 			};
 			finishInput = () => {
-				if (input.readableEnded) endInput();
+				if (process.stdin.readableEnded) endInput();
 			};
 			let inputClosed = false;
 			const stopInput = () => {
-				input.unpipe(destination);
-				input.off("end", endInput);
+				process.stdin.unpipe(destination);
+				process.stdin.off("end", endInput);
 				releaseProcessStdin();
 				if (!inputClosed) {
 					inputClosed = true;
 					send({ type: "stdin-closed" });
 				}
 			};
-			destination.once("error", stopInput).once("close", stopInput);
-			input.pipe(destination, { end: false });
-			if (input.readableEnded) endInput();
-			else input.once("end", endInput);
+			destination.once("error", stopInput);
+			destination.once("close", stopInput);
+			process.stdin.pipe(destination, { end: false });
+			if (process.stdin.readableEnded) endInput();
+			else process.stdin.once("end", endInput);
 		}
 		command.once("error", (error) => {
 			if (state === "starting") reportStartupFailure(error.message);
@@ -1196,6 +1543,11 @@ function runServiceChildGroupAnchor() {
 			});
 			rootExited.resolve();
 			settleRoot();
+			if (start?.releaseOnRootExit && state === "active") (async () => {
+				await Promise.race([rootSettledDone.promise, delay(250)]);
+				await rootResultDelivery;
+				await releaseDescendants();
+			})();
 		});
 	};
 	const onParentSignal = () => {
@@ -1223,5 +1575,4 @@ function runServiceChildGroupAnchor() {
 	});
 }
 runServiceChildGroupAnchor();
-//#endregion
 export { runServiceChildGroupAnchor };

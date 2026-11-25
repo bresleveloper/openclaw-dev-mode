@@ -11,15 +11,13 @@ import {
   resolveInlineCommandMatch,
   resolvePowerShellInlineCommandMatch,
 } from "../infra/shell-inline-command.js";
-import { createSubsystemLogger } from "../logging/subsystem.js";
 import { resolveGlobalSingleton } from "../shared/global-singleton.js";
-import { resolveOomScoreWrappedCommand } from "./linux-oom-score.js";
+import { resolveOomScoreWrappedCommand } from "./linux-oom-score-spawn.js";
 
 const spawnCounts = resolveGlobalSingleton(Symbol.for("openclaw.childProcessSpawnCounts"), () => ({
   counts: new Map<string, { family: string; operation: string; count: number }>(),
   sampledAt: performance.now(),
 }));
-let spawnLog: ReturnType<typeof createSubsystemLogger> | undefined;
 const COMMAND_FAMILIES =
   /^(node|bun|git|ps|pgrep|lsof|sh|bash|zsh|cmd|powershell|pwsh|npm|pnpm|python|python3|uv|ssh|openclaw)$/;
 const GIT_OPERATIONS = [
@@ -62,6 +60,7 @@ const CHILD_OPERATIONS = [
   "shell.snapshot",
   "service.relay",
   "service.manager",
+  "plugin.capture-reclamation",
   "worktree.filesystem",
   "worktree.cleanup",
   "worktree.maintenance",
@@ -231,9 +230,6 @@ export function emitChildProcessSpawnSample(): void {
       count,
       intervalMs,
     });
-    (spawnLog ??= createSubsystemLogger("gateway/diagnostics/process")).debug(
-      `child process spawns: family=${family} operation=${operation} count=${count} ratePerMinute=${((count * 60_000) / intervalMs).toFixed(2)}`,
-    );
   }
   spawnCounts.counts.clear();
   spawnCounts.sampledAt = now;

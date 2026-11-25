@@ -1,0 +1,3 @@
+import{t as isStringOption}from"./string-readers-CdTvPGel.mjs";import{n as MODEL_DATA_THINKING_FORMATS,t as MODEL_DATA_APIS}from"./model-data-COuYqEbG.mjs";
+//!src/config/model-config-vocabulary.ts
+const MODEL_APIS=[...MODEL_DATA_APIS];const MODEL_THINKING_FORMATS=[...MODEL_DATA_THINKING_FORMATS];function isModelThinkingFormat(e){return isStringOption(e,MODEL_THINKING_FORMATS)}export{MODEL_THINKING_FORMATS as n,isModelThinkingFormat as r,MODEL_APIS as t};

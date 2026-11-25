@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function resolveEmbeddedSessionContextLimits(e){return{maxBytes:16777216,maxEvents:1e4,...e.operation===`settled-tool-finalization`?{toolResultOverflow:`omit`}:{}}}var t=e((()=>{}));export{resolveEmbeddedSessionContextLimits as n,t};

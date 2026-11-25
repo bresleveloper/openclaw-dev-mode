@@ -1,2 +1,2 @@
-import { Mg as PluginRuntime, yu as createPluginRuntimeStore } from "../config-contracts-CY87ANNp.js";
+import { J as PluginRuntime, Jf as createPluginRuntimeStore } from "../config-contracts-hzlacViZ.js";
 export { type PluginRuntime, createPluginRuntimeStore };

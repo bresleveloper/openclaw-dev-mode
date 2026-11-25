@@ -1,0 +1,2 @@
+//!src/channels/plugins/conversation-read-origin.ts
+function normalizeConversationReadInvocationOrigin(e){return e===`direct-operator`?`direct-operator`:`delegated`}export{normalizeConversationReadInvocationOrigin as t};

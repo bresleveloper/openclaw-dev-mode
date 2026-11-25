@@ -79,6 +79,13 @@
               "output": 0.6,
               "cacheRead": 0.075,
               "cacheWrite": 0
+            },
+            "compat": {
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high"
+              ]
             }
           },
           {
@@ -95,6 +102,13 @@
               "output": 0.3,
               "cacheRead": 0.0375,
               "cacheWrite": 0
+            },
+            "compat": {
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high"
+              ]
             }
           },
           {
@@ -111,6 +125,13 @@
               "output": 0.3,
               "cacheRead": 0.037,
               "cacheWrite": 0
+            },
+            "compat": {
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high"
+              ]
             }
           },
           {

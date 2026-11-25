@@ -1,0 +1,1 @@
+import{a as e,i as t}from"./openclaw-state-read-kysely-sync-B6YpzrKl.mjs";const n={"legacySessionMigration.readLedger":(n,r)=>({type:`legacySessionMigration.readLedger`,row:t(r,e(r).selectFrom(`migration_sources`).select([`report_json`,`status`]).where(`source_key`,`=`,`legacy-main-session-keys`))})};export{n as legacySessionMigrationReadOperations};

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { coerceErrorMessage } from "openclaw/plugin-sdk/error-runtime";
+import { sleepWithAbort } from "openclaw/plugin-sdk/retry-runtime";
 import {
   CRABBOX_NONBLOCKING_CAPTURE_VERSION,
   isCrabboxVersionAtLeast,
@@ -19,20 +20,22 @@ import {
   CrabboxCheckpointCreateError,
   parseCreatedCheckpoint,
   type CheckpointContext,
-  type createCheckpointCommands,
+  checkpointCommand,
   type parseCheckpointAvailability,
 } from "./crabbox-worker-warm-image-checkpoint.js";
 import type { CrabboxWarmImagePolicy } from "./crabbox-worker-warm-image-policy.js";
+import {
+  crabboxWarmImageRecoveryHint,
+  withoutCrabboxWarmImageOperation,
+  type WarmProfileRecord,
+} from "./crabbox-worker-warm-image-records.js";
 import { SCRUB_WORKER_STATE } from "./crabbox-worker-warm-image-scrub.js";
 import {
   clearCrabboxWarmImageCapture,
   crabboxCaptureUnsupportedSentence,
-  crabboxWarmImageRecoveryHint,
   isCrabboxCaptureRefusalRetained,
   sameCrabboxWarmImageGeneration,
-  withoutCrabboxWarmImageOperation,
   type openCrabboxWarmImageStore,
-  type WarmProfileRecord,
 } from "./crabbox-worker-warm-image-store.js";
 
 type CrabboxProfile = ReturnType<typeof parseCrabboxProfile>;
@@ -49,11 +52,11 @@ export function createCrabboxWarmImageCapture(dependencies: {
   verifyImage: (
     context: LeaseContext,
     checkpointId: string,
+    timeoutMs?: number,
   ) => Promise<ReturnType<typeof parseCheckpointAvailability>>;
   held: (record: WarmProfileRecord, checkpointId: string) => boolean;
   deleteImage: (context: LeaseContext, key: string, record: WarmProfileRecord) => Promise<void>;
   retireImage: (context: LeaseContext, key: string, record: WarmProfileRecord) => Promise<void>;
-  checkpointCommand: ReturnType<typeof createCheckpointCommands>["checkpointCommand"];
   prepareCapture: (
     context: LeaseContext & { profile: CrabboxProfile; sourcePreparationTimeoutMs: number },
   ) => Promise<void>;
@@ -68,7 +71,6 @@ export function createCrabboxWarmImageCapture(dependencies: {
     held,
     deleteImage,
     retireImage,
-    checkpointCommand,
   } = dependencies;
   const warnUnsupported = (message: string) =>
     warnOnce(
@@ -308,7 +310,7 @@ export function createCrabboxWarmImageCapture(dependencies: {
           await clearCrabboxWarmImageCapture(openStore(), key, captureId);
           return;
         }
-        const created = parseCreatedCheckpoint(
+        const { captureEstablished, ...created } = parseCreatedCheckpoint(
           await checkpointCommand(
             context,
             "create",
@@ -333,15 +335,30 @@ export function createCrabboxWarmImageCapture(dependencies: {
             resolveCrabboxCheckpointCaptureTimeoutMs(context.provider),
           ),
           context.id,
-          nonBlocking,
         );
-        if (!nonBlocking && created.state === "pending") {
-          if ((await verifyImage(context, created.checkpointId)) !== "available") {
-            throw new Error("Crabbox waited checkpoint is not available");
+        const sourceRunning = nonBlocking && captureEstablished;
+        if (!sourceRunning && created.state === "pending") {
+          // Without a capture-point attestation, keep enrollment credentials out of
+          // the source until this exact checkpoint is available, as for a waited create.
+          const deadline = performance.now() + WARM_IMAGE_NATIVE_WAIT_TIMEOUT_MS;
+          while (created.state === "pending") {
+            assertCurrent(context);
+            const remainingMs = deadline - performance.now();
+            if (remainingMs <= 0) {
+              throw new Error("Crabbox waited checkpoint is not available");
+            }
+            const state = await verifyImage(context, created.checkpointId, remainingMs);
+            assertCurrent(context);
+            if (state === "available") {
+              created.state = "available";
+            } else if (!nonBlocking) {
+              throw new Error("Crabbox waited checkpoint is not available");
+            } else {
+              await sleepWithAbort(Math.min(5_000, deadline - performance.now()), context.signal);
+            }
           }
-          created.state = "available";
         }
-        captured = nonBlocking ? "source-running" : true;
+        captured = sourceRunning ? "source-running" : true;
         const published = await openStore().update(key, (current) => {
           if (current?.operation?.type !== "capture" || current.operation.id !== captureId) {
             return undefined;
@@ -386,13 +403,13 @@ export function createCrabboxWarmImageCapture(dependencies: {
             ...next,
             image: {
               ...created,
-              state: nonBlocking ? "pending" : created.state,
+              state: sourceRunning ? "pending" : created.state,
               createdAtMs: now,
               preparationKey: owner.preparationKey,
               cacheKey: owner.cacheKey,
               purpose: owner.purpose,
               lastDemandAtMs: owner.purpose === "session" ? null : owner.demandAtMs,
-              runtimeIdentity: structuredClone(owner.runtimeIdentity),
+              runtimeIdentity: owner.runtimeIdentity,
               ...(owner.baseCommit ? { baseCommit: owner.baseCommit } : {}),
             },
             ...(retiredCheckpointId

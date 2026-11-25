@@ -1,0 +1,3 @@
+import{n as buildManifestModelProviderConfig}from"./provider-catalog-BfCEo7Wb.mjs";import"./provider-catalog-shared-Bo6a0mXs.mjs";import{t as openclaw_plugin_default}from"./openclaw.plugin-COcrDqb0.mjs";
+//!extensions/together/models.ts
+const TOGETHER_MANIFEST_CATALOG=openclaw_plugin_default.modelCatalog.providers.together;const TOGETHER_BASE_URL=TOGETHER_MANIFEST_CATALOG.baseUrl;const TOGETHER_MODEL_CATALOG=buildManifestModelProviderConfig({providerId:`together`,catalog:TOGETHER_MANIFEST_CATALOG}).models.map(e=>Object.assign(e,{api:`openai-completions`}));export{TOGETHER_MODEL_CATALOG as n,TOGETHER_BASE_URL as t};

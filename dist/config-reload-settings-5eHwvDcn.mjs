@@ -1,0 +1,2 @@
+//!src/gateway/config-reload-settings.ts
+function resolveGatewayReloadSettings(e,t=300){return{mode:e.gateway?.reload?.mode===`off`?`off`:`hybrid`,debounceMs:t}}export{resolveGatewayReloadSettings as t};

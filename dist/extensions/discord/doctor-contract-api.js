@@ -1,9 +1,9 @@
-import { n as DISCORD_COMMAND_DEPLOY_HASH_NAMESPACE, t as DISCORD_COMMAND_DEPLOY_HASH_MAX_ENTRIES } from "./.setup/command-deploy-store-DFkBTViB.mjs";
-import { t as runtime_doctor_migrations_exports } from "./.setup/runtime-doctor-migrations-BPV-R4G9.mjs";
-import { n as normalizeCompatibilityConfig, t as legacyConfigRules } from "./.setup/doctor-contract-Bwv8EuQ_.mjs";
+import { n as DISCORD_COMMAND_DEPLOY_HASH_NAMESPACE, t as DISCORD_COMMAND_DEPLOY_HASH_MAX_ENTRIES } from "./.setup/command-deploy-store-DPWiBMks.mjs";
+import { t as runtime_doctor_migrations_exports } from "./.setup/runtime-doctor-migrations-BpV1jKk0.mjs";
+import { n as normalizeCompatibilityConfig, t as legacyConfigRules } from "./.setup/doctor-contract-Dstl3cMg.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
-//#region extensions/discord/src/monitor/command-deploy-migration.ts
+// extensions/discord/src/monitor/command-deploy-migration.ts
 const detectDiscordCommandDeployCacheMigration = async ({ stateDir }) => {
 	const sourcePath = path.join(stateDir, "discord", "command-deploy-cache.json");
 	try {
@@ -26,8 +26,7 @@ const detectDiscordCommandDeployCacheMigration = async ({ stateDir }) => {
 		readEntries: () => []
 	}];
 };
-//#endregion
-//#region extensions/discord/doctor-contract-api.ts
+// extensions/discord/doctor-contract-api.ts
 const stateMigrations = [(0, runtime_doctor_migrations_exports.defineRetiredPluginStateMigration)({
 	id: "discord-retired-state",
 	label: "Discord retired model preferences and thread bindings",
@@ -36,7 +35,7 @@ const stateMigrations = [(0, runtime_doctor_migrations_exports.defineRetiredPlug
 }), (0, runtime_doctor_migrations_exports.definePluginDoctorMigrationFromPlans)({
 	id: "discord-legacy-state",
 	label: "Discord command deployment cache",
-	resolvePlans: detectDiscordCommandDeployCacheMigration
+	resolvePlans: detectDiscordCommandDeployCacheMigration,
+	collectBackupResources: () => []
 })];
-//#endregion
 export { legacyConfigRules, normalizeCompatibilityConfig, stateMigrations };

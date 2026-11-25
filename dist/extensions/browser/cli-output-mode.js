@@ -1,2 +1,1 @@
-import { n as resolveBrowserLazySubcommand, t as isBrowserMachineOutput } from "../../cli-output-mode-DViuKRjY.mjs";
-export { isBrowserMachineOutput, resolveBrowserLazySubcommand };
+import{n as resolveBrowserLazySubcommand,t as isBrowserMachineOutput}from"../../cli-output-mode-Bvnv8NIb.mjs";export{isBrowserMachineOutput,resolveBrowserLazySubcommand};

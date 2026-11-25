@@ -1,2 +1,1 @@
-import { t as resolveXaiRealtimeApiKey } from "../../realtime-voice-auth.runtime-B5wAvx_C.mjs";
-export { resolveXaiRealtimeApiKey };
+import{t as resolveXaiRealtimeApiKey}from"../../realtime-voice-auth.runtime-Imb0Dm5c.mjs";export{resolveXaiRealtimeApiKey};

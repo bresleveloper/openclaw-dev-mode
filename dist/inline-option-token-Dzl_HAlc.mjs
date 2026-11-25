@@ -1,0 +1,2 @@
+//!src/infra/inline-option-token.ts
+function parseInlineOptionToken(e){const t=e.indexOf(`=`);if(t<0)return{name:e,hasInlineValue:false};return{name:e.slice(0,t),hasInlineValue:true,inlineValue:e.slice(t+1)}}export{parseInlineOptionToken as t};

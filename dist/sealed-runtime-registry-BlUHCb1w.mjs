@@ -1,0 +1,2 @@
+//!src/infra/sealed-runtime-registry.ts
+let runtime;function getSealedRuntimeJson5(){return runtime?.json5}function getSealedRuntimeSecureTempRoot(){return runtime?.resolveSecureTempRoot}export{getSealedRuntimeSecureTempRoot as n,getSealedRuntimeJson5 as t};

@@ -1,0 +1,3 @@
+import{t as createPluginRuntimeStore}from"./runtime-store-BWz_cY54.mjs";
+//!extensions/telegram/src/runtime.ts
+const{setRuntime:setTelegramRuntime,getRuntime:getTelegramRuntime,tryGetRuntime:getOptionalTelegramRuntime}=createPluginRuntimeStore({pluginId:`telegram`,errorMessage:`Telegram runtime not initialized`});export{getTelegramRuntime as n,setTelegramRuntime as r,getOptionalTelegramRuntime as t};

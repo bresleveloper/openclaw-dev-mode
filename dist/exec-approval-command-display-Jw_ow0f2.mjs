@@ -1,0 +1,3 @@
+import{r as sanitizeExecApprovalDisplayText}from"./exec-approval-text-sanitize-h0o6Uj2u.mjs";
+//!src/infra/exec-approval-command-display.ts
+function resolveExecApprovalCommandDisplay(e){const t=e.command||(e.host===`node`&&e.systemRunPlan?e.systemRunPlan.commandText:``);const n=sanitizeExecApprovalDisplayText(t);const r=(e.commandPreview??(e.host===`node`?e.systemRunPlan?.commandPreview??null:null))?.trim()??``;const i=r?sanitizeExecApprovalDisplayText(r):null;return{commandText:n,commandPreview:i!==n?i:null}}export{resolveExecApprovalCommandDisplay as t};

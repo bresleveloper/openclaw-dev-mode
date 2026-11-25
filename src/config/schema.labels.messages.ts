@@ -11,7 +11,7 @@ export const MESSAGE_FIELD_LABELS: Record<string, string> = {
   "messages.groupChat.visibleReplies": "Group Visible Replies",
   "messages.queue": "Inbound Queue",
   "messages.queue.mode": "Queue Mode",
-  "messages.queue.allowCollaborativeSteering": "Collaborative Steering",
+  "messages.queue.allowCollaborativeSteering": "Allow Collaborative Steering",
   "messages.queue.collaborativeSteeringFallback": "Collaborative Steering Fallback",
   "messages.queue.byChannel": "Queue Mode by Channel",
   "messages.queue.debounceMsByChannel": "Queue Fallback Debounce by Channel (ms)",

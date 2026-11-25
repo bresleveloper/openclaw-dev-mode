@@ -1,6 +1,6 @@
-import { a as FIREWORKS_DEFAULT_MODEL_REF, i as FIREWORKS_DEFAULT_MODEL_ID, o as buildFireworksCatalogModels, s as buildFireworksProvider } from "./.setup/provider-catalog-D1IIkEc_.mjs";
+import { a as FIREWORKS_DEFAULT_MODEL_REF, i as FIREWORKS_DEFAULT_MODEL_ID, o as buildFireworksCatalogModels, s as buildFireworksProvider } from "./.setup/provider-catalog-BVZMHYyD.mjs";
 import { createDefaultModelsConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/fireworks/onboard.ts
+// extensions/fireworks/onboard.ts
 const { applyConfig: applyFireworksConfig } = createDefaultModelsConnectionPresetAppliers({
 	primaryModelRef: FIREWORKS_DEFAULT_MODEL_REF,
 	resolveParams: () => {
@@ -18,5 +18,4 @@ const { applyConfig: applyFireworksConfig } = createDefaultModelsConnectionPrese
 		};
 	}
 });
-//#endregion
 export { applyFireworksConfig };

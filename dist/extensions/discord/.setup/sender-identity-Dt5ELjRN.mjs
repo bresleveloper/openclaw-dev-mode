@@ -1,0 +1,35 @@
+import { S as formatDiscordUserTag } from "./allow-list-CkqpzPvP.mjs";
+import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+// extensions/discord/src/monitor/sender-identity.ts
+function resolveDiscordWebhookId(message) {
+	return normalizeOptionalString(message.webhookId ?? message.webhook_id) ?? null;
+}
+function resolveDiscordSenderIdentity(params) {
+	const pkInfo = params.pluralkitInfo ?? null;
+	const pkMember = pkInfo?.member ?? void 0;
+	const pkSystem = pkInfo?.system ?? void 0;
+	const memberId = pkMember?.id?.trim();
+	const memberName = (pkMember?.display_name ?? pkMember?.name ?? "")?.trim();
+	if (memberId && memberName) {
+		const systemName = pkSystem?.name?.trim();
+		const label = systemName ? `${memberName} (PK:${systemName})` : `${memberName} (PK)`;
+		return {
+			id: memberId,
+			name: memberName,
+			tag: normalizeOptionalString(pkMember?.name),
+			label,
+			isPluralKit: true
+		};
+	}
+	const senderTag = formatDiscordUserTag(params.author);
+	const senderDisplay = params.member?.nickname ?? params.member?.nick ?? params.author.globalName ?? params.author.username;
+	const senderLabel = senderDisplay && senderTag && senderDisplay !== senderTag ? `${senderDisplay} (${senderTag})` : senderDisplay ?? senderTag ?? params.author.id;
+	return {
+		id: params.author.id,
+		name: params.author.username,
+		tag: senderTag,
+		label: senderLabel,
+		isPluralKit: false
+	};
+}
+export { resolveDiscordWebhookId as n, resolveDiscordSenderIdentity as t };

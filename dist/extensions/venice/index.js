@@ -1,13 +1,16 @@
-import { a as openclaw_plugin_default, i as VENICE_MODEL_DISCOVERY_OPTIONS, t as VENICE_BASE_URL } from "./.setup/models-D73jPrCr.mjs";
+import { a as openclaw_plugin_default, i as VENICE_MODEL_DISCOVERY_OPTIONS, t as VENICE_BASE_URL } from "./.setup/models-ZOIqXP1y.mjs";
 import { applyVeniceConfig } from "./onboard.js";
 import { buildStaticVeniceProvider } from "./provider-catalog.js";
 import { createVeniceStreamWrapper } from "./stream.js";
-import { fetchVeniceUsage } from "./usage.js";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
+import { readProviderJsonObjectResponse } from "openclaw/plugin-sdk/provider-http";
 import { applyModelCompatPatch } from "openclaw/plugin-sdk/provider-model-shared";
+import { buildUsageErrorSnapshot, buildUsageHttpErrorSnapshot, parseProviderUsageNonNegativeNumber, resolveProviderUsageApiKeyAuth } from "openclaw/plugin-sdk/provider-usage";
 import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/venice/index.ts
+// extensions/venice/index.ts
 const PROVIDER_ID = "venice";
+const VENICE_BALANCE_URL = "https://api.venice.ai/api/v1/billing/balance";
+const VENICE_USAGE_RESPONSE_MAX_BYTES = 1048576;
 const XAI_UNSUPPORTED_SCHEMA_KEYWORDS = [
 	"minLength",
 	"maxLength",
@@ -16,9 +19,6 @@ const XAI_UNSUPPORTED_SCHEMA_KEYWORDS = [
 	"minContains",
 	"maxContains"
 ];
-function isXaiBackedVeniceModel(modelId) {
-	return normalizeLowercaseStringOrEmpty(modelId).includes("grok");
-}
 var venice_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
 	name: "Venice Provider",
@@ -42,7 +42,7 @@ var venice_default = defineSingleProviderPluginEntry({
 			liveModelDiscovery: VENICE_MODEL_DISCOVERY_OPTIONS
 		},
 		normalizeResolvedModel: ({ modelId, model }) => {
-			const normalized = isXaiBackedVeniceModel(modelId) ? applyModelCompatPatch(model, {
+			const normalized = normalizeLowercaseStringOrEmpty(modelId).includes("grok") ? applyModelCompatPatch(model, {
 				toolSchemaProfile: "xai",
 				unsupportedToolSchemaKeywords: [...XAI_UNSUPPORTED_SCHEMA_KEYWORDS],
 				toolCallArgumentsEncoding: "html-entities"
@@ -53,16 +53,76 @@ var venice_default = defineSingleProviderPluginEntry({
 			}) : normalized;
 		},
 		wrapStreamFn: (ctx) => createVeniceStreamWrapper(ctx.streamFn),
-		resolveUsageAuth: async (ctx) => {
-			const apiKey = (await ctx.resolveApiKeyCandidatesFromConfigAndStore?.({ envDirect: [ctx.env.VENICE_API_KEY] }))?.[0];
-			return apiKey ? { token: apiKey } : null;
-		},
-		fetchUsageSnapshot: async (ctx) => await fetchVeniceUsage({
-			token: ctx.token,
-			timeoutMs: ctx.timeoutMs,
-			fetchFn: ctx.fetchFn
-		})
+		resolveUsageAuth: (ctx) => resolveProviderUsageApiKeyAuth(ctx, [ctx.env.VENICE_API_KEY]),
+		fetchUsageSnapshot: async (ctx) => {
+			let response;
+			try {
+				response = await ctx.fetchFn(VENICE_BALANCE_URL, {
+					headers: {
+						Accept: "application/json",
+						Authorization: `Bearer ${ctx.token}`
+					},
+					signal: AbortSignal.timeout(ctx.timeoutMs)
+				});
+			} catch {
+				return buildUsageErrorSnapshot("venice", "Usage unavailable");
+			}
+			if (!response.ok) {
+				await response.body?.cancel().catch(() => void 0);
+				return buildUsageHttpErrorSnapshot({
+					provider: "venice",
+					status: response.status
+				});
+			}
+			let data;
+			try {
+				data = await readProviderJsonObjectResponse(response, "Venice usage", {
+					maxBytes: VENICE_USAGE_RESPONSE_MAX_BYTES,
+					chunkTimeoutMs: ctx.timeoutMs,
+					onIdleTimeout: ({ chunkTimeoutMs }) => /* @__PURE__ */ new Error(`Venice usage response stalled for ${chunkTimeoutMs}ms`)
+				});
+			} catch {
+				return buildUsageErrorSnapshot("venice", "Malformed usage response");
+			}
+			const diem = parseProviderUsageNonNegativeNumber(data.balances?.diem);
+			const usd = parseProviderUsageNonNegativeNumber(data.balances?.usd);
+			const allocation = parseProviderUsageNonNegativeNumber(data.diemEpochAllocation);
+			const windows = [];
+			if (diem !== void 0 && allocation !== void 0 && allocation > 0) windows.push({
+				label: "DIEM epoch",
+				usedPercent: Math.min(100, Math.max(0, (allocation - diem) / allocation * 100))
+			});
+			const billing = [];
+			if (diem !== void 0) billing.push({
+				type: "balance",
+				label: "DIEM balance",
+				amount: diem,
+				unit: "DIEM"
+			});
+			if (usd !== void 0) billing.push({
+				type: "balance",
+				label: "USD balance",
+				amount: usd,
+				unit: "USD"
+			});
+			if (diem !== void 0 && allocation !== void 0 && allocation > 0) billing.push({
+				type: "budget",
+				label: "DIEM epoch",
+				used: Math.max(0, allocation - diem),
+				limit: allocation,
+				unit: "DIEM",
+				period: "epoch"
+			});
+			const consumptionCurrency = typeof data.consumptionCurrency === "string" ? data.consumptionCurrency.trim().toUpperCase() : "";
+			return {
+				provider: "venice",
+				displayName: "Venice",
+				windows,
+				...billing.length > 0 ? { billing } : {},
+				...consumptionCurrency ? { plan: `${consumptionCurrency} billing` } : {},
+				...data.canConsume === false ? { summary: "API consumption unavailable" } : {}
+			};
+		}
 	}
 });
-//#endregion
 export { venice_default as default };

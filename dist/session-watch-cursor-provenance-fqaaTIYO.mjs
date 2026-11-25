@@ -1,0 +1,2 @@
+//!src/state/session-watch-cursor-provenance.ts
+const SESSION_WATCH_PROVENANCE_EXPLICIT=`explicit`;const SESSION_WATCH_PROVENANCE_AMBIENT_GROUP=`ambient-group`;export{SESSION_WATCH_PROVENANCE_EXPLICIT as n,SESSION_WATCH_PROVENANCE_AMBIENT_GROUP as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,o as n}from"./worker-chunk-Dzac6lyq.mjs";import{AsyncLocalStorage as r}from"node:async_hooks";function getGatewayNativeApprovalRuntime(){return i.getStore()}var i,a=e((()=>{t(),i=n(Symbol.for(`openclaw.approvalGatewayRuntimeScope`),()=>new r)}));export{a as n,getGatewayNativeApprovalRuntime as t};

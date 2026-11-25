@@ -1,0 +1,3 @@
+import{n as getProcessInstanceStartTime,s as parseLinuxProcessStat,t as getFileLockProcessStartTime}from"./pid-alive-DDtSxW5l.mjs";import fs from"node:fs/promises";
+//!src/process/command-process-identity.ts
+function readCommandProcessStartTime(e,t={}){if(process.platform!==`linux`&&process.platform!==`android`)return t.instance?getProcessInstanceStartTime(e):getFileLockProcessStartTime(e);return fs.readFile(`/proc/${e}/stat`,`utf8`).then(n=>{if(t.child&&(t.child.exitCode!=null||t.child.signalCode!=null))return null;return parseLinuxProcessStat(e,n)?.startedAt??null},()=>null)}export{readCommandProcessStartTime as t};

@@ -1,0 +1,2 @@
+//!src/agents/model-catalog-json.ts
+function parseModelCatalogJson(e,t=false){if(t)try{return JSON.parse(e)}catch{}const n=e.replace(/"(?:\\.|[^"\\])*"|\/\/[^\n]*/g,e=>e[0]===`"`?e:``).replace(/"(?:\\.|[^"\\])*"|,(\s*[}\]])/g,(e,t)=>t??(e[0]===`"`?e:``));return JSON.parse(n)}export{parseModelCatalogJson as t};

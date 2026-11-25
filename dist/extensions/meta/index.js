@@ -1,10 +1,26 @@
 import { runMuseLogin } from "./muse-login.js";
-import { a as openclaw_plugin_default } from "./.setup/provider-catalog-Drud68bm.mjs";
+import { a as openclaw_plugin_default, n as META_MODEL_CATALOG } from "./.setup/provider-catalog-mTt0ANDC.mjs";
 import { applyMetaConnectionConfig } from "./onboard.js";
 import { wrapMetaProviderStream } from "./stream.js";
-import { resolveMetaThinkingProfile } from "./thinking.js";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
+// extensions/meta/index.ts
+const META_REASONING_MODELS = new Map(META_MODEL_CATALOG.filter((model) => model.reasoning).map((model) => [model.id.toLowerCase(), model]));
+const META_THINKING_PROFILE = {
+	levels: [
+		"off",
+		"minimal",
+		"low",
+		"medium",
+		"high",
+		"xhigh"
+	].map((id) => ({ id })),
+	defaultLevel: "high"
+};
+const META_MAX_THINKING_PROFILE = {
+	...META_THINKING_PROFILE,
+	levels: [...META_THINKING_PROFILE.levels, { id: "max" }]
+};
 var meta_default = defineSingleProviderPluginEntry({
 	id: "meta",
 	name: "Meta Provider",
@@ -32,8 +48,12 @@ var meta_default = defineSingleProviderPluginEntry({
 		...buildProviderReplayFamilyHooks({ family: "openai-compatible" }),
 		wrapSimpleCompletionStreamFn: wrapMetaProviderStream,
 		wrapStreamFn: wrapMetaProviderStream,
-		resolveThinkingProfile: resolveMetaThinkingProfile
+		resolveThinkingProfile: (context) => {
+			const catalogModel = META_REASONING_MODELS.get(context.modelId.toLowerCase());
+			if (!(context.reasoning ?? catalogModel?.reasoning)) return;
+			const efforts = context.compat?.supportedReasoningEfforts ?? catalogModel?.compat.supportedReasoningEfforts;
+			return context.thinkingLevelMap?.max !== null && efforts?.includes("max") ? META_MAX_THINKING_PROFILE : META_THINKING_PROFILE;
+		}
 	}
 });
-//#endregion
 export { meta_default as default };

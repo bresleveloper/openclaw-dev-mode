@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";
+//!src/secrets/model-provider-header-policy.ts
+const SENSITIVE_MODEL_PROVIDER_HEADER_NAME_FRAGMENTS=[`api-key`,`apikey`,`token`,`secret`,`password`,`credential`];function isLikelySensitiveModelProviderHeaderName(e){const t=normalizeLowercaseStringOrEmpty(e);return t===`authorization`||t===`proxy-authorization`||SENSITIVE_MODEL_PROVIDER_HEADER_NAME_FRAGMENTS.some(e=>t.includes(e))}export{isLikelySensitiveModelProviderHeaderName as t};

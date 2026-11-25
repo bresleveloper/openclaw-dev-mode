@@ -1,0 +1,3 @@
+import{t as warnPluginSdkDeprecation}from"./sdk-deprecation-aWs02XK8.mjs";import{l as resolveSessionEntryReadOnly}from"./session-accessor.sqlite-exact-read-DuUTQVnr.mjs";import{i as resolveSandboxRuntimeStatus,s as withLegacySandboxRuntimeStatusReader}from"./runtime-status-BwAMNA4Z.mjs";
+//!src/agents/sandbox/runtime-status.legacy.ts
+function resolveSandboxRuntimeStatusLegacy(e){warnPluginSdkDeprecation({family:`sandbox-runtime-status`,method:`resolveSandboxRuntimeStatus`,replacement:`resolveSandboxRuntimeStatusAsync`});return withLegacySandboxRuntimeStatusReader(e=>resolveSessionEntryReadOnly({...e,clone:false}).existing,()=>resolveSandboxRuntimeStatus(e))}export{resolveSandboxRuntimeStatusLegacy as t};

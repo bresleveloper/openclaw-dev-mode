@@ -1,0 +1,3 @@
+import{r as createLazyRuntimeModule}from"./lazy-runtime-Ds6M7vp4.mjs";
+//!extensions/openai/decision-provider.ts
+const loadRuntime=createLazyRuntimeModule(()=>import(`./extensions/openai/decision-provider.runtime.js`));function buildOpenAIDecisionProvider(){return{id:`openai`,contractVersion:2,async evaluate(e,t){t.signal.throwIfAborted();const{evaluateOpenAIDecision:n}=await loadRuntime();t.signal.throwIfAborted();return n(e,t)}}}export{buildOpenAIDecisionProvider as t};

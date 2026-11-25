@@ -1,6 +1,7 @@
 import { writeSync } from "node:fs";
 import os from "node:os";
 import { collectNestedErrorCandidates } from "@openclaw/normalization-core/error-coercion";
+import { UPDATE_RUN_PHASES } from "../../../packages/gateway-protocol/src/update-run-vocabulary.js";
 import { resolveStateDir } from "../../config/paths.js";
 import { extractErrorCode, formatErrorMessage } from "../../infra/errors.js";
 import { resolveAggregateSqliteInspectionTimeoutMs } from "../../infra/sqlite-readonly-worker.js";
@@ -17,18 +18,22 @@ import {
 } from "../../infra/update-failure-facts.js";
 import type { ManagedHandoffRepair } from "../../infra/update-managed-service-handoff-lease-types.js";
 import { POST_CORE_UPDATE_ENV } from "../../infra/update-post-core-context.js";
+import { sendUpdateResultTelemetry } from "../../infra/update-result-telemetry.js";
 import { readUpdateRunDriver, type UpdateRunDriver } from "../../infra/update-run-driver.js";
 import {
   adoptUpdateRun,
   createUpdateRun,
   finishUpdateRun,
   heartbeatUpdateRun,
+  listUpdateRuns,
   recordUpdateRunDiagnostic,
   recordUpdateRunPhase,
   recordUpdateRunRepairContinuation,
   recordUpdateRunStep,
 } from "../../infra/update-run-ledger.js";
+import { isUpdateRepairRun, UPDATE_RUN_REPAIRED_STEP } from "../../infra/update-run-record.js";
 import type { UpdateRunStep } from "../../infra/update-run-record.js";
+import { formatRepairedUpdateRun } from "../../infra/update-run-report.js";
 import { updateRunStepsFromResultStep } from "../../infra/update-run-step.js";
 import {
   UPDATE_RUN_HEARTBEAT_MS,
@@ -87,7 +92,7 @@ export class UpdateFinalizationLifecycle {
   handoff?: ManagedHandoffRepair;
   private runId?: string;
   private driver?: UpdateRunDriver;
-  private ledgerOptions?: { env: NodeJS.ProcessEnv };
+  private ledgerOptions?: { env: NodeJS.ProcessEnv; busyTimeoutMs: number };
   private ownsRun = false;
   private ownsRepairRun = false;
   private warnedHeartbeat = false;
@@ -105,33 +110,68 @@ export class UpdateFinalizationLifecycle {
     private readonly json: boolean,
     private readonly timeoutMs: number | undefined,
     private readonly stopChildren: () => void,
+    /** False for a stage inside another command, which owns the only result document. */
+    private readonly reportsResult = true,
   ) {}
 
   get ownsUpdateRun(): boolean {
     return this.ownsRun;
   }
 
-  attachLedger(repair = false): string {
+  get ownsUpdateRepairRun(): boolean {
+    return this.ownsRepairRun;
+  }
+
+  attachLedger(repair = false, reportResult = false): string {
     this.driver = readUpdateRunDriver();
     const inherited = process.env[UPDATE_RUN_ID_ENV]?.trim();
-    this.ledgerOptions = { env: { ...process.env } };
-    const admissionOptions = { ...this.ledgerOptions, busyTimeoutMs: this.budget("preflight") };
+    this.ledgerOptions = { env: { ...process.env }, busyTimeoutMs: this.budget("preflight") };
+    // Read the prior run before this repair's own run exists.
+    const prior =
+      repair && !inherited
+        ? listUpdateRuns({ limit: 3, excludeReason: "dry-run" }, this.ledgerOptions).find(
+            (run) =>
+              !run.steps.some((step) => step.step === "reconcile:settle") ||
+              run.steps.some(
+                ({ step }) =>
+                  step !== "requested" && UPDATE_RUN_PHASES.some((phase) => phase === step),
+              ),
+          )
+        : undefined;
     this.runId = createUpdateRun(
-      { runId: inherited || undefined, trigger: "cli" },
-      admissionOptions,
+      { runId: inherited || undefined, trigger: "cli", reportResult },
+      this.ledgerOptions,
     ).runId;
     this.ownsRun = !inherited;
-    adoptUpdateRun(this.runId, admissionOptions);
+    adoptUpdateRun(this.runId, this.ledgerOptions);
     this.handoff?.bindRun(this.runId);
     this.ownsRepairRun = repair && this.ownsRun;
     if (this.ownsRepairRun) {
-      recordUpdateRunRepairContinuation(this.runId, this.runId, admissionOptions);
+      recordUpdateRunPhase(this.runId, "repairing", {}, this.ledgerOptions);
+      recordUpdateRunRepairContinuation(this.runId, this.runId, this.ledgerOptions);
+      const detail =
+        prior && isUpdateRepairRun(prior)
+          ? prior.status !== "succeeded" &&
+            prior.steps.find((step) => step.step === UPDATE_RUN_REPAIRED_STEP)?.detail
+          : prior?.status === "failed" && formatRepairedUpdateRun(prior);
+      if (detail) {
+        recordUpdateRunStep(
+          this.runId,
+          {
+            step: UPDATE_RUN_REPAIRED_STEP,
+            status: "completed",
+            endedAtMs: Date.now(),
+            detail,
+          },
+          this.ledgerOptions,
+        );
+      }
     }
     if (this.active) {
       recordUpdateRunStep(
         this.runId,
         { step: this.active.step, status: "in_progress", startedAtMs: this.active.startedAtMs },
-        admissionOptions,
+        this.ledgerOptions,
       );
     }
     return this.runId;
@@ -141,7 +181,7 @@ export class UpdateFinalizationLifecycle {
     if (this.runId && this.ownsRun && installKind !== "unknown") {
       recordUpdateRunPhase(
         this.runId,
-        "requested",
+        this.ownsRepairRun ? "repairing" : "requested",
         {
           target: { kind: installKind, ...(version ? { version } : {}) },
           ...(version ? { after: { version } } : {}),
@@ -377,7 +417,7 @@ export class UpdateFinalizationLifecycle {
             `[update finalize] Stalled phase children: ${JSON.stringify(diagnostics)}\n`,
           );
           this.recordDiagnostic(JSON.stringify(diagnostics));
-          if (this.json) {
+          if (this.json && this.reportsResult) {
             defaultRuntime.writeJson({
               status: "failed",
               mode: "finalize",
@@ -521,7 +561,7 @@ export class UpdateFinalizationLifecycle {
       this.failureObservation = await verifyUpdateFailureRecovery({
         result,
         root: this.root,
-        opts: { json: this.json, run: { runId: this.runId, env } },
+        opts: { json: this.json, run: { runId: this.runId, ...this.ledgerOptions } },
         env,
         timeoutMs: this.timeoutMs,
         serviceUpdateVerdict: this.serviceUpdateVerdict,
@@ -559,6 +599,7 @@ export class UpdateFinalizationLifecycle {
               : this.failureObservation,
           },
           this.ledgerOptions,
+          (payload) => void sendUpdateResultTelemetry(payload, { env: this.ledgerOptions?.env }),
         );
         this.unrecordedPhaseFailure = undefined;
       } catch {

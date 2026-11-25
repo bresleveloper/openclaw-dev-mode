@@ -1,5 +1,5 @@
 import { getRootOptionAwareCommandPath } from "openclaw/plugin-sdk/cli-argv";
-//#region extensions/voice-call/cli-output-mode.ts
+// extensions/voice-call/cli-output-mode.ts
 const MACHINE_OUTPUT_COMMANDS = /* @__PURE__ */ new Set([
 	"call",
 	"continue",
@@ -24,5 +24,4 @@ const VOICE_CALL_CLI_DESCRIPTOR = {
 	hasSubcommands: true,
 	machineOutput: isVoiceCallMachineOutput
 };
-//#endregion
 export { VOICE_CALL_CLI_DESCRIPTOR };

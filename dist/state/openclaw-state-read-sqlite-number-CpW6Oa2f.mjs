@@ -1,0 +1,1 @@
+const e=BigInt(2**53-1);function coerceRequiredSqliteNumber(e){return typeof e==`bigint`?Number(e):e}function normalizeSqliteNumber(t){return typeof t==`bigint`?t>e||t<-e?void 0:Number(t):typeof t==`number`?t:void 0}export{normalizeSqliteNumber as n,coerceRequiredSqliteNumber as t};

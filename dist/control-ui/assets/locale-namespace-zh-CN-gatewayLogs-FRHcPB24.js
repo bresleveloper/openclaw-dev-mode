@@ -1,0 +1,1 @@
+export default {"gatewayLogs":{"title":"日志","subtitle":"Gateway 文件日志 (JSONL)。","exportButton":"导出{label}","exportLabels":{"filtered":"已筛选的日志","visible":"可见的日志"},"filter":"筛选","searchPlaceholder":"搜索日志","autoFollow":"自动跟随","file":"文件: {file}","truncated":"日志输出已截断; 正在显示最新片段。","empty":"暂无日志条目。","filteredEmpty":"没有符合这些筛选条件的日志条目。","moreActions":"更多操作"}};

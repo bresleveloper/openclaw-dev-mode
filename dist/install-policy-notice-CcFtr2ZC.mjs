@@ -1,0 +1,4 @@
+import{r as terminalText}from"./safe-text-B_QTgn0s.mjs";
+//!src/plugins/install-policy-notice.ts
+function formatInstallPolicyFinding(e){const t=e.file?` (${e.file}${e.line?`:${e.line}`:``})`:``;const n=e.evidence?` Evidence: ${e.evidence}`:``;return terminalText`[${e.severity.toUpperCase()}] ${e.ruleId}: ${e.message}${t}${n}`}function formatInstallPolicyNotice(e){const t=e.targetType===`skill`?`Skill`:`Plugin`;const n=[e.decision===`warn`?`Install requires approval`:`Install blocked by policy`,``,terminalText`  ${t}: ${e.targetName}`,terminalText`  Reason: ${e.reason}`];if(e.findings?.length){n.push(`  Findings:`);for(const t of e.findings)n.push(`    • ${formatInstallPolicyFinding(t)}`)}if(e.guidance?.length)n.push(``,...e.guidance);return n.join(`
+`)}export{formatInstallPolicyNotice as n,formatInstallPolicyFinding as t};

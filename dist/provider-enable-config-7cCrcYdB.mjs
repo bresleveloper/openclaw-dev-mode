@@ -1,0 +1,3 @@
+import{t as ensurePluginAllowlisted}from"./plugins-allowlist-BoS9lnYy.mjs";
+//!src/plugin-sdk/provider-enable-config.ts
+function enableProviderPluginInConfig(e,t){if(e.plugins?.enabled===false)return{config:e,enabled:false,reason:`plugins disabled`};if(e.plugins?.deny?.includes(t))return{config:e,enabled:false,reason:`blocked by denylist`};const n={...e,plugins:{...e.plugins,entries:{...e.plugins?.entries,[t]:{...e.plugins?.entries?.[t],enabled:true}}}};return{config:ensurePluginAllowlisted(n,t),enabled:true}}export{enableProviderPluginInConfig as t};

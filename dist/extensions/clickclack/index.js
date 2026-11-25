@@ -1,6 +1,6 @@
-import { t as registerClickClackDiscussions } from "./.setup/runtime-api-DIu-sNJs.mjs";
+import { t as registerClickClackDiscussions } from "./.setup/runtime-api-Ci45IlXP.mjs";
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/clickclack/index.ts
+// extensions/clickclack/index.ts
 var clickclack_default = defineBundledChannelEntry({
 	id: "clickclack",
 	name: "ClickClack",
@@ -16,5 +16,4 @@ var clickclack_default = defineBundledChannelEntry({
 	},
 	registerFull: registerClickClackDiscussions
 });
-//#endregion
 export { clickclack_default as default };

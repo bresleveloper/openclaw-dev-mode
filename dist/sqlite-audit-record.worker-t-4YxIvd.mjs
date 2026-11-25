@@ -1,0 +1,3 @@
+import{t as createSqliteAuditRecordKernel}from"./sqlite-audit-record.kernel-DauX66NB.mjs";
+//!src/infra/sqlite-audit-record.worker.ts
+const diagnosticOperations={"diagnostic.compareAndSet":(e,{writeAdmitted:t})=>t(({db:t})=>createSqliteAuditRecordKernel(t,e).compareAndSet(e.key,e.expectedPayloadJson,e.record)),"diagnostic.register":(e,{writeAdmitted:t})=>t(({db:t})=>createSqliteAuditRecordKernel(t,e).register(e.record))};export{diagnosticOperations};

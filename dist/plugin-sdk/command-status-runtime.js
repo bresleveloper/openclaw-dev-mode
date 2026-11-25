@@ -1,10 +1,3 @@
-import { n as createLazyRuntimeMethodBinder, r as createLazyRuntimeModule } from "../lazy-runtime-CJrzFzqU.mjs";
-//#region src/plugin-sdk/command-status-runtime.ts
-/**
-* Lazy runtime SDK subpath for command status reply generation.
-*/
-const loadCommandStatusRuntime = createLazyRuntimeModule(() => import("../command-status.runtime-UCQ-An6k.mjs"));
-/** Resolves the direct status reply text for a session without eagerly loading runtime code. */
-const resolveDirectStatusReplyForSession = createLazyRuntimeMethodBinder(loadCommandStatusRuntime)((runtime) => runtime.resolveDirectStatusReplyForSessionCore);
-//#endregion
-export { resolveDirectStatusReplyForSession };
+import{n as createLazyRuntimeMethodBinder,r as createLazyRuntimeModule}from"../lazy-runtime-Ds6M7vp4.mjs";
+//!src/plugin-sdk/command-status-runtime.ts
+const loadCommandStatusRuntime=createLazyRuntimeModule(()=>import(`../command-status.runtime-Dedcn9Q2.mjs`));const bindCommandStatusRuntime=createLazyRuntimeMethodBinder(loadCommandStatusRuntime);const resolveDirectStatusReplyForSession=bindCommandStatusRuntime(e=>e.resolveDirectStatusReplyForSessionCore);export{resolveDirectStatusReplyForSession};

@@ -1,7 +1,7 @@
-import { DEEPINFRA_BASE_URL, DEEPINFRA_TTS_FALLBACK_CATALOG, DEEPINFRA_TTS_FALLBACK_MODELS, DEFAULT_DEEPINFRA_TTS_VOICE, normalizeDeepInfraModelRef } from "./media-models.js";
+import { DEEPINFRA_BASE_URL, DEEPINFRA_TTS_FALLBACK_MODELS, DEFAULT_DEEPINFRA_TTS_VOICE, normalizeDeepInfraModelRef } from "./media-models.js";
 import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { createOpenAiCompatibleSpeechProvider } from "openclaw/plugin-sdk/speech-provider";
-//#region extensions/deepinfra/speech-provider.ts
+// extensions/deepinfra/speech-provider.ts
 const DEEPINFRA_TTS_RESPONSE_FORMATS = [
 	"mp3",
 	"opus",
@@ -11,7 +11,7 @@ const DEEPINFRA_TTS_RESPONSE_FORMATS = [
 ];
 function buildDeepInfraSpeechProvider(options) {
 	const ids = options?.ttsModels && options.ttsModels.length > 0 ? options.ttsModels.map((model) => model.id) : [...DEEPINFRA_TTS_FALLBACK_MODELS];
-	const defaultModel = ids[0] ?? DEEPINFRA_TTS_FALLBACK_CATALOG[0].id;
+	const defaultModel = ids[0] ?? DEEPINFRA_TTS_FALLBACK_MODELS[0];
 	return createOpenAiCompatibleSpeechProvider({
 		id: "deepinfra",
 		label: "DeepInfra",
@@ -37,5 +37,4 @@ function buildDeepInfraSpeechProvider(options) {
 		}]
 	});
 }
-//#endregion
 export { buildDeepInfraSpeechProvider };

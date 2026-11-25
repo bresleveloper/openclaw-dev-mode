@@ -1,0 +1,4 @@
+import{n as DEFAULT_GATEWAY_PORT}from"./paths-DxXULbkO.mjs";import{a as loadNodeHostConfig}from"./config-J5A6g3zj.mjs";
+//!src/commands/status.node-mode.ts
+function isNodeServiceActive(e){if(e.installed!==true)return false;if(e.externallyManaged===true)return true;if(e.loadState?.status===`loaded`)return true;return e.runtime?.status===`running`||typeof e.runtime?.pid===`number`}async function resolveNodeOnlyGatewayInfo(e){if(e.daemon.installed!==false||!isNodeServiceActive(e.node))return null;const t=(await loadNodeHostConfig())?.gateway;const n=t?.host?`${t.host}:${t.port??18789}`:`(gateway address unknown)`;return{gatewayTarget:n,gatewayValue:`node → ${n} · no local gateway`,connectionDetails:[`Node-only mode detected`,`Local gateway: not expected on this machine`,`Remote gateway target: ${n}`,`Inspect the remote gateway host for live channel and health details.`].join(`
+`)}}export{resolveNodeOnlyGatewayInfo as t};

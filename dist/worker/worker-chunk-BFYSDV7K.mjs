@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{t}from"./worker-chunk-oZVWk0i4.mjs";import{t as n}from"./worker-chunk-B9t8MYx3.mjs";function formatHumanList(e){return e.length===0?``:e.length===1?n(e[0],`values entry at 0`):e.length===2?`${e[0]} or ${e[1]}`:`${e.slice(0,-1).join(`, `)}, or ${e.at(-1)}`}var r=e((()=>{t()}));export{r as n,formatHumanList as t};

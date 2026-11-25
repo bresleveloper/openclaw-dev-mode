@@ -1,2 +1,1 @@
-import { t as resolveMattermostGatewayAuthBypassPaths } from "./.setup/gateway-auth-bypass-Lf99Gilr.mjs";
-export { resolveMattermostGatewayAuthBypassPaths as resolveGatewayAuthBypassPaths };
+export { t as resolveGatewayAuthBypassPaths } from "./.setup/gateway-auth-bypass-DhWaV22L.mjs";

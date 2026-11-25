@@ -1,0 +1,5 @@
+import{n as loadActivatedBundledPluginPublicSurfaceModule}from"./facade-runtime-DnRKL4Ar.mjs";
+//!src/plugin-sdk/browser-bridge.ts
+function loadFacadeModule(){return loadActivatedBundledPluginPublicSurfaceModule({dirName:`browser`,artifactBasename:`bridge-api.js`})}async function startBrowserBridgeServer(e){return await(await loadFacadeModule()).startBrowserBridgeServer(e)}async function stopBrowserBridgeServer(e){await(await loadFacadeModule()).stopBrowserBridgeServer(e)}
+//!src/agents/sandbox/browser-bridges.ts
+const BROWSER_BRIDGES=/* @__PURE__ */ new Map;async function stopCachedBrowserBridge(e,t,n){n?.();if(BROWSER_BRIDGES.get(e)!==t)return;await stopBrowserBridgeServer(t.bridge.server);n?.();if(BROWSER_BRIDGES.get(e)===t)BROWSER_BRIDGES.delete(e)}async function stopCachedBrowserBridgesForContainer(e,t){for(;;){const n=[...BROWSER_BRIDGES].find(([,t])=>t.containerName===e);if(!n)return;await stopCachedBrowserBridge(n[0],n[1],t)}}export{stopBrowserBridgeServer as a,startBrowserBridgeServer as i,stopCachedBrowserBridge as n,stopCachedBrowserBridgesForContainer as r,BROWSER_BRIDGES as t};

@@ -10,7 +10,7 @@ import {
   appendSessionTranscriptMessageByIdentityStrict,
   appendSessionTranscriptMessagesByIdentity,
   publishSessionTranscriptUpdateByIdentity,
-  readVisibleSessionTranscriptMessageEntries,
+  withSessionTranscriptWrite,
   type SessionTranscriptTargetParams,
   type TranscriptEntryAnchor,
 } from "openclaw/plugin-sdk/session-transcript-runtime";
@@ -96,6 +96,7 @@ export function createAttemptTranscriptJournal(params: {
   const projectDisplay = (message: AgentMessage) =>
     projectAgentHarnessTranscriptMessageForDisplay({
       hidden: hiddenTurn || (message as { display?: boolean }).display === false,
+      inputProvenance: params.attempt.inputProvenance,
       message,
     });
   const messagesSnapshot = [...params.messages];
@@ -132,6 +133,8 @@ export function createAttemptTranscriptJournal(params: {
     replaceTailUser(currentUser, projectDisplay(currentUser));
   }
   const manager = params.attempt.sessionManager;
+  // Ephemeral callers own their transcript. A durable manager is not a substitute
+  // for the exact runtime target required by ordinary persistent attempts.
   const owner =
     manager && !manager.getSessionTarget()
       ? { kind: "memory" as const, manager, sessionId: manager.getSessionId() }
@@ -204,7 +207,7 @@ export function createAttemptTranscriptJournal(params: {
     options: { singleton?: boolean } = {},
   ): TranscriptMessage | undefined => {
     assertMemoryOwnerCurrent();
-    const message = structuredClone(write.message) as TranscriptMessage;
+    const message = write.message;
     const originalReplayPayload = projectReplayPayload(message);
     const hooked = runAgentHarnessBeforeMessageWriteHook({
       message: structuredClone(message) as TranscriptMessage,
@@ -216,6 +219,7 @@ export function createAttemptTranscriptJournal(params: {
           ? params.attempt.prepareAssistantTranscriptMessage
           : undefined,
     });
+    assertMemoryOwnerCurrent();
     if (!hooked) {
       return undefined;
     }
@@ -310,11 +314,14 @@ export function createAttemptTranscriptJournal(params: {
               return key ? [key] : [];
             }),
           )
-        : new Set(
-            (await readVisibleSessionTranscriptMessageEntries(owner.target)).flatMap((entry) =>
-              entry.idempotencyKey ? [entry.idempotencyKey] : [],
-            ),
-          );
+        : (
+            await withSessionTranscriptWrite(owner.target, (transcript) =>
+              transcript.readMessageFacts({
+                idempotencyKeys: keys.filter((key) => key !== undefined),
+                activeBranchOnly: true,
+              }),
+            )
+          ).existingIdempotencyKeys;
     const persistedCount = keys.filter((key) => key && persistedKeys.has(key)).length;
     if (persistedCount > 0 && persistedCount < writes.length) {
       // The pre-atomic journal was never shipped. Partial identity is corruption,
@@ -337,6 +344,7 @@ export function createAttemptTranscriptJournal(params: {
     }
     let results: Array<NonNullable<AppendResult>>;
     if (owner.kind === "memory") {
+      // Stage the complete group so a failed append cannot publish a partial group.
       assertMemoryOwnerCurrent();
       const staged = await owner.manager.prepareTranscriptRewriteAsync();
       results = [];

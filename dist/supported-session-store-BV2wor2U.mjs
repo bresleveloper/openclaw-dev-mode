@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";import{t as SessionStoreMigrationRequiredError}from"./migration-required-CWzXK2FC.mjs";
+//!src/config/sessions/supported-session-store.ts
+function assertSupportedSessionStoreEntry(e){if(!isRecord(e))return;if(typeof e.room===`string`&&typeof e.groupChannel!==`string`)throw new SessionStoreMigrationRequiredError(`Session field "room" predates July 2026 and is no longer supported. Preserve the original state, install OpenClaw 2026.9.5 and run "openclaw doctor --fix", then upgrade again.`)}export{assertSupportedSessionStoreEntry as t};

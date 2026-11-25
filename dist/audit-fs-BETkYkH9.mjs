@@ -1,0 +1,3 @@
+import{formatPermissionDetail,formatPermissionRemediation,inspectPathPermissions,inspectPathPermissions as inspectPathPermissions$1,safeStat as safeStat$1}from"@openclaw/fs-safe/permissions";
+//!src/security/audit-fs.ts
+function createPermissionAuditor(e,t){return async(n,r,i)=>{const a=await inspectPathPermissions(n,{env:t.env,platform:t.platform,exec:t.execIcacls});if(!a.ok)return;const o=i(a);if(o)e.push({...o,detail:`${formatPermissionDetail(n,a)}; ${o.detail}`,remediation:formatPermissionRemediation({targetPath:n,perms:a,isDir:r,posixMode:r?448:384,env:t.env})})}}export{inspectPathPermissions$1 as n,safeStat$1 as r,createPermissionAuditor as t};

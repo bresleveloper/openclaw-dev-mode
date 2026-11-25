@@ -1,5 +1,5 @@
 import { resolveClaudeModelIdentity } from "openclaw/plugin-sdk/provider-model-shared";
-//#region extensions/amazon-bedrock/bedrock-options.ts
+// extensions/amazon-bedrock/bedrock-options.ts
 /** Nova requires explicit opt-in; other models retain the existing env/default policy. */
 function resolveBedrockCacheRetention(policy, cacheRetention) {
 	if (cacheRetention) return cacheRetention;
@@ -25,5 +25,4 @@ function resolveBedrockClaudeCachePolicy(modelId, modelName) {
 	if (candidates.some((candidate) => /^claude-(?:haiku-(?:4-5|5-5)|sonnet-(?:4-[56]|5(?:-5)?)|opus-(?:4-[5-8]|5(?:-5)?)|(?:fable|mythos)-5(?:-1)?)(?:$|-v\d|-\d{8}(?:-|$))/.test(candidate))) return "claude";
 	return candidates.some((candidate) => candidate.includes("-4-") || /^claude-(?:fable-5|mythos-5|opus-5|sonnet-5|haiku-5|3-7-sonnet|3-5-haiku)/.test(candidate)) ? "claude-short" : void 0;
 }
-//#endregion
 export { resolveBedrockCachePoint, resolveBedrockCacheRetention, resolveBedrockPromptCachePolicy };

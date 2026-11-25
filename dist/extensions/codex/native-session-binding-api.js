@@ -1,2 +1,1 @@
-import { a as readStoredCodexAppServerBinding } from "./.setup/session-binding-record-codec-0m3ftJ1e.mjs";
-export { readStoredCodexAppServerBinding as readNativeSessionBindingRecord };
+export { a as readNativeSessionBindingRecord } from "./.setup/session-binding-record-codec-I8YXPEq3.mjs";

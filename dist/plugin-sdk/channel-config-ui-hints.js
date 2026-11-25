@@ -1,2 +1,1 @@
-import { t as createChannelConfigUiHints } from "../channel-config-ui-hints-D1z4Jpgv.mjs";
-export { createChannelConfigUiHints };
+import{t as createChannelConfigUiHints}from"../channel-config-ui-hints-DcUeBj61.mjs";export{createChannelConfigUiHints};

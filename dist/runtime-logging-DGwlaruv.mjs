@@ -1,0 +1,3 @@
+import{i as normalizeLogLevel}from"./levels-i0MxdVax.mjs";import{c as isFileLogLevelEnabled,r as getChildLogger}from"./logger-BDbUwie8.mjs";import{a as shouldLogVerbose}from"./globals-CaHZHS3g.mjs";import"./logging-D8zPX8af.mjs";
+//!src/plugins/runtime/runtime-logging.ts
+function writeRuntimeLog(e,t,n,r){if(r&&Object.keys(r).length>0){e[t](r,n);return}e[t](n)}function createRuntimeLogging(){return{shouldLogVerbose,getChildLogger:(e,t)=>{const n=t?.level?normalizeLogLevel(t.level):void 0;const r=n?{level:n}:void 0;const emit=t=>(i,a)=>{if(!n&&!isFileLogLevelEnabled(t))return;writeRuntimeLog(getChildLogger(e,r),t,i,a)};return{debug:emit(`debug`),info:emit(`info`),warn:emit(`warn`),error:emit(`error`)}}}}export{writeRuntimeLog as n,createRuntimeLogging as t};

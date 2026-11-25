@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { readAssistantThinkingAppend } from "@openclaw/ai/internal/shared";
-import { truncateUtf16Safe } from "@openclaw/normalization-core/utf16-slice";
 import type { InlineCodeState } from "../../packages/markdown-core/src/code-spans.js";
 import {
   buildCodeSpanIndex,
@@ -11,7 +9,6 @@ import { parseReasoningTagAt } from "../../packages/markdown-core/src/reasoning-
 import {
   addReplyPayloadMediaFailures,
   appendReplyMediaFailures,
-  setReplyPayloadMetadata,
 } from "../auto-reply/reply-payload.js";
 import type { ReplyDirectiveParseResult } from "../auto-reply/reply/reply-directives.js";
 import { createStreamingDirectiveAccumulator } from "../auto-reply/reply/streaming-directives.js";
@@ -21,16 +18,12 @@ import {
 } from "../infra/agent-events.js";
 import { findFinalTagMatches } from "../shared/text/final-tags.js";
 import { hasOrphanReasoningCloseBoundary } from "../shared/text/reasoning-tags.js";
-import {
-  createTextProjection,
-  trimTextFilter,
-  trimTextPreservingCode,
-} from "../shared/text/text-projection.js";
+import { trimTextPreservingCode } from "../shared/text/text-projection.js";
 import type { BlockChunkMetadata } from "./embedded-agent-block-chunker.js";
 import {
   isMessagingToolDuplicateNormalized,
   normalizeTextForComparison,
-} from "./embedded-agent-helpers.js";
+} from "./embedded-agent-helpers/messaging-dedupe.js";
 import { runBestEffortCallback } from "./embedded-agent-subscribe.callback.js";
 import {
   shouldSuppressSourceReplyOutput,
@@ -42,6 +35,7 @@ import type {
 } from "./embedded-agent-subscribe.handlers.types.js";
 import type { SubscribeEmbeddedAgentSessionParams } from "./embedded-agent-subscribe.types.js";
 import {
+  createAssistantThinkingStream,
   createAssistantStreamBlockState,
   createThinkingTagStreamState,
 } from "./embedded-agent-utils.js";
@@ -136,15 +130,11 @@ export function createStreamRendering({
 }: StreamRenderingParams) {
   const messagingToolSentTextsNormalized = state.messagingToolSentTextsNormalized;
   const partialReplyDirectiveAccumulator = createStreamingDirectiveAccumulator();
-  let reasoningProjection = createTextProjection([trimTextFilter("both")]);
+  let reasoningProjection = createAssistantThinkingStream();
   const coveredBlockSources = new Map<
     number,
     Array<{ range: readonly [number, number]; text: string }>
   >();
-  const acceptedBlockSourceGenerations = new Map<number, number>();
-  // Retain the producer snapshot for eligibility; the projection builds its own
-  // source, and comparing a reconstructed growing prefix can restore prefix work.
-  let reasoningRaw: string | undefined;
 
   const stripBlockTags = (
     text: string,
@@ -373,7 +363,7 @@ export function createStreamRendering({
     ) {
       return;
     }
-    const blockReplyText = options?.final === false ? text : text.trimEnd();
+    const blockReplyText = options?.final === true ? text.trimEnd() : text;
     const hasPendingAudioDirective = state.pendingAssistantReplyDirectives?.audioAsVoice === true;
     if (!blockReplyText.trim() && !options?.finalReply && !hasPendingAudioDirective) {
       return;
@@ -427,16 +417,12 @@ export function createStreamRendering({
           messagingToolSentTextsNormalized,
         ));
     if (isMessagingDuplicate) {
-      log.debug(
-        `Skipping block reply - already sent via messaging tool: ${truncateUtf16Safe(chunk, 50)}...`,
-      );
       if (prefixReplayCandidate) {
         markBlockReplyTextHandled();
       }
       return;
     }
 
-    let sourceRangeAlreadyCovered = false;
     const assistantMessageIndex = options?.assistantMessageIndex ?? state.assistantMessageIndex;
     const blockSourceText = options?.sourceText;
     const sourceStart = options?.sourceStart;
@@ -445,6 +431,7 @@ export function createStreamRendering({
       blockSourceText !== undefined && sourceStart !== undefined && sourceEnd !== undefined
         ? ([sourceStart, sourceEnd] as const)
         : undefined;
+    let sourceAlreadyEmitted = false;
     if (blockSourceRange) {
       const covered = coveredBlockSources.get(assistantMessageIndex) ?? [];
       const [start, end] = blockSourceRange;
@@ -466,23 +453,14 @@ export function createStreamRendering({
           break;
         }
       }
-      if (cursor >= end && coveredText === blockSourceText) {
-        sourceRangeAlreadyCovered = true;
-      }
+      sourceAlreadyEmitted = cursor >= end && coveredText === blockSourceText;
     }
-    // Source ranges distinguish adjacent identical chunks without treating a
-    // replayed terminal snapshot as a new occurrence.
-    if (options?.reconciledSourceBreak && options.sourceGeneration !== undefined) {
-      // The preserved boundary is a replay, but later ranges in this generation are new.
-      acceptedBlockSourceGenerations.set(assistantMessageIndex, options.sourceGeneration);
-    }
-    const sameSourceGeneration =
-      options?.sourceGeneration !== undefined &&
-      acceptedBlockSourceGenerations.get(assistantMessageIndex) === options.sourceGeneration;
     if (
       chunk &&
-      (sourceRangeAlreadyCovered ||
-        ((!blockSourceRange || !sameSourceGeneration || options?.reconciledSourceBreak) &&
+      (sourceAlreadyEmitted ||
+        ((!blockSourceRange ||
+          !coveredBlockSources.has(assistantMessageIndex) ||
+          options?.reconciledSourceBreak) &&
           shouldSkipAssistantText(chunk, normalizedChunk)))
     ) {
       if (slicedPrefixReplay) {
@@ -504,7 +482,6 @@ export function createStreamRendering({
     let splitResult: ReplyDirectiveParseResult = {
       text: chunk,
       replyToTag: false,
-      isSilent: false,
     };
     if (options?.finalReply) {
       let pendingText = splitResult.text;
@@ -549,20 +526,17 @@ export function createStreamRendering({
       replyToCurrent,
     };
     addReplyPayloadMediaFailures(payload, mediaFailures);
-    if (splitResult.isSilent) {
-      setReplyPayloadMetadata(payload, { silentReply: true });
-    }
     const emittedBlockSourceRange =
-      chunk === text.trimEnd() &&
+      chunk === blockReplyText &&
       cleanedText === chunk &&
-      !sourceRangeAlreadyCovered &&
+      !sourceAlreadyEmitted &&
       !options?.reconciledSourceBreak
         ? blockSourceRange
         : undefined;
     emitBlockReply(payload, {
       assistantMessageIndex,
       blockSourceText:
-        chunk === text.trimEnd() &&
+        chunk === blockReplyText &&
         cleanedText === chunk &&
         (options?.sourceStart === undefined || emittedBlockSourceRange !== undefined)
           ? blockSourceText
@@ -577,9 +551,6 @@ export function createStreamRendering({
       const covered = coveredBlockSources.get(assistantMessageIndex) ?? [];
       covered.push({ range: emittedBlockSourceRange, text: blockSourceText ?? "" });
       coveredBlockSources.set(assistantMessageIndex, covered);
-      if (options?.sourceGeneration !== undefined) {
-        acceptedBlockSourceGenerations.set(assistantMessageIndex, options.sourceGeneration);
-      }
     }
     markBlockReplyTextHandled();
   };
@@ -607,7 +578,6 @@ export function createStreamRendering({
           if (pendingChunk !== undefined) {
             emitBlockChunk(pendingChunk.text, {
               sourceText: pendingChunk.sourceText,
-              sourceGeneration: pendingChunk.sourceGeneration,
               reconciledSourceBreak: pendingChunk.reconciledSourceBreak,
               sourceStart: pendingChunk.sourceStart,
               sourceEnd: pendingChunk.sourceEnd,
@@ -629,7 +599,6 @@ export function createStreamRendering({
         ...options,
         final: options?.final === true,
         sourceText: pendingChunk?.sourceText,
-        sourceGeneration: pendingChunk?.sourceGeneration,
         reconciledSourceBreak: pendingChunk?.reconciledSourceBreak,
         sourceStart: pendingChunk?.sourceStart,
         sourceEnd: pendingChunk?.sourceEnd,
@@ -652,21 +621,8 @@ export function createStreamRendering({
     if (params.silentExpected) {
       return;
     }
-    const text = typeof input === "string" ? input : input.thinking;
-    const append =
-      typeof input !== "string" && reasoningRaw !== undefined
-        ? readAssistantThinkingAppend(input, reasoningRaw)
-        : undefined;
     const previousProjectedText = reasoningProjection.text;
-    let projected =
-      append !== undefined ? reasoningProjection.append(append) : reasoningProjection.replace(text);
-    reasoningRaw = text;
-    if (!projected.text && fallback?.trim()) {
-      // Empty native summaries have always fallen back to event payloads. That
-      // replacement must not seed a later append against a different raw prefix.
-      projected = reasoningProjection.replace(fallback);
-      reasoningRaw = undefined;
-    }
+    const projected = reasoningProjection.update(input, fallback);
     const trimmed = projected.text;
     if (!trimmed || trimmed === state.lastStreamedReasoning) {
       return;
@@ -720,6 +676,7 @@ export function createStreamRendering({
     state.streamBlockText = "";
     state.streamBlockFinal = false;
     state.blockReplyScopeStart = undefined;
+    state.blockReplyTextUnsettled = false;
     state.thinkingTagStream = createThinkingTagStreamState();
     state.deltaBufferIsCommentary = false;
     state.hasFlushedPartialText = false;
@@ -727,11 +684,12 @@ export function createStreamRendering({
     resetPartialReplyDirectives();
     state.partialBlockState = createAssistantStreamBlockState();
     state.assistantStream = undefined;
+    state.nextCommentaryAt = undefined;
+    state.commentaryTextProjection = undefined;
     state.currentSourceMessagingToolHeldPartial = undefined;
     state.lastBlockReplyText = undefined;
     state.lastStreamedReasoning = undefined;
-    reasoningProjection = createTextProjection([trimTextFilter("both")]);
-    reasoningRaw = undefined;
+    reasoningProjection = createAssistantThinkingStream();
     state.reasoningStreamOpen = false;
     state.suppressBlockChunks = false;
     state.assistantMessageIndex += 1;
@@ -742,6 +700,7 @@ export function createStreamRendering({
 
   return {
     consumePartialReplyDirectives,
+    getPartialReplySourceText: () => partialReplyDirectiveAccumulator.sourceText,
     resetPartialReplyDirectives,
     emitBlockChunk,
     emitReasoningStream,

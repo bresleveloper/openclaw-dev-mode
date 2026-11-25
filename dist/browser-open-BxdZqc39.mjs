@@ -1,0 +1,1 @@
+import{n as openLocalFile,r as openUrl,t as detectBrowserOpenSupport}from"./browser-open-Cg5IElMA.mjs";export{detectBrowserOpenSupport,openUrl};

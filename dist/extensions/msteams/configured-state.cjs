@@ -1,6 +1,6 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 let openclaw_plugin_sdk_secret_input = require("openclaw/plugin-sdk/secret-input");
-//#region extensions/msteams/configured-state.ts
+// extensions/msteams/configured-state.ts
 /** Mirror Teams auth-mode requirements without loading the Azure SDK or full channel. */
 function hasConfiguredMSTeamsChannelState(params) {
 	const config = params.cfg.channels?.msteams;
@@ -15,5 +15,4 @@ function hasConfiguredMSTeamsChannelState(params) {
 	}
 	return config && Object.hasOwn(config, "appPassword") ? (0, openclaw_plugin_sdk_secret_input.hasConfiguredSecretInput)(config.appPassword) : Boolean((0, openclaw_plugin_sdk_secret_input.normalizeSecretInputString)(env.MSTEAMS_APP_PASSWORD));
 }
-//#endregion
 exports.hasConfiguredMSTeamsChannelState = hasConfiguredMSTeamsChannelState;

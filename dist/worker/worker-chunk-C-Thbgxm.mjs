@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,t as n}from"./worker-chunk-CNpQrPFS.mjs";import r from"node:path";function canonicalEntryPath(e){let n=r.resolve(e);return r.join(t(r.dirname(n)),r.basename(n))}var i=e((()=>{n()}));export{i as n,canonicalEntryPath as t};

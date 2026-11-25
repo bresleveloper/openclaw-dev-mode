@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{m as asSafeIntegerInRange,s as asFiniteNumber}from"./number-coercion-B3CfI447.mjs";
+//!packages/acp-core/src/meta.ts
+function readMetaValue(e,t,n){if(!e)return;for(const r of t){const t=n(e[r]);if(t!==void 0)return t}}function readMetadataString(e,t){return readMetaValue(e,t,normalizeOptionalString)}function readBool(e,t){return readMetaValue(e,t,e=>typeof e===`boolean`?e:void 0)}function readMetadataNumber(e,t){return readMetaValue(e,t,asFiniteNumber)}function readNonNegativeInteger(e,t){return readMetaValue(e,t,e=>asSafeIntegerInRange(e,{min:0}))}export{readNonNegativeInteger as i,readMetadataNumber as n,readMetadataString as r,readBool as t};

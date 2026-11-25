@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function sendJson(e,t,n){e.statusCode=t,e.setHeader(`Content-Type`,`application/json; charset=utf-8`),e.end(JSON.stringify(n))}function writeJsonWithoutCharset(e,t,n){e.writeHead(t,{"Content-Type":`application/json`}),e.end(JSON.stringify(n))}var t=e((()=>{}));export{sendJson as n,writeJsonWithoutCharset as r,t};

@@ -1,9 +1,12 @@
+import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 import { readPositiveIntegerParam } from "openclaw/plugin-sdk/param-readers";
+import { resolvePluginConfigObject } from "openclaw/plugin-sdk/plugin-config-runtime";
 import type { SearchConfigRecord } from "openclaw/plugin-sdk/provider-web-search";
 import {
   createWebSearchProviderContractFields,
   enablePluginInConfig,
+  WEB_SEARCH_QUERY_COUNT_PROPERTIES,
   type WebSearchProviderPlugin,
 } from "openclaw/plugin-sdk/provider-web-search-contract";
 import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
@@ -15,22 +18,13 @@ const loadFirecrawlClientModule = createLazyRuntimeModule(() => import("./firecr
 const GenericFirecrawlSearchSchema = {
   type: "object",
   properties: {
-    query: { type: "string", description: "Search query string." },
-    count: {
-      type: "integer",
-      description: "Number of results to return (1-10).",
-      minimum: 1,
-      maximum: 10,
-    },
+    ...WEB_SEARCH_QUERY_COUNT_PROPERTIES,
   },
   additionalProperties: false,
 } satisfies Record<string, unknown>;
 
-function getConfiguredFirecrawlFetchCredentialFallback(config?: {
-  plugins?: { entries?: { firecrawl?: { config?: unknown } } };
-}) {
-  const pluginConfig = asOptionalRecord(config?.plugins?.entries?.firecrawl?.config);
-  const value = asOptionalRecord(pluginConfig?.webFetch)?.apiKey;
+function getConfiguredFirecrawlFetchCredentialFallback(config?: OpenClawConfig) {
+  const value = asOptionalRecord(resolvePluginConfigObject(config, "firecrawl")?.webFetch)?.apiKey;
   return value === undefined
     ? undefined
     : {

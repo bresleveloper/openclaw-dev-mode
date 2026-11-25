@@ -2,10 +2,7 @@ import { ZOOM_MEETINGS_CLI_METADATA } from "./cli-metadata.js";
 import { MeetingPlatformAdapter } from "openclaw/plugin-sdk/meeting-runtime";
 import { addTimerTimeoutGraceMs } from "openclaw/plugin-sdk/number-runtime";
 import { REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME } from "openclaw/plugin-sdk/realtime-voice";
-//#region extensions/zoom-meetings/src/errors.ts
-var ZoomMeetingsInvalidRequestError = class extends Error {};
-//#endregion
-//#region extensions/zoom-meetings/src/transports/zoom-meetings-selectors.ts
+// extensions/zoom-meetings/src/transports/zoom-meetings-selectors.ts
 const ZOOM_MEETING_SELECTORS = {
 	continueInBrowser: [],
 	guestName: ["input#input-for-name"],
@@ -89,50 +86,7 @@ const ZOOM_MEETING_SELECTORS = {
 		".live-transcription-subtitle__box"
 	]
 };
-//#endregion
-//#region extensions/zoom-meetings/src/transports/zoom-meetings-status-call-source.ts
-const zoomMeetingStatusCall = {
-	captionEnableSource: `if (!captionsFinalized && canMutateSession && inCall && !captionsEnabledNow) {
-      let captionButton = first(selectors.captions);
-      if (!captionButton) {
-        (first(selectors.moreActions) || findTextButton(/^more$/i))?.click?.();
-        await waitForUi();
-        captionButton = first(selectors.captions);
-      }
-      if (captionButton) {
-        const captionLabel = label(captionButton);
-        const alreadyEnabled = captionButton.getAttribute?.("aria-checked") === "true" ||
-          /hide (?:live )?captions|turn off captions/i.test(captionLabel) ||
-          Boolean(firstRaw(selectors.captionsOff));
-        if (!alreadyEnabled) {
-          captionButton.click();
-          await waitForUi();
-          const showCaptions = first(selectors.captions);
-          if (showCaptions && showCaptions !== captionButton && /show captions/i.test(label(showCaptions))) {
-            showCaptions.click();
-            await waitForUi();
-          }
-          const saveLanguage = findTextButton(/^save$/i);
-          if (saveLanguage && /caption language/i.test(text(document.body))) {
-            saveLanguage.click();
-            await waitForUi();
-          }
-        }
-        const currentCaptionButton = first(selectors.captions) || captionButton;
-        const currentLabel = label(currentCaptionButton);
-        captionsEnabledNow = currentCaptionButton.getAttribute?.("aria-checked") === "true" ||
-          /hide (?:live )?captions|turn off captions/i.test(currentLabel) ||
-          Boolean(firstRaw(selectors.captionRenderer)) ||
-          Boolean(firstRaw(selectors.captionsOff));
-        if (captionsEnabledNow && !alreadyEnabled) {
-          notes.push("Enabled Zoom live captions for transcript capture.");
-        }
-      }
-    }`,
-	extraResultSource: "meetingEnded,"
-};
-//#endregion
-//#region extensions/zoom-meetings/src/transports/zoom-meetings-status-prejoin-source.ts
+// extensions/zoom-meetings/src/transports/zoom-meetings-status-prejoin-source.ts
 const zoomMeetingStatusPrelude = {
 	controlLookupSource: `const findTextButton = (pattern) => [...document.querySelectorAll("button")]
     .find((button) => !button.disabled && pattern.test(label(button)));
@@ -347,8 +301,7 @@ ${sources.manualActions({ inCallControls: true })}`,
   const Event = pageWindow.Event || globalThis.Event;
   const MutationObserver = pageWindow.MutationObserver || globalThis.MutationObserver;`
 };
-//#endregion
-//#region extensions/zoom-meetings/src/transports/zoom-meetings-urls.ts
+// extensions/zoom-meetings/src/transports/zoom-meetings-urls.ts
 function isZoomHostname(hostname) {
 	return hostname === "zoom.us" || hostname.endsWith(".zoom.us");
 }
@@ -398,10 +351,21 @@ function isRecoverableZoomMeetingTab(tab, url) {
 	const hostname = URL.parse(tab.url ?? "")?.hostname.toLowerCase();
 	return Boolean(hostname && isZoomHostname(hostname) && /sign in|verification|zoom/i.test(tab.title ?? ""));
 }
-//#endregion
-//#region extensions/zoom-meetings/src/transports/zoom-meetings-page-scripts.ts
-function pageIdentityFunctionSource() {
-	return `const meetingIdentity = (rawUrl) => {
+// extensions/zoom-meetings/src/transports/zoom-meetings-page-scripts.ts
+const zoomMeetingPageScripts = MeetingPlatformAdapter.createPageScripts({
+	platform: {
+		audioOutputElementIdPrefix: "openclaw-zoom-audio-output-",
+		manualActionReasonPrefix: "zoom",
+		displayName: "Zoom",
+		globals: {
+			audioOutputs: "__openclawZoomAudioOutputs",
+			captionArchive: "__openclawZoomCaptionArchive",
+			captions: "__openclawZoomCaptions",
+			meeting: "__openclawZoomMeeting"
+		}
+	},
+	normalizeUrl: normalizeZoomMeetingUrlForReuse,
+	pageIdentitySource: () => `const meetingIdentity = (rawUrl) => {
     try {
       const parsed = new URL(rawUrl);
       const host = parsed.hostname.toLowerCase();
@@ -413,12 +377,11 @@ function pageIdentityFunctionSource() {
       const webClient = parsed.pathname.match(/^\\/wc\\/(\\d{9,11})\\/join\\/?$/);
       const meetingId = invitation?.[1] || webClient?.[1];
       return meetingId ? "zoom:" + meetingId : undefined;
-    } catch {}
+    } catch { /* Invalid external URLs do not identify a meeting. */ }
     return undefined;
-  };`;
-}
-function zoomMeetingToggleStateFunctionSource() {
-	return `(input) => {
+  };`,
+	selectors: ZOOM_MEETING_SELECTORS,
+	toggleStateFunction: () => `(input) => {
     const pressed = String(input?.ariaPressed || "").toLowerCase();
     if (pressed === "true") return "on";
     if (pressed === "false") return "off";
@@ -442,26 +405,48 @@ function zoomMeetingToggleStateFunctionSource() {
     if (/\\b(?:microphone|mic) (?:is |currently )?(?:off|muted|disabled)\\b/.test(value)) return "off";
     if (/\\b(?:microphone|mic) (?:is |currently )?(?:on|unmuted|enabled)\\b/.test(value)) return "on";
     return undefined;
-  }`;
-}
-const zoomMeetingPageScripts = MeetingPlatformAdapter.createPageScripts({
-	platform: {
-		audioOutputElementIdPrefix: "openclaw-zoom-audio-output-",
-		manualActionReasonPrefix: "zoom",
-		displayName: "Zoom",
-		globals: {
-			audioOutputs: "__openclawZoomAudioOutputs",
-			captionArchive: "__openclawZoomCaptionArchive",
-			captions: "__openclawZoomCaptions",
-			meeting: "__openclawZoomMeeting"
-		}
-	},
-	normalizeUrl: normalizeZoomMeetingUrlForReuse,
-	pageIdentitySource: pageIdentityFunctionSource,
-	selectors: ZOOM_MEETING_SELECTORS,
-	toggleStateFunction: zoomMeetingToggleStateFunctionSource,
+  }`,
 	statusPrelude: zoomMeetingStatusPrelude,
-	statusCall: zoomMeetingStatusCall,
+	statusCall: {
+		captionEnableSource: `if (!captionsFinalized && canMutateSession && inCall && !captionsEnabledNow) {
+      let captionButton = first(selectors.captions);
+      if (!captionButton) {
+        (first(selectors.moreActions) || findTextButton(/^more$/i))?.click?.();
+        await waitForUi();
+        captionButton = first(selectors.captions);
+      }
+      if (captionButton) {
+        const captionLabel = label(captionButton);
+        const alreadyEnabled = captionButton.getAttribute?.("aria-checked") === "true" ||
+          /hide (?:live )?captions|turn off captions/i.test(captionLabel) ||
+          Boolean(firstRaw(selectors.captionsOff));
+        if (!alreadyEnabled) {
+          captionButton.click();
+          await waitForUi();
+          const showCaptions = first(selectors.captions);
+          if (showCaptions && showCaptions !== captionButton && /show captions/i.test(label(showCaptions))) {
+            showCaptions.click();
+            await waitForUi();
+          }
+          const saveLanguage = findTextButton(/^save$/i);
+          if (saveLanguage && /caption language/i.test(text(document.body))) {
+            saveLanguage.click();
+            await waitForUi();
+          }
+        }
+        const currentCaptionButton = first(selectors.captions) || captionButton;
+        const currentLabel = label(currentCaptionButton);
+        captionsEnabledNow = currentCaptionButton.getAttribute?.("aria-checked") === "true" ||
+          /hide (?:live )?captions|turn off captions/i.test(currentLabel) ||
+          Boolean(firstRaw(selectors.captionRenderer)) ||
+          Boolean(firstRaw(selectors.captionsOff));
+        if (captionsEnabledNow && !alreadyEnabled) {
+          notes.push("Enabled Zoom live captions for transcript capture.");
+        }
+      }
+    }`,
+		extraResultSource: "meetingEnded,"
+	},
 	leave: {
 		controlSource: `const first = (list) => {
     for (const selector of list) {
@@ -487,7 +472,7 @@ const zoomMeetingPageScripts = MeetingPlatformAdapter.createPageScripts({
   try {
     const currentUrl = new URL(location.href);
     webClientHome = !leave && currentUrl.hostname === "app.zoom.us" && /^\\/wc\\/?$/.test(currentUrl.pathname);
-  } catch {}`,
+  } catch { /* An unparseable page URL is not proof of departure. */ }`,
 		departedMarkerSource: "(postCall || webClientHome)",
 		documentSetupSource: `const topDocument = globalThis.document;
   const document = topDocument.querySelector("#webclient")?.contentDocument || topDocument;`,
@@ -503,8 +488,7 @@ const zoomMeetingPageScripts = MeetingPlatformAdapter.createPageScripts({
     sessionAdoptedFromUrl;`
 	}
 });
-//#endregion
-//#region extensions/zoom-meetings/src/transports/zoom-meetings-platform-adapter.ts
+// extensions/zoom-meetings/src/transports/zoom-meetings-platform-adapter.ts
 const ZOOM_MEETINGS_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 	id: "zoom-meetings",
 	displayName: "Zoom meetings",
@@ -551,8 +535,7 @@ const ZOOM_MEETINGS_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 		statusFields: (parsed) => ({ meetingEnded: typeof parsed.meetingEnded === "boolean" ? parsed.meetingEnded : void 0 })
 	})
 });
-//#endregion
-//#region extensions/zoom-meetings/index.ts
+// extensions/zoom-meetings/index.ts
 const zoomMeetingsPlugin = MeetingPlatformAdapter.defineBrowserMeetingPlugin({
 	platform: ZOOM_MEETINGS_PLATFORM_ADAPTER,
 	labels: {
@@ -566,7 +549,7 @@ const zoomMeetingsPlugin = MeetingPlatformAdapter.defineBrowserMeetingPlugin({
 		defaultRealtimeInstructions: `You are joining a private Zoom meeting as an OpenClaw voice transport. Keep spoken replies brief and natural. In agent mode, wait for OpenClaw consult results and speak them exactly. In bidi mode, answer directly and call ${REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME} for deeper reasoning, current information, or tools.`,
 		resolveGatewayOperationTimeoutMs: (config) => Math.max(6e4, addTimerTimeoutGraceMs(config.chrome.joinTimeoutMs, config.chrome.waitForInCallMs + config.chrome.joinTimeoutMs + 3e4) ?? 1)
 	},
-	InvalidRequestError: ZoomMeetingsInvalidRequestError,
+	InvalidRequestError: class ZoomMeetingsInvalidRequestError extends Error {},
 	toolUrlDescription: "Zoom meeting URL",
 	transcriptSource: {
 		id: "zoom",
@@ -664,5 +647,4 @@ const zoomMeetingsPlugin = MeetingPlatformAdapter.defineBrowserMeetingPlugin({
 	}
 });
 var zoom_meetings_default = zoomMeetingsPlugin.plugin;
-//#endregion
 export { zoom_meetings_default as default, zoomMeetingsPlugin };

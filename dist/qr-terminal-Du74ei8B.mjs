@@ -1,0 +1,4 @@
+import{t as loadQrCodeRuntime}from"./qr-runtime-CSO__Onw.mjs";
+//!src/media/qr-terminal.ts
+const COMPACT_MARGIN_MODULES=1;const TERMINAL_BLACK_ON_WHITE=`\x1B[47m\x1B[30m`;const TERMINAL_RESET=`\x1B[0m`;function readModule(e,t,n){if(t<0||n<0||t>=e.size||n>=e.size)return false;return Boolean(e.data[n*e.size+t])}async function renderQrTerminal(e,t={}){const n=await loadQrCodeRuntime();if(t.small===true){const t=n.create(e).modules;const r=[];for(let e=-1;e<t.size+COMPACT_MARGIN_MODULES;e+=2){let n=TERMINAL_BLACK_ON_WHITE;for(let r=-1;r<t.size+COMPACT_MARGIN_MODULES;r+=1){const i=readModule(t,r,e);const a=readModule(t,r,e+1);n+=i?a?`█`:`▀`:a?`▄`:` `}r.push(`${n}${TERMINAL_RESET}`)}return r.join(`
+`)}return await n.toString(e,{small:false,type:`terminal`})}export{renderQrTerminal as t};

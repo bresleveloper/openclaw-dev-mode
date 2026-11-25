@@ -1,0 +1,3 @@
+import{g as resolveAdmittedRunActiveAssertion}from"./admitted-run-context-8TBDEh3D.mjs";
+//!src/audit/execution-owner-binding.ts
+function withPostAdmissionExecutionOwnerBinding(e,t){let n;return Object.freeze({...e,admit:async(r,i)=>{const a=await e.admit(r,i);const o=resolveAdmittedRunActiveAssertion(a);if(!o)throw new Error(`prepared execution authority closed during owner binding`);n??=Promise.resolve().then(()=>{o();return t(a)});await n;o();return a}})}export{withPostAdmissionExecutionOwnerBinding as t};

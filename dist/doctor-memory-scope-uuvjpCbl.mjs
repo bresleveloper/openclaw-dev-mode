@@ -1,0 +1,3 @@
+import{i as listAgentIds}from"./agent-roster-Cq57wKEj.mjs";import{a as resolveAgentDir,f as resolveAgentWorkspaceDir}from"./agent-scope-config-a2Ym-O21.mjs";import"./agent-scope-A1AqU6fw.mjs";
+//!src/commands/doctor-memory-scope.ts
+function resolveMemoryDoctorAgentScopes(e){return listAgentIds(e).map(t=>({agentId:t,agentDir:resolveAgentDir(e,t),workspaceDir:resolveAgentWorkspaceDir(e,t)}))}function formatMemoryDoctorAgentMessage(e,t,n){return`${t?`Agent "${e}": `:``}${n}`}export{resolveMemoryDoctorAgentScopes as n,formatMemoryDoctorAgentMessage as t};

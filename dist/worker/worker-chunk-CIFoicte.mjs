@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function isWorkspaceScratchPath(e){let t=e.replaceAll(`\\`,`/`).split(`/`);return!t.includes(`..`)&&t.some((e,n)=>e===`.openclaw`&&t[n+1]===`tmp`&&!!t[n+2])}var t,n=e((()=>{t=`file expired (scratch cleaned after 24 h)`}));export{n,isWorkspaceScratchPath as r,t};

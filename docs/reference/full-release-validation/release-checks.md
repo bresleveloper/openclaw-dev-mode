@@ -74,8 +74,9 @@ No lane accepts a protocol mismatch as a passing test. Preview failures retain
 their raw GitHub job conclusions; Release Checks can therefore appear red while
 Full Release Validation passes with explicit advisory evidence. The release
 policy admits only the named preview jobs and main-source resolver, and only
-when stable E2E and the release-check verifier both succeed.
-Unrelated failures and whole-workflow cancellation
+when stable E2E succeeds and the release-check verifier passes the existing
+trusted-tooling policy. Independently approved provider waivers retain their
+aggregate-log checks. Unrelated unwaived failures and whole-workflow cancellation
 still block. Automatic child reuse remains limited
 to green runs; advisory-red children run again rather than reusing red evidence.
 
@@ -114,8 +115,12 @@ so independent non-live checks also report their results. Setup failures and
 cancellation do not start that pool.
 
 Expanded published-upgrade survivor and update-migration coverage runs in
-baseline-specific, isolated scenario jobs, with up to 32 targeted Docker jobs
-active per matrix. Long standalone restart/auth, plugin-update, and root-managed
+baseline-specific, isolated scenario jobs. The targeted matrix admits up to 48
+jobs only for GitHub-hosted runs without a custom `runner_group`, with a validated
+package artifact, `published-upgrade-survivor` selected, a nonempty scenario list,
+and no `update-migration` selection. Other targeted matrices retain 32 jobs.
+This increases peak demand, not scenario coverage; wall-time gains depend on
+hosted and registry capacity. Long standalone restart/auth, plugin-update, and root-managed
 upgrade jobs are admitted before the scenario expansion; pinned baseline cohorts
 start newest first. The grouping and execution planners share the
 same baseline compatibility rules; package identities, fresh scenario

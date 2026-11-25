@@ -1,0 +1,3 @@
+import{c as resolveUserPath}from"./home-dir-aZetQWeY.mjs";import{i as listAgentIds,n as listAgentEntries}from"./agent-roster-Cq57wKEj.mjs";import{f as resolveAgentWorkspaceDir}from"./agent-scope-config-a2Ym-O21.mjs";
+//!src/agents/workspace-dirs.ts
+function listAgentWorkspaceDirs(e,t=process.env){return[...new Set(listAgentIds(e).map(n=>resolveAgentWorkspaceDir(e,n,t)))]}function listExplicitAgentWorkspaceDirs(e){const t=/* @__PURE__ */ new Set;for(const n of listAgentEntries(e)){const e=typeof n.workspace===`string`?n.workspace.trim():``;if(e)t.add(resolveUserPath(e))}return[...t]}export{listExplicitAgentWorkspaceDirs as n,listAgentWorkspaceDirs as t};

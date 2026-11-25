@@ -1,0 +1,1 @@
+import{t as AGENT_FTS_SCHEMAS}from"./openclaw-agent-fts-schema-B7-lmsKj.mjs";export{AGENT_FTS_SCHEMAS};

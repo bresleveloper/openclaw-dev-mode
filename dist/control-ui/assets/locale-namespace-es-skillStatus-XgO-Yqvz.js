@@ -1,0 +1,1 @@
+export default {"skillStatus":{"bundled":"incluido","eligible":"apto","blocked":"bloqueado","disabled":"deshabilitado","blockedAllowlist":"bloqueado por la lista de permitidos","blockedAgentFilter":"bloqueado por el filtro de agentes"}};

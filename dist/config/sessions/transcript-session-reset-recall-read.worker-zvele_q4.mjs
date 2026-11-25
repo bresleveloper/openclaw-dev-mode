@@ -1,0 +1,1 @@
+import{n as e}from"./transcript-session-accessor.sqlite-export-read-BxdiSsh2.mjs";import{n as t}from"./transcript-session-reset-recall-C2fq7Xh1.mjs";function readSessionResetRecallCutoffInProcess(n){let r=e(n,{projection:`reset-boundary`});return r?t(r.events):{state:`invalid`}}export{readSessionResetRecallCutoffInProcess};

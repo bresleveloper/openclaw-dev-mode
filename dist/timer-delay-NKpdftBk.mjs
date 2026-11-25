@@ -1,0 +1,2 @@
+//!extensions/browser/src/browser/timer-delay.ts
+const MAX_SAFE_TIMEOUT_DELAY_MS=2147483647;function normalizeBrowserTimerDelayMs(e,t){const n=t?.minMs??1;const r=Math.min(MAX_SAFE_TIMEOUT_DELAY_MS,Math.max(0,Number.isFinite(n)?Math.floor(n):1));return Math.min(MAX_SAFE_TIMEOUT_DELAY_MS,Math.max(r,Number.isFinite(e)?Math.floor(e):r))}export{normalizeBrowserTimerDelayMs as t};

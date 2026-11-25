@@ -1,0 +1,1 @@
+import{mt as e}from"./openclaw-state-read.worker.js";function readConfigSnapshotAuditRecordInDatabase(t){return e(t,{scope:`config-snapshot`,maxEntries:1}).entries().find(e=>e.key===`latest`)?.value??null}export{readConfigSnapshotAuditRecordInDatabase};

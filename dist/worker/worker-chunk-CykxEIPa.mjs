@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,r as n}from"./worker-chunk-ZCQEV8u9.mjs";function stripMixedSilentReplyTokens(e){let n=`${t}\n`;return e.slice(0,n.length).toUpperCase()===n?e.slice(n.length):null}var r=e((()=>{n()}));export{stripMixedSilentReplyTokens as n,r as t};

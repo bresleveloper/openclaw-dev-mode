@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"Skills ruang kerja","learned":"Keterampilan yang dipelajari","builtIn":"Skills bawaan","installed":"Skills terinstal","extra":"Skills tambahan","other":"Skills lainnya"}};

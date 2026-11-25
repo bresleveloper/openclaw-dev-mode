@@ -1,2 +1,1 @@
-import { t as describeSlackMessageTool } from "./.setup/message-tool-api-BS5ekEA_.mjs";
-export { describeSlackMessageTool as describeMessageTool };
+export { t as describeMessageTool } from "./.setup/message-tool-api-B38BpEaE.mjs";

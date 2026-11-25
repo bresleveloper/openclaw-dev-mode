@@ -1,0 +1,3 @@
+import{r as createLazyRuntimeModule}from"./lazy-runtime-Ds6M7vp4.mjs";
+//!extensions/memory-core/src/memory/manager-runtime-loader.ts
+const loadMemoryManagerRuntime=createLazyRuntimeModule(()=>import(`./extensions/memory-core/manager-runtime.js`));async function closeAllMemorySearchManagers(){if(!loadMemoryManagerRuntime.peek())return;const{closeAllMemoryIndexManagers:e}=await loadMemoryManagerRuntime();await e()}export{loadMemoryManagerRuntime as n,closeAllMemorySearchManagers as t};

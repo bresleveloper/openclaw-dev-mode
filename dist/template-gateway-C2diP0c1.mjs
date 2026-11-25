@@ -1,0 +1,3 @@
+import{t as AsyncContext}from"./async-context-DsCOzW-V.mjs";
+//!src/system-agent/template-gateway.ts
+const templateGateway=new AsyncContext(Symbol(`systemAgentTemplateGateway`));const withSystemAgentTemplateGateway=(e,t)=>templateGateway.run(e,t);function getSystemAgentTemplateGateway(){return templateGateway.getStore()}export{withSystemAgentTemplateGateway as n,getSystemAgentTemplateGateway as t};

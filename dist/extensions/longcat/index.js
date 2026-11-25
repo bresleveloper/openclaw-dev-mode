@@ -1,4 +1,4 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-Bv6LEgMG.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-Dpq7k0_2.mjs";
 import { LONGCAT_DEFAULT_MODEL_REF } from "./models.js";
 import { applyLongCatConnectionConfig } from "./onboard.js";
 import { createLongCatThinkingWrapper } from "./stream.js";
@@ -32,5 +32,4 @@ var longcat_default = defineSingleProviderPluginEntry({
 		wrapStreamFn: (ctx) => createLongCatThinkingWrapper(ctx.streamFn, ctx.thinkingLevel)
 	}
 });
-//#endregion
 export { longcat_default as default };

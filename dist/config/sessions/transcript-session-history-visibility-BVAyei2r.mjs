@@ -1,0 +1,1 @@
+import{C as e}from"./transcript-tool-call-xml-BkNCEfY4.mjs";function isVisibleHistoryNonMessageEvent(t){return t.type===`reset`||t.type===`compaction`||t.type===`custom_message`&&t.display===!0&&t.customType!==e}export{isVisibleHistoryNonMessageEvent as t};

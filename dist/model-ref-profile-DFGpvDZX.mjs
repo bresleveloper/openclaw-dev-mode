@@ -1,0 +1,2 @@
+//!src/agents/model-ref-profile.ts
+function splitTrailingAuthProfile(e){const t=e.trim();if(!t)return{model:``};const n=t.lastIndexOf(`/`);let r=t.indexOf(`@`,n+1);if(r<=0)return{model:t};for(const e of[/^\d{8}(?:@|$)/,/^(?:i?q\d+(?:_[a-z0-9]+)*|\d+bit)(?:@|$)/i]){if(!e.test(t.slice(r+1)))continue;const n=t.indexOf(`@`,r+1);if(n<0)return{model:t};r=n}const i=t.slice(0,r).trim();const a=t.slice(r+1).trim();if(!i||!a)return{model:t};return{model:i,profile:a}}export{splitTrailingAuthProfile as t};

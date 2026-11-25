@@ -1,0 +1,15 @@
+import{n as e}from"./transcript-sql-connection-DLZo1Z6N.mjs";import{t}from"./transcript-sqlite-schema-sql-BnVx4b5A.mjs";import{o as n}from"./transcript-sqlite-schema-facts-B1OszW_q.mjs";import{t as r}from"./transcript-sqlite-schema-ensure-C6OWXQRa.mjs";import{f as i}from"./transcript-openclaw-agent-schema-history-BDuyp1sN.mjs";const a=`board_widgets_plugin_kind_migration_new`,o=/content_kind\s+IN\s*\(\s*'html'\s*,\s*'mcp-app'\s*,\s*'plugin'\s*\)/iu,s=/\s+OR\s+\(content_kind\s*=\s*'plugin'\s+AND\s+html\s+IS\s+NULL\s+AND\s+descriptor_json\s+IS\s+NOT\s+NULL\s+AND\s+view_generation\s+IS\s+NULL\)/iu,c=r(()=>i,{tables:[`board_tabs`,`board_widgets`],indexes:[`idx_agent_board_widgets_tab_position`]});function canonicalBoardWidgetsCreateSql(){return t(i,`board_widgets`,{endMarker:`CREATE INDEX IF NOT EXISTS idx_agent_board_widgets_tab_position`,includeEndMarker:!1,errorMessage:`OpenClaw agent board widget schema markers are missing.`}).trim()}function legacyBoardWidgetsCreateSql(){let e=canonicalBoardWidgetsCreateSql(),t=e.replace(o,`content_kind IN ('html', 'mcp-app')`).replace(s,``);if(t===e)throw Error(`OpenClaw agent board widget legacy schema derivation failed.`);return t}function normalizeBoardWidgetsCreateSql(e){return e.replace(/^CREATE TABLE(?: IF NOT EXISTS)?\s+(?:board_widgets|"board_widgets"|`board_widgets`|\[board_widgets\])\s*\(/iu,`CREATE TABLE board_widgets (`).replace(/\s+/gu,` `).replace(/;\s*$/u,``).trim()}function ensureOpenClawAgentBoardSchemaInTransaction(t){if(!t.isTransaction)throw Error(`board schema ensure requires an active transaction`);if(e(t))return;c(t);let r=n(t)?.tableSql.get(`board_widgets`)??t.prepare(`SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'board_widgets'`).get()?.sql;if(typeof r!=`string`)throw Error(`OpenClaw agent board widget schema is missing after ensure.`);let o=normalizeBoardWidgetsCreateSql(r);if(o===normalizeBoardWidgetsCreateSql(canonicalBoardWidgetsCreateSql()))return;if(o!==normalizeBoardWidgetsCreateSql(legacyBoardWidgetsCreateSql()))throw Error(`OpenClaw agent board widget schema has an unsupported content-kind constraint.`);if(t.prepare(`SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?`).get(a))throw Error(`OpenClaw agent board migration table already exists: ${a}`);let s=canonicalBoardWidgetsCreateSql().replace(`CREATE TABLE IF NOT EXISTS board_widgets (`,`CREATE TABLE ${a} (`);t.exec(`
+    ${s}
+    INSERT INTO ${a} (
+      session_key, name, tab_id, title, content_kind, html, descriptor_json, sha256,
+      view_generation, revision, size_w, size_h, position, manifest, grant_state,
+      granted_sha, created_by, created_at, updated_at
+    )
+    SELECT
+      session_key, name, tab_id, title, content_kind, html, descriptor_json, sha256,
+      view_generation, revision, size_w, size_h, position, manifest, grant_state,
+      granted_sha, created_by, created_at, updated_at
+    FROM board_widgets;
+    DROP TABLE board_widgets;
+    ALTER TABLE ${a} RENAME TO board_widgets;
+  `),t.exec(i)}export{ensureOpenClawAgentBoardSchemaInTransaction as t};

@@ -1,7 +1,6 @@
-import { M as OpenClawConfig } from "../../types-D7I_F5Ux.js";
-import { t as SubsystemLogger } from "../../subsystem-RmDRaRJV.js";
-import { _ as ImageGenerationProvider, a as getProviderEnvVarsCore, l as VideoGenerationProvider, m as MusicGenerationProvider, n as GenerateImageRuntimeResult, t as GenerateImageParams } from "../../runtime-types-BaNsKfbh.js";
-//#region src/media-generation/registry.d.ts
+import { BD as ImageGenerationProvider, bS as getProviderEnvVarsCore, gD as VideoGenerationProvider, gl as GenerateImageRuntimeResult, hl as GenerateImageParams, zD as MusicGenerationProvider } from "../../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../../types.openclaw-D8uW-XQA.js";
+import { t as SubsystemLogger } from "../../subsystem-wnS6DJyq.js";
 /** Registry for image-generation providers contributed by plugin capabilities. */
 declare const { listProviders: listImageGenerationProviders, getProvider: getImageGenerationProvider }: {
   listProviders: (cfg?: OpenClawConfig, additionalProviderIds?: readonly string[]) => ImageGenerationProvider[];
@@ -17,8 +16,6 @@ declare const { listProviders: listVideoGenerationProviders, getProvider: getVid
   listProviders: (cfg?: OpenClawConfig, additionalProviderIds?: readonly string[]) => VideoGenerationProvider[];
   getProvider: (providerId: string | undefined, cfg?: OpenClawConfig) => VideoGenerationProvider | undefined;
 };
-//#endregion
-//#region src/image-generation/runtime.d.ts
 declare const log: SubsystemLogger;
 /** Dependency seam used by image-generation runtime tests and plugin host callers. */
 type ImageGenerationRuntimeDeps = {
@@ -32,5 +29,4 @@ export declare function listRuntimeImageGenerationProviders(params?: {
   config?: OpenClawConfig;
 }, deps?: ImageGenerationRuntimeDeps): ImageGenerationProvider[];
 export declare function generateImage(params: GenerateImageParams, deps?: ImageGenerationRuntimeDeps): Promise<GenerateImageRuntimeResult>;
-//#endregion
 export type { GenerateImageParams, GenerateImageRuntimeResult };

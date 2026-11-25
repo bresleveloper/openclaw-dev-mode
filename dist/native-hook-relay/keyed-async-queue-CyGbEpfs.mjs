@@ -1,0 +1,3 @@
+import{i as racePromiseWithAbortSignal}from"./src-CY_qXgOR.mjs";
+//!src/plugin-sdk/keyed-async-queue.ts
+function enqueueKeyedTask(e){e.hooks?.onEnqueue?.();const t=`keys`in e?e.keys:[e.key];const n=`keys`in e?Promise.allSettled(t.map(t=>e.tails.get(t)??Promise.resolve())):(e.tails.get(e.key)??Promise.resolve()).catch(()=>void 0);const r=e.signal?racePromiseWithAbortSignal(n,e.signal):n;const i=n.then(()=>{e.signal?.throwIfAborted();return e.task()}).finally(()=>{e.hooks?.onSettle?.()});const a=i.then(()=>void 0,()=>void 0);for(const n of t)e.tails.set(n,a);const cleanup=()=>{for(const n of t)if(e.tails.get(n)===a)e.tails.delete(n)};a.then(cleanup,cleanup);return e.signal?r.then(()=>i):i}export{enqueueKeyedTask as t};

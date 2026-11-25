@@ -1,0 +1,3 @@
+import{createApiRegistry}from"@openclaw/ai";import{registerBuiltInApiProviders}from"@openclaw/ai/providers";
+//!src/worker/native-runtime-model-support.ts
+const registry=createApiRegistry();registerBuiltInApiProviders(registry);const supportedApis=new Set(registry.getApiProviders().map(({api:e})=>e));function nativeRuntimeModelUnsupportedReason(e,t){if(!supportedApis.has(e))return`Unsupported native runtime API: ${e}`;if(e===`azure-openai-responses`)return`Native runtime does not support ambient-configured Azure API adapters`;if(e===`google-vertex`&&(t.trim()===`gcp-vertex-credentials`||/^<[^>]+>$/.test(t.trim())))return`Native runtime Vertex requires an explicit API key, not ambient ADC`}export{nativeRuntimeModelUnsupportedReason as t};

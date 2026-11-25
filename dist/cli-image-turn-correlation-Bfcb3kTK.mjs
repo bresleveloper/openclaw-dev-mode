@@ -1,0 +1,5 @@
+import{s as markInboundContextLabel}from"./strip-inbound-meta-ftpq205E.mjs";import{createHash}from"node:crypto";
+//!src/agents/cli-image-turn-correlation.ts
+const CLI_IMAGE_TURN_HEADER=markInboundContextLabel(`Image turn:`);const CLI_IMAGE_TURN_BLOCK_PATTERN=new RegExp(`${CLI_IMAGE_TURN_HEADER}\\n\`\`\`json\\n\\{"turnKey":"([a-f0-9]{64})"\\}\\n\`\`\``,`g`);function hashCliImageTurnEntryId(e){return createHash(`sha256`).update(e).digest(`hex`)}function formatCliImageTurnContext(e){return`${CLI_IMAGE_TURN_HEADER}\n\`\`\`json\n${JSON.stringify({turnKey:e})}\n\`\`\``}function readCliImageTurnContext(e){const t=Array.from(e.matchAll(CLI_IMAGE_TURN_BLOCK_PATTERN),e=>e[1]);if(t.length!==e.split(CLI_IMAGE_TURN_HEADER).length-1)return;const n=t[0];return n&&t.every(e=>e===n)?n:void 0}function stripCliImageTurnContext(e,t){const n=formatCliImageTurnContext(t);return e.replace(`\n\n${n}\n\n`,`
+
+`).replace(`${n}\n\n`,``).replace(`\n\n${n}`,``)}export{stripCliImageTurnContext as i,hashCliImageTurnEntryId as n,readCliImageTurnContext as r,formatCliImageTurnContext as t};

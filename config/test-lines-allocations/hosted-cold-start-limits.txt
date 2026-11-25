@@ -1,2 +1,0 @@
-24
-# Hosted runners need longer connect, RPC, and subprocess limits for these cold durability and voice-call proofs.

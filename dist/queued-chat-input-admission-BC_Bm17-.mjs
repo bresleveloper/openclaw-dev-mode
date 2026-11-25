@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";import{AsyncLocalStorage}from"node:async_hooks";
+//!src/gateway/queued-chat-input-admission.ts
+const queuedChatInputAdmission=resolveGlobalSingleton(Symbol.for(`openclaw.queuedChatInputAdmission`),()=>new AsyncLocalStorage);function readQueuedChatInputAdmission(e){const t=queuedChatInputAdmission.getStore();return t?.target.runId===e?t:void 0}export{readQueuedChatInputAdmission as n,queuedChatInputAdmission as t};

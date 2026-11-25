@@ -1,0 +1,2 @@
+//!src/cli/program/program-context.ts
+const PROGRAM_CONTEXT_SYMBOL=Symbol.for(`openclaw.cli.programContext`);function setProgramContext(e,t){e[PROGRAM_CONTEXT_SYMBOL]=t}function getProgramContext(e){return e[PROGRAM_CONTEXT_SYMBOL]}export{setProgramContext as n,getProgramContext as t};

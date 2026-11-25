@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function isNamedOperatorRoleEnforcementEnabled(e){return e?.gateway?.roles?.default!==void 0}var t=e((()=>{}));export{isNamedOperatorRoleEnforcementEnabled as n,t};

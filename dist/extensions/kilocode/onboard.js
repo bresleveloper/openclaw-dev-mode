@@ -1,7 +1,7 @@
-import { s as KILOCODE_DEFAULT_MODEL_REF, t as KILOCODE_BASE_URL } from "./.setup/provider-models-0P0ezPsI.mjs";
+import { s as KILOCODE_DEFAULT_MODEL_REF, t as KILOCODE_BASE_URL } from "./.setup/provider-models-BMrrUkX_.mjs";
 import { buildKilocodeProvider } from "./provider-catalog.js";
 import { createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/kilocode/onboard.ts
+// extensions/kilocode/onboard.ts
 const { applyConfig: applyKilocodeConfig } = createProviderConnectionPresetAppliers({
 	primaryModelRef: KILOCODE_DEFAULT_MODEL_REF,
 	resolveParams: () => ({
@@ -15,5 +15,4 @@ const { applyConfig: applyKilocodeConfig } = createProviderConnectionPresetAppli
 		}]
 	})
 });
-//#endregion
 export { KILOCODE_DEFAULT_MODEL_REF, applyKilocodeConfig };

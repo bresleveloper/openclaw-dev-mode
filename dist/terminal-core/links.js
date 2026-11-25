@@ -1,2 +1,1 @@
-import { t as formatDocsLink } from "../links-4Bgsoz0M.mjs";
-export { formatDocsLink };
+import{t as formatDocsLink}from"../links-C_FK9uVv.mjs";export{formatDocsLink};

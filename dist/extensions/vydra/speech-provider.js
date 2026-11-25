@@ -2,35 +2,33 @@ import { DEFAULT_VYDRA_BASE_URL, DEFAULT_VYDRA_SPEECH_MODEL, DEFAULT_VYDRA_VOICE
 import { asOptionalRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { normalizeResolvedSecretInputString } from "openclaw/plugin-sdk/secret-input";
 import { resolveSpeechProviderApiKey } from "openclaw/plugin-sdk/speech-provider";
-//#region extensions/vydra/speech-provider.ts
+// extensions/vydra/speech-provider.ts
 const VYDRA_SPEECH_VOICES = [{
 	id: DEFAULT_VYDRA_VOICE_ID,
 	name: "Rachel"
 }];
 function normalizeVydraSpeechConfig(rawConfig) {
 	const providers = asOptionalRecord(rawConfig.providers);
-	const raw = asOptionalRecord(providers?.vydra) ?? asOptionalRecord(rawConfig.vydra);
+	const raw = asOptionalRecord(providers?.vydra);
+	const apiKey = normalizeResolvedSecretInputString({
+		value: raw?.apiKey,
+		path: "tts.providers.vydra.apiKey"
+	});
 	return {
-		apiKey: normalizeResolvedSecretInputString({
-			value: raw?.apiKey,
-			path: "tts.providers.vydra.apiKey"
-		}),
-		baseUrl: normalizeVydraBaseUrl(normalizeOptionalString(raw?.baseUrl) ?? normalizeOptionalString(process.env.VYDRA_BASE_URL)),
-		model: normalizeOptionalString(raw?.model) ?? normalizeOptionalString(process.env.VYDRA_TTS_MODEL) ?? "elevenlabs/tts",
-		voiceId: normalizeOptionalString(raw?.voiceId) ?? normalizeOptionalString(process.env.VYDRA_TTS_VOICE_ID) ?? "21m00Tcm4TlvDq8ikWAM"
+		...readVydraSpeechConfig(raw ?? {}),
+		apiKey
 	};
 }
 function readVydraSpeechConfig(config) {
-	const normalized = normalizeVydraSpeechConfig({});
 	return {
-		apiKey: normalizeOptionalString(config.apiKey) ?? normalized.apiKey,
-		baseUrl: normalizeVydraBaseUrl(normalizeOptionalString(config.baseUrl) ?? normalized.baseUrl),
-		model: normalizeOptionalString(config.model) ?? normalized.model,
-		voiceId: normalizeOptionalString(config.voiceId) ?? normalized.voiceId
+		apiKey: normalizeOptionalString(config.apiKey),
+		baseUrl: normalizeVydraBaseUrl(normalizeOptionalString(config.baseUrl) ?? normalizeOptionalString(process.env.VYDRA_BASE_URL)),
+		model: normalizeOptionalString(config.model) ?? normalizeOptionalString(process.env.VYDRA_TTS_MODEL) ?? "elevenlabs/tts",
+		voiceId: normalizeOptionalString(config.voiceId) ?? normalizeOptionalString(process.env.VYDRA_TTS_VOICE_ID) ?? "21m00Tcm4TlvDq8ikWAM"
 	};
 }
 function buildVydraSpeechProvider() {
-	const isConfigured = ({ providerConfig }) => Boolean(resolveSpeechProviderApiKey(readVydraSpeechConfig(providerConfig).apiKey, process.env.VYDRA_API_KEY));
+	const isConfigured = ({ providerConfig }) => Boolean(resolveSpeechProviderApiKey(normalizeOptionalString(providerConfig.apiKey), process.env.VYDRA_API_KEY));
 	return {
 		id: "vydra",
 		label: "Vydra",
@@ -47,7 +45,7 @@ function buildVydraSpeechProvider() {
 			const apiKey = resolveSpeechProviderApiKey(config.apiKey, process.env.VYDRA_API_KEY);
 			if (!apiKey) throw new Error("Vydra API key missing");
 			const { resolveGeneratedMediaMaxBytes } = await import("openclaw/plugin-sdk/media-generation-runtime");
-			const { assertOkOrThrowHttpError, postJsonRequest, readProviderJsonResponse, resolveProviderHttpRequestConfig } = await import("openclaw/plugin-sdk/provider-http");
+			const { postJsonResponse, resolveProviderHttpRequestConfig } = await import("openclaw/plugin-sdk/provider-http");
 			const fetchFn = fetch;
 			const { baseUrl, allowPrivateNetwork, headers, dispatcherPolicy } = resolveProviderHttpRequestConfig({
 				baseUrl: config.baseUrl,
@@ -61,7 +59,7 @@ function buildVydraSpeechProvider() {
 				capability: "audio",
 				transport: "http"
 			});
-			const { response, release } = await postJsonRequest({
+			const audioUrl = extractVydraResultUrls(await postJsonResponse({
 				url: `${baseUrl}/models/${normalizeOptionalString(overrides?.model) ?? config.model}`,
 				headers,
 				body: {
@@ -71,36 +69,30 @@ function buildVydraSpeechProvider() {
 				timeoutMs: req.timeoutMs,
 				fetchFn,
 				allowPrivateNetwork,
-				dispatcherPolicy
+				dispatcherPolicy,
+				errorLabel: "Vydra speech synthesis failed",
+				responseLabel: "Vydra speech synthesis"
+			}), "audio")[0];
+			if (!audioUrl) throw new Error("Vydra speech synthesis response missing audio URL");
+			const audio = await downloadVydraAsset({
+				url: audioUrl,
+				kind: "audio",
+				timeoutMs: req.timeoutMs,
+				maxBytes: resolveGeneratedMediaMaxBytes(req.cfg, "audio"),
+				requestPolicy: {
+					allowPrivateNetwork,
+					dispatcherPolicy,
+					headers,
+					headerOrigin: new URL(baseUrl).origin
+				}
 			});
-			try {
-				await assertOkOrThrowHttpError(response, "Vydra speech synthesis failed");
-				const audioUrl = extractVydraResultUrls(await readProviderJsonResponse(response, "Vydra speech synthesis"), "audio")[0];
-				if (!audioUrl) throw new Error("Vydra speech synthesis response missing audio URL");
-				const audio = await downloadVydraAsset({
-					url: audioUrl,
-					kind: "audio",
-					timeoutMs: req.timeoutMs,
-					fetchFn,
-					maxBytes: resolveGeneratedMediaMaxBytes(req.cfg, "audio"),
-					requestPolicy: {
-						allowPrivateNetwork,
-						dispatcherPolicy,
-						headers,
-						headerOrigin: new URL(baseUrl).origin
-					}
-				});
-				return {
-					audioBuffer: audio.buffer,
-					outputFormat: audio.mimeType.includes("wav") ? "wav" : "mp3",
-					fileExtension: audio.fileName.endsWith(".wav") ? ".wav" : ".mp3",
-					voiceCompatible: false
-				};
-			} finally {
-				await release();
-			}
+			return {
+				audioBuffer: audio.buffer,
+				outputFormat: audio.mimeType.includes("wav") ? "wav" : "mp3",
+				fileExtension: audio.fileName.endsWith(".wav") ? ".wav" : ".mp3",
+				voiceCompatible: false
+			};
 		}
 	};
 }
-//#endregion
 export { buildVydraSpeechProvider };

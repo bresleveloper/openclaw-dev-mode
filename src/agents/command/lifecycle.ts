@@ -3,9 +3,8 @@ import { emitAgentEvent } from "../../infra/agent-events.js";
 import { formatErrorMessageForDisplay } from "../../infra/error-diagnostics.js";
 import { formatErrorMessage } from "../../infra/errors.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
-import { normalizeAgentRunTerminalDeliverySnapshot } from "../agent-run-terminal-delivery.js";
 import type { AgentRunTerminalOutcome } from "../agent-run-terminal-outcome.js";
-import { normalizeAgentRunTerminalReceipt } from "../agent-run-terminal-receipt.js";
+import { resolveCompactionRecoveryLifecycleError } from "../compaction-recovery-lifecycle-error.js";
 import type { EmbeddedAgentRunEntryTerminal } from "../embedded-agent-runner/run-entry.js";
 import { isContextOverflowErrorFromTables } from "../failover/context-overflow-tables.js";
 import { getFailoverErrorCode } from "../failover/error.js";
@@ -47,22 +46,8 @@ export function createAgentCommandLifecycle(params: {
   state: AgentAttemptLifecycleState;
 }) {
   let lifecycleFinishingEmitted = false;
-  const resolveCompactionRecoveryError = (runResult: AgentAttemptResult) => {
-    // A precheck's tentative overflow event precedes recovery. Its failure
-    // must not hide the authoritative result of that recovery.
-    if (
-      runResult.meta.error?.kind !== "compaction_failure" ||
-      !params.state.lifecycleError ||
-      !isContextOverflowErrorFromTables(params.state.lifecycleError)
-    ) {
-      return undefined;
-    }
-    return (
-      runResult.meta.finalAssistantVisibleText?.trim() ||
-      runResult.meta.error.message.trim() ||
-      "Auto-compaction failed. Try again or run /compact."
-    );
-  };
+  const resolveCompactionRecoveryError = (runResult: AgentAttemptResult) =>
+    resolveCompactionRecoveryLifecycleError(runResult, params.state.lifecycleError);
   const shouldReplaceLifecycleErrorObservation = (runResult: AgentAttemptResult) => {
     const compactionRecoveryError = resolveCompactionRecoveryError(runResult);
     return (
@@ -115,11 +100,15 @@ export function createAgentCommandLifecycle(params: {
     error = terminal.outcome.status === "timeout" ? terminal.outcome.error : undefined,
     includeLifecycleErrorObservation = true,
   ) => {
-    const { aborted, yielded, replayInvalid, terminalReply } = terminal.metadata;
-    const terminalDelivery = normalizeAgentRunTerminalDeliverySnapshot(
-      terminal.metadata.terminalDelivery,
-    );
-    const terminalReceipt = normalizeAgentRunTerminalReceipt(terminal.metadata.terminalReceipt);
+    const {
+      aborted,
+      yielded,
+      replayInvalid,
+      suppressErrorNotice,
+      terminalReply,
+      terminalDelivery,
+      terminalReceipt,
+    } = terminal.metadata;
     const { stopReason, livenessState, timeoutPhase, providerStarted } = terminal.outcome;
     const abortFields = resolveAgentRunAbortLifecycleFields(params.abortSignal);
     emitAgentEvent({
@@ -134,6 +123,7 @@ export function createAgentCommandLifecycle(params: {
         stopReason,
         ...(yielded === true ? { yielded } : {}),
         ...(replayInvalid === true ? { replayInvalid } : {}),
+        ...(typeof suppressErrorNotice === "boolean" ? { suppressErrorNotice } : {}),
         ...(livenessState ? { livenessState } : {}),
         ...(timeoutPhase ? { timeoutPhase } : {}),
         ...(providerStarted !== undefined ? { providerStarted } : {}),
@@ -209,9 +199,7 @@ export function createAgentCommandLifecycle(params: {
       if (params.state.lifecycleEnded) {
         return;
       }
-      const terminalDelivery = normalizeAgentRunTerminalDeliverySnapshot(
-        terminal.metadata.terminalDelivery,
-      );
+      const { terminalDelivery } = terminal.metadata;
       emitError(error, {
         ...(terminalDelivery ? { terminalDelivery } : {}),
         ...resolveAgentRunErrorLifecycleFields(error, params.abortSignal),

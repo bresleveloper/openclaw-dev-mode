@@ -1,0 +1,1 @@
+export default {"skillStatus":{"bundled":"साथ में शामिल","eligible":"पात्र","blocked":"अवरुद्ध","disabled":"अक्षम","blockedAllowlist":"अनुमति सूची द्वारा अवरुद्ध","blockedAgentFilter":"एजेंट फ़िल्टर द्वारा अवरुद्ध"}};

@@ -1,0 +1,2 @@
+//!src/infra/retry-attempt-errors.ts
+const retryAttemptErrors=/* @__PURE__ */ new WeakMap;function recordRetryAttemptErrors(e,t){retryAttemptErrors.set(e,[...t])}function getRetryAttemptErrors(e){return e!==null&&(typeof e===`object`||typeof e===`function`)?retryAttemptErrors.get(e):void 0}export{recordRetryAttemptErrors as n,getRetryAttemptErrors as t};

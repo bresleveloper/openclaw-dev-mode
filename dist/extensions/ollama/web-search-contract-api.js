@@ -1,2 +1,1 @@
-import { t as createOllamaWebSearchProvider } from "../../web-search-contract-api-BdNR2xhR.mjs";
-export { createOllamaWebSearchProvider };
+import{t as createOllamaWebSearchProvider}from"../../web-search-contract-api-HGp5YbFU.mjs";export{createOllamaWebSearchProvider};

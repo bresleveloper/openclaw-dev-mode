@@ -1,0 +1,1 @@
+import{t as e}from"./control-ui-file.worker-subsystem-DJTMz2eT.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

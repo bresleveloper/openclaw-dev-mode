@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function largestFittingValue(e,t,n){let r=e,i=t;for(;r<i;){let e=Math.ceil((r+i)/2);n(e)?r=e:i=e-1}return r}var t=e((()=>{}));export{largestFittingValue as n,t};

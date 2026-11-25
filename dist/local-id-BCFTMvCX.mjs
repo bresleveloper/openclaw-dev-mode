@@ -1,0 +1,3 @@
+import{r as resolveStateDir}from"./state-dir-BwbNjuVe.mjs";import"./paths-DxXULbkO.mjs";import{n as loadDeviceIdentityIfPresentAsync}from"./device-identity-async-DC_ie4dY.mjs";
+//!src/node-host/local-id.ts
+const localNodeIdByStateDir=/* @__PURE__ */ new Map;async function resolveLocalNodeId(e=process.env){const t=resolveStateDir(e);const n=localNodeIdByStateDir.get(t);if(n)return n;const r=loadDeviceIdentityIfPresentAsync({env:e}).then(e=>{const n=e?.deviceId??null;if(n)localNodeIdByStateDir.set(t,n);else localNodeIdByStateDir.delete(t);return n},e=>{localNodeIdByStateDir.delete(t);throw e});localNodeIdByStateDir.set(t,r);return r}export{resolveLocalNodeId as t};

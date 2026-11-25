@@ -1,0 +1,2 @@
+//!extensions/telegram/src/state-account-id.ts
+function normalizeTelegramStateAccountId(e){const t=e?.trim();return t?t.replace(/[^a-z0-9._-]+/gi,`_`):`default`}export{normalizeTelegramStateAccountId as t};

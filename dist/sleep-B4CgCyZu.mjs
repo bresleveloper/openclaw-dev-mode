@@ -1,0 +1,3 @@
+import{R as resolveTimerTimeoutMs}from"./number-coercion-B3CfI447.mjs";import{d as sleepWithAbort,i as createAbortError}from"./src-De06gkOi.mjs";import"./abort-signal-BKkRe6pu.mjs";
+//!src/utils/sleep.ts
+function sleep(e,t){const n=resolveTimerTimeoutMs(e,0,0);if(t){if(t.aborted)return Promise.reject(createAbortError(`aborted`,{cause:t.reason??/* @__PURE__ */ new Error(`aborted`)}));return sleepWithAbort(n,t)}return new Promise(e=>{setTimeout(e,n)})}export{sleep as t};

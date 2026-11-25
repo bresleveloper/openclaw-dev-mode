@@ -1,0 +1,3 @@
+import{s as withPluginLifecycleLeaseAsync}from"./plugin-lifecycle-lease-BfnM7QpS.mjs";import{t as updatePluginSnapshotCandidates}from"./installed-plugin-snapshot-candidates-CqjT72gD.mjs";
+//!src/plugins/plugin-source-snapshot-publication.ts
+function bindPluginSnapshotPublication(e,t){return{contentDigest:e.contentDigest,dependencyClosureDigest:e.dependencyClosureDigest,dispose:()=>e.dispose(),disposeAsync:()=>e.disposeAsync(),publish:n=>withPluginLifecycleLeaseAsync({env:{...process.env,OPENCLAW_STATE_DIR:t}},async r=>{const i=await e.stage(n);try{await updatePluginSnapshotCandidates({stateDir:t,lease:r,operation:`retain`,candidates:[i.descriptor]});await r.assertOwned();return await i.publish()}finally{await i.disposeAsync()}})}}export{bindPluginSnapshotPublication};

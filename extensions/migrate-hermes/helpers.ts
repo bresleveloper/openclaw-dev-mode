@@ -1,15 +1,15 @@
-import { isUtf8 } from "node:buffer";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { parse as parseDotenv } from "dotenv";
-import { extractErrorCode } from "openclaw/plugin-sdk/error-runtime";
+import { extractErrorCode, formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import {
   markMigrationItemError,
   markMigrationItemSkipped,
   MIGRATION_REASON_MISSING_SOURCE_OR_TARGET,
 } from "openclaw/plugin-sdk/migration";
 import type { MigrationItem } from "openclaw/plugin-sdk/plugin-entry";
+import { decodeUtf8Input } from "openclaw/plugin-sdk/runtime-doctor-migrations";
 import { appendRegularFile, readRegularFile } from "openclaw/plugin-sdk/security-runtime";
 import { asNonArrayRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { parse as parseYaml } from "yaml";
@@ -56,14 +56,15 @@ export async function readUtf8Text(filePath: string | undefined): Promise<string
   if (!filePath) {
     return undefined;
   }
-  const resolvedPath = await fs.realpath(filePath);
-  const { buffer: content } = await readRegularFile({ filePath: resolvedPath });
-  if (!isUtf8(content)) {
+  try {
+    const { buffer } = await readRegularFile({ filePath: await fs.realpath(filePath) });
+    return decodeUtf8Input(buffer, "Source file");
+  } catch (error) {
     throw new Error(
-      `Source file is not valid UTF-8: ${filePath}. Re-encode it as UTF-8 and retry migration.`,
+      `Failed reading text file ${filePath}: ${formatErrorMessage(error)}. Use an ordinary readable UTF-8 file and retry migration.`,
+      { cause: error },
     );
   }
-  return content.toString("utf8");
 }
 
 export async function readJsonObject(
@@ -90,16 +91,9 @@ export async function appendItem(item: MigrationItem): Promise<MigrationItem> {
     return markMigrationItemError(item, MIGRATION_REASON_MISSING_SOURCE_OR_TARGET);
   }
   try {
-    const { buffer: content } = await readRegularFile({
-      filePath: await fs.realpath(item.source),
-    });
-    if (!isUtf8(content)) {
-      throw new Error(
-        `Source file is not valid UTF-8: ${item.source}. Re-encode it as UTF-8 and retry migration.`,
-      );
-    }
+    const content = await readUtf8Text(item.source);
     const header = `\n\n<!-- Imported from Hermes: ${path.basename(item.source)} -->\n\n`;
-    const body = content.toString("utf8").trimEnd();
+    const body = content?.trimEnd();
     if (!body) {
       return markMigrationItemSkipped(item, "source file is empty");
     }

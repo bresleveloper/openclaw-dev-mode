@@ -1,0 +1,3 @@
+import{t as createSubsystemLogger}from"./subsystem-BXrV0rVs.mjs";import{n as sha256Hex}from"./node-crypto-DPk8agfR.mjs";import"./crypto-digest-T8X5EZni.mjs";
+//!src/agents/cli-runner/log.ts
+const cliBackendLog=createSubsystemLogger(`agent/cli-backend`);const CLI_BACKEND_LOG_OUTPUT_ENV=`OPENCLAW_CLI_BACKEND_LOG_OUTPUT`;function formatCliBackendOutputDigest(e){return`outBytes=${Buffer.byteLength(e,`utf8`)} outHash=${sha256Hex(e).slice(0,12)}`}export{cliBackendLog as n,formatCliBackendOutputDigest as r,CLI_BACKEND_LOG_OUTPUT_ENV as t};

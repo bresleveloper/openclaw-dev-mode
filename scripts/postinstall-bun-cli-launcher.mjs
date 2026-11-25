@@ -1,4 +1,4 @@
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join } from "node:path";
 import {
   getBunCliLauncherPathIssue,
   inspectBunCliLauncher,
@@ -45,19 +45,7 @@ export function installPackageBunCliLauncher(params) {
   const inspected = inspectBunCliLauncher(target);
   // A global symlink to this package is proof of ownership. Local dependency
   // installs and non-inherited --config paths cannot claim an absent global bin.
-  // Bun 1.4.4 may omit that symlink after a successful global install, so the
-  // canonical BUN_INSTALL package/bin pair is equivalent ownership proof.
-  const bunInstall = env.BUN_INSTALL?.trim();
-  const ownsMissingDefaultGlobalBin =
-    inspected.state === "missing" &&
-    bunInstall &&
-    isAbsolute(bunInstall) &&
-    resolve(binDir) === resolve(bunInstall, "bin") &&
-    resolve(params.packageRoot) === resolve(bunInstall, "install/global/node_modules/openclaw");
-  if (
-    (inspected.state === "missing" && !ownsMissingDefaultGlobalBin) ||
-    inspected.state === "conflict"
-  ) {
+  if (inspected.state === "missing" || inspected.state === "conflict") {
     return;
   }
   installBunCliLauncher(target);

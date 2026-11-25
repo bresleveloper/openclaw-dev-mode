@@ -1,0 +1,3 @@
+import{t as formatErrorMessage}from"./errors-CRXp6JVo.mjs";
+//!src/plugins/service-health.ts
+const states=/* @__PURE__ */ new WeakMap;function createPluginServiceHealthReporter(e){const t={};states.set(e,t);let n=true;return{health:{reportFailure:r=>{if(n)t.failure={pluginId:e.pluginId,serviceId:e.id,origin:e.origin,error:formatErrorMessage(r)}},clearFailure:()=>{if(n)delete t.failure}},revoke:()=>{n=false}}}function listPluginServiceHealthFailures(e){return e.services.flatMap(e=>{const t=states.get(e)?.failure;return t?[t]:[]}).toSorted((e,t)=>e.pluginId.localeCompare(t.pluginId)||e.serviceId.localeCompare(t.serviceId))}export{listPluginServiceHealthFailures as n,createPluginServiceHealthReporter as t};

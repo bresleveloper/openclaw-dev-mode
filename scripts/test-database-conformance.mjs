@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
-import { assignWeightedTestFiles } from "./lib/weighted-test-shards.mts";
+import { parseArgs, promisify } from "node:util";
+import { listDirectoryTreeStrictSync } from "../src/infra/directory-walk.ts";
+import {
+  assignPostgresConformanceShards,
+  createPostgresConformanceEstimator,
+  resolvePostgresConformanceTargets,
+} from "./lib/postgres-conformance-shards.mts";
 
 const usage =
   "Usage: node scripts/test-database-conformance.mjs --engine postgres [--connection <dsn> | --list] [--shard <index>/<count>] [-- <targets and test options>]";
@@ -49,57 +54,44 @@ try {
   process.exit(2);
 }
 
-// Expand every original directory target so each test belongs to exactly one shard.
-const directoryTargets = [
-  "extensions/workboard",
-  "src/infra/postgres-sync",
-  "src/infra/database-engine",
-];
-function listTestFiles(directory) {
-  const files = [];
-  for (const entry of readdirSync(new URL("../" + directory + "/", import.meta.url), {
-    withFileTypes: true,
-  })) {
-    // Match the test runner's source inventory, never installed dependencies or symlink trees.
-    if (entry.name === "node_modules" || entry.name === ".git") {
-      continue;
-    }
-    const relativePath = directory + "/" + entry.name;
-    if (entry.isDirectory()) {
-      files.push(...listTestFiles(relativePath));
-    } else if (entry.isFile() && /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(entry.name)) {
-      files.push(relativePath);
-    }
-  }
-  return files.toSorted((left, right) => (left < right ? -1 : left > right ? 1 : 0));
-}
 let targets = explicitTargets
   ? []
-  : [
-      ...directoryTargets.flatMap(listTestFiles),
-      "src/state/openclaw-state-db.postgres.test.ts",
-      "extensions/imessage/src/monitor/recovery-cursor.postgres.test.ts",
-    ];
+  : resolvePostgresConformanceTargets(
+      ["src", "extensions"].flatMap((root) =>
+        listDirectoryTreeStrictSync(fileURLToPath(new URL(`../${root}/`, import.meta.url)))
+          .map((walkEntry) => walkEntry.relativePath)
+          .filter((file) => file.endsWith(".test.ts"))
+          .map((file) => `${root}/${file.replaceAll("\\", "/")}`)
+          .toSorted(),
+      ),
+    );
 if (shardCount) {
   if (shardCount > targets.length) {
     console.error(usage);
     process.exit(2);
   }
   // All jobs read the same committed weights; missing samples never remove a target.
-  const { targetSeconds } = JSON.parse(
+  const timings = JSON.parse(
     readFileSync(new URL("../config/postgres-conformance-timings.json", import.meta.url), "utf8"),
   );
-  const shards = Array.from({ length: shardCount }, (_, index) => ({
-    checkName: String(index + 1),
-    includePatterns: [],
-    weight: 0,
-  }));
-  assignWeightedTestFiles(shards, targets, (target) => targetSeconds[target] ?? 30);
-  const selected = new Set(shards[shardIndex - 1].includePatterns);
+  const shards = assignPostgresConformanceShards(
+    targets,
+    shardCount,
+    createPostgresConformanceEstimator(timings, (file) => {
+      try {
+        return statSync(new URL(`../${file}`, import.meta.url)).size;
+      } catch {
+        return 0;
+      }
+    }),
+  );
+  const selected = new Set(shards[shardIndex - 1]);
   targets = targets.filter((target) => selected.has(target));
 }
 if (values.list) {
-  console.log(JSON.stringify(explicitTargets ? forwarded : [...targets, ...forwarded], null, 2));
+  await promisify(process.stdout.write.bind(process.stdout))(
+    `${JSON.stringify(explicitTargets ? forwarded : [...targets, ...forwarded], null, 2)}\n`,
+  );
   process.exit(0);
 }
 

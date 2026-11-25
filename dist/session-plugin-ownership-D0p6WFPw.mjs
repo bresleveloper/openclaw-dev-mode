@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{i as ErrorCodes}from"./missing-scope-error-CkgBgh6d.mjs";import{p as errorShape}from"./error-codes-CQNGhXT-.mjs";
+//!src/gateway/session-plugin-ownership.ts
+function resolvePluginSessionOwnershipError(e){const t=normalizeOptionalString(e.pluginOwnerId);if(!t||!e.entry||normalizeOptionalString(e.entry.pluginOwnerId)===t)return;return errorShape(ErrorCodes.INVALID_REQUEST,`Plugin "${t}" cannot ${e.action} session "${e.key}" because it did not create it.`)}export{resolvePluginSessionOwnershipError as t};

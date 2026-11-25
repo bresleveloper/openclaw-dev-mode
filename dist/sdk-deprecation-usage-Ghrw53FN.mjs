@@ -1,0 +1,3 @@
+import{i as resolveGlobalMap}from"./global-singleton-BoQ13xsk.mjs";
+//!src/plugins/sdk-deprecation-usage.ts
+const usage=resolveGlobalMap(Symbol.for(`openclaw.pluginSdkDeprecationUsage`));function recordPluginSdkDeprecationUsage(e,t,n,r,i){let a=usage.get(e);if(!a){a=/* @__PURE__ */ new Map;usage.set(e,a)}if(!a.has(t))a.set(t,{id:t,displayName:n,replacement:r,...i?{removeAfter:i}:{}})}function getPluginSdkDeprecationUsage(e){return[...usage.get(e)?.values()??[]]}export{recordPluginSdkDeprecationUsage as n,getPluginSdkDeprecationUsage as t};

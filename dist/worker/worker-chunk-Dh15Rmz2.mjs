@@ -1,0 +1,7 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,t as n}from"./worker-chunk-CXHvccwE.mjs";import{stripVTControlCharacters as r}from"node:util";function runWithSpawnBroker(e,t){return i.run(e??null,t)}function getSpawnBroker(){let e=i.getStore();return a.startupDisabled||e===null?void 0:e??a.host}var i,a,o=e((()=>{t(),i=new n(Symbol(`spawnBroker`)),a={startupDisabled:!1}}));function renderOutput(e){let t=typeof e==`string`?e:s.decode(e);return t.endsWith(`
+`)&&(t=t.slice(0,t.endsWith(`\r
+`)?-2:-1)),r(t).replace(/[\p{Separator}\p{Other}]/gu,e=>{let t=c.get(e);if(t!==void 0)return t;let n=e.codePointAt(0),r=n.toString(16);return n<=65535?`\\u${r.padStart(4,`0`)}`:`\\U${r}`})}function decodeExecaMessage(e,t){return e.messageOutputs?[e.message,...e.messageOutputs.map(e=>renderOutput(t[e]))].join(`
+
+`):e.message}function restoreError(e,t){let n=Error(decodeExecaMessage(e,t),{cause:e.cause?restoreError(e.cause,t):void 0});return Object.assign(n,{name:e.name,code:e.code})}function restoreExecaResult(e){let{error:t,...n}=e,r={...n,stdout:n.stdout,stderr:n.stderr,shortMessage:n.shortMessage,code:n.code};if(t){let e=restoreError(t,r);return Object.assign(e,r,{cause:e.cause})}return{...r,cause:void 0}}var s,c,l=e((()=>{s=new TextDecoder,c=/* @__PURE__ */ new Map([[` `,` `],[`
+`,`
+`],[`\b`,`\\b`],[`\f`,`\\f`],[`\r`,`\\r`],[`	`,`\\t`]])}));export{runWithSpawnBroker as a,o as i,restoreExecaResult as n,getSpawnBroker as r,l as t};

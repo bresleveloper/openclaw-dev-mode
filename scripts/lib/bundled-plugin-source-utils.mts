@@ -25,23 +25,21 @@ function readJsonFile(filePath: string): unknown {
 
 /** Collect tracked metadata paths without reading plugin JSON or scanning directories. */
 export function collectTrackedBundledPluginSourceCandidates(repoRoot: string) {
+  if (!fs.existsSync(path.join(repoRoot, ".git"))) {
+    return null;
+  }
   const pathspecs = [
     ":(glob)extensions/*/openclaw.plugin.json",
     ":(glob)extensions/*/package.json",
   ];
-  const runGit = (args: string[]) =>
-    spawnSync("git", args, {
+  const runGitLsFiles = (args: string[]) =>
+    spawnSync("git", ["ls-files", ...args, "--", ...pathspecs], {
       cwd: repoRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
-  // Extracted trees may sit below another checkout; only its root owns the tracked inventory.
-  const prefix = runGit(["rev-parse", "--show-prefix"]);
-  if (prefix.status !== 0 || prefix.stdout.trim() !== "") {
-    return null;
-  }
-  const result = runGit(["ls-files", "--", ...pathspecs]);
-  const deletedResult = runGit(["ls-files", "--deleted", "--", ...pathspecs]);
+  const result = runGitLsFiles([]);
+  const deletedResult = runGitLsFiles(["--deleted"]);
   if (result.status !== 0 || deletedResult.status !== 0) {
     return null;
   }

@@ -1,0 +1,1 @@
+import{t as loadGatewayConfigRevisionProjector}from"./config-revision-token-CC9U03Aw.mjs";export{loadGatewayConfigRevisionProjector};

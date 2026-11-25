@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{i as t,n}from"./worker-chunk-CBDdemzM.mjs";var SessionStoreMigrationRequiredError,r=e((()=>{t(),SessionStoreMigrationRequiredError=class extends n{constructor(e){super(`legacy-session-store`,e),this.name=`SessionStoreMigrationRequiredError`}}}));export{r as n,SessionStoreMigrationRequiredError as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{c as t,r as n}from"./worker-chunk-CCKYVIGs.mjs";import{relative as r}from"node:path";function templateContainedRelativePath(e,n){let i=r(e,n);return i!==``&&!t(i)?i:void 0}var i=e((()=>{n()}));export{templateContainedRelativePath as n,i as t};

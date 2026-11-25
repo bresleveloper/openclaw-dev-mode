@@ -1,0 +1,1 @@
+import e from"@silvia-odwyer/photon-node";function convertBmpToPngWithPhoton(t){let n;try{return n=e.PhotonImage.new_from_byteslice(t),n.get_bytes()}finally{n?.free()}}export{convertBmpToPngWithPhoton};

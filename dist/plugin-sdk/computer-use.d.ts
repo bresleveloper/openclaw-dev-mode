@@ -1,6 +1,5 @@
-import { a as ComputerActResultSchema, c as ComputerUseV2ActionName, d as ScreenSnapshotResult, f as ScreenSnapshotResultSchema, i as ComputerActResult, l as ScreenSnapshotParams, m as parseScreenSnapshotParamsJSON, n as ComputerActParams, o as ComputerUseCapabilityDescriptor, p as parseComputerActParamsJSON, r as ComputerActParamsSchema, s as ComputerUseCapabilityDescriptorSchema, t as COMPUTER_USE_V2_ACTION_NAMES, u as ScreenSnapshotParamsSchema } from "../computer-use-contract-m5XGEc-d.js";
-import { n as OpenClawPluginNodeHostCommandAvailabilityContext, t as OpenClawPluginNodeHostCommand } from "../types.node-host-l4KvC1QJ.js";
-//#region src/plugins/computer-use-registration.d.ts
+import { a as ComputerActParamsSchema, c as ComputerUseCapabilityDescriptor, d as ScreenSnapshotParams, f as ScreenSnapshotParamsSchema, i as ComputerActParams, l as ComputerUseCapabilityDescriptorSchema, m as ScreenSnapshotResultSchema, n as parseScreenSnapshotParamsJSON, o as ComputerActResult, p as ScreenSnapshotResult, r as COMPUTER_USE_V2_ACTION_NAMES, s as ComputerActResultSchema, t as parseComputerActParamsJSON, u as ComputerUseV2ActionName } from "../computer-use-contract-BrLJ434o.js";
+import { n as OpenClawPluginNodeHostCommandAvailabilityContext, t as OpenClawPluginNodeHostCommand } from "../types.node-host-oQhlRSVu.js";
 type ComputerUseExecution = {
   snapshot(paramsJSON: string | null | undefined, signal?: AbortSignal): Promise<string>;
   act(paramsJSON: string | null | undefined, signal?: AbortSignal): Promise<string>;
@@ -23,5 +22,4 @@ type ComputerUseRegistrationApi = {
 };
 /** Register the canonical node-host command pair for one node-local provider. */
 export declare function registerComputerUseProvider(api: ComputerUseRegistrationApi, provider: ComputerUseProvider): void;
-//#endregion
 export { COMPUTER_USE_V2_ACTION_NAMES, type ComputerActParams, ComputerActParamsSchema, type ComputerActResult, ComputerActResultSchema, type ComputerUseCapabilityDescriptor, ComputerUseCapabilityDescriptorSchema, type ComputerUseProvider, type ComputerUseV2ActionName, type ScreenSnapshotParams, ScreenSnapshotParamsSchema, type ScreenSnapshotResult, ScreenSnapshotResultSchema, parseComputerActParamsJSON, parseScreenSnapshotParamsJSON };

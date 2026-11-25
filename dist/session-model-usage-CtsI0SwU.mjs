@@ -1,0 +1,3 @@
+import{t as createSessionManagerRuntimeRegistry}from"./session-manager-runtime-registry-rg1NipV6.mjs";
+//!src/agents/sessions/session-model-usage.ts
+const sinkBySessionManager=createSessionManagerRuntimeRegistry();function recordSessionModelUsage(e,t){sinkBySessionManager.get(e)?.(t)}function setSessionModelUsageSink(e,t){sinkBySessionManager.set(e,t)}export{setSessionModelUsageSink as n,recordSessionModelUsage as t};

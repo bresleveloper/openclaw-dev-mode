@@ -1,6 +1,6 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { f as OperatorScope, r as GatewayRequestFunction, t as DatabasePortRecoveryIntent } from "../database-port-recovery-Bqi8HAkj.js";
-//#region src/cli/local-state-owner.d.ts
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import "../types-ACDCRjU-.js";
+import { f as OperatorScope, o as GatewayRequestFunction, t as DatabasePortRecoveryIntent } from "../database-port-recovery-0AsyALgu.js";
 type LocalMutationScope = {
   env: NodeJS.ProcessEnv;
   config: OpenClawConfig;
@@ -12,7 +12,9 @@ type LocalMutationScope = {
  * without an expected-owner parameter: the method's own guard (for example a config
  * baseHash) binds the effect, and owner identity is revalidated right before dispatch.
  */
-type OwnerRequest = <R>(method: string, params: Record<string, unknown>) => Promise<R>;
+type OwnerRequest = <R>(method: string, params: Record<string, unknown>, options?: {
+  expectFinal?: boolean;
+}) => Promise<R>;
 /** Select one owner before domain admission and retain offline custody through resource settlement. */
 export declare function runWithLocalStateOwner<T>(params: {
   method: string;
@@ -20,8 +22,16 @@ export declare function runWithLocalStateOwner<T>(params: {
   params: Record<string, unknown> | ((signal: AbortSignal) => Promise<Record<string, unknown>>);
   target: string;
   recoveryCommand?: string;
+  /** Caller-owned guidance for commands that cannot route to a running owner. */
+  onlineAlternative?: string;
   /** Internal manifest-bound recovery; never routed to or borrowed from a running owner. */
   databasePortRecovery?: DatabasePortRecoveryIntent;
+  /** Engine transitions retire native handles while retaining exclusive schema custody. */
+  databasePortMaintenance?: true;
+  /** Resolve configured engines only after offline custody, before runtime config can write state. */
+  databaseEngine?: "configured";
+  /** Bounded config repairs keep offline custody while leaving every database untouched. */
+  databaseAccess?: "none";
   requiredCapabilities?: readonly string[];
   scopes?: readonly OperatorScope[];
   timeoutMs?: number;
@@ -36,4 +46,4 @@ export declare function runWithLocalStateOwner<T>(params: {
   assertTargetCurrent?: () => void;
   runLocal: (scope: LocalMutationScope) => Promise<T>;
 }): Promise<T>;
-//#endregion
+export {};

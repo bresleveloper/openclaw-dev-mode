@@ -1,0 +1,2 @@
+//!src/config/sessions/session-transcript-read-fence-error.ts
+var SessionTranscriptReadFenceError=class extends Error{constructor(e){super(e);this.name=`SessionTranscriptReadFenceError`}};export{SessionTranscriptReadFenceError as t};

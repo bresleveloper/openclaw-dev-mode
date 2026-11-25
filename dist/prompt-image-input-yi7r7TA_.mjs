@@ -1,0 +1,3 @@
+import{n as applyRunHydrationSuppression,p as readPersistedMediaFacts,s as isImageMediaFact}from"./media-facts-03ZYaqC1.mjs";import{n as readPersistedMediaImageLayout}from"./prompt-image-metadata-CADeCrZP.mjs";
+//!src/media/prompt-image-input.ts
+function hasPromptImageInput(e){const t=e?.userTurnTranscriptRecorder?.message;const n=t?readPersistedMediaImageLayout(t)?.suppressedFactIndexes:void 0;const r=t?readPersistedMediaFacts(t):void 0;const needsImageBytes=e=>isImageMediaFact(e)&&e.hydrationSuppressed!==true;return Boolean(e?.images?.length||e?.imageOrder?.length||e?.media?.some(needsImageBytes)||r&&applyRunHydrationSuppression(r,e?.media).some((e,t)=>needsImageBytes(e)&&!n?.includes(t)))}export{hasPromptImageInput as t};

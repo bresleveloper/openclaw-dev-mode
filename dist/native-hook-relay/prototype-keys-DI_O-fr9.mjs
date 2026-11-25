@@ -1,0 +1,3 @@
+import"./number-coercion-DIhBGkET.mjs";
+//!src/infra/prototype-keys.ts
+const BLOCKED_OBJECT_KEYS=/* @__PURE__ */ new Set([`__proto__`,`prototype`,`constructor`]);function isBlockedObjectKey(e){return BLOCKED_OBJECT_KEYS.has(e)}export{isBlockedObjectKey as t};

@@ -1,0 +1,1 @@
+import{t as withSetupProviderAuthMethod}from"./setup-provider-method-KT3DyWLt.mjs";export{withSetupProviderAuthMethod};

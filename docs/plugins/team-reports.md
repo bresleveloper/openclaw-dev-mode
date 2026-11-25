@@ -87,6 +87,10 @@ openclaw team-reports status --json
 openclaw dashboard
 ```
 
+Report storage initializes in the background without delaying Gateway connections.
+Reports requests wait for storage readiness; initialization failures appear in
+plugin service health. Shutdown joins initialization before closing storage.
+
 Startup does not trigger a report job. The first scheduled run collects yesterday's
 closed report and today's partial report, plus the day before startup when that run
 falls after the next UTC midnight, reusing healthy closed daily reports from
@@ -213,6 +217,8 @@ restarting the Gateway with the updated environment.
 `peopleFile` supports symlinks to regular JSON files. FIFOs and other special
 files fail the regular-file check without waiting for a writer. Replace the
 input with a regular roster file before reloading the plugin.
+The file must contain valid UTF-8. If its encoding is invalid, correct the source
+file and reload the plugin; the rejected file is left unchanged.
 
 ### GitHub
 

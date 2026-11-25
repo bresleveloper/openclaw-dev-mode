@@ -1,0 +1,3 @@
+import{t as applySessionEntryOperation}from"./session-accessor.sqlite-entry-BOP9W8Gy.mjs";
+//!src/config/sessions/ambient-transcript-watermark.ts
+function resolveAmbientTranscriptWatermarkKey(e){return JSON.stringify([e.channel,e.accountId??``,e.conversationId,e.threadId===void 0?``:String(e.threadId)])}async function updateAmbientTranscriptWatermark(e){return await applySessionEntryOperation({storePath:e.storePath,sessionKey:e.sessionKey},{kind:`ambient-transcript-watermark`,watermark:{...e,now:Date.now()}},{skipMaintenance:true,takeCacheOwnership:true})}export{updateAmbientTranscriptWatermark as n,resolveAmbientTranscriptWatermarkKey as t};

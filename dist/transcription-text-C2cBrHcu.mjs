@@ -1,0 +1,2 @@
+//!src/media-understanding/transcription-text.ts
+function isTranscriptArtifactText(e){const t=e.trim().replace(/\s+/gu,` `).toLowerCase();return t===``||t===`context:`||t===`###`||t===`transcribe the audio`||t===`transcribe the audio.`}export{isTranscriptArtifactText as t};

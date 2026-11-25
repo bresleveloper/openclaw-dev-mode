@@ -11,17 +11,12 @@ import {
   loadPluginManifestRegistryCore,
   type PluginManifestRegistry,
 } from "../plugins/manifest-registry.js";
-import {
-  cachePluginMetadataSnapshot,
-  createPluginCache,
-  getPluginCache,
-  readPluginMetadataSnapshotCache,
-  retainPluginCache,
-  withPluginCache,
-} from "../plugins/plugin-cache.js";
+import { createPluginCache, getPluginCache, withPluginCache } from "../plugins/plugin-cache.js";
 import {
   buildPluginMetadataSnapshot,
+  cachePluginMetadataSnapshot,
   projectPluginMetadataSnapshot,
+  readPluginMetadataSnapshotCache,
   resolvePluginMetadataSnapshot,
   resolvePluginMetadataSnapshotInput,
   resolvePluginMetadataSnapshotCacheKey,
@@ -116,7 +111,6 @@ function resolveReusableGatewayPluginMetadataSnapshot(
       config: params.config,
       env: params.env,
       allowWorkspaceScopedSnapshot: true,
-      requireAgentWorkspaceCompatibility: true,
       allowSynchronousPolicyRead,
     })
   );
@@ -137,35 +131,19 @@ export async function resolveConfigWidePluginMetadataSnapshotAsync(
     return current;
   }
   const cache = getPluginCache();
-  const release = retainPluginCache(cache);
-  try {
-    return await withPluginCache(cache, async () => {
-      // Policy and inventory share one worker read before synchronous metadata derivation.
-      const activateDiscovery =
-        captured.installRecords === undefined
-          ? await preparePluginMetadataMachineStateAsync({
-              env: captured.env,
-              stateDir: captured.stateDir,
-            })
-          : await prepareBundledDiscoveryMode(captured.env);
-      activateDiscovery();
-      const preparedCurrent = resolveReusableGatewayPluginMetadataSnapshot(captured);
-      if (preparedCurrent) {
-        return preparedCurrent;
-      }
-      const { key } = resolveConfigWideMetadataSelection(captured);
-      const existing = readPluginMetadataSnapshotCache(key);
-      if (existing) {
-        activateDiscovery();
-        return existing;
-      }
-      activateDiscovery();
-      // Parsing, recovery, trust checks and persisted/derived selection retain one owner.
-      return resolveConfigWidePluginMetadataSnapshot(captured);
-    });
-  } finally {
-    release();
-  }
+  return withPluginCache(cache, async () => {
+    // Policy and inventory share one worker read before synchronous metadata derivation.
+    const activateDiscovery =
+      captured.installRecords === undefined
+        ? await preparePluginMetadataMachineStateAsync({
+            env: captured.env,
+            stateDir: captured.stateDir,
+          })
+        : await prepareBundledDiscoveryMode(captured.env);
+    activateDiscovery();
+    // Parsing, recovery, trust checks and persisted/derived selection retain one owner.
+    return resolveConfigWidePluginMetadataSnapshot(captured);
+  });
 }
 
 function resolveConfigWideMetadataSelection(params: ResolveConfigWidePluginMetadataParams) {

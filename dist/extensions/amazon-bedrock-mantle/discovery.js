@@ -5,11 +5,7 @@ import { isFutureDateTimestampMs, resolveExpiresAtMsFromDurationMs } from "openc
 import { readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
 import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
 import { normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/amazon-bedrock-mantle/discovery.ts
-/**
-* Amazon Bedrock Mantle discovery and bearer-token handling. It resolves
-* explicit tokens, IAM-generated tokens, model catalogs, and implicit provider config.
-*/
+// extensions/amazon-bedrock-mantle/discovery.ts
 const log = createSubsystemLogger("bedrock-mantle-discovery");
 const DEFAULT_COST = {
 	input: 0,
@@ -58,9 +54,6 @@ function mantleEndpoint(region) {
 	return `https://bedrock-mantle.${region}.api.aws`;
 }
 /**
-* Resolve a bearer token for Mantle authentication.
-*
-* Returns the value of AWS_BEARER_TOKEN_BEDROCK if set, undefined otherwise.
 * When no explicit token is set, `resolveImplicitMantleProvider` will attempt
 * to generate one from IAM credentials via `@aws/bedrock-token-generator`.
 */
@@ -117,16 +110,10 @@ async function generateBearerTokenFromIam(params) {
 		return;
 	}
 }
-/** Resolve the actual runtime bearer token for Mantle, generating IAM tokens when needed. */
 async function resolveMantleRuntimeBearerToken(params) {
-	if (params.apiKey !== "__amazon_bedrock_mantle_iam__") return { apiKey: params.apiKey };
+	if (params.apiKey !== "__amazon_bedrock_mantle_iam__" && params.authMode !== "aws-sdk") return { apiKey: params.apiKey };
 	const now = Date.now();
 	const region = resolveMantleRegion(params.env ?? process.env);
-	const cached = getCachedIamTokenEntry(region, now);
-	if (cached) return {
-		apiKey: cached.token,
-		expiresAt: cached.expiresAt
-	};
 	const token = await generateBearerTokenFromIam({ region });
 	if (!token) return;
 	const refreshed = getCachedIamTokenEntry(region, now);
@@ -136,7 +123,6 @@ async function resolveMantleRuntimeBearerToken(params) {
 		...expiresAt === void 0 ? {} : { expiresAt }
 	};
 }
-/** Model ID substrings that indicate reasoning/thinking support. */
 const REASONING_PATTERNS = [
 	"thinking",
 	"reasoner",
@@ -173,7 +159,7 @@ const discoveryCache = /* @__PURE__ */ new Map();
 async function discoverMantleModels(params) {
 	const { region, bearerToken } = params;
 	const cached = discoveryCache.get(region);
-	if (cached?.bearerToken === bearerToken && Date.now() - cached.fetchedAt < DEFAULT_REFRESH_INTERVAL_SECONDS * 1e3) return cached.models;
+	if (cached?.bearerToken === bearerToken && performance.now() - cached.fetchedAt < DEFAULT_REFRESH_INTERVAL_SECONDS * 1e3) return cached.models;
 	if (cached?.bearerToken !== bearerToken) discoveryCache.delete(region);
 	const endpoint = `${mantleEndpoint(region)}/v1/models`;
 	try {
@@ -211,7 +197,7 @@ async function discoverMantleModels(params) {
 			discoveryCache.set(region, {
 				bearerToken,
 				models,
-				fetchedAt: Date.now()
+				fetchedAt: performance.now()
 			});
 			return models;
 		} finally {
@@ -350,5 +336,4 @@ async function resolveImplicitMantleProvider(params) {
 		models: models.length === 0 ? [] : allModels
 	};
 }
-//#endregion
 export { MANTLE_IAM_TOKEN_MARKER, discoverMantleModels, generateBearerTokenFromIam, resolveImplicitMantleProvider, resolveMantleBearerToken, resolveMantleRuntimeBearerToken, resolveMantleSonnet5Cost };

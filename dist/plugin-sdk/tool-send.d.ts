@@ -1,5 +1,4 @@
-import { QD as ChannelToolSend } from "../config-contracts-CY87ANNp.js";
-//#region src/plugin-sdk/tool-send.d.ts
+import { Dj as ChannelToolSend } from "../config-contracts-hzlacViZ.js";
 /** Extract the canonical send target fields from tool arguments when the action matches. */
 export declare function extractToolSend(
 /** Raw model tool arguments supplied to a channel action. */
@@ -15,5 +14,4 @@ expectedAction?: string): {
   /** True when the send explicitly opts out of ambient thread inheritance. */
   threadSuppressed?: boolean;
 } | null;
-//#endregion
 export type { ChannelToolSend };

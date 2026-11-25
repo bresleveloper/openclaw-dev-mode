@@ -1,0 +1,2 @@
+//!src/infra/migration-warning-summary.ts
+const MIGRATION_WARNING_EXAMPLE_LIMIT=5;function formatMigrationWarningSummary(e){const t=Math.min(e.count,5);return`${e.summary}; showing ${t} example(s), ${e.count-t} omitted. `+e.detail}export{formatMigrationWarningSummary as t};

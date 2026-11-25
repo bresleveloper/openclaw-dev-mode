@@ -30,6 +30,7 @@ import {
   extractLatestToolOutput,
   buildSlackMpimHistoryReply,
   extractCurrentRuntimeContextTexts,
+  hasCurrentGeneratedMediaDelivery,
   extractUserTurnTexts,
   extractAllRequestTexts,
   extractCurrentImageRequest,
@@ -141,10 +142,13 @@ export function buildImageGenerationCompletionReply(input: ResponsesInputItem[])
   const completedImageMediaPath = completionContexts
     .map(readCompletedImageGenerationMediaPath)
     .find(Boolean);
-  if (completedImageMediaPath) {
-    return `Protocol note: generated the QA lighthouse image successfully.\nMEDIA:${completedImageMediaPath}`;
+  if (!completedImageMediaPath) {
+    return undefined;
   }
-  return undefined;
+  const reply = "Protocol note: generated the QA lighthouse image successfully.";
+  return hasCurrentGeneratedMediaDelivery(input)
+    ? reply
+    : `${reply}\nMEDIA:${completedImageMediaPath}`;
 }
 
 export function buildAssistantText(input: ResponsesInputItem[], body: Record<string, unknown>) {

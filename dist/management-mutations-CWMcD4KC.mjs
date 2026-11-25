@@ -1,0 +1,1 @@
+import{a as setManagedPluginEnabled,i as reloadManagedPlugin,n as mutateManagedPluginEnabled,r as refreshManagedPlugins,t as installManagedPlugin}from"./management-mutations-CT0oroX2.mjs";export{mutateManagedPluginEnabled};

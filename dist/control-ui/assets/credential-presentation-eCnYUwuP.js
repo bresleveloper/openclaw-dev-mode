@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{U as t,gt as n}from"./_6____________________.js";function r(e){let t=Promise.withResolvers();function r(){t.resolve(),t=Promise.withResolvers()}return n(()=>{let t=e.getState().location,n=e.subscribe(({location:e})=>{(t.pathname!==e.pathname||t.search!==e.search||t.hash!==e.hash)&&(t=e,r())});return()=>{n(),r()}}),{get lifetime(){return t.promise},retire:r}}function i(){return(i=e((()=>{t()})))()}export{i as n,r as t};
+//# sourceMappingURL=credential-presentation-eCnYUwuP.js.map

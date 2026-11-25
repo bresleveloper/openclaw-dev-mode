@@ -1,2 +1,1 @@
-import { t as synologyChatPlugin } from "./.setup/channel-aQKbCqm2.mjs";
-export { synologyChatPlugin };
+export { t as synologyChatPlugin } from "./.setup/channel-Bm1aXfWV.mjs";

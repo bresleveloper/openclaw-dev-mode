@@ -1,6 +1,6 @@
-import { n as VENICE_DEFAULT_MODEL_REF, r as VENICE_MODEL_CATALOG, t as VENICE_BASE_URL } from "./.setup/models-D73jPrCr.mjs";
+import { n as VENICE_DEFAULT_MODEL_REF, r as VENICE_MODEL_CATALOG, t as VENICE_BASE_URL } from "./.setup/models-ZOIqXP1y.mjs";
 import { createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/venice/onboard.ts
+// extensions/venice/onboard.ts
 const { applyConfig: applyVeniceConfig } = createProviderConnectionPresetAppliers({
 	primaryModelRef: VENICE_DEFAULT_MODEL_REF,
 	resolveParams: () => ({
@@ -14,5 +14,4 @@ const { applyConfig: applyVeniceConfig } = createProviderConnectionPresetApplier
 		}]
 	})
 });
-//#endregion
 export { applyVeniceConfig };

@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString,l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{E as defaultSlotIdForKey}from"./config-state-C-HzOcfm.mjs";
+//!src/status/memory-plugin.ts
+function resolveMemoryPluginStatus(e){if(!(e.plugins?.enabled!==false))return{enabled:false,slot:null,reason:`plugins disabled`};const t=normalizeOptionalString(e.plugins?.slots?.memory)??``;if(normalizeOptionalLowercaseString(t)===`none`)return{enabled:false,slot:null,reason:`plugins.slots.memory="none"`};return{enabled:true,slot:t||defaultSlotIdForKey(`memory`)}}export{resolveMemoryPluginStatus as t};

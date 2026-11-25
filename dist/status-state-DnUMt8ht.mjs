@@ -1,0 +1,2 @@
+//!src/channels/plugins/status-state.ts
+function formatChannelStatusState(e){switch(e){case`not-linked`:return`not linked`;case`unstable`:return`auth stabilizing`;default:return e}}export{formatChannelStatusState as t};

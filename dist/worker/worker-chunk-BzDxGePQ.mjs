@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{i as t,n}from"./worker-chunk-D9ByxvOR.mjs";function parseGatewayRole(e){return e===`operator`||e===`node`?e:null}function isRoleAuthorizedForMethod(e,n){return t(n)?e===`node`:e===`operator`}var r=e((()=>{n()}));export{isRoleAuthorizedForMethod as n,parseGatewayRole as r,r as t};

@@ -1,0 +1,3 @@
+import"./registry-DLUepoZ0.mjs";
+//!src/channels/plugins/approvals.ts
+function resolveChannelApprovalCapability(e){return e?.approvalCapability}function resolveChannelApprovalAdapter(e){const t=resolveChannelApprovalCapability(e);if(!t)return;if(!t.delivery&&!t.nativeRuntime&&!t.nativeRuntimeAsync&&!t.render&&!t.native&&!t.nativeAsync)return;return{describeExecApprovalSetup:t.describeExecApprovalSetup,describePluginApprovalSetup:t.describePluginApprovalSetup,delivery:t.delivery,nativeRuntime:t.nativeRuntime,nativeRuntimeAsync:t.nativeRuntimeAsync,render:t.render,native:t.native,nativeAsync:t.nativeAsync}}export{resolveChannelApprovalCapability as n,resolveChannelApprovalAdapter as t};

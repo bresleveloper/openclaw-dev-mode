@@ -1,6 +1,7 @@
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { streamSimple } from "openclaw/plugin-sdk/llm";
-//#region extensions/opencode/stream.ts
+import { mapAssistantMessageStream, wrapProviderPayloadHook } from "openclaw/plugin-sdk/provider-stream-shared";
+// extensions/opencode/stream.ts
 const WEB_SEARCH = "web_search";
 const WEB_SEARCH_ALIAS = "openclaw_web_search";
 function payloadFunctions(payload) {
@@ -53,38 +54,6 @@ function rewriteDynamicRecordSchemas(payload) {
 	}
 	return fieldsByTool;
 }
-function transformArguments(toolName, args, fields, toWire) {
-	for (const [name, jsonValues] of fields.get(toolName) ?? []) {
-		const value = args[name];
-		if (toWire) {
-			if (isRecord(value)) args[name] = Object.entries(value).map(([key, item]) => ({
-				key,
-				value: jsonValues || typeof item !== "string" ? JSON.stringify(item) ?? "null" : item
-			}));
-			continue;
-		}
-		if (!Array.isArray(value)) continue;
-		const entries = [];
-		const keys = /* @__PURE__ */ new Set();
-		let valid = true;
-		for (const entry of value) {
-			if (!isRecord(entry) || typeof entry.key !== "string" || typeof entry.value !== "string" || keys.has(entry.key)) {
-				valid = false;
-				break;
-			}
-			keys.add(entry.key);
-			let item = entry.value;
-			if (jsonValues) try {
-				item = JSON.parse(entry.value);
-			} catch {
-				valid = false;
-				break;
-			}
-			entries.push([entry.key, item]);
-		}
-		if (valid) args[name] = Object.fromEntries(entries);
-	}
-}
 function transformCall(call, state, toWire) {
 	if (typeof call.name !== "string") return;
 	let toolName = call.name;
@@ -93,7 +62,36 @@ function transformCall(call, state, toWire) {
 	try {
 		const args = serialized ? JSON.parse(call.arguments) : !toWire && isRecord(call.arguments) ? { ...call.arguments } : call.arguments;
 		if (isRecord(args)) {
-			transformArguments(toolName, args, state.fields, toWire);
+			for (const [name, jsonValues] of state.fields.get(toolName) ?? []) {
+				const value = args[name];
+				if (toWire) {
+					if (isRecord(value)) args[name] = Object.entries(value).map(([key, item]) => ({
+						key,
+						value: jsonValues || typeof item !== "string" ? JSON.stringify(item) ?? "null" : item
+					}));
+					continue;
+				}
+				if (!Array.isArray(value)) continue;
+				const entries = [];
+				const keys = /* @__PURE__ */ new Set();
+				let valid = true;
+				for (const entry of value) {
+					if (!isRecord(entry) || typeof entry.key !== "string" || typeof entry.value !== "string" || keys.has(entry.key)) {
+						valid = false;
+						break;
+					}
+					keys.add(entry.key);
+					let item = entry.value;
+					if (jsonValues) try {
+						item = JSON.parse(entry.value);
+					} catch {
+						valid = false;
+						break;
+					}
+					entries.push([entry.key, item]);
+				}
+				if (valid) args[name] = Object.fromEntries(entries);
+			}
 			call.arguments = serialized ? JSON.stringify(args) : args;
 		}
 	} catch {}
@@ -115,42 +113,15 @@ function restoreMessage(message, state) {
 	for (const block of restored.content) if (block.type === "toolCall") transformCall(block, state, false);
 	return restored;
 }
-function restoreEvent(event, state) {
-	const restored = { ...event };
-	if ("partial" in restored && restored.partial) restored.partial = restoreMessage(restored.partial, state);
-	if (restored.type === "toolcall_delta") {
-		const call = restored.partial.content[restored.contentIndex];
-		if (call?.type === "toolCall" && (state.fields.get(call.name)?.length ?? 0) > 0) {
-			restored.delta = "";
-			delete call.partialJson;
-		}
-	} else if (restored.type === "toolcall_end") {
-		restored.toolCall = { ...restored.toolCall };
-		transformCall(restored.toolCall, state, false);
-	} else if (restored.type === "done") restored.message = restoreMessage(restored.message, state);
-	else if (restored.type === "error") restored.error = restoreMessage(restored.error, state);
-	return restored;
-}
-function wrapResponseStream(stream, state) {
-	return {
-		async *[Symbol.asyncIterator]() {
-			for await (const event of stream) yield restoreEvent(event, state);
-		},
-		async result() {
-			return restoreMessage(await stream.result(), state);
-		}
-	};
-}
 function wrapOpencodeProviderStream(ctx) {
 	const underlying = ctx.streamFn ?? streamSimple;
 	return (model, context, options) => {
 		if (model.api !== "openai-responses") return underlying(model, context, options);
-		const originalOnPayload = options?.onPayload;
 		const state = { fields: /* @__PURE__ */ new Map() };
 		const maybeStream = underlying(model, context, {
 			...options,
-			async onPayload(payload, payloadModel) {
-				const finalPayload = await originalOnPayload?.(payload, payloadModel) ?? payload;
+			onPayload: wrapProviderPayloadHook(options?.onPayload, (payload, replacement) => {
+				const finalPayload = replacement ?? payload;
 				state.fields = /* @__PURE__ */ new Map();
 				state.alias = void 0;
 				if (isRecord(finalPayload)) {
@@ -159,11 +130,31 @@ function wrapOpencodeProviderStream(ctx) {
 					state.alias = aliasWebSearch(finalPayload);
 				}
 				return finalPayload;
-			}
+			})
 		});
-		const wrap = (stream) => wrapResponseStream(stream, state);
-		return maybeStream && typeof maybeStream === "object" && "then" in maybeStream ? Promise.resolve(maybeStream).then(wrap) : wrap(maybeStream);
+		return mapAssistantMessageStream(maybeStream, (stream) => ({
+			async *[Symbol.asyncIterator]() {
+				for await (const event of stream) {
+					const restored = { ...event };
+					if ("partial" in restored && restored.partial) restored.partial = restoreMessage(restored.partial, state);
+					if (restored.type === "toolcall_delta") {
+						const call = restored.partial.content[restored.contentIndex];
+						if (call?.type === "toolCall" && (state.fields.get(call.name)?.length ?? 0) > 0) {
+							restored.delta = "";
+							delete call.partialJson;
+						}
+					} else if (restored.type === "toolcall_end") {
+						restored.toolCall = { ...restored.toolCall };
+						transformCall(restored.toolCall, state, false);
+					} else if (restored.type === "done") restored.message = restoreMessage(restored.message, state);
+					else if (restored.type === "error") restored.error = restoreMessage(restored.error, state);
+					yield restored;
+				}
+			},
+			async result() {
+				return restoreMessage(await stream.result(), state);
+			}
+		}));
 	};
 }
-//#endregion
 export { wrapOpencodeProviderStream };

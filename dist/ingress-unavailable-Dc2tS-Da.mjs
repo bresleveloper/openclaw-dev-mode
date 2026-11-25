@@ -1,0 +1,3 @@
+import{a as extractErrorCode,r as collectErrorGraphCandidates}from"./error-coercion-DlKnt6w-.mjs";import"./errors-CRXp6JVo.mjs";
+//!src/channels/message/ingress-unavailable.ts
+const CHANNEL_INGRESS_UNAVAILABLE_CODE=`CHANNEL_INGRESS_UNAVAILABLE`;var ChannelIngressUnavailableError=class extends Error{constructor(e,t){super(e,t);this.code=CHANNEL_INGRESS_UNAVAILABLE_CODE;this.name=`ChannelIngressUnavailableError`}};function isChannelIngressUnavailableError(e){return collectErrorGraphCandidates(e,e=>[e.cause]).some(e=>extractErrorCode(e)===CHANNEL_INGRESS_UNAVAILABLE_CODE)}export{isChannelIngressUnavailableError as n,ChannelIngressUnavailableError as t};

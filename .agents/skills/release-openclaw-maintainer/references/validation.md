@@ -138,20 +138,25 @@ also defers Package Acceptance Telegram, broad live/E2E, QA-live and Parallels.
 Package Telegram deferral applies to beta-profile `main` too, but it does not
 qualify for `npm-beta-v1`.
 
-FRV `normalCi` Windows Node shards and all other selected failures block. Decide
-blocker or flake for every failure,
+FRV `normalCi` Windows Node shards and all other unwaived hard-gate failures
+block. Only the exact checked-in operator grants may accept a failed job;
+preserve their explicit scope. Default new approved job waivers to the exact
+release version, child role, and job for all future FRV runs, attempts, and
+candidates of that release. Do not bind ordinary waivers to the diagnostic run
+or candidate. Attempt-specific waivers are only for exceptionally high-risk
+cases with an explicitly limited approval; document the risk and honor any
+operator-requested narrower scope. Decide blocker or flake for every failure,
 rerun flakes on the same Release SHA at most twice, and file a fix-in-parallel
-issue/PR on `main`. Do not re-cut, change P, or start another FRV solely to
-waive a flake. Every selected job must pass, and FRV itself must conclude success
-before publication. See the
+issue/PR on `main`. Do not re-cut solely to clear a flake. Every unwaived selected
+job must pass, and FRV itself must conclude success before publication. See the
 [CI skill](../../release-openclaw-ci/SKILL.md#publication-requirements).
 Native platform publication remains independent and follows its own gates.
 All-group cross-OS qualification requires all nine Linux/Windows/macOS
 install/upgrade pairs. Focused recovery may select individual lanes but does
-not itself qualify publication. This branch's candidate-owned Release Decision
-has no trusted-P waiver support, including for live-provider/Telegram failures.
-Keep the [strict branch policy](../SKILL.md#shared-release-boundaries); a newer P
-cannot change the frozen workflow's decision rules.
+not itself qualify publication. Eligible failures and explicit not-run exemptions
+may use only the [checked-in release-tooling policy](../../../../docs/reference/full-release-validation/evidence.md#release-tooling-waivers),
+evaluated within FRV under the grant’s exact scope. All other hard gates and
+soak remain mandatory.
 
 ## Postpublish confidence
 

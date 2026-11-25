@@ -1,0 +1,3 @@
+import{t as AsyncContext}from"./async-context-DsCOzW-V.mjs";
+//!src/process/spawn-broker/context-state.ts
+const context=new AsyncContext(Symbol(`spawnBroker`));const gatewaySpawnBrokerState={startupDisabled:false};function runWithSpawnBroker(e,t){return context.run(e??null,t)}function getSpawnBroker(){const e=context.getStore();return gatewaySpawnBrokerState.startupDisabled||e===null?void 0:e??gatewaySpawnBrokerState.host}export{getSpawnBroker as n,runWithSpawnBroker as r,gatewaySpawnBrokerState as t};

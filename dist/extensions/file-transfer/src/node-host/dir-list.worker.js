@@ -1,0 +1,3 @@
+import fs from"node:fs";
+//!extensions/file-transfer/src/node-host/dir-list.worker.ts
+function main(){const[e,t,n,r,i,a]=process.argv.slice(2);try{if(!e){process.exitCode=1;return}process.chdir(e);if(fs.realpathSync(`.`)!==t){process.exitCode=78;return}const o=fs.statSync(`.`,{bigint:true});if(String(o.dev)!==n||String(o.ino)!==r){process.exitCode=78;return}const s=fs.readdirSync(`.`,{withFileTypes:true}).toSorted((e,t)=>e.name.localeCompare(t.name));const c=Number(i);const l=Number(a);const u=s.slice(c,c+l).map(e=>{const t=fs.lstatSync(e.name);return{name:e.name,isDirectory:t.isDirectory(),isFile:t.isFile(),size:t.size,mtimeMs:t.mtimeMs}});process.stdout.write(JSON.stringify({entries:u,total:s.length}))}catch{process.exitCode=1}}main();export{};

@@ -1,0 +1,5 @@
+import{i as resolveGlobalMap}from"./global-singleton-BoQ13xsk.mjs";import{n as mergeProcessEnv}from"./process-env-BMQKxoSL.mjs";import{C as registerOpenClawStatePathCacheInvalidation,b as registerOpenClawStateDatabaseAsyncResource}from"./openclaw-state-db-cache-DAbk59xU.mjs";
+//!src/channels/message/ingress-queue-client.ts
+function resolveChannelIngressStateEnv(e){return e?mergeProcessEnv([process.env,{OPENCLAW_STATE_DIR:e}]):process.env}
+//!src/channels/message/ingress-queue-health-cache.ts
+const caches=resolveGlobalMap(Symbol.for(`openclaw.channelIngressHealth`),`close-and-restart`);registerOpenClawStateDatabaseAsyncResource({async close(){caches.clear()}});registerOpenClawStatePathCacheInvalidation(caches);function channelIngressHealthCache(e){const{coordinationKey:t,identity:n}=e.admission;let r=caches.get(t);if(!r){r={path:n.canonicalPath};caches.set(t,r)}return r}function invalidateChannelIngressHealth(e){caches.delete(e.admission.coordinationKey)}export{invalidateChannelIngressHealth as n,resolveChannelIngressStateEnv as r,channelIngressHealthCache as t};

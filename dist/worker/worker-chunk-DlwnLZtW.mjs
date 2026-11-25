@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{o as t}from"./worker-chunk-OYTXupRz.mjs";function currentUpdateCheckLifecycle(){if(!n)throw Error(`Gateway update lifecycle is not initialized`);return n}var n,r=e((()=>{t()}));export{r as n,currentUpdateCheckLifecycle as t};

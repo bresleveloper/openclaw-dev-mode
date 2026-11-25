@@ -1,0 +1,1 @@
+import{a as e,r as t}from"./worker-chunk-BkMIH9ZI.mjs";e();export{t as CLIENT_CREDENTIAL_SCHEMA_VERSION};

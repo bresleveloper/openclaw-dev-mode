@@ -1,0 +1,3 @@
+import{format}from"node:util";
+//!src/plugin-sdk/runtime-logger.internal.ts
+function createLoggerBackedRuntime(e){return{log:(...t)=>e.logger.info(format(...t)),error:(...t)=>e.logger.error(format(...t)),writeStdout:t=>e.logger.info(t),writeJson:(t,n=2)=>e.logger.info(JSON.stringify(t,void 0,n>0?n:void 0)),exit:t=>{throw e.exitError?.(t)??/* @__PURE__ */ new Error(`exit ${t}`)}}}function resolveRuntimeEnv(e){return e.runtime??createLoggerBackedRuntime(e)}export{resolveRuntimeEnv as n,createLoggerBackedRuntime as t};

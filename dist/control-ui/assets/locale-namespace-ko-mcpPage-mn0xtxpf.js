@@ -1,0 +1,1 @@
+export default {"mcpPage":{"servers":"서버","settings":"설정","apps":"MCP 앱","noServers":"아직 MCP 서버가 없습니다.","setUpFirstServer":"MCP 서버 설정 가이드","operatorCommands":"명령줄","operatorCommandsHint":"상태, 진단 및 런타임 다시 불러오기.","serversHelp":"MCP 서버 정보","runtimeHint":"자동 다시 불러오기가 활성화되어 있으면 다음 사용 시 연결이 다시 설정됩니다.","toolFilter":"도구 필터","parallel":"병렬","tlsVerifyOff":"TLS 검증 꺼짐","mtls":"mTLS"}};

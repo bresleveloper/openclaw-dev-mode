@@ -1,0 +1,2 @@
+//!src/plugins/management-lifecycle-error.ts
+var ManagedPluginLifecycleError=class extends Error{constructor(e,t){super(e,t?.cause!==void 0?{cause:t.cause}:void 0);this.name=`ManagedPluginLifecycleError`;this.kind=t?.kind??`invalid-request`;this.code=t?.code;this.version=t?.version;this.warning=t?.warning;this.installPolicyWarning=t?.installPolicyWarning;this.capabilityConsent=t?.capabilityConsent;this.installRejected=t?.installRejected;this.installSource=t?.installSource}};export{ManagedPluginLifecycleError as t};

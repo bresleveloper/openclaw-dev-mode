@@ -1,0 +1,3 @@
+import{a as createRetryRunner,f as toRetryError}from"./src-De06gkOi.mjs";import{c as isStateDatabaseAdmissionClosedError}from"./sqlite-error-diagnostics-CVAvdxD4.mjs";import{n as recordRetryAttemptErrors,t as getRetryAttemptErrors}from"./retry-attempt-errors-W8Xy0R-F.mjs";import{t as generateSecureFraction}from"./secure-random-C3MxPnYY.mjs";
+//!src/infra/retry.ts
+function createRetryFailure(e){const t=e.flatMap(e=>getRetryAttemptErrors(e)??[e]);const n=toRetryError(t.at(-1)??/* @__PURE__ */ new Error(`Retry failed`),`Non-Error thrown`);if(t.length>1)recordRetryAttemptErrors(n,t);return n}const retryAsync=createRetryRunner({shouldRetry:e=>!isStateDatabaseAdmissionClosedError(e),random:generateSecureFraction,createFailure:createRetryFailure});export{retryAsync as t};

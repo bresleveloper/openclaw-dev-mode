@@ -1,0 +1,3 @@
+import{a as normalizeUpdateFailureFacts}from"./update-failure-facts-DHmg0OrY.mjs";
+//!src/infra/update-pre-mutation-error.ts
+var UpdatePreMutationError=class extends Error{#e;get stepResult(){return this.#e}constructor(e,t,n){super(t,n);this.reason=e;this.name=`UpdatePreMutationError`;this.origin=n?.origin;this.nextAction=n?.nextAction;this.recoverySteps=n?.recoverySteps;this.#e=n?.stepResult?{steps:n.stepResult.steps,failedStep:n.stepResult.failedStep}:void 0;this.failureFacts=normalizeUpdateFailureFacts(n?.failureFacts??[{check:e,code:e,message:t}])}};export{UpdatePreMutationError as t};

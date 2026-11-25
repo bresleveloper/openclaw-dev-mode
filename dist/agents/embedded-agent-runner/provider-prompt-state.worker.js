@@ -1,6 +1,3 @@
-import { n as serveWorkerTasks } from "../../worker-task-server-sMsYUF1K.mjs";
-import { t as prepareProviderPrompt } from "../../provider-prompt-serialization-DkV1jKOc.mjs";
-//#region src/agents/embedded-agent-runner/provider-prompt-state.worker.ts
-serveWorkerTasks((input) => prepareProviderPrompt(input), { transferList: (result) => result.encoded ? [result.encoded.body.buffer] : [] });
-//#endregion
-export {};
+import{n as serveWorkerTasks}from"../../worker-task-server-BDP9evHw.mjs";import{n as fingerprintMessage}from"../../prompt-cache-history-RdciVeQt.mjs";import{t as prepareProviderPrompt}from"../../provider-prompt-serialization-DtWpAcll.mjs";
+//!src/agents/embedded-agent-runner/provider-prompt-state.worker.ts
+serveWorkerTasks(e=>{return`history`in e?{kind:`history`,fingerprints:e.history.map(e=>{const{stringBlock:t,...n}=fingerprintMessage(e);return n})}:{kind:`provider`,prompt:prepareProviderPrompt(e)}},{transferList:e=>e.kind===`provider`&&e.prompt.encoded?[e.prompt.encoded.body.buffer]:[]});export{};

@@ -1,0 +1,5 @@
+import{i as resolveGlobalSingleton}from"./global-singleton-CTnqrmaI.js";import{setTimeout}from"node:timers/promises";
+//!src/plugins/plugin-shared-state-admission.ts
+const admission=resolveGlobalSingleton(Symbol.for(`openclaw.pluginSharedStateAdmission`),()=>({}));function getPluginSharedStateResourceHost(){return admission.resolveHost?.()}function runPluginSharedStateWork(e){const t=getPluginSharedStateResourceHost();return t?t.trackSharedStateWork(e):e()}
+//!src/infra/acquire-with-wait.ts
+async function acquireWithWait(e){const t=e.now??performance.now.bind(performance);let n=e.pollIntervalMs;for(;;)try{return await e.acquire()}catch(r){const i=e.shouldRetry(r);if(!i)throw r;const a=e.deadlineMs-t();if(a<=0)throw r;await(e.sleep??setTimeout)(Math.min(i===true?n:i.delayMs,a));n=Math.min(n*2,e.maxPollIntervalMs??e.pollIntervalMs)}}export{getPluginSharedStateResourceHost as n,runPluginSharedStateWork as r,acquireWithWait as t};

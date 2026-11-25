@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";import{i as NodeHostStatsPayloadSchema}from"./nodes-HGWu3rsY.mjs";import{Value}from"typebox/value";
+//!src/shared/node-host-stats.ts
+const NODE_HOST_STATS_EVENT=`node.host.stats`;const NODE_HOST_STATS_INTERVAL_MS=6e4;function isNodeHostStats(e){if(!isRecord(e))return false;const{updatedAtMs:t,...n}=e;return typeof t===`number`&&Number.isSafeInteger(t)&&t>=0&&Value.Check(NodeHostStatsPayloadSchema,n)}export{NODE_HOST_STATS_INTERVAL_MS as n,isNodeHostStats as r,NODE_HOST_STATS_EVENT as t};

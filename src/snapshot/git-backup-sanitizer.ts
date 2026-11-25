@@ -1,6 +1,6 @@
-import type { SQLInputValue } from "node:sqlite";
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { stripPluginModelCatalogCredentials } from "../agents/plugin-model-catalog-repair.js";
+import type { PortRow } from "../infra/database-engine/port-descriptor.js";
 import {
   AGENT_SECRET_TABLE_NAMES,
   STATE_SECRET_CONFIG_STATE_KEY_PREFIXES,
@@ -10,7 +10,6 @@ import {
 import type { SnapshotDatabaseIdentity } from "./snapshot-provider.js";
 
 type RedactionIdentity = Pick<SnapshotDatabaseIdentity, "role">;
-type PortRow = Record<string, SQLInputValue>;
 const modelCatalogScopes = ["plugin-model-catalog-v1", "plugin-model-catalog-migration-v1"];
 
 function resolveRedactionIdentity(

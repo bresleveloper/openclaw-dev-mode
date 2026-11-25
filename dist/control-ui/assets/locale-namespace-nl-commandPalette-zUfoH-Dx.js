@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"Instellingen voor nieuwe sessies","rememberSettings":"Instellingen voor {shortcut} onthouden","rememberSettingsNoShortcut":"Deze instellingen onthouden","rememberUnavailable":"Maak opnieuw verbinding om instellingen te onthouden.","settingsSaveFailed":"Kan de instellingen niet opslaan. Probeer het opnieuw."}};

@@ -1,0 +1,3 @@
+import{t as definePluginEntry}from"./plugin-entry-DhKiQ4Uu.mjs";
+//!extensions/oc-path/index.ts
+function hasCliFlag(e,t){for(const n of e.slice(2)){if(n===`--`)return false;if(n===t)return true}return false}var oc_path_default=definePluginEntry({id:`oc-path`,name:`OC Path`,description:`Adds the openclaw path CLI for oc:// workspace file addressing.`,register(e){e.registerCli(async({program:e})=>{const{registerPathCli:t}=await import(`./cli-DcYFtqdb.mjs`);t(e)},{descriptors:[{name:`path`,description:`Inspect and edit workspace files via oc:// paths`,hasSubcommands:true,machineOutput:e=>{if(hasCliFlag(e.argv,`--json`))return true;return!hasCliFlag(e.argv,`--human`)&&!e.stdoutIsTTY}}]})}});export{oc_path_default as t};

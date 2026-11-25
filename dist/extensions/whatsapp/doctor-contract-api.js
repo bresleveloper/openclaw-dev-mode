@@ -1,17 +1,17 @@
-import { r as resolveDefaultWhatsAppAccountId, t as listAccountIds } from "./.setup/account-ids-CB5SOWjc.mjs";
-import { r as isWhatsAppBaileysAuthFileName } from "./.setup/creds-files-B8WcOAmE.mjs";
-import { r as runtime_doctor_migrations_exports, t as normalizeCompatibilityConfig$1 } from "./.setup/doctor-DKzeBEmH.mjs";
-import fs, { realpathSync } from "node:fs";
+import { r as resolveDefaultWhatsAppAccountId, t as listAccountIds } from "./.setup/account-ids-ENToBTTq.mjs";
+import { i as isWhatsAppBaileysAuthFileName } from "./.setup/creds-files-CQDqePya.mjs";
+import { r as runtime_doctor_migrations_exports, t as normalizeCompatibilityConfig$1 } from "./.setup/doctor-DXXYmlDn.mjs";
 import path from "node:path";
 import { normalizeOptionalAccountId } from "openclaw/plugin-sdk/account-core";
 import { resolveOAuthDir } from "openclaw/plugin-sdk/state-paths";
 import { assertNoSymlinkParentsSync, readRegularFileSync, root } from "openclaw/plugin-sdk/file-access-runtime";
 import { resolveUserPath as resolveUserPath$1 } from "openclaw/plugin-sdk/account-resolution";
 import { extractErrorCode } from "openclaw/plugin-sdk/error-runtime";
+import fs, { realpathSync } from "node:fs";
 import fs$1 from "node:fs/promises";
 import { DEFAULT_ACCOUNT_ID as DEFAULT_ACCOUNT_ID$2 } from "openclaw/plugin-sdk/account-id";
 import { createHash } from "node:crypto";
-//#region extensions/whatsapp/src/state-migrations.ts
+// extensions/whatsapp/src/state-migrations.ts
 function credentialSetDigest(files) {
 	return createHash("sha256").update(JSON.stringify([...files].toSorted(([left], [right]) => left < right ? -1 : left > right ? 1 : 0))).digest("hex");
 }
@@ -180,8 +180,7 @@ const whatsappLegacyStateMigration = {
 		};
 	}
 };
-//#endregion
-//#region extensions/whatsapp/src/doctor-contract.ts
+// extensions/whatsapp/src/doctor-contract.ts
 const streamingAliasMigration = (0, runtime_doctor_migrations_exports.defineChannelAliasMigration)({
 	channelId: "whatsapp",
 	streaming: {
@@ -251,8 +250,6 @@ function normalizeCompatibilityConfig({ cfg }) {
 		...warnings.length ? { warnings } : {}
 	};
 }
-//#endregion
-//#region extensions/whatsapp/doctor-contract-api.ts
+// extensions/whatsapp/doctor-contract-api.ts
 const stateMigrations = [whatsappLegacyStateMigration];
-//#endregion
 export { legacyConfigRules, normalizeCompatibilityConfig, stateMigrations };

@@ -1,0 +1,2 @@
+//!src/shared/scratch-expiry.ts
+const SCRATCH_TTL_MS=864e5;const SCRATCH_EXPIRED_MESSAGE=`file expired (scratch cleaned after 24 h)`;function isWorkspaceScratchPath(e){const t=e.replaceAll(`\\`,`/`).split(`/`);return!t.includes(`..`)&&t.some((e,n)=>e===`.openclaw`&&t[n+1]===`tmp`&&Boolean(t[n+2]))}export{SCRATCH_TTL_MS as n,isWorkspaceScratchPath as r,SCRATCH_EXPIRED_MESSAGE as t};

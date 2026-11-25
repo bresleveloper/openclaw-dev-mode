@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{a as t,l as n}from"./worker-chunk-EAEbv0hu.mjs";function safeParseJson(e){try{return JSON.parse(e)}catch{return}}function safeParseJsonRecord(e){return/^[\t\n\r ]*\{/.test(e)?t(safeParseJson(e)):void 0}var r=e((()=>{n()}));export{safeParseJson as n,safeParseJsonRecord as r,r as t};

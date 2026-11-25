@@ -1,0 +1,3 @@
+import"./src-0ci69Prg.mjs";import{n as formatByteSize}from"./format-66SdinIu.mjs";
+//!src/media/store.shared.ts
+function formatMediaSize(e){return formatByteSize(e,{style:`legacy-binary`,maxUnit:`mega`,separator:``,fractionDigits:e=>Number.isInteger(e)?0:2})}var SaveMediaSourceError=class SaveMediaSourceError extends Error{constructor(e,t,n){super(t,n);this.code=e;this.name=`SaveMediaSourceError`}static tooLarge(e,t){const n=formatMediaSize(e);return new SaveMediaSourceError(`too-large`,`Media exceeds ${n} limit`,t)}};export{formatMediaSize as n,SaveMediaSourceError as t};

@@ -1,0 +1,1 @@
+import{a as e,i as t,n,r,t as i}from"./worker-chunk-9dfWjwEC.mjs";i();export{n as isPackageDependencyName,r as readPackageManagerSpec,t as readPackageName,e as readPackageVersion};

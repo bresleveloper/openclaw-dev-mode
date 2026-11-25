@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,s as n}from"./worker-chunk-CHXXUV6W.mjs";function parseSoftResetCommand(e){let t=e;for(let e of[/^\/reset(?:\s|$)/,/^soft(?:\s|$)/]){let r=n(t).match(e);if(!r)return{matched:!1};t=t.slice(r[0].length).trimStart()}return{matched:!0,tail:t}}var r=e((()=>{t()}));export{parseSoftResetCommand as n,r as t};

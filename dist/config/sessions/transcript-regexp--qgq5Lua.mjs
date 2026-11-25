@@ -1,0 +1,1 @@
+function getSealedRuntimeJson5(){}function getSealedRuntimeSecureTempRoot(){}function escapeRegExp(e){return e.replace(/[.*+?^${}()|[\]\\]/g,`\\$&`)}export{getSealedRuntimeJson5 as n,getSealedRuntimeSecureTempRoot as r,escapeRegExp as t};

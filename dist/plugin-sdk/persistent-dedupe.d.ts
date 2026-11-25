@@ -1,5 +1,4 @@
-import "../config-contracts-CY87ANNp.js";
-//#region src/plugin-sdk/file-lock.d.ts
+import "../config-contracts-hzlacViZ.js";
 /** Retry and stale-recovery policy for acquiring a filesystem lock. */
 type FileLockOptions = {
   /** Retry policy used while waiting for another process or logical holder to release. */
@@ -24,8 +23,6 @@ type FileLockOptions = {
    * only refuse, never authorize reclamation that the provider would reject. */
   assertResourceUnborrowed?: (targetPath: string) => void;
 };
-//#endregion
-//#region src/plugin-sdk/persistent-dedupe.types.d.ts
 type PersistentDedupeEntry = {
   key: string;
   seenAt: number;
@@ -140,8 +137,6 @@ type ClaimableDedupe = {
   /** Returns the current process-local cache size. */
   memorySize: () => number;
 };
-//#endregion
-//#region src/plugin-sdk/channel-replay-guard.d.ts
 type ReplayKeys = string | readonly (string | null | undefined)[] | null | undefined;
 type ChannelReplayCommitOptions = Omit<PersistentDedupeCheckOptions, "namespace">;
 type ChannelReplayClaimHandle = {
@@ -190,8 +185,6 @@ type ChannelReplayGuard<TEvent> = {
   warmup: (namespace?: string, onError?: (error: unknown) => void) => Promise<number>;
   clearMemory: () => void;
 };
-//#endregion
-//#region src/plugin-sdk/persistent-dedupe-store.d.ts
 export declare function createPersistentDedupeImportEntry(params: {
   key: string;
   seenAt: number;
@@ -201,8 +194,6 @@ export declare function resolvePersistentDedupePluginStateNamespace(options: {
   namespace: string;
   namespacePrefix?: string;
 }): string;
-//#endregion
-//#region src/plugin-sdk/persistent-dedupe.d.ts
 export declare function shouldReplacePersistentDedupeEntry(params: {
   existingValue: unknown;
   incomingValue: unknown;
@@ -240,5 +231,4 @@ export declare function createClaimableDedupe(options: ClaimableDedupeOptions): 
  * and retention fits the tombstone window, delete the guard when adopting the drain.
  */
 export declare function createChannelReplayGuard<TEvent>(params: ChannelReplayGuardParams<TEvent>): ChannelReplayGuard<TEvent>;
-//#endregion
 export type { ChannelReplayClaimHandle, ClaimableDedupe, ClaimableDedupeClaimResult, ClaimableDedupeOptions, PersistentDedupe, PersistentDedupeCheckOptions, PersistentDedupeEntry, PersistentDedupeLegacyJsonImportEntry, PersistentDedupeLegacyPathOptions, PersistentDedupeOptions, PersistentDedupePluginStateOptions };

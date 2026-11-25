@@ -1,5 +1,5 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-const require_runtime = require("./.setup/runtime-gZTAuFux.cjs");
+const require_runtime = require("./.setup/runtime-CbKazLGv.cjs");
 let openclaw_plugin_sdk_channel_outbound = require("openclaw/plugin-sdk/channel-outbound");
 let openclaw_plugin_sdk_channel_pairing = require("openclaw/plugin-sdk/channel-pairing");
 let openclaw_plugin_sdk_account_helpers = require("openclaw/plugin-sdk/account-helpers");

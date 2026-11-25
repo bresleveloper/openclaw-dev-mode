@@ -1,0 +1,1 @@
+const e=Promise;function createDeferredCore(){return e.withResolvers()}export{createDeferredCore as t};

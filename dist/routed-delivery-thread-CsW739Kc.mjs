@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{t as normalizeChatType}from"./chat-type-BzCV5nTQ.mjs";import{t as resolveLoadedSessionThreadInfo}from"./session-thread-info-loaded-DJN9O2G2.mjs";
+//!src/auto-reply/reply/routed-delivery-thread.ts
+function isSlackDirectRoutedThreadTurn(e){if(normalizeChatType(e.ChatType)!==`direct`)return false;if(e.MessageThreadId==null&&e.TransportThreadId==null)return false;return[e.Provider,e.Surface,e.OriginatingChannel].some(e=>normalizeOptionalString(e)?.toLowerCase()===`slack`)}function resolveRoutedDeliveryThreadId(e){return e.ctx.MessageThreadId??e.ctx.TransportThreadId??resolveLoadedSessionThreadInfo(e.sessionKey).threadId}export{resolveRoutedDeliveryThreadId as n,isSlackDirectRoutedThreadTurn as t};

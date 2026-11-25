@@ -1,2 +1,1 @@
-import { n as setSmsRuntime, t as getSmsRuntime } from "./.setup/runtime-BBlPgBIF.mjs";
-export { getSmsRuntime, setSmsRuntime };
+export { t as getSmsRuntime, n as setSmsRuntime } from "./.setup/runtime-A8rnEOmw.mjs";

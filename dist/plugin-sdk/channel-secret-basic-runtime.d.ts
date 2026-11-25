@@ -1,7 +1,6 @@
-import { c as isRecord } from "../record-coerce-Ckpz2G3R.js";
-import { c as pushAssignment, i as collectSecretInputAssignment, l as pushInactiveSurfaceWarning, n as SecretDefaults, o as hasOwnProperty, s as isEnabledFlag, t as ResolverContext, u as pushWarning } from "../runtime-shared-D9SQnawJ.js";
-import { n as SecretTargetRegistryEntry, r as SecretTargetShape, t as SecretTargetExpected } from "../target-registry-types-0AZ3Y_A_.js";
-//#region src/secrets/channel-secret-basic-runtime.d.ts
+import { c as isRecord } from "../record-coerce-Df4UCOH5.js";
+import { c as pushAssignment, i as collectSecretInputAssignment, l as pushInactiveSurfaceWarning, n as SecretDefaults, o as hasOwnProperty, s as isEnabledFlag, t as ResolverContext, u as pushWarning } from "../runtime-shared-Nz2iGQyi.js";
+import { n as SecretTargetRegistryEntry, r as SecretTargetShape, t as SecretTargetExpected } from "../target-registry-types-CxHP4WEe.js";
 type ChannelSecretTargetPathSpec = {
   path: string;
   refPath?: string;
@@ -83,7 +82,7 @@ export declare function getChannelSurface(config: {
   surface: ChannelAccountSurface;
 } | null;
 /** Resolves explicit channel accounts or creates a default account backed by the channel root. */
-export declare function resolveChannelAccountSurface(channel: Record<string, unknown>): ChannelAccountSurface;
+export declare function resolveChannelAccountSurface(channel: Record<string, unknown>, hasImplicitDefaultAccount?: boolean): ChannelAccountSurface;
 export declare function isBaseFieldActiveForChannelSurface(surface: ChannelAccountSurface, rootKey: string): boolean;
 /** Normalizes optional channel secret strings before deciding whether a value is configured. */
 export declare function normalizeSecretStringValue(value: unknown): string;
@@ -129,5 +128,4 @@ export declare function collectNestedChannelFieldAssignments(params: {
   accountActive: ChannelAccountPredicate;
   accountInactiveReason: string | ((entry: ChannelAccountEntry) => string);
 }): void;
-//#endregion
 export { type ChannelAccountEntry, type ChannelAccountPredicate, type ChannelAccountSurface, type ChannelSecretTargetPathSpec, type ResolverContext, type SecretDefaults, type SecretTargetRegistryEntry, collectSecretInputAssignment, hasOwnProperty, isEnabledFlag, isRecord, pushAssignment, pushInactiveSurfaceWarning, pushWarning };

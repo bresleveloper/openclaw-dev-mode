@@ -1,0 +1,6 @@
+import{r as defaultRuntime}from"./runtime-DIcLIHcp.mjs";import{r as terminalText}from"./safe-text-B_QTgn0s.mjs";import{f as shortenHomePath}from"./utils-CVVNdy3C.mjs";import{r as theme}from"./theme-DS2CtI9X.mjs";import{r as formatCliJsonFailure}from"./failure-output-DigaChvV.mjs";import"./terminal-safe-text-Crgjdu4T.mjs";import"./memory-core-host-runtime-cli-Bwb9gOaM.mjs";
+//!extensions/memory-core/src/cli-search-output.ts
+function renderMemorySearch(e,t){if(`status`in e){if(e.status===`disabled`){defaultRuntime.log(`Memory search disabled.`);if(t)defaultRuntime.writeJson(e)}else{const n=`memory search failed (${e.agentId}): ${e.error}`;defaultRuntime.error(terminalText`${n}`);process.exitCode=1;if(t)defaultRuntime.writeJson({...formatCliJsonFailure(n),agentId:e.agentId})}return}if(t){defaultRuntime.writeJson(e);return}if(e.warning)defaultRuntime.error(terminalText`${e.warning} ${e.action??``}`.trim());if(e.results.length===0){defaultRuntime.log(`No matches.`);return}const n=[];for(const t of e.results){const e=terminalText`${shortenHomePath(t.path)}`;const r=t.snippet.split(`
+`).map(e=>terminalText`${e}`).join(`
+`);n.push(`${theme.success(t.score.toFixed(3))} ${theme.accent(terminalText`${e}:${t.startLine}-${t.endLine}`)}`,theme.muted(r),``)}defaultRuntime.log(n.join(`
+`).trim())}export{renderMemorySearch as t};

@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/slack/channel-entry.ts
+// extensions/slack/channel-entry.ts
 var channel_entry_default = defineBundledChannelEntry({
 	id: "slack",
 	name: "Slack",
@@ -18,5 +18,4 @@ var channel_entry_default = defineBundledChannelEntry({
 		exportName: "setSlackRuntime"
 	}
 });
-//#endregion
 export { channel_entry_default as default };

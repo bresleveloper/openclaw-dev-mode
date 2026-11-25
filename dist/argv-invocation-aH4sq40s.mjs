@@ -1,0 +1,3 @@
+import{a as resolveCliParentCommandPath}from"./config-output-mode-zXCwdxLP.mjs";import{a as getPrimaryCommand,l as isHelpOrVersionInvocation,n as getCommandPathWithRootOptions,u as isRootHelpInvocation}from"./argv-BgC5-KlV.mjs";import{i as resolveGatewayCommandPath}from"./gateway-run-argv-D8aBgiPG.mjs";
+//!src/cli/argv-invocation.ts
+function resolveCliArgvInvocation(e){return{argv:e,commandPath:resolveGatewayCommandPath(e)??resolveCliParentCommandPath(e)??getCommandPathWithRootOptions(e,2),primary:getPrimaryCommand(e),hasHelpOrVersion:isHelpOrVersionInvocation(e),isRootHelpInvocation:isRootHelpInvocation(e)}}export{resolveCliArgvInvocation as t};

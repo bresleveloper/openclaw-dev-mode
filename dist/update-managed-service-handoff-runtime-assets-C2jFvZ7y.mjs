@@ -1,0 +1,3 @@
+import{n as runtimeProcessEntrypoints}from"./runtime-process-entrypoints-DkIke3sT.mjs";
+//!src/infra/update-managed-service-handoff-runtime-assets.ts
+const MANAGED_HANDOFF_RUNTIME_ENTRY=`managed-handoff-runtime.mjs`;const managedHandoffRuntimeEntrypoint=runtimeProcessEntrypoints.managedHandoffRuntime;const managedHandoffPostgresBridgeEntrypoint=runtimeProcessEntrypoints.managedHandoffPostgresBridge;export{managedHandoffPostgresBridgeEntrypoint as n,managedHandoffRuntimeEntrypoint as r,MANAGED_HANDOFF_RUNTIME_ENTRY as t};

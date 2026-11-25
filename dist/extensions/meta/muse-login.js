@@ -4,7 +4,7 @@ import { stripVTControlCharacters } from "node:util";
 import { createDeferred } from "openclaw/plugin-sdk/concurrency-runtime";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/meta/muse-login.ts
+// extensions/meta/muse-login.ts
 const DEFAULT_MODEL = "meta/muse-spark-1.3";
 const INSTALL_COMMAND = "curl -fsSL https://dev.meta.ai/install.sh | bash";
 async function loginAttempt(ctx, binaryPath) {
@@ -98,6 +98,8 @@ async function loginAttempt(ctx, binaryPath) {
 	return await promise;
 }
 async function runMuseLogin(ctx) {
+	ctx.signal?.throwIfAborted();
+	ctx.assertCurrent?.();
 	const config = ctx.config.plugins?.entries?.muse?.config;
 	const pluginConfig = isRecord(config) ? config : {};
 	if (!await loginAttempt(ctx, typeof pluginConfig.binaryPath === "string" ? pluginConfig.binaryPath : "muse")) throw new Error("Muse Code sign-in failed. Start sign-in again and approve the code in your browser.");
@@ -110,5 +112,4 @@ async function runMuseLogin(ctx) {
 		configPatch: { plugins: { entries: { muse: { enabled: true } } } }
 	};
 }
-//#endregion
 export { runMuseLogin };

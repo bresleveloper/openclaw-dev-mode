@@ -1,0 +1,3 @@
+import{t as definePluginEntry}from"./plugin-entry-DhKiQ4Uu.mjs";import{t as isBrowserMachineOutput}from"./cli-output-mode-Bvnv8NIb.mjs";
+//!extensions/browser/cli-metadata.ts
+function registerBrowserCliMetadata(e){e.registerCli(async({program:t})=>{const{registerBrowserCli:n}=await import(`./browser-cli-0DMYuBBB.mjs`);n(t,process.argv,e.rootDir)},{commands:[`browser`],descriptors:[{name:`browser`,description:`Manage OpenClaw's dedicated browser (Chrome/Chromium)`,hasSubcommands:true,machineOutput:isBrowserMachineOutput}]})}var cli_metadata_default=definePluginEntry({id:`browser`,name:`Browser`,description:`Default browser tool plugin`,register:registerBrowserCliMetadata});export{registerBrowserCliMetadata as n,cli_metadata_default as t};

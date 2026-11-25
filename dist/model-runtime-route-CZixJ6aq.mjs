@@ -1,0 +1,2 @@
+//!src/shared/model-runtime-route.ts
+const CLAUDE_CLI_SETUP_GUIDANCE=`If Claude Code is signed out, run claude auth login on the Gateway host, or choose another model.`;function resolveModelRuntimeRoute(e,t){if(t===`claude-cli`||e===`claude-cli`&&!t)return`claudeCli`;if(e===`anthropic`){if(t===`openclaw`)return`anthropicApi`;if(!t)return`anthropicConfigured`}}export{resolveModelRuntimeRoute as n,CLAUDE_CLI_SETUP_GUIDANCE as t};

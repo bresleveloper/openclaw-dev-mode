@@ -1,2 +1,1 @@
-import { i as waitForOpenAIQuicksilverConnectStep, n as loadOpenAIQuicksilverMediaSocketFactory, r as openAIQuicksilverConnectAbortError, t as connectOpenAIQuicksilverSideband } from "../../realtime-quicksilver-sideband-drMpFQrD.mjs";
-export { connectOpenAIQuicksilverSideband, loadOpenAIQuicksilverMediaSocketFactory, openAIQuicksilverConnectAbortError, waitForOpenAIQuicksilverConnectStep };
+import{i as waitForOpenAIQuicksilverConnectStep,n as loadOpenAIQuicksilverMediaSocketFactory,r as openAIQuicksilverConnectAbortError,t as connectOpenAIQuicksilverSideband}from"../../realtime-quicksilver-sideband-Bu19JqKn.mjs";export{connectOpenAIQuicksilverSideband,loadOpenAIQuicksilverMediaSocketFactory,openAIQuicksilverConnectAbortError,waitForOpenAIQuicksilverConnectStep};

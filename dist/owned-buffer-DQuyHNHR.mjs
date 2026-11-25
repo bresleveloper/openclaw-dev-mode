@@ -1,0 +1,2 @@
+//!src/shared/owned-buffer.ts
+function encodeOwnedBuffer(e,t=`utf8`){const n=Buffer.allocUnsafeSlow(Buffer.byteLength(e,t));n.write(e,t);return n}function copyOwnedBuffer(e){const t=Buffer.allocUnsafeSlow(e.byteLength);t.set(e);return t}export{encodeOwnedBuffer as n,copyOwnedBuffer as t};

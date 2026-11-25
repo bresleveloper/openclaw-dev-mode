@@ -1,0 +1,3 @@
+import{g as readStringValue}from"./string-coerce-CpTFcSwY.mjs";
+//!src/plugin-sdk/tool-send.ts
+function extractToolSend(e,t=`sendMessage`){if((readStringValue(e.action)?.trim()??``)!==t)return null;const n=readStringValue(e.to);if(!n)return null;const r=readStringValue(e.accountId)?.trim();const i=typeof e.threadId===`number`?String(e.threadId):readStringValue(e.threadId)?.trim()??``;return{to:n,accountId:r,threadId:i.length>0?i:void 0,...e.topLevel===true||e.threadId===null?{threadSuppressed:true}:{}}}export{extractToolSend as t};

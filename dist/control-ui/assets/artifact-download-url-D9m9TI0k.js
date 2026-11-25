@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{Pc as t,qs as n}from"./_4____________________________.js";import{CP as r,SP as i}from"./_2_____________________________.js";function a(e,n=``){try{let r=new URL(e,globalThis.location.origin),a=`${t(n)}${i}`;return r.origin===globalThis.location.origin&&r.pathname.startsWith(a)&&/^[^/]+\/[^/]+$/u.test(r.pathname.slice(a.length))}catch{return!1}}function o(){return(o=e((()=>{r(),n()})))()}export{a as n,o as t};
+//# sourceMappingURL=artifact-download-url-D9m9TI0k.js.map

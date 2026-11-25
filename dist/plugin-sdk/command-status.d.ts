@@ -1,6 +1,5 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { n as SkillCommandSpec } from "../types-CeA70ktN.js";
-//#region src/auto-reply/command-status-builders.d.ts
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import { n as SkillCommandSpec } from "../types-BLzNI-JA.js";
 /** Builds the compact slash-command help text shown by `/help`. */
 export declare function buildHelpMessage(cfg?: OpenClawConfig): string;
 /** Options for rendering `/commands` output for a specific channel surface. */
@@ -21,5 +20,4 @@ type CommandsMessageResult = {
 export declare function buildCommandsMessage(cfg?: OpenClawConfig, skillCommands?: SkillCommandSpec[], options?: CommandsMessageOptions): string;
 /** Builds `/commands` text and pagination metadata for surfaces with native list controls. */
 export declare function buildCommandsMessagePaginated(cfg?: OpenClawConfig, skillCommands?: SkillCommandSpec[], options?: CommandsMessageOptions): CommandsMessageResult;
-//#endregion
 export type { CommandsMessageOptions, CommandsMessageResult };

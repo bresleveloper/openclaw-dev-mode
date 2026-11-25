@@ -1,0 +1,3 @@
+import{n as WEB_SEARCH_QUERY_COUNT_PROPERTIES}from"./provider-web-search-contract-fields-BU0F0PUo.mjs";
+//!extensions/ollama/src/web-search-contract.ts
+const OLLAMA_WEB_SEARCH_TOOL_DESCRIPTION=`Search the web using Ollama's web search API. Returns titles, URLs, and snippets from the configured Ollama host.`;const OLLAMA_WEB_SEARCH_TOOL_PARAMETERS={type:`object`,properties:{...WEB_SEARCH_QUERY_COUNT_PROPERTIES},required:[`query`],additionalProperties:false};export{OLLAMA_WEB_SEARCH_TOOL_PARAMETERS as n,OLLAMA_WEB_SEARCH_TOOL_DESCRIPTION as t};

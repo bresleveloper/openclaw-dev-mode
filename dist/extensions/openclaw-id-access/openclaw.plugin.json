@@ -1,0 +1,26 @@
+{
+  "id": "openclaw-id-access",
+  "name": "OpenClaw ID remote access",
+  "description": "Choose who can reach this claw remotely: invite people, approve their requests, and see and remove members.",
+  "categories": [
+    "security"
+  ],
+  "enabledByDefault": true,
+  "activation": {
+    "onStartup": false,
+    "onConfigPaths": [
+      "gateway.openclawId.enabled"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "controlUi": {
+    "entry": "dist/control-ui/dea7045c7ca9ec464ff45228570c005c070588b3a0456888310c267da14385b1/index.js",
+    "styles": [
+      "dist/control-ui/dea7045c7ca9ec464ff45228570c005c070588b3a0456888310c267da14385b1/index.css"
+    ]
+  }
+}

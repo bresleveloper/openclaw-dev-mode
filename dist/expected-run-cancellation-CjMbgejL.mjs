@@ -1,0 +1,3 @@
+import{t as SessionTranscriptReadFenceError}from"./session-transcript-read-fence-error-BLqxaDE5.mjs";import{t as GatewayDrainingError}from"./gateway-work-admission-CegOVvLM.mjs";
+//!src/process/expected-run-cancellation.ts
+function isExpectedRunCancellation(e){if(e instanceof GatewayDrainingError||e instanceof SessionTranscriptReadFenceError)return true;if(e instanceof AggregateError)return e.errors.length>0&&e.errors.every(isExpectedRunCancellation)&&(e.cause===void 0||isExpectedRunCancellation(e.cause));return e instanceof Error&&e.cause!==void 0&&isExpectedRunCancellation(e.cause)}export{isExpectedRunCancellation as t};

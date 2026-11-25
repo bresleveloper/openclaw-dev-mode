@@ -1,0 +1,3 @@
+import{t as stableStringify}from"./stable-stringify-Cy0VZ0ci.mjs";import{n as sha256Hex}from"./node-crypto-DPk8agfR.mjs";import fs from"node:fs";import{safeStatSync}from"@openclaw/fs-safe/path";
+//!src/plugins/installed-plugin-index-hash.ts
+function hashJson(e){return sha256Hex(JSON.stringify(e))}function hashStableJson(e){return sha256Hex(stableStringify(e))}function safeHashFile(e){try{return sha256Hex(fs.readFileSync(e))}catch{return}}function safeFileSignature(e){const t=safeStatSync(e);return t?.isFile()?{size:t.size,mtimeMs:t.mtimeMs,ctimeMs:t.ctimeMs}:void 0}export{safeHashFile as i,hashStableJson as n,safeFileSignature as r,hashJson as t};

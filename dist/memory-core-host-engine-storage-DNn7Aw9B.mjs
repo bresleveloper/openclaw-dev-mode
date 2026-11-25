@@ -1,0 +1,13 @@
+import{i as executeSqliteQuerySync,p as sqliteStringSet,s as getNodeSqliteKysely,u as prepareSqliteQuerySync}from"./kysely-sync-Dl78faM1.mjs";import"./context-uicjShqD.mjs";import{t as createSqliteSchemaEnsurer}from"./sqlite-schema-ensure-C9ABVm7H.mjs";import"./memory-schema-CxKZYQTC.mjs";import"./openclaw-agent-db-readonly-CoDdA_o7.mjs";import"./sdk-deprecation-aWs02XK8.mjs";import"./sqlite-vec-BjfK0PIN.mjs";import"./engine-storage-DFRFL4NS.mjs";
+//!packages/memory-host-sdk/src/memory-entry-origins.ts
+const ensureMemoryEntryOriginsSchema=createSqliteSchemaEnsurer(()=>`CREATE TABLE IF NOT EXISTS memory_entry_origins (
+    entry_key TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    session_key TEXT,
+    origin_class TEXT NOT NULL CHECK (origin_class IN ('owner', 'agent', 'untrusted', 'system')),
+    observed_at INTEGER NOT NULL,
+    PRIMARY KEY (entry_key, agent_id, session_id)
+  ) STRICT, WITHOUT ROWID`,{tables:[`memory_entry_origins`]});function readOrigin(e){return{entryKey:e.entry_key,agentId:e.agent_id,sessionId:e.session_id,sessionKey:e.session_key,originClass:e.origin_class,observedAt:e.observed_at}}function readMemoryEntryOriginsInDatabase(e,t){let n=getNodeSqliteKysely(e).selectFrom(`memory_entry_origins`).selectAll().where(`agent_id`,`=`,t.agentId);if(t.sessionIds)n=n.where(`session_id`,`in`,sqliteStringSet(t.sessionIds));if(t.entryKeys)n=n.where(`entry_key`,`in`,sqliteStringSet(t.entryKeys));return executeSqliteQuerySync(e,n.orderBy(`entry_key`,`asc`).orderBy(`session_id`,`asc`)).rows.map(readOrigin)}function recordMemoryEntryOriginsInDatabase(e,t){const n=getNodeSqliteKysely(e);let r;return t.origins.flatMap(i=>{if(i.agentId!==t.agentId)throw new Error(`memory entry origin belongs to another agent`);r??=prepareSqliteQuerySync(e,e=>n.insertInto(`memory_entry_origins`).values({entry_key:e(e=>t.entryKey??e.entryKey),agent_id:e(e=>e.agentId),session_id:e(e=>e.sessionId),session_key:e(e=>e.sessionKey),origin_class:e(e=>e.originClass),observed_at:e(e=>e.observedAt)}).onConflict(e=>e.columns([`entry_key`,`agent_id`,`session_id`]).doNothing()).returningAll());return r(i).rows.map(readOrigin)})}
+//!packages/memory-host-sdk/src/host/search-deadline-control.ts
+function createMemorySearchDeadlineControl(){let e=0;const t=/* @__PURE__ */ new Set;return{report(n){if(n===`pause`){e+=1;if(e!==1)return}else if(e===0||--e!==0)return;for(const e of t)e(n===`pause`?`pause`:`resume`)},subscribe(n){t.add(n);if(e>0)n(`pause`);return()=>{t.delete(n)}}}}export{recordMemoryEntryOriginsInDatabase as i,ensureMemoryEntryOriginsSchema as n,readMemoryEntryOriginsInDatabase as r,createMemorySearchDeadlineControl as t};

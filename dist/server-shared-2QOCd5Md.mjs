@@ -1,0 +1,2 @@
+//!src/gateway/server-shared.ts
+const PENDING_CHAT_SEND_DEDUPE_PREFIX=`pending-chat:`;function pendingChatSendDedupeKey(e){return`${PENDING_CHAT_SEND_DEDUPE_PREFIX}${e}`}export{pendingChatSendDedupeKey as n,PENDING_CHAT_SEND_DEDUPE_PREFIX as t};

@@ -1,0 +1,2 @@
+//!src/auto-reply/reply/command-context-rewrite.ts
+function applyCommandTextToContext(e,t){e.commandText=t;e.agentText=t;e.rawText=t;e.Body=t;e.RawBody=t;e.CommandBody=t;e.BodyForCommands=t;e.BodyForAgent=t;e.BodyStripped=t}function applyCommandTextToParams(e,t){applyCommandTextToContext(e.ctx,t);if(e.rootCtx&&e.rootCtx!==e.ctx)applyCommandTextToContext(e.rootCtx,t);e.command.rawBodyNormalized=t;e.command.commandBodyNormalized=t}export{applyCommandTextToParams as n,applyCommandTextToContext as t};

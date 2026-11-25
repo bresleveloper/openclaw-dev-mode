@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function formatMigrationWarningSummary(e){let t=Math.min(e.count,5);return`${e.summary}; showing ${t} example(s), ${e.count-t} omitted. `+e.detail}var t=e((()=>{}));export{t as n,formatMigrationWarningSummary as t};

@@ -1,0 +1,3 @@
+import{AsyncLocalStorage}from"node:async_hooks";
+//!extensions/browser/src/browser/request-scope.ts
+const requestScope=new AsyncLocalStorage;async function withBrowserRequestScope(e,t){const n={scope:e,active:true};if(e.assertInvocationCurrent){const t=e.assertInvocationCurrent;n.scope={...e,assertInvocationCurrent:()=>{if(!n.active)throw new Error(`Browser request has completed`);t()}}}try{return await requestScope.run(n,t)}finally{n.active=false}}function getBrowserRequestScope(){const e=requestScope.getStore();return e?.active?e.scope:void 0}export{withBrowserRequestScope as n,getBrowserRequestScope as t};

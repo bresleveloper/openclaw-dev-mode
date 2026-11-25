@@ -1,0 +1,2 @@
+//!src/agents/content-blocks.ts
+function isTextContentBlock(e){if(!e||typeof e!==`object`)return false;const t=e;return t.type===`text`&&typeof t.text===`string`}function collectTextContentBlocks(e){if(!Array.isArray(e))return[];return e.filter(isTextContentBlock).map(e=>e.text)}export{isTextContentBlock as n,collectTextContentBlocks as t};

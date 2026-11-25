@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"Kỹ năng trong không gian làm việc","learned":"Kỹ năng đã học","builtIn":"Kỹ năng tích hợp sẵn","installed":"Kỹ năng đã cài đặt","extra":"Kỹ năng bổ sung","other":"Kỹ năng khác"}};

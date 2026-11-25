@@ -1,6 +1,6 @@
-import { o as normalizeIMessageHandle } from "../.setup/targets-B4oU7n-v.mjs";
+import { s as normalizeIMessageHandle } from "../.setup/targets-C7CIWJ0k.mjs";
 import { executeSqliteQuerySync, executeSqliteQueryTakeFirstSync, getNodeSqliteKysely, openNodeSqliteDatabase } from "openclaw/plugin-sdk/sqlite-worker-runtime";
-//#region extensions/imessage/src/chat-db.worker.ts
+// extensions/imessage/src/chat-db.worker.ts
 function appleMessageDateLowerBoundMs(sentAfterMs) {
 	if (typeof sentAfterMs !== "number" || !Number.isFinite(sentAfterMs)) return null;
 	return Math.max(0, Math.floor((sentAfterMs - 9783072e5 - 5e3) * 1e6));
@@ -41,5 +41,4 @@ function openExistingSqliteWorkerBackend(_input, context) {
 		}
 	};
 }
-//#endregion
 export { openExistingSqliteWorkerBackend };

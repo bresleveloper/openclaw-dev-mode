@@ -1,0 +1,2 @@
+//!src/config/gateway-public-origin.ts
+function resolveGatewayPublicOrigin(e){const t=e?.gateway?.publicOrigin?.trim();if(!t)return;try{const e=new URL(t);return e.pathname===`/`&&!e.search&&!e.hash?e.origin:void 0}catch{return}}export{resolveGatewayPublicOrigin as t};

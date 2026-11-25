@@ -1,0 +1,1 @@
+{"version":3,"entries":[{"output":"index.js","source":"extensions/cohere/index.ts"}],"chunks":[{"output":"index.js","sha256":"3821272269b759d71a2709999ec417be738e1b2345d7ae7c866662889b3b68ad","facadeSource":"extensions/cohere/index.ts","sources":["extensions/cohere/index.ts","extensions/cohere/openclaw.plugin.json"]}],"unrenderedSources":[]}

@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"Yeni oturum ayarları","rememberSettings":"{shortcut} için ayarları hatırla","rememberSettingsNoShortcut":"Bu ayarları hatırla","rememberUnavailable":"Ayarları hatırlamak için yeniden bağlanın.","settingsSaveFailed":"Ayarlar kaydedilemedi. Tekrar deneyin."}};

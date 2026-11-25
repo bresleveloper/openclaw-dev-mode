@@ -1,0 +1,1 @@
+function isUpdateRunAdmissionReadCommand(e){return e.type===`updateRuns.recoveryAdmission`||e.type===`updateRuns.reconciliationCandidates`||e.type===`updateRuns.reconciliationCandidate`}export{isUpdateRunAdmissionReadCommand as t};

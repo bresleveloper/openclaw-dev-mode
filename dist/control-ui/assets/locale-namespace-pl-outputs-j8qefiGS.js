@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Pokaż wszystkie","files":"Pliki","loading":"Ładowanie wyników…","updating":"Aktualizowanie wyników…","loadingDashboard":"Ładowanie pulpitu…","emptyTitle":"Nie ma jeszcze wyników.","emptyDescription":"Tutaj pojawią się pliki i pulpity z tej sesji."}};

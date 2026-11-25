@@ -1,11 +1,13 @@
 /** Owner-scoped, read-only discovery of plugins already known to Codex. */
 import { isDeepStrictEqual } from "node:util";
 import type { AnyAgentTool } from "openclaw/plugin-sdk/core";
+import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 import type { OpenClawPluginToolContext } from "openclaw/plugin-sdk/plugin-entry";
 import { asOptionalRecord as readRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { Type } from "typebox";
 import { CODEX_CONTROL_METHODS } from "./app-server/capabilities.js";
+import { readCodexPluginConfig } from "./app-server/config-parsing.js";
 import { sessionBindingIdentity } from "./app-server/session-binding-record.js";
 import type { CodexAppServerBindingStore } from "./app-server/session-binding.js";
 import type { codexControlRequest } from "./command-rpc.js";
@@ -15,6 +17,11 @@ import {
   filterCodexMarketplacePlugins,
   type CodexAvailablePlugin,
 } from "./plugin-marketplace-discovery.js";
+
+const loadBindingConnection = createLazyRuntimeModule(
+  () => import("./app-server/binding-connection.js"),
+);
+const loadCommandRpc = createLazyRuntimeModule(() => import("./command-rpc.js"));
 
 const CodexPluginsParamsSchema = Type.Object(
   {
@@ -60,8 +67,9 @@ export function createCodexPluginsTool(options: CodexPluginsToolOptions): AnyAge
           ? Math.max(1, Math.min(params.limit, 20))
           : 12;
       const { codexBindingConnectionSelection, resolveCodexBindingAppServerConnection } =
-        await import("./app-server/binding-connection.js");
+        await loadBindingConnection();
       const pluginConfig = options.getPluginConfig();
+      const configuredPlugin = readCodexPluginConfig(pluginConfig);
       const config = runtimeConfig();
       const identity = options.context.sessionId
         ? sessionBindingIdentity({
@@ -87,11 +95,11 @@ export function createCodexPluginsTool(options: CodexPluginsToolOptions): AnyAge
       const workspaceDir =
         binding?.cwd?.trim() ||
         options.context.workspaceDir?.trim() ||
-        resolveCodexDefaultWorkspaceDir(pluginConfig);
-      const request = options.request ?? (await import("./command-rpc.js")).codexControlRequest;
+        resolveCodexDefaultWorkspaceDir(configuredPlugin);
+      const request = options.request ?? (await loadCommandRpc()).codexControlRequest;
       const connection = await resolveCodexBindingAppServerConnection({
         binding,
-        pluginConfig,
+        pluginConfig: configuredPlugin,
         config,
         agentDir: options.context.agentDir,
         assertCurrent,
@@ -99,7 +107,7 @@ export function createCodexPluginsTool(options: CodexPluginsToolOptions): AnyAge
       const discovered = await discoverCodexMarketplacePlugins({
         workspaceDir,
         request: async (requestParams) =>
-          await request(pluginConfig, CODEX_CONTROL_METHODS.listPlugins, requestParams, {
+          await request(configuredPlugin, CODEX_CONTROL_METHODS.listPlugins, requestParams, {
             agentDir: options.context.agentDir,
             config,
             assertCurrent,

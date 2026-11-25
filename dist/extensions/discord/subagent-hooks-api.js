@@ -1,6 +1,6 @@
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
-//#region extensions/discord/subagent-hooks-api.ts
-const loadDiscordSubagentHooksModule = createLazyRuntimeModule(() => import("./.setup/subagent-hooks-CIu2TFz3.mjs").then((n) => n.i));
+// extensions/discord/subagent-hooks-api.ts
+const loadDiscordSubagentHooksModule = createLazyRuntimeModule(() => import("./.setup/subagent-hooks-CVmIOrAR.mjs").then((n) => n.i));
 function registerDiscordSubagentHooks(api) {
 	api.on("subagent_ended", async (event) => {
 		const { handleDiscordSubagentEnded } = await loadDiscordSubagentHooksModule();
@@ -11,5 +11,4 @@ function registerDiscordSubagentHooks(api) {
 		return await handleDiscordSubagentDeliveryTargetAsync(event);
 	});
 }
-//#endregion
 export { registerDiscordSubagentHooks };

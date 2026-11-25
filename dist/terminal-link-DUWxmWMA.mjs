@@ -1,0 +1,2 @@
+//!packages/terminal-core/src/terminal-link.ts
+function stripTerminalLinkControls(e){return e.replace(/\p{Cc}/gu,``)}function formatTerminalLink(e,t,n){const r=n?.force===true?true:n?.force===false?false:process.stdout.isTTY;if(!r&&n?.fallback!==void 0)return stripTerminalLinkControls(n.fallback);const i=stripTerminalLinkControls(e);const a=stripTerminalLinkControls(t);if(!r)return`${i} (${a})`;return`\u001b]8;;${a}\u0007${i}\u001b]8;;\u0007`}export{formatTerminalLink as t};

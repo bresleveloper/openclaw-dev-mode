@@ -1,0 +1,5 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{i as t,l as n,m as r}from"./worker-chunk-EAEbv0hu.mjs";import{n as i}from"./worker-chunk-wJmHoX1G.mjs";import"node:path";function countNewlines(e){let t=0;for(let n=e.indexOf(`
+`);n!==-1;n=e.indexOf(`
+`,n+1))t+=1;return t}var a=e((()=>{}));function readEdits(e){return(Array.isArray(e.edits)?e.edits:[e]).flatMap(e=>{let n=t(e);return n?[n]:[]})}function countArgumentNewlines(e){return typeof e==`string`?countNewlines(e):0}function countStreamingFileMutationLines(e,t){if(e===`write`)return{added:countArgumentNewlines(r(t,`content`)),removed:0};if(e===`edit`)return readEdits(t).reduce((e,t)=>({added:e.added+countArgumentNewlines(t.newText??t.new_string),removed:e.removed+countArgumentNewlines(t.oldText??t.old_string)}),{added:0,removed:0});let n=t.input??t.patch;if(typeof n!=`string`)return{added:0,removed:0};let i=0,a=0,o=0;for(let e=n.indexOf(`
+`);e>=0;e=n.indexOf(`
+`,o))i+=Number(n[o]===`+`),a+=Number(n[o]===`-`),o=e+1;return{added:i,removed:a}}var o=e((()=>{n(),i(),a()}));export{o as n,countStreamingFileMutationLines as t};

@@ -3,20 +3,12 @@ import type { UpdateRunRecord } from "./update-run-record.js";
 
 export type ManagedServiceBoundaryOptions = ManagedServiceManagerBoundaryOptions & {
   updaterStopped?: "native" | "legacy";
-  recoveryInterruption?: {
-    effect: "stop-retired" | "lease-replaced";
-    at: "inspection" | "bootstrap-retry" | "kickstart";
-  };
-  interruptedUpdate?:
-    | "before"
-    | "prepared"
-    | "publishing"
-    | "after"
-    | "risk"
-    | "operator-stop"
-    | "finalize-failure"
-    | "post-finalize-risk"
-    | "schema-advance";
+  interruptedUpdate?: "before" | "prepared" | "exchanging" | "publishing" | "after" | "risk";
+  /** The killed updater reserved a cohort for this run or another; risk fails its repair. */
+  pluginCohort?: "own" | "foreign" | "risk";
+  /** An older run carries a data-at-risk mark that post-core repair finds consistent. */
+  olderMark?: true;
+  finalizeFailure?: true;
   trigger?: "cli" | "api" | "campaign";
   origin?: UpdateRunRecord["origin"];
   controlDisconnect?: "transferred" | "unarmed" | "dead-parent";
@@ -24,6 +16,12 @@ export type ManagedServiceBoundaryOptions = ManagedServiceManagerBoundaryOptions
     run: UpdateRunRecord | undefined,
     env: NodeJS.ProcessEnv,
   ) => void | Promise<void>;
+  prepareState?: (params: {
+    env: NodeJS.ProcessEnv;
+    recoveryModulePath: string;
+    sourceRuntimeImport: string;
+  }) => void | Promise<void>;
+  readSentinel?: (env: NodeJS.ProcessEnv) => unknown;
   relativeInput?: boolean;
   validationResult?: "failed" | "skipped" | "child-result";
   validationClockAdvanceMs?: number;
@@ -31,6 +29,7 @@ export type ManagedServiceBoundaryOptions = ManagedServiceManagerBoundaryOptions
   cancelDuringValidation?: boolean;
   systemScope?: true;
   cancelAtActivation?: "requester" | "inspection";
+  replaceLaunchdLeaseAfterInspection?: true;
   runnerFallback?: boolean;
   selectedDriver?: "2026.9.3";
   revokeWhileValidating?: boolean;

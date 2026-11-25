@@ -1,4 +1,3 @@
-//#region src/plugin-sdk/ingress-effect-once.d.ts
 /**
  * Create a durable per-event side-effect guard for channel ingress drains.
  *
@@ -30,4 +29,3 @@ export declare function createIngressEffectOnce(params: {
     kind: "replayed";
   }>;
 };
-//#endregion

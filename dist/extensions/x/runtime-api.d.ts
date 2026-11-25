@@ -1,4 +1,2 @@
-import { Mg as PluginRuntime } from "../../config-contracts-CY87ANNp.js";
-//#region extensions/x/src/runtime.d.ts
+import { J as PluginRuntime } from "../../config-contracts-hzlacViZ.js";
 export declare const setXRuntime: (next: PluginRuntime) => void;
-//#endregion

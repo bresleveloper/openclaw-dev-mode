@@ -1,0 +1,4 @@
+//!src/infra/tailscale-backend-auth-required-error.ts
+const TAILSCALE_BACKEND_AUTH_REQUIRED_REASON=`gateway.tailscale_authentication_required`;
+//!src/infra/tailscale-backend-stopped-error.ts
+const TAILSCALE_BACKEND_STOPPED_REASON=`gateway.tailscale_backend_stopped`;var TailscaleBackendStoppedError=class extends Error{constructor(){super(`Tailscale is stopped. Restore the intended Tailscale connection before restarting the Gateway; managed ingress remains required.`);this.code=TAILSCALE_BACKEND_STOPPED_REASON;this.name=`TailscaleBackendStoppedError`}};export{TailscaleBackendStoppedError as n,TAILSCALE_BACKEND_AUTH_REQUIRED_REASON as r,TAILSCALE_BACKEND_STOPPED_REASON as t};

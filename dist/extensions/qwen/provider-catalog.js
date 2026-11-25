@@ -1,5 +1,5 @@
-import { N as buildQwenModelCatalogForBaseUrl, O as QWEN_TOKEN_PLAN_MODEL_CATALOG, m as QWEN_BASE_URL } from "./.setup/models-BRg9bCBV.mjs";
-//#region extensions/qwen/provider-catalog.ts
+import { N as buildQwenModelCatalogForBaseUrl, O as QWEN_TOKEN_PLAN_MODEL_CATALOG, m as QWEN_BASE_URL } from "./.setup/models-BHyvoc6Y.mjs";
+// extensions/qwen/provider-catalog.ts
 function buildQwenProvider(params) {
 	const baseUrl = params?.baseUrl ?? QWEN_BASE_URL;
 	return {
@@ -16,5 +16,4 @@ function buildQwenTokenPlanProvider(params) {
 	};
 }
 const buildModelStudioProvider = buildQwenProvider;
-//#endregion
 export { buildModelStudioProvider, buildQwenProvider, buildQwenTokenPlanProvider };

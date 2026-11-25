@@ -1,5 +1,5 @@
 import { hasAnthropicVertexAvailableAuth, resolveAnthropicVertexConfigApiKey } from "./region.js";
-//#region extensions/anthropic-vertex/provider-discovery.ts
+// extensions/anthropic-vertex/provider-discovery.ts
 const PROVIDER_ID = "anthropic-vertex";
 const GCP_VERTEX_CREDENTIALS_MARKER = "gcp-vertex-credentials";
 const anthropicVertexProviderDiscovery = {
@@ -24,5 +24,4 @@ const anthropicVertexProviderDiscovery = {
 		};
 	}
 };
-//#endregion
 export { anthropicVertexProviderDiscovery, anthropicVertexProviderDiscovery as default };

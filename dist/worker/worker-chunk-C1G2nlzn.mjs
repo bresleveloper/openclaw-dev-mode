@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function isThinkingLikeBlock(e){if(!e||typeof e!=`object`)return!1;let t=e.type;return t===`thinking`||t===`redacted_thinking`}var t=e((()=>{}));export{isThinkingLikeBlock as n,t};

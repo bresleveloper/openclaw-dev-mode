@@ -1,0 +1,1 @@
+import{i as e}from"./transcript-global-singleton-DIJgobpU.mjs";const t=typeof process>`u`?void 0:process.getBuiltinModule?.(`node:async_hooks`),n=t?e(Symbol.for(`openclaw.detachedAsyncContext`),()=>new t.AsyncResource(`openclaw.detached-async-context`)):void 0;function runInDetachedAsyncContext(e){return n?n.runInAsyncScope(e):e()}export{runInDetachedAsyncContext as t};

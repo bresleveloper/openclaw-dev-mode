@@ -1,0 +1,2 @@
+//!src/config/sessions/session-transcript-cold-error.ts
+var SessionTranscriptColdError=class extends Error{constructor(e=``){super(`Transcript${e?` ${e}`:``} is in cold storage. Restore its archive before reading or changing the transcript.`);this.sessionId=e;this.code=`TRANSCRIPT_COLD`;this.name=`SessionTranscriptColdError`}};export{SessionTranscriptColdError as t};

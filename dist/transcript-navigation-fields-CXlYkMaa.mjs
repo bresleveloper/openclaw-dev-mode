@@ -1,0 +1,2 @@
+//!src/config/sessions/transcript-navigation-fields.ts
+function projectTranscriptNavigationFields(e,t={}){for(const n of[`type`,`id`,`parentId`,`targetId`,`appendParentId`,`appendMode`])if(Object.hasOwn(e,n))t[n]=e[n];return t}export{projectTranscriptNavigationFields as t};

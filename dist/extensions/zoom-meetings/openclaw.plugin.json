@@ -12,7 +12,7 @@
       "hasSubcommands": true
     }
   ],
-  "enabledByDefault": true,
+  "enabledByDefault": false,
   "commandAliases": [
     {
       "name": "zoommeetings"
@@ -276,5 +276,9 @@
         }
       }
     }
-  }
+  },
+  "recommendedPrompts": [
+    "Help me prepare Zoom Web App participation and choose captions or spoken interaction.",
+    "Help me plan Zoom meeting notes with participant consent before joining."
+  ]
 }

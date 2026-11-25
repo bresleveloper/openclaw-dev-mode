@@ -1,0 +1,3 @@
+import{r as getRuntimeConfigCapture}from"./runtime-config-capture-state-BwXLqZfd.mjs";import{a as getRuntimeConfigSnapshot,c as getRuntimeConfigSourceSnapshot}from"./runtime-snapshot-7A_MWYPP.mjs";
+//!src/plugins/activation-source-config.ts
+function resolvePluginActivationSourceConfig(e){if(e.activationSourceConfig!==void 0)return e.activationSourceConfig;const t=getRuntimeConfigCapture(e.config);if(t)return t.source;const n=getRuntimeConfigSourceSnapshot();if(n&&e.config===getRuntimeConfigSnapshot())return n;return e.config??{}}export{resolvePluginActivationSourceConfig as t};

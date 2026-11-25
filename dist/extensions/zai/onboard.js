@@ -1,7 +1,7 @@
-import { c as buildZaiCatalogModels, o as ZAI_DEFAULT_MODEL_ID, r as ZAI_CODING_DEFAULT_MODEL_ID, u as resolveZaiBaseUrl } from "./.setup/model-definitions-DjGQ-3Uy.mjs";
+import { c as buildZaiCatalogModels, o as ZAI_DEFAULT_MODEL_ID, r as ZAI_CODING_DEFAULT_MODEL_ID, u as resolveZaiBaseUrl } from "./.setup/model-definitions-De15FJFr.mjs";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { applyProviderConfigWithModelCatalogPreset, applyProviderConnectionConfig } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/zai/onboard.ts
+// extensions/zai/onboard.ts
 const ZAI_DEFAULT_MODEL_REF = `zai/${ZAI_DEFAULT_MODEL_ID}`;
 function resolveZaiPresetBaseUrl(cfg, endpoint) {
 	const existingProvider = cfg.models?.providers?.zai;
@@ -44,5 +44,4 @@ function applyZaiProviderConnectionConfig(cfg, params) {
 function applyZaiConnectionConfig(cfg, params) {
 	return applyZaiPreset(cfg, params, true, applyProviderConnectionConfig);
 }
-//#endregion
 export { ZAI_DEFAULT_MODEL_REF, applyZaiConfig, applyZaiConnectionConfig, applyZaiProviderConfig, applyZaiProviderConnectionConfig, resolveZaiModelId };

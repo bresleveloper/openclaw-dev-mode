@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"새 세션 설정","rememberSettings":"{shortcut} 설정 기억","rememberSettingsNoShortcut":"이 설정 기억하기","rememberUnavailable":"설정을 기억하려면 다시 연결하세요.","settingsSaveFailed":"설정을 저장하지 못했습니다. 다시 시도하세요."}};

@@ -1,20 +1,19 @@
 import { defineBundledChannelSetupEntry } from "openclaw/plugin-sdk/channel-entry-contract";
 import { fileURLToPath } from "node:url";
-//#region extensions/matrix/setup-entry.ts
+// extensions/matrix/setup-entry.ts
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-ORC_4yEA.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-YtkxNQTz.mjs", import.meta.url).href),
 		exportName: "matrixSetupPlugin"
 	},
 	secrets: {
-		specifier: fileURLToPath(new URL(".setup/secret-contract-api-CiuSYjUy.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/secret-contract-api-DMSwMIxd.mjs", import.meta.url).href),
 		exportName: "channelSecrets"
 	},
 	runtime: {
-		specifier: fileURLToPath(new URL(".setup/runtime-setter-api-DtxDAM-x.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/runtime-setter-api-CpwhcBQK.mjs", import.meta.url).href),
 		exportName: "setMatrixRuntime"
 	}
 });
-//#endregion
 export { setup_entry_default as default };

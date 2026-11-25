@@ -1,33 +1,22 @@
-import { M as OpenClawConfig, U as ModelProviderDeclarationConfig, bt as Model, q as Api, z as ModelDefinitionConfig } from "../../types-D7I_F5Ux.js";
-import "../../index-DsXRfkLu.js";
-import { fh as ProviderResolveDynamicModelContext } from "../../config-contracts-CY87ANNp.js";
-import { _ as ImageGenerationProvider } from "../../runtime-types-BaNsKfbh.js";
-import "../../provider-model-shared-uYxY__EE.js";
-import "../../provider-onboard-BNuhTHon.js";
-import "../../provider-catalog-live-runtime-B4afebj8.js";
-import "../../image-generation-aivnygx5.js";
-//#region extensions/xai/model-id.d.ts
+import { BD as ImageGenerationProvider, Qx as ProviderRuntimeModel, qx as ProviderResolveDynamicModelContext } from "../../config-contracts-hzlacViZ.js";
+import { _ as ModelCompatConfig, l as ModelDefinitionConfig, p as ModelProviderDeclarationConfig, r as OpenClawConfig } from "../../types.openclaw-D8uW-XQA.js";
+import { t as Api, u as Model } from "../../types-B1zI2CfC.js";
+import "../../index-DU_vyQtb.js";
+import "../../provider-model-shared-OQQj5XdR.js";
+import "../../provider-onboard-BitR1dNE.js";
+import "../../provider-catalog-live-runtime-DnKGuU0_.js";
+import "../../image-generation-ChnYK1I-.js";
 export declare function normalizeXaiModelId(id: string): string;
-//#endregion
-//#region extensions/xai/model-compat.d.ts
-export declare const XAI_TOOL_SCHEMA_PROFILE = "xai";
-export declare const HTML_ENTITY_TOOL_CALL_ARGUMENTS_ENCODING = "html-entities";
+export declare const XAI_TOOL_SCHEMA_PROFILE: string;
+export declare const HTML_ENTITY_TOOL_CALL_ARGUMENTS_ENCODING: "html-entities";
 export declare function applyXaiModelCompat<T extends {
-  compat?: unknown;
+  compat?: ModelCompatConfig;
 }>(model: T): T;
-//#endregion
-//#region extensions/xai/provider-catalog.d.ts
 export declare function buildXaiProvider(api?: ModelProviderDeclarationConfig["api"], authMode?: "oauth" | "token"): ModelProviderDeclarationConfig;
-//#endregion
-//#region extensions/xai/onboard.d.ts
 export declare const XAI_DEFAULT_MODEL_REF = "xai/grok-4.7";
 export declare function applyXaiProviderConfig(cfg: OpenClawConfig): OpenClawConfig;
 export declare function applyXaiConfig(cfg: OpenClawConfig): OpenClawConfig;
-//#endregion
-//#region extensions/xai/image-generation-provider.d.ts
 export declare function buildXaiImageGenerationProvider(): ImageGenerationProvider;
-//#endregion
-//#region extensions/xai/model-definitions.d.ts
 export declare const XAI_BASE_URL: string;
 export declare const XAI_DEFAULT_IMAGE_MODEL = "grok-imagine-image";
 export declare const XAI_IMAGE_MODELS: readonly ["grok-imagine-image", "grok-imagine-image-2.0", "grok-imagine-image-quality"];
@@ -38,33 +27,22 @@ export declare const XAI_DEFAULT_MODEL_ID = "grok-4.7";
 export declare function resolveXaiCatalogEntry(modelId: string): ModelDefinitionConfig | undefined;
 export declare function buildXaiModelDefinition(): ModelDefinitionConfig;
 export declare function buildXaiCatalogModels(): ModelDefinitionConfig[];
-//#endregion
-//#region extensions/xai/provider-models.d.ts
 export declare function isModernXaiModel(modelId: string): boolean;
 export declare function resolveXaiForwardCompatModel(params: {
   providerId: string;
   ctx: ProviderResolveDynamicModelContext;
 }): (Model<Api> & {
-  compat: Record<string, unknown>;
+  compat: ModelCompatConfig;
   thinkingLevelMap: Partial<Record<"high" | "low" | "medium" | "minimal" | "off" | "xhigh", string | null>>;
 }) | undefined;
-//#endregion
-//#region extensions/xai/runtime-model-compat.d.ts
-type XaiRuntimeModelCompat = {
-  api?: unknown;
-  baseUrl?: unknown;
-  compat?: unknown;
-  id?: unknown;
-  reasoning?: unknown;
+type XaiRuntimeModelCompat = Pick<ProviderRuntimeModel, "id" | "reasoning"> & Partial<Pick<ProviderRuntimeModel, "api" | "baseUrl" | "compat">> & {
   thinkingLevelMap?: XaiThinkingLevelMap;
 };
 type XaiThinkingLevelMap = Partial<Record<"off" | "minimal" | "low" | "medium" | "high" | "xhigh", string | null>>;
 export declare function applyXaiRuntimeModelCompat<T extends XaiRuntimeModelCompat>(model: T): T & {
-  compat: Record<string, unknown>;
+  compat: ModelCompatConfig;
   thinkingLevelMap: XaiThinkingLevelMap;
 };
-//#endregion
-//#region extensions/xai/provider-routing.d.ts
 export declare function resolveXaiTransport(params: {
   provider: string;
   api?: unknown;
@@ -73,4 +51,4 @@ export declare function resolveXaiTransport(params: {
   api: "openai-responses";
   baseUrl?: string;
 } | undefined;
-//#endregion
+export {};

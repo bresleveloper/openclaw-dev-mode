@@ -9,7 +9,7 @@ import { resolveSessionAgentIdsStrict } from "openclaw/plugin-sdk/agent-scope-ru
 import { resolveNodeHostExecutable } from "openclaw/plugin-sdk/node-host";
 import { createSessionCatalogFamily, createSessionCatalogNodeHostBindings } from "openclaw/plugin-sdk/session-catalog";
 import { createAcpSessionCatalogAdoption } from "openclaw/plugin-sdk/session-catalog-runtime";
-//#region extensions/opencode/session-catalog-plugin.ts
+// extensions/opencode/session-catalog-plugin.ts
 const MAX_HOSTS = 100;
 const ACPX_BACKEND_ID = "acpx";
 const OPENCODE_ACP_AGENT_ID = "opencode";
@@ -22,12 +22,6 @@ function parseNodeParams(paramsJSON) {
 		throw new Error("OpenCode session parameters must be valid JSON", { cause: error });
 	}
 }
-function fullConfigCatalogEnabled(config) {
-	if (!isRecord(config) || !isRecord(config.plugins) || !isRecord(config.plugins.entries)) return true;
-	const entry = config.plugins.entries.opencode;
-	if (!isRecord(entry) || !isRecord(entry.config) || !isRecord(entry.config.sessionCatalog)) return true;
-	return entry.config.sessionCatalog.enabled !== false;
-}
 function isOpenCodeSessionCatalogEnabled(pluginConfig) {
 	return !isRecord(pluginConfig) || !isRecord(pluginConfig.sessionCatalog) || pluginConfig.sessionCatalog.enabled !== false;
 }
@@ -38,21 +32,18 @@ function assertOpenCodeLocalAccess(hostId, allowProcessHomeFallback) {
 	if (hostId === "gateway" && allowProcessHomeFallback === false && openCodeUsesProcessHomeFallback(process.env)) throw new Error("local OpenCode sessions are unavailable in isolated state");
 }
 function currentOpenCodeCatalogConfig(api) {
-	return api.runtime.config?.current?.() ?? api.config ?? {};
+	return api.runtime.config.current();
 }
-async function loadContinuableOpenCodeSession(api, threadId) {
+async function loadContinuableOpenCodeSession(threadId) {
 	const session = (await listLocalOpenCodeSessionPage({
 		searchTerm: threadId,
 		limit: 100
-	}, {
-		configIdentity: currentOpenCodeCatalogConfig(api),
-		forceRefresh: true
-	}).catch(() => void 0))?.sessions.find((candidate) => candidate.threadId === threadId);
+	}, { forceRefresh: true }).catch(() => void 0))?.sessions.find((candidate) => candidate.threadId === threadId);
 	if (!session) throw new Error("OpenCode session is unavailable");
 	return session;
 }
-function createOpenCodeNodeHostBindings(api) {
-	const available = ({ config, env }) => fullConfigCatalogEnabled(config) && Boolean(resolveNodeHostExecutable("opencode", {
+function createOpenCodeNodeHostBindings() {
+	const available = ({ config, env }) => isOpenCodeSessionCatalogEnabled(config.plugins?.entries?.opencode?.config) && Boolean(resolveNodeHostExecutable("opencode", {
 		env: {
 			...env,
 			PATHEXT: env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM"
@@ -72,7 +63,7 @@ function createOpenCodeNodeHostBindings(api) {
 		listAvailable: available,
 		terminalAvailable: available,
 		parseParams: parseNodeParams,
-		list: (params) => listLocalOpenCodeSessionPage(params, { configIdentity: currentOpenCodeCatalogConfig(api) }),
+		list: listLocalOpenCodeSessionPage,
 		read: readLocalOpenCodeTranscriptPage,
 		requireSession: requireLocalOpenCodeSession,
 		terminalIoRequiredMessage: "OpenCode terminal command requires duplex transport",
@@ -106,7 +97,7 @@ function registerOpenCodeSessionCatalog(api) {
 				limit: query.limitPerHost,
 				...query.search ? { searchTerm: query.search } : {},
 				cursor: query.cursors?.[OPENCODE_LOCAL_SESSION_HOST_ID]
-			}, { configIdentity: currentOpenCodeCatalogConfig(api) }),
+			}),
 			read: (request) => readLocalOpenCodeTranscriptPage({
 				threadId: request.threadId,
 				...request.limit ? { limit: request.limit } : {},
@@ -146,7 +137,7 @@ function registerOpenCodeSessionCatalog(api) {
 		messages: {
 			invalidNodeCursor: "OpenCode node returned an invalid cursor",
 			invalidNodeSessionPage: "OpenCode node returned an invalid session page",
-			invalidNodeTranscriptPage: "OpenCode node returned an invalid transcript page",
+			invalidNodeTranscriptPage: "OpenCode node returned an invalid chat history page",
 			invalidHostId: "OpenCode session catalog hostId is invalid",
 			localReadFailed: "Local OpenCode sessions are unavailable",
 			nodeInvokeFailed: "Paired node OpenCode sessions are unavailable",
@@ -165,7 +156,7 @@ function registerOpenCodeSessionCatalog(api) {
 				agentId: OPENCODE_ACP_AGENT_ID
 			}),
 			listAdopted: (agentId, sessionEntries) => adoption.listAdopted(agentId, sessionEntries),
-			loadSession: (threadId) => loadContinuableOpenCodeSession(api, threadId),
+			loadSession: loadContinuableOpenCodeSession,
 			validateSession: () => void 0,
 			create: (params) => adoption.create(params),
 			complete: (continued, threadId) => linkContinuedOpenCodeSession(continued.sessionKey, threadId),
@@ -187,9 +178,8 @@ function registerOpenCodeSessionCatalog(api) {
 		supportsProcessHomeIsolation: true,
 		...provider
 	});
-	const nodeHost = createOpenCodeNodeHostBindings(api);
+	const nodeHost = createOpenCodeNodeHostBindings();
 	for (const command of nodeHost.commands) api.registerNodeHostCommand(command);
 	for (const policy of nodeHost.policies) api.registerNodeInvokePolicy(policy);
 }
-//#endregion
 export { registerOpenCodeSessionCatalog };

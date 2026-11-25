@@ -1,0 +1,3 @@
+import{decodeHTMLStrict}from"entities";
+//!src/shared/html-entities.ts
+const HTML_ENTITY_RE=/&(?:#x([0-9a-f]+)|#(\d+)|([a-z][a-z0-9]+));/gi;const LEGACY_CASE_INSENSITIVE_ENTITY_NAME_RE=/^(?:amp|quot|apos|lt|gt)$/i;function isUnicodeScalar(e){return Number.isInteger(e)&&e>=0&&e<=1114111&&(e<55296||e>57343)}function decodeHtmlEntities(e){if(!e.includes(`&`))return e;return e.replace(HTML_ENTITY_RE,(e,t,n,r)=>{if(t===void 0&&n===void 0){const t=decodeHTMLStrict(e);return t===e&&LEGACY_CASE_INSENSITIVE_ENTITY_NAME_RE.test(r??``)?decodeHTMLStrict(e.toLowerCase()):t}const i=t===void 0?Number.parseInt(n??``,10):Number.parseInt(t,16);return isUnicodeScalar(i)?String.fromCodePoint(i):e})}export{decodeHtmlEntities as t};

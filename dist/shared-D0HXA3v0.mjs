@@ -1,0 +1,3 @@
+import"./number-coercion-B3CfI447.mjs";import{f as normalizeStringEntries}from"./string-normalization-D_oBUpO3.mjs";
+//!src/secrets/shared.ts
+function parseEnvValue(e){const t=e.trim();if(t.startsWith(`"`)&&t.endsWith(`"`)||t.startsWith(`'`)&&t.endsWith(`'`))return t.slice(1,-1);return t}function normalizePositiveInt(e,t){if(typeof e===`number`&&Number.isFinite(e))return Math.max(1,Math.floor(e));return Math.max(1,Math.floor(t))}function parseDotPath(e){return normalizeStringEntries(e.split(`.`))}export{parseDotPath as n,parseEnvValue as r,normalizePositiveInt as t};

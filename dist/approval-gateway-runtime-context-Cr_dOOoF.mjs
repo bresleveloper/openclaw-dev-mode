@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";import{AsyncLocalStorage}from"node:async_hooks";
+//!src/infra/approval-gateway-runtime-context.ts
+const approvalGatewayRuntimeScope=resolveGlobalSingleton(Symbol.for(`openclaw.approvalGatewayRuntimeScope`),()=>new AsyncLocalStorage);function withGatewayNativeApprovalRuntime(e,t){return e?approvalGatewayRuntimeScope.run(e,t):t()}function getGatewayNativeApprovalRuntime(){return approvalGatewayRuntimeScope.getStore()}export{withGatewayNativeApprovalRuntime as n,getGatewayNativeApprovalRuntime as t};

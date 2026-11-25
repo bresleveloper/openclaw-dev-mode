@@ -34,6 +34,7 @@
           {
             "id": "claude-fable-5",
             "name": "Claude Fable 5",
+            "family": "anthropic",
             "api": "anthropic-messages",
             "reasoning": true,
             "input": [
@@ -55,6 +56,7 @@
           {
             "id": "claude-opus-5.5",
             "name": "Claude Opus 5.5",
+            "family": "anthropic",
             "api": "anthropic-messages",
             "reasoning": true,
             "input": [
@@ -84,6 +86,7 @@
           {
             "id": "claude-opus-5",
             "name": "Claude Opus 5",
+            "family": "anthropic",
             "api": "anthropic-messages",
             "reasoning": true,
             "input": [
@@ -113,6 +116,7 @@
           {
             "id": "claude-sonnet-5.5",
             "name": "Claude Sonnet 5.5",
+            "family": "anthropic",
             "api": "anthropic-messages",
             "reasoning": true,
             "input": [
@@ -134,6 +138,7 @@
           {
             "id": "claude-sonnet-5",
             "name": "Claude Sonnet 5",
+            "family": "anthropic",
             "api": "anthropic-messages",
             "reasoning": true,
             "input": [
@@ -155,6 +160,7 @@
           {
             "id": "claude-haiku-4.5",
             "name": "Claude Haiku 4.5",
+            "family": "anthropic",
             "api": "anthropic-messages",
             "input": [
               "text",
@@ -172,6 +178,7 @@
           {
             "id": "claude-opus-4.8",
             "name": "Claude Opus 4.8",
+            "family": "anthropic",
             "api": "anthropic-messages",
             "status": "deprecated",
             "replacedBy": "claude-opus-5",
@@ -192,6 +199,7 @@
           {
             "id": "claude-sonnet-4.6",
             "name": "Claude Sonnet 4.6",
+            "family": "anthropic",
             "api": "anthropic-messages",
             "status": "deprecated",
             "replacedBy": "claude-sonnet-5",
@@ -212,6 +220,7 @@
           {
             "id": "gemini-3.6-flash",
             "name": "Gemini 3.6 Flash",
+            "family": "google",
             "api": "openai-completions",
             "compat": {
               "codeMode": "capable",
@@ -236,6 +245,7 @@
           {
             "id": "gemini-3.1-pro-preview",
             "name": "Gemini 3.1 Pro Preview",
+            "family": "google",
             "api": "openai-completions",
             "compat": {
               "codeMode": "capable",
@@ -260,6 +270,7 @@
           {
             "id": "gemini-3.5-flash",
             "name": "Gemini 3.5 Flash",
+            "family": "google",
             "api": "openai-completions",
             "compat": {
               "codeMode": "capable",
@@ -286,6 +297,7 @@
           {
             "id": "gemini-2.5-pro",
             "name": "Gemini 2.5 Pro",
+            "family": "google",
             "api": "openai-completions",
             "compat": {
               "supportsStore": false,
@@ -311,6 +323,7 @@
           {
             "id": "gpt-5.6-sol",
             "name": "GPT-5.6 Sol",
+            "family": "openai",
             "reasoning": true,
             "thinkingLevelMap": {
               "minimal": "low",
@@ -345,6 +358,7 @@
           {
             "id": "gpt-5.6-terra",
             "name": "GPT-5.6 Terra",
+            "family": "openai",
             "reasoning": true,
             "thinkingLevelMap": {
               "minimal": "low",
@@ -379,6 +393,7 @@
           {
             "id": "gpt-5.6-luna",
             "name": "GPT-5.6 Luna",
+            "family": "openai",
             "reasoning": true,
             "thinkingLevelMap": {
               "minimal": "low",
@@ -413,6 +428,7 @@
           {
             "id": "gpt-5.3-codex",
             "name": "GPT-5.3-Codex",
+            "family": "openai",
             "reasoning": true,
             "thinkingLevelMap": {
               "minimal": "low",
@@ -444,6 +460,7 @@
           {
             "id": "gpt-5.4",
             "name": "GPT-5.4",
+            "family": "openai",
             "status": "deprecated",
             "replacedBy": "gpt-5.6-terra",
             "reasoning": true,
@@ -477,6 +494,7 @@
           {
             "id": "gpt-5.5",
             "name": "GPT-5.5",
+            "family": "openai",
             "status": "deprecated",
             "replacedBy": "gpt-5.6-sol",
             "reasoning": true,
@@ -512,6 +530,7 @@
           {
             "id": "gpt-5.4-mini",
             "name": "GPT-5.4 mini",
+            "family": "openai",
             "status": "deprecated",
             "replacedBy": "gpt-5.6-luna",
             "reasoning": true,
@@ -580,6 +599,7 @@
       "choiceLabel": "GitHub Copilot",
       "choiceHint": "Device login with your GitHub account",
       "assistantPriority": 1,
+      "onboardingFeatured": true,
       "groupId": "copilot",
       "groupLabel": "Copilot",
       "groupHint": "GitHub, GitHub Enterprise + Local Proxy",

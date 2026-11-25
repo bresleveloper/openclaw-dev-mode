@@ -1,0 +1,3 @@
+import{t as isBlockedObjectKey}from"./prototype-keys-Dc7Yq32J.mjs";import{n as throwExpectedCliError}from"./expected-cli-error-oDVmXYil.mjs";
+//!src/cli/parse-key-value-entries.ts
+function parseKeyValueEntries(e,t,n=throwExpectedCliError){const r={};for(const i of e??[]){const e=i.indexOf(`=`);if(e<=0)n(`${t} entries must use KEY=VALUE.`);const a=i.slice(0,e).trim();if(!a)n(`${t} entries must use a non-empty key.`);if(isBlockedObjectKey(a))n(`${t} key "${a}" is reserved; use a different key name.`);r[a]=i.slice(e+1)}return Object.keys(r).length>0?r:void 0}export{parseKeyValueEntries as t};

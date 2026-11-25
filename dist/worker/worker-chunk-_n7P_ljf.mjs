@@ -1,1 +1,0 @@
-import{n as e,r as t,t as n}from"./worker-chunk-BWM9h0BV.mjs";t();export{n as createMcpAppStandaloneTicket,e as handleMcpAppStandaloneHttpRequest};

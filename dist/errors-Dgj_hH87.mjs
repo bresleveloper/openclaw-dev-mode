@@ -1,0 +1,2 @@
+//!extensions/file-transfer/src/shared/errors.ts
+function throwFromNodePayload(e,t){const n=typeof t.code===`string`?t.code:`ERROR`;const r=typeof t.message===`string`?t.message:`${e} failed`;const i=typeof t.canonicalPath===`string`?` (resolved=${t.canonicalPath})`:``;throw Object.assign(/* @__PURE__ */ new Error(`${e} ${n}: ${r}${i}`),{code:n})}export{throwFromNodePayload as t};

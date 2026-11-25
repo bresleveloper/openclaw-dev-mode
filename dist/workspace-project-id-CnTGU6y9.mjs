@@ -1,0 +1,2 @@
+//!src/projects/workspace-project-id.ts
+const WORKSPACE_PROJECT_ID_PREFIX=`workspace:`;function isWorkspaceProjectId(e){return e.startsWith(WORKSPACE_PROJECT_ID_PREFIX)}export{isWorkspaceProjectId as n,WORKSPACE_PROJECT_ID_PREFIX as t};

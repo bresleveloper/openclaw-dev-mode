@@ -1,0 +1,3 @@
+import{o as formatErrorMessage$1}from"./error-coercion-B-1Loz4b.mjs";import"./errno-DUBt6SQQ.mjs";import{r as redactSensitiveText}from"./redact-BliqFuHZ.mjs";
+//!src/infra/errors.ts
+function formatErrorMessage(e){return formatErrorMessage$1(e,{redact:redactSensitiveText})}function formatErrorMessageWithCode(e){return formatErrorMessage$1(e,{includeCode:true,redact:redactSensitiveText})}export{formatErrorMessageWithCode as n,formatErrorMessage as t};

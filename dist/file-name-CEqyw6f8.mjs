@@ -1,0 +1,3 @@
+import path from"node:path";
+//!packages/media-core/src/file-name.ts
+function basenameFromAnyPath(e){const t=path.win32.basename(path.posix.basename(e));return t===`.`||t===`..`?``:t}function extnameFromAnyPath(e){return path.extname(basenameFromAnyPath(e))}function nameFromAnyPath(e){return path.parse(basenameFromAnyPath(e)).name}export{extnameFromAnyPath as n,nameFromAnyPath as r,basenameFromAnyPath as t};

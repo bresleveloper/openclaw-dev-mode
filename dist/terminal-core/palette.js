@@ -1,2 +1,1 @@
-import { t as LOBSTER_PALETTE } from "../palette-BYlmKNtE.mjs";
-export { LOBSTER_PALETTE };
+import{t as LOBSTER_PALETTE}from"../palette-D10lnVxv.mjs";export{LOBSTER_PALETTE};

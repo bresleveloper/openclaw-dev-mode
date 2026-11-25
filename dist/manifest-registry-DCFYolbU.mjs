@@ -1,0 +1,3 @@
+import{o as getGatewayPluginMetadataSnapshot}from"./plugin-metadata-lifecycle-BKqpGQxv.mjs";import{t as buildPluginManifestRegistry}from"./manifest-registry-build-cwgGyYCM.mjs";import{i as loadInstalledPluginIndexInstallRecordsSync}from"./installed-plugin-index-record-reader-Cer2pJV0.mjs";
+//!src/plugins/manifest-registry.ts
+function loadPluginManifestRegistryCore(e={}){if(!e.candidates&&!e.discovery&&!e.installRecords){const e=getGatewayPluginMetadataSnapshot();if(e)return e.manifestRegistry}const t=e.env??process.env;let n=e.installRecords;return buildPluginManifestRegistry({...e,env:t,getInstallRecords:()=>n??=loadInstalledPluginIndexInstallRecordsSync({env:t})})}export{loadPluginManifestRegistryCore as t};

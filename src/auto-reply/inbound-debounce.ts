@@ -7,6 +7,7 @@ import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { toErrorObject } from "../infra/errors.js";
 import { runWithGatewayIndependentRootWorkContinuation } from "../process/gateway-work-admission.js";
 import { createDeferredCore } from "../shared/deferred.js";
+import type { FollowupQueueDisposition } from "./get-reply-options.types.js";
 
 /** Resolve effective inbound debounce milliseconds from explicit, channel, and global config. */
 export function resolveInboundDebounceMs(params: {
@@ -15,17 +16,12 @@ export function resolveInboundDebounceMs(params: {
   overrideMs?: number;
 }): number {
   const inbound = params.cfg.messages?.inbound;
-  for (const value of [
-    params.overrideMs,
-    inbound?.byChannel?.[params.channel],
-    inbound?.debounceMs,
-  ]) {
-    const resolved = resolveOptionalIntegerOption(value, { min: 0 });
-    if (resolved !== undefined) {
-      return resolved;
-    }
-  }
-  return 0;
+  return (
+    resolveOptionalIntegerOption(params.overrideMs, { min: 0 }) ??
+    inbound?.byChannel?.[params.channel] ??
+    inbound?.debounceMs ??
+    0
+  );
 }
 
 type DebounceBuffer<T> = {
@@ -52,6 +48,7 @@ type InboundDebounceAdmissionLifecycleInput = {
   onAdoptionFinalizing?: () => void;
   onFailed?: (error: unknown) => void | Promise<void>;
   onAbandoned?: () => void | Promise<void>;
+  onDropped?: (reason: FollowupQueueDisposition) => void | Promise<void>;
 };
 
 /** Lifecycle shape passed to a channel dispatch so it can signal session-lane admission. */
@@ -64,6 +61,7 @@ type InboundDebounceAdmissionLifecycle = {
   onAdoptionFinalizing: () => void;
   onFailed?: (error: unknown) => Promise<void>;
   onAbandoned: () => Promise<void>;
+  onDropped?: (reason: FollowupQueueDisposition) => Promise<void>;
 };
 
 /**
@@ -107,6 +105,11 @@ function createInboundDebounceFlush(params: {
         }
       : undefined,
     onAbandoned: async () => source?.onAbandoned?.(),
+    onDropped: source?.onDropped
+      ? async (reason) => {
+          await source.onDropped?.(reason);
+        }
+      : undefined,
   };
   // Adoption can release the HTTP request before dispatch reaches agent enqueue.
   const completion = runWithGatewayIndependentRootWorkContinuation(

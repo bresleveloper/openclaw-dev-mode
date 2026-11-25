@@ -1,0 +1,1 @@
+import{n as e,r as t,t as n}from"./worker-chunk-DMekBTMk.mjs";n();export{e as applyPluginAutoEnable,t as applyPluginAutoEnableAsync};

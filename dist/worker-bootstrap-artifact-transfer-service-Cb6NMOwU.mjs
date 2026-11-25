@@ -1,0 +1,3 @@
+import{a as workerBootstrapOperationTimeoutMs}from"./bootstrap-timeouts-DTWxPvhX.mjs";import{n as createArtifactTransferService}from"./artifact-transfer-service-CA-GGo2u.mjs";
+//!src/gateway/worker-environments/worker-bootstrap-artifact-transfer-service.ts
+function createWorkerBootstrapArtifactTransferService(){const e=createArtifactTransferService();return{...e,prepare(t){return e.prepare({...t,artifactKey:t.artifact.tarballSha256,ttlMs:workerBootstrapOperationTimeoutMs({tarballBytes:t.transferBytes??t.artifact.tarballBytes}),maxServes:256})}}}export{createWorkerBootstrapArtifactTransferService};

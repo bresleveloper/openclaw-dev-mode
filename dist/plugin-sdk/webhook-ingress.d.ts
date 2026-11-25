@@ -1,17 +1,14 @@
-import { An as GatewayAuthRateLimitConfig } from "../types-D7I_F5Ux.js";
-import { Am as PluginRegistry, iw as RateLimitConfig, km as PluginHttpRouteRegistration, rw as AuthRateLimiter } from "../config-contracts-CY87ANNp.js";
-import { C as DEFAULT_WEBHOOK_MAX_BODY_BYTES, D as readRequestBodyWithLimit, O as requestBodyErrorToText, S as createWebhookAnomalyTracker, T as isRequestBodyLimitError, _ as WEBHOOK_ANOMALY_STATUS_CODES, a as applyBasicWebhookRequestGuards, b as createBoundedCounter, c as isJsonContentType, g as WEBHOOK_ANOMALY_COUNTER_DEFAULTS, h as FixedWindowRateLimiter, i as WebhookInFlightLimiter, l as readJsonWebhookBodyOrReject, m as BoundedCounter, n as WEBHOOK_IN_FLIGHT_DEFAULTS, o as beginWebhookRequestPipelineOrReject, r as WebhookBodyReadProfile, s as createWebhookInFlightLimiter, t as WEBHOOK_BODY_READ_DEFAULTS, u as readWebhookBodyOrReject, v as WEBHOOK_RATE_LIMIT_DEFAULTS, x as createFixedWindowRateLimiter, y as WebhookAnomalyTracker } from "../webhook-request-guards-Co1bgFYB.js";
-import { t as rawDataToString } from "../ws-ErFB-ETM.js";
+import { Ht as PluginRegistry, Vt as PluginHttpRouteRegistration, cE as AuthRateLimiter, lE as RateLimitConfig } from "../config-contracts-hzlacViZ.js";
+import { w as GatewayAuthRateLimitConfig } from "../types.openclaw-D8uW-XQA.js";
+import { C as DEFAULT_WEBHOOK_MAX_BODY_BYTES, D as readRequestBodyWithLimit, O as requestBodyErrorToText, S as createWebhookAnomalyTracker, T as isRequestBodyLimitError, _ as WEBHOOK_ANOMALY_STATUS_CODES, a as applyBasicWebhookRequestGuards, b as createBoundedCounter, c as isJsonContentType, g as WEBHOOK_ANOMALY_COUNTER_DEFAULTS, h as FixedWindowRateLimiter, i as WebhookInFlightLimiter, l as readJsonWebhookBodyOrReject, m as BoundedCounter, n as WEBHOOK_IN_FLIGHT_DEFAULTS, o as beginWebhookRequestPipelineOrReject, r as WebhookBodyReadProfile, s as createWebhookInFlightLimiter, t as WEBHOOK_BODY_READ_DEFAULTS, u as readWebhookBodyOrReject, v as WEBHOOK_RATE_LIMIT_DEFAULTS, x as createFixedWindowRateLimiter, y as WebhookAnomalyTracker } from "../webhook-request-guards-iJMd752g.js";
+import { t as rawDataToString } from "../ws-BmGt_ZbZ.js";
 import { IncomingMessage, ServerResponse } from "node:http";
-//#region src/plugins/http-legacy-listener.d.ts
 type LegacyEndpoint = Readonly<{
   port: number;
   host?: string;
 }>;
 /** Configured endpoint accepting this request, or undefined on the ordinary Gateway listener. */
 export declare function getWebhookLegacyListener(req: IncomingMessage): LegacyEndpoint | undefined;
-//#endregion
-//#region src/plugins/http-registry.d.ts
 type LegacyListener = NonNullable<PluginHttpRouteRegistration["legacyListeners"]>[number];
 export declare function registerPluginHttpRoute(params: {
   path?: string | null;
@@ -35,8 +32,6 @@ export declare function registerPluginHttpRoute(params: {
   log?: (message: string) => void;
   registry?: PluginRegistry;
 }): () => void;
-//#endregion
-//#region src/plugin-sdk/webhook-targets.d.ts
 /** Registration handle returned for one live webhook target. */
 type RegisteredWebhookTarget<T> = {
   /** Normalized target stored in the caller-owned path registry. */
@@ -144,15 +139,10 @@ type WebhookTargetAuthOptions<T, MatchResult> = WebhookAuthResponseOptions & {
 export declare function resolveWebhookTargetWithAuthOrReject<T>(params: WebhookTargetAuthOptions<T, boolean | Promise<boolean>>): Promise<T | null>;
 /** Synchronous variant of webhook auth resolution for cheap in-memory match checks. */
 export declare function resolveWebhookTargetWithAuthOrRejectSync<T>(params: WebhookTargetAuthOptions<T, boolean>): T | null;
-//#endregion
-//#region src/plugins/http-path.d.ts
 /** Normalizes plugin HTTP paths to leading-slash form with optional fallback. */
 export declare function normalizePluginHttpPath(path?: string | null, fallback?: string | null): string | null;
-//#endregion
-//#region src/plugin-sdk/webhook-ingress.d.ts
 export declare function resolveRequestClientIp(req?: IncomingMessage, trustedProxies?: string[], allowRealIpFallback?: boolean): string | undefined;
 export declare function createAuthRateLimiter(config?: RateLimitConfig): AuthRateLimiter & {
   updateConfig: (config?: GatewayAuthRateLimitConfig) => void;
 };
-//#endregion
 export { type AuthRateLimiter, type BoundedCounter, DEFAULT_WEBHOOK_MAX_BODY_BYTES, type FixedWindowRateLimiter, type RateLimitConfig, type RegisterWebhookPluginRouteOptions, type RegisterWebhookTargetOptions, type RegisteredWebhookTarget, WEBHOOK_ANOMALY_COUNTER_DEFAULTS, WEBHOOK_ANOMALY_STATUS_CODES, WEBHOOK_BODY_READ_DEFAULTS, WEBHOOK_IN_FLIGHT_DEFAULTS, WEBHOOK_RATE_LIMIT_DEFAULTS, type WebhookAnomalyTracker, type WebhookBodyReadProfile, type WebhookInFlightLimiter, type WebhookTargetMatchResult, applyBasicWebhookRequestGuards, beginWebhookRequestPipelineOrReject, createBoundedCounter, createFixedWindowRateLimiter, createWebhookAnomalyTracker, createWebhookInFlightLimiter, isJsonContentType, isRequestBodyLimitError, rawDataToString, readJsonWebhookBodyOrReject, readRequestBodyWithLimit, readWebhookBodyOrReject, requestBodyErrorToText };

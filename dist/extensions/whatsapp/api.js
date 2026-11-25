@@ -1,21 +1,25 @@
-import { a as resolveWhatsAppAccount, i as listWhatsAppAuthDirs, n as hasAnyWhatsAppAuth, o as resolveWhatsAppAuthDir, r as listEnabledWhatsAppAccounts, s as resolveWhatsAppMediaMaxBytes, t as DEFAULT_WHATSAPP_MEDIA_MAX_MB } from "./.setup/accounts-F0vHuze2.mjs";
-import { r as resolveDefaultWhatsAppAccountId, t as listAccountIds } from "./.setup/account-ids-CB5SOWjc.mjs";
-import { a as normalizeWhatsAppAllowFromEntries, c as normalizeWhatsAppTarget, i as looksLikeWhatsAppTargetId, r as isWhatsAppUserTarget, s as normalizeWhatsAppMessagingTarget, t as isWhatsAppGroupJid } from "./.setup/normalize-target-D67Kc3g6.mjs";
-import { t as resolveWhatsAppOutboundTarget } from "./.setup/resolve-outbound-target-qikGL4r0.mjs";
-import { c as toWhatsappJid, i as markdownToWhatsApp, l as toWhatsappJidWithLid, n as isSelfChatMode, r as jidToE164, s as resolveJidToE164, t as assertWebChannel } from "./.setup/targets-runtime-D5ryyPxh.mjs";
-import { n as WHATSAPP_LEGACY_OUTBOUND_SEND_DEP_KEYS, t as whatsappPlugin } from "./.setup/channel-BJa9HFJg.mjs";
-import { i as resolveWhatsAppGroupToolPolicy, r as resolveWhatsAppGroupRequireMention } from "./.setup/shared-BDLrdy5a.mjs";
-import { t as whatsappCommandPolicy } from "./.setup/command-policy-BIOSHySD.mjs";
-import { t as whatsappSetupPlugin } from "./.setup/channel.setup-aaLoVAM8.mjs";
-import { t as DEFAULT_WEB_MEDIA_BYTES } from "./.setup/constants-C7m81BNe.mjs";
-import { d as DEFAULT_WHATSAPP_SOCKET_TIMING, f as createWhatsAppSocketOperationTimeoutAdapter, i as waitForWaConnection, r as createWaSocket } from "./.setup/socket-close-BP5U6Biu.mjs";
-import { n as getStatusCode, t as formatError } from "./.setup/session-errors-B8UcAnZN.mjs";
-import { n as listWhatsAppDirectoryGroupsFromConfig, r as listWhatsAppDirectoryPeersFromConfig } from "./.setup/directory-config-B1rPnEu5.mjs";
-import { _ as resolveInboundMediaMimetype, c as extractContextInfo, m as findMessageSection, o as describeReplyContext, p as extractText, t as createWebSendApi, u as extractLocationData } from "./.setup/send-api-CJYdv1hd.mjs";
+import { a as resolveWhatsAppAccount, i as listWhatsAppAuthDirs, n as hasAnyWhatsAppAuth, o as resolveWhatsAppAuthDir, r as listEnabledWhatsAppAccounts, s as resolveWhatsAppMediaMaxBytes, t as DEFAULT_WHATSAPP_MEDIA_MAX_MB } from "./.setup/accounts-Czb9k6cU.mjs";
+import { r as resolveDefaultWhatsAppAccountId, t as listAccountIds } from "./.setup/account-ids-ENToBTTq.mjs";
+import { a as normalizeWhatsAppAllowFromEntries, c as normalizeWhatsAppTarget, i as looksLikeWhatsAppTargetId, r as isWhatsAppUserTarget, s as normalizeWhatsAppMessagingTarget, t as isWhatsAppGroupJid } from "./.setup/normalize-target-DouOWumF.mjs";
+import { t as resolveWhatsAppOutboundTarget } from "./.setup/resolve-outbound-target-xYauSux3.mjs";
+import { c as toWhatsappJid, i as markdownToWhatsApp, l as toWhatsappJidWithLid, n as isSelfChatMode, r as jidToE164, s as resolveJidToE164, t as assertWebChannel } from "./.setup/targets-runtime-DpdOxOHs.mjs";
+import { n as WHATSAPP_LEGACY_OUTBOUND_SEND_DEP_KEYS, t as whatsappPlugin } from "./.setup/channel-DrxkuR5z.mjs";
+import { M as writeCredsJsonAtomically } from "./.setup/auth-store-BEF_fEGA.mjs";
+import { i as resolveWhatsAppGroupToolPolicy, r as resolveWhatsAppGroupRequireMention } from "./.setup/shared-CGGIAsum.mjs";
+import { t as whatsappCommandPolicy } from "./.setup/command-policy-7FSv55WQ.mjs";
+import { t as whatsappSetupPlugin } from "./.setup/channel.setup-BaFv26tD.mjs";
+import { t as DEFAULT_WEB_MEDIA_BYTES } from "./.setup/constants-CDJZJ1cO.mjs";
+import { d as DEFAULT_WHATSAPP_SOCKET_TIMING, f as createWhatsAppSocketOperationTimeoutAdapter, i as waitForWaConnection, r as createWaSocket } from "./.setup/socket-close-CtVmtGJZ.mjs";
+import { n as getStatusCode, t as formatError } from "./.setup/session-errors-DrPDsEQy.mjs";
+import { n as listWhatsAppDirectoryGroupsFromConfig, r as listWhatsAppDirectoryPeersFromConfig } from "./.setup/directory-config-C1Kuc0He.mjs";
+import { _ as resolveInboundMediaMimetype, c as extractContextInfo, m as findMessageSection, o as describeReplyContext, p as extractText, t as createWebSendApi, u as extractLocationData } from "./.setup/send-api-D_e_YfvV.mjs";
+import path from "node:path";
 import { asBoolean, isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { formatLocationText } from "openclaw/plugin-sdk/channel-inbound";
 import { normalizeE164, resolveUserPath } from "openclaw/plugin-sdk/text-utility-runtime";
-//#region extensions/whatsapp/src/qa-driver.runtime.ts
+import fs from "node:fs/promises";
+import { initAuthCreds, jidDecode } from "baileys";
+// extensions/whatsapp/src/qa-driver.runtime.ts
 function readReaction(message) {
 	const reaction = findMessageSection(message ?? void 0, ["reactionMessage"])?.value;
 	if (!reaction) return;
@@ -242,5 +246,30 @@ async function toMessageIdResult(pending) {
 	const { messageId } = await pending;
 	return { messageId };
 }
-//#endregion
-export { DEFAULT_WEB_MEDIA_BYTES, DEFAULT_WHATSAPP_MEDIA_MAX_MB, WHATSAPP_LEGACY_OUTBOUND_SEND_DEP_KEYS, assertWebChannel, hasAnyWhatsAppAuth, isSelfChatMode, isWhatsAppGroupJid, isWhatsAppUserTarget, jidToE164, listEnabledWhatsAppAccounts, listAccountIds as listWhatsAppAccountIds, listWhatsAppAuthDirs, listWhatsAppDirectoryGroupsFromConfig, listWhatsAppDirectoryPeersFromConfig, looksLikeWhatsAppTargetId, markdownToWhatsApp, normalizeE164, normalizeWhatsAppAllowFromEntries, normalizeWhatsAppMessagingTarget, normalizeWhatsAppTarget, resolveDefaultWhatsAppAccountId, resolveJidToE164, resolveUserPath, resolveWhatsAppAccount, resolveWhatsAppAuthDir, resolveWhatsAppGroupRequireMention, resolveWhatsAppGroupToolPolicy, resolveWhatsAppMediaMaxBytes, resolveWhatsAppOutboundTarget, startWhatsAppQaDriverSession, toWhatsappJid, toWhatsappJidWithLid, whatsappCommandPolicy, whatsappPlugin, whatsappSetupPlugin };
+// extensions/whatsapp/src/qa-auth.ts
+/** Create synthetic linked state for a local provider fixture, never an operator account. */
+async function createWhatsAppQaAuthState(params) {
+	const jid = jidDecode(params.selfJid);
+	if (jid?.server !== "s.whatsapp.net" || !/^\d+$/u.test(jid.user) || !isWhatsAppUserTarget(params.selfJid)) throw new Error("WhatsApp QA identity must be a native user JID");
+	const authDir = await fs.mkdtemp(path.join(params.parentDir, "whatsapp-qa-auth-"));
+	try {
+		const creds = initAuthCreds();
+		creds.me = {
+			id: params.selfJid,
+			name: params.name
+		};
+		await writeCredsJsonAtomically(authDir, creds);
+		return authDir;
+	} catch (error) {
+		try {
+			await fs.rm(authDir, {
+				recursive: true,
+				force: true
+			});
+		} catch (cleanupError) {
+			throw new AggregateError([error, cleanupError], "WhatsApp QA auth initialization and cleanup failed", { cause: cleanupError });
+		}
+		throw error;
+	}
+}
+export { DEFAULT_WEB_MEDIA_BYTES, DEFAULT_WHATSAPP_MEDIA_MAX_MB, WHATSAPP_LEGACY_OUTBOUND_SEND_DEP_KEYS, assertWebChannel, createWhatsAppQaAuthState, hasAnyWhatsAppAuth, isSelfChatMode, isWhatsAppGroupJid, isWhatsAppUserTarget, jidToE164, listEnabledWhatsAppAccounts, listAccountIds as listWhatsAppAccountIds, listWhatsAppAuthDirs, listWhatsAppDirectoryGroupsFromConfig, listWhatsAppDirectoryPeersFromConfig, looksLikeWhatsAppTargetId, markdownToWhatsApp, normalizeE164, normalizeWhatsAppAllowFromEntries, normalizeWhatsAppMessagingTarget, normalizeWhatsAppTarget, resolveDefaultWhatsAppAccountId, resolveJidToE164, resolveUserPath, resolveWhatsAppAccount, resolveWhatsAppAuthDir, resolveWhatsAppGroupRequireMention, resolveWhatsAppGroupToolPolicy, resolveWhatsAppMediaMaxBytes, resolveWhatsAppOutboundTarget, startWhatsAppQaDriverSession, toWhatsappJid, toWhatsappJidWithLid, whatsappCommandPolicy, whatsappPlugin, whatsappSetupPlugin };

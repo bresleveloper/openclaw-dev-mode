@@ -43,6 +43,16 @@ cross-agent access.
 Excerpts preserve transcript text, including credentials. Results are bounded by count, excerpt
 length, and total response size.
 
+Queries must contain text and cannot exceed 4,096 UTF-16 code units. A search
+returns at most 25 hits. The tool trims each excerpt to 300 UTF-16 code units
+plus an ellipsis when needed, within a 32 KiB result budget. Query words are
+literal text; punctuation does not become database query syntax.
+
+Broad searches query the transcript indexes directly, including archived sessions.
+Matching session keys pass the current visibility checks before result limits are
+applied. Searches do not page through the session inventory or retain an authorization
+snapshot between requests. Passing `sessionKey` restricts the search to that session.
+
 Each transcript search request allows up to 90 seconds, leaving dispatch and
 authorization headroom around the reader's 60-second budget, including worker admission.
 If it times out, retry `sessions_search` with a `sessionKey` to search one session
@@ -72,24 +82,44 @@ Groups do not grant access to private conversations or include incognito or
 archived sessions in active search.
 
 Search returns a bounded set of the best matches. More matches than the result limit is
-normal, not an incomplete-index warning; refine the query to narrow the results. Genuine
-indexing work and cold archived transcripts excluded from search have separate status
+normal, not a search-completeness warning; refine the query to narrow the results. Unconfirmed
+search completeness and cold archived transcripts excluded from search have separate status
 messages. Cold transcript history becomes searchable again when its session is opened
 and the history is restored. Search does not restore archived history automatically.
 
 ## Index lifecycle
 
-OpenClaw stores a full-text index next to the transcript rows in each agent's SQLite database.
+OpenClaw stores a full-text index with the transcript rows in each agent's database.
 New user and assistant messages are indexed in the same transaction that persists them, so the
 index never lags live conversations; tool results, reasoning blocks, and images are excluded.
 Only the transcript's active branch is searchable.
 
 Transcripts that predate the index (for example, sessions imported by `openclaw doctor`) and
 sessions whose active branch was rewound are reindexed by a background reconciliation that starts
-with the next search. A response with `indexing: true` can therefore be incomplete; retry after
-indexing finishes. Deleting a session removes its index entries in the same transaction.
+with the next search. Deleting a session removes its index entries in the same transaction.
 
-Search uses SQLite's Unicode word tokenizer with diacritic removal.
+A response with `indexing: true` means search completeness could not be confirmed, not necessarily
+that indexing is running. Returned matches remain usable, but results may be incomplete;
+retry shortly.
+
+SQLite search uses its Unicode word tokenizer with diacritic removal. PostgreSQL
+search uses the `simple` text configuration with `unaccent`, retaining literal
+word, phrase, and prefix matching. Its native ranking is engine-local, so scores
+and result order can differ from SQLite. See
+[PostgreSQL search](/reference/database-engines#search-on-postgresql) for extension
+requirements and supported modes.
+
+If a durable transcript search returns no word matches, Chinese, Japanese, and
+Korean terms are retried as literal substrings. Other terms keep their word or
+prefix matching. This retry scans text in the selected scope, so narrow the session
+selection for large histories. Agent recall streams this retry once, retaining only the
+bounded best matches. It finishes the pass even after finding matches because a later
+message may have a newer timestamp. It does not expand word searches that already found hits.
+
+Agent namespace prefixes are literal, including underscores in agent IDs.
+The default-agent PostgreSQL RPC search uses a planner-selective prefix predicate
+so selective text queries can start from the full-text index. Explicit session
+selections and other search scopes can use different plans.
 
 ## Session search vs. memory search
 

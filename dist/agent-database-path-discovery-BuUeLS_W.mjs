@@ -1,0 +1,3 @@
+import{t as hasErrnoCode}from"./errno-DUBt6SQQ.mjs";import path from"node:path";import fs from"node:fs/promises";
+//!src/state/agent-database-path-discovery.ts
+async function listDefaultAgentDatabasePaths(e){let t;try{t=await fs.readdir(path.join(e,`agents`),{withFileTypes:true})}catch(e){if(hasErrnoCode(e,`ENOENT`))return[];throw e}return t.filter(e=>e.isDirectory()||e.isSymbolicLink()).map(t=>({agentId:t.name,path:path.resolve(e,`agents`,t.name,`agent`,`openclaw-agent.sqlite`)}))}export{listDefaultAgentDatabasePaths as t};

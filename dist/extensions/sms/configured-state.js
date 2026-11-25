@@ -1,5 +1,5 @@
 import { DEFAULT_ACCOUNT_ID, hasConfiguredAccountValue } from "openclaw/plugin-sdk/account-core";
-//#region extensions/sms/configured-state.ts
+// extensions/sms/configured-state.ts
 function hasConfiguredSmsAccount(account, env) {
 	const hasAccount = hasConfiguredAccountValue(account?.accountSid ?? env.TWILIO_ACCOUNT_SID);
 	const hasToken = hasConfiguredAccountValue(account?.authToken ?? env.TWILIO_AUTH_TOKEN);
@@ -22,5 +22,4 @@ function hasConfiguredSmsChannelState(params) {
 		...account
 	}, {}));
 }
-//#endregion
 export { hasConfiguredSmsChannelState };

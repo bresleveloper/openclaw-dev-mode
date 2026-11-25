@@ -1,2 +1,1 @@
-import { t as ircPlugin } from "./.setup/channel-Bi4lj8N2.mjs";
-export { ircPlugin };
+export { t as ircPlugin } from "./.setup/channel-5qX9W2CU.mjs";

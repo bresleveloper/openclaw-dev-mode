@@ -1,0 +1,1 @@
+import{n as maybeRepairOwnedChromeExtensionNativeHosts,t as collectBrowserReadinessFindings}from"./doctor-browser-CA6wczGN.mjs";export{collectBrowserReadinessFindings};

@@ -1,4 +1,4 @@
-//#region extensions/amazon-bedrock/aws-credential-refresh.ts
+// extensions/amazon-bedrock/aws-credential-refresh.ts
 /** Keep shared-file refresh on the chain that actually signs the Bedrock request. */
 function bedrockCredentialDefaultProvider(init) {
 	let provider;
@@ -28,5 +28,4 @@ function resolveBedrockRuntimeAuth(bearerToken) {
 	}
 	return config;
 }
-//#endregion
 export { bedrockCredentialDefaultProvider, resolveBedrockRuntimeAuth };

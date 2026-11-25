@@ -1,11 +1,12 @@
-import { a as normalizeKimiCodingModelId, i as buildKimiCodingProvider, o as openclaw_plugin_default } from "./.setup/provider-catalog-Bc73oFLX.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-IIHLKnoD.mjs";
+import { buildKimiCodingProvider, normalizeKimiCodingModelId } from "./provider-catalog.js";
 import { applyKimiCodeConfig } from "./onboard.js";
 import { KIMI_K3_THINKING_EFFORTS, isKimiK3ModelId, resolveThinkingProfile } from "./provider-policy-api.js";
 import { createLazyRuntimeModule, createLazyRuntimeSurface } from "openclaw/plugin-sdk/lazy-runtime";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { findNormalizedProviderKey, normalizeProviderId } from "openclaw/plugin-sdk/provider-model-metadata";
 import { isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/kimi-coding/index.ts
+// extensions/kimi-coding/index.ts
 const PLUGIN_ID = "kimi";
 const PROVIDER_ID = "kimi";
 const PROVIDER_ALIASES = ["kimi-code", "kimi-coding"];
@@ -90,5 +91,4 @@ var kimi_coding_default = defineSingleProviderPluginEntry({
 		wrapStreamFn: wrapKimiProviderStream
 	}
 });
-//#endregion
 export { kimi_coding_default as default };

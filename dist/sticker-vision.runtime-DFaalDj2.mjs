@@ -1,0 +1,3 @@
+import{a as resolveAgentDir}from"./agent-scope-config-a2Ym-O21.mjs";import{a as modelSupportsVision,r as findModelInCatalog}from"./model-catalog-lookup-DC4yVaD7.mjs";import{n as resolveDefaultModelForAgent}from"./model-selection-config-BzceYiSt.mjs";import{n as loadPreparedModelCatalog}from"./agent-runtime-wOvAD1_p.mjs";
+//!extensions/telegram/src/sticker-vision.runtime.ts
+async function resolveStickerVisionSupportRuntime(e){const t=await loadPreparedModelCatalog({config:e.cfg,...e.agentId?{agentId:e.agentId,agentDir:resolveAgentDir(e.cfg,e.agentId)}:{},readOnly:true});const n=resolveDefaultModelForAgent({cfg:e.cfg,agentId:e.agentId});const r=findModelInCatalog(t,n.provider,n.model);return r?modelSupportsVision(r):false}export{resolveStickerVisionSupportRuntime};

@@ -1,0 +1,2 @@
+//!packages/normalization-core/src/mountinfo-path.ts
+const MOUNT_PATH_OCTAL_ESCAPE_RE=/\\([0-7]{3})/g;function decodeMountInfoPath(e){return e.replace(MOUNT_PATH_OCTAL_ESCAPE_RE,(e,t)=>String.fromCharCode(Number.parseInt(t,8)))}export{decodeMountInfoPath as t};

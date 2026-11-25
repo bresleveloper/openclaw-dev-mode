@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./worker-chunk-CivmG6Ek.mjs";e();export{t as maybeOfferModelAllowlistWildcards};

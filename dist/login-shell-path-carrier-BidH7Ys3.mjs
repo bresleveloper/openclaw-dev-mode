@@ -1,0 +1,2 @@
+//!src/infra/login-shell-path-carrier.ts
+function prependShellPath(e,t,n){t.OPENCLAW_PREPEND_PATH=n;return`export PATH="\${OPENCLAW_PREPEND_PATH}\${PATH:+:$PATH}"; unset OPENCLAW_PREPEND_PATH; ${e}`}export{prependShellPath as t};

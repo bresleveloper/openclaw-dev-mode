@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";var ImageOptimizationLimitError,t=e((()=>{ImageOptimizationLimitError=class extends Error{constructor(e,t){super(e),this.maxBytes=t,this.name=`ImageOptimizationLimitError`}}}));export{t as n,ImageOptimizationLimitError as t};

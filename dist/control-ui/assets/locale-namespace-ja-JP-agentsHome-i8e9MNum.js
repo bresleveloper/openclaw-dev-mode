@@ -1,0 +1,1 @@
+export default {"agentsHome":{"pinnedAgents":"ピン留めしたエージェント","noAssistantMessage":"エージェントからの返信はまだありません","viewSessions":"セッション","deleteAgentConfirm":"{agent}を削除しますか？","deleteAgentDetails":"ワークスペース、エージェントの状態、チャット履歴はゴミ箱に移動します。チャンネルアカウントの設定は保持されます。","agentOptions":"{agent}のオプション","working":"作業中"}};

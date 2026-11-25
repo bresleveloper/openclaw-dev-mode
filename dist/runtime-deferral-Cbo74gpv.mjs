@@ -1,0 +1,3 @@
+import{AsyncLocalStorage}from"node:async_hooks";
+//!src/proxy-capture/runtime-deferral.ts
+const captureDeferral=new AsyncLocalStorage;async function withDeferredDebugProxyCapture(e){const t=captureDeferral.getStore();if(t&&t.phase!==`released`)return await e(t.resume);const n={phase:`deferred`,resume:()=>{if(n.phase===`deferred`)n.phase=`released`}};return await captureDeferral.run(n,async()=>{try{return await e(n.resume)}finally{if(n.phase===`deferred`)n.phase=`closed`}})}function isDebugProxyCaptureDeferred(){const e=captureDeferral.getStore();return e!==void 0&&e.phase!==`released`}export{withDeferredDebugProxyCapture as n,isDebugProxyCaptureDeferred as t};

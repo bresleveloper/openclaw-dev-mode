@@ -1,0 +1,2 @@
+//!src/commands/agents.binding-format.ts
+function describeBinding(e){const t=e.match;const n=[t.channel];if(t.accountId)n.push(`accountId=${t.accountId}`);if(t.peer)n.push(`peer=${t.peer.kind}:${t.peer.id}`);if(t.guildId)n.push(`guild=${t.guildId}`);if(t.teamId)n.push(`team=${t.teamId}`);if(t.roles?.length)n.push(`roles=${t.roles.join(`,`)}`);return n.join(` `)}function describeBindingConflict(e){return`${describeBinding(e.binding)} (agent=${e.existingAgentId})`}export{describeBindingConflict as n,describeBinding as t};

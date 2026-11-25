@@ -1,0 +1,3 @@
+import{a as withArtifactPreservingStateReads}from"./artifact-preserving-state-reads-HuTZzGCV.mjs";import{p as resolvePluginMetadataSnapshot}from"./plugin-metadata-snapshot-DbuDmowr.mjs";import{n as requireDatabasePortProvider}from"./port-provider-DXazPLE4.mjs";
+//!src/infra/database-engine/port-provider-descriptor.ts
+async function loadDatabasePortDescriptor(e,t={},n={}){const{pluginOwners:r,version:i}=n;const a=requireDatabasePortProvider(e);const o=a.requiresPluginOwner?r?r[e]:withArtifactPreservingStateReads(()=>resolvePluginMetadataSnapshot({config:t}).byPluginId.get(e)):void 0;return a.loadDescriptor(o,i)}export{loadDatabasePortDescriptor};

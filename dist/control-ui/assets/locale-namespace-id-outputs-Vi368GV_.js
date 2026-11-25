@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Lihat semua","files":"File","loading":"Memuat keluaran…","updating":"Memperbarui keluaran…","loadingDashboard":"Memuat dasbor…","emptyTitle":"Belum ada keluaran.","emptyDescription":"File dan dasbor dari sesi ini muncul di sini."}};

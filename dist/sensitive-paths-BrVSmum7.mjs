@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";
+//!src/config/sensitive-paths.ts
+const SENSITIVE_KEY_WHITELIST_SUFFIXES=[`maxtokens`,`maxoutputtokens`,`maxinputtokens`,`maxcompletiontokens`,`contexttokens`,`totaltokens`,`tokencount`,`tokenlimit`,`tokenbudget`,`passwordfile`];const SENSITIVE_PATTERNS=[/token$/i,/password/i,/secret/i,/api.?key/i,/encrypt.?key/i,/private.?key/i,/serviceaccount(?:ref)?$/i];function isSensitiveConfigPath(e){const t=normalizeLowercaseStringOrEmpty(e);return t.includes(`localservice.env.`)||!SENSITIVE_KEY_WHITELIST_SUFFIXES.some(e=>t.endsWith(e))&&SENSITIVE_PATTERNS.some(t=>t.test(e))}export{isSensitiveConfigPath as t};

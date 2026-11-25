@@ -1,1 +1,0 @@
-import{n as e,t}from"./worker-chunk-DDNVtisw.mjs";e();export{t as BUNDLED_OFFICIAL_EXTERNAL_PLUGIN_CATALOG_ENTRIES};

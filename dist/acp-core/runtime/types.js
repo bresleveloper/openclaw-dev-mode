@@ -1,2 +1,1 @@
-import "../../types-la_KkjCS.mjs";
-export {};
+import"../../types-CAISgiXf.mjs";export{};

@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{Bc as t,Wc as n}from"./_4____________________________.js";import{Sl as r,xl as i}from"./_2_____________________________.js";function a(e,t,i=!1){r(n({kind:`desktop`,source:t,control:i},e))}function o(){return(o=e((()=>{t(),i()})))()}export{a as n,o as t};
+//# sourceMappingURL=desktop-focus-window-DT0rNlmv.js.map

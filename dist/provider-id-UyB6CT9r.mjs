@@ -1,0 +1,2 @@
+//!packages/media-understanding-common/src/provider-id.ts
+const MEDIA_PROVIDER_ALIASES=/* @__PURE__ */ new Map([[`gemini`,`google`],[`minimax-cn`,`minimax`],[`minimax-portal-cn`,`minimax-portal`]]);function normalizeMediaProviderId(e){const t=e.trim().toLowerCase();return MEDIA_PROVIDER_ALIASES.get(t)??t}function normalizeMediaExecutionProviderId(e){const t=e.trim().toLowerCase();return t===`gemini`?`google`:t}export{normalizeMediaProviderId as n,normalizeMediaExecutionProviderId as t};

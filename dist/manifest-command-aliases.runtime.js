@@ -1,1 +1,1 @@
-export * from "./manifest-command-aliases.runtime-D8jQx_Vk.mjs";
+export * from "./manifest-command-aliases.runtime-wy7bTMLz.mjs";

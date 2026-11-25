@@ -1,27 +1,120 @@
-import { M as OpenClawConfig } from "../../types-D7I_F5Ux.js";
-import { Dm as NodeSession, It as OpenClawPluginApi, O as GatewayRequestHandlers } from "../../config-contracts-CY87ANNp.js";
-import { i as resolveExistingPathsWithinRoot } from "../../security-runtime-Ds6-JRX_.js";
-import { n as AnyAgentTool } from "../../common-CCG3ut4I.js";
-import "../../gateway-runtime-DcVrqV-f.js";
+import { Fn as NodeSession, Gt as OpenClawPluginApi, Xl as DecisionRuntimeV2, wn as GatewayRequestHandlers } from "../../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../../types.openclaw-D8uW-XQA.js";
+import { i as resolveExistingPathsWithinRoot } from "../../security-runtime-HqxvRL4S.js";
+import "../../web-media-B8Te5SZ2.js";
+import { n as AnyAgentTool } from "../../common-SasPqPvU.js";
+import "../../decisions-CuLalOOr.js";
+import "../../gateway-runtime-D_zQvTfF.js";
 import { Type } from "typebox";
 import "@openclaw/fs-safe/advanced";
-//#region extensions/browser/src/browser-tool.schema.d.ts
-declare const BROWSER_ACT_KINDS: readonly ["batch", "click", "clickCoords", "type", "press", "hover", "scrollIntoView", "drag", "select", "fill", "resize", "wait", "evaluate", "close"];
-declare const BROWSER_TOOL_ACTIONS: readonly ["doctor", "status", "start", "stop", "profiles", "importprofile", "tabs", "open", "focus", "close", "snapshot", "screenshot", "navigate", "console", "requests", "errors", "text", "emulate", "pdf", "download", "waitfordownload", "upload", "dialog", "act"];
+declare const definitions: {
+  readonly doctor: {
+    readonly lifecycle: true;
+  };
+  readonly status: {
+    readonly lifecycle: true;
+  };
+  readonly start: {
+    readonly lifecycle: true;
+  };
+  readonly stop: {
+    readonly lifecycle: true;
+  };
+  readonly profiles: {
+    readonly lifecycle: true;
+  };
+  readonly importprofile: {
+    readonly lifecycle: true;
+  };
+  readonly tabs: {
+    readonly tabBoundOrder: 14;
+  };
+  readonly open: {};
+  readonly focus: {
+    readonly tabBoundOrder: 9;
+  };
+  readonly close: {
+    readonly tabBoundOrder: 1;
+  };
+  readonly snapshot: {
+    readonly tabBoundOrder: 13;
+  };
+  readonly screenshot: {
+    readonly tabBoundOrder: 12;
+    readonly capability: "supportsScreenshots";
+    readonly path: true;
+  };
+  readonly navigate: {
+    readonly tabBoundOrder: 10;
+  };
+  readonly console: {
+    readonly tabBoundOrder: 2;
+    readonly capability: "supportsConsole";
+  };
+  readonly requests: {
+    readonly tabBoundOrder: 3;
+    readonly capability: "supportsRequests";
+  };
+  readonly errors: {
+    readonly tabBoundOrder: 4;
+    readonly capability: "supportsErrors";
+  };
+  readonly text: {
+    readonly tabBoundOrder: 5;
+    readonly capability: "supportsPageText";
+  };
+  readonly judge: {
+    readonly tabBoundOrder: 17;
+    readonly capability: "supportsPageText";
+  };
+  readonly emulate: {
+    readonly tabBoundOrder: 6;
+    readonly capability: "supportsEmulation";
+  };
+  readonly pdf: {
+    readonly tabBoundOrder: 11;
+    readonly capability: "supportsPdf";
+    readonly path: true;
+  };
+  readonly download: {
+    readonly tabBoundOrder: 8;
+    readonly capability: "supportsDownloads";
+    readonly path: true;
+  };
+  readonly waitfordownload: {
+    readonly tabBoundOrder: 16;
+    readonly capability: "supportsDownloads";
+    readonly path: true;
+  };
+  readonly upload: {
+    readonly tabBoundOrder: 15;
+    readonly capability: "supportsUploads";
+  };
+  readonly dialog: {
+    readonly tabBoundOrder: 7;
+    readonly capability: "supportsDialogs";
+  };
+  readonly act: {
+    readonly tabBoundOrder: 0;
+  };
+};
+type BrowserToolAction = keyof typeof definitions;
+declare const BROWSER_TOOL_ACTIONS: BrowserToolAction[];
+declare const BROWSER_MODEL_ACT_KINDS: ("batch" | "click" | "clickCoords" | "close" | "drag" | "evaluate" | "fill" | "hover" | "press" | "resize" | "scrollIntoView" | "select" | "type" | "wait")[];
 type BrowserToolCapabilities = {
   actions: readonly (typeof BROWSER_TOOL_ACTIONS)[number][];
-  actKinds: readonly (typeof BROWSER_ACT_KINDS)[number][];
+  actKinds: readonly (typeof BROWSER_MODEL_ACT_KINDS)[number][];
   tabBound: boolean;
   supportsNativeSnapshots?: boolean;
 };
-//#endregion
-//#region extensions/browser/src/browser-tool-description.d.ts
 /** Lazy registration and execution expose exactly the same configured tool. */
 export declare function createBrowserToolDefinition(opts: {
   runToolBinding?: unknown;
   toolCapabilities?: BrowserToolCapabilities;
   sandboxBridgeUrl?: string;
   allowHostControl?: boolean;
+  agentId?: string;
+  decisions?: DecisionRuntimeV2;
 } | undefined, getConfig: () => OpenClawConfig | undefined): {
   binding: {
     kind: "tab";
@@ -65,7 +158,7 @@ export declare function createBrowserToolDefinition(opts: {
       textGone: import("typebox").TOptional<import("typebox").TString>;
       timeoutMs: import("typebox").TOptional<import("typebox").TInteger>;
       fn?: import("typebox").TOptional<import("typebox").TString> | undefined;
-      action: import("typebox").TEnum<("act" | "close" | "console" | "dialog" | "doctor" | "download" | "emulate" | "errors" | "focus" | "importprofile" | "navigate" | "open" | "pdf" | "profiles" | "requests" | "screenshot" | "snapshot" | "start" | "status" | "stop" | "tabs" | "text" | "upload" | "waitfordownload")[]> | import("typebox").TUnsafe<"act" | "close" | "console" | "dialog" | "doctor" | "download" | "emulate" | "errors" | "focus" | "importprofile" | "navigate" | "open" | "pdf" | "profiles" | "requests" | "screenshot" | "snapshot" | "start" | "status" | "stop" | "tabs" | "text" | "upload" | "waitfordownload">;
+      action: import("typebox").TEnum<("act" | "close" | "console" | "dialog" | "doctor" | "download" | "emulate" | "errors" | "focus" | "importprofile" | "judge" | "navigate" | "open" | "pdf" | "profiles" | "requests" | "screenshot" | "snapshot" | "start" | "status" | "stop" | "tabs" | "text" | "upload" | "waitfordownload")[]> | import("typebox").TUnsafe<"act" | "close" | "console" | "dialog" | "doctor" | "download" | "emulate" | "errors" | "focus" | "importprofile" | "judge" | "navigate" | "open" | "pdf" | "profiles" | "requests" | "screenshot" | "snapshot" | "start" | "status" | "stop" | "tabs" | "text" | "upload" | "waitfordownload">;
       target: import("typebox").TOptional<import("typebox").TEnum<("host" | "node" | "sandbox")[]> | import("typebox").TUnsafe<"host" | "node" | "sandbox">>;
       dashboard?: import("typebox").TOptional<import("typebox").TString> | undefined;
       node: import("typebox").TOptional<import("typebox").TString>;
@@ -151,6 +244,18 @@ export declare function createBrowserToolDefinition(opts: {
         interactive: import("typebox").TNumber;
       }>>;
       truncated: import("typebox").TOptional<import("typebox").TBoolean>;
+      observation: import("typebox").TOptional<import("typebox").TObject<{
+        chars: import("typebox").TNumber;
+        truncated: import("typebox").TBoolean;
+      }>>;
+      judgment: import("typebox").TOptional<import("typebox").TObject<{
+        status: import("typebox").TEnum<("ok" | "unavailable")[]> | import("typebox").TUnsafe<"ok" | "unavailable">;
+        reason: import("typebox").TOptional<import("typebox").TString>;
+        result: import("typebox").TOptional<import("typebox").TObject<{
+          model: import("typebox").TString;
+          answers: import("typebox").TRecord<"^.*$", import("typebox").TUnknown>;
+        }>>;
+      }>>;
       newElements: import("typebox").TOptional<import("typebox").TNumber>;
       tabs: import("typebox").TOptional<import("typebox").TArray<import("typebox").TObject<{
         suggestedTargetId: import("typebox").TOptional<import("typebox").TString>;
@@ -188,8 +293,6 @@ export declare function createBrowserToolDefinition(opts: {
     }>;
   };
 };
-//#endregion
-//#region extensions/browser/src/attached-browser-tool-runtime.d.ts
 type AttachedBrowserToolRuntime = {
   tool: AnyAgentTool;
   dispose: () => Promise<void>;
@@ -203,8 +306,6 @@ type CreateAttachedBrowserToolRuntimeParams = {
 };
 /** Create a normal Browser agent tool pinned to one raw, attach-only CDP profile. */
 export declare function createAttachedBrowserToolRuntime(params: CreateAttachedBrowserToolRuntimeParams): Promise<AttachedBrowserToolRuntime>;
-//#endregion
-//#region extensions/browser/src/gateway/browser-request.d.ts
 type BrowserGatewayNode = Pick<NodeSession, "nodeId" | "displayName" | "platform" | "deviceFamily" | "caps" | "commands" | "declaredCommands">;
 type BrowserGatewayRequest = Parameters<GatewayRequestHandlers["browser.request"]>[0];
 type BrowserGatewayRequestOptions = Omit<BrowserGatewayRequest, "context"> & {
@@ -218,5 +319,4 @@ declare function handleBrowserGatewayRequest({ params, respond, context, client,
 export declare const browserHandlers: {
   "browser.request": typeof handleBrowserGatewayRequest;
 };
-//#endregion
 export { type AttachedBrowserToolRuntime, type CreateAttachedBrowserToolRuntimeParams, type OpenClawPluginApi, resolveExistingPathsWithinRoot };

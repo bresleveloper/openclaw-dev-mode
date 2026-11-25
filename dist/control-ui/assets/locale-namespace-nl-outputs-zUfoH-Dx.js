@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Alles bekijken","files":"Bestanden","loading":"Resultaten laden…","updating":"Resultaten bijwerken…","loadingDashboard":"Dashboard laden…","emptyTitle":"Nog geen resultaten.","emptyDescription":"Bestanden en dashboards uit deze sessie verschijnen hier."}};

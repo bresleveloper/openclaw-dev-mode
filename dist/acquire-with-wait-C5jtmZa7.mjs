@@ -1,0 +1,3 @@
+import{setTimeout}from"node:timers/promises";
+//!src/infra/acquire-with-wait.ts
+async function acquireWithWait(e){const t=e.now??performance.now.bind(performance);let n=e.pollIntervalMs;for(;;)try{return await e.acquire()}catch(r){const i=e.shouldRetry(r);if(!i)throw r;const a=e.deadlineMs-t();if(a<=0)throw r;await(e.sleep??setTimeout)(Math.min(i===true?n:i.delayMs,a));n=Math.min(n*2,e.maxPollIntervalMs??e.pollIntervalMs)}}export{acquireWithWait as t};

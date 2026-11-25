@@ -41,12 +41,7 @@ export function createOwnedGrammyApiThrottler(): OwnedGrammyApiThrottler {
     // Mirrors upstream: non-numeric chat ids compare false and take the DM lane.
     const chatId = Number(payload.chat_id);
     const throttler = chatId < 0 ? groupThrottler.key(`${chatId}`) : outThrottler.key(`${chatId}`);
-    return throttler.schedule(() => {
-      if (retired) {
-        throw new Error("Telegram throttler for this token has been released");
-      }
-      return prev(method, payload, signal);
-    });
+    return throttler.schedule(() => prev(method, payload, signal));
   };
 
   let disposePromise: Promise<void> | undefined;

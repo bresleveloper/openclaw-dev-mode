@@ -1,1 +1,0 @@
-import{a as e,c as t,i as n,n as r,o as i,r as a,s as o,t as s}from"./worker-chunk-DZIw2MZV.mjs";n();export{s as classifySqliteTableReadError,r as ensureColumn,a as hasOpenClawStateTablesBeyondStartupCheckpoint,e as readTableColumns,i as tableExists,o as tableHasColumn,t as tablePrimaryKeyColumns};

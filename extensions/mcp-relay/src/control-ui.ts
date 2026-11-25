@@ -53,6 +53,7 @@ const mountConnectedApps: ControlUiView = (container, initialContext) => {
   let notice = "";
   let generation = 0;
   let available = false;
+  let renderedConnection = "";
   let disposed = false;
   let dialog: ControlUiComponentHandle<ControlUiDialogProps> | undefined;
   const page = element("section", undefined, "mcp-connected-apps");
@@ -134,7 +135,18 @@ const mountConnectedApps: ControlUiView = (container, initialContext) => {
     busy = true;
     error = "";
     notice = "";
-    render();
+    if (snapshot) {
+      // The existing rows stay valid while the authoritative reply is pending.
+      page.querySelector(".mcp-connected-apps__error")?.remove();
+      page.querySelector(".mcp-connected-apps__feedback")!.textContent = "Loading connected apps…";
+      for (const control of page.querySelectorAll<HTMLButtonElement | HTMLInputElement>(
+        "button, input",
+      )) {
+        control.disabled = true;
+      }
+    } else {
+      render();
+    }
     try {
       await action(id);
     } catch (cause) {
@@ -208,6 +220,10 @@ const mountConnectedApps: ControlUiView = (container, initialContext) => {
         element("h2", "Pair with code"),
         element("p", `Connect an app as ${pairingCaller.principalLabel}.`),
       );
+      const actions = document.createElement("openclaw-modal-actions");
+      const dismiss = button(pairing ? "Done" : "Cancel", closeDialog);
+      dismiss.disabled = pairingBusy;
+      actions.append(dismiss);
       if (pairing) {
         content.append(element("p", "Enter this single-use code on the app’s connection page."));
         content.append(element("code", pairing.code, "mcp-connected-apps__code"));
@@ -234,21 +250,17 @@ const mountConnectedApps: ControlUiView = (container, initialContext) => {
           true,
         );
         create.disabled = pairingBusy || !chosenCeiling(pairingFull).length;
-        content.append(create);
+        actions.append(create);
         for (const input of content.querySelectorAll("input")) {
           input.disabled = pairingBusy;
         }
       }
-      const dismiss = button(pairing ? "Done" : "Cancel", closeDialog);
-      dismiss.disabled = pairingBusy;
-      const actions = element("div", undefined, "mcp-connected-apps__actions");
-      actions.append(dismiss);
-      content.append(actions);
       if (pairingError) {
         const message = element("p", pairingError, "mcp-connected-apps__error");
         message.setAttribute("role", "alert");
         content.append(message);
       }
+      content.append(actions);
     };
     draw();
     dialog = host.components.mountDialog(overlay, {
@@ -388,7 +400,15 @@ const mountConnectedApps: ControlUiView = (container, initialContext) => {
     }
     const list = page.querySelector(".mcp-connected-apps__list")!;
     if (!snapshot.grants.length) {
-      list.innerHTML = `<h2>No connected apps yet</h2><p>Sign in with your Gateway from an app, or pair with a single-use code.</p>`;
+      list.append(
+        element("h2", "No connected apps yet"),
+        element(
+          "p",
+          connectedCaller.canPair
+            ? "Sign in with your Gateway from an app, or pair with a single-use code."
+            : "Your Gateway role cannot connect apps. Ask your administrator for access.",
+        ),
+      );
     }
     for (const grant of snapshot.grants) {
       const row = element("article", undefined, "mcp-connected-apps__grant");
@@ -427,9 +447,15 @@ const mountConnectedApps: ControlUiView = (container, initialContext) => {
   }
 
   function sync() {
+    const connection = host.connection;
+    const connectionKey = `${connection.connected}:${connection.canRead}:${connection.canWrite}`;
+    // Session and agent publications do not change this page or its focused controls.
+    let needsRender = connectionKey !== renderedConnection;
+    renderedConnection = connectionKey;
     const nextRequest = context.props.request ?? "";
     const next = canUse() && context.presented && !context.signal.aborted;
     if (next !== available || nextRequest !== requestId) {
+      needsRender = true;
       available = next;
       requestId = nextRequest;
       generation += 1;
@@ -445,7 +471,9 @@ const mountConnectedApps: ControlUiView = (container, initialContext) => {
         return;
       }
     }
-    render();
+    if (needsRender) {
+      render();
+    }
   }
   const unsubscribe = host.subscribe(sync);
   sync();
@@ -461,6 +489,7 @@ const mountConnectedApps: ControlUiView = (container, initialContext) => {
       consent = undefined;
       closeDialog();
       unsubscribe();
+      // A retained focus event can keep the page alive after it is detached.
       page.replaceChildren();
       overlay.replaceChildren();
       page.remove();

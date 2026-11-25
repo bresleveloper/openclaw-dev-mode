@@ -1,0 +1,1 @@
+let e={staleRecovery:`fail-closed`};function getFsSafeLockConfig(){return{...e,retry:e.retry?{...e.retry}:void 0}}export{getFsSafeLockConfig as t};

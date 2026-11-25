@@ -1,0 +1,3 @@
+import{n as isAcpEnabledByPolicy}from"./policy-BhEsTYq9.mjs";import{n as isAcpRuntimeBackendHealthy,t as getAcpRuntimeBackend}from"./registry-D43-srmk.mjs";
+//!src/acp/runtime/availability.ts
+function isAcpRuntimeSpawnAvailable(e){if(e.sandboxed===true)return false;if(e.config&&!isAcpEnabledByPolicy(e.config))return false;const t=getAcpRuntimeBackend(e.config?.acp?.backend);return t!==null&&isAcpRuntimeBackendHealthy(t)}export{isAcpRuntimeSpawnAvailable as t};

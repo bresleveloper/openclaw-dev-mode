@@ -1,7 +1,7 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-5ywdmEQ1.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-DMCTN2sM.mjs";
 import { DEEPINFRA_BASE_URL } from "./media-models.js";
 import { buildManifestModelProviderConfig } from "openclaw/plugin-sdk/provider-model-metadata";
-//#region extensions/deepinfra/provider-static-catalog.ts
+// extensions/deepinfra/provider-static-catalog.ts
 const DEEPINFRA_MANIFEST_PROVIDER = buildManifestModelProviderConfig({
 	providerId: "deepinfra",
 	catalog: openclaw_plugin_default.modelCatalog.providers.deepinfra
@@ -29,5 +29,4 @@ function buildStaticDeepInfraProvider() {
 		models: DEEPINFRA_MODEL_CATALOG.map(buildDeepInfraModelDefinition)
 	};
 }
-//#endregion
 export { DEEPINFRA_DEFAULT_MODEL_REF, DEEPINFRA_MODEL_CATALOG, buildDeepInfraModelDefinition, buildStaticDeepInfraProvider };

@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{d as normalizeMimeType,i as getFileExtension}from"./mime-ZmYZsEjx.mjs";
+//!src/media/audio.ts
+const VOICE_MESSAGE_AUDIO_EXTENSIONS=/* @__PURE__ */ new Set([`.oga`,`.ogg`,`.opus`,`.mp3`,`.m4a`]);const VOICE_MESSAGE_MIME_TYPES=/* @__PURE__ */ new Set([`audio/ogg`,`audio/opus`,`audio/mpeg`,`audio/mp3`,`audio/mp4`,`audio/x-m4a`,`audio/m4a`]);function isVoiceMessageCompatibleAudio(e){const t=normalizeMimeType(e.contentType);if(t&&VOICE_MESSAGE_MIME_TYPES.has(t))return true;const n=normalizeOptionalString(e.fileName);if(!n)return false;const r=getFileExtension(n);if(!r)return false;return VOICE_MESSAGE_AUDIO_EXTENSIONS.has(r)}export{isVoiceMessageCompatibleAudio as t};

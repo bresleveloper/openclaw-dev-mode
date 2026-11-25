@@ -1,0 +1,2 @@
+//!src/gateway/github-remote.ts
+function parseGitHubRemoteUrl(e,t=`github.com`){const n=e.trim();let r;const i=t.replace(/[.*+?^${}()|[\]\\]/gu,`\\$&`);const a=new RegExp(`^git@${i}:(.+)$`,`iu`).exec(n);if(a)r=a[1];else{const e=URL.parse(n);if(!e||![`https:`,`http:`,`ssh:`].includes(e.protocol)||e.hostname.toLowerCase()!==t.toLowerCase())return null;r=e.pathname}const o=(r??``).split(`/`).filter(Boolean);const s=o[0];const c=o[1]?.replace(/\.git$/i,``);if(o.length!==2||!s||!c)return null;return{owner:s,repo:c}}export{parseGitHubRemoteUrl as t};

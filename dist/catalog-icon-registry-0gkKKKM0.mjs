@@ -1,0 +1,3 @@
+import{t as LruCache}from"./lru-cache-BkKrgG7y.mjs";
+//!src/plugins/catalog-icon-registry.ts
+const catalogIconUrls=new LruCache(1024);function normalizeCatalogIconUrl(e){if(!e||e.length>2048)return;const t=URL.parse(e);return t?.protocol===`https:`&&t.hostname&&!t.username&&!t.password&&!t.hash?t.href:void 0}function registerClawHubCatalogIconUrls(e){for(const t of e){if(!t)continue;const e=normalizeCatalogIconUrl(t);if(!e)continue;catalogIconUrls.set(e,e)}}function resolveClawHubCatalogIconUrl(e){const t=normalizeCatalogIconUrl(e);return t?catalogIconUrls.peek(t):void 0}export{registerClawHubCatalogIconUrls as n,resolveClawHubCatalogIconUrl as r,normalizeCatalogIconUrl as t};

@@ -1,0 +1,1 @@
+import{i as e}from"./openclaw-state-read-src-CBfyjPqx.mjs";async function settlesWithin(t,n){return await e(t.then(()=>!0),n,()=>!1,{ref:!1})}export{settlesWithin as t};

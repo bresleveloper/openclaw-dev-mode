@@ -1,0 +1,1 @@
+function truncateCodePoints(e,t){let n=Math.max(0,Math.trunc(t)||0);if(e.length<=n)return e;let r=[];for(let t of e){if(r.length>=n)break;r.push(t)}return r.join(``)}export{truncateCodePoints as t};

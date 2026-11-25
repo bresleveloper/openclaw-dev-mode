@@ -1,0 +1,1 @@
+import{gn as e}from"./git-operation.worker.js";const t=e(`worker/idle-gc`);function reportSlowIdleWorkerGc(e){t.warn(`slow idle worker garbage collection`,e)}export{reportSlowIdleWorkerGc};

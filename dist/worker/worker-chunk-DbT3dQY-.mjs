@@ -1,0 +1,6 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{B as t,V as n}from"./worker-chunk-Cg0CnC4_.mjs";import{b as r,w as i,y as a}from"./worker-chunk-Dyh5Iieo.mjs";import{f as o,p as s}from"./worker-chunk-C4s8XR9W.mjs";function stripUserEnvelopeForDisplay(e){let t=n(s(e));if(/\[message_id:/i.test(t)){let e=t.replace(/\r\n/g,`
+`),n=e.split(`
+`),a=0,o,s=n.filter(t=>{let n=t.search(/\[message_id:/i),s=n>=0&&c.test(t)&&!r(a+n,o??=i(e));return a+=t.length+1,!s});s.length!==n.length&&(t=s.join(`
+`))}let a=t.match(l);if(!a)return t;let o=t.slice(a[0].length);return o.endsWith(u)?o.slice(0,-49):o}var c,l,u,d=e((()=>{t(),a(),o(),c=/^\s*\[message_id:\s*[^\]]+\]\s*$/i,l=/^\[Subagent Context\] You are running as a subagent \(depth \d+\/\d+\)\. Complete the current \[Subagent Task\]; inherited conversation is background context, not your assignment\.\n\n(?:\[Subagent Context\] This subagent session is persistent and remains available for thread follow-up messages\.\n\n)?\[Subagent Task\]\n\n/u,u=`
+
+Begin. Execute the assigned task to completion.`}));export{stripUserEnvelopeForDisplay as n,d as t};

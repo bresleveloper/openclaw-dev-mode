@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/nextcloud-talk/index.ts
+// extensions/nextcloud-talk/index.ts
 var nextcloud_talk_default = defineBundledChannelEntry({
 	id: "nextcloud-talk",
 	name: "Nextcloud Talk",
@@ -18,5 +18,4 @@ var nextcloud_talk_default = defineBundledChannelEntry({
 		exportName: "setNextcloudTalkRuntime"
 	}
 });
-//#endregion
 export { nextcloud_talk_default as default };

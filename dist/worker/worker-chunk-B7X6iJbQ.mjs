@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function shellEscape(e){return`'${e.replaceAll(`'`,`'"'"'`)}'`}function shellEscapeBackslash(e){return`'${e.replaceAll(`'`,`'\\''`)}'`}var t=e((()=>{}));export{shellEscape as n,shellEscapeBackslash as r,t};

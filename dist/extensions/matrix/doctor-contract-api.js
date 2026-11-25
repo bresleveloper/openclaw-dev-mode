@@ -1,17 +1,17 @@
-import { t as runtime_doctor_migrations_exports } from "./.setup/runtime-doctor-migrations-hxP-CXX7.mjs";
-import { i as normalizeMatrixStoredCredentials, n as isMatrixCredentialRevocation, r as matrixCredentialsStoreKey, t as MATRIX_CREDENTIALS_NAMESPACE } from "./.setup/credentials-state-B3cuUFwZ.mjs";
-import { i as resolveMatrixCredentialsDir } from "./.setup/storage-paths-B51JM-pC.mjs";
-import { n as normalizeCompatibilityConfig, t as legacyConfigRules } from "./.setup/doctor-contract-BANpMUbP.mjs";
-import { a as describeRetiredMatrixState, t as RETIRED_MATRIX_STATE_FILENAMES } from "./.setup/retired-state-C4UnLIg4.mjs";
-import { t as resolveMatrixSqliteStateEnv } from "./.setup/sqlite-state-LByPx4Yp.mjs";
-import { t as walkMatrixStateFiles } from "./.setup/state-layout-walk-BQMgMykU.mjs";
-import { i as readLegacyMatrixSyncCacheState, n as hasMatrixSyncCacheStateInStore, r as openMatrixSyncCacheStoreOptions, s as writeMatrixSyncCacheStateToStore } from "./.setup/sync-cache-state-L1kwjhjj.mjs";
+import { t as runtime_doctor_migrations_exports } from "./.setup/runtime-doctor-migrations-CSvRANPN.mjs";
+import { i as normalizeMatrixStoredCredentials, n as isMatrixCredentialRevocation, r as matrixCredentialsStoreKey, t as MATRIX_CREDENTIALS_NAMESPACE } from "./.setup/credentials-state-jxq29yQw.mjs";
+import { i as resolveMatrixCredentialsDir } from "./.setup/storage-paths-e_Vq6cvw.mjs";
+import { n as normalizeCompatibilityConfig, t as legacyConfigRules } from "./.setup/doctor-contract-GiXgCj7k.mjs";
+import { a as describeRetiredMatrixState, t as RETIRED_MATRIX_STATE_FILENAMES } from "./.setup/retired-state-BsxdpJNk.mjs";
+import { t as resolveMatrixSqliteStateEnv } from "./.setup/sqlite-state-D6Zpz1q1.mjs";
+import { t as walkMatrixStateFiles } from "./.setup/state-layout-walk-BqCZTHpp.mjs";
+import { i as readLegacyMatrixSyncCacheState, n as hasMatrixSyncCacheStateInStore, r as openMatrixSyncCacheStoreOptions, s as writeMatrixSyncCacheStateToStore } from "./.setup/sync-cache-state-BMvqW4Ii.mjs";
 import { normalizeAccountId } from "openclaw/plugin-sdk/account-id";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import fs from "node:fs/promises";
-//#region extensions/matrix/src/matrix/account-state-schema-doctor.ts
+// extensions/matrix/src/matrix/account-state-schema-doctor.ts
 const STATE_DATABASE_FILENAME = "openclaw.sqlite";
 async function collectMatrixAccountStateRoots(stateDir) {
 	const { entries, failedDirs } = await walkMatrixStateFiles(stateDir, (name, depth) => depth === 5 && name === STATE_DATABASE_FILENAME || (depth === 0 || depth === 2 || depth === 4) && RETIRED_MATRIX_STATE_FILENAMES.has(name), [2, 4]);
@@ -58,8 +58,7 @@ const matrixAccountStateSchemaMigration = {
 		};
 	}
 };
-//#endregion
-//#region extensions/matrix/src/matrix/monitor/inbound-dedupe-migration.ts
+// extensions/matrix/src/matrix/monitor/inbound-dedupe-migration.ts
 const LEGACY_SQLITE_NAMESPACE = "inbound-dedupe";
 const LEGACY_MARKERS_NAMESPACE = "inbound-dedupe-migrations";
 const MATRIX_PLUGIN_ID = "matrix";
@@ -83,17 +82,6 @@ async function recordMatrixInboundDedupeMigrationCompletion(context, env) {
 	await openMatrixInboundDedupeMigrationCompletionStore(context, env).register(MIGRATION_COMPLETION_KEY, {
 		version: 1,
 		completedAt: Date.now()
-	});
-}
-/**
-* Reserves the durable completion row before any legacy source is changed.
-* The invalid timestamp keeps detection active after an interrupted run, while
-* updating this same key after retirement remains possible at plugin capacity.
-*/
-async function reserveMatrixInboundDedupeMigrationCompletion(context, env) {
-	await openMatrixInboundDedupeMigrationCompletionStore(context, env).register(MIGRATION_COMPLETION_KEY, {
-		version: 1,
-		completedAt: -1
 	});
 }
 async function collectMatrixInboundDedupeSources(stateDir) {
@@ -198,92 +186,113 @@ async function retireLegacyInboundDedupeSqliteRows(storageRootDir) {
 		db.close();
 	}
 }
-async function verifyMatrixInboundDedupeSourcesRetired(stateDir) {
-	const warnings = [];
-	const remaining = await collectMatrixInboundDedupeSources(stateDir);
-	if (remaining.status === "incomplete") warnings.push(...remaining.warnings);
-	for (const storageRootDir of remaining.sqliteRoots) try {
-		if ((await readLegacyInboundDedupeSqliteSource(storageRootDir)).legacyRowCount > 0) warnings.push(`Matrix inbound dedupe rows remain after retirement for ${storageRootDir}`);
-	} catch (err) {
-		warnings.push(`Failed verifying retired Matrix inbound dedupe rows for ${storageRootDir}: ${String(err)}`);
-	}
-	return warnings;
-}
-/**
-* Imports the globally newest legacy markers into the claimable-dedupe store.
-* Never exceeds capacity, never replaces a post-upgrade destination row, and
-* preserves source timestamps because eviction is ordered by row creation
-* time. Throws on import or verification errors so the caller keeps the legacy
-* sources for the next doctor attempt.
-*/
-async function importNewestInboundDedupeMarkers(params) {
-	const { createPersistentDedupeImportEntry } = await import("openclaw/plugin-sdk/persistent-dedupe");
-	const { buildMatrixInboundDedupeEventKey, MATRIX_INBOUND_DEDUPE_STATE_MAX_ENTRIES, MATRIX_INBOUND_DEDUPE_TTL_MS, resolveMatrixInboundDedupeStateNamespace } = await import("./.setup/inbound-dedupe-sW_gaR44.mjs");
-	const now = params.now ?? Date.now();
-	const stateMaxEntries = MATRIX_INBOUND_DEDUPE_STATE_MAX_ENTRIES;
+/** Import committed replay markers as ingress tombstones without replaying payloads. */
+async function importInboundDedupeMarkersToIngress(params) {
+	const openQueue = resolveMatrixIngressQueueOpener(params.context);
+	const queues = /* @__PURE__ */ new Map();
+	const now = Date.now();
 	const newestByKey = /* @__PURE__ */ new Map();
 	for (const marker of params.markers) {
-		const key = buildMatrixInboundDedupeEventKey(marker);
-		if (!key) continue;
+		const accountId = marker.accountId.trim() || "default";
+		const eventId = marker.eventId.trim();
+		if (!marker.roomId.trim() || !eventId) continue;
+		const key = JSON.stringify([accountId, eventId]);
 		const existing = newestByKey.get(key);
 		if (!existing || marker.ts > existing.ts) newestByKey.set(key, {
 			...marker,
-			key
+			accountId,
+			eventId
 		});
 	}
-	const markers = [...newestByKey.values()].toSorted((left, right) => right.ts - left.ts);
-	const store = params.io.context.openPluginStateKeyedStore({
-		namespace: resolveMatrixInboundDedupeStateNamespace(),
-		maxEntries: stateMaxEntries,
-		defaultTtlMs: MATRIX_INBOUND_DEDUPE_TTL_MS,
-		env: params.io.env
-	});
-	const existingEntries = await store.entries();
-	const existingKeys = new Set(existingEntries.map((entry) => entry.key));
-	const missingEntries = markers.flatMap((marker) => {
-		const remainingTtlMs = MATRIX_INBOUND_DEDUPE_TTL_MS - (now - marker.ts);
-		if (remainingTtlMs <= 0) return [];
-		const entry = createPersistentDedupeImportEntry({
-			key: marker.key,
-			seenAt: marker.ts,
-			ttlMs: Math.max(1, Math.floor(remainingTtlMs))
-		});
-		return existingKeys.has(entry.key) ? [] : [{
-			marker,
-			entry
-		}];
-	});
-	const namespaceCapacity = Math.max(0, stateMaxEntries - existingEntries.length);
-	const pluginCapacity = missingEntries.length > 0 ? params.io.context.getPluginStateCapacity?.() : void 0;
-	if (missingEntries.length > 0 && !pluginCapacity) throw new Error("plugin-wide Matrix inbound dedupe import capacity is unavailable");
-	const pluginRemainingCapacity = pluginCapacity ? Math.max(0, pluginCapacity.maxEntries - pluginCapacity.liveEntries) : namespaceCapacity;
-	const capacity = Math.min(namespaceCapacity, pluginRemainingCapacity);
-	const selectedEntries = missingEntries.slice(0, capacity);
-	if (selectedEntries.length > 0) {
-		const importEntries = params.io.context.importPluginStateEntries;
-		if (!importEntries) throw new Error("retention-aware Matrix inbound dedupe import is unavailable");
-		importEntries({
-			namespace: resolveMatrixInboundDedupeStateNamespace(),
-			maxEntries: stateMaxEntries,
-			defaultTtlMs: MATRIX_INBOUND_DEDUPE_TTL_MS,
-			env: params.io.env
-		}, selectedEntries.map(({ marker, entry }) => ({
-			key: entry.key,
-			value: entry.value,
-			createdAt: marker.ts,
-			...entry.ttlMs != null ? { ttlMs: entry.ttlMs } : {}
-		})));
-		const importedKeys = new Set((await store.entries()).map((entry) => entry.key));
-		const missingKey = selectedEntries.find(({ entry }) => !importedKeys.has(entry.key))?.entry.key;
-		if (missingKey) throw new Error(`retention-aware Matrix inbound dedupe import did not persist ${missingKey}`);
+	let imported = 0;
+	for (const marker of newestByKey.values()) {
+		if (now - marker.ts >= MATRIX_INBOUND_DEDUPE_TTL_MS) continue;
+		let queue = queues.get(marker.accountId);
+		if (!queue) {
+			queue = openQueue({ accountId: marker.accountId });
+			queues.set(marker.accountId, queue);
+		}
+		if (await queue.complete(marker.eventId, { completedAt: marker.ts })) imported++;
 	}
 	return {
-		imported: selectedEntries.length,
-		total: markers.length
+		imported,
+		total: newestByKey.size
 	};
 }
-//#endregion
-//#region extensions/matrix/doctor-contract-api.ts
+function resolveMatrixIngressQueueOpener(context) {
+	const openQueue = context.channelIngressQueues?.find((entry) => entry.channelId === "matrix")?.openChannelIngressQueue;
+	if (!openQueue) throw new Error("Matrix ingress migration requires the host-owned ingress queue");
+	return openQueue;
+}
+const MATRIX_INBOUND_DEDUPE_TTL_MS = 2592e6;
+const MATRIX_INBOUND_DEDUPE_STATE_MAX_ENTRIES = 2e4;
+const MATRIX_INBOUND_DEDUPE_STATE_NAMESPACE = `matrix.inbound-dedupe.${createHash("sha256").update("global").digest("hex").slice(0, 32)}`;
+function readReplayGuardRows(context) {
+	const read = context.readPluginStateEntriesInKeyRange;
+	if (!read) throw new Error("Matrix ingress migration requires the host-owned plugin-state reader");
+	const rows = [];
+	let after;
+	for (;;) {
+		const batch = read(MATRIX_INBOUND_DEDUPE_STATE_NAMESPACE, {
+			prefix: "",
+			after,
+			limit: 512
+		});
+		rows.push(...batch);
+		const last = batch.at(-1);
+		if (batch.length < 512 || !last) return rows;
+		after = last.key;
+	}
+}
+function parseReplayGuardMarker(value) {
+	if (!isRecord(value) || typeof value.key !== "string") return null;
+	const [accountId, roomId, eventId, extra] = value.key.split("\0");
+	const ts = normalizeLegacyTimestamp(value.seenAt);
+	return accountId && roomId && eventId && extra === void 0 && ts !== null ? {
+		accountId,
+		roomId,
+		eventId,
+		ts
+	} : null;
+}
+const matrixReplayGuardIngressMigration = {
+	id: "matrix-replay-guard-to-ingress",
+	label: "Matrix inbound replay markers",
+	collectBackupResources: () => [],
+	detectLegacyState({ context }) {
+		return readReplayGuardRows(context).length > 0 ? { preview: ["Move committed Matrix event identities into the durable ingress spool."] } : null;
+	},
+	async migrateLegacyState({ context, env }) {
+		const rows = readReplayGuardRows(context);
+		if (rows.length === 0) return {
+			changes: [],
+			warnings: []
+		};
+		const result = await importInboundDedupeMarkersToIngress({
+			context,
+			markers: rows.flatMap((row) => {
+				const marker = parseReplayGuardMarker(row.value);
+				return marker ? [marker] : [];
+			})
+		});
+		const store = context.openPluginStateKeyedStore({
+			namespace: MATRIX_INBOUND_DEDUPE_STATE_NAMESPACE,
+			maxEntries: MATRIX_INBOUND_DEDUPE_STATE_MAX_ENTRIES,
+			defaultTtlMs: MATRIX_INBOUND_DEDUPE_TTL_MS,
+			env
+		});
+		for (const row of rows) await store.delete(row.key);
+		return {
+			changes: [`Migrated Matrix replay markers to the durable ingress spool (${result.imported} of ${result.total} entries)`],
+			warnings: []
+		};
+	}
+};
+// extensions/matrix/doctor-contract-api.ts
+const registerRecoveryCli = async (params) => {
+	const { registerMatrixDoctorCommands } = await import("./.setup/cli-doctor-CoRX0erj.mjs");
+	registerMatrixDoctorCommands(params);
+};
 const MATRIX_SYNC_CACHE_FILENAME = "bot-storage.json";
 async function collectLegacyMatrixCredentialSources(params) {
 	const credentialsDir = resolveMatrixCredentialsDir(params.stateDir);
@@ -299,7 +308,7 @@ async function collectLegacyMatrixCredentialSources(params) {
 		return left.name.localeCompare(right.name);
 	});
 	if (files.length === 0) return [];
-	const { requiresExplicitMatrixDefaultAccount, resolveMatrixDefaultOrOnlyAccountId } = await import("./.setup/account-selection-CWsL5zIU.mjs").then((n) => n.t);
+	const { requiresExplicitMatrixDefaultAccount, resolveMatrixDefaultOrOnlyAccountId } = await import("./.setup/account-selection-Cow3TMFO.mjs").then((n) => n.t);
 	return files.map((entry) => {
 		const namedAccount = /^credentials(?:-([a-z0-9._-]+))?\.json$/iu.exec(entry.name)?.[1];
 		return {
@@ -349,12 +358,12 @@ const stateMigrations = [
 		id: "matrix-crypto-unsafe-state",
 		label: "Matrix crypto unsafe final state",
 		async detectLegacyState(params) {
-			const { listMatrixCryptoUnsafeState } = await import("./.setup/crypto-unsafe-state-doctor-BG9qMu0B.mjs").then((n) => n.t);
+			const { listMatrixCryptoUnsafeState } = await import("./.setup/crypto-unsafe-state-doctor-D3WLE-t4.mjs").then((n) => n.t);
 			const roots = await listMatrixCryptoUnsafeState(params.stateDir, { openKeyedStoreV2: params.context.openPluginStateKeyedStore });
 			return roots.length > 0 ? { preview: roots.map((root) => `Matrix crypto store is blocked after unsafe final save: ${root}. Run openclaw matrix doctor inspect; recovery is never automatic.`) } : null;
 		},
 		async migrateLegacyState(params) {
-			const { listMatrixCryptoUnsafeState } = await import("./.setup/crypto-unsafe-state-doctor-BG9qMu0B.mjs").then((n) => n.t);
+			const { listMatrixCryptoUnsafeState } = await import("./.setup/crypto-unsafe-state-doctor-D3WLE-t4.mjs").then((n) => n.t);
 			return {
 				changes: [],
 				warnings: (await listMatrixCryptoUnsafeState(params.stateDir, { openKeyedStoreV2: params.context.openPluginStateKeyedStore })).map((root) => `Matrix crypto store remains blocked: ${root}. Inspect with openclaw matrix doctor inspect; explicit recovery may roll back keys.`)
@@ -417,14 +426,9 @@ const stateMigrations = [
 					continue;
 				}
 				if (!existing) try {
-					await store.registerIfAbsent(key, credentials);
+					if (!await store.registerIfAbsent(key, credentials)) throw new Error("Canonical state appeared during offline import.");
 				} catch (error) {
 					warnings.push(`Failed importing Matrix credentials for account ${source.accountId}: ${String(error)}; left legacy source in place`);
-					continue;
-				}
-				const persisted = normalizeMatrixStoredCredentials(await store.lookup(key), source.accountId);
-				if (!persisted || JSON.stringify(persisted) !== JSON.stringify(credentials)) {
-					warnings.push(`Failed verifying Matrix credentials for account ${source.accountId}; left legacy source in place`);
 					continue;
 				}
 				changes.push(`Migrated Matrix credentials for account ${source.accountId} to SQLite`);
@@ -440,39 +444,27 @@ const stateMigrations = [
 	{
 		id: "matrix-inbound-dedupe-to-claimable-dedupe",
 		label: "Matrix inbound dedupe markers",
+		sqliteOnly: { family: "state" },
 		async detectLegacyState(params) {
 			const sources = await collectMatrixInboundDedupeSources(params.stateDir);
-			if (params.config.channels?.matrix === void 0 && sources.status === "complete" && sources.sqliteRoots.length === 0) return null;
-			return await hasCompletedMatrixInboundDedupeMigration(params.context, params.env) ? null : { preview: ["Matrix inbound dedupe legacy sources need a one-time migration scan"] };
+			if (sources.status === "complete" && sources.sqliteRoots.length === 0) return null;
+			if (await hasCompletedMatrixInboundDedupeMigration(params.context, params.env)) return null;
+			const pending = { preview: ["Matrix inbound dedupe legacy sources need a one-time migration scan"] };
+			if (sources.status === "incomplete") return pending;
+			for (const storageRootDir of sources.sqliteRoots) if ((await readLegacyInboundDedupeSqliteSource(storageRootDir)).legacyRowCount > 0) return pending;
+			return null;
 		},
 		async migrateLegacyState(params) {
 			const sources = await collectMatrixInboundDedupeSources(params.stateDir);
-			const io = {
-				context: params.context,
-				env: params.env
-			};
 			const changes = [];
 			const warnings = [];
 			if (await hasCompletedMatrixInboundDedupeMigration(params.context, params.env)) return {
 				changes,
 				warnings
 			};
-			try {
-				await reserveMatrixInboundDedupeMigrationCompletion(params.context, params.env);
-			} catch (err) {
-				warnings.push(`Failed reserving Matrix inbound dedupe migration completion: ${String(err)}; left legacy sources in place`);
-				return {
-					changes,
-					warnings
-				};
-			}
 			if (sources.status === "incomplete") warnings.push(...sources.warnings);
-			const recordCompletionIfClean = async (verifyRetirement = false) => {
+			const recordCompletionIfClean = async () => {
 				if (warnings.length > 0) return;
-				if (verifyRetirement) {
-					warnings.push(...await verifyMatrixInboundDedupeSourcesRetired(params.stateDir));
-					if (warnings.length > 0) return;
-				}
 				try {
 					await recordMatrixInboundDedupeMigrationCompletion(params.context, params.env);
 					if (sources.sqliteRoots.length > 0) changes.push(`Recorded Matrix inbound dedupe migration completion (${sources.sqliteRoots.length} SQLite roots scanned)`);
@@ -498,11 +490,11 @@ const stateMigrations = [
 				};
 			}
 			try {
-				const result = await importNewestInboundDedupeMarkers({
-					io,
+				const result = await importInboundDedupeMarkersToIngress({
+					context: params.context,
 					markers: gathered
 				});
-				changes.push(`Migrated Matrix inbound dedupe markers to the claimable dedupe store (${result.imported} of ${result.total} entries)`);
+				changes.push(`Migrated Matrix inbound dedupe markers to the durable ingress spool (${result.imported} of ${result.total} entries)`);
 			} catch (err) {
 				warnings.push(`Failed importing Matrix inbound dedupe markers: ${String(err)}; left legacy sources in place`);
 				return {
@@ -516,13 +508,14 @@ const stateMigrations = [
 			} catch (err) {
 				warnings.push(`Failed retiring Matrix inbound dedupe rows for ${storageRootDir}: ${String(err)}`);
 			}
-			await recordCompletionIfClean(true);
+			await recordCompletionIfClean();
 			return {
 				changes,
 				warnings
 			};
 		}
 	},
+	matrixReplayGuardIngressMigration,
 	{
 		id: "matrix-sync-cache-json-to-plugin-state",
 		label: "Matrix sync cache",
@@ -572,5 +565,4 @@ const stateMigrations = [
 		}
 	}
 ];
-//#endregion
-export { legacyConfigRules, normalizeCompatibilityConfig, stateMigrations };
+export { legacyConfigRules, normalizeCompatibilityConfig, registerRecoveryCli, stateMigrations };

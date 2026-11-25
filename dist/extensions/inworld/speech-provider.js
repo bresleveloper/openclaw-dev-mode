@@ -1,8 +1,8 @@
-import { DEFAULT_INWORLD_MODEL_ID, INWORLD_TTS_MODELS, inworldTTS, listInworldVoices, normalizeInworldBaseUrl } from "./tts.js";
+import { DEFAULT_INWORLD_MODEL_ID, INWORLD_DELIVERY_MODES, INWORLD_TTS_MODELS, inworldTTS, listInworldVoices, normalizeInworldBaseUrl } from "./tts.js";
 import { normalizeResolvedSecretInputString } from "openclaw/plugin-sdk/secret-input";
-import { parseSpeechDirectiveNumberOverride, resolveSpeechProviderApiKey } from "openclaw/plugin-sdk/speech-provider";
+import { createSpeechDirectiveParser, resolveSpeechProviderApiKey } from "openclaw/plugin-sdk/speech-provider";
 import { asFiniteNumberInRange, asOptionalRecord, filterStringRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/inworld/speech-provider.ts
+// extensions/inworld/speech-provider.ts
 function normalizeInworldTemperature(value) {
 	return asFiniteNumberInRange(value, {
 		min: 0,
@@ -10,9 +10,20 @@ function normalizeInworldTemperature(value) {
 		max: 2
 	});
 }
+const INWORLD_SPEAKING_RATE_RANGE = {
+	min: .5,
+	max: 1.5
+};
+function normalizeInworldSpeakingRate(value) {
+	return asFiniteNumberInRange(value, INWORLD_SPEAKING_RATE_RANGE);
+}
+function normalizeInworldDeliveryMode(value) {
+	const normalized = normalizeOptionalString(value)?.toUpperCase();
+	return INWORLD_DELIVERY_MODES.find((mode) => mode === normalized);
+}
 function normalizeInworldProviderConfig(rawConfig) {
 	const providers = asOptionalRecord(rawConfig.providers);
-	const raw = asOptionalRecord(providers?.inworld) ?? asOptionalRecord(rawConfig.inworld);
+	const raw = asOptionalRecord(providers?.inworld);
 	return {
 		apiKey: normalizeResolvedSecretInputString({
 			value: raw?.apiKey,
@@ -21,14 +32,16 @@ function normalizeInworldProviderConfig(rawConfig) {
 		baseUrl: normalizeInworldBaseUrl(normalizeOptionalString(raw?.baseUrl)),
 		voiceId: normalizeOptionalString(raw?.voiceId) ?? "Sarah",
 		modelId: normalizeOptionalString(raw?.modelId) ?? "inworld-tts-1.5-max",
-		temperature: normalizeInworldTemperature(raw?.temperature)
+		temperature: normalizeInworldTemperature(raw?.temperature),
+		speakingRate: normalizeInworldSpeakingRate(raw?.speakingRate),
+		deliveryMode: normalizeInworldDeliveryMode(raw?.deliveryMode)
 	};
 }
 function readInworldProviderConfig(config) {
-	return normalizeInworldProviderConfig({ inworld: {
+	return normalizeInworldProviderConfig({ providers: { inworld: {
 		...config,
 		apiKey: normalizeOptionalString(config.apiKey)
-	} });
+	} } });
 }
 function resolveInworldApiKey(primary, fallback) {
 	return resolveSpeechProviderApiKey(primary, fallback, process.env.INWORLD_API_KEY);
@@ -47,39 +60,72 @@ async function synthesizeInworld(req) {
 		audioEncoding: req.audioEncoding,
 		...req.sampleRateHertz === void 0 ? {} : { sampleRateHertz: req.sampleRateHertz },
 		temperature: normalizeInworldTemperature(overrides?.temperature) ?? config.temperature,
+		speakingRate: normalizeInworldSpeakingRate(overrides?.speakingRate ?? overrides?.speed) ?? config.speakingRate,
+		deliveryMode: normalizeInworldDeliveryMode(overrides?.deliveryMode) ?? config.deliveryMode,
 		timeoutMs: req.timeoutMs
 	});
 }
-function parseDirectiveToken(ctx) {
-	if (ctx.key === "temperature") return parseSpeechDirectiveNumberOverride({
-		ctx,
-		overrideKey: "temperature",
-		range: {
-			min: 0,
-			minExclusive: true,
-			max: 2
-		},
-		warning: (value) => `invalid Inworld temperature "${value}"`
-	});
-	const key = [
+const parseDirectiveToken = createSpeechDirectiveParser({
+	temperature: [
+		"allowVoiceSettings",
+		["temperature"],
+		{ number: {
+			range: {
+				min: 0,
+				minExclusive: true,
+				max: 2
+			},
+			warning: (value) => `invalid Inworld temperature "${value}"`
+		} }
+	],
+	voiceId: ["allowVoice", [
 		"voice",
 		"voiceid",
 		"voice_id",
 		"inworld_voice",
 		"inworldvoice"
-	].includes(ctx.key) ? "voiceId" : [
+	]],
+	modelId: ["allowModelId", [
 		"model",
 		"modelid",
 		"model_id",
 		"inworld_model",
 		"inworldmodel"
-	].includes(ctx.key) ? "modelId" : void 0;
-	if (!key) return { handled: false };
-	return (key === "voiceId" ? ctx.policy.allowVoice : ctx.policy.allowModelId) ? {
-		handled: true,
-		overrides: { [key]: ctx.value }
-	} : { handled: true };
-}
+	]],
+	speakingRate: [
+		"allowVoiceSettings",
+		[
+			"speed",
+			"speaking_rate",
+			"speakingrate",
+			"inworld_speed",
+			"inworldspeed"
+		],
+		{ number: {
+			range: INWORLD_SPEAKING_RATE_RANGE,
+			warning: (value) => `invalid Inworld speaking rate "${value}" (0.5-1.5)`
+		} }
+	],
+	deliveryMode: [
+		"allowVoiceSettings",
+		[
+			"delivery",
+			"delivery_mode",
+			"deliverymode",
+			"inworld_delivery"
+		],
+		{ parse: ({ value }) => {
+			const deliveryMode = normalizeInworldDeliveryMode(value);
+			return deliveryMode ? {
+				handled: true,
+				overrides: { deliveryMode }
+			} : {
+				handled: true,
+				warnings: [`invalid Inworld delivery mode "${value}" (stable, balanced, creative)`]
+			};
+		} }
+	]
+});
 function buildInworldSpeechProvider() {
 	const isConfigured = ({ providerConfig }) => Boolean(resolveInworldApiKey(readInworldProviderConfig(providerConfig).apiKey));
 	return {
@@ -104,7 +150,9 @@ function buildInworldSpeechProvider() {
 					voiceId: normalizeOptionalString(talkProviderConfig.voiceId),
 					modelId: normalizeOptionalString(talkProviderConfig.modelId)
 				}),
-				...normalizeInworldTemperature(talkProviderConfig.temperature) == null ? {} : { temperature: normalizeInworldTemperature(talkProviderConfig.temperature) }
+				temperature: normalizeInworldTemperature(talkProviderConfig.temperature) ?? base.temperature,
+				speakingRate: normalizeInworldSpeakingRate(talkProviderConfig.speakingRate) ?? base.speakingRate,
+				deliveryMode: normalizeInworldDeliveryMode(talkProviderConfig.deliveryMode) ?? base.deliveryMode
 			};
 		},
 		resolveTalkOverrides: ({ params }) => ({
@@ -112,7 +160,8 @@ function buildInworldSpeechProvider() {
 				voiceId: normalizeOptionalString(params.voiceId),
 				modelId: normalizeOptionalString(params.modelId)
 			}),
-			...normalizeInworldTemperature(params.temperature) == null ? {} : { temperature: normalizeInworldTemperature(params.temperature) }
+			...normalizeInworldTemperature(params.temperature) == null ? {} : { temperature: normalizeInworldTemperature(params.temperature) },
+			...normalizeInworldSpeakingRate(params.speed) == null ? {} : { speakingRate: normalizeInworldSpeakingRate(params.speed) }
 		}),
 		listVoices: async (req) => {
 			const config = req.providerConfig ? readInworldProviderConfig(req.providerConfig) : void 0;
@@ -153,5 +202,4 @@ function buildInworldSpeechProvider() {
 		}
 	};
 }
-//#endregion
 export { buildInworldSpeechProvider };

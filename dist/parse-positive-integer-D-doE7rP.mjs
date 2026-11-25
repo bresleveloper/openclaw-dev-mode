@@ -1,0 +1,3 @@
+import{D as parseStrictPositiveInteger}from"./number-coercion-B3CfI447.mjs";import{n as throwExpectedCliError}from"./expected-cli-error-oDVmXYil.mjs";
+//!src/cli/parse-positive-integer.ts
+function parseOptionalPositiveInteger(e,t,n=``){if(e===void 0)return;const r=parseStrictPositiveInteger(e);if(r===void 0)throwExpectedCliError(`${t} must be a positive integer${n}`);return r}export{parseOptionalPositiveInteger as t};

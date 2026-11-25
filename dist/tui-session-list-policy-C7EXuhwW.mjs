@@ -1,0 +1,3 @@
+import{r as isIncognitoSessionKey}from"./session-key-DYtwLLn1.mjs";import"./session-key-C6YO7qUA.mjs";import{t as readSessionListSelectionFacts}from"./session-list-target-BLg17-ZG.mjs";
+//!src/tui/tui-session-list-policy.ts
+const TUI_RECENT_SESSIONS_ACTIVE_MINUTES=10080;function isListedTuiSession(e){const{isCronRun:t,isPhantom:n}=readSessionListSelectionFacts(e.key,e);return!(e.archived||e.incognito||isIncognitoSessionKey(e.key)||t||n)}export{isListedTuiSession as n,TUI_RECENT_SESSIONS_ACTIVE_MINUTES as t};

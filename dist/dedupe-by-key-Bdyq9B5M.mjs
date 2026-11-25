@@ -1,0 +1,2 @@
+//!src/shared/dedupe-by-key.ts
+function indexFirstByKey(e,t){const n=/* @__PURE__ */ new Map;for(const r of e){const e=t(r);if(!n.has(e))n.set(e,r)}return n}function dedupeByKey(e,t){return[...indexFirstByKey(e,t).values()]}export{indexFirstByKey as n,dedupeByKey as t};

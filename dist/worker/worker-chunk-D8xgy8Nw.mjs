@@ -1,1 +1,0 @@
-import{g as e,t}from"./worker-chunk-B2oN-i9t.mjs";t();export{e as writeDoctorGatewayConfig};

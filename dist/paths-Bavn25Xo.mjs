@@ -1,0 +1,3 @@
+import{realpathSync}from"node:fs";import{relative,resolve,sep}from"node:path";import{isPathRelativeEscape}from"@openclaw/fs-safe/path";
+//!src/agents/utils/paths.ts
+function canonicalizePath(e){try{return realpathSync(e)}catch{return e}}function formatPathRelativeToCwdOrAbsolute(e,t){const n=resolve(t);const r=resolve(n,e);const i=relative(n,r);return(isPathRelativeEscape(i)?r:i||`.`).split(sep).join(`/`)}export{formatPathRelativeToCwdOrAbsolute as n,canonicalizePath as t};

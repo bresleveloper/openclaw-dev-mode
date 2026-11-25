@@ -1,0 +1,1 @@
+import{configureFsSafeNative as e,getFsSafeNativeConfig as t}from"@openclaw/fs-safe/config";async function withWorkerFsSafeNativeMode(n,r){let i=t();e({mode:n});try{return await r()}finally{e(i)}}export{withWorkerFsSafeNativeMode};

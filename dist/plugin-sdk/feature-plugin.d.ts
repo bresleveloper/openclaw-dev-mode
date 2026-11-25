@@ -1,7 +1,6 @@
-import { Ft as OpenClawPluginConfigSchema, It as OpenClawPluginApi, Pt as OpenClawPluginDefinition, Ua as PluginCommandContext, Wa as PluginCommandResult, my as PluginSessionActionContext, pn as OpenClawPluginToolContext } from "../config-contracts-CY87ANNp.js";
-import { T as AgentToolUpdateCallback } from "../common-CCG3ut4I.js";
+import { $c as PluginCommandContext, Gt as OpenClawPluginApi, Gw as PluginSessionActionContext, Li as OpenClawPluginToolContext, Ut as OpenClawPluginDefinition, Wt as OpenClawPluginConfigSchema, el as PluginCommandResult } from "../config-contracts-hzlacViZ.js";
+import { u as AgentToolUpdateCallback } from "../types-Bjy6vVru.js";
 import { FeatureContract, FeatureEvent, FeatureEventName, FeatureInput, FeatureOperationName, FeatureOutput } from "./feature-contract.js";
-//#region src/plugin-sdk/feature-plugin.d.ts
 export type FeatureInvocationContext = {
   api: OpenClawPluginApi;
 } & ({
@@ -49,4 +48,3 @@ export declare function defineFeaturePlugin<C extends FeatureContract>(definitio
 }, "configSchema"> & {
   configSchema: OpenClawPluginConfigSchema;
 };
-//#endregion

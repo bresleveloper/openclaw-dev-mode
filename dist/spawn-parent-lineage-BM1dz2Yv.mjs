@@ -1,0 +1,3 @@
+import{n as buildSpawnAuthorityReceipt}from"./session-entry-lineage-C5YP5ccK.mjs";
+//!src/agents/subagents/spawn/spawn-parent-lineage.ts
+const PARENT_CHANGED_ERROR=`Parent session changed before spawn; retry from the current turn.`;function captureSpawnParentLineage(e){const{parentEntry:t}=e;if(t&&e.expectedParentSessionId!==void 0&&t.sessionId!==e.expectedParentSessionId)throw new Error(PARENT_CHANGED_ERROR);return buildSpawnAuthorityReceipt(t,e.senderIsOwner)}export{captureSpawnParentLineage as t};

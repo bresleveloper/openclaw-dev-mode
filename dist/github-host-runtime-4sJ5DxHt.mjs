@@ -1,0 +1,3 @@
+import{a as getRuntimeConfigSnapshot}from"./runtime-snapshot-7A_MWYPP.mjs";import{a as resolveConfiguredGitHubHost,i as resolveConfiguredGitHubApiBaseUrl}from"./github-host-BIyVIYLv.mjs";
+//!src/agents/github-host-runtime.ts
+function resolveGitHubHost(){return resolveConfiguredGitHubHost(getRuntimeConfigSnapshot())}function resolveGitHubApiBaseUrl(){return resolveConfiguredGitHubApiBaseUrl(getRuntimeConfigSnapshot())}export{resolveGitHubHost as n,resolveGitHubApiBaseUrl as t};

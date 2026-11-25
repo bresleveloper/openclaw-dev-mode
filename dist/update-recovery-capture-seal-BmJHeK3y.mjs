@@ -1,0 +1,3 @@
+import{o as pathEntryExists}from"./path-existence-BR9MXlgL.mjs";import path from"node:path";
+//!src/infra/update-recovery-capture-seal.ts
+async function hasPendingUpdateRecoverySeal(e){return await pathEntryExists(path.join(e,`manifest.json.partial`))}async function assertUpdateRecoverySealComplete(e){if(await hasPendingUpdateRecoverySeal(e))throw new Error(`Update capture at ${e} has incomplete publication; retain all evidence for manual inspection.`)}export{hasPendingUpdateRecoverySeal as n,assertUpdateRecoverySealComplete as t};

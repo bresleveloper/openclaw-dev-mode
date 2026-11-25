@@ -1,34 +1,3 @@
-import { t as defineBundledChannelEntry } from "../../channel-entry-contract-Bm5cj8Vj.mjs";
-import { n as registerReefCliMetadata } from "../../cli-metadata-OZwiARN7.mjs";
-//#region extensions/reef/index.ts
-function registerReefFullRuntime(api) {
-	api.registerCommand({
-		name: "reef",
-		description: "Manage Reef friends and owner review approvals",
-		acceptsArgs: true,
-		requireAuth: true,
-		exposeSenderIsOwner: true,
-		handler: async (params) => {
-			const { handleReefCommand } = await import("./commands.runtime.js");
-			return await handleReefCommand(params);
-		}
-	});
-}
-var reef_default = defineBundledChannelEntry({
-	id: "reef",
-	name: "Reef",
-	description: "Guarded end-to-end encrypted claw channel",
-	importMetaUrl: import.meta.url,
-	plugin: {
-		specifier: "./channel-plugin-api.js",
-		exportName: "reefPlugin"
-	},
-	runtime: {
-		specifier: "./runtime-api.js",
-		exportName: "setReefRuntime"
-	},
-	registerCliMetadata: registerReefCliMetadata,
-	registerFull: registerReefFullRuntime
-});
-//#endregion
-export { reef_default as default };
+import{t as defineBundledChannelEntry}from"../../channel-entry-contract-D20X8YIV.mjs";import{n as registerReefCliMetadata}from"../../cli-metadata-AvHEWPwD.mjs";
+//!extensions/reef/index.ts
+function registerReefFullRuntime(e){e.registerCommand({name:`reef`,description:`Manage Reef friends and owner review approvals`,acceptsArgs:true,requireAuth:true,exposeSenderIsOwner:true,handler:async e=>{const{handleReefCommand:t}=await import(`../../commands-6Zn0oopR.mjs`);return await t(e)}})}var reef_default=defineBundledChannelEntry({id:`reef`,name:`Reef`,description:`Guarded end-to-end encrypted claw channel`,importMetaUrl:import.meta.url,plugin:{specifier:`./channel-plugin-api.js`,exportName:`reefPlugin`},runtime:{specifier:`./runtime-api.js`,exportName:`setReefRuntime`},registerCliMetadata:registerReefCliMetadata,registerFull:registerReefFullRuntime});export{reef_default as default};

@@ -15,7 +15,13 @@ OpenClaw requires **Node 24.16.0+ on the 24.x line, or Node 26.1.0+** with a WAL
 node -v
 ```
 
-`v26.12.1` or newer is the recommended default. `v24.22.1` or newer 24.x is also supported and is the LTS line used by CI. These releases reject the keys compromised in the October 2026 eMudhra incident. Compatible Node 24.16.0+ and 26.1.0+ releases below these recommended security patch levels remain accepted, with prominent warnings during updates, Doctor, and security audit. Node 22, 23, 25, Node 24 before 24.16.0, and Node 26 before 26.1.0 are unsupported. If Node is missing or outside this range, pick an install method below.
+`v26.12.1` or newer is the recommended default. `v24.22.1` or newer 24.x is also supported and is the LTS line used by CI. These releases reject the keys compromised in the October 2026 eMudhra incident. Compatible Node 24.16.0+ and 26.1.0+ releases below these recommended security patch levels remain accepted. Startup prefers an already-installed patched Node; otherwise it prints one security warning to stderr and continues without downloading a runtime solely for this recommendation. Doctor, updates, and security audit also report the risk. Node 22, 23, 25, Node 24 before 24.16.0, and Node 26 before 26.1.0 are unsupported. If Node is missing or outside this range, pick an install method below.
+
+Node 27 is accepted, including well-formed development labels such as
+`v27.0.0-head` and `27.0.0-nightly20261018f88a1d25e9`. Prereleases on majors
+newer than Node 26 use their numeric version for installation and update checks;
+Node 24 and 26 prereleases remain unsupported. Development builds must pass the
+same SQLite safety checks as releases. Node 26 remains the recommended default.
 
 Upgrade Node before updating OpenClaw to avoid SQLite TEXT truncation. See [Node.js compatibility](/install/node-compatibility) for the SQLite safety floors and macOS/ARMv7 support limits.
 
@@ -160,7 +166,7 @@ fnm use 26
 ```
 
   <Warning>
-  Initialize your version manager in your shell startup file (`~/.zshrc` or `~/.bashrc`). If you skip this, `openclaw` may not be found in new terminal sessions because PATH won't include Node's bin directory.
+  Initialize your version manager in your shell startup file (`${ZDOTDIR:-$HOME}/.zshrc` for zsh or `~/.bashrc` for Bash). If you skip this, `openclaw` may not be found in new terminal sessions because PATH won't include Node's bin directory.
   </Warning>
 </Accordion>
 
@@ -168,9 +174,13 @@ fnm use 26
 
 ### Homebrew upgrades while the Gateway is running
 
-If Homebrew removes the running Gateway's Node executable, command relays and
-their process-group anchors use the formula's available stable Homebrew path for
-new launches. They keep using the original executable while it exists. Workers
+If Homebrew removes the running Gateway's Node executable, command relays,
+their process-group anchors, and managed Codex JavaScript launchers use the
+formula's available stable Homebrew path for new launches without searching
+`PATH`. They keep using the original executable while it exists. The
+Gateway-materialized agent CLI launcher records the stable Homebrew path
+whenever one exists, so a Node upgrade cannot strand the `openclaw` command
+that agents resolve through the Gateway-local `PATH` entry. Workers
 that share native modules or V8 messages, including the spawn broker, keep the
 exact runtime and report a restart action if it is gone. Restart the Gateway
 after upgrading Node to move the Gateway itself onto the new runtime.
@@ -196,7 +206,7 @@ This almost always means npm's global bin directory isn't on your PATH.
   <Step title="Add it to your shell startup file">
     <Tabs>
       <Tab title="macOS / Linux">
-        Add to `~/.zshrc` or `~/.bashrc`:
+        Add to `${ZDOTDIR:-$HOME}/.zshrc` for zsh or `~/.bashrc` for Bash:
 
         ```bash
         export PATH="$(npm prefix -g)/bin:$PATH"
@@ -222,7 +232,7 @@ npm config set prefix "$HOME/.npm-global"
 export PATH="$HOME/.npm-global/bin:$PATH"
 ```
 
-Add the `export PATH=...` line to your `~/.bashrc` or `~/.zshrc` to make it permanent.
+Add the `export PATH=...` line to `~/.bashrc` for Bash or `${ZDOTDIR:-$HOME}/.zshrc` for zsh to make it permanent.
 
 ## Related
 

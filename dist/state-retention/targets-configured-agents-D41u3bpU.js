@@ -1,0 +1,3 @@
+import{R as normalizeAgentId}from"./sqlite-readonly-worker-DQkQ_BE1.js";import{_ as listAgentEntries,v as listAgentIds}from"./agent-database-admission-BvJuINEI.js";
+//!src/config/sessions/targets-configured-agents.ts
+function listConfiguredSessionStoreAgentIds(e){const t=new Set(listAgentIds(e).map(e=>normalizeAgentId(e)));const addAcpAgentId=e=>{const n=e?.trim()??``;if(!n||n===`*`)return;t.add(normalizeAgentId(n))};addAcpAgentId(e.acp?.defaultAgent);for(const t of e.acp?.allowedAgents??[])addAcpAgentId(t);for(const t of listAgentEntries(e))if(t.runtime?.type===`acp`)addAcpAgentId(t.runtime.acp?.agent??t.id);return[...t]}export{listConfiguredSessionStoreAgentIds as t};

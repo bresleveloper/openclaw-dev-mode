@@ -1,25 +1,6 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { resolveVitestNodeArgs } from "../scripts/lib/vitest-process-env.mts";
-
-/** Serve fixed HTTP bytes through the real guarded transport in the CLI process. */
-export function clawHubResponsePreload(body: string, status: number | "disconnect"): string {
-  return `
-    import http from "node:http";
-    const server = http.createServer((_request, response) => {
-      ${
-        status === "disconnect"
-          ? "_request.socket.destroy();"
-          : `response.writeHead(${status}, { "content-type": "application/json" });
-      response.end(${JSON.stringify(body)});`
-      }
-    });
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    process.env.OPENCLAW_CLAWHUB_URL = "http://127.0.0.1:" + server.address().port;
-    process.env.NO_PROXY = process.env.no_proxy = "127.0.0.1";
-    server.unref();
-  `;
-}
+import { resolveNodeCompilerArgs } from "../scripts/lib/vitest-node-args.mts";
 
 export function runBuiltCli(
   tempHome: string,
@@ -42,7 +23,7 @@ export function runBuiltCli(
   const entry = path.resolve(process.cwd(), "openclaw.mjs");
   // Without the runner's V8 policy, process.exit can deadlock joining a background
   // compiler that waits for main-thread GC; spawnSync then reports status null.
-  const nodeArgs = process.versions.bun ? [] : resolveVitestNodeArgs(env);
+  const nodeArgs = process.versions.bun ? [] : resolveNodeCompilerArgs(env);
   return spawnSync(process.execPath, [...nodeArgs, ...(options.execArgv ?? []), entry, ...args], {
     cwd: process.cwd(),
     env,

@@ -1,0 +1,3 @@
+import{a as asOptionalRecord}from"./record-coerce-BTbqdJ3-.mjs";import{r as resolveChannelAccountEntry}from"./account-lookup-CKp7uaDZ.mjs";
+//!src/channels/account-config-enabled.ts
+function isChannelAccountExplicitlyDisabled(e){const t=asOptionalRecord(e.cfg.channels?.[e.channel]);const n=asOptionalRecord(resolveChannelAccountEntry(asOptionalRecord(t?.accounts),e.accountId,e.channel));return t?.enabled===false||n?.enabled===false}export{isChannelAccountExplicitlyDisabled as t};

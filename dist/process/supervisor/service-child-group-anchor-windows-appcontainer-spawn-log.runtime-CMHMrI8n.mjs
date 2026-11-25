@@ -1,0 +1,1 @@
+import{t as e}from"./service-child-group-anchor-subsystem-BMcfUyJo.mjs";function logAppContainerTokenProbeFailure(t){e(`process`).debug(`AppContainer token probe failed; allowing spawn`,{error:String(t)})}export{logAppContainerTokenProbeFailure};

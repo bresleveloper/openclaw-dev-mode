@@ -1,6 +1,7 @@
 // Transcript write contexts carry the admitted run fence and teardown tracking
 // through nested session-manager callbacks.
 import path from "node:path";
+import { runWithAsyncStore } from "../../shared/async-store.js";
 import { trackAsyncWork } from "../../shared/async-work-scope.js";
 import { getCliHistoryWriter } from "./cli-history-boundary.js";
 import { readSessionActorEntryFacts } from "./session-actor-replica.js";
@@ -19,6 +20,7 @@ import type {
   InitialSessionTranscriptWriter,
   SessionTranscriptWriterFence,
 } from "./session-transcript-writer.types.js";
+import { sameSessionTranscriptStorePath } from "./transcript-store-identity.js";
 import {
   captureSessionTranscriptStorageEnvironment,
   captureSessionTranscriptTargetBinding,
@@ -27,17 +29,15 @@ import {
 } from "./transcript-target-binding.js";
 import {
   ownedTranscriptWriteContext,
+  type MetadataPublication,
+  type MetadataPublicationOwner,
+  type MetadataTarget,
+  type OwnedSessionTranscriptWriteContext,
+  type SessionMetadataChange,
+  type SessionMetadataCommit,
+  type SessionTranscriptWriteTarget,
   type TranscriptSourcePublication,
-} from "./transcript-write-context-owner.js";
-import type {
-  MetadataPublication,
-  MetadataPublicationOwner,
-  MetadataTarget,
-  OwnedSessionTranscriptWriteContext,
-  SessionMetadataChange,
-  SessionMetadataCommit,
-  SessionTranscriptWriteTarget,
-} from "./transcript-write-context.types.js";
+} from "./transcript-write-context-store.js";
 
 export { SessionTranscriptWriterClaimReboundError } from "./session-transcript-writer-claim-error.js";
 export type {
@@ -63,7 +63,8 @@ export async function withSessionTranscriptSourcePublication<T>(
     publish,
   };
   try {
-    return await ownedTranscriptWriteContext.run(
+    return await runWithAsyncStore(
+      ownedTranscriptWriteContext,
       {
         ...parent,
         withTranscriptWrite: parent ? (write) => parent.withTranscriptWrite(write) : trackAsyncWork,
@@ -230,7 +231,8 @@ export async function withSessionMetadataPublication<T>(
   };
   const metadataPublication: { current?: MetadataPublication } = { current: publication };
   try {
-    return await ownedTranscriptWriteContext.run(
+    return await runWithAsyncStore(
+      ownedTranscriptWriteContext,
       {
         ...parent,
         withTranscriptWrite: parent ? (write) => parent.withTranscriptWrite(write) : trackAsyncWork,
@@ -321,7 +323,7 @@ function contextMatches(
       contextTarget &&
       requestedTarget &&
       contextTarget.sessionKey === requestedTarget.sessionKey &&
-      contextTarget.storePath === requestedTarget.storePath &&
+      sameSessionTranscriptStorePath(contextTarget.storePath, requestedTarget.storePath) &&
       sameSessionTranscriptStorageEnvironment(contextTarget.env, requestedTarget.env) &&
       (!contextTarget.agentId ||
         !requestedTarget.agentId ||
@@ -368,7 +370,7 @@ export async function withOwnedSessionTranscriptWrites<T>(
   context: OwnedSessionTranscriptWriteContext,
   run: () => Promise<T>,
 ): Promise<T> {
-  return await ownedTranscriptWriteContext.run(captureWriteContext(context), run);
+  return await runWithAsyncStore(ownedTranscriptWriteContext, captureWriteContext(context), run);
 }
 
 /** Only the matching transcript owner can admit a restart's interrupted assistant row. */
@@ -396,7 +398,8 @@ export function withSessionTranscriptWriteAssertion<T>(
   const target = captureWriteTarget(scope);
   assertTranscriptWriteContext(parent, target);
   assertCurrent();
-  return ownedTranscriptWriteContext.run(
+  return runWithAsyncStore(
+    ownedTranscriptWriteContext,
     {
       ...parent,
       sessionTarget: parent?.sessionTarget ?? target,
@@ -415,7 +418,7 @@ export function bindOwnedSessionTranscriptWrites<TArgs extends unknown[], TResul
   run: (...args: TArgs) => TResult,
 ): (...args: TArgs) => TResult {
   const captured = captureWriteContext(context);
-  return (...args) => ownedTranscriptWriteContext.run(captured, () => run(...args));
+  return (...args) => runWithAsyncStore(ownedTranscriptWriteContext, captured, () => run(...args));
 }
 
 /**

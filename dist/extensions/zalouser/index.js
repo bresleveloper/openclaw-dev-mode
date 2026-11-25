@@ -1,5 +1,6 @@
+import { r as registerZalouserRuntimeLifecycle } from "./.setup/session-runtime-DP2xn27T.mjs";
 import { defineBundledChannelEntry, loadBundledEntryExportSync } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/zalouser/index.ts
+// extensions/zalouser/index.ts
 function createZalouserTool(context) {
 	return loadBundledEntryExportSync(import.meta.url, {
 		specifier: "./api.js",
@@ -21,7 +22,7 @@ var zalouser_default = defineBundledChannelEntry({
 	},
 	registerFull(api) {
 		api.registerTool((ctx) => createZalouserTool(ctx), { name: "zalouser" });
-	}
+	},
+	registerCapabilities: registerZalouserRuntimeLifecycle
 });
-//#endregion
 export { zalouser_default as default };

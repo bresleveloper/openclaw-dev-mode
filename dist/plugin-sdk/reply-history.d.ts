@@ -1,8 +1,5 @@
-import { n as HistoryMediaEntry, t as HistoryEntry } from "../history.types-AP0C5aEq.js";
-//#region src/auto-reply/reply/history-limit.d.ts
+import { n as HistoryMediaEntry, t as HistoryEntry } from "../history.types-DTZvZsvY.js";
 export declare const DEFAULT_GROUP_HISTORY_LIMIT = 50;
-//#endregion
-//#region src/auto-reply/reply/history.d.ts
 export declare const HISTORY_CONTEXT_MARKER = "[Chat messages since your last reply - for context]";
 /**
  * Evict oldest keys from a history map when it exceeds MAX_HISTORY_KEYS.
@@ -109,8 +106,6 @@ export declare function buildHistoryContextFromEntries(params: {
   excludeLast?: boolean;
   historyKind?: "pending" | "recent";
 }): string;
-//#endregion
-//#region src/channels/turn/history-window.d.ts
 type ChannelHistoryWindow<T extends HistoryEntry = HistoryEntry> = {
   record: (params: {
     historyKey: string;
@@ -137,5 +132,4 @@ type ChannelHistoryWindow<T extends HistoryEntry = HistoryEntry> = {
 export declare function createChannelHistoryWindow<T extends HistoryEntry = HistoryEntry>(params: {
   historyMap: Map<string, T[]>;
 }): ChannelHistoryWindow<T>;
-//#endregion
 export type { ChannelHistoryWindow, HistoryEntry, HistoryMediaEntry };

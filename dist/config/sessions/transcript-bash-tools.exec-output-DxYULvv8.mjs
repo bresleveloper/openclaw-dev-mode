@@ -1,0 +1,1 @@
+const e=`(no output)`,t=`The command was terminated, but external side effects may already have completed. Verify the resulting state before retrying. Do not automatically rerun commands unless repeating them is safe. Use a higher timeout only when the command is known to be safe to retry.`;export{t as n,e as t};

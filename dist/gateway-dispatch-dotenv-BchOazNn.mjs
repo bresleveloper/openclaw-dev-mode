@@ -1,0 +1,3 @@
+import{n as tryProcessCwd}from"./safe-cwd-BRF56DNK.mjs";import{r as resolveStateDir}from"./state-dir-BwbNjuVe.mjs";import"./paths-DxXULbkO.mjs";import{t as loadGlobalRuntimeDotEnvFiles}from"./dotenv-global-A-jsdBOu.mjs";import fs from"node:fs";import path from"node:path";
+//!src/cli/gateway-dispatch-dotenv.ts
+async function loadGatewayDispatchCliDotEnv(){const e=tryProcessCwd();if(e&&fs.existsSync(path.join(e,`.env`))){const{loadCliDotEnv:e}=await import(`./dotenv-BBZgelpw.mjs`);e();return}loadGlobalRuntimeDotEnvFiles({stateEnvPath:path.join(resolveStateDir(process.env),`.env`)})}export{loadGatewayDispatchCliDotEnv};

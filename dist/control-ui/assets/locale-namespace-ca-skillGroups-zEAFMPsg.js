@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"Habilitats de l’espai de treball","learned":"Habilitats apreses","builtIn":"Habilitats integrades","installed":"Habilitats instal·lades","extra":"Habilitats addicionals","other":"Altres habilitats"}};

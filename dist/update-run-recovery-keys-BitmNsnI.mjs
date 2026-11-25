@@ -1,0 +1,2 @@
+//!src/infra/update-run-recovery-keys.ts
+const UPDATE_RECOVERY_KEY_PREFIX=`update.recovery.`;const UPDATE_RECOVERY_KEY_END=`update.recovery/`;export{UPDATE_RECOVERY_KEY_PREFIX as n,UPDATE_RECOVERY_KEY_END as t};

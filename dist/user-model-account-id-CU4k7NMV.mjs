@@ -1,0 +1,3 @@
+import{t as GATEWAY_OWNER_PROFILE_ID}from"./user-profile-constants-abCq1jKI.mjs";
+//!src/state/user-model-account-id.ts
+const UUID_PATTERN=`[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`;const PERSONAL_AUTH_PROFILE_PATTERN=new RegExp(`^personal:(${UUID_PATTERN}|${GATEWAY_OWNER_PROFILE_ID}):${UUID_PATTERN}$`,`u`);function isUserModelAuthProfileId(e){return parseUserModelAuthProfileId(e)!==void 0}function parseUserModelAuthProfileId(e){const t=PERSONAL_AUTH_PROFILE_PATTERN.exec(e)?.[1];return t?{ownerProfileId:t}:void 0}export{parseUserModelAuthProfileId as n,isUserModelAuthProfileId as t};

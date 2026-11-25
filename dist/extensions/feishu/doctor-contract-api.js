@@ -1,2 +1,1 @@
-import { i as normalizeHistoricalWebhookConfig, n as legacyConfigRules, r as normalizeCompatibilityConfig, t as historicalWebhookListener } from "./.setup/doctor-contract-BNXcJcWR.mjs";
-export { historicalWebhookListener, legacyConfigRules, normalizeCompatibilityConfig, normalizeHistoricalWebhookConfig };
+export { t as historicalWebhookListener, n as legacyConfigRules, r as normalizeCompatibilityConfig, i as normalizeHistoricalWebhookConfig } from "./.setup/doctor-contract-ItAh0keT.mjs";

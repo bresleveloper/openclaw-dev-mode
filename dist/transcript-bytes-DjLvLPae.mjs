@@ -1,0 +1,2 @@
+//!src/realtime-transcription/transcript-bytes.ts
+function measureTranscriptDeltaBytes(e,t){const n=e.charCodeAt(e.length-1);const r=t.charCodeAt(0);const i=n>=55296&&n<=56319&&r>=56320&&r<=57343;return Buffer.byteLength(t,`utf8`)-(i?2:0)}export{measureTranscriptDeltaBytes as t};

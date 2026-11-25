@@ -1,0 +1,3 @@
+import{n as recordModelFallbackStop}from"./model-fallback-stop-CvdSBnnN.mjs";
+//!src/agents/sessions/session-manager-message-error.ts
+var SessionTranscriptMessageCommittedError=class extends Error{constructor(e,t,n,r,i){super(`Session transcript message committed, but publication did not complete; do not replay the append`,{cause:t});this.committedMessageId=e;this.committedVersion=r;this.committedLifecycleRevision=i;this.name=`SessionTranscriptMessageCommittedError`;this.committedTarget={...n,...n.env?{env:{...n.env}}:{}};recordModelFallbackStop(this)}};export{SessionTranscriptMessageCommittedError as t};

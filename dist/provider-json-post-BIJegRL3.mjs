@@ -1,0 +1,3 @@
+import{h as readProviderJsonResponse,m as readProviderJsonObjectResponse,n as assertOkOrThrowHttpError}from"./provider-http-errors-DPs-ewzo.mjs";import{d as postJsonRequest}from"./shared-BgjQEBzk.mjs";
+//!src/media-understanding/provider-json-post.ts
+async function postJsonResponse(e){const{errorLabel:t,responseLabel:n,errorOptions:r,readOptions:i,objectResponse:a,...o}=e;const{response:s,release:c}=await postJsonRequest(o);try{await assertOkOrThrowHttpError(s,t,r);return await(a?readProviderJsonObjectResponse:readProviderJsonResponse)(s,n??t,i)}finally{await c()}}export{postJsonResponse as t};

@@ -1,0 +1,2 @@
+//!src/infra/push-web-store.cache.ts
+const boundWebPushSubscriptionsAdmission={name:`state.web-push-bound-subscriptions`,read:e=>typeof e===`boolean`?e:void 0};export{boundWebPushSubscriptionsAdmission as t};

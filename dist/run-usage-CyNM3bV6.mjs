@@ -1,0 +1,3 @@
+import{t as pruneMapToMaxSize}from"./map-size-DLQqorvK.mjs";
+//!src/skills/runtime/run-usage.ts
+const MAX_TRACKED_SKILL_USAGE_RUNS=1024;const skillUsageByRun=/* @__PURE__ */ new Map;function recordRunSkillUsage(e){const t=e.runId;if(!t)return;const n=skillUsageByRun.get(t)??/* @__PURE__ */ new Map;const r={name:e.name,source:e.source,activation:e.activation,...e.skillFile?{skillFile:e.skillFile}:{}};n.set(`${r.source}\u0000${r.name}\u0000${r.activation}`,r);skillUsageByRun.set(t,n);pruneMapToMaxSize(skillUsageByRun,MAX_TRACKED_SKILL_USAGE_RUNS)}function consumeRunSkillUsage(e){if(!e)return[];const t=skillUsageByRun.get(e);skillUsageByRun.delete(e);return t?[...t.values()]:[]}export{recordRunSkillUsage as n,consumeRunSkillUsage as t};

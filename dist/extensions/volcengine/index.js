@@ -1,11 +1,11 @@
-import { a as VOLCENGINE_PROVIDER_CATALOG, o as openclaw_plugin_default } from "./.setup/models-BWaO4fQH.mjs";
+import { a as VOLCENGINE_PROVIDER_CATALOG, o as openclaw_plugin_default } from "./.setup/models-CT4qD0X8.mjs";
 import { applyVolcengineToolSchemaCompat } from "./api.js";
 import { buildVolcengineSpeechProvider } from "./speech-provider.js";
 import { buildOpenAICompatibleProviderFamilyCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { readManifestProviderDefaultModelRef } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { ensureModelAllowlistEntry } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/volcengine/index.ts
+// extensions/volcengine/index.ts
 const PROVIDER_ID = "volcengine";
 const VOLCENGINE_DEFAULT_MODEL_REF = readManifestProviderDefaultModelRef(openclaw_plugin_default, "volcengine-plan");
 var volcengine_default = defineSingleProviderPluginEntry({
@@ -37,5 +37,4 @@ var volcengine_default = defineSingleProviderPluginEntry({
 		api.registerSpeechProvider(buildVolcengineSpeechProvider());
 	}
 });
-//#endregion
 export { volcengine_default as default };

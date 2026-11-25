@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";import{i as passesManifestOwnerBasePolicy}from"./manifest-owner-policy-CWagdW_i.mjs";
+//!src/channels/plugins/bundled-setup-policy.ts
+function shouldIncludeChannelSetupFeatureForConfig(e){if(!e.config)return true;const t=e.plugin.id;if(!passesManifestOwnerBasePolicy({plugin:{id:t},normalizedConfig:e.normalizedConfig,allowRestrictiveAllowlistBypass:true}))return false;let n=false;for(const r of e.plugin.channels??[t]){const t=normalizeOptionalLowercaseString(r);if(!t)continue;const i=e.config.channels?.[t];if(!i||typeof i!==`object`||Array.isArray(i))continue;if(i.enabled===false){n=true;continue}return true}return!n}export{shouldIncludeChannelSetupFeatureForConfig as t};

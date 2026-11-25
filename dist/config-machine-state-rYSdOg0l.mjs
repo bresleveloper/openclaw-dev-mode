@@ -1,0 +1,3 @@
+import{i as readConfigMachineStateRowInDatabase}from"./config-machine-state-row-BHY5CsHE.mjs";import"./openclaw-state-db-admission-BGfz9p_n.mjs";import{g as withExistingOpenClawStateDatabaseReadOnly,p as withExistingOpenClawStateDatabaseArtifactPreservingReadOnly}from"./openclaw-state-db-readonly-BzXGNN0v.mjs";
+//!src/state/config-machine-state.ts
+function readConfigMachineState(e,t={},n={}){const read=({db:t})=>{const n=readConfigMachineStateRowInDatabase(t,e);return n?JSON.parse(n.value_json):void 0};return n.artifactPreservingReadOnly?withExistingOpenClawStateDatabaseArtifactPreservingReadOnly(read,t):withExistingOpenClawStateDatabaseReadOnly(read,t)}export{readConfigMachineState as t};

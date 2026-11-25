@@ -1,0 +1,3 @@
+import{fc as validateUsersMentionableParams}from"./src-4ukgpRDU.mjs";import{i as ErrorCodes}from"./missing-scope-error-CkgBgh6d.mjs";import{p as errorShape}from"./error-codes-CQNGhXT-.mjs";import{t as assertValidParams}from"./validation-CM41YclJ.mjs";
+//!src/gateway/server-methods/users-mentionable.ts
+const usersMentionableHandlers={"users.mentionable":async({client:e,context:t,params:n,respond:r})=>{if(!assertValidParams(n,validateUsersMentionableParams,`users.mentionable`,r))return;if(!t.mentionInbox){r(false,void 0,errorShape(ErrorCodes.UNAVAILABLE,`The mention directory is unavailable. Reconnect to retry.`));return}await t.mentionInbox.mentionable(e,n,e=>{r(e.ok,e.ok?e.value:void 0,e.ok?void 0:e.error)})}};export{usersMentionableHandlers};

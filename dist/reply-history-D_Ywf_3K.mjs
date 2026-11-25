@@ -1,0 +1,3 @@
+import{_ as recordChannelHistoryEntryWithMedia,a as buildChannelPendingHistoryContext,f as clearChannelHistoryIfEnabled,g as recordChannelHistoryEntryIfEnabled,i as buildChannelInboundHistory}from"./history-DMzWFL9T.mjs";
+//!src/channels/turn/history-window.ts
+function createChannelHistoryWindow(e){const{historyMap:t}=e;return{record:e=>recordChannelHistoryEntryIfEnabled({...e,historyMap:t}),recordWithMedia:e=>recordChannelHistoryEntryWithMedia({...e,historyMap:t}),buildPendingContext:e=>buildChannelPendingHistoryContext({...e,historyMap:t,formatEntry:e.formatEntry}),buildInboundHistory:e=>buildChannelInboundHistory({...e,historyMap:t}),clear:e=>clearChannelHistoryIfEnabled({...e,historyMap:t})}}export{createChannelHistoryWindow as t};

@@ -1,0 +1,2 @@
+//!src/config/types.tools.ts
+const TOOLS_BY_SENDER_KEY_TYPES=[`channel`,`id`,`e164`,`username`,`name`];function parseToolsBySenderTypedKey(e){const t=e.trim();const n=t.toLowerCase();for(const e of TOOLS_BY_SENDER_KEY_TYPES){const r=`${e}:`;if(!n.startsWith(r))continue;return{type:e,value:t.slice(r.length)}}}export{parseToolsBySenderTypedKey as n,TOOLS_BY_SENDER_KEY_TYPES as t};

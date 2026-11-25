@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";import{n as getLoadedChannelPlugin}from"./registry-DLUepoZ0.mjs";import"./plugins-DKCYlQ5g.mjs";import{n as resolveQueueSettingsCore,t as normalizeQueueDebounce}from"./settings-eZfVNyxC.mjs";
+//!src/auto-reply/reply/queue/settings-runtime.ts
+function resolveQueueSettings(e){const t=normalizeOptionalLowercaseString(e.channel);return resolveQueueSettingsCore({...e,pluginDebounceMs:e.pluginDebounceMs??normalizeQueueDebounce(t?getLoadedChannelPlugin(t)?.defaults?.queue?.debounceMs:void 0)})}export{resolveQueueSettings as t};

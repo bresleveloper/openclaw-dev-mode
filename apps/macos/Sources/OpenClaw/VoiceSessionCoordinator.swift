@@ -26,8 +26,6 @@ final class VoiceSessionCoordinator {
         self.didDismiss = didDismiss
     }
 
-    enum Source: String { case wakeWord, pushToTalk }
-
     enum SendReason: String { case explicit, autoSendImmediate, autoSendDelay, pushToTalk }
     private enum SendState { case ready, sending, failed, accepted }
 
@@ -40,14 +38,12 @@ final class VoiceSessionCoordinator {
         var invocation: GatewayAgentInvocation?
     }
 
-    private let logger = Logger(subsystem: "ai.openclaw", category: "voicewake.coordinator")
     private var session: Session?
     @ObservationIgnored private var sendTask: Task<Void, Never>?
 
     // MARK: - API
 
     func startSession(
-        source: Source,
         text: String,
         attributed: NSAttributedString? = nil,
         forwardEnabled: Bool = false,
@@ -55,7 +51,6 @@ final class VoiceSessionCoordinator {
     {
         self.retireSession()
         let token = UUID()
-        self.logger.info("coordinator start token=\(token.uuidString) source=\(source.rawValue) len=\(text.count)")
         self.session = Session(
             token: token,
             text: text,
@@ -63,7 +58,6 @@ final class VoiceSessionCoordinator {
             voiceWakeTrigger: voiceWakeTrigger)
         self.overlay.startSession(
             token: token,
-            source: source,
             transcript: text,
             attributed: attributed,
             forwardEnabled: forwardEnabled,
@@ -91,9 +85,6 @@ final class VoiceSessionCoordinator {
         voiceWakeTrigger: String? = nil)
     {
         guard let session, session.token == token, session.sendState == .ready else { return }
-        self.logger
-            .info(
-                "coordinator finalize token=\(token.uuidString) len=\(text.count) autoSendAfter=\(autoSendAfter ?? -1)")
         self.session?.text = text
         self.session?.sendChime = sendChime
         if let voiceWakeTrigger {
@@ -116,7 +107,6 @@ final class VoiceSessionCoordinator {
         }
         let text = session.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
-            self.logger.info("coordinator sendNow \(reason.rawValue) empty -> dismiss")
             self.dismiss(token: token, reason: .empty, outcome: .empty)
             return nil
         }

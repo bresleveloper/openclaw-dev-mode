@@ -1,6 +1,7 @@
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import type { PluginInstallRecord } from "../../config/types.plugins.js";
 import { createSubsystemLogger } from "../../logging.js";
+import { captureEnvironmentKey } from "../../shared/environment-key.js";
 import { isDeeplyFrozenPlainData } from "../../shared/immutable-data.js";
 import { normalizePluginsConfig } from "../config-state.js";
 import { hashStableJson } from "../installed-plugin-index-hash.js";
@@ -27,6 +28,7 @@ export type PluginRuntimeLoadContext = {
   autoEnabledReasons: Readonly<Record<string, string[]>>;
   workspaceDir: string | undefined;
   env: NodeJS.ProcessEnv;
+  environmentKey: object;
   logger: PluginLogger;
   manifestRegistry?: PluginManifestRegistry;
   metadataSnapshot?: PluginMetadataSnapshot;
@@ -35,6 +37,7 @@ export type PluginRuntimeLoadContext = {
   installRecords?: Record<string, PluginInstallRecord>;
   preferBuiltPluginArtifacts?: boolean;
   expectedSourceDigests?: PluginLoadOptions["expectedSourceDigests"];
+  selectedContextEngine?: PluginRuntimeLoadContextState["selectedContextEngine"];
 };
 
 const immutableActivationValueHashes = new WeakMap<object, string>();
@@ -67,7 +70,8 @@ function activationInputFingerprint(config: OpenClawConfig, env: NodeJS.ProcessE
 
 export function setPluginRuntimeLoadContext(
   registry: PluginRegistry,
-  context: PluginRuntimeLoadContext,
+  context: Omit<PluginRuntimeLoadContext, "environmentKey"> &
+    Partial<Pick<PluginRuntimeLoadContext, "environmentKey">>,
   registrationConfigKey?: string,
   loaderCacheIdentity?: PluginRuntimeLoadContextState["loaderCacheIdentity"],
 ): void {
@@ -75,9 +79,14 @@ export function setPluginRuntimeLoadContext(
   const capturedIdentity = previous?.loaderCacheIdentity ?? loaderCacheIdentity;
   const bound = {
     ...context,
+    environmentKey: context.environmentKey ?? captureEnvironmentKey(context.env),
     normalizePluginId: previous ? previous.normalizePluginId : context.normalizePluginId,
     activationInputFingerprint: activationInputFingerprint(context.rawConfig, context.env),
     ...(capturedIdentity ? { loaderCacheIdentity: capturedIdentity } : {}),
+    // Selection belongs to the generation that registered these closures, not later metadata.
+    selectedContextEngine: previous
+      ? previous.selectedContextEngine
+      : context.selectedContextEngine,
     // Host preparation may rebind metadata, but it cannot change already-registered closures.
     registrationConfigKey:
       previous?.registrationConfigKey ??
@@ -155,19 +164,18 @@ type PluginRuntimeResolvedLoadValues = Pick<
   | "env"
   | "logger"
   | "manifestRegistry"
+  | "metadataSnapshot"
   | "installRecords"
   | "preferBuiltPluginArtifacts"
   | "expectedSourceDigests"
 >;
 
-export function createPluginRuntimeLoaderLogger(): PluginLogger {
-  return {
-    info: (message) => log.info(message),
-    warn: (message) => log.warn(message),
-    error: (message) => log.error(message),
-    debug: (message) => log.debug(message),
-  };
-}
+export const pluginRuntimeLoaderLogger: PluginLogger = {
+  info: (message) => log.info(message),
+  warn: (message) => log.warn(message),
+  error: (message) => log.error(message),
+  debug: (message) => log.debug(message),
+};
 
 export function buildPluginRuntimeLoadOptions(
   values: PluginRuntimeResolvedLoadValues,
@@ -181,6 +189,7 @@ export function buildPluginRuntimeLoadOptions(
     env: values.env,
     logger: values.logger,
     manifestRegistry: values.manifestRegistry,
+    metadataSnapshot: values.metadataSnapshot,
     installRecords: values.installRecords,
     preferBuiltPluginArtifacts: values.preferBuiltPluginArtifacts,
     expectedSourceDigests: values.expectedSourceDigests,

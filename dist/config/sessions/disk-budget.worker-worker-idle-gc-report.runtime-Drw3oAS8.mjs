@@ -1,0 +1,1 @@
+import{t as e}from"./disk-budget.worker-subsystem-D9aLEgRd.mjs";const t=e(`worker/idle-gc`);function reportSlowIdleWorkerGc(e){t.warn(`slow idle worker garbage collection`,e)}export{reportSlowIdleWorkerGc};

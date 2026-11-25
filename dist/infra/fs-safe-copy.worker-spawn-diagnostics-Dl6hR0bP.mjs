@@ -1,0 +1,1 @@
+export{t as emitChildProcessSpawnSample,n as prepareChildProcessSpawnRecorder,r as recordChildProcessSpawn,i as withChildProcessOperation,a as withGitProcessOperation}from"./fs-safe-copy.worker-spawn-diagnostics-DQQpsD2i.mjs";

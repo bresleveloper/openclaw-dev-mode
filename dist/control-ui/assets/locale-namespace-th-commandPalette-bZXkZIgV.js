@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"การตั้งค่าเซสชันใหม่","rememberSettings":"จดจำการตั้งค่าสำหรับ {shortcut}","rememberSettingsNoShortcut":"จดจำการตั้งค่าเหล่านี้","rememberUnavailable":"เชื่อมต่ออีกครั้งเพื่อจดจำการตั้งค่า","settingsSaveFailed":"บันทึกการตั้งค่าไม่ได้ โปรดลองอีกครั้ง"}};

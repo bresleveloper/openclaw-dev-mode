@@ -1,9 +1,10 @@
-import { n as stateMigrations$1 } from "./.setup/state-retention-api-ONgqE-_V.mjs";
-import { n as resolveVoiceCallStorePath } from "./.setup/store-path-Cfwff6j7.mjs";
+import { n as stateMigrations$1 } from "./.setup/state-retention-api-BDJR8dnG.mjs";
+import { n as resolveVoiceCallStorePath } from "./.setup/store-path-C0yJCDE8.mjs";
 import { normalizeAgentId } from "openclaw/plugin-sdk/routing";
 import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { existsSync } from "node:fs";
-//#region extensions/voice-call/doctor-contract-api.ts
+import path from "node:path";
+// extensions/voice-call/doctor-contract-api.ts
 /** Return Voice Call agents whose templated core session stores need migration. */
 function resolveSessionStoreAgentIds(params) {
 	const agentIds = /* @__PURE__ */ new Set();
@@ -41,6 +42,19 @@ const schemaMigrationDescriptions = {
 	"prepared-worker-ownership-v17": "prepared workers -> one-use capacity and fixed workspace ownership",
 	"github-publication-requester-authority-v18": "GitHub publication receipts -> original requesting authority",
 	"portable-identity-columns-v22": "ACP resume keys and receipt cursors -> portable columns",
+	"task-run-indexes-v24": "retained task indexes -> ordered cron history and runtime/run lookup",
+	"session-state-head-layout-v26": "session state heads -> primary-key table layout",
+	"state-write-indexes-v27": "replay, skill usage, and lease writes -> smaller index maintenance",
+	"github-publication-draft-v28": "GitHub publication requests -> durable draft choice",
+	"local-client-credentials-v29": "client credentials and native socket material -> local owner",
+	"automation-policy-fence-v30": "heartbeat monitors -> ordinary automation timing and delivery policy fence",
+	"local-workspace-manifests-v31": "local workspace baselines -> incremental checkpoint manifests",
+	"local-workspace-cas-v35": "local workspace baselines -> shared immutable trees and scan fingerprints",
+	"template-names-v36": "starter installs and provenance -> canonical Template storage names",
+	"worker-resource-receipts-v37": "worker environments -> immutable provider resource receipts",
+	"repository-disk-authority-v38": "repository authority and pending-result disk identity retained",
+	"subagent-operator-recovery-v25": "subagent recovery -> original operator authority required",
+	"meeting-transcript-start-time": "meeting transcript start times -> persisted chronology",
 	"predicate-columns-v21": "meeting transcripts and delivery retention -> derived predicate columns",
 	"worker-placement-execution-mode-v8": "cloud worker placements -> execution-mode claims",
 	"operator-approvals-system-agent": "operator approvals -> OpenClaw system changes",
@@ -51,6 +65,13 @@ const schemaMigrationDescriptions = {
 const stateMigrations = [...stateMigrations$1, {
 	id: "voice-call-sqlite-schema",
 	label: "Voice Call SQLite schema",
+	collectBackupResources(params) {
+		const database = path.join(resolveVoiceCallStorePath(params), "state", "openclaw.sqlite");
+		return existsSync(database) ? [{
+			path: database,
+			kind: "sqlite"
+		}] : [];
+	},
 	async detectLegacyState(params) {
 		const storePath = resolveVoiceCallStorePath(params);
 		if (!existsSync(storePath)) return null;
@@ -84,5 +105,4 @@ const stateMigrations = [...stateMigrations$1, {
 		};
 	}
 }];
-//#endregion
 export { resolveSessionStoreAgentIds, stateMigrations };

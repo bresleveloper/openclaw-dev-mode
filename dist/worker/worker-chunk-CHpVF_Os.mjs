@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";var t,n=e((()=>{t={text:{transcript:{table:`session_transcript_fts`,fields:[`text`],postgres:{identity:`rowid`}}}}}));export{n,t};

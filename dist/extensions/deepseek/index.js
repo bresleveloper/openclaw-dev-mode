@@ -1,20 +1,25 @@
-import { a as openclaw_plugin_default } from "./.setup/models-D843Tvyg.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-CE_cMy1x.mjs";
+import { isDeepSeekV4ModelId } from "./models.js";
 import { applyDeepSeekConfig } from "./onboard.js";
 import { buildDeepSeekProvider } from "./provider-catalog.js";
 import { createDeepSeekV4ThinkingWrapper } from "./stream.js";
-import { resolveDeepSeekV4ThinkingProfile } from "./thinking.js";
+import { createDeepSeekWebSearchProvider } from "./web-search-provider.js";
 import { readConfiguredProviderCatalogEntries } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
 import { buildProviderToolCompatFamilyHooks } from "openclaw/plugin-sdk/provider-tools";
-import { fetchDeepSeekUsage } from "openclaw/plugin-sdk/provider-usage";
-//#region extensions/deepseek/index.ts
+import { fetchDeepSeekUsage, resolveProviderUsageApiKeyAuth } from "openclaw/plugin-sdk/provider-usage";
+// extensions/deepseek/index.ts
 const PROVIDER_ID = "deepseek";
 var deepseek_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
 	name: "DeepSeek Provider",
 	description: "Bundled DeepSeek provider plugin",
 	manifest: openclaw_plugin_default,
+	register(api) {
+		api.registerReload({ hotPrefixes: ["plugins.entries.deepseek.config.webSearch.apiKey"] });
+		api.registerWebSearchProvider(createDeepSeekWebSearchProvider());
+	},
 	provider: {
 		label: "DeepSeek",
 		docsPath: "/providers/deepseek",
@@ -36,14 +41,9 @@ var deepseek_default = defineSingleProviderPluginEntry({
 		}),
 		...buildProviderToolCompatFamilyHooks("deepseek"),
 		wrapStreamFn: (ctx) => createDeepSeekV4ThinkingWrapper(ctx.streamFn, ctx.thinkingLevel),
-		resolveThinkingProfile: ({ modelId }) => resolveDeepSeekV4ThinkingProfile(modelId),
-		isModernModelRef: ({ modelId }) => Boolean(resolveDeepSeekV4ThinkingProfile(modelId)),
-		resolveUsageAuth: async (ctx) => {
-			const apiKey = (await ctx.resolveApiKeyCandidatesFromConfigAndStore?.({ envDirect: [ctx.env.DEEPSEEK_API_KEY] }))?.[0];
-			return apiKey ? { token: apiKey } : null;
-		},
+		isModernModelRef: ({ modelId }) => isDeepSeekV4ModelId(modelId),
+		resolveUsageAuth: (ctx) => resolveProviderUsageApiKeyAuth(ctx, [ctx.env.DEEPSEEK_API_KEY]),
 		fetchUsageSnapshot: async (ctx) => await fetchDeepSeekUsage(ctx.token, ctx.timeoutMs, ctx.fetchFn)
 	}
 });
-//#endregion
 export { deepseek_default as default };

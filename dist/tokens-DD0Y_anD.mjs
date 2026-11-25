@@ -1,0 +1,2 @@
+//!src/auto-reply/tokens.ts
+const HEARTBEAT_TOKEN=`HEARTBEAT_OK`;const SILENT_REPLY_TOKEN=`NO_REPLY`;const HARMONY_CHANNEL_MARKER_RE=/^\s*(?:set-thought\s+)?<[\w]*\|[^>]*>\s*$/;const BOX_DRAWING_HR_ONLY_RE=/^\s*─{3,}\s*$/;function isInternalFormattingArtifact(e){if(!e)return false;return HARMONY_CHANNEL_MARKER_RE.test(e)||BOX_DRAWING_HR_ONLY_RE.test(e)}function isSilentReplyText(e){const t=e?.trim();return t?.length===8&&t.toUpperCase()===`NO_REPLY`}export{isSilentReplyText as i,SILENT_REPLY_TOKEN as n,isInternalFormattingArtifact as r,HEARTBEAT_TOKEN as t};

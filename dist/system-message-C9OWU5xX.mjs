@@ -1,0 +1,2 @@
+//!src/infra/system-message.ts
+const SYSTEM_MARK=`⚙️`;function hasSystemMark(e){return e.trim().startsWith(SYSTEM_MARK)}function prefixSystemMessage(e){const t=e.trim();if(!t||t.startsWith(`⚙️`))return t;return`${SYSTEM_MARK} ${t}`}export{hasSystemMark as n,prefixSystemMessage as r,SYSTEM_MARK as t};

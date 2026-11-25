@@ -1,0 +1,2 @@
+//!extensions/memory-core/src/active-memory-recall-session.ts
+const RECALL_SESSION_ID=/^active-memory-[a-z0-9]+-[a-f0-9]{8}$/i;const RECALL_SESSION_KEY=/:active-memory:[a-f0-9]{12}$/i;function isActiveMemoryRecallSessionKey(e){return Boolean(e&&RECALL_SESSION_KEY.test(e.trim()))}function isActiveMemoryRecallSession(e){return e.pluginOwnerId===`active-memory`||isActiveMemoryRecallSessionKey(e.sessionKey)||Boolean(e.sessionId&&RECALL_SESSION_ID.test(e.sessionId))}export{isActiveMemoryRecallSessionKey as n,isActiveMemoryRecallSession as t};

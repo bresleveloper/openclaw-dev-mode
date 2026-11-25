@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function captureEffectAuthority(){return{active:!1,run(e){return e()},async initiate(e){return e()}}}var t=e((()=>{}));export{t as n,captureEffectAuthority as t};

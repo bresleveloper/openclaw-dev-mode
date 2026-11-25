@@ -1,0 +1,1 @@
+import{n as readInstallOwner,t as formatInstallOwnerMessage}from"./install-owner-CXSpfLQ7.mjs";export{formatInstallOwnerMessage,readInstallOwner};

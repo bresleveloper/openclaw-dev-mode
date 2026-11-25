@@ -1,0 +1,1 @@
+var SessionCanonicalKeyMigrationRequiredError=class extends Error{constructor(e){super(`${e}; stop the Gateway and run openclaw doctor --fix`),this.code=`SESSION_CANONICAL_KEY_MIGRATION_REQUIRED`,this.name=`SessionCanonicalKeyMigrationRequiredError`}};export{SessionCanonicalKeyMigrationRequiredError as t};

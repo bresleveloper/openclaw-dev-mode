@@ -1,4 +1,4 @@
-//#region extensions/cloudflare-ai-gateway/models.ts
+// extensions/cloudflare-ai-gateway/models.ts
 const CLOUDFLARE_AI_GATEWAY_PROVIDER_ID = "cloudflare-ai-gateway";
 const CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_ID = "claude-sonnet-4-6";
 const CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_REF = `${CLOUDFLARE_AI_GATEWAY_PROVIDER_ID}/${CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_ID}`;
@@ -35,5 +35,4 @@ function resolveCloudflareAiGatewayBaseUrl(params) {
 	if (!accountId || !gatewayId) return "";
 	return `https://gateway.ai.cloudflare.com/v1/${accountId}/${gatewayId}/anthropic`;
 }
-//#endregion
 export { CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_ID, CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_REF, CLOUDFLARE_AI_GATEWAY_PROVIDER_ID, buildCloudflareAiGatewayModelDefinition, resolveCloudflareAiGatewayBaseUrl };

@@ -1,0 +1,2 @@
+//!packages/normalization-core/src/boolean-coercion.ts
+function parseBoolean(e){if(typeof e===`boolean`)return e;if(typeof e!==`string`)return;const t=e.trim().toLowerCase();if(t===`true`)return true;if(t===`false`)return false}export{parseBoolean as t};

@@ -1,5 +1,4 @@
 import { formatErrorMessage } from "@openclaw/normalization-core/error-coercion";
-import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { isCronRunSessionKey } from "../../sessions/session-key-utils.js";
 import { registerSessionStateWatch } from "../../sessions/session-state-events.js";
 import {
@@ -10,19 +9,22 @@ import { withFollowupRequest } from "../subagents/completion/session-followup-co
 import type { FollowupRequest } from "../subagents/completion/session-followup-completion.types.js";
 import { subagentRuns } from "../subagents/registry/subagent-registry-memory.js";
 import { getLatestLiveSubagentRunByChildSessionKey } from "../subagents/registry/subagent-registry-read.js";
-import type { AgentStepSession } from "./agent-step.js";
 import {
   captureGatewayToolCallerAssertion,
   getGatewayToolCallerIdentity,
   prepareGatewayToolCallerAssertion,
 } from "./gateway-caller-context.js";
-import { runWithGatewayToolCleanupContext } from "./in-process-gateway.js";
+import {
+  getInProcessGatewayToolContext,
+  runWithGatewayToolCleanupContext,
+} from "./in-process-gateway.js";
 import { prepareSessionsSendFollowup } from "./sessions-send-followup-custody.js";
 import { startSessionsSendReplyFlow } from "./sessions-send-reply-flow.js";
 import {
   startSessionsSendAgentRun,
   trySessionsSendActiveRunDelivery,
 } from "./sessions-send-tool.delivery.js";
+import type { AgentStepSession } from "./sessions-send-tool.types.js";
 import { jsonResult } from "./tool-results.js";
 
 /** Reconcile only the original admission; an uncertain ACK never starts a replacement. */
@@ -50,14 +52,15 @@ export async function startSessionsSendFollowup(
         targetAgentId: request.targetAgentId,
         requesterAgentId: request.requesterAgentId,
         requesterSessionKey: request.requesterSessionKey,
-        replyMode: "one-way",
+        replyMode: replyContext.replyMode === "peer" ? "peer" : "one-way",
         notifyRequesterOnWaitFailure: true,
       });
       return {
         start: {
           ...start,
+          selfHeld: undefined,
           result: jsonResult({
-            ...(isRecord(start.result.details) ? start.result.details : {}),
+            ...start.result.details,
             sentBeforeError: true,
           }),
         },
@@ -75,13 +78,14 @@ export async function startSessionsSendFollowup(
   return { start, completion };
 }
 
-/** Accepted child followups belong to the same completion owner as spawned work. */
+/** Eligible followups retain their accepted result through the existing completion owner. */
 export async function dispatchSessionsSendFollowup(
   params: Parameters<typeof startSessionsSendAgentRun>[0],
   replyContext: Parameters<typeof startSessionsSendFollowup>[2],
   options: {
     message: string;
     ownChild: boolean;
+    persistentChildAccess?: boolean;
     nativeChild: boolean;
     watch: boolean;
     requesterSessionKey: string;
@@ -92,7 +96,8 @@ export async function dispatchSessionsSendFollowup(
   },
 ) {
   const assertCallerCurrent = captureGatewayToolCallerAssertion();
-  const instance = getGatewayToolCallerIdentity()?.operationalRunInstance;
+  const caller = getGatewayToolCallerIdentity();
+  const instance = caller?.operationalRunInstance;
   const completionChild = options.watch
     ? getLatestLiveSubagentRunByChildSessionKey(
         params.sessionStoreTarget.canonicalKey,
@@ -103,7 +108,7 @@ export async function dispatchSessionsSendFollowup(
   const sameRequester = replyContext.requesterSessionKey === options.requesterSessionKey;
   const isCronRequester = isCronRunSessionKey(options.requesterSessionKey);
   const requesterTurn =
-    !params.expectedSessionId &&
+    (!params.expectedSessionId || options.persistentChildAccess) &&
     options.nativeChild &&
     sameRequester &&
     (options.ownChild ||
@@ -121,9 +126,18 @@ export async function dispatchSessionsSendFollowup(
       ? requesterTurn
       : undefined;
   const completionTurn = isCronRequester ? undefined : registryTurn;
+  // A queued self-send has no separate recipient to observe it with operator.write.
+  // Keep the original run's result, without registering the session as its own child.
+  const ownSessionCompletion =
+    replyContext.replyMode === "peer" &&
+    options.requesterSessionKey === params.sessionStoreTarget.canonicalKey &&
+    options.requesterAgentId === params.sendParams.agentId &&
+    getInProcessGatewayToolContext()?.lifecycleRuntime !== undefined;
   const request =
     !("ok" in active) &&
-    (registryTurn || (replyContext.replyMode === "one-way" && options.ownChild)) &&
+    (registryTurn ||
+      ownSessionCompletion ||
+      (replyContext.replyMode === "one-way" && options.ownChild)) &&
     sameRequester
       ? await prepareSessionsSendFollowup({
           runId: params.runId,
@@ -188,6 +202,7 @@ export async function dispatchSessionsSendFollowup(
               requesterSessionKey: options.requesterSessionKey,
               requesterAgentId: options.requesterAgentId,
               requesterTurnRunId: registryTurn,
+              requesterRunInstance: instance,
               assertCurrent: assertCompletionCurrent,
             });
           }
@@ -200,6 +215,7 @@ export async function dispatchSessionsSendFollowup(
           await registerSubagentRun(
             {
               runId: start.runId,
+              gatewayContextResolver: caller?.gatewayContextResolver,
               childSessionKey,
               sessionEntry: options.targetSession,
               childAgentId: params.sessionStoreTarget.agentId,
@@ -221,6 +237,7 @@ export async function dispatchSessionsSendFollowup(
               assertCurrent: assertCompletionCurrent,
               assertPublicationCurrent: () => request?.custody.assertCurrent(),
               acceptedRunReplay: true,
+              requesterRunInstance: instance,
             },
           );
           accepted = {
@@ -247,7 +264,7 @@ export async function dispatchSessionsSendFollowup(
     }
   } catch (error) {
     let failure = error;
-    if (start.ok && registryTurn) {
+    if (start.ok && completionTurn) {
       const runId = start.targetDisposition === "steered" ? start.steeredRunId : start.runId;
       if (runId && instance) {
         try {
@@ -272,6 +289,8 @@ export async function dispatchSessionsSendFollowup(
     return {
       start: {
         ok: false as const,
+        // Only an accepted start reaches this catch, so it is never a retainable refusal.
+        selfHeld: undefined,
         result: jsonResult({
           runId: start.ok ? start.runId : params.runId,
           status: "error",
@@ -297,7 +316,7 @@ export async function dispatchSessionsSendFollowup(
   if (
     start.ok &&
     options.watch &&
-    !params.expectedSessionId &&
+    (!params.expectedSessionId || options.persistentChildAccess) &&
     replyContext.requesterSessionKey &&
     targetSessionKey &&
     replyContext.requesterSessionKey !== targetSessionKey

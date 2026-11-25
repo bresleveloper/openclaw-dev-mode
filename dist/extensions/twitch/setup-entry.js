@@ -1,12 +1,11 @@
 import { defineBundledChannelSetupEntry } from "openclaw/plugin-sdk/channel-entry-contract";
 import { fileURLToPath } from "node:url";
-//#region extensions/twitch/setup-entry.ts
+// extensions/twitch/setup-entry.ts
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-BC-Kt0o_.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-EN3PbyIC.mjs", import.meta.url).href),
 		exportName: "twitchSetupPlugin"
 	}
 });
-//#endregion
 export { setup_entry_default as default };

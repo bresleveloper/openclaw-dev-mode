@@ -1,0 +1,2 @@
+//!src/channels/plugins/target-resolvers.ts
+function buildUnresolvedTargetResults(e,t){return e.map(e=>({input:e,resolved:false,note:t}))}async function resolveTargetsWithOptionalToken(e){const t=e.token?.trim();if(!t)return buildUnresolvedTargetResults(e.inputs,e.missingTokenNote);return(await e.resolveWithToken({token:t,inputs:e.inputs})).map(e.mapResolved)}export{resolveTargetsWithOptionalToken as n,buildUnresolvedTargetResults as t};

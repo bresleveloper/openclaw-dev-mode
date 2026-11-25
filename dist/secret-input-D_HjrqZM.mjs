@@ -1,0 +1,3 @@
+import{f as normalizeResolvedSecretInputString,o as hasConfiguredSecretInput}from"./types.secrets-UWdyCdE6.mjs";import"./openclaw-runtime-config-B8Il166R.mjs";
+//!packages/memory-host-sdk/src/host/secret-input.ts
+function hasConfiguredMemorySecretInput(e){return hasConfiguredSecretInput(e)}function resolveMemorySecretInputString(e){const t=normalizeResolvedSecretInputString(e);if(e.value!==void 0&&typeof e.value!==`string`)throw new Error(`${e.path}: expected a resolved string value.`);return t}export{resolveMemorySecretInputString as n,hasConfiguredMemorySecretInput as t};

@@ -1,2 +1,1 @@
-import { i as feishuSetupAdapter, n as feishuSetupWizard, t as feishuPlugin } from "./.setup/channel-D60cZ_Y_.mjs";
-export { feishuPlugin, feishuSetupAdapter, feishuSetupWizard };
+export { t as feishuPlugin, i as feishuSetupAdapter, n as feishuSetupWizard } from "./.setup/channel-Bp5AqILl.mjs";

@@ -1,0 +1,6 @@
+import{k as resolveDateTimestampMs}from"./number-coercion-B3CfI447.mjs";import{a as resolveUserTimezone,i as resolveUserTimeFormat,r as formatUserTime}from"./date-time-j3BuJvYF.mjs";
+//!src/agents/current-time.ts
+function resolveCronStyleNow(e,t){const n=resolveUserTimezone(e.agents?.defaults?.userTimezone);const r=resolveUserTimeFormat(void 0);const i=resolveDateTimestampMs(t);const a=new Date(i);const o=formatUserTime(a,n,r)??a.toISOString();return{userTimezone:n,formattedTime:o,timeLine:`Current time: ${o} (${n})\nReference UTC: ${a.toISOString().replace(`T`,` `).slice(0,16)+` UTC`}`}}const CURRENT_TIME_LINE_RE=/^Current time: .+? \([^)]+\)\nReference UTC: \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/gm;function appendCronStyleCurrentTimeLine(e,t,n){const r=e.trimEnd();if(!r)return r;const{timeLine:i}=resolveCronStyleNow(t,n);if(!CURRENT_TIME_LINE_RE.test(r))return`${r}\n${i}`;CURRENT_TIME_LINE_RE.lastIndex=0;let a=false;return r.replace(CURRENT_TIME_LINE_RE,()=>{if(a)return``;a=true;return i}).replace(/\n{3,}/g,`
+
+`).replace(/\n\n+(?=Current time:)/g,`
+`).trimEnd()}export{resolveCronStyleNow as n,appendCronStyleCurrentTimeLine as t};

@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";
+//!src/gateway/in-process-session-delivery.ts
+const generations=resolveGlobalSingleton(Symbol.for(`openclaw.inProcessSessionDeliveryGenerations`),()=>/* @__PURE__ */ new WeakMap);function bindInProcessSessionDeliveryGeneration(e,t){if(t)generations.set(e,Object.freeze({...t}));return e}function readInProcessSessionDeliveryGeneration(e){return typeof e===`object`&&e!==null?generations.get(e):void 0}export{readInProcessSessionDeliveryGeneration as n,bindInProcessSessionDeliveryGeneration as t};

@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/zalo/index.ts
+// extensions/zalo/index.ts
 var zalo_default = defineBundledChannelEntry({
 	id: "zalo",
 	name: "Zalo",
@@ -18,5 +18,4 @@ var zalo_default = defineBundledChannelEntry({
 		exportName: "setZaloRuntime"
 	}
 });
-//#endregion
 export { zalo_default as default };

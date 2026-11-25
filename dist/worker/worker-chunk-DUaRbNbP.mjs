@@ -1,0 +1,1 @@
+import{i as e,t}from"./worker-chunk-BS2bCHov.mjs";e();export{t as MAX_IMAGE_DOWNSCALE_SOURCE_PIXELS};

@@ -4,10 +4,7 @@ import { addTimerTimeoutGraceMs } from "openclaw/plugin-sdk/number-runtime";
 import { REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME } from "openclaw/plugin-sdk/realtime-voice";
 import { normalizeAgentId } from "openclaw/plugin-sdk/routing";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/teams-meetings/src/errors.ts
-var TeamsMeetingsInvalidRequestError = class extends Error {};
-//#endregion
-//#region extensions/teams-meetings/src/transports/teams-meetings-selectors.ts
+// extensions/teams-meetings/src/transports/teams-meetings-selectors.ts
 const TEAMS_MEETING_SELECTORS = {
 	continueInBrowser: [
 		"[data-tid=\"joinOnWeb\"]",
@@ -95,36 +92,7 @@ const TEAMS_MEETING_SELECTORS = {
 	captionAuthor: ["[data-tid=\"author\"]"],
 	captionText: ["[data-tid=\"closed-caption-text\"]"]
 };
-//#endregion
-//#region extensions/teams-meetings/src/transports/teams-meetings-status-call-source.ts
-const teamsMeetingStatusCall = { captionEnableSource: `if (!captionsFinalized && canMutateSession && inCall && !captionsEnabledNow) {
-      let captionButton = first(selectors.captions);
-      if (!captionButton) {
-        first(selectors.moreActions)?.click?.();
-        await waitForUi();
-        captionButton = first(selectors.captions);
-      }
-      if (captionButton) {
-        const captionLabel = label(captionButton);
-        const alreadyEnabled = captionButton.getAttribute?.("aria-checked") === "true" ||
-          /hide live captions|turn off captions/i.test(captionLabel) ||
-          Boolean(firstRaw(selectors.captionsOff));
-        if (!alreadyEnabled) {
-          captionButton.click();
-          await waitForUi();
-        }
-        const currentLabel = label(captionButton);
-        captionsEnabledNow = captionButton.getAttribute?.("aria-checked") === "true" ||
-          /hide live captions|turn off captions/i.test(currentLabel) ||
-          Boolean(firstRaw(selectors.captionRenderer)) ||
-          Boolean(firstRaw(selectors.captionsOff));
-        if (captionsEnabledNow && !alreadyEnabled) {
-          notes.push("Enabled Teams live captions for transcript capture.");
-        }
-      }
-    }` };
-//#endregion
-//#region extensions/teams-meetings/src/transports/teams-meetings-status-prejoin-source.ts
+// extensions/teams-meetings/src/transports/teams-meetings-status-prejoin-source.ts
 const teamsMeetingStatusPrelude = {
 	controlLookupSource: `const buttons = [...document.querySelectorAll("button")];
   const findTextButton = (pattern) => buttons.find((button) => !button.disabled && pattern.test(label(button)));`,
@@ -286,8 +254,7 @@ ${sources.manualActions({
 		inCallControls: false
 	})}`
 };
-//#endregion
-//#region extensions/teams-meetings/src/transports/teams-meetings-urls.ts
+// extensions/teams-meetings/src/transports/teams-meetings-urls.ts
 function normalizeTeamsMeetingUrlForReuse(url) {
 	if (!url) return;
 	try {
@@ -304,12 +271,10 @@ function normalizeTeamsMeetingUrlForReuse(url) {
 		if (hostname === "teams.live.com") {
 			const launcherMatch = (parsed.pathname.toLowerCase() === "/dl/launcher/launcher.html" ? parsed.searchParams.get("url") : void 0)?.match(/^\/_#\/meet\/([^/?#]+)(?:\?(.+))?$/i);
 			let lightMeeting;
-			if (parsed.pathname.toLowerCase() === "/light-meetings/launch") try {
+			if (parsed.pathname.toLowerCase() === "/light-meetings/launch") {
 				const coordinates = parsed.searchParams.get("coords");
 				const decoded = coordinates && coordinates.length <= 16384 ? JSON.parse(Buffer.from(coordinates, "base64").toString("utf8")) : void 0;
 				if (decoded && typeof decoded === "object") lightMeeting = decoded;
-			} catch {
-				return;
 			}
 			const match = parsed.pathname.match(/^\/meet\/([^/]+)\/?$/i) ?? launcherMatch ?? (typeof lightMeeting?.meetingCode === "string" ? [void 0, lightMeeting.meetingCode] : void 0);
 			if (!match?.[1]) return;
@@ -341,10 +306,21 @@ function isRecoverableTeamsMeetingTab(tab, url) {
 	const hostname = URL.parse(tab.url ?? "")?.hostname.toLowerCase();
 	return Boolean(hostname && (hostname === "login.microsoftonline.com" || hostname.endsWith(".microsoftonline.com")) && /sign in|microsoft|teams/i.test(tab.title ?? ""));
 }
-//#endregion
-//#region extensions/teams-meetings/src/transports/teams-meetings-page-scripts.ts
-function pageIdentityFunctionSource() {
-	return `const meetingIdentity = (rawUrl) => {
+// extensions/teams-meetings/src/transports/teams-meetings-page-scripts.ts
+const teamsMeetingPageScripts = MeetingPlatformAdapter.createPageScripts({
+	platform: {
+		audioOutputElementIdPrefix: "openclaw-teams-audio-output-",
+		manualActionReasonPrefix: "teams",
+		displayName: "Teams",
+		globals: {
+			audioOutputs: "__openclawTeamsAudioOutputs",
+			captionArchive: "__openclawTeamsCaptionArchive",
+			captions: "__openclawTeamsCaptions",
+			meeting: "__openclawTeamsMeeting"
+		}
+	},
+	normalizeUrl: normalizeTeamsMeetingUrlForReuse,
+	pageIdentitySource: () => `const meetingIdentity = (rawUrl) => {
     try {
       const parsed = new URL(rawUrl);
       const host = parsed.hostname.toLowerCase();
@@ -370,7 +346,7 @@ function pageIdentityFunctionSource() {
               ? JSON.parse(atob(coordinates))
               : undefined;
             if (decoded && typeof decoded === "object") lightMeeting = decoded;
-          } catch {}
+          } catch { /* Invalid external coordinates do not identify a meeting. */ }
         }
         const match = parsed.pathname.match(/^\\/meet\\/([^/]+)\\/?$/i) || launcherMatch ||
           (typeof lightMeeting?.meetingCode === "string"
@@ -387,12 +363,11 @@ function pageIdentityFunctionSource() {
           ? "teams-consumer:" + code.toLowerCase() + ":p:" + encodeURIComponent(passcode || "")
           : undefined;
       }
-    } catch {}
+    } catch { /* Invalid external URLs do not identify a meeting. */ }
     return undefined;
-  };`;
-}
-function teamsMeetingToggleStateFunctionSource() {
-	return `(input) => {
+  };`,
+	selectors: TEAMS_MEETING_SELECTORS,
+	toggleStateFunction: () => `(input) => {
     const pressed = String(input?.ariaPressed || "").toLowerCase();
     if (pressed === "true") return "on";
     if (pressed === "false") return "off";
@@ -413,26 +388,34 @@ function teamsMeetingToggleStateFunctionSource() {
     if (/\\b(?:microphone|mic) (?:is |currently )?(?:off|muted|disabled)\\b/.test(value)) return "off";
     if (/\\b(?:microphone|mic) (?:is |currently )?(?:on|unmuted|enabled)\\b/.test(value)) return "on";
     return undefined;
-  }`;
-}
-const teamsMeetingPageScripts = MeetingPlatformAdapter.createPageScripts({
-	platform: {
-		audioOutputElementIdPrefix: "openclaw-teams-audio-output-",
-		manualActionReasonPrefix: "teams",
-		displayName: "Teams",
-		globals: {
-			audioOutputs: "__openclawTeamsAudioOutputs",
-			captionArchive: "__openclawTeamsCaptionArchive",
-			captions: "__openclawTeamsCaptions",
-			meeting: "__openclawTeamsMeeting"
-		}
-	},
-	normalizeUrl: normalizeTeamsMeetingUrlForReuse,
-	pageIdentitySource: pageIdentityFunctionSource,
-	selectors: TEAMS_MEETING_SELECTORS,
-	toggleStateFunction: teamsMeetingToggleStateFunctionSource,
+  }`,
 	statusPrelude: teamsMeetingStatusPrelude,
-	statusCall: teamsMeetingStatusCall,
+	statusCall: { captionEnableSource: `if (!captionsFinalized && canMutateSession && inCall && !captionsEnabledNow) {
+      let captionButton = first(selectors.captions);
+      if (!captionButton) {
+        first(selectors.moreActions)?.click?.();
+        await waitForUi();
+        captionButton = first(selectors.captions);
+      }
+      if (captionButton) {
+        const captionLabel = label(captionButton);
+        const alreadyEnabled = captionButton.getAttribute?.("aria-checked") === "true" ||
+          /hide live captions|turn off captions/i.test(captionLabel) ||
+          Boolean(firstRaw(selectors.captionsOff));
+        if (!alreadyEnabled) {
+          captionButton.click();
+          await waitForUi();
+        }
+        const currentLabel = label(captionButton);
+        captionsEnabledNow = captionButton.getAttribute?.("aria-checked") === "true" ||
+          /hide live captions|turn off captions/i.test(currentLabel) ||
+          Boolean(firstRaw(selectors.captionRenderer)) ||
+          Boolean(firstRaw(selectors.captionsOff));
+        if (captionsEnabledNow && !alreadyEnabled) {
+          notes.push("Enabled Teams live captions for transcript capture.");
+        }
+      }
+    }` },
 	leave: {
 		controlSource: `const first = (list) => {
     for (const selector of list) {
@@ -450,16 +433,7 @@ const teamsMeetingPageScripts = MeetingPlatformAdapter.createPageScripts({
 		sessionMatchSource: "const sessionMatched = !enforceSessionOwnership || state?.sessionId === expectedSessionId;"
 	}
 });
-//#endregion
-//#region extensions/teams-meetings/src/transports/teams-meetings-platform-adapter.ts
-function teamsMeetingOrigin(meetingUrl) {
-	try {
-		const origin = new URL(meetingUrl).origin;
-		return origin === "https://teams.microsoft.com" || origin === "https://teams.live.com" ? origin : void 0;
-	} catch {
-		return;
-	}
-}
+// extensions/teams-meetings/src/transports/teams-meetings-platform-adapter.ts
 const TEAMS_MEETINGS_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 	id: "teams-meetings",
 	displayName: "Microsoft Teams meetings",
@@ -501,12 +475,18 @@ const TEAMS_MEETINGS_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 		manualActionReasonPrefix: "teams",
 		retryCaptions: true,
 		unavailableMessage: "Open the OpenClaw browser profile, finish the Teams sign-in, admission, or permission prompt, then retry.",
-		origin: teamsMeetingOrigin,
+		origin: (meetingUrl) => {
+			try {
+				const origin = new URL(meetingUrl).origin;
+				return origin === "https://teams.microsoft.com" || origin === "https://teams.live.com" ? origin : void 0;
+			} catch {
+				return;
+			}
+		},
 		scripts: teamsMeetingPageScripts
 	})
 });
-//#endregion
-//#region extensions/teams-meetings/index.ts
+// extensions/teams-meetings/index.ts
 const teamsMeetingsPlugin = MeetingPlatformAdapter.defineBrowserMeetingPlugin({
 	platform: TEAMS_MEETINGS_PLATFORM_ADAPTER,
 	labels: {
@@ -521,7 +501,7 @@ const teamsMeetingsPlugin = MeetingPlatformAdapter.defineBrowserMeetingPlugin({
 		defaultRealtimeInstructions: `You are joining a private Microsoft Teams meeting as an OpenClaw voice transport. Keep spoken replies brief and natural. In agent mode, wait for OpenClaw consult results and speak them exactly. In bidi mode, answer directly and call ${REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME} for deeper reasoning, current information, or tools.`,
 		resolveGatewayOperationTimeoutMs: (config) => Math.max(6e4, addTimerTimeoutGraceMs(config.chrome.joinTimeoutMs, 3e4) ?? 1)
 	},
-	InvalidRequestError: TeamsMeetingsInvalidRequestError,
+	InvalidRequestError: class TeamsMeetingsInvalidRequestError extends Error {},
 	toolUrlDescription: "Microsoft Teams meeting URL",
 	transcriptSource: {
 		id: "teams",
@@ -568,5 +548,4 @@ const teamsMeetingsPlugin = MeetingPlatformAdapter.defineBrowserMeetingPlugin({
 	}
 });
 var teams_meetings_default = teamsMeetingsPlugin.plugin;
-//#endregion
 export { teams_meetings_default as default, teamsMeetingsPlugin };

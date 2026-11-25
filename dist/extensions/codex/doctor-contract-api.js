@@ -1,8 +1,11 @@
-import { i as CODEX_APP_SERVER_BINDING_NAMESPACE } from "./.setup/session-binding-meta-Lkm5Lpf4.mjs";
+import { i as CODEX_APP_SERVER_BINDING_NAMESPACE } from "./.setup/session-binding-meta-BczSY5Qt.mjs";
 import { asNullableRecord, asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { createHash } from "node:crypto";
+import { statSync } from "node:fs";
+import path from "node:path";
+import { resolveConfigDir, resolveUserPath } from "openclaw/plugin-sdk/text-utility-runtime";
 import { setImmediate } from "node:timers/promises";
-//#region extensions/codex/src/migration/session-binding-orphans.ts
+// extensions/codex/src/migration/session-binding-orphans.ts
 const PAGE_SIZE = 512;
 const KEY_PREFIXES = ["session-key:", "session:"];
 function readBindingCandidate(row, prefix) {
@@ -75,6 +78,7 @@ const codexOrphanedSessionBindingMigration = {
 	label: "Codex app-server orphaned session bindings",
 	doctorOnly: true,
 	phase: "after-session-repair",
+	collectBackupResources: () => [],
 	async detectLegacyState(params) {
 		for await (const _ of iterateOrphanBindingPages(params)) return { preview: ["- Codex app-server bindings: remove orphaned session ownership"] };
 		return null;
@@ -98,10 +102,28 @@ const codexOrphanedSessionBindingMigration = {
 		};
 	}
 };
-//#endregion
-//#region extensions/codex/doctor-contract-api.ts
+// extensions/codex/doctor-contract-api.ts
+function isStaleManagedCodexGenerationCommand(command) {
+	if (typeof command !== "string") return false;
+	const trimmed = command.trim();
+	if (!path.isAbsolute(trimmed) && !/^~[/\\]/u.test(trimmed)) return false;
+	if (trimmed.split(path.sep === "\\" ? /[/\\]/u : "/").includes("..")) return false;
+	try {
+		const projectsDir = path.join(resolveConfigDir(process.env), "npm", "projects");
+		const [name, child] = path.relative(projectsDir, resolveUserPath(trimmed)).split(path.sep);
+		if (!name || !child || !/^openclaw-codex-8902d781d4__openclaw-generation__g-[a-f0-9]{16}$/u.test(name)) return false;
+		statSync(path.join(projectsDir, name));
+	} catch (error) {
+		const code = asNullableRecord(error)?.code;
+		return code === "ENOENT" || code === "ENOTDIR";
+	}
+	return false;
+}
 function hasRetiredDynamicToolsProfile(value) {
 	return Object.hasOwn(asNullableRecord(value) ?? {}, "codexDynamicToolsProfile");
+}
+function hasRetiredCyberFailoverModel(value) {
+	return Object.hasOwn(asNullableRecord(value) ?? {}, "model");
 }
 function hasLegacyPluginDestructivePolicy(value) {
 	const codexPlugins = asNullableRecord(value);
@@ -128,7 +150,22 @@ function hasRetiredTurnIdleTimeout(value) {
 	const appServer = asNullableRecord(value);
 	return appServer !== null && RETIRED_TURN_IDLE_TIMEOUT_KEYS.some((key) => Object.hasOwn(appServer, key));
 }
+function hasRetiredLoopDetectionRelay(value) {
+	return Object.hasOwn(asNullableRecord(value) ?? {}, "loopDetectionPreToolUseRelay");
+}
 const legacyConfigRules = [
+	{
+		path: [
+			"plugins",
+			"entries",
+			"codex",
+			"config",
+			"appServer",
+			"cyberFailover"
+		],
+		message: "plugins.entries.codex.config.appServer.cyberFailover.model is retired; automatic cyber-policy retries use the active model through approved Daybreak access. Run \"openclaw doctor --fix\" to remove it.",
+		match: hasRetiredCyberFailoverModel
+	},
 	{
 		path: [
 			"plugins",
@@ -180,6 +217,17 @@ const legacyConfigRules = [
 			"config",
 			"appServer"
 		],
+		message: "plugins.entries.codex.config.appServer.loopDetectionPreToolUseRelay is retired; OpenClaw no longer runs loop detection from Codex PreToolUse hooks. Run \"openclaw doctor --fix\" to remove it.",
+		match: hasRetiredLoopDetectionRelay
+	},
+	{
+		path: [
+			"plugins",
+			"entries",
+			"codex",
+			"config",
+			"appServer"
+		],
 		message: "Blank plugins.entries.codex.config.appServer.networkProxy.profileName or appServer.remoteWorkspaceRoot must be removed to use the defaults with network restrictions. Run \"openclaw doctor --fix\".",
 		match: hasBlankNetworkProxyOptionalFields
 	}
@@ -192,7 +240,8 @@ function normalizeCompatibilityConfig({ cfg }) {
 	const rawPluginConfig = asNullableRecord(rawEntry?.config);
 	const rawCodexPlugins = asNullableRecord(rawPluginConfig?.codexPlugins);
 	const rawAppServer = asNullableRecord(rawPluginConfig?.appServer);
-	if (!rawPluginConfig || !hasRetiredDynamicToolsProfile(rawPluginConfig) && !hasLegacyPluginDestructivePolicy(rawCodexPlugins) && !hasRetiredApprovalPolicy(rawAppServer) && !hasRetiredTurnIdleTimeout(rawAppServer) && !hasBlankNetworkProxyOptionalFields(rawAppServer)) return {
+	const hasStaleManagedCodexGenerationCommand = isStaleManagedCodexGenerationCommand(rawAppServer?.command);
+	if (!rawPluginConfig || !hasRetiredDynamicToolsProfile(rawPluginConfig) && !hasLegacyPluginDestructivePolicy(rawCodexPlugins) && !hasRetiredApprovalPolicy(rawAppServer) && !hasRetiredTurnIdleTimeout(rawAppServer) && !hasRetiredLoopDetectionRelay(rawAppServer) && !hasRetiredCyberFailoverModel(rawAppServer?.cyberFailover) && !hasBlankNetworkProxyOptionalFields(rawAppServer) && !hasStaleManagedCodexGenerationCommand) return {
 		config: cfg,
 		changes: []
 	};
@@ -214,11 +263,24 @@ function normalizeCompatibilityConfig({ cfg }) {
 		changes.push("Renamed plugins.entries.codex.config.codexPlugins allow_destructive_actions=\"on-request\" values to \"auto\".");
 	}
 	const nextAppServer = asNullableRecord(nextPluginConfig.appServer);
+	if (nextAppServer && hasStaleManagedCodexGenerationCommand) {
+		delete nextAppServer.command;
+		changes.push("Removed plugins.entries.codex.config.appServer.command; it pointed into an OpenClaw-managed Codex plugin generation that no longer exists. Without it, stdio Codex app-server starts use managed binary selection (or OPENCLAW_CODEX_APP_SERVER_BIN when set).");
+	}
+	const nextCyberFailover = asNullableRecord(nextAppServer?.cyberFailover);
+	if (nextCyberFailover && hasRetiredCyberFailoverModel(nextCyberFailover)) {
+		delete nextCyberFailover.model;
+		changes.push("Removed retired plugins.entries.codex.config.appServer.cyberFailover.model; automatic cyber-policy retries use the active model through approved Daybreak access. Existing mode and cooloffMs settings were not changed.");
+	}
 	if (nextAppServer && hasRetiredTurnIdleTimeout(nextAppServer)) {
 		for (const key of RETIRED_TURN_IDLE_TIMEOUT_KEYS) if (Object.hasOwn(nextAppServer, key)) {
 			delete nextAppServer[key];
 			changes.push(`Removed retired plugins.entries.codex.config.appServer.${key}; native Codex owns provider liveness and turn completion. agents.defaults.timeoutSeconds was not changed.`);
 		}
+	}
+	if (nextAppServer && hasRetiredLoopDetectionRelay(nextAppServer)) {
+		delete nextAppServer.loopDetectionPreToolUseRelay;
+		changes.push("Removed retired plugins.entries.codex.config.appServer.loopDetectionPreToolUseRelay; the tool repeat guard runs in the OpenClaw agent loop.");
 	}
 	if (nextAppServer && hasBlankNetworkProxyOptionalFields(nextAppServer)) {
 		const nextNetworkProxy = asNullableRecord(nextAppServer.networkProxy);
@@ -248,15 +310,17 @@ const stateMigrations = [
 	{
 		id: "codex-app-server-sidecars-to-plugin-state",
 		label: "Codex app-server thread bindings",
-		detectLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-D0c8mmZ9.mjs")).detectLegacySessionBindingSidecars(params),
-		migrateLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-D0c8mmZ9.mjs")).migrateLegacySessionBindingSidecars(params)
+		collectBackupResources: async (params) => (await import("./.setup/session-binding-sidecars-DPQAWL9D.mjs")).collectLegacySessionBindingBackupResources(params),
+		detectLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-DPQAWL9D.mjs")).detectLegacySessionBindingSidecars(params),
+		migrateLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-DPQAWL9D.mjs")).migrateLegacySessionBindingSidecars(params)
 	},
 	{
 		id: "codex-native-task-assignments",
 		label: "Codex native pending assignments",
-		collectBackupResources: async (params) => (await import("./.setup/native-task-assignments-lgVSDkci.mjs")).codexNativeTaskAssignmentMigration.collectBackupResources(params),
-		detectLegacyState: async (params) => (await import("./.setup/native-task-assignments-lgVSDkci.mjs")).codexNativeTaskAssignmentMigration.detectLegacyState(params),
-		migrateLegacyState: async (params) => (await import("./.setup/native-task-assignments-lgVSDkci.mjs")).codexNativeTaskAssignmentMigration.migrateLegacyState(params)
+		sqliteOnly: { family: "state" },
+		collectBackupResources: async (params) => (await import("./.setup/native-task-assignments-DwAV3GDo.mjs")).codexNativeTaskAssignmentMigration.collectBackupResources(params),
+		detectLegacyState: async (params) => (await import("./.setup/native-task-assignments-DwAV3GDo.mjs")).codexNativeTaskAssignmentMigration.detectLegacyState(params),
+		migrateLegacyState: async (params) => (await import("./.setup/native-task-assignments-DwAV3GDo.mjs")).codexNativeTaskAssignmentMigration.migrateLegacyState(params)
 	},
 	{
 		id: "codex-native-assignment-repair",
@@ -264,10 +328,9 @@ const stateMigrations = [
 		doctorOnly: true,
 		phase: "after-session-repair",
 		collectBackupResources: () => [],
-		detectLegacyState: async (params) => (await import("./.setup/native-assignment-repair-4eLz6x5k.mjs")).codexNativeAssignmentRepair.detectLegacyState(params),
-		migrateLegacyState: async (params) => (await import("./.setup/native-assignment-repair-4eLz6x5k.mjs")).codexNativeAssignmentRepair.migrateLegacyState(params)
+		detectLegacyState: async (params) => (await import("./.setup/native-assignment-repair-XhrFIYBo.mjs")).codexNativeAssignmentRepair.detectLegacyState(params),
+		migrateLegacyState: async (params) => (await import("./.setup/native-assignment-repair-XhrFIYBo.mjs")).codexNativeAssignmentRepair.migrateLegacyState(params)
 	},
 	codexOrphanedSessionBindingMigration
 ];
-//#endregion
 export { legacyConfigRules, normalizeCompatibilityConfig, stateMigrations };

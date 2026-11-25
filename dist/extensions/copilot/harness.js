@@ -1,2 +1,1 @@
-import { t as createCopilotAgentHarness } from "./.setup/harness-Je_2Cj-D.mjs";
-export { createCopilotAgentHarness };
+export { t as createCopilotAgentHarness } from "./.setup/harness-Xl8T8Yuu.mjs";

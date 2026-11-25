@@ -1,0 +1,3 @@
+import{x as isCronSessionKey}from"./session-key-C6YO7qUA.mjs";
+//!src/sessions/classify-session-kind.ts
+function classifySessionKind(e,t){if(e===`global`)return`global`;if(e===`unknown`)return`unknown`;if(isCronSessionKey(e))return`cron`;if(t?.spawnedBy)return`spawn-child`;if(t?.chatType===`group`||t?.chatType===`channel`)return`group`;if(e.includes(`:group:`)||e.includes(`:channel:`))return`group`;return`direct`}export{classifySessionKind as t};

@@ -1,0 +1,1 @@
+import{t as e}from"./code-mode-node.worker-subsystem-DohX1uMv.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

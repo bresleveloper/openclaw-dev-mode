@@ -1,10 +1,10 @@
-import { n as CHUTES_MODEL_CATALOG, r as discoverChutesModels, t as CHUTES_BASE_URL } from "./.setup/models-mN33VNCv.mjs";
-//#region extensions/chutes/provider-catalog.ts
+import { n as CHUTES_MODEL_CATALOG, r as discoverChutesModels, t as CHUTES_BASE_URL } from "./.setup/models-DnSR_ZQn.mjs";
+// extensions/chutes/provider-catalog.ts
 function buildStaticChutesProvider() {
 	return {
 		baseUrl: CHUTES_BASE_URL,
 		api: "openai-completions",
-		models: structuredClone(CHUTES_MODEL_CATALOG)
+		models: CHUTES_MODEL_CATALOG
 	};
 }
 async function buildChutesProvider(accessToken, options = {}) {
@@ -14,5 +14,4 @@ async function buildChutesProvider(accessToken, options = {}) {
 		models: await discoverChutesModels(accessToken, options)
 	};
 }
-//#endregion
 export { buildChutesProvider, buildStaticChutesProvider };

@@ -1,2 +1,1 @@
-import { n as ok, t as err } from "../result-BQGgYouL.mjs";
-export { err, ok };
+import{n as ok,t as err}from"../result-CkiK_t2O.mjs";export{err,ok};

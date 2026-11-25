@@ -74,6 +74,14 @@ export class LegacyMigrationSourceClaim<
     return await this.params.readSnapshot(claimed ? this.claimPath : this.sourcePath);
   }
 
+  async verify(snapshot: TSnapshot, mismatchMessage: string, claimed = false): Promise<TSnapshot> {
+    const current = await this.read(claimed);
+    if (!legacyMigrationSourceSnapshotsMatch(current, snapshot)) {
+      throw new Error(mismatchMessage);
+    }
+    return current;
+  }
+
   /** Roll back a link publication interrupted before its source name was removed. */
   async recoverLinkedMove(): Promise<void> {
     await recoverLegacyMigrationLinkedMove(
@@ -134,11 +142,7 @@ export class LegacyMigrationSourceClaim<
       this.sourceRelativePath,
       this.claimRelativePath,
     );
-    const claimed = await this.read(true);
-    if (!legacyMigrationSourceSnapshotsMatch(claimed, params.snapshot)) {
-      throw new Error(params.mismatchMessage);
-    }
-    return claimed;
+    return await this.verify(params.snapshot, params.mismatchMessage, true);
   }
 
   /** Drain both receipt-retired names through the caller's safe reader before removing them. */
@@ -216,14 +220,15 @@ export async function claimLegacyMigrationSourceClaims<
   TSnapshot extends LegacyMigrationSourceIdentity,
 >(
   claims: readonly { claim: LegacyMigrationSourceClaim<TSnapshot>; snapshot: TSnapshot }[],
-  params: { beforeClaim?: () => void; mismatchMessage: string },
+  beforeClaim?: () => void,
 ): Promise<void> {
-  params.beforeClaim?.();
+  beforeClaim?.();
+  const mismatchMessage = "legacy Web Push source changed before doctor could claim it";
   const claimed: LegacyMigrationSourceClaim<TSnapshot>[] = [];
   try {
     for (const { claim, snapshot } of claims) {
       claimed.push(claim);
-      await claim.claim({ snapshot, mismatchMessage: params.mismatchMessage });
+      await claim.claim({ snapshot, mismatchMessage });
     }
   } catch (error) {
     const restoreErrors = await restoreLegacyMigrationSourceClaims(claimed);
@@ -307,14 +312,14 @@ export function readLegacyMigrationSourceSnapshotSync(params: {
     filePath: params.followSymlinks ? fs.realpathSync(params.sourcePath) : params.sourcePath,
     maxBytes: params.maxBytes,
   });
-  const raw = decodeUtf8Input(buffer, `Legacy ${params.label} source`);
+  const raw = buffer.toString("utf8");
   return {
     buffer,
     dev: exactIdentity.dev,
     ino: exactIdentity.ino,
     mtimeMs: stat.mtimeMs,
     raw,
-    sha256: createHash("sha256").update(raw).digest("hex"),
+    sha256: createHash("sha256").update(buffer).digest("hex"),
     size: buffer.byteLength,
     sourcePath: params.sourcePath,
   };
@@ -344,7 +349,6 @@ export function claimAndRemoveLegacyMigrationSource(params: {
   snapshot: LegacyMigrationSourceSnapshot;
   label: string;
   followSymlinks?: boolean;
-  maxBytes?: number;
   beforeClaim?: () => void;
   beforeRestore?: () => void;
   removeSource?: (sourcePath: string) => void;

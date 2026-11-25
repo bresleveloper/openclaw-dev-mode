@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString,l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{n as getLoadedChannelPluginById}from"./registry-loaded-C9YuqxCT.mjs";
+//!src/auto-reply/reply/channel-context.ts
+function resolveCommandSurfaceChannel(e){const t=e.ctx.OriginatingChannel??e.command.channel??e.ctx.Surface??e.ctx.Provider;return normalizeOptionalLowercaseString(t)??``}function resolveChannelAccountId(e){const t=normalizeOptionalString(e.ctx.AccountId)??``;if(t)return t;const n=resolveCommandSurfaceChannel(e);const r=getLoadedChannelPluginById(n);return normalizeOptionalString(r?.config.defaultAccountId?.(e.cfg))||`default`}export{resolveCommandSurfaceChannel as n,resolveChannelAccountId as t};

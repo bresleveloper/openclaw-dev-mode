@@ -1,5 +1,5 @@
-import { Mg as PluginRuntime, _x as readChannelAllowFromStoreSync, sD as ChannelPairingAdapter, wA as ChannelId, yx as readChannelAllowFromStore } from "../config-contracts-CY87ANNp.js";
-//#region src/pairing/pairing-challenge.d.ts
+import { Dk as readChannelAllowFromStore, IA as ChannelPairingAdapter, J as PluginRuntime, Tk as readChannelAllowFromStoreSync } from "../config-contracts-hzlacViZ.js";
+import { m as ChannelId } from "../manifest-registry-CNNq5Vj2.js";
 type PairingMeta = Record<string, string | undefined>;
 type PairingChallengeParams = {
   channel: string;
@@ -32,8 +32,6 @@ declare function issuePairingChallenge(params: PairingChallengeParams): Promise<
   created: boolean;
   code?: string;
 }>;
-//#endregion
-//#region src/plugin-sdk/pairing-access.d.ts
 type PairingApi = PluginRuntime["channel"]["pairing"];
 type ScopedUpsertInput = Omit<Parameters<PairingApi["upsertPairingRequest"]>[0], "channel" | "accountId">;
 /** Scope pairing store operations to one channel/account pair for plugin-facing helpers. */
@@ -62,8 +60,6 @@ declare function createScopedPairingAccess(params: {
     created: boolean;
   }>;
 };
-//#endregion
-//#region src/channels/plugins/pairing-adapters.d.ts
 type PairingNotifyParams = Parameters<NonNullable<ChannelPairingAdapter["notifyApproval"]>>[0];
 export declare function createPairingPrefixStripper(prefixRe: RegExp, map?: (entry: string) => string): NonNullable<ChannelPairingAdapter["normalizeAllowEntry"]>;
 export declare function createLoggedPairingApprovalNotifier(format: string | ((params: PairingNotifyParams) => string), log?: (message: string) => void): NonNullable<ChannelPairingAdapter["notifyApproval"]>;
@@ -75,8 +71,6 @@ export declare function createTextPairingAdapter(params: {
     message: string;
   }) => Promise<void> | void;
 }): ChannelPairingAdapter;
-//#endregion
-//#region src/plugin-sdk/channel-pairing.d.ts
 type ScopedPairingAccess = ReturnType<typeof createScopedPairingAccess>;
 /** Pairing helpers scoped to one channel account. */
 export type ChannelPairingController = ScopedPairingAccess & {
@@ -106,5 +100,4 @@ export declare function createChannelPairingController(params: {
   /** Channel account id normalized before pairing store access. */
   accountId: string;
 }): ChannelPairingController;
-//#endregion
 export { readChannelAllowFromStore, readChannelAllowFromStoreSync };

@@ -1,0 +1,2 @@
+//!extensions/browser/src/browser/cdp-fetch-interception.ts
+function isRetiredFetchInterceptionError(e){return e instanceof Error&&e.message.includes(`Invalid InterceptionId`)}export{isRetiredFetchInterceptionError as t};

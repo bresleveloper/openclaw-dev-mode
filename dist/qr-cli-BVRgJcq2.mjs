@@ -1,0 +1,1 @@
+import{t as registerQrCli}from"./qr-cli-DY0YVzFT.mjs";export{registerQrCli};

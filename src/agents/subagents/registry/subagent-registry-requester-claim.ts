@@ -22,16 +22,7 @@ export async function acknowledgeSubagentResultForRequesterTurn(params: {
   requesterTurnRunId: string;
 }): Promise<void> {
   const assertCurrent = captureGatewayToolCallerAssertion();
-  const caller = getGatewayToolCallerIdentity();
-  const instance = caller?.operationalRunInstance;
-  if (
-    caller &&
-    (caller.agentId !== params.requesterAgentId ||
-      caller.sessionKey !== params.requesterSessionKey ||
-      (instance && instance.runId !== params.requesterTurnRunId))
-  ) {
-    throw new Error("Inline child result differs from its admitted requester turn.");
-  }
+  const instance = getGatewayToolCallerIdentity()?.operationalRunInstance;
   const accepted = await mutateSubagentRuns(
     [params.runId],
     (rows) => {
@@ -109,17 +100,15 @@ export async function reconcileRequesterTurnClaimForRun(params: {
   }
   return subagentRuns.runWithCompletionBatchAuthority(entries, async () => {
     const custody = await captureOperatorToolGatewayContinuationContext();
-    if (!custody) {
-      throw new Error("Committed requester claim has no retained completion custody");
-    }
+    const assertCurrent = custody?.assertCurrent ?? captureGatewayToolCallerAssertion();
     try {
       const current = ownedEntries();
       if (!current.includes(acceptedEntry)) {
         return false;
       }
       // The transfer owns row retirement; retain source custody independently of those rows.
-      return await subagentRuns.runWithCompletionBatchAuthority(current, () =>
-        custody.run(() =>
+      return await subagentRuns.runWithCompletionBatchAuthority(current, () => {
+        const settle = () =>
           settleRequesterAfterSessionSpawns({
             ...params,
             requesterTurnRunId,
@@ -129,12 +118,12 @@ export async function reconcileRequesterTurnClaimForRun(params: {
               childSessionKey: entry.childSessionKey,
               expectsCompletionMessage: true,
             })),
-            assertCurrent: custody.assertCurrent,
-          }),
-        ),
-      );
+            assertCurrent: () => assertCurrent?.(),
+          });
+        return custody ? custody.run(settle) : settle();
+      });
     } finally {
-      custody.release();
+      custody?.release();
     }
   });
 }

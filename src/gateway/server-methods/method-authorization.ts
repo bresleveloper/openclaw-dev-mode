@@ -4,6 +4,7 @@ import {
   missingScopeErrorShape,
   type ErrorShape,
 } from "../../../packages/gateway-protocol/src/index.js";
+import { operatorScopeSatisfied } from "../../shared/operator-scope-compat.js";
 import {
   resolveSessionMethodScope,
   type SessionOperatorScope,
@@ -14,16 +15,48 @@ import {
   ADMIN_SCOPE,
   authorizeOperatorScopesForMethod,
   authorizeOperatorScopesForRequiredScope,
+  resolveAgentRuntimeCronScope,
   resolveLeastPrivilegeOperatorScopesForMethod,
 } from "../method-scopes.js";
 import type { GatewayMethodRegistryView } from "../methods/descriptor.js";
+import { isHostPluginApprovalCall } from "../operator-approval-authorization.js";
 import {
   authorizeCurrentOperatorRoleScopes,
   resolveGatewayOperatorRoleActor,
 } from "../operator-role-policy.js";
-import { isOperatorScope } from "../operator-scopes.js";
+import { APPROVALS_SCOPE, isOperatorScope } from "../operator-scopes.js";
 import { isRoleAuthorizedForMethod, parseGatewayRole } from "../role-policy.js";
+import { isDirectCronOwnerClient, isHumanCronMutation } from "./cron-human-owner.js";
 import type { GatewayRequestContext, GatewayRequestOptions } from "./shared-types.js";
+
+/** Resolve the grant's dispatch ceiling without rechecking source or role liveness. */
+export function authorizeGatewayMethodScopes(
+  method: string,
+  scopes: readonly string[],
+  params: unknown,
+  methodRegistry: GatewayMethodRegistryView,
+) {
+  const registeredScope = methodRegistry.getScope(method);
+  let scopeAuth = isOperatorScope(registeredScope)
+    ? authorizeOperatorScopesForRequiredScope(
+        registeredScope,
+        scopes,
+        methodRegistry.getSessionAccess?.(method)?.allowOwnSessionScope
+          ? "operator.sessions.write"
+          : resolveSessionMethodScope(method, params),
+        method,
+      )
+    : authorizeOperatorScopesForMethod(method, scopes, params);
+  if (!scopeAuth.allowed && isInProcessSessionRun(method, params)) {
+    scopeAuth = authorizeOperatorScopesForRequiredScope(
+      scopeAuth.missingScope,
+      scopes,
+      "operator.sessions.write",
+      method,
+    );
+  }
+  return scopeAuth;
+}
 
 export function authorizeGatewayMethod(
   method: string,
@@ -70,25 +103,15 @@ export function authorizeGatewayMethod(
     return { error: null };
   }
   const registeredScope = methodRegistry.getScope(method);
-  let scopeAuth = isOperatorScope(registeredScope)
-    ? authorizeOperatorScopesForRequiredScope(
-        registeredScope,
-        scopes,
-        methodRegistry.getSessionAccess?.(method)?.allowOwnSessionScope
-          ? "operator.sessions.write"
-          : resolveSessionMethodScope(method, params),
-        method,
-      )
-    : authorizeOperatorScopesForMethod(method, scopes, params);
-  if (!scopeAuth.allowed && isInProcessSessionRun(method, params)) {
-    scopeAuth = authorizeOperatorScopesForRequiredScope(
-      scopeAuth.missingScope,
-      scopes,
-      "operator.sessions.write",
-      method,
-    );
+  if (registeredScope === APPROVALS_SCOPE && isHostPluginApprovalCall(method, client)) {
+    return { error: null };
   }
+  const scopeAuth = authorizeGatewayMethodScopes(method, scopes, params, methodRegistry);
   if (!scopeAuth.allowed) {
+    // Handlers recheck the stored human owner at the mutation commit boundary.
+    if (isHumanCronMutation(method) && isDirectCronOwnerClient(client)) {
+      return { error: null };
+    }
     // A configured channel owner's automation management runs without operator.admin; its
     // one-use grant, bound to this method and run, is the admitted authority instead.
     const runtimeIdentity = client.internal?.agentRuntimeIdentity;
@@ -96,6 +119,12 @@ export function authorizeGatewayMethod(
       runtimeIdentity?.cronManagementGrant &&
       holdsCronManagementGrant(runtimeIdentity.cronManagementGrant, runtimeIdentity, method)
     ) {
+      return { error: null };
+    }
+    // Only an authenticated agent runtime supplies the conversation/account boundary
+    // enforced by the cron handlers. Other global scheduler mutations remain admin-only.
+    const cronScope = runtimeIdentity && resolveAgentRuntimeCronScope(method);
+    if (cronScope && operatorScopeSatisfied(cronScope, scopes)) {
       return { error: null };
     }
     const resolvedRequiredScopes = isOperatorScope(registeredScope)

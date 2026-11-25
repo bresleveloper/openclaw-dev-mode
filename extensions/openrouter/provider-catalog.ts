@@ -1,8 +1,5 @@
 import { normalizeOpenRouterModelPricing } from "openclaw/plugin-sdk/model-catalog-pricing";
-import {
-  buildLiveModelProviderConfig,
-  type LiveModelCatalogFetchGuard,
-} from "openclaw/plugin-sdk/provider-catalog-live-runtime";
+import { buildLiveModelProviderConfig } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { normalizeOpenRouterModelReasoning } from "openclaw/plugin-sdk/provider-catalog-shared";
 import {
   normalizeBaseUrl,
@@ -111,7 +108,7 @@ export function buildOpenrouterProvider(): ModelProviderConfig {
       {
         id: OPENROUTER_DEFAULT_MODEL_ID,
         name: "OpenRouter Auto",
-        reasoning: false,
+        reasoning: true,
         input: ["text", "image"],
         cost: OPENROUTER_DEFAULT_COST,
         contextWindow: OPENROUTER_DEFAULT_CONTEXT_WINDOW,
@@ -197,7 +194,6 @@ export async function buildOpenrouterLiveProvider(params: {
   discoveryApiKey?: string;
   baseUrl?: string;
   request?: ModelProviderConfig["request"];
-  fetchGuard?: LiveModelCatalogFetchGuard;
   signal?: AbortSignal;
 }): Promise<ModelProviderConfig> {
   const fallback = buildOpenrouterProvider();
@@ -230,7 +226,7 @@ export async function buildOpenrouterLiveProvider(params: {
     apiKey: params.apiKey,
     discoveryApiKey: params.discoveryApiKey,
     fetchGuard: async (fetchParams) =>
-      await (params.fetchGuard ?? fetchWithSsrFGuard)({
+      await fetchWithSsrFGuard({
         ...fetchParams,
         ...(requestConfig.dispatcherPolicy
           ? { dispatcherPolicy: requestConfig.dispatcherPolicy }

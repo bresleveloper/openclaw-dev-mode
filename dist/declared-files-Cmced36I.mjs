@@ -1,0 +1,3 @@
+import{m as resolveExtraBootstrapPatterns}from"./workspace-bootstrap-policy-a14KYB-P.mjs";import{s as loadExtraBootstrapFilesWithDiagnostics}from"./workspace-aajMBPX8.mjs";
+//!src/hooks/bundled/bootstrap-extra-files/declared-files.ts
+async function loadDeclaredExtraBootstrapFiles(e){const t=resolveExtraBootstrapPatterns(e.config);if(t.length===0)return{files:[],diagnostics:[]};return loadExtraBootstrapFilesWithDiagnostics(e.workspaceDir,t)}export{loadDeclaredExtraBootstrapFiles as t};

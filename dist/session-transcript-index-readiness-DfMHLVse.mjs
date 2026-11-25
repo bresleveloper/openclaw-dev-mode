@@ -1,0 +1,3 @@
+import{L as readSqliteDatabaseWriteTokenForPath,T as publishSqliteDatabaseAdmission,o as getOrLoadSqliteDatabaseAdmissionForPath}from"./sqlite-database-admission-BVeAafOy.mjs";
+//!src/config/sessions/session-transcript-index-readiness.ts
+const readiness={name:`session-transcript-index-readiness`,schemaDependent:true,read:e=>typeof e===`string`?e:void 0};function isSessionTranscriptIndexReady(e){const t=readSqliteDatabaseWriteTokenForPath(e);return t!==void 0&&getOrLoadSqliteDatabaseAdmissionForPath(e,readiness,()=>void 0)===t}function publishSessionTranscriptIndexReady(e,t){const n=readSqliteDatabaseWriteTokenForPath(t);if(n!==void 0)publishSqliteDatabaseAdmission(e,readiness,n)}export{publishSessionTranscriptIndexReady as n,isSessionTranscriptIndexReady as t};

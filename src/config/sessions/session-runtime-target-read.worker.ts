@@ -1,34 +1,65 @@
 import { withOpenClawAgentDatabaseReadOnly } from "../../state/openclaw-agent-db-readonly.js";
+import {
+  readSessionEntrySelectionInDatabase,
+  readSessionKeyBySessionIdInDatabase,
+} from "./session-accessor.sqlite-entry-read.js";
+import { resolveSqliteScope } from "./session-accessor.sqlite-read-scope.js";
 import { resolveSqliteSessionKey } from "./session-accessor.sqlite-scope-helpers.js";
+import { readWithCanonicalSessionReaderContinuation } from "./session-canonical-key.js";
 import { captureSessionEntryReadSource } from "./session-entry-read-source.js";
 import type {
   SessionRuntimeTargetWorkerInput,
   SessionRuntimeTargetWorkerResult,
 } from "./session-entry-read.types.js";
 
-/** Resolve a private transcript target without loading broad entry hydration. */
-export async function readSessionRuntimeTargetWorkerRequest(
+/** Runtime targets consume the existing reader without importing the caller's memory/write adapters. */
+export function readSessionRuntimeTargetWorkerRequest(
   request: SessionRuntimeTargetWorkerInput,
-): Promise<SessionRuntimeTargetWorkerResult> {
-  const { readSessionTranscriptRuntimeTarget } =
-    await import("./session-accessor.transcript-target.js");
+): SessionRuntimeTargetWorkerResult {
   const read = withOpenClawAgentDatabaseReadOnly(
-    (database) => ({
-      target: readSessionTranscriptRuntimeTarget(
-        request.scope,
-        {
-          keyFormat: request.keyFormat,
-          databaseAgentId: request.database.agentId,
-          continuation: request.continuation,
+    (database) => {
+      const { agentId, sessionId, storePath } = request.scope;
+      const persistedSessionKey = readSessionKeyBySessionIdInDatabase(database, sessionId);
+      const selected =
+        persistedSessionKey && !request.keyFormat
+          ? undefined
+          : readWithCanonicalSessionReaderContinuation(database, request.continuation, () => {
+              const resolved = resolveSqliteScope({
+                ...request.scope,
+                sessionKey: persistedSessionKey ?? request.scope.sessionKey,
+                storePath: undefined,
+              });
+              const row = readSessionEntrySelectionInDatabase(
+                database,
+                resolved.agentId,
+                resolved.sessionKey,
+                { keyFormat: request.keyFormat, allowCanonicalMove: !persistedSessionKey },
+              );
+              return {
+                existing: row?.entry ?? undefined,
+                normalizedKey: row?.row.session_key ?? resolved.sessionKey,
+              };
+            });
+      return {
+        target: {
+          agentId,
+          sessionId,
+          sessionKey: persistedSessionKey ?? selected?.normalizedKey ?? request.scope.sessionKey,
+          storePath,
+          ...(request.keyFormat
+            ? {
+                selectedSessionId: selected?.existing?.sessionId ?? null,
+                selectedLifecycleRevision: selected?.existing?.lifecycleRevision ?? null,
+              }
+            : {}),
         },
-        database,
-      ),
-      source: captureSessionEntryReadSource(
-        database,
-        undefined,
-        "Session runtime target requires its current durable owner",
-      ),
-    }),
+        source: captureSessionEntryReadSource(
+          database,
+          undefined,
+          "Session runtime target requires its current durable owner",
+        ),
+      };
+    },
     { ...request.database, env: request.scope.env },
   );
   return {

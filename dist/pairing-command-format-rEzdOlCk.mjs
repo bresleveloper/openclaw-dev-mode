@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{t as formatCliCommand}from"./command-format-vlx1VIWT.mjs";import{t as quoteCliArg}from"./quote-cli-arg-BUHoGELl.mjs";
+//!src/cli/pairing-command-format.ts
+function formatPairingApproveCommand(e,t,n={}){const r=[`openclaw`,e,`approve`,t];const i=normalizeOptionalString(n.url);if(i)r.push(`--url`,i);const a=normalizeOptionalString(n.timeout);if(a&&a!==`10000`)r.push(`--timeout`,a);if(n.json===true)r.push(`--json`);return formatCliCommand(r.map(quoteCliArg).join(` `))}export{formatPairingApproveCommand as t};

@@ -1,0 +1,1 @@
+import{t as e}from"./worker-chunk-C87cs4ws.mjs";import{n as t,r as n,t as r}from"./worker-chunk-CeF-mfhI.mjs";r();export{e as getPluginRuntimeGenerationRegistry,t as runOutsidePluginRuntimeGenerationScope,n as withPluginRuntimeGenerationScope};

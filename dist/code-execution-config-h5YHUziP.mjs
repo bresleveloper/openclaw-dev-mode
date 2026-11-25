@@ -1,0 +1,3 @@
+import{i as asOptionalObjectRecord}from"./record-coerce-BTbqdJ3-.mjs";import"./string-coerce-runtime-BYDH9Quw.mjs";import{i as resolvePluginConfigObject}from"./plugin-config-runtime-CRnxxh6V.mjs";import{n as isXaiToolEnabled}from"./tool-auth-shared-Cj65cGQA.mjs";
+//!extensions/xai/src/code-execution-config.ts
+function readPluginCodeExecutionConfig(e){return asOptionalObjectRecord(resolvePluginConfigObject(e,`xai`)?.codeExecution)}function resolveCodeExecutionEnabled(e){return isXaiToolEnabled({enabled:e.config?.enabled,runtimeConfig:e.runtimeConfig,sourceConfig:e.sourceConfig,auth:e.auth})}export{resolveCodeExecutionEnabled as n,readPluginCodeExecutionConfig as t};

@@ -1,0 +1,2 @@
+//!extensions/browser/src/browser/extension-native-host.constants.ts
+const BROWSER_NATIVE_HOST_NAME=`ai.openclaw.browser_bootstrap`;const BROWSER_NATIVE_HOST_DESCRIPTION=`OpenClaw browser extension bootstrap`;const NATIVE_HOST_MANIFEST_KEYS=[`name`,`description`,`path`,`type`,`allowed_origins`];export{BROWSER_NATIVE_HOST_NAME as n,NATIVE_HOST_MANIFEST_KEYS as r,BROWSER_NATIVE_HOST_DESCRIPTION as t};

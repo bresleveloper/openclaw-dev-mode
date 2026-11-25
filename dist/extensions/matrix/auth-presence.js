@@ -1,7 +1,7 @@
-import { i as normalizeMatrixStoredCredentials, t as MATRIX_CREDENTIALS_NAMESPACE } from "./.setup/credentials-state-B3cuUFwZ.mjs";
+import { i as normalizeMatrixStoredCredentials, t as MATRIX_CREDENTIALS_NAMESPACE } from "./.setup/credentials-state-jxq29yQw.mjs";
 import { createPluginStateKeyedStore, createPluginStateSyncKeyedStore } from "openclaw/plugin-sdk/plugin-state-store-runtime";
-//#region extensions/matrix/auth-presence.ts
-/** @deprecated Use hasAnyMatrixAuthAsync. Final compatibility day: 2026-12-31. */
+// extensions/matrix/auth-presence.ts
+/** @deprecated Use hasAnyMatrixAuthAsync. Final compatibility day: 2026-12-31. Removal in the first January 2027 stable release. */
 function hasAnyMatrixAuth(params, env = process.env) {
 	const resolvedEnv = params && typeof params === "object" && "cfg" in params ? params.env ?? env : env;
 	try {
@@ -28,5 +28,4 @@ async function hasAnyMatrixAuthAsync(params, env = process.env) {
 		return false;
 	}
 }
-//#endregion
 export { hasAnyMatrixAuth, hasAnyMatrixAuthAsync };

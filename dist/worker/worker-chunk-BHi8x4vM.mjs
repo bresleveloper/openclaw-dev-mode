@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{l as t,n}from"./worker-chunk-CHXXUV6W.mjs";function isLegacyCodexProviderId(e){let n=t(e);return n?r.has(n):!1}var r,i=e((()=>{n(),r=/* @__PURE__ */ new Set([`codex`,`openai-codex`])}));export{isLegacyCodexProviderId as n,i as t};

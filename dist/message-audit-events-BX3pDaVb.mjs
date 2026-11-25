@@ -1,0 +1,3 @@
+import{a as resolveGlobalSet}from"./global-singleton-BoQ13xsk.mjs";import{n as notifyListeners,r as registerListener}from"./listeners-awzYn4LE.mjs";
+//!src/audit/message-audit-events.ts
+const listeners=resolveGlobalSet(Symbol.for(`openclaw.messageAuditListeners`),`close-and-restart`);function emitTrustedMessageAuditEvent(e){if(listeners.size===0)return;notifyListeners(listeners,e)}function onTrustedMessageAuditEvent(e){return registerListener(listeners,e)}function hasTrustedMessageAuditListeners(){return listeners.size>0}export{hasTrustedMessageAuditListeners as n,onTrustedMessageAuditEvent as r,emitTrustedMessageAuditEvent as t};

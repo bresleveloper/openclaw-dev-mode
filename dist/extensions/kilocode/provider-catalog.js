@@ -1,6 +1,6 @@
-import { d as discoverKilocodeModels, f as openclaw_plugin_default, t as KILOCODE_BASE_URL } from "./.setup/provider-models-0P0ezPsI.mjs";
+import { d as discoverKilocodeModels, f as openclaw_plugin_default, t as KILOCODE_BASE_URL } from "./.setup/provider-models-BMrrUkX_.mjs";
 import { buildManifestModelProviderConfig } from "openclaw/plugin-sdk/provider-catalog-shared";
-//#region extensions/kilocode/provider-catalog.ts
+// extensions/kilocode/provider-catalog.ts
 function buildKilocodeProvider() {
 	return buildManifestModelProviderConfig({
 		providerId: "kilocode",
@@ -14,5 +14,4 @@ async function buildKilocodeProviderWithDiscovery(options = {}) {
 		models: await discoverKilocodeModels(options)
 	};
 }
-//#endregion
 export { buildKilocodeProvider, buildKilocodeProviderWithDiscovery };

@@ -1,31 +1,18 @@
-//#region extensions/mistral/provider-policy-api.ts
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-DHgrttkQ.mjs";
+// extensions/mistral/provider-policy-api.ts
 const MISTRAL_SMALL_LATEST_ID = "mistral-small-latest";
 const MISTRAL_SMALL_4_ID = "mistral-small-2603";
 const MISTRAL_MEDIUM_3_5_ID = "mistral-medium-3-5";
-const MISTRAL_REASONING_MODEL_IDS = /* @__PURE__ */ new Set([
-	MISTRAL_SMALL_LATEST_ID,
-	MISTRAL_SMALL_4_ID,
-	MISTRAL_MEDIUM_3_5_ID
-]);
-const MISTRAL_THINKING_LEVELS = [
-	["off", "none"],
-	["minimal", "none"],
-	["low", "high"],
-	["medium", "high"],
-	["high", "high"],
-	["xhigh", "high"],
-	["adaptive", "high"],
-	["max", "high"]
-];
-const MISTRAL_REASONING_EFFORT_MAP = Object.fromEntries(MISTRAL_THINKING_LEVELS);
+const REASONING_EFFORT_MAPS = new Map(openclaw_plugin_default.modelCatalog.providers.mistral.models.flatMap((row) => {
+	if (!row.thinkingLevelMap) return [];
+	const { max, ...levels } = row.thinkingLevelMap;
+	return [[row.id, {
+		...levels,
+		adaptive: "high",
+		max
+	}]];
+}));
 function resolveMistralReasoningEffortMap(modelId) {
-	return modelId !== void 0 && MISTRAL_REASONING_MODEL_IDS.has(modelId) ? MISTRAL_REASONING_EFFORT_MAP : void 0;
+	return modelId === void 0 ? void 0 : REASONING_EFFORT_MAPS.get(modelId);
 }
-function resolveThinkingProfile({ modelId }) {
-	return resolveMistralReasoningEffortMap(modelId) ? {
-		levels: MISTRAL_THINKING_LEVELS.map(([id]) => ({ id })),
-		defaultLevel: "off"
-	} : void 0;
-}
-//#endregion
-export { MISTRAL_MEDIUM_3_5_ID, MISTRAL_SMALL_4_ID, MISTRAL_SMALL_LATEST_ID, resolveMistralReasoningEffortMap, resolveThinkingProfile };
+export { MISTRAL_MEDIUM_3_5_ID, MISTRAL_SMALL_4_ID, MISTRAL_SMALL_LATEST_ID, resolveMistralReasoningEffortMap };

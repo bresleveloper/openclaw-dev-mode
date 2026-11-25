@@ -1,0 +1,2 @@
+//!src/shared/incognito-session-key.ts
+const INCOGNITO_SESSION_LIFETIME_MS=864e5;function resolveIncognitoSessionExpiresAt(e){const t=e.createdAt??e.updatedAt;return t===void 0?void 0:t+INCOGNITO_SESSION_LIFETIME_MS}export{resolveIncognitoSessionExpiresAt as t};

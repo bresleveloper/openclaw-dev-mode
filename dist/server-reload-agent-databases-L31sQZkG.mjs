@@ -1,0 +1,3 @@
+import{t as formatErrorMessage}from"./errors-CRXp6JVo.mjs";import{n as captureDeletedAgentDatabaseFences}from"./agent-database-readers-DoURWSMU.mjs";
+//!src/gateway/server-reload-agent-databases.ts
+async function reviveAgentDatabasesAfterConfigCommit(e,t){const n=new Set(captureDeletedAgentDatabaseFences().map(([,e])=>e));const r=e.filter(e=>n.has(e));if(!r.length)return;try{const{reviveAgentDatabases:e}=await import(`./openclaw-agent-db-readers-ChUVFz5V.mjs`);await e(r)}catch(e){t(`agent config committed; worker reader revival will reconcile at next task: ${formatErrorMessage(e)}`)}}export{reviveAgentDatabasesAfterConfigCommit as t};

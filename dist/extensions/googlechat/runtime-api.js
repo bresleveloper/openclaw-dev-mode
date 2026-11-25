@@ -1,2 +1,1 @@
-import { n as setGoogleChatRuntime } from "./.setup/runtime-C5OOOlaP.mjs";
-export { setGoogleChatRuntime };
+export { n as setGoogleChatRuntime } from "./.setup/runtime-zEzHA5rr.mjs";

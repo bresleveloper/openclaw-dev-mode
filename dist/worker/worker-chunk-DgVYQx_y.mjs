@@ -1,1 +1,0 @@
-import{n as e,r as t,t as n}from"./worker-chunk-BN-sXs1L.mjs";e();export{n as formatInstallOwnerMessage,t as readInstallOwner};

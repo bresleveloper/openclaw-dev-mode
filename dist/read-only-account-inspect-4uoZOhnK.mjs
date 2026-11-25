@@ -1,0 +1,3 @@
+import{t as getBundledChannelAccountInspector}from"./bundled-RP2gnUm1.mjs";import{n as getLoadedChannelPlugin}from"./registry-DLUepoZ0.mjs";
+//!src/channels/read-only-account-inspect.ts
+async function inspectReadOnlyChannelAccount(e){const t=getLoadedChannelPlugin(e.channelId)?.config.inspectAccount??getBundledChannelAccountInspector(e.channelId);if(!t)return null;return await t(e.cfg,e.accountId)}export{inspectReadOnlyChannelAccount as t};

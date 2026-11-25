@@ -1,0 +1,3 @@
+import"./session-key-C6YO7qUA.mjs";import{n as normalizeAccountId}from"./account-id-3yqrEsRn.mjs";
+//!src/channels/plugins/media-limits.ts
+const MB=1048576;function resolveChannelMediaMaxBytes(e){const t=normalizeAccountId(e.accountId);const n=e.resolveChannelLimitMb({cfg:e.cfg,accountId:t})||e.cfg.agents?.defaults?.mediaMaxMb;return n?Math.floor(n*MB):void 0}export{resolveChannelMediaMaxBytes as t};

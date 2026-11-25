@@ -1,2 +1,2 @@
-import { It as OpenClawPluginApi, Vh as ProviderAuthContext, Wh as ProviderAuthResult, oC as definePluginEntry } from "../../config-contracts-CY87ANNp.js";
+import { Gt as OpenClawPluginApi, aS as ProviderAuthResult, nS as ProviderAuthContext, vb as definePluginEntry } from "../../config-contracts-hzlacViZ.js";
 export { type OpenClawPluginApi, type ProviderAuthContext, type ProviderAuthResult, definePluginEntry };

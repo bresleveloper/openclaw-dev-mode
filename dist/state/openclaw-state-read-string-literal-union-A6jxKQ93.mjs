@@ -1,0 +1,1 @@
+import{Type as e}from"typebox";function stringLiteralUnion(t){let n=t.map(t=>e.Literal(t));return e.Union(n)}export{stringLiteralUnion as t};

@@ -1,0 +1,3 @@
+import{i as MODEL_CATALOG_THINKING_LEVELS}from"./model-catalog-types-C-uYZJxd.mjs";import{isGoogleGemini3FlashModel,isGoogleGemini3ProModel,isGoogleGemini3ThinkingLevelModel as isGoogleGemini3ThinkingLevelModel$1}from"@openclaw/ai/internal/google-model-family";
+//!src/plugin-sdk/provider-thinking-runtime.ts
+function resolveEffortThinkingProfile(e){if(!e||e.length===0)return;const t=/* @__PURE__ */ new Set([`off`,...e.map(e=>e===`none`?`off`:e)]);return{levels:MODEL_CATALOG_THINKING_LEVELS.filter(e=>t.has(e)).map(e=>({id:e})),defaultLevel:t.has(`medium`)?`medium`:t.has(`high`)?`high`:t.has(`low`)?`low`:`off`}}export{resolveEffortThinkingProfile as i,isGoogleGemini3ProModel as n,isGoogleGemini3ThinkingLevelModel$1 as r,isGoogleGemini3FlashModel as t};

@@ -1,0 +1,1 @@
+import{n as setFatalErrorHook,t as runFatalErrorHooks}from"./fatal-error-hooks-D1VN_Vpl.mjs";export{runFatalErrorHooks,setFatalErrorHook};

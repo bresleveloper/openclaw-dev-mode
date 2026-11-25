@@ -1,0 +1,3 @@
+import{a as GATEWAY_SUPERVISOR_EXIT_MARGIN_MS,r as GATEWAY_SHUTDOWN_RESERVE_MS,t as GATEWAY_RESTART_REPLACEMENT_TIMEOUT_MS}from"./gateway-shutdown-budget-Utx5eFL-.mjs";
+//!src/infra/restart-budget.ts
+const DEFAULT_RESTART_DEFERRAL_TIMEOUT_MS=3e5;function resolveGatewayRestartDeferralTimeoutMs(e){if(typeof e!==`number`||!Number.isFinite(e))return DEFAULT_RESTART_DEFERRAL_TIMEOUT_MS;return e>0?Math.floor(e):void 0}function resolveGatewayRestartDrainTimeoutMs(e){const t=GATEWAY_SHUTDOWN_RESERVE_MS+GATEWAY_SUPERVISOR_EXIT_MARGIN_MS;const n=e?.waitMs??(e?.force?6e4-t:void 0);return e?.force&&n===0?0:resolveGatewayRestartDeferralTimeoutMs(n)}export{resolveGatewayRestartDrainTimeoutMs as n,resolveGatewayRestartDeferralTimeoutMs as t};

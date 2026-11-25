@@ -1,0 +1,1 @@
+import{n as e}from"./transcript-agent-id-DmscQLD6.mjs";import{u as t}from"./transcript-agent-scope-config-DJ1sYmH_.mjs";function resolveSessionStoreCompatibilityAgentId(n){let r=n.agents?.defaults?.sessionStore?.agentId?.trim();return r?e(r):t(n)??`main`}export{resolveSessionStoreCompatibilityAgentId as t};

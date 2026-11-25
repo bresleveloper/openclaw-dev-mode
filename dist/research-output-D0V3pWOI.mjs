@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";import"./string-coerce-runtime-BYDH9Quw.mjs";
+//!extensions/google/research-output.ts
+function finalResearchOutput(e){const t=[];let n=false;outer:for(let r=e.length-1;r>=0;r--){const i=e[r];if(!isRecord(i))throw new Error(`Invalid interaction step`);if(i.type===`user_input`)break;if(i.type===`thought`)continue;if(i.type!==`model_output`){if(n)break;continue}if(i.content===void 0)continue;if(!Array.isArray(i.content))throw new Error(`Invalid model output`);for(let e=i.content.length-1;e>=0;e--){const r=i.content[e];if(!isRecord(r))throw new Error(`Invalid model content`);if(r.type===`text`){n=true;t.push(r)}else if(n)break outer}}return t.toReversed()}export{finalResearchOutput as t};

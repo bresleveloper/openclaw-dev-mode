@@ -1,0 +1,1 @@
+import{n as e}from"./transcript-rolldown-runtime-C7TU3oOp.mjs";var t=/* @__PURE__ */ e({SessionGoalOperationError:()=>SessionGoalOperationError}),SessionGoalOperationError=class extends Error{constructor(e,t){super(t),this.code=e,this.name=`SessionGoalOperationError`}};export{t as n,SessionGoalOperationError as t};

@@ -1,0 +1,2 @@
+//!src/plugins/plugin-command-registry.ts
+function listRegisteredPluginCommands(e){return e.commands.map(e=>({...e.command,pluginId:e.pluginId,pluginName:e.pluginName,pluginRoot:e.rootDir,trustedOwnerStatusExposure:e.trustedOwnerStatusExposure}))}export{listRegisteredPluginCommands as t};

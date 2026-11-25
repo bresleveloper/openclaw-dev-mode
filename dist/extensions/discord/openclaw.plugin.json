@@ -45,6 +45,11 @@
     "additionalProperties": false,
     "properties": {}
   },
+  "recommendedPrompts": [
+    "Help me plan a Discord bot setup with access to only the channels I choose.",
+    "Summarize decisions and action items in a Discord thread without replying.",
+    "Help me plan a Discord voice transcript workflow with participant consent."
+  ],
   "channelConfigs": {
     "discord": {
       "schema": {
@@ -324,21 +329,6 @@
                   }
                 },
                 "additionalProperties": false
-              }
-            },
-            "additionalProperties": false
-          },
-          "heartbeatVisibility": {
-            "type": "object",
-            "properties": {
-              "showOk": {
-                "type": "boolean"
-              },
-              "showAlerts": {
-                "type": "boolean"
-              },
-              "useIndicator": {
-                "type": "boolean"
               }
             },
             "additionalProperties": false
@@ -2147,21 +2137,6 @@
                   },
                   "additionalProperties": false
                 },
-                "heartbeatVisibility": {
-                  "type": "object",
-                  "properties": {
-                    "showOk": {
-                      "type": "boolean"
-                    },
-                    "showAlerts": {
-                      "type": "boolean"
-                    },
-                    "useIndicator": {
-                      "type": "boolean"
-                    }
-                  },
-                  "additionalProperties": false
-                },
                 "healthMonitor": {
                   "type": "object",
                   "properties": {
@@ -3794,7 +3769,7 @@
         },
         "streaming.progress.toolProgress": {
           "label": "Discord Progress Tool Lines",
-          "help": "Show the detailed rolling tool log (default: false). Work status, delegated-task states, plans, and authored progress remain visible without it. Set streaming.mode to off for quiet final-only delivery."
+          "help": "Show the detailed rolling tool log and delegated-task lifecycle rows (default: false). The editable work message, plans, and authored progress remain visible without it. Set streaming.mode to off for quiet final-only delivery."
         },
         "streaming.progress.commentary": {
           "label": "Discord Progress Commentary",
@@ -3830,7 +3805,7 @@
         },
         "thread.inheritParent": {
           "label": "Discord Thread Parent Inheritance",
-          "help": "If true, Discord thread sessions inherit the parent channel transcript (default: false)."
+          "help": "If true, Discord thread sessions inherit the parent channel chat history (default: false)."
         },
         "threadBindings.enabled": {
           "label": "Discord Thread Binding Enabled",
@@ -3850,7 +3825,7 @@
         },
         "threadBindings.defaultSpawnContext": {
           "label": "Discord Thread Spawn Context",
-          "help": "Default native subagent context for thread-bound spawns. \"fork\" starts from the requester transcript; \"isolated\" starts clean. Default: \"fork\"."
+          "help": "Default native subagent context for thread-bound spawns. \"fork\" starts from the requester chat history; \"isolated\" starts clean. Default: \"fork\"."
         },
         "agentComponents.ttlMs": {
           "label": "Discord Component TTL (ms)",

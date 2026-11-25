@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function countLabel(e,t,n=`${t}s`){return`${e} ${e===1?t:n}`}var t=e((()=>{}));export{t as n,countLabel as t};

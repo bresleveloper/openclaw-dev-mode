@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Ver todos","files":"Arquivos","loading":"Carregando saídas…","updating":"Atualizando saídas…","loadingDashboard":"Carregando painel…","emptyTitle":"Nenhum resultado ainda.","emptyDescription":"Os arquivos e painéis desta sessão aparecem aqui."}};

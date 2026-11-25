@@ -1,0 +1,1 @@
+export default {"skillStatus":{"bundled":"pakete dahil","eligible":"uygun","blocked":"engellendi","disabled":"devre dışı","blockedAllowlist":"izin listesi tarafından engellendi","blockedAgentFilter":"ajan filtresi tarafından engellendi"}};

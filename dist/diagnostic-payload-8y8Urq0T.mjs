@@ -1,0 +1,3 @@
+import{E as parseStrictNonNegativeInteger}from"./number-coercion-B3CfI447.mjs";import{o as emitInternalDiagnosticEvent}from"./diagnostic-events-BjejgOn7.mjs";
+//!src/logging/diagnostic-payload.ts
+function logLargePayload(e){emitInternalDiagnosticEvent({type:`payload.large`,...e})}function logRejectedLargePayload(e){logLargePayload({action:`rejected`,...e})}function parseContentLengthHeader(e){const t=Array.isArray(e)?e[0]:e;if(typeof t!==`string`)return;const n=t.trim();if(n.length===0||!/^\d+$/.test(n))return;return parseStrictNonNegativeInteger(n)}export{logRejectedLargePayload as n,parseContentLengthHeader as r,logLargePayload as t};

@@ -1,0 +1,1 @@
+import{t as registerNodesCanvasCommands}from"./cli-C2PFHrrW.mjs";export{registerNodesCanvasCommands};

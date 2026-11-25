@@ -1,0 +1,3 @@
+import{t as isXaiProviderId}from"./provider-id-EJmUgi5D.mjs";
+//!extensions/xai/fast-mode.ts
+const XAI_FAST_MODEL_IDS=/* @__PURE__ */ new Map([[`grok-3`,`grok-3-fast`],[`grok-3-mini`,`grok-3-mini-fast`],[`grok-4`,`grok-4-fast`],[`grok-4-0709`,`grok-4-fast`]]);function resolveXaiFastModelId(e){return(e.api===`openai-completions`||e.api===`openai-responses`)&&isXaiProviderId(e.provider)?XAI_FAST_MODEL_IDS.get(e.id.trim()):void 0}export{resolveXaiFastModelId as t};

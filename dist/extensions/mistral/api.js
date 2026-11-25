@@ -1,15 +1,10 @@
 import { MISTRAL_MEDIUM_3_5_ID, MISTRAL_SMALL_4_ID, MISTRAL_SMALL_LATEST_ID, resolveMistralReasoningEffortMap } from "./provider-policy-api.js";
-import { t as buildMistralProvider } from "./.setup/provider-catalog-DV4UQ-rA.mjs";
+import { buildMistralProvider } from "./provider-catalog.js";
 import { MISTRAL_BASE_URL, MISTRAL_DEFAULT_MODEL_ID, MISTRAL_DEFAULT_MODEL_REF, buildMistralModelDefinition } from "./model-definitions.js";
 import { applyMistralConfig, applyMistralProviderConfig } from "./onboard.js";
+import { MISTRAL_MODEL_TRANSPORT_PATCH } from "openclaw/plugin-sdk/provider-model-shared";
 import { asOptionalObjectRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/mistral/api.ts
-const MISTRAL_MODEL_TRANSPORT_PATCH = {
-	supportsStore: false,
-	supportsPromptCacheKey: true,
-	supportsLongCacheRetention: false,
-	maxTokensField: "max_tokens"
-};
+// extensions/mistral/api.ts
 function resolveMistralCompatPatch(model) {
 	const reasoningEffortMap = resolveMistralReasoningEffortMap(model.id);
 	return {
@@ -30,5 +25,4 @@ function applyMistralModelCompat(model) {
 		}
 	};
 }
-//#endregion
 export { MISTRAL_BASE_URL, MISTRAL_DEFAULT_MODEL_ID, MISTRAL_DEFAULT_MODEL_REF, MISTRAL_MEDIUM_3_5_ID, MISTRAL_MODEL_TRANSPORT_PATCH, MISTRAL_SMALL_4_ID, MISTRAL_SMALL_LATEST_ID, applyMistralConfig, applyMistralModelCompat, applyMistralProviderConfig, buildMistralModelDefinition, buildMistralProvider, resolveMistralCompatPatch };

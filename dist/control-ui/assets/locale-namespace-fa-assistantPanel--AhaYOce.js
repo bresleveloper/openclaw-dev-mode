@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"در حال کار روی: {context}","removeContext":"حذف زمینهٔ کاری","includeContext":"گنجاندن زمینهٔ کاری","selection":"متن انتخاب‌شده","attachSelection":"پیوست کردن متن انتخاب‌شده","attachSelectionTooltip":"پیوست کردن بخش انتخاب‌شده","removeSelection":"حذف متن انتخاب‌شده"}};

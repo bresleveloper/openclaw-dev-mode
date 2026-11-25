@@ -3,7 +3,7 @@ import { readConfiguredProviderCatalogEntries } from "openclaw/plugin-sdk/provid
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
 import { buildProviderToolCompatFamilyHooks } from "openclaw/plugin-sdk/provider-tools";
-//#region extensions/novita/openclaw.plugin.json
+// extensions/novita/openclaw.plugin.json
 var openclaw_plugin_default = {
 	id: "novita",
 	categories: ["models"],
@@ -175,8 +175,7 @@ var openclaw_plugin_default = {
 		"discovery": { "novita": "refreshable" }
 	}
 };
-//#endregion
-//#region extensions/novita/index.ts
+// extensions/novita/index.ts
 const PROVIDER_ID = "novita";
 var novita_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
@@ -210,5 +209,4 @@ var novita_default = defineSingleProviderPluginEntry({
 		api.registerVideoGenerationProvider(buildNovitaVideoGenerationProvider());
 	}
 });
-//#endregion
 export { novita_default as default };

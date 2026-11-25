@@ -1,0 +1,2 @@
+//!src/gateway/standing-grant-expiry-config.ts
+function resolveGrantExpiryDaysConfig(e){const t=e.tools?.exec?.grantExpiryDays;return typeof t===`number`&&Number.isFinite(t)&&t>=1?Math.floor(t):null}export{resolveGrantExpiryDaysConfig as t};

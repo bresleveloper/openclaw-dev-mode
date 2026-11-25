@@ -1,0 +1,2 @@
+//!src/channels/plugins/threading-helpers.ts
+function createStaticReplyToModeResolver(e){return()=>e}function createTopLevelChannelReplyToModeResolver(e){return({cfg:t})=>{return(t.channels?.[e])?.replyToMode??`off`}}function createScopedAccountReplyToModeResolver(e){return({cfg:t,accountId:n,chatType:r})=>e.resolveReplyToMode(e.resolveAccount(t,n),r)??e.fallback??`off`}export{createStaticReplyToModeResolver as n,createTopLevelChannelReplyToModeResolver as r,createScopedAccountReplyToModeResolver as t};

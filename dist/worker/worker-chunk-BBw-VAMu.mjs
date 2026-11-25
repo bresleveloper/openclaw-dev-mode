@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,n,r=e((()=>{t=6e5,n=[`allow-once`,`deny`]}));export{t as n,r,n as t};

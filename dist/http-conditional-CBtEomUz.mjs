@@ -1,0 +1,3 @@
+import{i as splitHttpHeaderValue}from"./http-header-value-D4bOEsPJ.mjs";import{parseHttpDateInstant}from"@openclaw/ai/internal/retry-after";
+//!src/gateway/http-conditional.ts
+function matchesHttpIfModifiedSince(e,t,n=Date.now()){const r=e?.headersDistinct[`if-modified-since`];const i=r?.length===1?r[0]:void 0;const a=typeof i===`string`?parseHttpDateInstant(i,n):void 0;const o=Math.floor(t/1e3)*1e3;return a!==void 0&&(a.leapSecond?o<a.timestampMs:o<=a.timestampMs)}function matchesHttpIfNoneMatch(e,t){const n=Array.isArray(e)?e.join(`,`):e;if(!n)return false;const r=t?.replace(/^W\//u,``);return n.trim()===`*`||(splitHttpHeaderValue(n,`,`,`opaque-tag`)?.some(e=>e.trim().replace(/^W\//u,``)===r)??false)}export{matchesHttpIfNoneMatch as n,matchesHttpIfModifiedSince as t};

@@ -1,0 +1,2 @@
+//!src/channels/config-metadata.ts
+const CHANNEL_CONFIG_METADATA_KEYS=/* @__PURE__ */ new Set([`defaults`,`modelByChannel`]);function isChannelConfigMetadataKey(e){return CHANNEL_CONFIG_METADATA_KEYS.has(e.trim())}export{isChannelConfigMetadataKey as n,CHANNEL_CONFIG_METADATA_KEYS as t};

@@ -1,0 +1,1 @@
+import"./openclaw-state-read-logger-DazBwKs-.mjs";import{randomBytes as e}from"node:crypto";function generateSecureFraction(){return e(4).readUInt32BE(0)/4294967296}export{generateSecureFraction as t};

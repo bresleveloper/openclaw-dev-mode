@@ -1,6 +1,6 @@
-import { n as hasSlackAccountCredentialsFromConfig } from "./.setup/account-configured-zcR9TJJN.mjs";
+import { n as hasSlackAccountCredentialsFromConfig } from "./.setup/account-configured-35y0-Hso.mjs";
 import { DEFAULT_ACCOUNT_ID, mergeAccountConfig } from "openclaw/plugin-sdk/account-core";
-//#region extensions/slack/configured-state.ts
+// extensions/slack/configured-state.ts
 /** Resolve Slack activation through its account owner's real transport credential contract. */
 function hasConfiguredSlackChannelState(params) {
 	const channel = params.cfg.channels?.slack;
@@ -23,5 +23,4 @@ function hasConfiguredSlackChannelState(params) {
 		}), {});
 	});
 }
-//#endregion
 export { hasConfiguredSlackChannelState };

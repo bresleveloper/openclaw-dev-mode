@@ -1,0 +1,2 @@
+//!src/agents/agent-hooks/session-manager-runtime-registry.ts
+function createSessionManagerRuntimeRegistry(){const e=/* @__PURE__ */ new WeakMap;return{set:(t,n)=>{if(!t||typeof t!==`object`)return;if(n===null)e.delete(t);else e.set(t,n)},get:t=>{return t&&typeof t===`object`?e.get(t)??null:null}}}export{createSessionManagerRuntimeRegistry as t};

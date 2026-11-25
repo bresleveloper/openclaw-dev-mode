@@ -9,13 +9,12 @@ import type { ReplyDispatchOperation } from "../../auto-reply/reply/reply-dispat
 import { createStructuredOutboundPayloadPlan } from "../../infra/outbound/payloads.js";
 import { collectReplyMediaEntries } from "../../infra/outbound/reply-media-entries.js";
 import { normalizeMediaReferenceForComparison } from "../../media/media-reference-comparison.js";
-import { combineNonStreamingReplyParts } from "../../shared/text/text-projection.js";
+import { combineNonStreamingReplyParts } from "../../shared/text/trim-code-text.js";
 import {
   parseInlineDirectives,
   sanitizeReplyDirectiveId,
   stripInlineDirectiveTagsForDelivery,
 } from "../../utils/directive-tags.js";
-import { isSuppressedControlReplyText } from "../control-reply-text.js";
 import { sanitizeAssistantDisplayText } from "./chat-assistant-content.js";
 
 export type DeliveredChatSendReply = {
@@ -55,7 +54,7 @@ export function buildTranscriptReplyTextFromInputs(
         input.kind === "raw" && payload.text
           ? stripInlineDirectiveTagsForDelivery(payload.text).text
           : (payload.text ?? "");
-      if (text.trim() && (input.kind === "prepared" || !isSuppressedControlReplyText(text))) {
+      if (text.trim()) {
         lines.push(text);
       }
       for (const mediaUrl of parts.mediaUrls) {

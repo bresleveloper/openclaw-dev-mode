@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import { pruneMapToMaxSize } from "openclaw/plugin-sdk/collection-runtime";
+import { sha256Hex } from "openclaw/plugin-sdk/node-crypto-runtime";
 import { truncateUtf16Safe } from "openclaw/plugin-sdk/text-utility-runtime";
 import { fetchChannelMessage, stripHtmlFromTeamsMessage } from "./graph-thread.js";
 import type { GraphThreadMessage } from "./graph-thread.js";
@@ -32,20 +32,12 @@ export async function fetchParentMessageCached(
   parentId: string,
   deadline?: MSTeamsRequestDeadline,
 ): Promise<GraphThreadMessage | undefined> {
-  const key = JSON.stringify([
-    createHash("sha256").update(token).digest("hex"),
-    groupId,
-    channelId,
-    parentId,
-  ]);
+  const key = JSON.stringify([sha256Hex(token), groupId, channelId, parentId]);
   const cached = parentCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     parentCache.delete(key);
     parentCache.set(key, cached);
     return cached.message;
-  }
-  if (cached) {
-    parentCache.delete(key);
   }
   const message = await fetchChannelMessage(token, groupId, channelId, parentId, deadline);
   touchLru(
@@ -57,11 +49,11 @@ export async function fetchParentMessageCached(
   return message;
 }
 
-type ParentContextSummary = NonNullable<ReturnType<typeof summarizeParentMessage>>;
-
 const PARENT_TEXT_MAX_CHARS = 400;
 
-export function summarizeParentMessage(message: GraphThreadMessage | undefined) {
+export function formatParentContextEvent(
+  message: GraphThreadMessage | undefined,
+): string | undefined {
   if (!message) {
     return undefined;
   }
@@ -74,17 +66,11 @@ export function summarizeParentMessage(message: GraphThreadMessage | undefined) 
   if (!text) {
     return undefined;
   }
-  return {
-    sender,
-    text:
-      text.length > PARENT_TEXT_MAX_CHARS
-        ? `${truncateUtf16Safe(text, PARENT_TEXT_MAX_CHARS - 1)}…`
-        : text,
-  };
-}
-
-export function formatParentContextEvent(summary: ParentContextSummary): string {
-  return `Replying to @${summary.sender}: ${summary.text}`;
+  const summaryText =
+    text.length > PARENT_TEXT_MAX_CHARS
+      ? `${truncateUtf16Safe(text, PARENT_TEXT_MAX_CHARS - 1)}…`
+      : text;
+  return `Replying to @${sender}: ${summaryText}`;
 }
 
 export function shouldInjectParentContext(sessionKey: string, parentId: string): boolean {

@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";
+//!src/shared/detached-async-context.ts
+const asyncHooks=typeof process===`undefined`?void 0:process.getBuiltinModule?.(`node:async_hooks`);const detachedAsyncContext=asyncHooks?resolveGlobalSingleton(Symbol.for(`openclaw.detachedAsyncContext`),()=>new asyncHooks.AsyncResource(`openclaw.detached-async-context`)):void 0;function runInDetachedAsyncContext(e){return detachedAsyncContext?detachedAsyncContext.runInAsyncScope(e):e()}export{runInDetachedAsyncContext as t};

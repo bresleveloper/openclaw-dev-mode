@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";import{t as areDiagnosticsEnabledForProcess}from"./diagnostic-events-BjejgOn7.mjs";
+//!src/infra/gateway-ws-metrics.ts
+const listeners=resolveGlobalSingleton(Symbol.for(`openclaw.gatewayWsMetricsListeners`),()=>/* @__PURE__ */ new Set);function onGatewayWsMetrics(e){listeners.add(e);return()=>{listeners.delete(e)}}function hasGatewayWsMetricsListeners(){return listeners.size>0}const publishGatewayWsMetrics=(e,t,n,r,i,a,o,s)=>{if(!areDiagnosticsEnabledForProcess())return;for(const c of listeners)try{c(e,t,n,r,i,a,o,s)}catch{}};export{onGatewayWsMetrics as n,publishGatewayWsMetrics as r,hasGatewayWsMetricsListeners as t};

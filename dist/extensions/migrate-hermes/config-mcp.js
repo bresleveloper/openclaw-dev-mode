@@ -1,2 +1,1 @@
-import { t as planHermesMcpServer } from "../../config-mcp-D4cozr13.mjs";
-export { planHermesMcpServer };
+import{t as planHermesMcpServer}from"../../config-mcp-l1uw-4xk.mjs";export{planHermesMcpServer};

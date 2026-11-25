@@ -1,0 +1,2 @@
+//!src/process/output-drain.ts
+const OUTPUT_DRAIN_TIMEOUT_MS=5e3;function drainProcessOutput(e){let t=2;const n=setTimeout(e,OUTPUT_DRAIN_TIMEOUT_MS);n.unref();const drain=r=>{r.write(``,()=>{t-=1;if(t===0){clearTimeout(n);setImmediate(e)}})};drain(process.stdout);drain(process.stderr)}export{drainProcessOutput as t};

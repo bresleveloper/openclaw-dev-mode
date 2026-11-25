@@ -1,0 +1,3 @@
+import"./utils-CVVNdy3C.mjs";import{D as withTimeout}from"./fs-safe-Bxzu1j4h.mjs";import{n as monotonicNow}from"./monotonic-time-DjtFTu2s.mjs";import"./fetch-timeout-C_z4_B2m.mjs";import"./tool-result-text-budget-Bp_-qbdu.mjs";import"./tool-result-limits-ByVVmjGg.mjs";
+//!src/plugin-sdk/text-utility-runtime.ts
+async function runChannelProbe(e,t,n){const r=Date.now();const i=monotonicNow();const elapsedMs=()=>monotonicNow()-i;const finish=e=>({...e,elapsedMs:e.elapsedMs??elapsedMs()});try{return finish(await withTimeout(t({startedAt:r,elapsedMs}),e??0))}catch(e){if(!n)throw e;return finish(n(e))}}export{runChannelProbe as t};

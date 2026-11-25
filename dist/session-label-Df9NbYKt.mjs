@@ -1,0 +1,2 @@
+//!src/sessions/session-label.ts
+const SESSION_LABEL_MAX_LENGTH=512;function parseSessionLabel(e){if(typeof e!==`string`)return{ok:false,error:`invalid label: must be a string`};const t=e.trim();if(!t)return{ok:false,error:`invalid label: empty`};if(t.length>512)return{ok:false,error:`invalid label: too long (max ${512})`};return{ok:true,label:t}}export{parseSessionLabel as t};

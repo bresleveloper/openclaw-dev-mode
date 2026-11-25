@@ -6,6 +6,9 @@ export function createSystemAgentUserTurnRecorder(prompt: string) {
     input: { text: prompt },
     target: () => undefined,
   });
+  // These operations rewrite a durable admission. Detached helper turns have no
+  // such owner; the runtime projects their model prompt in its in-memory view.
   delete recorder.captureModelPromptProjection;
+  delete recorder.prepareModelPromptProjection;
   return recorder;
 }

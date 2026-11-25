@@ -1,0 +1,1 @@
+import"./shell-wrapper-resolution-D1FVrneK.mjs";export{};

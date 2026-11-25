@@ -1,0 +1,2 @@
+//!src/secrets/secret-env-name.ts
+const SECRET_ENV_NAME_RE=/_?(API_KEY|TOKEN|PASSWORD|PRIVATE_KEY|SECRET)$/i;function isSensitiveEnvName(e){return SECRET_ENV_NAME_RE.test(e)}export{isSensitiveEnvName as n,SECRET_ENV_NAME_RE as t};

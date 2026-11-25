@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/agents/auth-profiles/identity.ts
+function buildAuthProfileId(e){return`${normalizeOptionalString(e.profilePrefix)??e.providerId}:${normalizeOptionalString(e.profileName)??`default`}`}function resolveAuthProfileMetadata(e){const t=e.cfg?.auth?.profiles?.[e.profileId];const n=e.store?.profiles[e.profileId];return{displayName:normalizeOptionalString(t?.displayName)??normalizeOptionalString(n?.displayName),email:normalizeOptionalString(t?.email)??normalizeOptionalString(n?.email)}}export{resolveAuthProfileMetadata as n,buildAuthProfileId as t};

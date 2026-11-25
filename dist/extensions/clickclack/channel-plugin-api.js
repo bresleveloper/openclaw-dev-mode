@@ -1,2 +1,1 @@
-import { t as clickClackPlugin } from "./.setup/channel-BX2RqmGn.mjs";
-export { clickClackPlugin };
+export { t as clickClackPlugin } from "./.setup/channel-BH4RFKFX.mjs";

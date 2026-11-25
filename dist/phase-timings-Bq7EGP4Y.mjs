@@ -1,0 +1,3 @@
+import{performance}from"node:perf_hooks";
+//!src/gateway/server-methods/phase-timings.ts
+function createPhaseTimings(){const e=/* @__PURE__ */ new Map;const t=/* @__PURE__ */ new Set;return{totals:e,flush(e){for(const n of t)n(e)},close(){t.clear()},scope(n){let r=n;let i=performance.now();const record=t=>{if(r)e.set(r,(e.get(r)??0)+t-i);i=t};t.add(record);const a={mark(e){if(t.has(record)){record(performance.now());r=e}},finish(){a.mark();t.delete(record)},[Symbol.dispose](){a.finish()}};return a}}}export{createPhaseTimings as t};

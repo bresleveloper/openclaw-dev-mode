@@ -1,2 +1,1 @@
-import { t as resolveGoogleApiClientHeaders } from "../../google-api-client-header-BFmN3ce7.mjs";
-export { resolveGoogleApiClientHeaders };
+import{t as resolveGoogleApiClientHeaders}from"../../google-api-client-header-i_xARzUM.mjs";export{resolveGoogleApiClientHeaders};

@@ -1,13 +1,13 @@
 import { hasAnthropicVertexAvailableAuth } from "./region.js";
 import { buildAnthropicVertexProvider } from "./provider-catalog.js";
-//#region extensions/anthropic-vertex/provider-catalog-runtime.ts
+// extensions/anthropic-vertex/provider-catalog-runtime.ts
 function mergeImplicitAnthropicVertexProvider(params) {
 	const { existing, implicit } = params;
 	if (!existing) return implicit;
 	return {
 		...implicit,
 		...existing,
-		models: Array.isArray(existing.models) && existing.models.length > 0 ? existing.models : implicit.models
+		models: existing.models?.length ? existing.models : implicit.models
 	};
 }
 function resolveImplicitAnthropicVertexProvider(params) {
@@ -20,5 +20,4 @@ async function runAnthropicVertexCatalog(ctx) {
 	if (!implicit) return null;
 	return { provider: implicit };
 }
-//#endregion
 export { mergeImplicitAnthropicVertexProvider, resolveImplicitAnthropicVertexProvider, runAnthropicVertexCatalog };

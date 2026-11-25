@@ -1,0 +1,2 @@
+//!extensions/requesty/provider-policy-api.ts
+const DATED_SNAPSHOT_SUFFIX=/^-(?:\d{4}-\d{2}-\d{2}|\d{8})$/u;function isResponseModelEquivalent({provider:e,requestedModelId:t,responseModelId:n}){if(e.trim().toLowerCase()!==`requesty`)return;const r=t.trim();const i=n.trim();if(!i)return;if(r===i||r.endsWith(`/${i}`))return true;const a=r.indexOf(`/`);const o=a===-1?r:r.slice(a+1);return o===i||i.startsWith(o)&&DATED_SNAPSHOT_SUFFIX.test(i.slice(o.length))}export{isResponseModelEquivalent};

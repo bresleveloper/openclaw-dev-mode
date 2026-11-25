@@ -1,0 +1,1 @@
+const e=`update.recovery.`,t=`update.recovery/`;export{e as n,t};

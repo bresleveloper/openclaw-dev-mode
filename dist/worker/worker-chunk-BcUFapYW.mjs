@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,r as n}from"./worker-chunk-GjIG-qSv.mjs";function registerActiveDebugProxyCapture(e){r.add(e);let t=n(e);return()=>{r.delete(e),t()}}var r,i=e((()=>{t(),r=/* @__PURE__ */ new Set}));export{registerActiveDebugProxyCapture as n,i as t};

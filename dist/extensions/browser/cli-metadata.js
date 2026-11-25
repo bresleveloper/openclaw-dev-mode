@@ -1,2 +1,1 @@
-import { n as registerBrowserCliMetadata, t as cli_metadata_default } from "../../cli-metadata-VP0D3TUw.mjs";
-export { cli_metadata_default as default, registerBrowserCliMetadata };
+import{n as registerBrowserCliMetadata,t as cli_metadata_default}from"../../cli-metadata-B4XKJM9g.mjs";export{cli_metadata_default as default,registerBrowserCliMetadata};

@@ -1,3 +1,4 @@
+import { isUtf8 } from "node:buffer";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -32,9 +33,11 @@ import {
 } from "./import-runs-state.js";
 import { appendMemoryWikiLog } from "./log.js";
 import {
+  decodeWikiPageUtf8,
   HUMAN_START_MARKER,
   HUMAN_END_MARKER,
   parseWikiMarkdown,
+  preserveHumanNotesBlock,
   renderWikiMarkdown,
   WIKI_RELATED_END_MARKER,
   WIKI_RELATED_START_MARKER,
@@ -108,13 +111,16 @@ async function loadConversations(exportInputPath: string): Promise<{
   conversations: Record<string, unknown>[];
 }> {
   const exportPath = path.resolve(exportInputPath);
-  const conversationsPath = exportPath.endsWith(".json")
-    ? exportPath
-    : path.join(exportPath, "conversations.json");
-  const raw = (
-    await readRegularFile({ filePath: await fs.realpath(conversationsPath) })
-  ).buffer.toString("utf8");
-  const parsed = JSON.parse(raw) as unknown;
+  const conversationsPath = (await fs.stat(exportPath)).isDirectory()
+    ? path.join(exportPath, "conversations.json")
+    : exportPath;
+  const { buffer: raw } = await readRegularFile({ filePath: await fs.realpath(conversationsPath) });
+  if (!isUtf8(raw)) {
+    throw new Error(
+      `ChatGPT conversations export must be valid UTF-8: ${conversationsPath}. Download a fresh ChatGPT export and retry the import.`,
+    );
+  }
+  const parsed = JSON.parse(raw.toString("utf8")) as unknown;
   const conversations = Array.isArray(parsed)
     ? parsed
     : Object.values(asNullableRecord(parsed) ?? {}).find(Array.isArray);
@@ -145,7 +151,7 @@ function cleanMessageText(value: string): string {
       return trimmed;
     }
     if (part?.content_type === "text" && typeof part.text === "string") {
-      return normalizeWhitespace(part.text);
+      return part.text.trim();
     }
     if (part?.content_type === "image_asset_pointer") {
       return "";
@@ -453,7 +459,6 @@ function renderConversationPage(record: ChatGptConversationRecord): string {
   });
 }
 
-const HUMAN_BLOCK_PATTERN = new RegExp(`${HUMAN_START_MARKER}[\\s\\S]*?${HUMAN_END_MARKER}`);
 const RELATED_BLOCK_BODY_PATTERN = new RegExp(
   `${WIKI_RELATED_START_MARKER}\\n?([\\s\\S]*?)\\n?${WIKI_RELATED_END_MARKER}`,
 );
@@ -464,12 +469,7 @@ function preserveExistingPageBlocks(rendered: string, existing: string): string 
   }
   const parsedExisting = parseWikiMarkdown(existing);
   const parsedRendered = parseWikiMarkdown(rendered);
-  let nextBody = parsedRendered.body;
-
-  const humanBlock = parsedExisting.body.match(HUMAN_BLOCK_PATTERN)?.[0];
-  if (humanBlock) {
-    nextBody = nextBody.replace(HUMAN_BLOCK_PATTERN, () => humanBlock);
-  }
+  let nextBody = preserveHumanNotesBlock(parsedRendered.body, parsedExisting.body);
 
   const relatedBody = parsedExisting.body.match(RELATED_BLOCK_BODY_PATTERN)?.[1]?.trim();
   if (relatedBody) {
@@ -562,10 +562,10 @@ export async function importChatGptConversations(params: {
   nowMs?: number;
 }) {
   return await withMemoryWikiVaultMutation(params.config.vault.path, async () => {
-    await initializeMemoryWikiVault(params.config, { nowMs: params.nowMs });
     const { exportPath, conversationsPath, conversations } = await loadConversations(
       params.exportPath,
     );
+    await initializeMemoryWikiVault(params.config, { nowMs: params.nowMs });
     const records = conversations
       .map((conversation) => toConversationRecord(conversation, conversationsPath))
       .filter((entry): entry is ChatGptConversationRecord => entry !== null)
@@ -586,8 +586,9 @@ export async function importChatGptConversations(params: {
       const absolutePath = path.join(params.config.vault.path, record.pagePath);
       const existing = await readExistingWikiPage(
         async () =>
-          (await readRegularFile({ filePath: await fs.realpath(absolutePath) })).buffer.toString(
-            "utf8",
+          decodeWikiPageUtf8(
+            (await readRegularFile({ filePath: await fs.realpath(absolutePath) })).buffer,
+            absolutePath,
           ),
         (error) => asNullableRecord(error)?.code === "ENOENT",
       );

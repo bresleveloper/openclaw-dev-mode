@@ -1,0 +1,3 @@
+import fs from"node:fs/promises";
+//!src/agents/sandbox/docker-user.ts
+async function resolveSandboxDockerUser(e){if(e.docker.user?.trim())return e.docker;const t=e.backend.trim().toLowerCase();if(t!==`docker`&&t!==`podman`)return e.docker;try{const n=await fs.stat(e.workspaceDir);const r=Number.isInteger(n.uid)?n.uid:null;const i=Number.isInteger(n.gid)?n.gid:null;if(r===null||i===null||r<0||i<0)return e.docker;if(t===`podman`&&(r===0||i===0))return e.docker;return{...e.docker,user:`${r}:${i}`}}catch{return e.docker}}export{resolveSandboxDockerUser as t};

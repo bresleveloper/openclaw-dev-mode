@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{S as t,p as n,r,w as i}from"./worker-chunk-B9Nt6JCz.mjs";function pickBestEffortPrimaryLanIPv4(){try{return n()}catch{return}}function pickBestEffortPrimaryTailnetIPv4(){try{return i()}catch{return}}var a=e((()=>{r(),t()}));export{pickBestEffortPrimaryLanIPv4 as n,pickBestEffortPrimaryTailnetIPv4 as r,a as t};

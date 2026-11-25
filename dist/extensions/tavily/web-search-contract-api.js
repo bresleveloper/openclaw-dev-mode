@@ -1,3 +1,2 @@
-import { t as createTavilyWebSearchProvider } from "./.setup/tavily-search-provider-BN5SUXRC.mjs";
+export { t as createTavilyWebSearchProvider } from "./.setup/tavily-search-provider-H2x8xSUd.mjs";
 import "./web-search-provider.js";
-export { createTavilyWebSearchProvider };

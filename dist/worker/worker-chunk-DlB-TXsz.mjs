@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{v as t}from"./worker-chunk-C5CUUNvs.mjs";import{f as n,o as r}from"./worker-chunk-B8ixlJ78.mjs";function logLargePayload(e){r({type:`payload.large`,...e})}function logRejectedLargePayload(e){logLargePayload({action:`rejected`,...e})}var i=e((()=>{t(),n()}));export{logLargePayload as n,logRejectedLargePayload as r,i as t};

@@ -1,0 +1,2 @@
+//!src/shared/current-read-authority.ts
+async function withCurrentReadAuthority(e,t){const read=()=>{e?.assertCurrent?.();return t()};return await(e?.withCurrent?e.withCurrent(read):read())}async function settleCurrentReadPreparations(e){try{return await Promise.all(e)}catch(t){await Promise.allSettled(e);throw t}}export{withCurrentReadAuthority as n,settleCurrentReadPreparations as t};

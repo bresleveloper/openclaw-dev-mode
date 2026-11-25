@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{g as t}from"./worker-chunk-H84t-EHD.mjs";async function getFsSafeNativeStatus(e){let{readFsSafeNativeStatus:t}=await import(`./worker-chunk-C7eABHZb.mjs`);return t(e)}var n=e((()=>{t()}));export{n,getFsSafeNativeStatus as t};

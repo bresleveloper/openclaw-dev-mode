@@ -1,5 +1,4 @@
 import { Static, TSchema } from "typebox";
-//#region src/plugin-sdk/feature-contract.d.ts
 export type FeatureDisposer = () => void;
 /** A connection-owned transport usable from browsers or other feature clients. */
 export type FeatureTransport = {
@@ -28,6 +27,11 @@ export type FeatureContract = {
   operations: Readonly<Record<string, FeatureOperation>>;
   events: Readonly<Record<string, TSchema>>;
 };
+/** Browser runtime metadata; schemas stay in the canonical contract's type. */
+export type FeatureClientContract<C extends FeatureContract> = {
+  pluginId: C["pluginId"];
+  operations: { [K in keyof C["operations"]]: Pick<C["operations"][K], "kind">; };
+};
 export type FeatureOperationName<C extends FeatureContract> = keyof C["operations"] & string;
 export type FeatureEventName<C extends FeatureContract> = keyof C["events"] & string;
 export type FeatureInput<C extends FeatureContract, K extends FeatureOperationName<C>> = Static<C["operations"][K]["input"]>;
@@ -50,4 +54,4 @@ export type FeatureClient<C extends FeatureContract> = {
 };
 /** Uses only the current browser connection; it does not mint scopes or a backend client. */
 export declare function createFeatureClient<C extends FeatureContract>(contract: C, host: FeatureTransport): FeatureClient<C>;
-//#endregion
+export declare function createFeatureClient<C extends FeatureContract>(contract: FeatureClientContract<C>, host: FeatureTransport): FeatureClient<C>;

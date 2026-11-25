@@ -1,0 +1,3 @@
+import{r as captureOpenClawStateWorkerContext}from"./openclaw-state-worker-context-BUxKAHnH.mjs";import{n as runWithOpenClawStateLeaseWorker}from"./openclaw-state-lease-worker-operation-DlMuH-SU.mjs";
+//!src/plugins/installed-plugin-snapshot-candidates.ts
+async function updatePluginSnapshotCandidates(e){const t=captureOpenClawStateWorkerContext({env:{...process.env,OPENCLAW_STATE_DIR:e.stateDir}});return await runWithOpenClawStateLeaseWorker(e.lease.stateLease,t,(t,n)=>t.execute({type:`plugins.metadata.index.snapshotCandidates`,input:{identity:n,operation:e.operation,candidates:(e.candidates??[]).map(e=>Object.assign({},e,{installedRevision:0}))}}),{assertCurrent:e.lease.assertCurrent,beforeCommit:e.lease.assertCurrent})}export{updatePluginSnapshotCandidates as t};

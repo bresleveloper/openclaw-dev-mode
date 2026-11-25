@@ -1,6 +1,6 @@
 import { resolveClaudeThinkingProfile } from "openclaw/plugin-sdk/claude-model-runtime";
 import { resolveEffortThinkingProfile } from "openclaw/plugin-sdk/provider-thinking-runtime";
-//#region extensions/opencode/provider-policy-api.ts
+// extensions/opencode/provider-policy-api.ts
 const FIXED_REASONING_PROFILE = {
 	levels: [{
 		id: "off",
@@ -15,5 +15,4 @@ function resolveThinkingProfile(params) {
 	if (effortProfile) return effortProfile;
 	return params.reasoning === true && params.api !== "anthropic-messages" ? FIXED_REASONING_PROFILE : void 0;
 }
-//#endregion
 export { resolveThinkingProfile };

@@ -1,0 +1,3 @@
+import{c as resolveCliRuntimeExecutionProvider}from"./model-runtime-aliases-CoqHpxsR.mjs";
+//!src/cron/isolated-agent/candidate-execution.ts
+function resolveCronCandidateExecution(e,t){const{cfg:n,provider:r,model:i,sessionRuntimeOverride:a}=e;const o=a?t.isCliProvider(a,n)?a:r:resolveCliRuntimeExecutionProvider({provider:r,cfg:n,agentId:e.agentId,modelId:i,authProfileId:e.authProfileId})??r;const s=a??t.resolveEffectiveAgentRuntime({cfg:n,provider:r,modelId:i,agentId:e.agentId,sessionKey:e.sessionKey,sessionEntry:e.sessionEntry});return{sessionRuntimeOverride:a,executionProvider:o,cliExecution:t.isCliProvider(o,n),runtime:s}}export{resolveCronCandidateExecution as t};

@@ -8,6 +8,7 @@ import {
   createPluginDependencyResolver,
   resolvePluginModulePackageRoot,
 } from "./plugin-package-metadata-capture.js";
+import { openClawHostRootsMatch } from "./plugin-peer-link.js";
 import { collectPluginSafetyInspectedFiles } from "./plugin-safety-inspected-files.js";
 import type { PluginNativeNamespaceFact } from "./plugin-source-admission.types.js";
 import {
@@ -26,6 +27,29 @@ type NamespaceMember = {
   boundary: string;
   linkTo?: string;
 };
+// Membership and source paths stay fixed; admission only updates identities and digests.
+const nativeSourceMembers = new WeakMap<PluginNativeNamespaceFact, Map<string, string>>();
+
+export function nativeMemberForSource(namespace: PluginNativeNamespaceFact, source: string) {
+  const relative = path.relative(namespace.sourceDirectory, source);
+  // A file alias can be visited before its real pathname. The binary's real parent owns
+  // its companions; choosing the first alias would change native relative lookup again.
+  if (namespace.members[relative]?.source === source) {
+    return relative;
+  }
+  let members = nativeSourceMembers.get(namespace);
+  if (!members) {
+    members = new Map<string, string>();
+    for (const [key, { source: memberSource }] of Object.entries(namespace.members)) {
+      if (!members.has(memberSource)) {
+        members.set(memberSource, key);
+      }
+    }
+    nativeSourceMembers.set(namespace, members);
+  }
+  return members.get(source);
+}
+
 export const pluginNativeNamespaceDirectory = (fact: PluginNativeNamespaceFact) =>
   fact.referenceRoot ? fact.sourceDirectory : path.join(fact.capturedRoot, "content");
 export const pluginNativeNamespaceBoundary = (fact: PluginNativeNamespaceFact) =>
@@ -79,7 +103,10 @@ export function assertPluginNativeNamespaceHost(
       ?.map((modules) => path.join(modules, "openclaw"))
       .find((filename) => fs.existsSync(filename));
     const resolvedHost = candidate ? fs.realpathSync(candidate) : undefined;
-    if (resolvedHost === hostRoot || (!candidate && directory !== pluginDirectory)) {
+    if (
+      (resolvedHost && openClawHostRootsMatch(resolvedHost, hostRoot)) ||
+      (!candidate && directory !== pluginDirectory)
+    ) {
       continue;
     }
     throw new Error(
@@ -290,8 +317,9 @@ export function capturePluginNativeNamespace(params: {
             ))) &&
         !(previous?.members[relative]?.boundaryChecked ?? boundaryFiles.has(member.source))
       ) {
-        linkPluginSourceFile(member.source, member.boundary, target);
-        linkedSources.add(member.source);
+        if (linkPluginSourceFile(member.source, member.boundary, target)) {
+          linkedSources.add(member.source);
+        }
       } else {
         copyPluginSourceFile(member.source, member.boundary, target);
       }

@@ -1,4 +1,3 @@
-// Filters host environment variables before passing them to runtimes.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { sortUniqueStrings } from "@openclaw/normalization-core/string-normalization";
 import { resolveNodeServiceIdentityEnvironment } from "../daemon/constants.js";
@@ -26,6 +25,8 @@ const NODE_SERVICE_ENV_KEYS = new Set([
   ...Object.keys(resolveNodeServiceIdentityEnvironment()),
   "OPENCLAW_GATEWAY_SERVICE_PID",
 ]);
+// The profile selects child CLI config and state too; it is not node daemon identity.
+NODE_SERVICE_ENV_KEYS.delete("OPENCLAW_PROFILE");
 const CARGO_TARGET_EXECUTABLE_OVERRIDE_ENV_KEY = /^CARGO_TARGET_[A-Z0-9_]+_(?:LINKER|RUNNER)$/;
 const GIT_ALLOW_PROTOCOL_ENV_KEY = "GIT_ALLOW_PROTOCOL";
 const GIT_PROTOCOL_FROM_USER_ENV_KEY = "GIT_PROTOCOL_FROM_USER";
@@ -53,7 +54,7 @@ export function setGatewayCredentialEnvKeys(owner: string, keys: Iterable<string
   }
 }
 
-function isGatewayCredentialEnvVarName(key: string): boolean {
+export function isGatewayCredentialEnvVarName(key: string): boolean {
   const upper = key.toUpperCase();
   for (const keys of gatewayCredentialEnvKeysByOwner.values()) {
     if (keys.has(upper)) {
@@ -96,9 +97,8 @@ export function withHostExecInheritedEnvOmitted<T>(keys: Iterable<string>, run: 
   return scopedBlockedInheritedEnvKeys.run(normalized, run);
 }
 
-function isScopedBlockedHostExecEnvVarName(rawKey: string): boolean {
-  const key = normalizeEnvVarKey(rawKey);
-  return key ? (scopedBlockedInheritedEnvKeys.getStore()?.has(key.toUpperCase()) ?? false) : false;
+function isScopedBlockedHostExecEnvVarName(key: string): boolean {
+  return scopedBlockedInheritedEnvKeys.getStore()?.has(key.toUpperCase()) ?? false;
 }
 
 function isNoPagerOverride(key: string, value: string): boolean {
@@ -108,11 +108,7 @@ function isNoPagerOverride(key: string, value: string): boolean {
   );
 }
 
-function isShellWrapperAllowedOverrideEnvVarName(rawKey: string): boolean {
-  const key = normalizeEnvVarKey(rawKey, { portable: true });
-  if (!key) {
-    return false;
-  }
+function isShellWrapperAllowedOverrideEnvVarName(key: string): boolean {
   const upper = key.toUpperCase();
   return HOST_SHELL_WRAPPER_ALLOWED_OVERRIDE_ENV_KEYS.has(upper) || upper.startsWith("LC_");
 }
@@ -300,10 +296,7 @@ export function sanitizeHostExecEnvWithDiagnostics(params?: {
     }
   }
 
-  const overrideResult = sanitizeHostEnvOverridesWithDiagnostics({
-    overrides: params?.overrides ?? undefined,
-    blockPathOverrides: params?.blockPathOverrides ?? true,
-  });
+  const overrideResult = sanitizeHostEnvOverridesWithDiagnostics(params);
   for (const [key, value] of Object.entries(overrideResult.acceptedOverrides)) {
     merged[key] = value;
   }

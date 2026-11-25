@@ -1,0 +1,3 @@
+import{D as parseStrictPositiveInteger}from"./number-coercion-B3CfI447.mjs";import{i as normalizeUtcIso,n as hasValidIsoCalendarComponents}from"./iso-time-BhVR3DDS.mjs";
+//!src/cron/parse.ts
+function parseAbsoluteTimeMs(e){const t=e.trim();if(!t)return null;if(/^\d+$/.test(t)){const e=parseStrictPositiveInteger(t);if(e!==void 0&&Number.isFinite(new Date(e).getTime()))return e;return null}if(!hasValidIsoCalendarComponents(t))return null;const n=Date.parse(normalizeUtcIso(t));return Number.isFinite(n)?n:null}export{parseAbsoluteTimeMs as t};

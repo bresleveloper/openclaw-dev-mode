@@ -62,8 +62,7 @@ export async function releaseRotatedTelegramAccountThrottler(
   if (previousToken === nextToken) {
     return false;
   }
-  // Retirement flips admission synchronously; replacement must not await old network I/O.
-  void releaseRetiredTelegramAccountThrottler(previousToken, nextCfg);
+  await releaseRetiredTelegramAccountThrottler(previousToken, nextCfg);
   return true;
 }
 

@@ -1,0 +1,3 @@
+import{i as asOptionalObjectRecord}from"./record-coerce-BTbqdJ3-.mjs";import{n as parseStandalonePlainTextToolCallBlocks$1}from"./payload-BmEB31Xt.mjs";import"./src-Cc0J6BOO.mjs";
+//!src/plugin-sdk/tool-payload.ts
+function parseStandalonePlainTextToolCallBlocks(e,t){return parseStandalonePlainTextToolCallBlocks$1(e,t)}function isToolPayloadTextBlock(e){const t=asOptionalObjectRecord(e);return t?.type===`text`&&typeof t.text===`string`}function extractToolPayload(e){if(!e)return;if(e.details!==void 0)return e.details;const t=(Array.isArray(e.content)?e.content.find(isToolPayloadTextBlock):void 0)?.text;if(!t)return e.content??e;try{return JSON.parse(t)}catch{return t}}export{parseStandalonePlainTextToolCallBlocks as n,extractToolPayload as t};

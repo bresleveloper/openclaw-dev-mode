@@ -34,3 +34,7 @@ export function findMarkdownCodeRegions(text: string): MarkdownCodeRegion[] {
   }
   return regions;
 }
+
+export function findMarkdownCodeSpans(text: string): Array<[number, number]> {
+  return findMarkdownCodeRegions(text).map(({ start, end }) => [start, end]);
+}

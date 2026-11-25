@@ -1,0 +1,1 @@
+import{t as e}from"./transcript-subsystem-JWF8ns83.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

@@ -26,6 +26,17 @@
     "additionalProperties": false,
     "properties": {}
   },
+  "controlUi": {
+    "entry": "dist/control-ui/c507158653fa473e38e406d13b8ed6b2d12a4ecaac83ccc2017596dcce2aec00/index.js",
+    "activation": "settings-only",
+    "settingsViews": [
+      {
+        "section": "channels",
+        "panel": "detail",
+        "channelId": "nostr"
+      }
+    ]
+  },
   "channelConfigs": {
     "nostr": {
       "schema": {

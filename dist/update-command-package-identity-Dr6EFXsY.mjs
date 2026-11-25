@@ -1,0 +1,3 @@
+import{i as readPackageVersion}from"./package-json-DFB01rMW.mjs";import{n as readBuiltGatewayBuildId}from"./update-git-runtime-D0LFAtKB.mjs";
+//!src/cli/update-cli/update-command-package-identity.ts
+async function readPackageUpdateIdentity(e){const[t,n]=await Promise.all([readPackageVersion(e),readBuiltGatewayBuildId(e)]);return{version:t,...n?{buildId:n}:{}}}export{readPackageUpdateIdentity as t};

@@ -200,6 +200,12 @@ openclaw doctor
 openclaw gateway status --json
 ```
 
+If PowerShell reports that running scripts is disabled, use [npm's `openclaw.cmd`](/platforms/windows#powershell-execution-policy) and leave the execution policy unchanged.
+
+Local `read`, `write`, and `edit` tools accept Git Bash (`/f/...`), Cygwin
+(`/cygdrive/f/...`), and WSL-style (`/mnt/f/...`) drive paths when the Gateway runs
+natively on Windows. These paths resolve to the corresponding Windows drive.
+
 **New workspace** also works with a native Windows Gateway. Install Git for
 Windows and make it available on `PATH`. Each empty workspace starts from a
 separate Git repository initialized without your global Git configuration.
@@ -287,6 +293,12 @@ Enabled-state changes allow up to 60 seconds for Windows PowerShell's cold start
 
 Strict maintenance inspection follows the task's registered CMD or VBS launcher, or a directly registered executable with literal arguments, and rechecks its captured definition before using the result. Runtime inspection uses that registered command rather than a default launcher. Direct executable inspection does not grant ownership to rewrite the executable or its task definition. Automatic update service management still reports these custom actions as unavailable and leaves them untouched because it cannot restore a managed launcher; environment expansion and ambiguous argument quoting remain uninspectable. Deep discovery identifies OpenClaw and legacy helpers from executable or launcher evidence; an unrelated task's display name alone does not identify a service. Standard and selected task names suppress extra-service findings only when the registered action is a modern Gateway; legacy and Node actions remain visible. Doctor reports incomplete inspection separately from services eligible for existing cleanup.
 
+For a rejected CMD launcher line, status and update warnings report the rejected
+rule and its physical line number, counting blank lines and comments.
+Diagnostics omit launcher text and environment values. Review that line and use
+literal values with a single Gateway command before retrying. Inspection leaves
+the launcher unchanged and does not grant permission to rewrite custom behavior.
+
 `openclaw gateway status --deep` and `openclaw doctor --deep` report sibling
 profiles from the current account's Startup folder. If its Scheduled Task is
 absent, the selected modern Gateway fallback is omitted from the extra-service list. Each
@@ -308,6 +320,8 @@ Doctor compares task definitions using Task Scheduler's defaults. An omitted
 `Enabled` element means `true` for both the task and its logon trigger, so XML
 export differences do not cause drift warnings or failed refresh verification.
 Explicitly disabled tasks and triggers are still reported.
+Status and Doctor also tolerate a scheduler-injected `UseUnifiedSchedulingEngine=true`.
+Replacement verification still protects that value from being silently discarded.
 
 The task check allows Windows PowerShell to inherit or create a console because
 some PowerShell 5.1 hosts fail inspection when console creation is disabled.
@@ -481,6 +495,35 @@ Notes:
 - Use `listenaddress=0.0.0.0` for LAN access, `127.0.0.1` for local-only access.
 
 ## Troubleshooting
+
+<a id="powershell-execution-policy" />
+
+### PowerShell refuses to run `openclaw.ps1`
+
+Windows PowerShell with an effective execution policy of Restricted resolves a
+bare `openclaw` command to npm's `openclaw.ps1` shim and stops before OpenClaw
+starts. Leave the execution policy unchanged. The install also includes
+`openclaw.cmd` in that same directory. This is npm's global shim, not the
+desktop app launcher at `%USERPROFILE%\.openclaw\bin\openclaw.cmd`. For the
+default npm prefix:
+
+```powershell
+& "$env:APPDATA\npm\openclaw.cmd" --version
+& "$env:APPDATA\npm\openclaw.cmd" doctor --generate-gateway-token
+```
+
+If the error names a different `openclaw.ps1` path, that directory is the npm
+prefix. Run the `openclaw.cmd` beside it:
+
+```powershell
+$shim = (Get-Command openclaw.ps1).Source
+& (Join-Path (Split-Path $shim) "openclaw.cmd") doctor --generate-gateway-token
+```
+
+Doctor can ask to pause the managed Gateway while you review repairs. If you
+accept, Doctor restores the previous service state when it finishes. A new
+token, and the Gateway restart after it, disconnects clients that still use
+the previous secret.
 
 ### The Gateway Scheduled Task is disabled
 

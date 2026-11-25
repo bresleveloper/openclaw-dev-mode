@@ -11,7 +11,6 @@ import { hasCommandProcessCleanupError } from "../../process/exec-result.js";
 import { withCommandProcessScope } from "../../process/exec-spawn.js";
 import { defaultRuntime } from "../../runtime.js";
 import type { UpdateCommandOptions } from "./shared.js";
-import type { FinishUpdateParams } from "./update-command-finish-types.js";
 import { appendPluginUpdateWarnings } from "./update-command-plugins-internals.js";
 import { UpdateCommandRecoveryPendingError } from "./update-command-recovery-error.js";
 import type {
@@ -29,22 +28,6 @@ import {
   verifyUpdatedGateway,
 } from "./update-command-verification.js";
 
-/** Preserve startup observation after activation, stop, rebind, or rollback. */
-export function shouldWaitForRecovery(
-  params: FinishUpdateParams,
-  service: PreManagedServiceStop | undefined,
-  rollbackAttempted: boolean,
-): boolean {
-  return (
-    params.result.status !== "error" ||
-    params.mutationStarted ||
-    params.preManagedServiceStop?.stopped === true ||
-    service?.stopped === true ||
-    Boolean(params.originalManagedServiceRuntime?.definition.rebound) ||
-    rollbackAttempted
-  );
-}
-
 /** Restore an owned stopped service after writers settle, then verify its installed runtime. */
 export async function verifyUpdateFailureRecovery(params: {
   result: UpdateRunResult;
@@ -54,13 +37,13 @@ export async function verifyUpdateFailureRecovery(params: {
   timeoutMs?: number;
   mutationStarted?: boolean;
   serviceStopped?: boolean;
-  preManagedServiceStop?: PreManagedServiceStop;
   gatewayStartAttempted?: "install" | "restart";
+  definitionRecovery?: UpdateServiceDefinitionRecovery;
+  serviceUpdateVerdict?: ManagedGatewayUpdateVerdict;
+  preManagedServiceStop?: PreManagedServiceStop;
   onGatewayStartAttempted?: () => void;
   nodeRunner?: string;
   invocationCwd?: string;
-  definitionRecovery?: UpdateServiceDefinitionRecovery;
-  serviceUpdateVerdict?: ManagedGatewayUpdateVerdict;
   waitForStartup?: boolean;
   assertCurrent?: () => void;
 }): Promise<UpdateRunResult> {
@@ -101,11 +84,11 @@ export async function verifyUpdateFailureRecovery(params: {
     warnRecording(`Could not read update recovery history: ${formatErrorMessage(error)}`);
   }
   const constraint = recorded?.verification.recovery;
-  const unsafeRecovery = [constraint, result.recovery].find(
+  const dataAtRisk = [constraint, result.recovery].find(
     (recovery) => recovery?.serviceRestartSafe === false && recovery.dataAtRisk,
   );
   const previousRecovery =
-    unsafeRecovery ??
+    dataAtRisk ??
     (constraint?.serviceRestartSafe === false
       ? constraint
       : (result.recovery ?? constraint ?? undefined));
@@ -117,8 +100,7 @@ export async function verifyUpdateFailureRecovery(params: {
   try {
     await withCommandProcessScope(async () => {
       const untouched =
-        !unsafeRecovery &&
-        (params.mutationStarted === false ||
+        ((params.mutationStarted === false && !dataAtRisk) ||
           ["managed-service-preflight", "gateway-stop-unverified"].includes(result.reason ?? "")) &&
         !params.serviceStopped &&
         !params.preManagedServiceStop?.stopped &&
@@ -258,9 +240,7 @@ export async function verifyUpdateFailureRecovery(params: {
           result.status = "ok";
         }
         if (run) {
-          recordUpdateRunDiagnostics(run.runId, { recovery: result.recovery }, warnRecording, {
-            env: run.env,
-          });
+          recordUpdateRunDiagnostics(run.runId, { recovery: result.recovery }, warnRecording, run);
         }
       }
     });
@@ -299,7 +279,7 @@ export async function verifyUpdateFailureRecovery(params: {
         return result;
       },
       warnRecording,
-      { env: run.env },
+      run,
     );
     // Unread history may still prohibit restart until the atomic merge confirms it.
     result.recovery =

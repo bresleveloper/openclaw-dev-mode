@@ -1,6 +1,6 @@
 import { resolveAnthropicVertexRegion } from "./region.js";
 import { resolveProviderEndpoint } from "openclaw/plugin-sdk/provider-http";
-//#region extensions/anthropic-vertex/region-endpoint.ts
+// extensions/anthropic-vertex/region-endpoint.ts
 function resolveAnthropicVertexBaseUrl(env) {
 	const region = resolveAnthropicVertexRegion(env);
 	return region === "global" ? "https://aiplatform.googleapis.com" : region === "us" || region === "eu" ? `https://aiplatform.${region}.rep.googleapis.com` : `https://${region}-aiplatform.googleapis.com`;
@@ -13,5 +13,4 @@ function resolveAnthropicVertexRegionFromBaseUrl(baseUrl) {
 function resolveAnthropicVertexClientRegion(params) {
 	return resolveAnthropicVertexRegionFromBaseUrl(params?.baseUrl) || resolveAnthropicVertexRegion(params?.env);
 }
-//#endregion
 export { resolveAnthropicVertexBaseUrl, resolveAnthropicVertexClientRegion, resolveAnthropicVertexRegionFromBaseUrl };

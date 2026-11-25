@@ -1,0 +1,3 @@
+import{n as normalizeMediaProviderId}from"./provider-id-UyB6CT9r.mjs";
+//!src/media-understanding/config-provider-models.ts
+function listImageCapableConfiguredProviders(e){return Object.entries(e?.models?.providers??{}).filter(([e,t])=>e.trim()&&(t.models??[]).some(e=>e.input?.includes(`image`))).map(([e])=>e)}function resolveConfiguredMediaProviderCapabilities(e,t){if(e.inheritConfiguredImageCapability&&!e.capabilities?.includes(`image`)&&listImageCapableConfiguredProviders(t).some(t=>normalizeMediaProviderId(t)===normalizeMediaProviderId(e.id)))return[...e.capabilities??[],`image`];return e.capabilities}export{resolveConfiguredMediaProviderCapabilities as n,listImageCapableConfiguredProviders as t};

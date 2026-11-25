@@ -1,5 +1,5 @@
-import { n as listBuzzDirectoryPeersFromConfig, t as listBuzzDirectoryGroupsFromConfig } from "./.setup/directory-config-wXk0VyxK.mjs";
-//#region extensions/buzz/directory-contract-api.ts
+import { n as listBuzzDirectoryPeersFromConfig, t as listBuzzDirectoryGroupsFromConfig } from "./.setup/directory-config-4LKbchce.mjs";
+// extensions/buzz/directory-contract-api.ts
 const buzzDirectoryContractPlugin = {
 	id: "buzz",
 	directory: {
@@ -7,5 +7,4 @@ const buzzDirectoryContractPlugin = {
 		listGroups: listBuzzDirectoryGroupsFromConfig
 	}
 };
-//#endregion
 export { buzzDirectoryContractPlugin, listBuzzDirectoryGroupsFromConfig, listBuzzDirectoryPeersFromConfig };

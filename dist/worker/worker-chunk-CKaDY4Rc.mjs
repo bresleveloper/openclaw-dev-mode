@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,t as n}from"./worker-chunk-Lqe5oW9n.mjs";function loadOptionalBundledChannelPublicArtifact(e){return t({dirName:e.channelId.trim(),artifactCandidates:[e.artifactBasename]})??void 0}var r=e((()=>{n()}));export{loadOptionalBundledChannelPublicArtifact as n,r as t};

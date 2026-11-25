@@ -1,16 +1,14 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { _k as ReplyPayload } from "../config-contracts-CY87ANNp.js";
-import "../index-8f56f6LD.js";
-import "../approval-types-faKMZQ8q.js";
-import "../model-selection-DoE_lu2k.js";
-import "../config-S5Zm-Svf.js";
-import "../thinking.shared-COcvrWJf.js";
-import "../types-CeA70ktN.js";
-import { a as getModelsRuntimeChoices, i as buildPreparedModelsProviderData, n as ModelsProviderData, o as ModelsProviderMenu, r as ModelsRuntimeChoice, t as ModelsCommandSessionEntry } from "../commands-models-catalog-DJDeWgJv.js";
-import "../model-visibility-policy-B7QpSRrk.js";
-//#region src/auto-reply/reply/commands-models.d.ts
+import { aM as ReplyPayload } from "../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import "../index-DSy-_0fC.js";
+import "../thinking.shared-CbDUpGH9.js";
+import "../approval-types-Bh5AmS0_.js";
+import "../types-BLzNI-JA.js";
+import "../provider-context-BvC7EnIY.js";
+import { a as getModelsRuntimeChoices, i as buildPreparedModelsProviderData, n as ModelsProviderData, o as ModelsProviderMenu, r as ModelsRuntimeChoice, t as ModelsCommandSessionEntry } from "../commands-models-catalog-CBQbtldN.js";
+import "../model-visibility-policy-WSpkRJ6C.js";
 export declare const MODEL_PICKER_CHANGED_MESSAGE = "Available models changed. Open /models and choose again.";
-/** @deprecated Use formatModelsAvailableHeaderAsync. Supported through 2026-12-31. */
+/** @deprecated Use formatModelsAvailableHeaderAsync. Supported through 2026-12-31. Removal in the first January 2027 stable release. */
 export declare function formatModelsAvailableHeader(params: {
   provider: string;
   total: number;
@@ -33,8 +31,5 @@ type ModelsCommandReplyParams = {
   sessionEntry?: ModelsCommandSessionEntry;
 };
 export declare function resolveModelsCommandReply(params: ModelsCommandReplyParams): Promise<ReplyPayload | null>;
-//#endregion
-//#region src/plugin-sdk/models-provider-runtime.d.ts
 export declare function buildModelsProviderData(...args: Parameters<typeof buildPreparedModelsProviderData>): Promise<ModelsProviderData>;
-//#endregion
 export { type ModelsProviderData, type ModelsRuntimeChoice, buildPreparedModelsProviderData, getModelsRuntimeChoices };

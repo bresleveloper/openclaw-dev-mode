@@ -1,0 +1,5 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,o as n,r,u as i}from"./worker-chunk-DBPe0gM1.mjs";import{_ as a,o,u as s,v as c}from"./worker-chunk-Cb_C8ZGK.mjs";import{a as l,i as u}from"./worker-chunk-BPAboNOm.mjs";function migrateSqliteTableWithoutRowid(e,n){let s=o(e)??a(e),c=s.tableSql.get(n);if(!c)return!1;let u=t(c,`(`),d=r(c,u),f=c.slice(d+1).replace(/;\s*$/u,``).trim();if(/\bWITHOUT\s+ROWID\b/iu.test(f))return!1;let p=i(n),m=i(`${n}_without_rowid_migration`),h=[...l(e,n)].map(i).join(`, `);e.exec(`CREATE TABLE ${m} ${c.slice(u,d+1)}
+      ${f?`${f}, `:``}WITHOUT ROWID;
+    INSERT INTO ${m} (${h}) SELECT ${h} FROM ${p};
+    DROP TABLE ${p};
+    ALTER TABLE ${m} RENAME TO ${p};`);for(let t of[...s.indexDefinitions.values(),...s.triggers.values()])t.table===n&&typeof t.sql==`string`&&e.exec(t.sql);return!0}var d=e((()=>{c(),s(),n(),u()}));export{migrateSqliteTableWithoutRowid as n,d as t};

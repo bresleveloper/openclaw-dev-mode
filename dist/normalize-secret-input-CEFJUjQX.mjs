@@ -1,0 +1,2 @@
+//!src/utils/normalize-secret-input.ts
+function normalizeSecretInput(e){if(typeof e!==`string`)return``;return e.replace(/[^\u0020-\u007e\u00a0-\u00ff]/gu,``).trim()}function normalizeOptionalSecretInput(e){return normalizeSecretInput(e)||void 0}export{normalizeSecretInput as n,normalizeOptionalSecretInput as t};

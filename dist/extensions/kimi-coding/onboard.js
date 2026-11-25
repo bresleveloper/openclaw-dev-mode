@@ -1,6 +1,6 @@
-import { i as buildKimiCodingProvider, n as KIMI_CODING_DEFAULT_MODEL_ID, t as KIMI_CODING_BASE_URL } from "./.setup/provider-catalog-Bc73oFLX.mjs";
+import { KIMI_CODING_BASE_URL, KIMI_CODING_DEFAULT_MODEL_ID, buildKimiCodingProvider } from "./provider-catalog.js";
 import { createDefaultModelsPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/kimi-coding/onboard.ts
+// extensions/kimi-coding/onboard.ts
 const KIMI_MODEL_REF = `kimi/${KIMI_CODING_DEFAULT_MODEL_ID}`;
 const KIMI_CODING_MODEL_REF = KIMI_MODEL_REF;
 const { applyConfig: applyKimiCodeConfig } = createDefaultModelsPresetAppliers({
@@ -21,5 +21,4 @@ const { applyConfig: applyKimiCodeConfig } = createDefaultModelsPresetAppliers({
 		};
 	}
 });
-//#endregion
 export { KIMI_CODING_MODEL_REF, KIMI_MODEL_REF, applyKimiCodeConfig };

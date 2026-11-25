@@ -1,7 +1,8 @@
-import { a as openclaw_plugin_default, n as DEEPSEEK_MODEL_CATALOG, t as DEEPSEEK_BASE_URL } from "./.setup/models-D843Tvyg.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-CE_cMy1x.mjs";
+import { DEEPSEEK_BASE_URL, DEEPSEEK_MODEL_CATALOG } from "./models.js";
 import { readManifestProviderDefaultModelRef } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/deepseek/onboard.ts
+// extensions/deepseek/onboard.ts
 const DEEPSEEK_DEFAULT_MODEL_REF = readManifestProviderDefaultModelRef(openclaw_plugin_default, "deepseek");
 const { applyConfig: applyDeepSeekConfig } = createProviderConnectionPresetAppliers({
 	primaryModelRef: DEEPSEEK_DEFAULT_MODEL_REF,
@@ -16,5 +17,4 @@ const { applyConfig: applyDeepSeekConfig } = createProviderConnectionPresetAppli
 		}]
 	})
 });
-//#endregion
 export { applyDeepSeekConfig };

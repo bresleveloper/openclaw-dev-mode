@@ -1,0 +1,1 @@
+export default {"outputs":{"viewAll":"Visa alla","files":"Filer","loading":"Läser in resultat…","updating":"Uppdaterar resultat…","loadingDashboard":"Läser in översikt…","emptyTitle":"Inga resultat ännu.","emptyDescription":"Filer och instrumentpaneler från den här sessionen visas här."}};

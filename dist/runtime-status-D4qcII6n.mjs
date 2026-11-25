@@ -1,0 +1,2 @@
+//!src/infra/runtime-status.ts
+function formatRuntimeStatusWithDetails({status:e,pid:t,state:n,details:r=[]}){const i=e?.trim()||`unknown`;const a=[];if(t)a.push(`pid ${t}`);const o=n?.trim();if(o&&o.toLowerCase()!==i.toLowerCase())a.push(`state ${o}`);for(const e of r){const t=e.replace(/\s+/g,` `).trim();if(t)a.push(t)}return a.length>0?`${i} (${a.join(`, `)})`:i}export{formatRuntimeStatusWithDetails as t};

@@ -1,0 +1,4 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{w as t,y as n}from"./worker-chunk-Dyh5Iieo.mjs";function trimTextPreservingCode(e,n=`both`,r){let i=e.trimStart();if(i&&i.length!==e.length){let n=e.length-i.length,a=(r??t(e)).find(e=>(e.block||r&&e.start===0)&&e.start<=n&&n<e.end);a&&(i=e.slice(a.start))}if(n===`both`){let t=e.trimEnd().length;return r?.some(n=>n.start<=t&&n.end===e.length)?i:i.trimEnd()}return i}function combineNonStreamingReplyParts(e){let t=``;for(let n of e){if(!n.trim())continue;let e=!t||/[\r\n]$/.test(t)||/^[\r\n]/.test(n)?``:/^[\t ]+\S/.test(n)?`
+`:`
+
+`;t+=e+n}return trimTextPreservingCode(t)}var r=e((()=>{n()}));export{r as n,trimTextPreservingCode as r,combineNonStreamingReplyParts as t};

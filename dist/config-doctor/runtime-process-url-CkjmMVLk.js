@@ -1,0 +1,3 @@
+import"./cli-invocation-BQt-q4O8.js";import"./runtime-process-manifest-Dl0dETdU.js";import{a as runtimeProcessEntrypoints}from"./runtime-binary-BsrRTXrV.js";import{r as resolveRuntimeWorkerUrl}from"./runtime-worker-url-aW7pUI7V.js";import path from"node:path";import{fileURLToPath,pathToFileURL}from"node:url";
+//!src/infra/runtime-process-url.ts
+const sealedEntrypoints=/* @__PURE__ */ new Map;function resolveRuntimeProcessEntrypointUrl(e){return sealedEntrypoints.get(e)??resolveRuntimeWorkerUrl(runtimeProcessEntrypoints[e])}export{resolveRuntimeProcessEntrypointUrl as t};

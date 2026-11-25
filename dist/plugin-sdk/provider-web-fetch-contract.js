@@ -1,2 +1,1 @@
-import { t as enableProviderPluginInConfig } from "../provider-enable-config-BWISz_4j.mjs";
-export { enableProviderPluginInConfig as enablePluginInConfig };
+import{t as enableProviderPluginInConfig}from"../provider-enable-config-7cCrcYdB.mjs";export{enableProviderPluginInConfig as enablePluginInConfig};

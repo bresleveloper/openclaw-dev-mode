@@ -67,11 +67,10 @@ export async function buildMattermostEventPlan(
   return {
     channelId: params.channelId,
     senderId: params.senderId,
-    channelInfo,
     kind,
-    teamId,
-    channelName,
     channelDisplay,
+    channelName,
+    teamId,
     roomLabel,
     route,
     thread,
@@ -129,9 +128,9 @@ export async function buildMattermostEventPlan(
       },
       replyOptions: {
         disableBlockStreaming:
-          typeof monitor.account.blockStreaming === "boolean"
-            ? !monitor.account.blockStreaming
-            : undefined,
+          monitor.account.blockStreaming === undefined
+            ? undefined
+            : !monitor.account.blockStreaming,
       },
     }),
   };

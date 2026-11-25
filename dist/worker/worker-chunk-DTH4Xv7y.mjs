@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,s as n}from"./worker-chunk-CHXXUV6W.mjs";function parseKeyValueOutput(e,t){let r={};for(let i of e.split(/\r?\n/)){let e=i.trim();if(!e)continue;let a=e.indexOf(t);if(a<=0)continue;let o=n(e.slice(0,a));r[o]=e.slice(a+t.length).trim()}return r}var r=e((()=>{t()}));export{parseKeyValueOutput as n,r as t};

@@ -1,0 +1,2 @@
+//!src/shared/text/chat-display.ts
+function sanitizeChatDisplayText(e){return e.replace(/[\p{Cc}\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff\ufff9-\ufffb\u{e0000}-\u{e007f}]/gu,`?`)}function escapeChatDisplayText(e){return e.replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`@`,`＠`).replaceAll("`",`｀`).replaceAll(`[`,`［`).replaceAll(`]`,`］`).replaceAll(`(`,`（`).replaceAll(`)`,`）`).replaceAll(`*`,`∗`).replaceAll(`_`,`＿`).replaceAll(`~`,`～`).replaceAll(`|`,`｜`)}export{sanitizeChatDisplayText as n,escapeChatDisplayText as t};

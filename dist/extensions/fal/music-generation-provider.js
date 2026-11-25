@@ -1,2 +1,1 @@
-import { t as buildFalMusicGenerationProvider } from "../../music-generation-provider-ll2RqJ-n.mjs";
-export { buildFalMusicGenerationProvider };
+import{t as buildFalMusicGenerationProvider}from"../../music-generation-provider-D6KY9zDa.mjs";export{buildFalMusicGenerationProvider};

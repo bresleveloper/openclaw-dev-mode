@@ -1,0 +1,3 @@
+import{d as tryReadJsonSync,f as writeJson,m as writeJsonSync}from"./json-files-BBQ_0Np0.mjs";
+//!src/plugin-sdk/json-store.ts
+function loadJsonFile(e){return tryReadJsonSync(e)??void 0}const saveJsonFile=writeJsonSync;async function writeJsonFileAtomically(e,t){await writeJson(e,t,{mode:384,dirMode:448,trailingNewline:true})}export{saveJsonFile as n,writeJsonFileAtomically as r,loadJsonFile as t};

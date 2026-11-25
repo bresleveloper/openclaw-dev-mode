@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"Sedang mengerjakan: {context}","removeContext":"Hapus konteks kerja","includeContext":"Sertakan konteks kerja","selection":"Teks yang dipilih","attachSelection":"Lampirkan teks yang dipilih","attachSelectionTooltip":"Lampirkan pilihan","removeSelection":"Hapus teks yang dipilih"}};

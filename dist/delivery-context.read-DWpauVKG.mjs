@@ -1,0 +1,2 @@
+//!src/utils/delivery-context.read.ts
+function deliveryContextFromSession(e){return e?.delivery?.kind===`external`?e.delivery.context:void 0}function sessionDeliveryRoute(e){return e?.delivery?.kind===`external`?e.delivery.route:void 0}function sessionDeliveryOrigin(e){return e?.delivery?.kind===`external`?e.delivery.origin:void 0}function sessionDeliveryChannel(e){const t=e?.delivery;return t?.kind===`external`?t.context.channel??t.origin.provider:void 0}export{sessionDeliveryRoute as i,sessionDeliveryChannel as n,sessionDeliveryOrigin as r,deliveryContextFromSession as t};

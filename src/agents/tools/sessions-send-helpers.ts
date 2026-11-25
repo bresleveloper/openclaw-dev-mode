@@ -6,7 +6,7 @@ import {
 import { resolveSessionConversationRef } from "../../channels/plugins/session-conversation.js";
 import { normalizeChatChannelId } from "../../channels/registry.js";
 import { parseSessionDeliveryRoute } from "../../sessions/session-key-utils.js";
-import { sanitizeAgentRunTerminalReplyText } from "../agent-run-terminal-reply.js";
+import { sanitizeAgentRunTerminalReply } from "../agent-run-terminal-reply.js";
 import { readLatestAssistantReply, type AgentWaitResult } from "../run-wait.js";
 import { jsonResult } from "./tool-results.js";
 
@@ -76,8 +76,10 @@ export async function resolveSessionsSendReply(
     return { replyText };
   }
   const stored = await readLatestAssistantReply(params).catch(() => undefined);
-  const bounded = stored === undefined ? undefined : sanitizeAgentRunTerminalReplyText(stored);
-  return bounded === replyText ? { replyText: stored } : { replyText, replyTruncated: true };
+  const snapshot = stored === undefined ? undefined : sanitizeAgentRunTerminalReply(stored);
+  return snapshot?.disposition === "visible" && snapshot.text === replyText
+    ? { replyText: stored }
+    : { replyText, replyTruncated: true };
 }
 
 export function resolveSessionDeliveryTargetFromKey(

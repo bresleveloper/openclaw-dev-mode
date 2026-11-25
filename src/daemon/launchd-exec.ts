@@ -1,4 +1,3 @@
-/** Shared launchctl execution and result classification for macOS service owners. */
 import { normalizeLowercaseStringOrEmpty } from "@openclaw/normalization-core/string-coerce";
 import { truncateUtf16Safe } from "@openclaw/normalization-core/utf16-slice";
 import { sanitizeForLog } from "../../packages/terminal-core/src/ansi.js";
@@ -12,7 +11,6 @@ export type LaunchctlResult = ExecResult;
 export async function execLaunchctl(
   args: string[],
   budget?: number | GatewayServiceControlArgs["deadline"],
-  beforeEffect?: () => void,
 ): Promise<LaunchctlResult> {
   const deadline = typeof budget === "object" ? budget : undefined;
   let timeoutMs = typeof budget === "number" ? budget : undefined;
@@ -23,12 +21,11 @@ export async function execLaunchctl(
   const isWindows = process.platform === "win32";
   const file = isWindows ? getWindowsCmdExePath() : "launchctl";
   const fileArgs = isWindows ? ["/d", "/s", "/c", "launchctl", ...args] : args;
-  const options: Parameters<typeof execFileUtf8>[2] =
-    timeoutMs && timeoutMs > 0 ? { timeout: timeoutMs, killSignal: "SIGKILL" } : {};
-  if (beforeEffect) {
-    options.beforeEffect = beforeEffect;
-  }
-  const result = await execFileUtf8(file, fileArgs, options);
+  const result = await execFileUtf8(
+    file,
+    fileArgs,
+    timeoutMs && timeoutMs > 0 ? { timeout: timeoutMs, killSignal: "SIGKILL" } : {},
+  );
   deadline?.signal.throwIfAborted();
   return result;
 }

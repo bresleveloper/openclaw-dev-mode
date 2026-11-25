@@ -1,6 +1,7 @@
-import { $r as NativeCommandsSetting, M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { wA as ChannelId } from "../config-contracts-CY87ANNp.js";
-//#region src/config/commands.d.ts
+import "../config-contracts-hzlacViZ.js";
+import { Cn as NativeCommandsSetting, r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import "../types-ACDCRjU-.js";
+import { m as ChannelId } from "../manifest-registry-CNNq5Vj2.js";
 type NativeCommandSettingParams = {
   providerId: ChannelId;
   providerSetting?: NativeCommandsSetting;
@@ -20,4 +21,4 @@ export declare function isNativeCommandsExplicitlyDisabled(params: {
   providerSetting?: NativeCommandsSetting;
   globalSetting?: NativeCommandsSetting;
 }): boolean;
-//#endregion
+export {};

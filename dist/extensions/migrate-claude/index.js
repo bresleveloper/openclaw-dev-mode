@@ -1,13 +1,3 @@
-import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
-import { t as buildClaudeMigrationProvider } from "../../provider-DQ202_sI.mjs";
-//#region extensions/migrate-claude/index.ts
-var migrate_claude_default = definePluginEntry({
-	id: "migrate-claude",
-	name: "Claude Migration",
-	description: "Imports Claude state into OpenClaw.",
-	register(api) {
-		api.registerMigrationProvider(buildClaudeMigrationProvider({ runtime: api.runtime }));
-	}
-});
-//#endregion
-export { migrate_claude_default as default };
+import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import{t as buildClaudeMigrationProvider}from"../../provider-DNdm2WRa.mjs";
+//!extensions/migrate-claude/index.ts
+var migrate_claude_default=definePluginEntry({id:`migrate-claude`,name:`Claude Migration`,description:`Imports Claude state into OpenClaw.`,register(e){e.registerMigrationProvider(buildClaudeMigrationProvider({runtime:e.runtime}))}});export{migrate_claude_default as default};

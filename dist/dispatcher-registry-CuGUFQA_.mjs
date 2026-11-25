@@ -1,0 +1,3 @@
+import{a as resolveGlobalSet}from"./global-singleton-BoQ13xsk.mjs";
+//!src/auto-reply/reply/dispatcher-registry.ts
+const activeDispatchers=resolveGlobalSet(Symbol.for(`openclaw.activeReplyDispatchers`),`close-only`);function registerDispatcher(e){const t={pending:e};activeDispatchers.add(t);return()=>{activeDispatchers.delete(t)}}function getTotalPendingReplies(){let e=0;for(const t of activeDispatchers)e+=t.pending();return e}export{registerDispatcher as n,getTotalPendingReplies as t};

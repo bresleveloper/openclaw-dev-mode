@@ -1,0 +1,1 @@
+import{a as getTailnetHostnameAfterServe,i as getTailnetHostname,n as claimTailscaleServePort,o as hasTailscaleFunnelRouteForPort,r as findTailscaleBinary,s as readTailscaleWhoisIdentity,t as claimTailscaleRoute}from"./tailscale-BWpSkXfR.mjs";export{getTailnetHostname,readTailscaleWhoisIdentity};

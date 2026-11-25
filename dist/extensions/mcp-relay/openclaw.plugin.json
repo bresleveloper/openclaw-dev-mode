@@ -45,9 +45,13 @@
     }
   },
   "controlUi": {
-    "entry": "dist/control-ui/c257eb12659a4d3a1959c1e885ae75924ec87afc132c1f4564ba99c7d42c7e08/index.js",
+    "entry": "dist/control-ui/014d9dea01954ee9aa12ece339ea92f0872600eb9195ef5a9a81cdd9ecd915f4/index.js",
     "styles": [
-      "dist/control-ui/c257eb12659a4d3a1959c1e885ae75924ec87afc132c1f4564ba99c7d42c7e08/index.css"
+      "dist/control-ui/014d9dea01954ee9aa12ece339ea92f0872600eb9195ef5a9a81cdd9ecd915f4/index.css"
     ]
-  }
+  },
+  "recommendedPrompts": [
+    "Help me plan an MCP Relay connection from ChatGPT, Codex, or Claude to this Gateway.",
+    "Review my connected MCP Relay apps and their access without changing grants."
+  ]
 }

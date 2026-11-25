@@ -1,0 +1,3 @@
+import{r as requestBrowserJson,t as browserClientTimeout}from"./client-request-DiowMpqU.mjs";
+//!extensions/browser/src/browser/client-tab-close.runtime.ts
+async function browserCloseTabByRawTargetId(e,t,n){const r=`/tabs/${encodeURIComponent(t)}?targetIdMode=raw`;await requestBrowserJson(e,r,{profile:n?.profile,method:`DELETE`,timeoutMs:browserClientTimeout(e,void 0,5e3)})}export{browserCloseTabByRawTargetId};

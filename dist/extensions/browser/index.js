@@ -1,14 +1,3 @@
-import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
-import { i as registerBrowserPlugin, n as browserPluginReload, r as browserSecurityAuditCollectors, t as browserPluginNodeHostCommands } from "../../plugin-registration-Bqnb4lp3.mjs";
-//#region extensions/browser/index.ts
-var browser_default = definePluginEntry({
-	id: "browser",
-	name: "Browser",
-	description: "Default browser tool plugin",
-	reload: browserPluginReload,
-	nodeHostCommands: browserPluginNodeHostCommands,
-	securityAuditCollectors: [...browserSecurityAuditCollectors],
-	register: registerBrowserPlugin
-});
-//#endregion
-export { browser_default as default };
+import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import{i as registerBrowserPlugin,n as browserPluginReload,r as browserSecurityAuditCollectors,t as browserPluginNodeHostCommands}from"../../plugin-registration-BwIctZ0q.mjs";
+//!extensions/browser/index.ts
+var browser_default=definePluginEntry({id:`browser`,name:`Browser`,description:`Default browser tool plugin`,reload:browserPluginReload,nodeHostCommands:browserPluginNodeHostCommands,securityAuditCollectors:[...browserSecurityAuditCollectors],register:registerBrowserPlugin});export{browser_default as default};

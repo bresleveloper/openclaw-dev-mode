@@ -1,0 +1,3 @@
+import{a as isOpenAIApiBaseUrl}from"./base-url-Bj7R0VNs.mjs";
+//!extensions/openai/native-web-search-policy.ts
+function resolveNativeWebSearch(e){const t=e.config?.tools?.web?.search?.provider?.trim().toLowerCase();return e.config?.tools?.web?.search?.enabled!==false&&(!t||t===`auto`||t===`openai`)&&e.api===`openai-responses`&&e.provider.trim().toLowerCase()===`openai`&&(!e.baseUrl||isOpenAIApiBaseUrl(e.baseUrl))}export{resolveNativeWebSearch as t};

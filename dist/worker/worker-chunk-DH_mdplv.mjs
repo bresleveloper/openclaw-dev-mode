@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{o as t}from"./worker-chunk-CCy9a-L1.mjs";import{n}from"./worker-chunk-D66FOs0V.mjs";function init_time_runtime(){return(init_time_runtime=e((()=>{t(),n()})))()}export{init_time_runtime as t};

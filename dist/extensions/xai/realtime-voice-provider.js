@@ -1,30 +1,3 @@
-import { _ as normalizeXaiRealtimeProviderConfig, g as normalizeXaiRealtimeBaseUrl } from "../../realtime-voice-config-ZrZsQBkX.mjs";
-import { s as assertXaiRealtimeVoiceRequestSupported } from "../../capability-provider-metadata-factory-Cs1Hgti5.mjs";
-import { t as createXaiRealtimeVoiceProviderMetadata } from "../../capability-provider-metadata-D94p50HJ.mjs";
-import { t as resolveXaiRealtimeApiKey } from "../../realtime-voice-auth.runtime-B5wAvx_C.mjs";
-import { t as XaiRealtimeVoiceBridge } from "../../realtime-voice-bridge-C4CGeSkM.mjs";
-//#region extensions/xai/realtime-voice-provider.ts
-function buildXaiRealtimeVoiceProvider() {
-	return {
-		...createXaiRealtimeVoiceProviderMetadata(),
-		createBridge: (req) => {
-			const config = normalizeXaiRealtimeProviderConfig(req.providerConfig);
-			assertXaiRealtimeVoiceRequestSupported(req);
-			return new XaiRealtimeVoiceBridge({
-				...req,
-				apiKey: config.apiKey,
-				baseUrl: normalizeXaiRealtimeBaseUrl(config.baseUrl),
-				model: config.model,
-				voice: config.voice,
-				vadThreshold: config.vadThreshold,
-				silenceDurationMs: config.silenceDurationMs,
-				prefixPaddingMs: config.prefixPaddingMs,
-				reasoningEffort: config.reasoningEffort,
-				sessionResumption: config.sessionResumption,
-				resolveApiKey: () => resolveXaiRealtimeApiKey(config.apiKey, req.cfg, req.agentId)
-			});
-		}
-	};
-}
-//#endregion
-export { buildXaiRealtimeVoiceProvider };
+import{a as resolveAgentDir}from"../../agent-scope-config-a2Ym-O21.mjs";import"../../agent-scope-runtime-BYK4fve4.mjs";import{i as isProviderAuthProfileConfiguredAsync,r as isProviderAuthProfileConfigured}from"../../provider-auth-availability-eLOvriE_.mjs";import"../../provider-auth-B4VzX3UJ.mjs";import{_ as normalizeXaiRealtimeProviderConfig,g as normalizeXaiRealtimeBaseUrl}from"../../realtime-voice-config-B2rLuLA4.mjs";import{d as createXaiRealtimeVoiceProviderMetadata,s as assertXaiRealtimeVoiceRequestSupported}from"../../capability-provider-metadata-factory-CpZIFizx.mjs";import{t as resolveXaiRealtimeApiKey}from"../../realtime-voice-auth.runtime-Imb0Dm5c.mjs";import{t as XaiRealtimeVoiceBridge}from"../../realtime-voice-bridge-BZdbEhKa.mjs";
+//!extensions/xai/realtime-voice-provider.ts
+function buildXaiRealtimeVoiceProvider(){return{...createXaiRealtimeVoiceProviderMetadata({isProviderAuthProfileConfigured,isProviderAuthProfileConfiguredAsync,resolveAgentDir}),createBridge:e=>{const t=normalizeXaiRealtimeProviderConfig(e.providerConfig);assertXaiRealtimeVoiceRequestSupported(e);return new XaiRealtimeVoiceBridge({...e,baseUrl:normalizeXaiRealtimeBaseUrl(t.baseUrl),model:t.model,voice:t.voice,vadThreshold:t.vadThreshold,silenceDurationMs:t.silenceDurationMs,prefixPaddingMs:t.prefixPaddingMs,reasoningEffort:t.reasoningEffort,sessionResumption:t.sessionResumption,resolveApiKey:()=>resolveXaiRealtimeApiKey(t.apiKey,e.cfg,e.agentId)})}}}export{buildXaiRealtimeVoiceProvider};

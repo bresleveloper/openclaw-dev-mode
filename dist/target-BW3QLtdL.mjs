@@ -1,0 +1,2 @@
+//!extensions/x/src/target.ts
+function normalizeXReplyTarget(e){const t=e.trim();const n=/^(?:x:)?(\d+)$/i.exec(t)?.[1];if(n)return n;const r=URL.parse(t);return r?.protocol===`https:`&&r.hostname===`x.com`&&!r.username&&!r.password?/^\/[^/]+\/status\/(\d+)\/?$/.exec(r.pathname)?.[1]:void 0}export{normalizeXReplyTarget as t};

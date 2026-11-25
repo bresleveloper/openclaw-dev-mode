@@ -1,8 +1,10 @@
-import type { SessionTreeEntry } from "@openclaw/agent-core";
 import type { Selectable } from "kysely";
 import type { DB } from "../../state/openclaw-agent-db.generated.js";
 import type { SessionActorHotState } from "./session-actor-state.types.js";
-import type { ResolvedSessionEntryRow } from "./session-entry-storage.types.js";
+import type {
+  ResolvedSessionEntryRow,
+  SessionEntrySnapshotRow,
+} from "./session-entry-storage.types.js";
 import type { SessionEntryWindowRow } from "./session-entry-window.types.js";
 import type { SessionPendingInputRow } from "./session-pending-input.types.js";
 import type { SessionTranscriptProjectionState } from "./session-transcript-projection-append.js";
@@ -18,7 +20,16 @@ export type SessionActorStoredState = {
   path: string;
   hot: SessionActorHotState;
   /** Lookup siblings were admitted in the same hydration statement. */
-  entryRows: Map<string, ResolvedSessionEntryRow | undefined>;
+  entryRows: Map<
+    string,
+    | {
+        entry: ResolvedSessionEntryRow["entry"];
+        row: Omit<ResolvedSessionEntryRow["row"], keyof SessionEntrySnapshotRow> & {
+          [K in keyof SessionEntrySnapshotRow]?: never;
+        };
+      }
+    | undefined
+  >;
   window: SessionEntryWindowRow | undefined;
   hasBoard: boolean;
   /** Unconsumed custody only; consumed source receipts use indexed SQLite reads. */
@@ -27,7 +38,7 @@ export type SessionActorStoredState = {
   /** Only a complete cache can prove that a durable completion is absent. */
   completionsComplete: boolean;
   transcript: {
-    /** Only a complete window can prove that an identity or history row is absent. */
+    /** Complete means every identity row for the session, not just the bounded window. */
     complete: boolean;
     coldArchive:
       | Omit<Selectable<DB["session_transcript_cold_archives"]>, "archive_blob">
@@ -35,7 +46,7 @@ export type SessionActorStoredState = {
     projection: (SessionTranscriptProjectionState & { hasUnclassifiedEvents: boolean }) | undefined;
     identities: Map<string, Selectable<DB["transcript_event_identities"]>>;
     active: Map<number, Selectable<DB["session_transcript_active_events"]>>;
-    navigation: Array<SessionTreeEntry & { seq: number }>;
+    navigation: Array<Record<string, unknown> & { seq: number }>;
     /** Current transaction's append bodies; committed receipts own them after settlement. */
     payloads: Map<number, { event: unknown; serializedBytes: number }>;
     contextMetadata?: SessionTranscriptContextMetadata;

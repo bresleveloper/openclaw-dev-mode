@@ -1,1 +1,0 @@
-import{n as e,r as t}from"./worker-chunk-CsBt_MMG.mjs";e();export{t as loadConfigForInstall};

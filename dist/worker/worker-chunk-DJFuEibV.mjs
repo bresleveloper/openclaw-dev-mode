@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function resolvePromptInjectionAllowed(e){return e?.allowPromptModification!==!1}function resolveConversationAccessAllowed(e,t){return e===`bundled`?t?.allowConversationAccess!==!1:t?.allowConversationAccess===!0}var t=e((()=>{}));export{resolveConversationAccessAllowed as n,resolvePromptInjectionAllowed as r,t};

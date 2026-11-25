@@ -1,0 +1,1 @@
+import{t as promptCustomApiConfig}from"./onboard-custom-BGZABFZ8.mjs";export{promptCustomApiConfig};

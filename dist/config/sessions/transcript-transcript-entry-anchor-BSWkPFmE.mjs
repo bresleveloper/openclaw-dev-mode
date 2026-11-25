@@ -1,0 +1,1 @@
+import{a as e}from"./transcript-openclaw-agent-db.paths-BMmiWxPE.mjs";function sameTranscriptEntryAnchor(t,n){return n!==void 0&&[`agentId`,`sessionId`,`sessionKey`,`generation`,`entryId`,`rawSeq`,`effectiveParentId`,`activeMessagePosition`].every(e=>t[e]===n[e])&&(t.storePath===n.storePath||e(t.storePath,n.storePath))}export{sameTranscriptEntryAnchor as t};

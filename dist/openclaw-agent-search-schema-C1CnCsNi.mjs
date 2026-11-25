@@ -1,0 +1,2 @@
+//!src/state/openclaw-agent-search-schema.ts
+const agentTranscriptSearchSchema={text:{transcript:{table:`session_transcript_fts`,fields:[`text`],postgres:{identity:`rowid`}}}};export{agentTranscriptSearchSchema as t};

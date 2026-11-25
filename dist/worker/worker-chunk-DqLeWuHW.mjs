@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{t}from"./worker-chunk-Bw_GT68f.mjs";import{t as n}from"./worker-chunk-CHfd1Hb2.mjs";var r,i,a,o,s=e((()=>{n(),r=t,i=500,a=Math.ceil(r/500),o=Math.floor(r/4)+(Math.ceil(a/10)-1)*500+3e4}));export{s as a,o as i,i as n,r,a as t};

@@ -1,0 +1,2 @@
+//!src/infra/approval-display-paths.ts
+function formatApprovalDisplayPath(e){const t=e.trim();if(!t||/(^|[\\/])\.{1,2}(?=[\\/]|$)/.test(t))return t;const n=t.match(/^\/(?:home|Users)\/([^/]+)(.*)$/)??t.match(/^[A-Za-z]:[\\/]Users[\\/]([^\\/]+)(.*)$/i);const r=n?.[1];return n&&r!==void 0&&r!==`.`&&r!==`..`?`~${(n[2]??``).replaceAll(`\\`,`/`)}`:t}export{formatApprovalDisplayPath as t};

@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawnOwnedVitestProcess } from "../../scripts/lib/vitest-process.mts";
+import type { VitestWorkerRun } from "../../scripts/lib/vitest-worker-run.mts";
+import { resolveTestNodeExecPath } from "../../src/test-utils/node-process.js";
 import {
   fixtureReceiptClientSource,
   type FixtureReceiptChannel,
@@ -21,6 +23,7 @@ export const reportChunkTestFiles: readonly string[] = Array.from(
 );
 
 export type ReportFixtureMode =
+  | "file-backed-suites"
   | "overlap"
   | "serial"
   | "parallel"
@@ -69,6 +72,7 @@ export function createVitestReportFixture(
   observation: { receipts: FixtureReceiptChannel; signal: AbortSignal },
   evidence = path.join(root, "reports"),
   compileCache = path.join(root, "node-compile-cache"),
+  workers?: VitestWorkerRun,
 ) {
   fs.mkdirSync(root, { recursive: true });
   fs.mkdirSync(evidence, { recursive: true });
@@ -111,6 +115,9 @@ export default config;`,
     FORCE_COLOR: "0",
     TZ: "UTC",
     OPENCLAW_TEST_PROJECTS_TIMINGS: "0",
+    // Reuse this runtime instead of staging Bun under the isolated fixture home.
+    OPENCLAW_VITEST_RUNTIME: process.versions.bun ? "bun" : "node",
+    ...(process.versions.bun ? { OPENCLAW_BUN_PATH: process.execPath } : {}),
     OPENCLAW_VITEST_MAX_WORKERS: "1",
     OPENCLAW_VITEST_FS_MODULE_CACHE_PATH: path.join(root, "cache"),
     OPENCLAW_VITEST_NO_OUTPUT_TIMEOUT_MS: "20000",
@@ -162,6 +169,8 @@ export default config;`,
       );
     }
     const output = path.join(evidence, "result.json");
+    const entryHooks: string[] = [];
+    const entrySetup: string[] = [];
     if (options.finalIndexFailure) {
       const preload = path.join(root, "final-index-failure.mjs");
       write(
@@ -178,7 +187,7 @@ fs.writeFileSync = (file, data, ...args) => {
 };
 syncBuiltinESMExports();`,
       );
-      env.NODE_OPTIONS = `--import=${pathToFileURL(preload).href}`;
+      entryHooks.push(preload);
     }
     const ready = path.join(root, "ready");
     if (options.configOutput) {
@@ -341,6 +350,69 @@ ${index === 0 ? "test('alpha/two',()=>expect(2).toBe(2));" : "test.skip('beta/sk
         `const config = {root:${JSON.stringify(root)},test:{projects:[${JSON.stringify(other)},${JSON.stringify(beta)}]}};`,
       );
     }
+    if (mode === "file-backed-suites") {
+      // These synthetic suites own their complete runtime; no product build is needed.
+      env.OPENCLAW_E2E_SKIP_BUILD = "1";
+      env.OPENCLAW_VITEST_INCLUDE_FILE = path.join(root, "replay-fixture-files.json");
+      write(
+        env.OPENCLAW_VITEST_INCLUDE_FILE,
+        JSON.stringify(
+          ["alpha.test.ts", "beta.test.ts", "gamma.test.ts", "delta.test.ts"].map((file) =>
+            path.join(root, file),
+          ),
+        ),
+      );
+      const leaf = (name: string, file: string, extra = "") => {
+        const config = "test/vitest/vitest." + name + ".config.ts";
+        writeConfig(
+          path.join(root, config),
+          name,
+          "const config = {root:" +
+            JSON.stringify(root) +
+            ",test:{name:" +
+            JSON.stringify(name) +
+            ",include:[" +
+            JSON.stringify(file) +
+            "],pool:'forks',maxWorkers:1,fileParallelism:false," +
+            extra +
+            "}};",
+        );
+        return config;
+      };
+      const container = (name: string, projects: string[]) => {
+        const config = "test/vitest/vitest." + name + ".config.ts";
+        writeConfig(
+          path.join(root, config),
+          name,
+          "const config = {root:" +
+            JSON.stringify(root) +
+            ",test:{name:" +
+            JSON.stringify(name) +
+            ",projects:" +
+            JSON.stringify(projects) +
+            "}};",
+        );
+        return config;
+      };
+      write(
+        path.join(root, "gamma.test.ts"),
+        "import {test,expect} from 'vitest';test('gamma/one',()=>expect(1).toBe(1));",
+      );
+      write(
+        path.join(root, "delta.test.ts"),
+        "import {test,expect} from 'vitest';test('delta/one',()=>expect(1).toBe(1));",
+      );
+      const gateway = container("gateway", [
+        container("gateway-server", [
+          leaf("gateway-server-native", "alpha.test.ts", "sequence:{groupOrder:0},"),
+        ]),
+      ]);
+      const plugins = container("plugins", [
+        leaf("plugins-source", "beta.test.ts"),
+        leaf("plugins-native-loader", "gamma.test.ts", "execArgv:[],"),
+      ]);
+      targets = [gateway, plugins, leaf("e2e", "delta.test.ts")];
+    }
     if (mode === "chunks") {
       const files = reportChunkTestFiles;
       for (const [i, file] of files.entries()) {
@@ -425,22 +497,14 @@ ${index === 0 ? "test('alpha/two',()=>expect(2).toBe(2));" : "test.skip('beta/sk
         })),
       };
       const owner = pathToFileURL(path.join(repoRoot, "scripts/lib/extension-test-plan.mts")).href;
-      const fixture = pathToFileURL(path.join(root, "batch-plan.mjs")).href;
-      write(
-        path.join(root, "batch-plan.mjs"),
-        `export * from ${JSON.stringify(owner)};
-export function resolveExtensionBatchPlan() { return ${JSON.stringify(plan)}; }`,
-      );
-      const preload = path.join(root, "batch-plan-loader.mjs");
-      write(
-        preload,
-        `import { registerHooks } from "node:module";
-registerHooks({ resolve(specifier, context, nextResolve) {
-  const resolved = nextResolve(specifier, context);
-  return resolved.url === ${JSON.stringify(owner)} && context.parentURL !== ${JSON.stringify(fixture)} ? {...resolved, url: ${JSON.stringify(fixture)}} : resolved;
-}});`,
-      );
-      env.NODE_OPTIONS += ` --import=${pathToFileURL(preload).href}`;
+      entrySetup.push(`const planModule = await import(${JSON.stringify(owner)});
+mockNativeModuleExports(${JSON.stringify(owner)}, {
+  ...planModule,
+  resolveExtensionBatchPlan() {
+    fs.writeFileSync(${JSON.stringify(path.join(root, "batch-plan-used"))}, "used");
+    return ${JSON.stringify(plan)};
+  },
+});`);
     }
     if (options.entry === "batch-cli") {
       command = [
@@ -474,6 +538,56 @@ registerHooks({ resolve(specifier, context, nextResolve) {
       );
       command = ["--import", path.join(repoRoot, "node_modules/tsx/dist/loader.mjs"), entry];
     }
+    if (options.finalIndexFailure) {
+      const sourceEntry = path.join(
+        repoRoot,
+        options.entry === "projects"
+          ? "scripts/test-projects.mts"
+          : options.entry === "batch-cli"
+            ? "scripts/test-extension-batch.mts"
+            : "scripts/run-vitest.mjs",
+      );
+      const entry = path.join(root, "report-entry.mjs");
+      const importHooks = entryHooks
+        .map((hook) => `await import(${JSON.stringify(pathToFileURL(hook).href)});`)
+        .join("\n");
+      if (!options.entry) {
+        const childEntry = path.join(root, "report-child-entry.mjs");
+        const childSource = path.join(repoRoot, "scripts/run-vitest-child.mts");
+        write(
+          childEntry,
+          `process.argv[1] = ${JSON.stringify(childSource)};
+${importHooks}
+await import(${JSON.stringify(pathToFileURL(childSource).href)});`,
+        );
+        const shimUrl = pathToFileURL(path.join(repoRoot, "scripts/lib/tsx-cli-shim.mjs")).href;
+        entrySetup.push(`const shim = await import(${JSON.stringify(shimUrl)});
+const runNodeCliShim = shim.runNodeCliShim;
+mockNativeModuleExports(${JSON.stringify(shimUrl)}, {
+  ...shim,
+  runNodeCliShim: (url, options) => {
+    fs.writeFileSync(${JSON.stringify(path.join(root, "shim-entry-used"))}, "used");
+    return runNodeCliShim(url, {
+      ...options, implementation: ${JSON.stringify(pathToFileURL(childEntry).href)},
+    });
+  },
+});`);
+      }
+      // Preserve the real CLI and its child ownership while installing fixture hooks at entry.
+      write(
+        entry,
+        `import fs from "node:fs";
+import { mockNativeModuleExports } from ${JSON.stringify(pathToFileURL(path.join(repoRoot, "test/helpers/native-module-mock.ts")).href)};
+process.argv[1] = ${JSON.stringify(sourceEntry)};
+${options.entry ? importHooks : ""}
+${entrySetup.join("\n")}
+await import(${JSON.stringify(pathToFileURL(sourceEntry).href)});`,
+      );
+      command = [
+        "--experimental-test-module-mocks",
+        ...command.map((argument) => (argument === sourceEntry ? entry : argument)),
+      ];
+    }
     if (mode === "automatic") {
       // Only the fixture parent gets a qualified-host observation. Native selection,
       // report ownership and child joins still execute their real implementations.
@@ -503,7 +617,21 @@ registerHooks({ resolve(specifier, context, nextResolve) {
       },
       env,
     );
-    let executable = process.execPath;
+    // Keep orchestration and compilation on Node; Vitest uses the selected runtime.
+    const nodeExecutable = resolveTestNodeExecPath();
+    let executable = nodeExecutable;
+    if (realHomeReplay && workers) {
+      // Node loader flags precede the bootstrap; the batch entry remains its CLI.
+      command.splice(
+        2,
+        0,
+        path.join(repoRoot, "scripts/lib/vitest-worker-bootstrap.mts"),
+        workers.descriptor.directory,
+        ...(workers.descriptor.preset && workers.descriptor.preset !== "full"
+          ? [`--worker-preset=${workers.descriptor.preset}`]
+          : []),
+      );
+    }
     if (process.platform === "linux" && options.crashSignal === "SIGABRT") {
       // Preserve an inherited zero hard limit; raising it needs OS authority we do not own.
       const hasZeroHardCoreLimit = /^Max core file size\s+\S+\s+0\s/mu.test(
@@ -513,15 +641,24 @@ registerHooks({ resolve(specifier, context, nextResolve) {
         // Linux reserves one byte to suppress piped core collectors too; zero does not.
         // Inherit it through wrappers that re-raise the fixture's intentional signal.
         executable = "prlimit";
-        command = ["--core=1:1", "--", process.execPath, ...command];
+        command = ["--core=1:1", "--", nodeExecutable, ...command];
       }
     }
-    const { child, completion } = spawnOwnedVitestProcess({
+    const { child, completion: childCompletion } = spawnOwnedVitestProcess({
       command: executable,
       args: command,
       homeMode: realHomeReplay ? "live-aware" : undefined,
-      options: { cwd: root, env: childEnv, stdio: ["ignore", "pipe", "pipe"] },
+      options: {
+        cwd: root,
+        env: childEnv,
+        stdio:
+          realHomeReplay && workers
+            ? ["ignore", "pipe", "pipe", "ipc"]
+            : ["ignore", "pipe", "pipe"],
+      },
     });
+    const completion =
+      realHomeReplay && workers ? workers.borrow(child, childCompletion) : childCompletion;
     let stdout = "",
       stderr = "";
     child.stdout!.on("data", (chunk) => {

@@ -1,12 +1,14 @@
 import { CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_REF } from "./models.js";
 import { buildCloudflareAiGatewayCatalogProvider } from "./catalog-provider.js";
 import { applyCloudflareAiGatewayConnectionConfig, applyCloudflareAiGatewayProviderConnectionConfig } from "./onboard.js";
-import { wrapCloudflareAiGatewayProviderStream } from "./stream-wrappers.js";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { applyAuthProfileConfig, buildApiKeyCredential, ensureAuthProfileStoreAsync, listProfilesForProvider, normalizeOptionalSecretInput } from "openclaw/plugin-sdk/provider-auth";
 import { captureProviderApiKey, persistProviderApiKey } from "openclaw/plugin-sdk/provider-auth-api-key";
+import { createAnthropicThinkingPrefillPayloadWrapper } from "openclaw/plugin-sdk/provider-stream-shared";
+import { createSubsystemLogger } from "openclaw/plugin-sdk/runtime-env";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/cloudflare-ai-gateway/index.ts
+// extensions/cloudflare-ai-gateway/index.ts
+const log = createSubsystemLogger("cloudflare-ai-gateway-stream");
 const PROVIDER_ID = "cloudflare-ai-gateway";
 const PROVIDER_ENV_VAR = "CLOUDFLARE_AI_GATEWAY_API_KEY";
 const PROFILE_ID = "cloudflare-ai-gateway:default";
@@ -131,9 +133,13 @@ var cloudflare_ai_gateway_default = definePluginEntry({
 				}
 			},
 			classifyFailoverReason: ({ errorMessage }) => /\bworkers?_ai\b.*\b(?:rate|limit|quota)\b/i.test(errorMessage) ? "rate_limit" : void 0,
-			wrapStreamFn: wrapCloudflareAiGatewayProviderStream
+			wrapStreamFn: (ctx) => {
+				if (ctx.model?.api !== void 0 && ctx.model.api !== "anthropic-messages") return ctx.streamFn;
+				return createAnthropicThinkingPrefillPayloadWrapper(ctx.streamFn, (stripped) => {
+					log.warn(`removed ${stripped} trailing assistant prefill message${stripped === 1 ? "" : "s"} because Anthropic extended thinking requires conversations to end with a user turn`);
+				});
+			}
 		});
 	}
 });
-//#endregion
 export { cloudflare_ai_gateway_default as default };

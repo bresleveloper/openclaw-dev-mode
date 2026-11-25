@@ -1,0 +1,1 @@
+import{n as assertAppContainerSpawnSupported,t as AppContainerSpawnUnsupportedError}from"./windows-appcontainer-spawn-Cp9ZRyG2.mjs";export{AppContainerSpawnUnsupportedError,assertAppContainerSpawnSupported};

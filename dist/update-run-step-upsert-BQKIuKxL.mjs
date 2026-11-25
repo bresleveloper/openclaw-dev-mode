@@ -1,0 +1,5 @@
+import{a as findDisposableStep}from"./update-run-codec-DLHB6tkw.mjs";
+//!src/infra/update-run-step-key.ts
+const RELEASED_STEP_KEYS=/* @__PURE__ */ new Map([[`package-install`,`global update`],[`package-install-omit-optional`,`global update (omit optional)`],[`git-fetch`,`git fetch`],[`git-fetch-tags`,`git fetch tags`],[`git-fetch-target-tag`,`git fetch target tag`],[`git-target-inspection-fetch`,`git target inspection fetch`],[`git-import-admitted-target`,`git import admitted target`]]);function updateRunStepKey(e){return RELEASED_STEP_KEYS.get(e)??e}
+//!src/infra/update-run-step-upsert.ts
+function upsertStep(e,t){const n={...t,step:updateRunStepKey(t.step)};const r=e.steps.findIndex(e=>e.step===n.step);if(r>=0)e.steps[r]={...e.steps[r],...n};else e.steps.push(n);while(e.steps.length>128){const t=findDisposableStep(e.steps);if(t<0)throw new Error(`Update run retained steps exceed the step limit`);e.steps.splice(t,1)}}export{updateRunStepKey as n,upsertStep as t};

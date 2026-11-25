@@ -6,9 +6,13 @@ import { MANIFEST_KEY } from "../compat/legacy-names.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { PluginInstallRecord } from "../config/types.plugins.js";
 import { resolveClawHubBaseUrl } from "../infra/clawhub-client.js";
-import { fetchClawHubPluginVersionCategories } from "../infra/clawhub-plugin-catalog.js";
+import {
+  fetchClawHubPluginDetail,
+  fetchClawHubPluginVersionCategories,
+} from "../infra/clawhub-plugin-catalog.js";
 import { parseClawHubPluginSpec } from "../infra/clawhub-spec.js";
 import { parseRegistryNpmSpec } from "../infra/npm-registry-spec.js";
+import { normalizeCatalogIconUrl } from "./catalog-icon-registry.js";
 import { getProcessGatewayPluginMetadataSnapshot } from "./current-plugin-metadata-state.js";
 import { createInstalledPluginOwnershipResolver } from "./installed-plugin-package-ownership.js";
 import type { PluginManifestRecord } from "./manifest-registry.js";
@@ -36,6 +40,32 @@ import {
   withPluginCache,
 } from "./plugin-cache.js";
 import type { PluginMetadataSnapshot } from "./plugin-metadata-snapshot.js";
+import { resolveManifestProviderAuthChoices } from "./provider-auth-choices.js";
+import { listRecommendedToolInstalls } from "./recommended-tool-installs.js";
+
+/** Resolve only URLs currently owned by a manifest or bundled presentation catalog. */
+export function resolveManagedSetupCatalogIconUrl(params: {
+  config: OpenClawConfig;
+  iconUrl: string;
+}): string | undefined {
+  const requested = normalizeCatalogIconUrl(normalizeOptionalString(params.iconUrl) ?? "");
+  if (!requested) {
+    return undefined;
+  }
+  const allowedUrls = [
+    ...resolveManifestProviderAuthChoices({
+      config: params.config,
+      includeUntrustedWorkspacePlugins: false,
+      includeWorkspacePlugins: false,
+    }).map((choice) => choice.icon),
+    ...listRecommendedToolInstalls().map((install) => install.icon),
+  ];
+  return allowedUrls.some(
+    (iconUrl) => normalizeCatalogIconUrl(normalizeOptionalString(iconUrl) ?? "") === requested,
+  )
+    ? requested
+    : undefined;
+}
 
 export type ManagedPluginCatalogEntry = PluginCatalogEntry;
 
@@ -161,6 +191,7 @@ export function clearManagedPluginCatalogCache(): void {
   const cache = getManagedPluginCache();
   cache.officialCatalog = undefined;
   cache.pluginVersionCategories = undefined;
+  cache.pluginPublisherHandles = undefined;
 }
 
 function mergeCatalogMetadata(
@@ -310,6 +341,37 @@ export async function loadOfficialCatalog(cachedOnly = false): Promise<OfficialC
 
 export function pluginVersionKey(name: string, version: string): string {
   return JSON.stringify([name, version]);
+}
+
+/** Publisher identity is registry-owned, never inferred from package names or manifests. */
+export async function loadInstalledPluginPublisherHandle(
+  source: ManagedPluginClawHubIconSource,
+  cachedOnly = false,
+): Promise<string | undefined> {
+  const cache = (getManagedPluginCache().pluginPublisherHandles ??= new Map());
+  const key = JSON.stringify([source.baseUrl, source.packageName]);
+  let fact = cache.get(key);
+  if (!fact) {
+    const pending = fetchClawHubPluginDetail({
+      baseUrl: source.baseUrl,
+      packageName: source.packageName,
+      skipAuth: true,
+    })
+      .then(
+        (detail) => ({
+          value: normalizeOptionalString(detail.owner?.handle ?? detail.ownerHandle)?.toLowerCase(),
+        }),
+        () => ({ value: undefined }),
+      )
+      .then((ready) => {
+        cache.set(key, ready);
+        return ready;
+      });
+    fact = { pending };
+    cache.set(key, fact);
+  }
+  // Retain unavailable facts until explicit refresh, just like category enrichment.
+  return "value" in fact ? fact.value : cachedOnly ? undefined : (await fact.pending).value;
 }
 
 /** Undefined is pending, null is unavailable until this catalog generation is refreshed. */

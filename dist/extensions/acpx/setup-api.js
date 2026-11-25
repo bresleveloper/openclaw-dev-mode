@@ -1,6 +1,6 @@
 import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/acpx/setup-api.ts
+// extensions/acpx/setup-api.ts
 /**
 * ACPX setup plugin entry. It auto-enables setup when ACP config already points
 * at the embedded ACPX runtime backend.
@@ -16,5 +16,4 @@ var setup_api_default = definePluginEntry({
 		});
 	}
 });
-//#endregion
 export { setup_api_default as default };

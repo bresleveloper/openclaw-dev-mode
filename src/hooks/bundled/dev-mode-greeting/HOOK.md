@@ -30,6 +30,6 @@ Enable once:
 openclaw hooks enable dev-mode-greeting
 ```
 
-How it works: the handler queues a system event for the session and requests an immediate wake —
-the same mechanism upstream uses for `POST /hooks/wake`. The wake runs a turn in that session and
-the reply is delivered like any heartbeat reply.
+How it works: the handler hands the host a session event for the session — the same mechanism
+upstream uses for `POST /hooks/wake`. The event runs a turn in that session and the reply goes to
+the chat the session last used.

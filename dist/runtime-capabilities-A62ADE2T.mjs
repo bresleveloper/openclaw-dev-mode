@@ -1,0 +1,1 @@
+import{n as formatRuntimeCapabilities,r as observeRuntimeProfileCapability,t as collectRuntimeCapabilities}from"./runtime-capabilities-g4VNl0TC.mjs";export{collectRuntimeCapabilities,formatRuntimeCapabilities};

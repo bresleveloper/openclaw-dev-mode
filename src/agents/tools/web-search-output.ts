@@ -1,6 +1,4 @@
 /**
- * Normalized `web_search` output contract.
- *
  * Every bundled or external provider payload is normalized at the core tool
  * boundary into one of four closed branches (error / results / answer / raw).
  * The boundary owns the untrusted-content envelope: provider prose is
@@ -23,7 +21,7 @@ import {
   formatWebSearchNotConfiguredMessage,
   isMissingCredentialCode,
 } from "../../web-search/runtime-error.js";
-import { MAX_SEARCH_COUNT } from "./web-search-provider-common.js";
+import { externalContentStamp, MAX_SEARCH_COUNT } from "./web-search-provider-common.js";
 
 const WebSearchExternalContentSchema = Type.Object(
   {
@@ -34,7 +32,6 @@ const WebSearchExternalContentSchema = Type.Object(
   },
   { additionalProperties: false },
 );
-type WebSearchExternalContent = Static<typeof WebSearchExternalContentSchema>;
 
 const WebSearchResultSchema = Type.Object(
   {
@@ -161,10 +158,6 @@ function consumeUrlBudget(url: string, budget: WebSearchOutputBudget): boolean {
   }
   budget.remaining -= url.length;
   return true;
-}
-
-function externalContentStamp(provider: string): WebSearchExternalContent {
-  return { untrusted: true, source: "web_search", wrapped: true, provider };
 }
 
 function normalizeCitations(

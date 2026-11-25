@@ -1,0 +1,3 @@
+import{r as readSessionReceiptDeletionIdentitiesInDatabase,t as deletePersonalGitHubSessionReceiptsInDatabase}from"./github-personal-publication-lifecycle-CWQg81rm.mjs";
+//!src/state/github-personal-publication-lifecycle.worker.ts
+const githubSessionReceiptOperations={"githubPublication.prepareSessionReceiptDeletion":(e,t)=>readSessionReceiptDeletionIdentitiesInDatabase(t.open(),e),"githubPublication.deleteSessionReceipts":(e,t)=>deletePersonalGitHubSessionReceiptsInDatabase(t.open(),e)};export{githubSessionReceiptOperations};

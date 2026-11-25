@@ -1,0 +1,2 @@
+//!src/cli/capability-cli/media-understanding-result.ts
+function isMissingMediaUnderstandingProvider(e){const t=e.decision;return t?.outcome===`skipped`&&t.attachments.length>0&&t.attachments.every(e=>e.attempts.length===0)}export{isMissingMediaUnderstandingProvider as t};

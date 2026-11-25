@@ -1,0 +1,3 @@
+import{n as buildManifestModelProviderConfig}from"./provider-catalog-BfCEo7Wb.mjs";import"./provider-catalog-shared-Bo6a0mXs.mjs";import{t as openclaw_plugin_default}from"./openclaw.plugin-COcrDqb0.mjs";
+//!extensions/together/provider-catalog.ts
+function buildTogetherProvider(){return buildManifestModelProviderConfig({providerId:`together`,catalog:openclaw_plugin_default.modelCatalog.providers.together})}export{buildTogetherProvider as t};

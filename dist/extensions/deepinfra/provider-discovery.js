@@ -1,5 +1,5 @@
 import { buildStaticDeepInfraProvider } from "./provider-static-catalog.js";
-//#region extensions/deepinfra/provider-discovery.ts
+// extensions/deepinfra/provider-discovery.ts
 const deepinfraProviderDiscovery = {
 	id: "deepinfra",
 	label: "DeepInfra",
@@ -17,5 +17,4 @@ const deepinfraProviderDiscovery = {
 		run: async () => ({ provider: buildStaticDeepInfraProvider() })
 	}
 };
-//#endregion
 export { deepinfraProviderDiscovery as default };

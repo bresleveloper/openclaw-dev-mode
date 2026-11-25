@@ -1,0 +1,3 @@
+import{t as FsSafeError}from"../../../fs-safe-Bxzu1j4h.mjs";import{n as serveWorkerTasks}from"../../../worker-task-server-BDP9evHw.mjs";import"../../../security-runtime-CCLeFIRb.mjs";import"../../../worker-task-server-Dml1JEyi.mjs";import{i as readWikiPagesTask,t as WIKI_SCAN_YIELD}from"../../../query-pages-D-4-efy4.mjs";
+//!extensions/memory-wiki/src/query-reader.worker.ts
+serveWorkerTasks(async(e,t,n)=>{const r=e;const i=t?async()=>{const e=await t.request(null);e.consumed();return e.input===WIKI_SCAN_YIELD}:void 0;try{return await readWikiPagesTask(r,{throwIfAborted:()=>n.throwIfCancelled()},i)}catch(e){if(e instanceof FsSafeError)return{select:`refused`,code:e.code,message:e.message};throw e}});export{};

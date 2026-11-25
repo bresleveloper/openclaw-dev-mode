@@ -1,0 +1,256 @@
+import { n as __reExport, t as __exportAll } from "./rolldown-runtime-782esTHO.mjs";
+import { o as resolveWhatsAppAuthDir } from "./accounts-Czb9k6cU.mjs";
+import { t as listAccountIds } from "./account-ids-ENToBTTq.mjs";
+import { readRegularFile } from "openclaw/plugin-sdk/file-access-runtime";
+import { realpath } from "node:fs/promises";
+// packages/normalization-core/src/record-coerce.ts
+/** Type guard for non-array object records at browser-safe boundaries. */
+function isRecord(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+/** Returns a non-array record or null. */
+function asNullableRecord(value) {
+	return isRecord(value) ? value : null;
+}
+// src/config/channel-config-normalization.ts
+/** Applies one channel-specific doctor migration to every object-shaped account. */
+function normalizeChannelAccounts(params) {
+	const rawAccounts = asNullableRecord(params.entry.accounts);
+	if (!rawAccounts) return {
+		entry: params.entry,
+		changed: false
+	};
+	let changed = false;
+	const accounts = { ...rawAccounts };
+	for (const [accountId, value] of Object.entries(rawAccounts)) {
+		const account = asNullableRecord(value);
+		if (!account) continue;
+		const normalized = params.normalizeAccount({
+			account,
+			accountId,
+			pathPrefix: `${params.pathPrefix}.accounts.${accountId}`,
+			changes: params.changes
+		});
+		if (normalized.changed) {
+			accounts[accountId] = normalized.entry;
+			changed = true;
+		}
+	}
+	return changed ? {
+		entry: {
+			...params.entry,
+			accounts
+		},
+		changed: true
+	} : {
+		entry: params.entry,
+		changed: false
+	};
+}
+/** Applies the same channel-specific doctor migration at root and account scope. */
+function normalizeChannelConfigEntries(params) {
+	const changes = params.changes ?? [];
+	const channels = params.cfg.channels;
+	const entry = asNullableRecord(channels?.[params.channelId]);
+	if (!entry) return {
+		config: params.cfg,
+		changes
+	};
+	const channelPath = `channels.${params.channelId}`;
+	const root = params.normalizeEntry({
+		entry,
+		pathPrefix: channelPath,
+		changes
+	});
+	const accounts = normalizeChannelAccounts({
+		entry: root.entry,
+		pathPrefix: channelPath,
+		changes,
+		normalizeAccount: (accountParams) => params.normalizeEntry({
+			entry: accountParams.account,
+			accountId: accountParams.accountId,
+			pathPrefix: accountParams.pathPrefix,
+			changes: accountParams.changes
+		})
+	});
+	if (!root.changed && !accounts.changed) return {
+		config: params.cfg,
+		changes
+	};
+	return {
+		config: {
+			...params.cfg,
+			channels: {
+				...channels,
+				[params.channelId]: accounts.entry
+			}
+		},
+		changes
+	};
+}
+// src/plugin-sdk/legacy-webhook-listener-migration.ts
+/** Preserve explicitly configured webhook listeners while moving ingress onto Gateway routes. */
+function createLegacyWebhookListenerDoctorContract(params) {
+	const portKey = params.portKey ?? "webhookPort";
+	const hostKey = params.hostKey === void 0 ? "webhookHost" : params.hostKey;
+	const source = (entry) => params.webhookKey ? asNullableRecord(entry[params.webhookKey]) : entry;
+	const hasLegacy = (value) => {
+		const entry = asNullableRecord(value);
+		const listener = entry && source(entry);
+		return Boolean(listener && (Object.hasOwn(listener, portKey) || hostKey && Object.hasOwn(listener, hostKey)));
+	};
+	const prefix = `channels.${params.channelKey}`;
+	return {
+		historicalWebhookListener: {
+			channelId: params.channelKey,
+			port: params.defaultPort,
+			preserveAuthoredActivation: params.preserveAuthoredActivation,
+			...params.defaultHost === void 0 ? {} : { host: params.defaultHost }
+		},
+		legacyConfigRules: [{
+			path: ["channels", params.channelKey],
+			message: `${prefix} webhook listeners moved to Gateway routes. Run "openclaw doctor --fix" to preserve explicitly configured listener settings as legacyWebhook.`,
+			match: (value) => {
+				const accounts = asNullableRecord(asNullableRecord(value)?.accounts);
+				return hasLegacy(value) || Object.values(accounts ?? {}).some(hasLegacy);
+			}
+		}],
+		normalizeCompatibilityConfig: ({ cfg }) => {
+			const root = asNullableRecord(asNullableRecord(cfg.channels)?.[params.channelKey]);
+			const inherited = root && source(root);
+			const canonicalRoot = asNullableRecord(root?.legacyWebhook);
+			return normalizeChannelConfigEntries({
+				cfg,
+				channelId: params.channelKey,
+				normalizeEntry: ({ entry, accountId, pathPrefix, changes }) => {
+					const listener = source(entry);
+					if (!listener || !hasLegacy(entry)) return {
+						entry,
+						changed: false
+					};
+					const next = { ...entry };
+					const port = Object.hasOwn(listener, portKey) ? listener[portKey] : (accountId ? canonicalRoot?.port ?? inherited?.[portKey] : void 0) ?? params.defaultPort;
+					const inheritedHost = accountId ? canonicalRoot ? canonicalRoot.host : (hostKey ? inherited?.[hostKey] : void 0) ?? params.defaultHost : params.defaultHost;
+					const host = hostKey ? listener[hostKey] ?? inheritedHost : inheritedHost;
+					const legacyPath = [pathPrefix, params.webhookKey].filter(Boolean).join(".");
+					if (Object.hasOwn(entry, "legacyWebhook")) changes.push(`Removed ${legacyPath} legacy listener keys; ${pathPrefix}.legacyWebhook is already configured.`);
+					else if (accountId && root?.legacyWebhook === false) changes.push(`Removed ${legacyPath} legacy listener keys; ${prefix}.legacyWebhook: false keeps this account's inherited listener disabled.`);
+					else {
+						next.legacyWebhook = {
+							port,
+							...host !== void 0 ? { host } : {}
+						};
+						changes.push(`Moved ${legacyPath} listener settings to ${pathPrefix}.legacyWebhook. Point the external callback or reverse proxy at the Gateway port and webhook path, verify delivery, then set legacyWebhook: false to disable legacy forwarding.`);
+					}
+					const updated = params.webhookKey ? { ...listener } : next;
+					delete updated[portKey];
+					if (hostKey) delete updated[hostKey];
+					if (params.webhookKey) {
+						if (Object.keys(updated).length) next[params.webhookKey] = updated;
+						else delete next[params.webhookKey];
+					}
+					return {
+						entry: next,
+						changed: true
+					};
+				}
+			});
+		}
+	};
+}
+// \0openclaw:bundled-sdk:openclaw/plugin-sdk/runtime-doctor-migrations
+var runtime_doctor_migrations_exports = /* @__PURE__ */ __exportAll({ createLegacyWebhookListenerDoctorContract: () => createLegacyWebhookListenerDoctorContract });
+import * as import_openclaw_plugin_sdk_runtime_doctor_migrations from "openclaw/plugin-sdk/runtime-doctor-migrations";
+__reExport(runtime_doctor_migrations_exports, import_openclaw_plugin_sdk_runtime_doctor_migrations);
+// extensions/whatsapp/src/doctor.ts
+function resolveLegacyAckScope(ack) {
+	const direct = ack.direct !== false;
+	const group = ack.group ?? "mentions";
+	if (direct) return group === "always" ? "all" : group === "never" ? "direct" : void 0;
+	return group === "always" ? "group-all" : group === "mentions" ? "group-mentions" : group === "never" ? "off" : void 0;
+}
+function resolveDefaultAgentEmoji(cfg) {
+	const entries = (0, runtime_doctor_migrations_exports.asObjectRecord)((0, runtime_doctor_migrations_exports.asObjectRecord)((0, runtime_doctor_migrations_exports.asObjectRecord)(cfg)?.agents)?.entries);
+	const agents = entries ? Object.values(entries).flatMap((value) => {
+		const entry = (0, runtime_doctor_migrations_exports.asObjectRecord)(value);
+		return entry ? [entry] : [];
+	}) : [];
+	const agent = agents.find((entry) => entry.default === true) ?? agents[0];
+	const emoji = (0, runtime_doctor_migrations_exports.asObjectRecord)(agent?.identity)?.emoji;
+	return typeof emoji === "string" ? emoji : void 0;
+}
+function normalizeCompatibilityConfig({ cfg }) {
+	const changes = [];
+	const sources = [];
+	for (const scope of (0, runtime_doctor_migrations_exports.collectChannelAccountScopes)({
+		cfg,
+		channelId: "whatsapp"
+	})) {
+		const ack = (0, runtime_doctor_migrations_exports.asObjectRecord)(scope.account.ackReaction);
+		if (!ack) continue;
+		sources.push({
+			path: `${scope.prefix}.ackReaction`,
+			account: scope.account,
+			...typeof ack.emoji === "string" ? { emoji: ack.emoji } : {},
+			scope: resolveLegacyAckScope(ack),
+			unrepresentableScope: ack.direct !== false && (ack.group ?? "mentions") === "mentions"
+		});
+	}
+	if (sources.length === 0) return {
+		config: cfg,
+		changes
+	};
+	const messages = cfg.messages ??= {};
+	const identityEmoji = resolveDefaultAgentEmoji(cfg) ?? "👀";
+	for (const source of sources) {
+		messages.ackReaction ??= source.emoji ?? identityEmoji;
+		messages.ackReactionScope ??= source.scope;
+		delete source.account.ackReaction;
+		changes.push(`Moved translatable ${source.path} settings to messages ack settings.`);
+	}
+	const finalEmoji = messages.ackReaction.trim();
+	const finalScope = messages.ackReactionScope ?? "group-mentions";
+	const comparableFinalScope = finalScope === "none" ? "off" : finalScope;
+	for (const source of sources) {
+		const sourceEmoji = source.emoji?.trim();
+		if (source.emoji === void 0) changes.push(`${source.path} used a route-dependent agent identity acknowledgement emoji before migration; the final messages.ackReaction is ${JSON.stringify(finalEmoji)}. Review messages.ackReaction.`);
+		else if (sourceEmoji !== finalEmoji) changes.push(`${source.path} requested acknowledgement emoji ${JSON.stringify(sourceEmoji)}, but the final messages.ackReaction is ${JSON.stringify(finalEmoji)}. Review messages.ackReaction.`);
+		if (source.unrepresentableScope) changes.push(`${source.path} migration cannot preserve both direct-message and mentioned-group acknowledgements; the final messages.ackReactionScope is ${JSON.stringify(finalScope)}. Review messages.ackReactionScope.`);
+		else if (source.scope && source.scope !== comparableFinalScope) changes.push(`${source.path} requested acknowledgement scope ${JSON.stringify(source.scope)}, but the final messages.ackReactionScope is ${JSON.stringify(finalScope)}. Review messages.ackReactionScope.`);
+	}
+	return {
+		config: cfg,
+		changes
+	};
+}
+const whatsappDoctor = {
+	normalizeCompatibilityConfig,
+	async collectPreviewWarnings({ cfg, env }) {
+		const warnings = [];
+		const authDirs = new Set(listAccountIds(cfg).map((accountId) => resolveWhatsAppAuthDir({
+			cfg,
+			accountId,
+			env
+		}).authDir));
+		for (const authDir of authDirs) {
+			const lockPath = `${await realpath(authDir).catch(() => authDir)}.lock`;
+			try {
+				const { buffer } = await readRegularFile({
+					filePath: lockPath,
+					maxBytes: 16384
+				});
+				const pid = (0, runtime_doctor_migrations_exports.asObjectRecord)(JSON.parse(buffer.toString("utf8")))?.pid;
+				if (typeof pid === "number" && Number.isInteger(pid) && pid > 0) continue;
+			} catch (error) {
+				if ((0, runtime_doctor_migrations_exports.asObjectRecord)(error)?.code === "ENOENT") continue;
+				if (!(error instanceof SyntaxError)) {
+					warnings.push(`Could not inspect WhatsApp connection lock ${lockPath}. Check its permissions and file type, then rerun openclaw doctor.`);
+					continue;
+				}
+			}
+			warnings.push(`WhatsApp connection lock has no valid owner PID: ${lockPath}. Doctor leaves it in place, including with --fix, because a live process may still own it. Stop every process using this auth directory, including other hosts sharing it, and verify none is running or suspended. Only then move this lock file aside and start one Gateway. Keep the auth directory and credentials unchanged.`);
+		}
+		return warnings;
+	}
+};
+export { whatsappDoctor as n, runtime_doctor_migrations_exports as r, normalizeCompatibilityConfig as t };

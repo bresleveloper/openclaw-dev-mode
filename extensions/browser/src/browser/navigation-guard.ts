@@ -11,6 +11,7 @@ import {
   type LookupFn,
   type SsrFPolicy,
 } from "openclaw/plugin-sdk/security-runtime";
+import { isOperatorOnlyBrowserPageUrl } from "./cdp-target-filter.js";
 
 const NETWORK_NAVIGATION_PROTOCOLS = new Set(["http:", "https:"]);
 const SAFE_NON_NETWORK_URLS = new Set(["about:blank"]);
@@ -51,6 +52,15 @@ export function parseBrowserNavigationUrl(url: string): URL {
 export type BrowserNavigationPolicyOptions = {
   ssrfPolicy?: SsrFPolicy;
   browserProxyMode?: BrowserNavigationProxyMode;
+  /** Live authority for an invocation-scoped navigation exception. */
+  assertNavigationCurrent?: () => void;
+  /** Operator's Control UI request opening a new tab; never set for agent or CLI callers. */
+  allowOperatorPages?: true;
+  /**
+   * Policy without this invocation's grants. The tab keeps it for documents the
+   * page requests after the invocation ends.
+   */
+  standingSsrfPolicy?: SsrFPolicy;
 };
 
 /** Describes whether the browser itself is routing page traffic through a proxy. */
@@ -65,10 +75,18 @@ type BrowserNavigationRequestLike = {
 /** Build a navigation-policy object while omitting default direct proxy mode. */
 export function withBrowserNavigationPolicy(
   ssrfPolicy?: SsrFPolicy,
-  opts?: { browserProxyMode?: BrowserNavigationProxyMode },
+  opts?: Pick<
+    BrowserNavigationPolicyOptions,
+    "browserProxyMode" | "assertNavigationCurrent" | "allowOperatorPages" | "standingSsrfPolicy"
+  >,
 ): BrowserNavigationPolicyOptions {
   return {
     ...(ssrfPolicy ? { ssrfPolicy } : {}),
+    ...(opts?.allowOperatorPages ? { allowOperatorPages: true } : {}),
+    ...(opts?.standingSsrfPolicy ? { standingSsrfPolicy: opts.standingSsrfPolicy } : {}),
+    ...(opts?.assertNavigationCurrent
+      ? { assertNavigationCurrent: opts.assertNavigationCurrent }
+      : {}),
     ...(opts?.browserProxyMode && opts.browserProxyMode !== "direct"
       ? { browserProxyMode: opts.browserProxyMode }
       : {}),
@@ -104,15 +122,20 @@ export async function assertBrowserNavigationAllowed(
     signal?: AbortSignal;
   } & BrowserNavigationPolicyOptions,
 ): Promise<void> {
-  // SEC-70: dev-mode skips all browser navigation URL checks.
+  opts.signal?.throwIfAborted();
+  opts.assertNavigationCurrent?.();
+  // SEC-70: dev-mode skips the navigation URL/SSRF policy below. The abort and lifecycle
+  // checks above stay: a cancelled or superseded navigation must still stop.
   if (process.env.OPENCLAW_DEV_MODE === "1") {
     return;
   }
-  opts.signal?.throwIfAborted();
   const parsed = parseBrowserNavigationUrl(opts.url);
 
   if (!NETWORK_NAVIGATION_PROTOCOLS.has(parsed.protocol)) {
-    if (isAllowedNonNetworkNavigationUrl(parsed)) {
+    if (
+      isAllowedNonNetworkNavigationUrl(parsed) ||
+      (opts.allowOperatorPages === true && isOperatorOnlyBrowserPageUrl(parsed.href))
+    ) {
       return;
     }
     throw new InvalidBrowserNavigationUrlError(
@@ -153,6 +176,7 @@ export async function assertBrowserNavigationAllowed(
     policy: opts.ssrfPolicy,
     signal: opts.signal,
   });
+  opts.assertNavigationCurrent?.();
 }
 
 /**
@@ -163,12 +187,13 @@ export async function assertBrowserNavigationAllowed(
 export async function assertChromeMcpNavigationAllowed(
   opts: { url: string } & BrowserNavigationPolicyOptions,
 ): Promise<void> {
-  // SEC-70: dev-mode skips all browser navigation URL checks, including the strict-policy
-  // Chrome MCP refusal below (it runs after assertBrowserNavigationAllowed returns early).
+  // Runs the abort and lifecycle checks; in dev-mode it then returns before the URL policy.
+  await assertBrowserNavigationAllowed(opts);
+  // SEC-70: dev-mode also skips the strict-policy Chrome MCP refusal below (the call above
+  // returns early in dev-mode, so it alone would not cover this one).
   if (process.env.OPENCLAW_DEV_MODE === "1") {
     return;
   }
-  await assertBrowserNavigationAllowed(opts);
   if (requiresInspectableBrowserNavigationRedirectsForUrl(opts.url, opts.ssrfPolicy)) {
     throw new InvalidBrowserNavigationUrlError(
       'Navigation blocked: strict browser SSRF policy requires redirect-hop inspection, which existing-session (Chrome MCP) profiles cannot provide; use a profile with driver "openclaw" for strict navigation',
@@ -227,6 +252,8 @@ export async function assertBrowserNavigationRedirectChainAllowed(
       lookupFn: opts.lookupFn,
       ssrfPolicy: opts.ssrfPolicy,
       browserProxyMode: opts.browserProxyMode,
+      assertNavigationCurrent: opts.assertNavigationCurrent,
+      allowOperatorPages: opts.allowOperatorPages,
       signal: opts.signal,
     });
   }

@@ -1,0 +1,1 @@
+import"./fs-safe-copy.worker-number-coercion-1FVMw2ic.mjs";const e=/* @__PURE__ */ new Set([`__proto__`,`prototype`,`constructor`]);function isBlockedObjectKey(t){return e.has(t)}export{isBlockedObjectKey as t};

@@ -1,0 +1,3 @@
+import"./src-0ci69Prg.mjs";import{t as stableStringify}from"./stable-stringify-Cy0VZ0ci.mjs";
+//!src/agents/mcp-structured-mirror.ts
+function createMcpStructuredContentMirrorMatcher(e){const[t,...n]=Object.keys(e);const r=t!==void 0&&n.length===0?e[t]:void 0;let i;let a;return t=>{if(typeof r===`string`&&t===r)return true;try{const n=stableStringify(JSON.parse(t));return n===(i??=stableStringify(e))||r!==void 0&&n===(a??=stableStringify(r))}catch{return false}}}export{createMcpStructuredContentMirrorMatcher as t};

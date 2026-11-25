@@ -1,0 +1,1 @@
+import{t as registerBrowserRoutes}from"./routes-DMV37gh5.mjs";export{registerBrowserRoutes};

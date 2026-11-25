@@ -10,7 +10,6 @@ import {
 } from "../../daemon/service-inspection-error.js";
 import { resolveManagedServiceNodeRunner } from "../../daemon/service-layout.js";
 import { withGatewayServiceOperationLock } from "../../daemon/service-operation-lock.js";
-import { ServiceInspectionDeadlineError } from "../../daemon/service-state.js";
 import {
   resolveManagedGatewayServiceCommand,
   type GatewayServiceState,
@@ -25,7 +24,6 @@ import { UPDATE_RUN_ID_ENV } from "../../infra/update-control-plane-sentinel.js"
 import { isCurrentManagedServiceUpdateHandoffProcess } from "../../infra/update-managed-service-handoff-current.js";
 import { admitSystemdUpdate } from "../../infra/update-managed-service-handoff-service.js";
 import { createUpdatePreflightFailure } from "../../infra/update-preflight-details.js";
-import { recordUpdateRunStep } from "../../infra/update-run-ledger.js";
 import { hasCommandProcessCleanupError } from "../../process/exec-result.js";
 import { withCommandProcessScope } from "../../process/exec-spawn.js";
 import { defaultRuntime } from "../../runtime.js";
@@ -40,18 +38,24 @@ import { UpdateCommandRecoveryPendingError } from "./update-command-recovery-err
 import type {
   ManagedGatewayUpdateVerdict,
   ManagedGatewayServiceObservation,
+  ManagedServiceStopParams,
   PreManagedServiceStop,
 } from "./update-command-service-context-types.js";
+import { createGatewayMaintenanceHistory } from "./update-command-service-maintenance-history.js";
 import {
   assertGatewayServiceAdmissionUnchanged,
+  serviceInspectionWarningMessage,
   GatewayServiceUpdateOwnershipError,
   isUpdateServiceManagerAvailable,
   observedSystemdManagerUid,
   readGatewayServiceStateForUpdate,
   resolveGatewayServiceManagementBlockMessageForUpdate,
-  serviceInspectionWarningMessage,
 } from "./update-command-service-plan.js";
 import { isManagedGatewayServiceOffline } from "./update-command-service-publication.js";
+import {
+  assertGatewayServiceProcessUnchanged,
+  drainGatewayServiceBeforeStop,
+} from "./update-command-service-resident-restart.js";
 import { revalidateManagedGatewayServiceAfterUpdate } from "./update-command-service-revalidation.js";
 import { windowsUpdateManualGuidance } from "./update-command-windows-preflight.js";
 import {
@@ -146,35 +150,6 @@ async function maybeSuspendWindowsTaskAutoStartForUpdate(params: {
   return recovery;
 }
 
-type ManagedServiceStopParams = {
-  recovery?: unknown;
-  updateRun?: UpdateCommandOptions["run"];
-  recordPhase?: (phase: "activating") => Promise<void>;
-  updateInstallKind: "git" | "package";
-  root: string;
-  shouldRestart: boolean;
-  jsonMode: boolean;
-  phase?: "inspect" | "prepare" | "refresh";
-  /** Package/helper root can differ from the inspected service during a rebind. */
-  handoffRoot?: string;
-  handoffFromGateway?: (state: GatewayServiceState) => Promise<boolean>;
-  expectedService?: ManagedGatewayServiceObservation &
-    Partial<Pick<PreManagedServiceStop, "stopped">>;
-  allowInstallRootChange?: boolean;
-  onStopped?: (state: PreManagedServiceStop) => void;
-  /** Doctor restores this same native instance after its offline repair. */
-  retainNativeIdentity?: boolean;
-  assertCurrent?: (phase?: "restore") => void;
-  /** Revalidate a parent deadline immediately before the native stop side effect. */
-  assertDeadline?: () => void;
-  timeoutMs?: number;
-  warn?: (message: string) => void;
-} & (
-  | { recordPhase: (phase: "activating") => Promise<void> }
-  | { updateRun?: undefined }
-  | { phase: "inspect" | "refresh" }
-);
-
 function unavailableServiceState(
   verdict: Extract<ManagedGatewayUpdateVerdict, { kind: "unavailable" }>,
 ): PreManagedServiceStop {
@@ -195,9 +170,8 @@ export async function maybeStopManagedServiceBeforeMutableUpdate(
       "Full-state checkpoint recovery is deferred; retained state was left unchanged.",
     );
   }
-  const expected = params.expectedService?.serviceUpdateVerdict;
-  if (expected?.kind === "unavailable") {
-    return unavailableServiceState(expected);
+  if (params.expectedService?.serviceUpdateVerdict?.kind === "unavailable") {
+    return unavailableServiceState(params.expectedService.serviceUpdateVerdict);
   }
   try {
     return params.phase === "inspect"
@@ -227,8 +201,7 @@ async function stopManagedServiceBeforeMutableUpdate(
   assertNative?: () => void,
 ): Promise<PreManagedServiceStop> {
   // Retain the original live owner across daemon awaits; history is not authority.
-  const updateRun = params.updateRun;
-  const recordPhase = params.recordPhase;
+  const { updateRun, recordPhase } = params;
   const executorFence = updateRun?.executorFence;
   const assertExecutor = () => {
     if (params.updateRun !== updateRun || updateRun?.executorFence !== executorFence) {
@@ -241,30 +214,10 @@ async function stopManagedServiceBeforeMutableUpdate(
     assertNative?.();
     assertExecutor();
   };
-  let warningIndex = 0;
-  const warn = (message: string) => {
-    assertCurrent();
-    (params.warn ?? defaultRuntime.error)(message);
-    const runId = updateRun?.runId ?? process.env[UPDATE_RUN_ID_ENV];
-    if (runId) {
-      try {
-        recordUpdateRunStep(
-          runId,
-          {
-            step: `warning:gateway-maintenance:${Date.now()}:${warningIndex++}`,
-            status: "completed",
-            endedAtMs: Date.now(),
-            detail: message,
-          },
-          { env: updateRun?.env },
-        );
-      } catch {
-        (params.warn ?? defaultRuntime.error)(
-          "Could not record the Gateway maintenance warning in update history.",
-        );
-      }
-    }
-  };
+  const { warn, recordStop: recordUpdateGatewayStop } = createGatewayMaintenanceHistory(
+    params,
+    assertCurrent,
+  );
   const prepareSystemdMaintenance = async (state: GatewayServiceState, stopping: boolean) => {
     const { prepareSystemdGatewayMaintenance } =
       await import("../../daemon/systemd-maintenance.js");
@@ -276,8 +229,7 @@ async function stopManagedServiceBeforeMutableUpdate(
       warn,
     });
   };
-  // Only a verified live handoff lease admits a helper that retains Gateway ancestry.
-  // Inspection uses the inherited run ID; a missing run ID is refused.
+  // A helper retaining Gateway ancestry requires a verified live handoff and run ID.
   const resolveAncestryBlock = async (state: GatewayServiceState) => {
     delete inspected.serviceMembershipSourceAbsent;
     const block = gatewayMaintenanceBlock(state, params.root, "stop", () => {
@@ -373,17 +325,20 @@ async function stopManagedServiceBeforeMutableUpdate(
         };
       }
     }
-    const warning = serviceInspectionWarningMessage();
-    return unavailableServiceState({
+    const warning = await serviceInspectionWarningMessage(undefined, serviceEnv);
+    const verdict: Extract<ManagedGatewayUpdateVerdict, { kind: "unavailable" }> = {
       kind: "unavailable",
       message:
-        err instanceof ServiceInspectionError ||
-        err instanceof ServiceInspectionDeadlineError ||
-        err instanceof GatewayServiceUpdateOwnershipError
+        err instanceof ServiceInspectionError && err.reason === "windows-task-inspection-failed"
           ? `${err.message} ${warning}`
-          : warning,
+          : err instanceof ServiceInspectionError ||
+              err instanceof GatewayServiceUpdateOwnershipError
+            ? `${err.message}\n${warning}`
+            : warning,
       ...(err instanceof ServiceInspectionError ? { inspectionReason: err.reason } : {}),
-    });
+    };
+    assertGatewayServiceAdmissionUnchanged(params.expectedService, verdict);
+    return unavailableServiceState(verdict);
   }
   assertCurrent();
   const serviceUpdateVerdict = await withCommandProcessScope(() =>
@@ -552,8 +507,26 @@ async function stopManagedServiceBeforeMutableUpdate(
     let currentState = await readCurrentService(serviceState.env);
     await assertAncestry(currentState);
     if (process.platform === "linux") {
+      const { assertSystemdServiceActionAllowed } =
+        await import("../../daemon/systemd-lifecycle.js");
+      assertCurrent();
+      try {
+        assertSystemdServiceActionAllowed(
+          currentState.systemdInstallation?.kind === "system"
+            ? currentState.systemdInstallation.system
+            : undefined,
+          "stop",
+        );
+      } catch (error) {
+        const message = `Gateway stop phase blocked: ${String(error)}`;
+        return {
+          ...inspected,
+          blockMessage: message,
+          blockFailureFacts: [{ check: "gateway-stop", code: "service-mutation-refused", message }],
+        };
+      }
       const refreshed = await prepareSystemdMaintenance(currentState, true);
-      if (refreshed) {
+      if (refreshed.kind === "refreshed") {
         // Policy refresh preserves the launcher; retain admitted installation drift.
         currentState = await readCurrentService(currentState.env);
       }
@@ -596,17 +569,11 @@ async function stopManagedServiceBeforeMutableUpdate(
       assertCurrent();
     }
     const stop = async () => {
+      await params.waitForCurrent?.();
       assertCurrent();
       if (process.platform === "linux") {
         const beforeStop = await readCurrentService(currentState.env);
-        if (beforeStop.runtime?.pid !== currentState.runtime?.pid) {
-          throw new GatewayServiceUpdateOwnershipError(
-            "Gateway process changed during maintenance drain; inspect its service before retrying.",
-            undefined,
-            undefined,
-            "service-process-changed",
-          );
-        }
+        assertGatewayServiceProcessUnchanged(currentState, beforeStop);
         await assertAncestry(beforeStop);
       }
       assertCurrent();
@@ -633,6 +600,9 @@ async function stopManagedServiceBeforeMutableUpdate(
       stoppedAtMs = Date.now();
       await service.stop({
         env: currentState.env,
+        ...(inspected.serviceSystemdIdentity
+          ? { systemdIdentity: inspected.serviceSystemdIdentity }
+          : {}),
         stdout: params.jsonMode ? JSON_MODE_SERVICE_STDOUT : process.stdout,
         assertCurrent,
         beforeEffect: params.assertDeadline,
@@ -641,23 +611,32 @@ async function stopManagedServiceBeforeMutableUpdate(
           ? { updateHandoff: { root: params.handoffRoot ?? params.root, runId: updateRun.runId } }
           : {}),
         // Native stop may unload the service before a later port check fails.
-        onMutation: () => params.onStopped?.({ ...inspected, stopped: true, stoppedAtMs }),
+        onMutation: () => {
+          recordUpdateGatewayStop(stoppedAtMs);
+          params.onStopped?.({ ...inspected, stopped: true, stoppedAtMs });
+        },
       });
     };
     if (process.platform === "linux") {
-      const { withGatewayMaintenanceDrain } = await import("./update-command-service-drain.js");
-      await withGatewayMaintenanceDrain(
-        {
-          state: currentState,
-          timeoutMs: params.timeoutMs ?? updateRun?.defaultStepTimeoutMs,
-          assertCurrent,
-          warn,
-        },
+      await drainGatewayServiceBeforeStop({
+        state: currentState,
+        timeoutMs: params.timeoutMs ?? updateRun?.defaultStepTimeoutMs,
+        assertCurrent,
+        warn,
         stop,
-      );
+        reinspect: async () => {
+          currentState = await readCurrentService(currentState.env);
+          await assertAncestry(currentState);
+          // The stop record names the process that is stopped, not the one that exited.
+          inspected.servicePid = currentState.runtime?.pid;
+          inspected.serviceControlGroup = currentState.runtime?.systemd?.controlGroup;
+          return currentState;
+        },
+      });
     } else {
       await stop();
     }
+    await params.waitForCurrent?.();
     assertCurrent();
     if (windowsTaskAutoStartRecovery) {
       await abortWindowsTaskUpdateIfInterrupted(windowsTaskAutoStartRecovery);
@@ -700,12 +679,7 @@ async function stopManagedServiceBeforeMutableUpdate(
     }
     throw err;
   }
-  return {
-    ...inspected,
-    stopped: true,
-    stoppedAtMs,
-    windowsTaskAutoStartRecovery,
-  };
+  return { ...inspected, stopped: true, stoppedAtMs, windowsTaskAutoStartRecovery };
 }
 
 export async function mutableUpdateGatewayServiceBlock(params: {

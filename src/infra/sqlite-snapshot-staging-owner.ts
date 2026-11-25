@@ -11,12 +11,14 @@ import { resolveGlobalSingleton } from "../shared/global-singleton.js";
 import type { OpenClawStateWorkerErrorPayload } from "../state/openclaw-state-worker-error.js";
 import { resolveRuntimeProcessEntrypointUrl } from "./runtime-process-url.js";
 import { captureRuntimeWorkerSource } from "./runtime-worker-generation.js";
-import { createSqliteLifecycleAggregateError } from "./sqlite-lifecycle-errors.js";
+import {
+  createSqliteLifecycleAggregateError,
+  SqliteSnapshotCleanupError,
+} from "./sqlite-lifecycle-errors.js";
 import {
   registerRetainedSnapshotTempDirectory,
   startRemoveTempDirectory,
   sealRetainedSnapshotTempDirectory,
-  SqliteSnapshotCleanupError,
 } from "./sqlite-readonly-location-cleanup.js";
 import { createSqliteReadOnlyNativeResourceConnection } from "./sqlite-readonly-native-resource.client.js";
 import { SQLITE_NATIVE_RESOURCE_PORT } from "./sqlite-readonly-native-resource.types.js";
@@ -38,7 +40,6 @@ import {
   DEFAULT_WORKER_PENDING_TASKS,
 } from "./worker-task-capacity.js";
 import { createOwnedWorkerTaskPool } from "./worker-task-pool.js";
-import type { RetainedWorkerTask } from "./worker-task-pool.types.js";
 
 type SuccessfulReply = Exclude<SqliteSnapshotStagingReply, { type: "failed" }>;
 
@@ -116,7 +117,6 @@ function createStagingOwner(workerUrl: URL, nativeSource: RetainedNativeWorkerSo
       onFailure(error) {
         unavailable ??= { error };
       },
-      onDispose() {},
     });
   }
 
@@ -229,24 +229,17 @@ function createStagingOwner(workerUrl: URL, nativeSource: RetainedNativeWorkerSo
       },
     };
     preparations.set(preparationId, preparation);
-    let task: RetainedWorkerTask<SqliteSnapshotStagingReply>;
-    try {
-      task = pool.startTask(
-        () => {
-          if (unavailable !== undefined) {
-            throw unavailable.error;
-          }
-          signal?.throwIfAborted();
-          signal?.addEventListener("abort", abort, { once: true });
-          return input;
-        },
-        { inputBytes, transferList: () => (cancellation ? [cancellation.port2] : []) },
-      );
-    } catch (error) {
-      const refused = createRetainedOperation<SqliteSnapshotStagingReply>(() => {});
-      refused.reject(error);
-      task = { ...refused.operation, release: completed };
-    }
+    const task = pool.startTask(
+      () => {
+        if (unavailable !== undefined) {
+          throw unavailable.error;
+        }
+        signal?.throwIfAborted();
+        signal?.addEventListener("abort", abort, { once: true });
+        return input;
+      },
+      { inputBytes, transferList: () => (cancellation ? [cancellation.port2] : []) },
+    );
     let release: RetainedOperation<void> | undefined;
     const result = mapRetainedOperation(task, (reply) => {
       if (reply.type === "failed") {
@@ -279,7 +272,7 @@ function createStagingOwner(workerUrl: URL, nativeSource: RetainedNativeWorkerSo
       if (pendingClose?.read().status === "pending") {
         return pendingClose;
       }
-      let removals: Array<[string, RetainedOperation<boolean>]> | undefined;
+      let removals: Array<[string, RetainedOperation<boolean>, ErrorOptions]> | undefined;
       let servicing = false;
       const closing = createRetainedOperation<void>(() => {
         if (servicing || closing.operation.read().status !== "pending") {
@@ -293,16 +286,19 @@ function createStagingOwner(workerUrl: URL, nativeSource: RetainedNativeWorkerSo
             return;
           }
           removals ??= [...preparation.directories].map(
-            (directory): [string, RetainedOperation<boolean>] => {
-              const removal = startRemoveTempDirectory(directory);
+            (directory): [string, RetainedOperation<boolean>, ErrorOptions] => {
+              const failure: ErrorOptions = {};
+              const removal = startRemoveTempDirectory(directory, (cause) => {
+                failure.cause = cause;
+              });
               void removal.result.then(
                 () => closing.operation.service(),
                 () => closing.operation.service(),
               );
-              return [directory, removal];
+              return [directory, removal, failure];
             },
           );
-          for (const [directory, removal] of removals) {
+          for (const [directory, removal, failure] of removals) {
             removal.service();
             const outcome = removal.read();
             if (outcome.status === "pending") {
@@ -314,6 +310,7 @@ function createStagingOwner(workerUrl: URL, nativeSource: RetainedNativeWorkerSo
             if (!outcome.value) {
               throw new SqliteSnapshotCleanupError(
                 `SQLite staging preparation cleanup failed: ${directory}`,
+                failure,
               );
             }
           }

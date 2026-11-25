@@ -1,2 +1,1 @@
-import { n as repairUnownedChannelAccountBindings } from "./legacy-config-binding-repair-CdnATYZg.mjs";
-export { repairUnownedChannelAccountBindings };
+import{n as repairUnownedChannelAccountBindings}from"./legacy-config-binding-repair-eQElO9ze.mjs";export{repairUnownedChannelAccountBindings};

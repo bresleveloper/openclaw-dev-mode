@@ -1,1 +1,0 @@
-import{c as e,n as t}from"./worker-chunk-U8cUzvdC.mjs";t();export{e as settlePluginNativeAdmissions};

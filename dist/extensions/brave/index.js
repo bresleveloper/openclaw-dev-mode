@@ -1,11 +1,10 @@
-import { t as createBraveWebSearchProvider } from "./.setup/brave-web-search-provider-m9mxf4kg.mjs";
+import { t as createBraveWebSearchProvider } from "./.setup/brave-web-search-provider-9AzXZDBI.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/brave/index.ts
+// extensions/brave/index.ts
 /**
 * Brave Search plugin entry. It registers the Brave web-search provider and
 * keeps runtime HTTP execution lazy.
 */
-/** Plugin entry for Brave Search. */
 var brave_default = definePluginEntry({
 	id: "brave",
 	name: "Brave Plugin",
@@ -14,5 +13,4 @@ var brave_default = definePluginEntry({
 		api.registerWebSearchProvider(createBraveWebSearchProvider());
 	}
 });
-//#endregion
 export { brave_default as default };

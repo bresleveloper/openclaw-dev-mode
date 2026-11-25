@@ -1,0 +1,2 @@
+//!src/commands/status-redaction.ts
+function redactStatusSecrets(e){if(!e)return e;let t=e;t=t.replace(/(["']?\b(?:access[_-]?token|refresh[_-]?token|token|password|secret|api[_-]?key)\b["']?\s*[:=]\s*)(?:Bearer\s+[^\s]+|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s]+)/gi,`$1***`);t=t.replace(/\bBearer\s+[^\s]+/gi,`Bearer ***`);t=t.replace(/\bsk-[A-Za-z0-9]{10,}\b/g,`sk-***`);return t}export{redactStatusSecrets as t};

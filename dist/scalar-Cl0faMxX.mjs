@@ -1,0 +1,3 @@
+import{n as isPostgresSqlConnection}from"./sql-connection-nx8lLUJM.mjs";import{_ as sql,v as expressionBuilder}from"./kysely-sync-Dl78faM1.mjs";
+//!src/infra/database-engine/scalar.ts
+function engineGreatest(e,t){return expressionBuilder().fn(isPostgresSqlConnection(e)?`greatest`:`max`,t)}function engineLeast(e,t){return expressionBuilder().fn(isPostgresSqlConnection(e)?`least`:`min`,t)}function engineStringPosition(e,t,n){return expressionBuilder().fn(isPostgresSqlConnection(e)?`strpos`:`instr`,[t,n])}function engineNullSafeEqual(e,t,n){return sql`${t} ${sql.raw(isPostgresSqlConnection(e)?`is not distinct from`:`is`)} ${n}`}export{engineStringPosition as i,engineLeast as n,engineNullSafeEqual as r,engineGreatest as t};

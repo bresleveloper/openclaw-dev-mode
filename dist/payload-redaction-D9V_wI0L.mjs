@@ -1,0 +1,3 @@
+import{n as sha256Hex}from"./node-crypto-DPk8agfR.mjs";import{projectDiagnosticValue}from"@openclaw/ai/diagnostics";
+//!src/agents/payload-redaction.ts
+const REDACTED_MEDIA_DATA=`<redacted>`;const CORE_DIAGNOSTIC_PROJECTION={omitField:e=>e===`providerReplay`,propertyScope:`enumerable`,projectBinary:e=>({redacted:REDACTED_MEDIA_DATA,bytes:e.byteLength,sha256:sha256Hex(e)}),projectMedia:(e,t)=>({[e]:REDACTED_MEDIA_DATA,...t.source===void 0?{}:{bytes:t.bytes,sha256:sha256Hex(t.source)}})};function sanitizeDiagnosticPayload(e){return projectDiagnosticValue(e,CORE_DIAGNOSTIC_PROJECTION)}export{sanitizeDiagnosticPayload as t};

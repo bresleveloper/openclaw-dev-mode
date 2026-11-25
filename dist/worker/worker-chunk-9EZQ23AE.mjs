@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{r as t}from"./worker-chunk-BcUp1FuP.mjs";import{s as n}from"./worker-chunk-Bxv9ACSn.mjs";function runtimeMemorySecretOwnerId(e){return`memory-provider:${t(e)}`}var r=e((()=>{n()}));export{runtimeMemorySecretOwnerId as n,r as t};

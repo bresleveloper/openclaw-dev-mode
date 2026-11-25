@@ -1,0 +1,3 @@
+import{a as normalizeFastMode}from"./string-coerce-CpTFcSwY.mjs";import{normalizeOpenAIServiceTier,resolveOpenAIResponsesPayloadPolicy}from"@openclaw/ai/internal/openai-responses-payload-policy";
+//!src/llm/providers/openai-fast-mode.ts
+function normalizeOpenAIFastMode(e){if(typeof e===`function`)return normalizeOpenAIFastMode(e());const t=normalizeFastMode(e);return t===`auto`?void 0:t}function supportsOpenAIResponsesFastMode(e){return e.provider===`openai`&&(e.api===`openai-responses`||e.api===`openai-chatgpt-responses`||e.api===`azure-openai-responses`)&&resolveOpenAIResponsesPayloadPolicy(e,{storeMode:`disable`}).allowsServiceTier}export{normalizeOpenAIServiceTier as n,supportsOpenAIResponsesFastMode as r,normalizeOpenAIFastMode as t};

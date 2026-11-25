@@ -16,6 +16,17 @@ export function startClockControlledAttempt(params: EmbeddedRunAttemptParams) {
   return { run, started: run.waitForTurnAccepted() };
 }
 
+export function observeAttemptProjectionReady() {
+  const activate = attemptActiveTurn.activateCodexAttemptTurn;
+  const activated = createDeferred<ReturnType<typeof activate>>();
+  vi.spyOn(attemptActiveTurn, "activateCodexAttemptTurn").mockImplementation((...args) => {
+    const turn = activate(...args);
+    activated.resolve(turn);
+    return turn;
+  });
+  return () => activated.promise.then((turn) => turn.ready);
+}
+
 export function expectResumeRequest(
   requests: Array<{ method: string; params: unknown }>,
   params: Record<string, unknown>,
@@ -28,17 +39,6 @@ export function expectResumeRequest(
   for (const [key, value] of Object.entries(params)) {
     expect(requestParams?.[key]).toEqual(value);
   }
-}
-
-export function observeAttemptProjectionReady() {
-  const activate = attemptActiveTurn.activateCodexAttemptTurn;
-  const activated = createDeferred<ReturnType<typeof activate>>();
-  vi.spyOn(attemptActiveTurn, "activateCodexAttemptTurn").mockImplementation((...args) => {
-    const turn = activate(...args);
-    activated.resolve(turn);
-    return turn;
-  });
-  return () => activated.promise.then((turn) => turn.ready);
 }
 
 export async function expectRetainedSuccessfulThread(

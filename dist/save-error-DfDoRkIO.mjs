@@ -1,0 +1,3 @@
+import{n as serializeCronLoadError,t as restoreCronLoadError}from"./load-error-D_lHBxpe.mjs";
+//!src/cron/store/save-error.ts
+var CronJobsStoreChangedError=class extends Error{constructor(e){super(`Cron store at ${e} changed after it was read; reload it before writing`);this.name=`CronJobsStoreChangedError`}};function serializeCronSaveError(e,t){return e instanceof CronJobsStoreChangedError?{kind:`store-changed`,storePath:t}:{kind:`other`,error:serializeCronLoadError(e)}}function restoreCronSaveError(e){return e.kind===`store-changed`?new CronJobsStoreChangedError(e.storePath):restoreCronLoadError(e.error)}export{restoreCronSaveError as n,serializeCronSaveError as r,CronJobsStoreChangedError as t};

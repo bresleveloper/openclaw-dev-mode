@@ -1,0 +1,3 @@
+import fs from"node:fs";import{fileURLToPath}from"node:url";import path from"node:path";
+//!src/cli/startup-metadata.ts
+const STARTUP_METADATA_FILE=`cli-startup-metadata.json`;const startupMetadataByPath=/* @__PURE__ */ new Map;function readCliStartupMetadata(e){const t=path.dirname(fileURLToPath(e));for(const e of[path.resolve(t,STARTUP_METADATA_FILE),path.resolve(t,`..`,STARTUP_METADATA_FILE)]){const t=startupMetadataByPath.get(e);if(t!==void 0){if(t)return t;continue}try{const t=JSON.parse(fs.readFileSync(e,`utf8`));startupMetadataByPath.set(e,t);return t}catch{startupMetadataByPath.set(e,null)}}return null}export{readCliStartupMetadata as t};

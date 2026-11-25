@@ -1,3 +1,3 @@
-import { a as LocalMediaAccessError, d as optimizeImageToPng, i as optimizeImageToJpeg, n as loadWebMedia, o as LocalMediaAccessErrorCode, r as loadWebMediaRaw, t as WebMediaResult } from "../web-media-fiKiFY1W.js";
-import { r as getDefaultMediaLocalRoots } from "../local-roots-g841kvbD.js";
+import { a as LocalMediaAccessError, d as optimizeImageToPng, i as optimizeImageToJpeg, n as loadWebMedia, o as LocalMediaAccessErrorCode, r as loadWebMediaRaw, t as WebMediaResult } from "../web-media-B8Te5SZ2.js";
+import { r as getDefaultMediaLocalRoots } from "../local-roots-D8-jSmbR.js";
 export { LocalMediaAccessError, type LocalMediaAccessErrorCode, type WebMediaResult, getDefaultMediaLocalRoots as getDefaultLocalRoots, loadWebMedia, loadWebMediaRaw, optimizeImageToJpeg, optimizeImageToPng };

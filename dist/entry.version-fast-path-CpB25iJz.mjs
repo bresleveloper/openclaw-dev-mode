@@ -1,0 +1,1 @@
+import{t as tryHandleRootVersionFastPath}from"./entry.version-fast-path-iMwTXOFU.mjs";export{tryHandleRootVersionFastPath};

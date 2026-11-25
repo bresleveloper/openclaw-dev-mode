@@ -1,0 +1,2 @@
+//!src/infra/sqlite-number.ts
+const MAX_SAFE_INTEGER_BIGINT=BigInt(Number.MAX_SAFE_INTEGER);function readFiniteSqliteNumber(e){const t=typeof e===`bigint`?Number(e):e;return typeof t===`number`&&Number.isFinite(t)?t:void 0}function coerceRequiredSqliteNumber(e){return typeof e===`bigint`?Number(e):e}function normalizeSqliteNumber(e){if(typeof e===`bigint`){if(e>MAX_SAFE_INTEGER_BIGINT||e<-MAX_SAFE_INTEGER_BIGINT)return;return Number(e)}return typeof e===`number`?e:void 0}export{normalizeSqliteNumber as n,readFiniteSqliteNumber as r,coerceRequiredSqliteNumber as t};

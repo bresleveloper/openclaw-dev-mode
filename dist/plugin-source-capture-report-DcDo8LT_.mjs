@@ -1,0 +1,1 @@
+import{n as pruneLegacyPluginSourceCaptures,r as pruneUnreferencedPluginNativeCaptures,t as inspectLegacyPluginSourceCaptureRoots}from"./plugin-source-capture-report-Bo_TSPbr.mjs";export{inspectLegacyPluginSourceCaptureRoots,pruneLegacyPluginSourceCaptures,pruneUnreferencedPluginNativeCaptures};

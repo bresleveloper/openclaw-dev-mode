@@ -1,0 +1,2 @@
+//!src/shared/transcript-payload-ownership.ts
+const ownedTranscriptRoots=/* @__PURE__ */ new WeakSet;function isOwnedTranscriptPayload(e){return ownedTranscriptRoots.has(e)}function markOwnedTranscriptPayload(e){ownedTranscriptRoots.add(e)}function cloneTranscriptEnvelope(e){if(isOwnedTranscriptPayload(e)){for(const t of Object.values(e))if(t&&typeof t===`object`)markOwnedTranscriptPayload(t)}return{...e}}export{isOwnedTranscriptPayload as n,markOwnedTranscriptPayload as r,cloneTranscriptEnvelope as t};

@@ -1,0 +1,2 @@
+//!src/cli/quote-cli-arg.ts
+function quotePowerShellArg(e){return`'${e.replace(/['‘-‛]/gu,`$&$&`)}'`}function quoteCliArg(e){if(/^[A-Za-z0-9_/:=.,@%+-]+$/.test(e))return e;return`'${e.replaceAll(`'`,`'\\''`)}'`}export{quotePowerShellArg as n,quoteCliArg as t};

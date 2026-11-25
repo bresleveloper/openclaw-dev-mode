@@ -135,7 +135,8 @@ describe("fixConfigContent", { timeout: 300_000 }, () => {
       gateway: { mode: "local" },
       agents: {
         ownership: "explicit",
-        defaults: { heartbeat: { agentId: "main" }, systemAgent: { agentId: "main" } },
+        // 11.10: no `heartbeat.agentId` pin any more (heartbeat config is retired, see the next case).
+        defaults: { systemAgent: { agentId: "main" } },
         entries: { main: {}, work: { workspace: "~/work-agent" } },
       },
       talk: { agentId: "main" },
@@ -150,6 +151,28 @@ describe("fixConfigContent", { timeout: 300_000 }, () => {
           changes: ["Removed unknown config key: gateway.bogusSetting"],
         });
         expect(await readWrittenConfig(home.configPath)).toEqual(authored);
+      },
+    );
+  });
+
+  it("leaves retired heartbeat config in the file and reports it as still invalid", async () => {
+    await withConfigHome(
+      {
+        gateway: { mode: "local", bogusSetting: true },
+        agents: { entries: { main: { heartbeat: { every: "0m" } } } },
+      },
+      async (home) => {
+        const report = await fixConfigContent();
+
+        // 11.10 retired heartbeat config. Only doctor's durable retirement (it moves the settings
+        // into the cron store) may drop it, so FIX-07 repairs what it can, writes nothing and
+        // names the rest: hand-remove the block (a disabled heartbeat loses nothing).
+        expect(report.status).toBe("still-invalid");
+        expect(report.changes).toEqual(["Removed unknown config key: gateway.bogusSetting"]);
+        expect(
+          report.issues.map((issue) => `${issue.path}: ${issue.message}`).join("\n"),
+        ).toContain("heartbeat");
+        expect(await fs.readFile(home.configPath, "utf-8")).toBe(home.originalRaw);
       },
     );
   });

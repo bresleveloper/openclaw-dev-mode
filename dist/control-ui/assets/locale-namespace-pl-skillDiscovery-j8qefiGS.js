@@ -1,0 +1,1 @@
+export default {"skillDiscovery":{"search":"Szukaj umiejętności","settings":"Ustawienia umiejętności","libraryStatus":"Umiejętność z biblioteki. Wybory dokonane w sesji określają, kiedy jest używana."}};

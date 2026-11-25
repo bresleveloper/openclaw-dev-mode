@@ -1,0 +1,1 @@
+import{t as e}from"./disk-budget.worker-subsystem-D9aLEgRd.mjs";function logAppContainerTokenProbeFailure(t){e(`process`).debug(`AppContainer token probe failed; allowing spawn`,{error:String(t)})}export{logAppContainerTokenProbeFailure};

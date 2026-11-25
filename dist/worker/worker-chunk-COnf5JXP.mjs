@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function resolveLegacyMigrationSourcePath(e){return e.replace(/\.doctor-importing(?:-\d+-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})?$/,``)}var t=e((()=>{}));export{resolveLegacyMigrationSourcePath as n,t};

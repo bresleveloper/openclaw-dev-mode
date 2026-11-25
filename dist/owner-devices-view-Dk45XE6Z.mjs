@@ -1,0 +1,3 @@
+import{A as isOwnerDeviceActive}from"./src-BTTzpNjb.mjs";
+//!src/gateway/openclaw-id/owner-devices-view.ts
+function describeOwnerDevices(e,t){const n=new Map(Object.entries(e.nodes).flatMap(([e,t])=>t.owner_device?[[t.owner_device,e]]:[]));return Object.entries(e.owner_devices).filter(([,e])=>isOwnerDeviceActive(e,t)).map(([e,t])=>({devicePub:t.cert.body.device_pub,deviceFp:e,label:t.cert.body.label,peerKeys:t.cert.body.peer_keys,approvedBy:t.approved_by,nodePeerKey:n.get(e),lastSeen:t.last_seen,cert:t.cert}))}export{describeOwnerDevices};

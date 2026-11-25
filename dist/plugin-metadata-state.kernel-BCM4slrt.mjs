@@ -1,0 +1,3 @@
+import{i as executeSqliteQuerySync,s as getNodeSqliteKysely}from"./kysely-sync-Dl78faM1.mjs";import{a as tableExists}from"./openclaw-state-db-schema-helpers-4Hs1ye38.mjs";
+//!src/plugins/plugin-metadata-state.kernel.ts
+const INSTALLED_PLUGIN_INDEX_STATE_KEY=`plugins.installedIndex`;function readPluginMetadataStateRowsInDatabase(e,t){if(!tableExists(e,`config_machine_state`))return[];return executeSqliteQuerySync(e,getNodeSqliteKysely(e).selectFrom(`config_machine_state`).select([`state_key`,`value_json`]).where(`state_key`,`in`,t)).rows}export{readPluginMetadataStateRowsInDatabase as n,INSTALLED_PLUGIN_INDEX_STATE_KEY as t};

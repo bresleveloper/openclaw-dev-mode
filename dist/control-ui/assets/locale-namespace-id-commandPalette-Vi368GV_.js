@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"Pengaturan sesi baru","rememberSettings":"Ingat pengaturan untuk {shortcut}","rememberSettingsNoShortcut":"Ingat pengaturan ini","rememberUnavailable":"Hubungkan kembali untuk menyimpan pengaturan.","settingsSaveFailed":"Tidak dapat menyimpan pengaturan. Coba lagi."}};

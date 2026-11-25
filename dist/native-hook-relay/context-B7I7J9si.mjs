@@ -1,0 +1,3 @@
+import{l as resolveGlobalSingleton}from"./string-coerce-BBqv4GXj.mjs";import{AsyncLocalStorage}from"node:async_hooks";
+//!src/infra/database-engine/context.ts
+const state=resolveGlobalSingleton(Symbol.for(`openclaw.databaseEngineSelection`),()=>({}));const maintenance=resolveGlobalSingleton(Symbol.for(`openclaw.databaseEngineMaintenanceSelection`),()=>new AsyncLocalStorage);function getDatabaseEngineSelection(){return maintenance.getStore()??state.selection}function withDatabaseEngineSelection(e,t){return maintenance.run(e,t)}function getDatabaseEngineInput(e){const t=getDatabaseEngineSelection();return t?.effectiveEngines[e]===`postgres`?t.postgres:void 0}export{getDatabaseEngineSelection as n,withDatabaseEngineSelection as r,getDatabaseEngineInput as t};

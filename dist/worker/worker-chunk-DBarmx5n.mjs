@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function resolveBundledCliBackendAuthPolicy(e){return t[e]}var t,n=e((()=>{t={"claude-cli":{strictSelectedProfile:!0,oauthRefreshOwner:`core`,nativeAuthProfileIds:[`anthropic:claude-cli`]},"google-gemini-cli":{strictSelectedProfile:!1,oauthRefreshOwner:`cli`}}}));export{resolveBundledCliBackendAuthPolicy as n,n as t};

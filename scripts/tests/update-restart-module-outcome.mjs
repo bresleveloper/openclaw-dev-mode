@@ -183,6 +183,8 @@ async function fixture({
       return { verification: { ...observed.verification, recovery: observed.recovery } };
     },
     recordUpdateRunStep: () => {},
+    // No earlier run owes a step. Recording or settling one would be an unexpected call.
+    readOwedUpdateSteps: () => [],
     async runUpdatedInstallGatewayCommand(activation, command) {
       commandCalls++;
       events.push("command:" + command);
@@ -215,6 +217,15 @@ async function fixture({
       }
       return verification;
     },
+    withUpdateStateReleasedAcrossRestart: async (selectedRun, restart) => {
+      assert.equal(selectedRun, run);
+      events.push("state-release");
+      try {
+        return await restart();
+      } finally {
+        events.push("state-readmit");
+      }
+    },
     withOwnedManagedUpdateEnv: async (_env, action) => action(),
     acquireWithWait: ({ acquire }) => acquire(),
     readConfigFileSnapshot: async () => ({}),
@@ -227,6 +238,17 @@ async function fixture({
     },
     resolveUpdateResultNextAction: () => "Retain recovery material until health is verified.",
     completeUpdateCommandRun: (value) => value,
+    // This VM has no durable recovery ledger. Recovery-artifact deletion has
+    // real owner/filesystem coverage in update-automatic-cleanup.test.ts; these
+    // cases prove the separate package transaction's retirement authorization.
+    automaticallyCleanUpdateRecovery: async () => undefined,
+    // Cohort settlement has native ledger coverage; this VM owns only package retirement.
+    commitVerifiedUpdatePluginCohort: async () => {},
+    assertUpdatePluginCohortReportingContinuation: () => {},
+    assertUpdatePluginCohortReportingAdmission: async () => {},
+    // Every case here fails after the swap, so none retires its own capture.
+    failedBeforeActivation: () => false,
+    prepareResult: async (value) => () => printed.push(value),
     printResult: (value) => printed.push(value),
     writeControlPlaneUpdateRestartSentinel: async () => {},
     markControlPlaneUpdateRestartSentinelFailure: async () => {},
@@ -244,6 +266,7 @@ async function fixture({
     sliceUtf16Safe,
     truncateUtf16Safe,
     withCommandProcessScope: async (action) => action(),
+    getCliPluginInvocationResources: () => undefined,
     readPackageVersion: async (packageRoot) => {
       assert.equal(packageRoot, installRoot);
       return "2026.9.4";
@@ -283,6 +306,9 @@ async function fixture({
     "../../plugins/clawhub-error-codes",
     "../../plugins/install-types",
     "../../logging/diagnostic-support-redaction",
+    "../../logging/diagnostic-support-causes",
+    "../../infra/sqlite-snapshot-diagnostics",
+    "../../logging/diagnostic-support-key-check",
     "../../logging/redact",
     "../../logging/redact-linear-matchers",
     "../../logging/redact-pem",
@@ -295,21 +321,26 @@ async function fixture({
     "../../infra/update-run-step",
     "update-command-verification",
     "update-command-terminal",
+    "update-command-admission-report",
     "update-command-terminal-publication",
     "../daemon-cli/restart-health-deadline",
     "../../../packages/retry/src/index",
     "../daemon-cli/restart-health-probe",
     "../../utils/absolute-deadline",
     "update-command-post-update-maintenance",
+    "update-command-owed",
+    "../../infra/update-run-owed-step",
     "../../infra/update-candidate-predecessor-stop",
-    "update-command-legacy-service-stop",
     // Recovery and reporting stay real; only their I/O uses finite fixture facts.
     "update-command-failure-recovery",
     "update-command-service-recovery",
     "update-command-plugins-internals",
     "../../process/exec-result",
     "../../shared/null-writer",
+    "../../shared/state-lease-loss",
+    "../../shared/state-lease-loss-format",
     "../../shared/update-outcome",
+    "../../state/openclaw-state-lease-error",
     "../../infra/update-run-report",
     "../../infra/update-run-record",
     "../../infra/update-run-limits",
@@ -320,7 +351,6 @@ async function fixture({
     "../../logging/redact-performance",
     "../../logging/redact-prefilter",
     "../../logging/redact-bounded",
-    "../../logging/redact-form-body",
     "../../../packages/net-policy/src/redact-sensitive-url",
     "../../logging/redact-mask",
     "../../logging/redact-edit-composition",
@@ -331,6 +361,7 @@ async function fixture({
     "../../shared/regexp",
     "../../infra/acquire-with-wait",
     "../../infra/update-doctor-result",
+    "../../infra/update-doctor-scan-receipts",
     "../../infra/update-doctor-config-schema",
     "../../infra/update-doctor-lint-schema",
     "../../infra/update-run-schema",
@@ -424,6 +455,7 @@ async function fixture({
   values.recordFailedUpdateGatewayState =
     verificationOwner.namespace.recordFailedUpdateGatewayState;
   values.readFailedUpdateGatewayState = verificationOwner.namespace.readFailedUpdateGatewayState;
+  values.releaseLaunchedState = verificationOwner.namespace.releaseLaunchedState;
   const entry = modules.get("update-command-post-update.js");
   await entry.link(link);
   await entry.evaluate();
@@ -687,3 +719,12 @@ for (const failure of ["missing-module", "ENOENT", "verified-result-control"]) {
     assert.deepEqual(disk.unexpected, []);
   });
 }
+
+void test("finishUpdate releases state around restart and readiness verification", async () => {
+  const f = await fixture();
+  assert.equal((await f.finish()).status, "ok");
+  assert.ok(f.events.includes("state-release"), "the real restart caller must release state");
+  assert.ok(f.events.indexOf("state-release") < f.events.indexOf("verification"));
+  assert.ok(f.events.indexOf("verification") < f.events.indexOf("state-readmit"));
+  assert.deepEqual(f.unexpected, []);
+});

@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function prefixSystemMessage(e){let n=e.trim();return!n||n.startsWith(`⚙️`)?n:`${t} ${n}`}var t,n=e((()=>{t=`⚙️`}));export{prefixSystemMessage as n,n as t};

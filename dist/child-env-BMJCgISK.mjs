@@ -1,0 +1,2 @@
+//!src/process/child-env.ts
+function stripGatewayAllocatorEnv(e){delete e.MALLOC_CONF;if(e.LD_PRELOAD!==void 0){const t=e.LD_PRELOAD.split(/[\s:]+/u).filter(e=>e&&!/(?:^|\/)libjemalloc\.so(?:\.\d+)*$/u.test(e));if(t.length>0)e.LD_PRELOAD=t.join(`:`);else delete e.LD_PRELOAD}}export{stripGatewayAllocatorEnv as t};

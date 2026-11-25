@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/utils/boolean.ts
+const DEFAULT_TRUTHY=[`true`,`1`,`yes`,`on`];const DEFAULT_FALSY=[`false`,`0`,`no`,`off`];function asBoolean(e){return typeof e===`boolean`?e:void 0}function parseBooleanValue(e,t={}){const n=asBoolean(e);if(n!==void 0)return n;const r=normalizeOptionalLowercaseString(e);if(!r)return;if((t.truthy??DEFAULT_TRUTHY).includes(r))return true;if((t.falsy??DEFAULT_FALSY).includes(r))return false}export{parseBooleanValue as n,asBoolean as t};

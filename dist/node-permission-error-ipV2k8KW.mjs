@@ -1,0 +1,3 @@
+import{i as asOptionalObjectRecord}from"./record-coerce-BTbqdJ3-.mjs";import{r as readNodePermissionRequest}from"./node-permissions-BI4fCR9S.mjs";
+//!src/agents/node-permission-error.ts
+function readNodePermissionError(e){const t=/* @__PURE__ */ new Set;for(let n=e;n&&!t.has(n);){t.add(n);const e=asOptionalObjectRecord(n);const r=asOptionalObjectRecord(e?.details);const i=readNodePermissionRequest(r?.permissionMissing);if(i)return i;n=e?.cause}}export{readNodePermissionError as t};

@@ -1,0 +1,4 @@
+import{t as formatCliCommand}from"./command-format-vlx1VIWT.mjs";
+//!src/auto-reply/reply/elevated-unavailable.ts
+function formatElevatedUnavailableMessage(e){return[`elevated is not available right now (runtime=${e.runtimeSandboxed?`sandboxed`:`direct`}).`,e.failures.length>0?`Failing gates: ${e.failures.map(e=>`${e.gate} (${e.key})`).join(`, `)}`:`Failing gates: enabled (tools.elevated.enabled / agents.entries.*.tools.elevated.enabled), allowFrom (tools.elevated.allowFrom.<provider>).`,`Fix-it keys:`,`- tools.elevated.enabled`,`- tools.elevated.allowFrom.<provider>`,`- agents.entries.*.tools.elevated.enabled`,`- agents.entries.*.tools.elevated.allowFrom.<provider>`,...e.sessionKey?[`See: ${formatCliCommand(`openclaw sandbox explain --session ${e.sessionKey}`)}`]:[]].join(`
+`)}export{formatElevatedUnavailableMessage as t};

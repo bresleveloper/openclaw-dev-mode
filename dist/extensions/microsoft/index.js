@@ -1,13 +1,3 @@
-import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
-import { t as buildMicrosoftSpeechProvider } from "../../speech-provider-BY9zj4Ss.mjs";
-//#region extensions/microsoft/index.ts
-var microsoft_default = definePluginEntry({
-	id: "microsoft",
-	name: "Microsoft Speech",
-	description: "Bundled Microsoft speech provider",
-	register(api) {
-		api.registerSpeechProvider(buildMicrosoftSpeechProvider());
-	}
-});
-//#endregion
-export { microsoft_default as default };
+import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import{t as buildMicrosoftSpeechProvider}from"../../speech-provider-DZ_VQLYY.mjs";
+//!extensions/microsoft/index.ts
+var microsoft_default=definePluginEntry({id:`microsoft`,name:`Microsoft Speech`,description:`Bundled Microsoft speech provider`,register(e){e.registerSpeechProvider(buildMicrosoftSpeechProvider())}});export{microsoft_default as default};

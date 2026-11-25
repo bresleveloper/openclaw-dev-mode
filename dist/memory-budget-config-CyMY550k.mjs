@@ -1,0 +1,3 @@
+import{r as resolveAgentConfig}from"./agent-scope-config-a2Ym-O21.mjs";import"./agent-scope-runtime-BYK4fve4.mjs";import{t as DEFAULT_MEMORY_FILE_MAX_CHARS}from"./memory-budget-CRyABw9N.mjs";
+//!extensions/memory-core/src/memory-budget-config.ts
+function resolveMemoryPromotionFileMaxChars(e){const t=e.cfg?.agents?.defaults?.bootstrapMaxChars;const n=e.agentIds.length>0?[...new Set(e.agentIds)]:[void 0];let r=DEFAULT_MEMORY_FILE_MAX_CHARS;for(const i of n){const n=i?resolveAgentConfig(e.cfg??{},i)?.bootstrapMaxChars??t:t;if(n!==void 0)r=Math.min(r,n)}return r}export{resolveMemoryPromotionFileMaxChars as t};

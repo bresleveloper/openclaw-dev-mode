@@ -1,0 +1,2 @@
+//!src/llm/providers/minimax-fast-mode.ts
+function resolveMinimaxFastModelId(e){return e.api===`anthropic-messages`&&(e.provider===`minimax`||e.provider===`minimax-portal`)&&e.id.trim()===`MiniMax-M2.7`?`MiniMax-M2.7-highspeed`:void 0}export{resolveMinimaxFastModelId as t};

@@ -1,0 +1,13 @@
+import { xx as ProviderWrapStreamFnContext } from "./config-contracts-hzlacViZ.js";
+import { h as StreamFn } from "./types-Bjy6vVru.js";
+import "./provider-model-types-DGw4ZQp7.js";
+type AnthropicServiceTier = "auto" | "standard_only";
+type DynamicFastMode = boolean | (() => boolean | undefined);
+declare function resolveAnthropicBetas(extraParams: Record<string, unknown> | undefined, _modelId: string): string[] | undefined;
+declare function createAnthropicBetaHeadersWrapper(baseStreamFn: StreamFn | undefined, betas: string[]): StreamFn;
+declare function createAnthropicFastModeWrapper(baseStreamFn: StreamFn | undefined, enabled: DynamicFastMode, extraParams?: Record<string, unknown>): StreamFn;
+declare function createAnthropicServiceTierWrapper(baseStreamFn: StreamFn | undefined, serviceTier: AnthropicServiceTier): StreamFn;
+declare function resolveAnthropicFastMode(extraParams: Record<string, unknown> | undefined): boolean | undefined;
+declare function resolveAnthropicServiceTier(extraParams: Record<string, unknown> | undefined): AnthropicServiceTier | undefined;
+declare function wrapAnthropicProviderStream(ctx: ProviderWrapStreamFnContext): StreamFn;
+export { resolveAnthropicFastMode as a, resolveAnthropicBetas as i, createAnthropicFastModeWrapper as n, resolveAnthropicServiceTier as o, createAnthropicServiceTierWrapper as r, wrapAnthropicProviderStream as s, createAnthropicBetaHeadersWrapper as t };

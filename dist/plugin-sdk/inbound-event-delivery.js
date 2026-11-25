@@ -1,2 +1,1 @@
-import { t as createInboundEventDeliveryCorrelation } from "../inbound-event-delivery-CTNTAGiS.mjs";
-export { createInboundEventDeliveryCorrelation };
+import{t as createInboundEventDeliveryCorrelation}from"../inbound-event-delivery-B-Im5ggh.mjs";export{createInboundEventDeliveryCorrelation};

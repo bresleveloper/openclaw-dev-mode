@@ -1,0 +1,2 @@
+//!src/gateway/remote-control-ui-ingress-host.ts
+const hosts=/* @__PURE__ */ new WeakMap;function bindGatewayControlUiIngressHost(e,t){hosts.set(e,t)}function getGatewayControlUiIngressHost(e){return hosts.get(e)}export{getGatewayControlUiIngressHost as n,bindGatewayControlUiIngressHost as t};

@@ -1,0 +1,1 @@
+export default {"skillGroups":{"workspace":"Skills in de werkruimte","learned":"Aangeleerde skills","builtIn":"Ingebouwde Skills","installed":"Geïnstalleerde Skills","extra":"Extra Skills","other":"Overige Skills"}};

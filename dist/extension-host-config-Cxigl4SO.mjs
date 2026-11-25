@@ -1,0 +1,3 @@
+import{O as setRuntimeConfigSnapshot}from"./runtime-snapshot-7A_MWYPP.mjs";import{s as readConfigFileSnapshot}from"./io.runtime-D-fLYL3-.mjs";import"./health-DJxJWX9H.mjs";import"./runtime-config-snapshot-C9No_Ija.mjs";
+//!extensions/browser/src/browser/extension-host-config.ts
+async function readBrowserHostConfig(){const e=await readConfigFileSnapshot({observe:false,pluginValidation:`core-only`});if(!e.valid)throw new Error(`Browser host configuration is invalid`);const t=e.runtimeConfig??e.config;setRuntimeConfigSnapshot(t,e.sourceConfig);return t}export{readBrowserHostConfig as t};

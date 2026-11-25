@@ -1,0 +1,3 @@
+import{t as clearActiveProgressLine}from"./progress-line-CCGdmF_S.mjs";
+//!packages/terminal-core/src/stream-writer.ts
+function isBrokenPipeError(e){const t=e?.code;return t===`EPIPE`||t===`EIO`}function createSafeStreamWriter(e){let t=false;const write=(n,r)=>{if(t)return false;let i=process.stderr;try{clearActiveProgressLine();i=n;n.write(r);return!t}catch(n){if(!isBrokenPipeError(n))throw n;if(!t){t=true;e?.(n,i)}return false}};return{write,writeLine:(e,t)=>write(e,`${t}\n`)}}export{createSafeStreamWriter as t};

@@ -1,2 +1,1 @@
-import { n as registerAnthropicPlugin, t as buildAnthropicProvider } from "../../register.runtime-DQXIvDst.mjs";
-export { buildAnthropicProvider, registerAnthropicPlugin };
+import{n as registerAnthropicPlugin,t as buildAnthropicProvider}from"../../register.runtime-DlJaaQyO.mjs";export{buildAnthropicProvider,registerAnthropicPlugin};

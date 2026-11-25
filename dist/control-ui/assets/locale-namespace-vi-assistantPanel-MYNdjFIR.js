@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"Đang làm việc trên: {context}","removeContext":"Xóa ngữ cảnh làm việc","includeContext":"Đính kèm ngữ cảnh làm việc","selection":"Văn bản đã chọn","attachSelection":"Đính kèm văn bản đã chọn","attachSelectionTooltip":"Đính kèm phần đã chọn","removeSelection":"Xóa văn bản đã chọn"}};

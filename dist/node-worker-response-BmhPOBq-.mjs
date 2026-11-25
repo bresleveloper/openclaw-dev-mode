@@ -1,0 +1,2 @@
+//!src/gateway/worker-environments/node-worker-response.ts
+function parseNodeWorkerResponse(e,t){if(!e)throw new Error(t+` omitted its result`);try{return JSON.parse(e)}catch{throw new Error(t+` returned malformed JSON`)}}export{parseNodeWorkerResponse as t};

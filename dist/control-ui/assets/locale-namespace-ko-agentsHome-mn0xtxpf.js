@@ -1,0 +1,1 @@
+export default {"agentsHome":{"pinnedAgents":"고정된 에이전트","noAssistantMessage":"아직 에이전트 응답이 없습니다","viewSessions":"세션","deleteAgentConfirm":"{agent}을(를) 삭제하시겠습니까?","deleteAgentDetails":"에이전트의 작업 공간, 상태, 채팅 기록이 휴지통으로 이동합니다. 채널 계정 설정은 유지됩니다.","agentOptions":"{agent} 옵션","working":"현재 작업 중"}};

@@ -1,0 +1,2 @@
+//!src/shared/env-var-candidates.ts
+function appendUniqueEnvVarCandidates(e,t,n){const r=t.trim();if(!r||n.length===0)return;const i=e[r]??=[];const a=new Set(i);for(const e of n){const t=e.trim();if(!t||a.has(t))continue;a.add(t);i.push(t)}}export{appendUniqueEnvVarCandidates as t};

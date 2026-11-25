@@ -1,12 +1,4 @@
-//#region extensions/codex/session-history-worker-entrypoint.ts
-const codexHistoryWorkerEntrypoint = {
-	currentModuleUrl: import.meta.url,
-	sourceWorkerName: "session-history.worker",
-	distWorkerPath: "extensions/codex/session-history.worker.js",
-	package: {
-		name: "@openclaw/codex",
-		distWorkerPath: "session-history.worker.js"
-	}
-};
-//#endregion
+import { createPluginRuntimeProcessEntrypoint } from "openclaw/plugin-sdk/process-runtime";
+// extensions/codex/session-history-worker-entrypoint.ts
+const codexHistoryWorkerEntrypoint = createPluginRuntimeProcessEntrypoint("codexSessionHistory", import.meta.url);
 export { codexHistoryWorkerEntrypoint };

@@ -33,7 +33,7 @@ scenario:
       bodyEndMarker: QA-SUMMARY-PRIORITY-BODY-END
       truncatedMarker: "[Compaction summary truncated to fit budget]"
       omittedNote: more chars omitted at compaction
-      finalMarker: QA-SUMMARY-PRIORITY-FINAL-OK
+      finalMarker: QA-COMPACTION-PRIORITY-FINAL-OK
       summaryCap: 16000
 
 flow:

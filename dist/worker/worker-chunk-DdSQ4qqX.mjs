@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{a as t,f as n}from"./worker-chunk-BVk8pYcl.mjs";function emitAgentRunStatusEvent(e){t({runId:e.runId,stream:`run_status`,data:{phase:e.phase},...e.sessionKey?{sessionKey:e.sessionKey}:{},...e.agentId?{agentId:e.agentId}:{}})}var r=e((()=>{n()}));export{r as n,emitAgentRunStatusEvent as t};

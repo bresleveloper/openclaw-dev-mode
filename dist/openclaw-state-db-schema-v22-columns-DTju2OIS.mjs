@@ -1,0 +1,12 @@
+import{l as quoteSqliteIdentifier}from"./sqlite-schema-sql-XrfUK8rp.mjs";import{_ as captureSqliteSchemaFacts,o as getAdmittedSqliteSchemaFacts}from"./sqlite-schema-facts-Edd-ttp_.mjs";import{a as tableExists,i as readTableColumns,n as ensureColumn,o as tableHasColumn}from"./openclaw-state-db-schema-helpers-4Hs1ye38.mjs";
+//!src/state/openclaw-state-db-schema-v22-columns.ts
+const STATE_CURSOR_TABLES_V22=[`operator_approvals`,`cron_run_receipts`,`execution_decision_facts`,`skill_workshop_changes`];function migratePortableIdentityColumnsV22(e,t){if(t>=22)return false;let n=false;const r=getAdmittedSqliteSchemaFacts(e)??captureSqliteSchemaFacts(e);for(const t of STATE_CURSOR_TABLES_V22){if(!tableExists(e,t)||tableHasColumn(e,t,`cursor_id`))continue;const i=r.tableSql.get(t);if(typeof i!==`string`)throw new Error(`Missing v22 cursor migration schema: ${t}`);const a=quoteSqliteIdentifier(`${t}_migration_v22`);const o=quoteSqliteIdentifier(t);const s=[...readTableColumns(e,t)].map(quoteSqliteIdentifier).join(`, `);e.exec(`CREATE TABLE ${a} (cursor_id INTEGER NOT NULL, ${i.slice(i.indexOf(`(`)+1)};
+      INSERT INTO ${a} (rowid, ${s}, cursor_id) SELECT rowid, ${s}, rowid FROM ${o} ORDER BY rowid;
+      DROP TABLE ${o};
+      ALTER TABLE ${a} RENAME TO ${o};`);for(const n of[...r.indexDefinitions.values(),...r.triggers.values()])if(n.table===t&&typeof n.sql===`string`)e.exec(n.sql);n=true}if(tableExists(e,`acp_sessions`)){n=ensureColumn(e,`acp_sessions`,`resume_agent_session_id TEXT`)||n;n=ensureColumn(e,`acp_sessions`,`resume_acpx_session_id TEXT`)||n;const t=`CASE WHEN json_valid(identity_json) THEN identity_json END`;const r=`char(9,10,11,12,13,32,160,5760,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8232,8233,8239,8287,12288,65279)`;e.exec(`UPDATE acp_sessions SET
+      resume_agent_session_id = CASE WHEN json_type(${t}, '$.agentSessionId') = 'text'
+        THEN trim(json_extract(${t}, '$.agentSessionId'), ${r}) END,
+      resume_acpx_session_id = CASE WHEN json_type(${t}, '$.acpxSessionId') = 'text'
+        THEN trim(json_extract(${t}, '$.acpxSessionId'), ${r}) END;
+      DROP INDEX IF EXISTS idx_acp_sessions_resume_agent;
+      DROP INDEX IF EXISTS idx_acp_sessions_resume_acpx;`)}return n}export{migratePortableIdentityColumnsV22 as n,STATE_CURSOR_TABLES_V22 as t};

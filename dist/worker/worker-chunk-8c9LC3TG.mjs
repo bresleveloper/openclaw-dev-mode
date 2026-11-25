@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{an as t}from"./worker-chunk-CACaLxYM.mjs";import{t as n}from"./worker-chunk-C92cvCDV.mjs";function closedObject(e){let n=t(e,{additionalProperties:!1});return Object.defineProperty(n,r,{value:Symbol(`closedObject`)}),n}var r,i=e((()=>{n(),r=`~openclawClosedObjectIdentity`}));export{i as n,closedObject as t};

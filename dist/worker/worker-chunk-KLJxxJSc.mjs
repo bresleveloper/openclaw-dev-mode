@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function isLegacyPackageBackupName(e){return/^\.openclaw[.-]package-backup-\d+-\d+$/u.test(e)}function isPackageUpdateRecoveryArtifactName(e){return/^\.openclaw[.-]package-(?:backup-|activation-)/u.test(e)}var t=e((()=>{}));export{isLegacyPackageBackupName as n,isPackageUpdateRecoveryArtifactName as r,t};

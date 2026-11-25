@@ -1,0 +1,3 @@
+import{a as resolveCliParentCommandPath}from"./config-output-mode-zXCwdxLP.mjs";import{C as hasMachineOutputOption}from"./argv-BgC5-KlV.mjs";
+//!src/cli/models-output-mode.ts
+function isModelsStatusJsonOutput(e,t){return hasMachineOutputOption(e,`--json`,t)||resolveCliParentCommandPath(e,`models`)?.length===1&&hasMachineOutputOption(e,`--status-json`,t)}function isModelsPlainMachineOutput(e,t){const n=resolveCliParentCommandPath(e,`models`);return n!==null&&(hasMachineOutputOption(e,`--plain`,t)||n.length===1&&hasMachineOutputOption(e,`--status-plain`,t))}export{isModelsStatusJsonOutput as n,isModelsPlainMachineOutput as t};

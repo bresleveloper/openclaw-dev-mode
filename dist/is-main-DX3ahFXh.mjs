@@ -1,0 +1,3 @@
+import{n as tryProcessCwd}from"./safe-cwd-BRF56DNK.mjs";import fs from"node:fs";import path from"node:path";
+//!src/infra/is-main.ts
+function normalizePathCandidate(e,t){if(!e)return;const n=path.resolve(t,e);try{return fs.realpathSync.native(n)}catch{return n}}function isMainModule({currentFile:e,argv:t=process.argv,env:n=process.env,wrapperEntryPairs:r=[]}){const i=tryProcessCwd()??path.dirname(e);const a=normalizePathCandidate(e,i);const o=normalizePathCandidate(t[1],i);if(a&&o&&a===o)return true;const s=normalizePathCandidate(n.pm_exec_path,i);if(a&&s&&a===s)return true;if(a&&o&&r.length>0){const e=path.basename(a);const t=path.basename(o);return r.some(({wrapperBasename:n,entryBasename:r})=>e===r&&t===n)}return false}export{isMainModule as t};

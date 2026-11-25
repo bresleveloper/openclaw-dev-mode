@@ -1,7 +1,7 @@
-import { a as coerceSecretRef, c as normalizeSecretInputString, h as isValidSecretRef, l as resolveSecretInputString, m as isSecretRef, n as SecretInputStringResolution, o as hasConfiguredSecretInput, p as isBuiltInDefaultSecretProviderRef, r as SecretInputStringResolutionMode, s as normalizeResolvedSecretInputString, u as SecretInput } from "../types.secrets-BcsEzH0R.js";
-import { i as resolveNonEnvSecretRefApiKeyMarker, n as normalizeSecretInput, r as readProviderEnvValue } from "../normalize-secret-input-xKsL0cMY.js";
+import { a as coerceSecretRef, c as normalizeSecretInputString, h as isValidSecretRef, l as resolveSecretInputString, m as isSecretRef, n as SecretInputStringResolution, o as hasConfiguredSecretInput, p as isBuiltInDefaultSecretProviderRef, r as SecretInputStringResolutionMode, s as normalizeResolvedSecretInputString, u as SecretInput } from "../types.secrets-D_jefub3.js";
+import { n as resolveNonEnvSecretRefApiKeyMarker, t as readProviderEnvValue } from "../provider-credential-values-CtEhgdpI.js";
+import { n as normalizeSecretInput } from "../normalize-secret-input-B8YjA_VH.js";
 import { z } from "zod";
-//#region src/plugin-sdk/secret-input-schema.d.ts
 /**
  * Returns the shared secret-input schema for plaintext values and env/file/exec/store refs.
  * Reusing this singleton preserves sensitive-path registration for config redaction.
@@ -25,8 +25,6 @@ export declare function buildSecretInputSchema(): z.ZodUnion<readonly [z.ZodStri
 }, z.core.$strict>], "source">]>;
 /** Register a plugin-owned config schema leaf for redaction in host config projections. */
 export declare function registerSensitiveConfigSchema<TSchema extends z.ZodType>(schema: TSchema): TSchema;
-//#endregion
-//#region src/plugin-sdk/secret-input.d.ts
 /**
  * Builds an optional secret-input schema for config fields that may be omitted.
  * The inner schema stays shared so sensitive-path redaction still recognizes it.
@@ -69,5 +67,4 @@ export declare function buildSecretInputArraySchema(): z.ZodArray<z.ZodUnion<rea
   provider: z.ZodString;
   id: z.ZodString;
 }, z.core.$strict>], "source">]>>;
-//#endregion
 export { type SecretInput, type SecretInputStringResolution, type SecretInputStringResolutionMode, coerceSecretRef, hasConfiguredSecretInput, isBuiltInDefaultSecretProviderRef, isSecretRef, isValidSecretRef, normalizeResolvedSecretInputString, normalizeSecretInput, normalizeSecretInputString, readProviderEnvValue, resolveNonEnvSecretRefApiKeyMarker, resolveSecretInputString };

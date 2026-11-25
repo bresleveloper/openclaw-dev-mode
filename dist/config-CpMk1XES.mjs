@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";import"./string-coerce-runtime-BYDH9Quw.mjs";
+//!extensions/skill-workshop/src/config.ts
+function isMode(e){return e===`off`||e===`propose`||e===`auto`}function resolveSkillWorkshopConfig(e){const t=e?.plugins?.entries?.[`skill-workshop`]?.config;const n=isRecord(t?.autonomous)?t.autonomous:void 0;const r=typeof t?.maxSkillBytes===`number`?t.maxSkillBytes:4e4;return{autonomous:{mode:isMode(n?.mode)?n.mode:`auto`,channelNotices:n?.channelNotices===true},maxSkillBytes:Math.min(Math.max(r,1024),2e5)}}export{resolveSkillWorkshopConfig as t};

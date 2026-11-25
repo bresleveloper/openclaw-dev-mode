@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function classifyTailscaleLogin(e){let t=e.trim(),n=t.lastIndexOf(`@`);if(n<=0||n===t.length-1)return{kind:`invalid`};let r=t.slice(0,n),i=t.slice(n+1);return i.includes(`.`)?{kind:`email`,email:t}:{kind:`provider`,provider:i.toLowerCase(),subject:r.toLowerCase()}}var t=e((()=>{}));export{t as n,classifyTailscaleLogin as t};

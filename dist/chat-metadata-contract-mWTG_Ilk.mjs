@@ -1,0 +1,2 @@
+//!src/gateway/server-methods/chat-metadata-contract.ts
+const chatMetadataSessionFields=[`sessionId`,`lifecycleRevision`,`sessionStartedAt`,`agentHarnessId`,`agentRuntimeOverride`,`modelSelectionLocked`,`pluginOwnerId`,`providerOverride`,`modelOverride`,`modelOverrideSource`,`modelOverrideRouteResolution`,`modelOverrideFallbackOriginProvider`,`modelOverrideFallbackOriginModel`,`authProfileOverride`,`authProfileOverrideSource`,`authProfileOverrideCompactionCount`];export{chatMetadataSessionFields as t};

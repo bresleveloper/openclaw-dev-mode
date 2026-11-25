@@ -1,5 +1,6 @@
+import { MessagePort } from "node:worker_threads";
 import { Readable, Writable } from "node:stream";
-//#region extensions/memory-core/src/remote/memory-files-worker.d.ts
+export declare function serveLocalMemoryWatches(port: MessagePort): Promise<void>;
 /** Same-version file IPC; the provisioned adapter owns admission and configured roots. */
 export declare function serveMemoryFiles(options: {
   workspace: string;
@@ -7,4 +8,3 @@ export declare function serveMemoryFiles(options: {
   output: Writable;
   watch?: boolean;
 }): Promise<void>;
-//#endregion

@@ -1,2 +1,1 @@
-import { t as OpenAIRealtimeProtocol } from "../../realtime-voice-protocol-CR5lTbjM.mjs";
-export { OpenAIRealtimeProtocol };
+import{t as OpenAIRealtimeProtocol}from"../../realtime-voice-protocol-C4VUWA9F.mjs";export{OpenAIRealtimeProtocol};

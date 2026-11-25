@@ -1,5 +1,5 @@
-import { n as listDiscordDirectoryGroupsFromConfig, r as listDiscordDirectoryPeersFromConfig } from "./.setup/directory-config-3iVub-3m.mjs";
-//#region extensions/discord/directory-contract-api.ts
+import { n as listDiscordDirectoryGroupsFromConfig, r as listDiscordDirectoryPeersFromConfig } from "./.setup/directory-config-BXJuh9-J.mjs";
+// extensions/discord/directory-contract-api.ts
 const discordDirectoryContractPlugin = {
 	id: "discord",
 	directory: {
@@ -7,5 +7,4 @@ const discordDirectoryContractPlugin = {
 		listGroups: listDiscordDirectoryGroupsFromConfig
 	}
 };
-//#endregion
 export { discordDirectoryContractPlugin, listDiscordDirectoryGroupsFromConfig, listDiscordDirectoryPeersFromConfig };

@@ -1,0 +1,2 @@
+//!src/gateway/pairing-events.ts
+function broadcastRejectedDevicePairing(e,t,n){const{requestId:r,deviceId:i}=t;e(`device.pair.resolved`,{requestId:r,deviceId:i,decision:`rejected`,ts:n},{dropIfSlow:true})}function broadcastRejectedNodePairing(e,t,n){const{requestId:r,nodeId:i}=t;e(`node.pair.resolved`,{requestId:r,nodeId:i,decision:`rejected`,ts:n},{dropIfSlow:true})}export{broadcastRejectedNodePairing as n,broadcastRejectedDevicePairing as t};

@@ -1,30 +1,3 @@
-import { listAgentIds, resolveAgentConfig } from "openclaw/plugin-sdk/agent-scope-runtime";
-import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import { isRecord, normalizeOptionalLowercaseString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/browser/setup-api.ts
-function listContainsBrowser(value) {
-	return Array.isArray(value) && value.some((entry) => normalizeOptionalLowercaseString(entry) === "browser");
-}
-function toolPolicyReferencesBrowser(value) {
-	return isRecord(value) && (listContainsBrowser(value.allow) || listContainsBrowser(value.alsoAllow));
-}
-function hasBrowserToolReference(config) {
-	if (toolPolicyReferencesBrowser(config.tools)) return true;
-	return listAgentIds(config).some((agentId) => toolPolicyReferencesBrowser(resolveAgentConfig(config, agentId)?.tools));
-}
-var setup_api_default = definePluginEntry({
-	id: "browser",
-	name: "Browser Setup",
-	description: "Lightweight Browser setup hooks",
-	register(api) {
-		api.registerAutoEnableProbe(({ config }) => {
-			if (config.browser?.enabled === false || config.plugins?.entries?.browser?.enabled === false) return null;
-			if (Object.hasOwn(config, "browser")) return "browser configured";
-			if (config.plugins?.entries && Object.hasOwn(config.plugins.entries, "browser")) return "browser plugin configured";
-			if (hasBrowserToolReference(config)) return "browser tool referenced";
-			return null;
-		});
-	}
-});
-//#endregion
-export { setup_api_default as default };
+import{listAgentIds,resolveAgentConfig}from"openclaw/plugin-sdk/agent-scope-runtime";import{definePluginEntry}from"openclaw/plugin-sdk/plugin-entry";import{isRecord,normalizeOptionalLowercaseString}from"openclaw/plugin-sdk/string-coerce-runtime";
+//!extensions/browser/setup-api.ts
+function listContainsBrowser(e){return Array.isArray(e)&&e.some(e=>normalizeOptionalLowercaseString(e)===`browser`)}function toolPolicyReferencesBrowser(e){return isRecord(e)&&(listContainsBrowser(e.allow)||listContainsBrowser(e.alsoAllow))}function hasBrowserToolReference(e){if(toolPolicyReferencesBrowser(e.tools))return true;return listAgentIds(e).some(t=>toolPolicyReferencesBrowser(resolveAgentConfig(e,t)?.tools))}var setup_api_default=definePluginEntry({id:`browser`,name:`Browser Setup`,description:`Lightweight Browser setup hooks`,register(e){e.registerAutoEnableProbe(({config:e})=>{if(e.browser?.enabled===false||e.plugins?.entries?.browser?.enabled===false)return null;if(Object.hasOwn(e,`browser`))return`browser configured`;if(e.plugins?.entries&&Object.hasOwn(e.plugins.entries,`browser`))return`browser plugin configured`;if(hasBrowserToolReference(e))return`browser tool referenced`;return null})}});export{setup_api_default as default};

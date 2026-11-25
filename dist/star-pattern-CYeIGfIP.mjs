@@ -1,0 +1,2 @@
+//!src/shared/star-pattern.ts
+function matchesStarSegments(e,t){if(!t.startsWith(e.first))return false;let n=e.first.length;const r=e.last?t.length-e.last.length:t.length;if(e.last&&(!t.endsWith(e.last)||r<n))return false;for(const i of e.interior){const e=t.indexOf(i,n);if(e===-1||e+i.length>r)return false;n=e+i.length}return true}export{matchesStarSegments as t};

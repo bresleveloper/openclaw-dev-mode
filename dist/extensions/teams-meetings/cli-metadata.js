@@ -1,5 +1,5 @@
 import { getRootOptionAwareCommandPath } from "openclaw/plugin-sdk/cli-argv";
-//#region extensions/teams-meetings/cli-metadata.ts
+// extensions/teams-meetings/cli-metadata.ts
 const descriptor = {
 	name: "teamsmeetings",
 	description: "Join and manage Microsoft Teams meeting guests",
@@ -15,5 +15,4 @@ const TEAMS_MEETINGS_CLI_METADATA = {
 		api.registerCli(() => {}, { descriptors: [descriptor] });
 	}
 };
-//#endregion
 export { TEAMS_MEETINGS_CLI_METADATA, TEAMS_MEETINGS_CLI_METADATA as default };

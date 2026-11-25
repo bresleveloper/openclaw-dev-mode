@@ -1,0 +1,2 @@
+//!src/cron/event-occurrence-admission.ts
+async function admitEventOccurrence(e){const{admitScheduledOccurrence:t}=await import(`./execution-context-admission-Bm8wCtfM.mjs`);return await t({...e,trigger:`event`})}export{admitEventOccurrence as t};

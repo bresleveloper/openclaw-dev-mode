@@ -1,2 +1,1 @@
-import { t as senseaudioMediaUnderstandingProvider } from "../../media-understanding-provider-DE7RfuUn.mjs";
-export { senseaudioMediaUnderstandingProvider };
+import{t as senseaudioMediaUnderstandingProvider}from"../../media-understanding-provider-V2VF7W4S.mjs";export{senseaudioMediaUnderstandingProvider};

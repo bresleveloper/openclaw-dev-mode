@@ -1,0 +1,3 @@
+import{a as resolveMergedModelProviderConfig}from"./model-provider-config-DrdykcWe.mjs";import{n as buildControlUiResourcePath}from"./control-ui-resource-routes-DrYH_3y1.mjs";import{createHash}from"node:crypto";
+//!src/gateway/provider-presentation.ts
+function providerIconFingerprint(e){return createHash(`sha256`).update(JSON.stringify(e)).digest(`hex`).slice(0,16)}function resolveProviderPresentation(e,t){const n=resolveMergedModelProviderConfig(e,t);const r=n?.icon;return{...n?.name?{providerName:n.name}:{},...r?{providerIcon:r.source===`builtin`?r:{source:`asset`,url:buildControlUiResourcePath(`providerIcon`,void 0,t)+`?v=`+providerIconFingerprint(r)}}:{}}}export{resolveProviderPresentation as n,providerIconFingerprint as t};

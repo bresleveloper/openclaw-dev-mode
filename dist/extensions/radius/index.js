@@ -2,7 +2,7 @@ import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 import { buildOauthProviderAuthResult, resolveOAuthApiKeyMarker } from "openclaw/plugin-sdk/provider-auth";
 import { runLiveProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
-//#region extensions/radius/openclaw.plugin.json
+// extensions/radius/openclaw.plugin.json
 var openclaw_plugin_default = {
 	id: "radius",
 	name: "Radius",
@@ -47,8 +47,7 @@ var openclaw_plugin_default = {
 		"properties": {}
 	}
 };
-//#endregion
-//#region extensions/radius/index.ts
+// extensions/radius/index.ts
 const loadCatalog = createLazyRuntimeModule(() => import("./catalog.js"));
 const loadOAuth = createLazyRuntimeModule(() => import("./oauth.js"));
 const loadStream = createLazyRuntimeModule(() => import("./stream.js"));
@@ -142,16 +141,10 @@ var radius_default = defineSingleProviderPluginEntry({
 			const catalog = await (await loadCatalog()).fetchRadiusCatalog(apiKey);
 			const model = catalog.models.find((entry) => entry.id === ctx.modelId);
 			return model ? {
-				id: model.id,
-				name: model.name,
+				...model,
 				provider: "radius",
 				api: "pi-messages",
 				baseUrl: catalog.baseUrl,
-				reasoning: model.reasoning,
-				input: model.input,
-				cost: model.cost,
-				contextWindow: model.contextWindow,
-				maxTokens: model.maxTokens,
 				thinkingLevelMap: model.thinkingLevelMap
 			} : void 0;
 		},
@@ -166,5 +159,4 @@ var radius_default = defineSingleProviderPluginEntry({
 		refreshOAuth: async (credential) => (await loadOAuth()).refreshRadiusOAuthCredential(credential)
 	}
 });
-//#endregion
 export { radius_default as default };

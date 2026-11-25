@@ -1,0 +1,2 @@
+//!extensions/memory-core/src/time.ts
+function resolveMemoryCoreNowMs(e){const t=e??NaN;return new Date(t).toJSON()===null?Date.now():t}function resolveMemoryCoreTimestamp(e){return new Date(resolveMemoryCoreNowMs(e)).toISOString()}export{resolveMemoryCoreTimestamp as n,resolveMemoryCoreNowMs as t};

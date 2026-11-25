@@ -1,0 +1,1 @@
+import{t as e}from"./logger-file.worker-subsystem-BSUwYPkR.mjs";function logAppContainerTokenProbeFailure(t){e(`process`).debug(`AppContainer token probe failed; allowing spawn`,{error:String(t)})}export{logAppContainerTokenProbeFailure};

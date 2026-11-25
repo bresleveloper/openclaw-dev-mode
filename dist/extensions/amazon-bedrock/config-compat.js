@@ -1,2 +1,1 @@
-import { t as migrateAmazonBedrockLegacyConfig } from "./.setup/config-compat-HlsW2HRS.mjs";
-export { migrateAmazonBedrockLegacyConfig };
+export { t as migrateAmazonBedrockLegacyConfig } from "./.setup/config-compat-J5qcaNdT.mjs";

@@ -162,7 +162,7 @@ const providerConfig = {
     extensionId: "minimax",
     secretEnv: "MINIMAX_API_KEY",
     authChoice: "minimax-global-api",
-    model: "minimax/MiniMax-M2.7",
+    model: "minimax/MiniMax-M3",
     requiredCompanionPackages: [],
   },
 } satisfies Record<ProviderId, ProviderConfig>;
@@ -231,9 +231,9 @@ export const CROSS_OS_GATEWAY_STATUS_COMMAND_TIMEOUT_MS =
   CROSS_OS_GATEWAY_STATUS_RPC_TIMEOUT_MS + 45_000;
 export const CROSS_OS_GATEWAY_READY_TIMEOUT_MS = 3 * 60_000;
 export const CROSS_OS_WINDOWS_GATEWAY_READY_TIMEOUT_MS = 5 * 60_000;
-export function managedGatewayRestartCommandTimeoutMs(platform = process.platform) {
-  // The CLI performs its own restart health loop. Keep the outer release
-  // harness alive long enough to receive that result plus service-manager overhead.
+export function managedGatewayStartupCommandTimeoutMs(platform = process.platform) {
+  // Start and restart both wait for readiness. Share the existing bounded release
+  // startup allowance, including service-manager overhead, across both commands.
   return gatewayReadyDeadlineMs(platform) + 60_000;
 }
 const CROSS_OS_RELEASE_SMOKE_TOOLS_PROFILE = "minimal";
@@ -368,19 +368,19 @@ export function resolveRunnerMatrix(params: {
     {
       os_id: "ubuntu",
       display_name: "Linux",
-      runner: pick(params.ubuntuRunner, params.varUbuntuRunner, "blacksmith-8vcpu-ubuntu-2404"),
+      runner: pick(params.ubuntuRunner, params.varUbuntuRunner, "blacksmith-2vcpu-ubuntu-2404"),
       artifact_name: "linux",
     },
     {
       os_id: "windows",
       display_name: "Windows",
-      runner: pick(params.windowsRunner, params.varWindowsRunner, "blacksmith-32vcpu-windows-2025"),
+      runner: pick(params.windowsRunner, params.varWindowsRunner, "windows-2025"),
       artifact_name: "windows",
     },
     {
       os_id: "macos",
       display_name: "macOS",
-      runner: pick(params.macosRunner, params.varMacosRunner, "blacksmith-6vcpu-macos-15"),
+      runner: pick(params.macosRunner, params.varMacosRunner, "xcode-27"),
       artifact_name: "macos",
     },
   ];
@@ -663,7 +663,8 @@ export function isRecoverableWindowsPackagedUpgradeTimeoutError(
   if (platform !== "win32") {
     return false;
   }
-  const message = error instanceof Error ? error.message : String(error);
+  // Child diagnostics can mention another command; only the runner's headline identifies this one.
+  const message = (error instanceof Error ? error.message : String(error)).split("\n", 1)[0] ?? "";
   return (
     /\bCommand timed out:/u.test(message) &&
     /[/\\]openclaw\.mjs update(?: --tag http:\/\/127\.0\.0\.1:\d+\/openclaw[^/\s]*\.tgz)? --yes --json(?: --no-restart)? --timeout \d+/u.test(

@@ -1,0 +1,3 @@
+import{canonicalizeBase64}from"openclaw/plugin-sdk/realtime-voice-provider";
+//!extensions/google/base64.ts
+function toStandardGoogleProviderBase64(e){const t=e.includes(`+`)||e.includes(`/`);const n=e.includes(`-`)||e.includes(`_`);if(t&&n)return;return n?e.replace(/[-_]/g,e=>e===`-`?`+`:`/`):e}function canonicalizeGoogleProviderBase64(e){const t=toStandardGoogleProviderBase64(e);return t===void 0?void 0:canonicalizeBase64(t)}export{canonicalizeGoogleProviderBase64};

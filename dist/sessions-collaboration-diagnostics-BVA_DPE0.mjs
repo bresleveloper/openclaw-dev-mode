@@ -1,0 +1,3 @@
+import{n as createQueuedDiagnosticPhaseEmitter}from"./diagnostic-events-BjejgOn7.mjs";import{performance}from"node:perf_hooks";
+//!src/gateway/server-methods/sessions-collaboration-diagnostics.ts
+async function measureSessionCollaborationPhase(e,t){const n=createQueuedDiagnosticPhaseEmitter();if(!n)return t();const r=Date.now();const i=performance.now();try{return await t()}finally{try{n({name:e,startedAt:r,endedAt:Date.now(),durationMs:performance.now()-i})}catch{}}}export{measureSessionCollaborationPhase as t};

@@ -1,0 +1,1 @@
+import{t as getRuntimeExecutionProfile}from"../standalone-runtime-profile-BMQxLf3r.mjs";export{getRuntimeExecutionProfile};

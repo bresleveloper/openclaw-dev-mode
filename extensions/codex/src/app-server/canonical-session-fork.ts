@@ -95,7 +95,7 @@ export async function forkCanonicalCodexSession(params: {
     }
     let freshThreadId: string | undefined;
     let ownership: CodexAppServerLiveThreadOwnership | undefined;
-    let ownershipTransferred = false;
+    let subscriptionReleased = false;
     let policyWriteUncertain = false;
     const result = await params.runtime.agent.session
       .createSessionEntry({
@@ -134,7 +134,7 @@ export async function forkCanonicalCodexSession(params: {
               const threadId = freshThreadId;
               await withCodexAppServerThreadMutation(threadId, async () => {
                 assertCurrent();
-                if (!ownershipTransferred) {
+                if (!subscriptionReleased) {
                   if (!ownership) {
                     throw new Error(
                       "The fresh Codex fork has no verified subscription owner; inspect it before retrying.",
@@ -156,7 +156,7 @@ export async function forkCanonicalCodexSession(params: {
                   );
                 }
                 // Archive completed; its later notification owns local claim removal.
-                ownershipTransferred = true;
+                subscriptionReleased = true;
                 assertCurrent();
               });
             },
@@ -164,7 +164,7 @@ export async function forkCanonicalCodexSession(params: {
           const assertCurrent = () => {
             fork.assertCurrent();
             initialization.assertCurrent();
-            if (ownership && !ownershipTransferred) {
+            if (ownership && !subscriptionReleased) {
               ownership.assertCurrent();
             }
           };
@@ -196,10 +196,6 @@ export async function forkCanonicalCodexSession(params: {
             sandbox: fork.sandbox,
             dynamicTools: sourceCatalog,
           });
-          assertCurrent();
-          if (!isDeepStrictEqual(bindingStore.read(sourceIdentity), sourceBinding)) {
-            throw new Error("Codex source binding changed during preparation");
-          }
           assertCurrent();
           let raw: unknown;
           try {
@@ -355,15 +351,11 @@ export async function forkCanonicalCodexSession(params: {
             fork.assertCurrent();
             initialization.assertCurrent();
           });
-          ownershipTransferred = true;
+          subscriptionReleased = true;
           if (!(await unloaded)) {
             embeddedAgentLog.warn("codex canonical fork did not unload before readiness", {
               threadId: freshThreadId,
             });
-          }
-          initialization.assertCurrent();
-          if (!isDeepStrictEqual(bindingStore.read(sourceIdentity), sourceBinding)) {
-            throw new Error("Codex source binding changed before fork readiness");
           }
           initialization.assertCurrent();
           return { pluginExtensions: created.entry.pluginExtensions };
@@ -374,7 +366,7 @@ export async function forkCanonicalCodexSession(params: {
         // archive notifications already clear ordinary cleanup, and sibling leases still drain.
         if (
           freshThreadId &&
-          !ownershipTransferred &&
+          !subscriptionReleased &&
           hasCodexAppServerLiveThread(context.client, freshThreadId)
         ) {
           control.retireConnection?.();

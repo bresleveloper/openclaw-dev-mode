@@ -6,10 +6,6 @@ export function needsSubagentActivation(entry: SubagentRunRecord): boolean {
   return (
     entry.execution.status !== "terminal" ||
     entry.cleanupCompletedAt === undefined ||
-    entry.terminalOwner === "interrupted-recovery" ||
-    entry.delivery?.status === "pending" ||
-    entry.delivery?.status === "in_progress" ||
-    entry.delivery?.status === "suspended" ||
     Boolean(
       // Collectors retain their spawning turn for cancellation, without owing a requester wake.
       (entry.requesterTurnRunId && entry.expectsCompletionMessage === true) ||
@@ -17,8 +13,7 @@ export function needsSubagentActivation(entry: SubagentRunRecord): boolean {
       entry.pauseReason ||
       entry.killIntent ||
       entry.killReconciliation ||
-      entry.collectorLaunchCleanupPending ||
-      entry.execution.restartRecovery,
+      entry.collectorLaunchCleanupPending,
     )
   );
 }
@@ -30,7 +25,7 @@ export function subagentSweepAt(entry: SubagentRunRecord): number {
     entry.delivery?.status === "in_progress" ||
     entry.delivery?.status === "suspended"
   ) {
-    // Unfinished rows also carry runtime-only recovery and completion custody.
+    // Unfinished rows may still own live completion or resource cleanup.
     return 0;
   }
   if (entry.archiveAtMs) {

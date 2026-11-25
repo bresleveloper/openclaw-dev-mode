@@ -1,4 +1,4 @@
-//#region extensions/msteams/index.ts
+// extensions/msteams/index.ts
 var msteams_default = (0, require("openclaw/plugin-sdk/channel-entry-contract").defineBundledChannelEntry)({
 	id: "msteams",
 	name: "Microsoft Teams",
@@ -17,5 +17,4 @@ var msteams_default = (0, require("openclaw/plugin-sdk/channel-entry-contract").
 		exportName: "setMSTeamsRuntime"
 	}
 });
-//#endregion
 module.exports = msteams_default;

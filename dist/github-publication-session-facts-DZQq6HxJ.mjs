@@ -1,0 +1,2 @@
+//!src/state/github-publication-session-facts.ts
+function projectGitHubPublicationSessionFacts(e,t){return{entry:e&&{sessionId:e.sessionId,lifecycleRevision:e.lifecycleRevision,archivedAt:e.archivedAt,visibility:e.visibility,incognito:e.incognito,createdActor:e.createdActor,owner:e.owner,worktree:e.worktree,repositoryWorkspaceId:e.repositoryWorkspaceId},members:t}}export{projectGitHubPublicationSessionFacts as t};

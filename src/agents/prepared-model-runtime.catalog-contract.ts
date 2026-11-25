@@ -3,6 +3,7 @@ import type { Model } from "../llm/types.js";
 import type { ProviderCatalogOutcome } from "../plugins/provider-catalog.types.js";
 import type { AuthProfileStore } from "./auth-profiles/types.js";
 import type { ModelCatalogSnapshot } from "./model-catalog.types.js";
+import type { ProviderServingContextLimits } from "./model-serving-context.js";
 import type { PersistedPluginModelCatalog } from "./plugin-model-catalog.js";
 import type {
   PreparedAccountCatalogAccess,
@@ -47,6 +48,8 @@ export type PreparedModelRuntimeCatalogFacts = {
 };
 
 export type PreparedModelRuntimeCatalogSource = Readonly<{
+  providerExpiries?: Map<string, number>;
+  servingLimits?: ProviderServingContextLimits;
   modelsJsonContents: string | null;
   pluginCatalogs: readonly PersistedPluginModelCatalog[];
   providerOutcomes?: readonly ProviderCatalogOutcome[];
@@ -59,7 +62,6 @@ export type PreparedModelRuntimeCatalogAccessParams = {
   catalogFacts: PreparedModelRuntimeCatalogFacts;
   pluginGeneration: PreparedModelRuntimePluginGeneration;
   isCurrent: () => boolean;
-  isPublished?: () => boolean;
   retirementSignal: AbortSignal;
   inventoryOwner: Pick<PreparedModelRuntimeOwner, "catalogInventory" | "catalogAttempt"> &
     Partial<Pick<PreparedModelRuntimeOwner, "provenance">>;

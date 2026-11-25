@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{n as normalizeAgentId}from"./agent-id-cOfqmfln.mjs";import{M as parseAgentSessionKey}from"./session-key-C6YO7qUA.mjs";
+//!src/gateway/chat-run-owner.ts
+function resolveChatRunOwnerAgentId(e){const t=normalizeOptionalString(e.agentId)??parseAgentSessionKey(e.sessionKey)?.agentId??normalizeOptionalString(e.defaultAgentId);return t?normalizeAgentId(t):void 0}function chatRunBelongsToAgent(e,t){return resolveChatRunOwnerAgentId(e)===normalizeAgentId(t)}function chatRunBelongsToSelectedAgent(e){const t=normalizeOptionalString(e.selectedAgentId);return t?chatRunBelongsToAgent(e,t):false}export{chatRunBelongsToSelectedAgent as n,resolveChatRunOwnerAgentId as r,chatRunBelongsToAgent as t};

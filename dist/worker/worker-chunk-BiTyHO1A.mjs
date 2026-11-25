@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function textResult(e,t){return{content:[{type:`text`,text:e}],details:t}}function jsonResult(e){return textResult(JSON.stringify(e,null,2),e)}var t=e((()=>{}));export{jsonResult as n,textResult as r,t};

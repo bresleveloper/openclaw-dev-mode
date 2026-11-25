@@ -4,6 +4,7 @@ import { sameFileIdentity } from "@openclaw/fs-safe/advanced";
 import { theme } from "../../../packages/terminal-core/src/theme.js";
 import { resolveStateDir } from "../../config/paths.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { resolvePathViaExistingAncestorSync } from "../../infra/boundary-path.js";
 import { readRegularFile } from "../../infra/fs-safe.js";
 import type { PackageUpdateTransaction } from "../../infra/package-update-swap-contract.js";
 import { hasNodeErrorCode } from "../../infra/path-guards.js";
@@ -17,7 +18,6 @@ import {
 import { getUpdateDoctorConfigFailureReason } from "../../infra/update-doctor-config.js";
 import {
   readGitUpdateFetchTarget,
-  readGitTargetSchemaVersions,
   resolveGitUpdateTrackingRef,
 } from "../../infra/update-git-metadata.js";
 import type { CommandRunner as GlobalCommandRunner } from "../../infra/update-global-command-runner.js";
@@ -28,6 +28,7 @@ import {
   resolveNpmLifecyclePolicyGate,
   type ResolvedGlobalInstallTarget,
 } from "../../infra/update-global.js";
+import { resolveNativePackageProjectRoot } from "../../infra/update-native-package-owner.js";
 import {
   DEFAULT_UPDATE_STEP_TIMEOUT_MS,
   UPDATE_RUNNER_TIMEOUT_MS,
@@ -37,6 +38,7 @@ import {
   normalizeFallbackFailureReason,
   reportUpdateStepCompletion,
 } from "../../infra/update-runner-command.js";
+import { readGitTargetSchemaVersions } from "../../infra/update-runner-git-schema.js";
 import { readBranchName, selectChannelTag } from "../../infra/update-runner-git-target.js";
 import { updateGitCheckout } from "../../infra/update-runner-git.js";
 import type {
@@ -62,6 +64,7 @@ import { readPackageUpdateIdentity } from "./update-command-package-identity.js"
 import { prepareGitPackageExposure, runPackageUpdateDoctor } from "./update-command-package.js";
 import { readOriginalUpdateRecovery } from "./update-command-recovery.js";
 import { gatewayServiceCommandUsesRoot } from "./update-command-service-plan.js";
+import { assessSnapshotCapacityOfferingCleanup } from "./update-snapshot-space-cleanup.js";
 
 export async function retireStandaloneGitWrapper(params: {
   previousRoot: string;
@@ -180,21 +183,6 @@ type RemoteRevisionResolution =
   | { status: "missing" }
   | { status: "unreadable"; reason: string; failureCode?: "target-git-cache-stale" };
 
-async function listGitRemotes(
-  params: GitInspectionParams,
-): Promise<{ remotes?: string[]; metadataUnreadable?: string }> {
-  const result = await runReadOnlyGitCommand({ ...params, args: ["remote"] });
-  if (result?.code !== 0) {
-    return { metadataUnreadable: "could not inspect configured Git remotes" };
-  }
-  return {
-    remotes: result.stdout
-      .split("\n")
-      .map((value) => value.trim())
-      .filter(Boolean),
-  };
-}
-
 async function resolveCurrentRemoteBranchRevision(
   params: GitInspectionParams & { useDevDefault: boolean },
 ): Promise<RemoteRevisionResolution> {
@@ -264,11 +252,14 @@ function readRemoteTagRevisions(stdout: string): Map<string, string> | null {
 async function resolveCurrentRemoteTagRevision(
   params: GitInspectionParams & { channel: Exclude<UpdateChannel, "dev" | "extended-stable"> },
 ): Promise<{ revision?: string; metadataUnreadable?: string }> {
-  const remoteList = await listGitRemotes(params);
-  if (remoteList.metadataUnreadable) {
-    return { metadataUnreadable: remoteList.metadataUnreadable };
+  const remoteList = await runReadOnlyGitCommand({ ...params, args: ["remote"] });
+  if (remoteList?.code !== 0) {
+    return { metadataUnreadable: "could not inspect configured Git remotes" };
   }
-  const remotes = remoteList.remotes ?? [];
+  const remotes = remoteList.stdout
+    .split("\n")
+    .map((value) => value.trim())
+    .filter(Boolean);
   if (remotes.length === 0) {
     return { metadataUnreadable: "could not resolve a remote for the selected Git release" };
   }
@@ -307,13 +298,12 @@ export async function inspectGitDryRunTargetSchemaVersions(params: {
   metadataUnreadable?: string;
   failureCode?: "target-git-cache-stale";
 }> {
-  const runCommand: GlobalCommandRunner = (argv, options) =>
-    runCommandWithTimeout(argv, {
+  const { runCommand: runUpdateCommand } = await buildUpdateCommandRunner();
+  const runCommand: UpdateRunnerCommandRunner = (argv, options) =>
+    runUpdateCommand(argv, {
       ...options,
       env: { ...options.env, GIT_OPTIONAL_LOCKS: "0", GIT_NO_LAZY_FETCH: "1" },
     });
-  const runTargetCommand: UpdateRunnerCommandRunner = (argv, options) =>
-    runCommand(argv, { ...options, timeoutMs: options.timeoutMs ?? params.timeoutMs });
   let revision: string | null = null;
   if (params.channel === "extended-stable") {
     return { metadataUnreadable: "extended-stable is unavailable for Git updates" };
@@ -336,7 +326,7 @@ export async function inspectGitDryRunTargetSchemaVersions(params: {
     }
     revision = selected;
   } else {
-    const branch = await readBranchName(runTargetCommand, params.root, params.timeoutMs);
+    const branch = await readBranchName(runCommand, params.root, params.timeoutMs);
     const resolved = await resolveCurrentRemoteBranchRevision({
       runCommand,
       root: params.root,
@@ -353,7 +343,7 @@ export async function inspectGitDryRunTargetSchemaVersions(params: {
     return { metadataUnreadable: "could not resolve the selected Git target" };
   }
   const target = await readGitTargetSchemaVersions({
-    runCommand: runTargetCommand,
+    runCommand,
     root: params.root,
     revision,
     timeoutMs: params.timeoutMs,
@@ -370,6 +360,7 @@ export async function inspectGitDryRunTargetSchemaVersions(params: {
 
 export async function updateGitInstall(params: {
   root: string;
+  fullIntegrityCheck?: boolean;
   restart?: boolean;
   sourceRuntimePrepared?: boolean;
   switchToGit: boolean;
@@ -450,11 +441,23 @@ export async function updateGitInstall(params: {
     await params.progress.onStepStart?.(info);
     assertCurrent?.();
     const { config, env } = await params.getSnapshotSource();
-    const snapshot = await assessInitialUpdateSnapshotCapacity({
-      config,
-      stateDir: resolveStateDir(env),
-      env,
-    });
+    const backupProject =
+      installTarget && resolveNativePackageProjectRoot(installTarget, installEnv);
+    // An interactive update was offered cleanup before it started; here it is only named.
+    const snapshot = await assessSnapshotCapacityOfferingCleanup(
+      () =>
+        assessInitialUpdateSnapshotCapacity({
+          config,
+          stateDir: resolveStateDir(env),
+          env,
+          backupDirectory: params.switchToGit
+            ? backupProject
+              ? path.dirname(resolvePathViaExistingAncestorSync(backupProject))
+              : (installTarget?.globalRoot ?? path.dirname(params.root))
+            : path.join(params.root, ".artifacts"),
+        }),
+      { prompt: false, env, print: () => {} },
+    );
     await reportUpdateStepCompletion(params.progress, { ...snapshot, index: 0, total: 0 });
     assertCurrent?.();
     if (snapshot.exitCode !== 0) {
@@ -498,7 +501,7 @@ export async function updateGitInstall(params: {
     gitArtifactStorageRoot?: string,
   ) =>
     updateGitCheckout({
-      ...(await buildUpdateCommandRunner()),
+      ...(await buildUpdateCommandRunner(undefined, params.assertCurrent)),
       gitRoot,
       timeoutMs: params.timeoutMs ?? UPDATE_RUNNER_TIMEOUT_MS,
       startedAt: params.startedAt,
@@ -560,6 +563,7 @@ export async function updateGitInstall(params: {
     const checkout = params.switchToGit
       ? await ensureGitCheckout({
           dir: updateRoot,
+          assertCurrent: params.assertCurrent,
           env: installEnv,
           timeoutMs: effectiveTimeout,
           progress: params.progress,

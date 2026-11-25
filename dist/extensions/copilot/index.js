@@ -1,7 +1,7 @@
-import { t as createCopilotAgentHarness } from "./.setup/harness-Je_2Cj-D.mjs";
+import { t as createCopilotAgentHarness } from "./.setup/harness-Xl8T8Yuu.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/copilot/index.ts
+// extensions/copilot/index.ts
 function readPoolOptions(pluginConfig) {
 	if (!isRecord(pluginConfig)) return;
 	const pool = pluginConfig.pool;
@@ -33,5 +33,4 @@ var copilot_default = definePluginEntry({
 		}));
 	}
 });
-//#endregion
 export { copilot_default as default };

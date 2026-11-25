@@ -1,0 +1,3 @@
+import{o as copyConfigResolutionFactsThroughRewrite}from"./resolution-facts-lrM4r0jb.mjs";import{t as inheritLegacyDefaultAgentId}from"./legacy.default-agent-owner-BxF31FW9.mjs";
+//!src/commands/doctor/shared/config-mutation-state.ts
+function applyDoctorConfigMutation(e){const{state:t,mutation:n,shouldRepair:r,fixHint:i}=e;if(n.changes.length===0)return t;const a=inheritLegacyDefaultAgentId(t.candidate,n.config);copyConfigResolutionFactsThroughRewrite(t.candidate,a);return{cfg:r?a:t.cfg,candidate:a,pendingChanges:true,fixHints:!r&&i?[...t.fixHints,i]:t.fixHints}}export{applyDoctorConfigMutation as t};

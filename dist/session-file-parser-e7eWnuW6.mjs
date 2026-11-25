@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";
+//!src/agents/sessions/session-file-parser.ts
+function isSessionFileEntry(e){if(!isRecord(e)||typeof e.type!==`string`)return false;if(e.type!==`message`)return true;return isRecord(e.message)&&typeof e.message.role===`string`}function parseSessionFileEntriesWithWarnings(e){const t=[];const n=[];const r=/* @__PURE__ */ new Map;const i=e.split(/\r?\n/u);for(const[e,a]of i.entries()){const i=a.trim();if(!i)continue;try{const a=JSON.parse(i);if(!isSessionFileEntry(a)){n.push({code:`invalid-session-row`,row:e+1});continue}t.push(a);r.set(a,e+1)}catch{n.push({code:`invalid-session-json`,row:e+1})}}return{entries:t,warnings:n,rowByEntry:r}}export{parseSessionFileEntriesWithWarnings as n,isSessionFileEntry as t};

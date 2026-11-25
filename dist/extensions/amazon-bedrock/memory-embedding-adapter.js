@@ -1,5 +1,5 @@
 import { DEFAULT_BEDROCK_EMBEDDING_MODEL, createBedrockEmbeddingProvider, hasAwsCredentials } from "./embedding-provider.js";
-//#region extensions/amazon-bedrock/memory-embedding-adapter.ts
+// extensions/amazon-bedrock/memory-embedding-adapter.ts
 const bedrockMemoryEmbeddingProviderAdapter = {
 	id: "bedrock",
 	defaultModel: DEFAULT_BEDROCK_EMBEDDING_MODEL,
@@ -28,5 +28,4 @@ const bedrockMemoryEmbeddingProviderAdapter = {
 		};
 	}
 };
-//#endregion
 export { bedrockMemoryEmbeddingProviderAdapter };

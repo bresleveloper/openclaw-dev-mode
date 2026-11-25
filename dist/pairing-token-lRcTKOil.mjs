@@ -1,0 +1,3 @@
+import{t as safeEqualSecret}from"./secret-equal-BtEZdDeQ.mjs";import{randomBytes}from"node:crypto";
+//!src/infra/pairing-token.ts
+const PAIRING_TOKEN_BYTES=32;function generatePairingToken(){return randomBytes(PAIRING_TOKEN_BYTES).toString(`base64url`)}function verifyPairingToken(e,t){if(e.trim().length===0||t.trim().length===0)return false;return safeEqualSecret(e,t)}export{verifyPairingToken as n,generatePairingToken as t};

@@ -1,0 +1,3 @@
+import{n as splitMediaOutput}from"./parse-output-BhDgDBMI.mjs";import{t as findMarkdownImageSpans}from"./image-spans-1WYCz3KK.mjs";
+//!src/media/parse.ts
+function splitMediaFromOutput(e,t={}){const n=t.markdownImageAllowlist!==void 0||t.extractMarkdownImages===true;return splitMediaOutput(e,t,n?{scan:findMarkdownImageSpans,allowlist:t.markdownImageAllowlist}:void 0)}export{splitMediaFromOutput as t};

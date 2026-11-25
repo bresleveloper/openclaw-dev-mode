@@ -1,0 +1,1 @@
+export default {"skillDiscovery":{"search":"Cari keterampilan","settings":"Pengaturan keterampilan","libraryStatus":"Keterampilan pustaka. Pilihan sesi menentukan kapan keterampilan ini digunakan."}};

@@ -1,7 +1,3 @@
-import { i as resolveGoogleThinkingProfile, t as normalizeGoogleProviderConfig } from "../../provider-policy-COnE2-la.mjs";
-//#region extensions/google/provider-policy-api.ts
-function normalizeConfig(params) {
-	return normalizeGoogleProviderConfig(params.provider, params.providerConfig);
-}
-//#endregion
-export { normalizeConfig, resolveGoogleThinkingProfile as resolveThinkingProfile };
+import{n as resolveGoogleFastModeSupport,o as resolveGoogleThinkingProfile,t as normalizeGoogleProviderConfig}from"../../provider-policy-DwA12kLP.mjs";
+//!extensions/google/provider-policy-api.ts
+function normalizeConfig(e){return normalizeGoogleProviderConfig(e.provider,e.providerConfig)}export{normalizeConfig,resolveGoogleFastModeSupport as resolveFastModeSupport,resolveGoogleThinkingProfile as resolveThinkingProfile};

@@ -1,0 +1,2 @@
+//!src/shared/html-escape.ts
+function escapeHtml(e){return e.replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`"`,`&quot;`).replaceAll(`'`,`&#39;`)}export{escapeHtml as t};

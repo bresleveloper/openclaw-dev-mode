@@ -1,0 +1,3 @@
+import{t as isPromiseLike}from"./promise-like-OKzBwzLG.mjs";import{markModelPayloadObserver}from"@openclaw/ai/internal/model-request-body";
+//!src/llm/providers/stream-wrappers/stream-payload-utils.ts
+function wrapProviderPayloadHook(e,t,n,r=false){const hook=(r,i)=>{n?.(r,i);const a=e?.(r,i);return isPromiseLike(a)?Promise.resolve(a).then(e=>t(r,e,i)):t(r,a,i)};return r?markModelPayloadObserver(hook,e):hook}function streamWithPayloadPatch(e,t,n,r,i){const a=r?.onPayload;return e(t,n,{...r,onPayload:markModelPayloadObserver(wrapProviderPayloadHook(e=>a?.(e,t),(e,t)=>{if(t&&typeof t===`object`&&t!==e)i(t);return t},e=>{if(e&&typeof e===`object`)i(e)}),a)})}export{wrapProviderPayloadHook as n,streamWithPayloadPatch as t};

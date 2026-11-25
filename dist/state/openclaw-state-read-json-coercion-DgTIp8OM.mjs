@@ -1,0 +1,1 @@
+import{r as e}from"./openclaw-state-read-record-coerce-D1s3ReAs.mjs";function safeParseJson(e){try{return JSON.parse(e)}catch{return}}function safeParseJsonRecord(t){return/^[\t\n\r ]*\{/.test(t)?e(safeParseJson(t)):void 0}export{safeParseJsonRecord as n,safeParseJson as t};

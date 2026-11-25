@@ -1,0 +1,1 @@
+import{i as getDefaultMediaLocalRoots}from"./local-roots-DIT05M-v.mjs";import{a as openLocalMediaFile,i as localMediaNotFoundError,n as LocalMediaAccessError,o as readLocalMediaFile,r as assertLocalMediaAllowed,s as resolveLocalMediaRoots,t as HostReadMediaTypeError}from"./local-media-access-DCNZ8iet.mjs";export{openLocalMediaFile};

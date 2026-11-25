@@ -1,0 +1,1 @@
+export default {"skillStatus":{"bundled":"مضمّن","eligible":"مؤهل","blocked":"محظور","disabled":"معطّل","blockedAllowlist":"محظور بموجب قائمة السماح","blockedAgentFilter":"محظور بواسطة عامل تصفية الوكلاء"}};

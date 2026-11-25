@@ -1,2 +1,1 @@
-import { t as buildMicrosoftFoundryProvider } from "../../provider-o-QqozWl.mjs";
-export { buildMicrosoftFoundryProvider };
+import{t as buildMicrosoftFoundryProvider}from"../../provider-BDgAofNm.mjs";export{buildMicrosoftFoundryProvider};

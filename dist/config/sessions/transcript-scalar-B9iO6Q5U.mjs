@@ -1,0 +1,1 @@
+import{n as e}from"./transcript-sql-connection-DLZo1Z6N.mjs";import{h as t}from"./transcript-kysely-sync-BLR5Zy5p.mjs";function engineStringPosition(n,r,i){return t().fn(e(n)?`strpos`:`instr`,[r,i])}export{engineStringPosition as t};

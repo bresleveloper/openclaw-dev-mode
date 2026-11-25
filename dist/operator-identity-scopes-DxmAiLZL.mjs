@@ -1,0 +1,2 @@
+//!src/gateway/operator-identity-scopes.ts
+function resolveIdentityOperatorScopes(e,t){const n=t?.[e];if(n!==void 0||!e.includes(`@`))return n??[];const r=e.toLowerCase();return Object.entries(t??{}).find(([e])=>e.includes(`@`)&&e.toLowerCase()===r)?.[1]??[]}export{resolveIdentityOperatorScopes as t};

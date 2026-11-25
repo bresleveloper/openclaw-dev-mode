@@ -1,2 +1,1 @@
-import { t as resolveOpenRouterExtraParamsForTransport } from "../../provider-routing-CgfUYlmZ.mjs";
-export { resolveOpenRouterExtraParamsForTransport };
+import{n as resolveOpenRouterExtraParamsForTransport,t as resolveOpenRouterConfiguredExtraParams}from"../../provider-routing-CYNRiaEz.mjs";export{resolveOpenRouterConfiguredExtraParams,resolveOpenRouterExtraParamsForTransport};

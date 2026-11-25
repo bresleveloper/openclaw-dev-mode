@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-DyeIuPEC.mjs";import{C as t,E as n,f as r,h as i,k as a}from"./worker-chunk-DKfoQBql.mjs";var o;function init_user_channel_authorization_reference(){return(init_user_channel_authorization_reference=e((()=>{r(),o=t({version:i(1),id:a()}),n([o,o.extend({version:i(2)})])})))()}export{o as n,init_user_channel_authorization_reference as t};

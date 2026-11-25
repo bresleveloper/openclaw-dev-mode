@@ -9,6 +9,8 @@ import {
   resolveExplicitIncognitoAgentSqliteTarget,
   resolveIncognitoOpenClawAgentSqlitePath,
 } from "../../state/openclaw-agent-db.paths.js";
+import { cloneEnvWithPlatformSemantics } from "../config-env-vars.js";
+import { resolveStateDir } from "../paths.js";
 import type { SessionTranscriptReadScope } from "./session-accessor.sqlite-contract.js";
 import {
   resolveSqliteAgentId,
@@ -18,6 +20,7 @@ import {
   type ResolvedTranscriptReadScope,
 } from "./session-accessor.sqlite-scope-helpers.js";
 import {
+  prepareSqliteTargetFromSessionStorePath,
   resolveSqliteTargetFromSessionStorePath,
   type ResolvedSqliteStoreTarget,
 } from "./session-sqlite-target.js";
@@ -180,4 +183,69 @@ export function resolveSqliteTranscriptReadScope(
     ...resolveSqliteReadScope(scope, targetCache),
     sessionId: scope.sessionId,
   };
+}
+
+/** Prepare file ownership once; the history resource and its kernel consume this same scope. */
+export async function prepareSqliteTranscriptReadScope(
+  scope: SessionTranscriptReadScope,
+  signal?: AbortSignal,
+): Promise<ResolvedTranscriptReadScope> {
+  const readScope = {
+    ...scope,
+    sessionKey: scope.sessionKey ? normalizeStoreSessionKey(scope.sessionKey) : undefined,
+  };
+  if (isIncognitoSessionKey(readScope.sessionKey)) {
+    return resolveSqliteTranscriptReadScope(readScope);
+  }
+  const { getOwnedSessionTranscriptReader } = await import("./transcript-write-context.js");
+  const reader = getOwnedSessionTranscriptReader(readScope);
+  if (reader) {
+    return {
+      agentId: reader.logicalAgentId,
+      databaseAgentId: reader.database.agentId,
+      path: reader.database.path,
+      ownerStorePath: readScope.storePath,
+      env: reader.database.env,
+      sessionKey: reader.sessionKey,
+      sessionId: readScope.sessionId,
+    };
+  }
+  const target = await prepareSqliteScopeTarget(readScope, signal);
+  return {
+    ...resolveSqliteReadScope(readScope, undefined, target),
+    sessionId: readScope.sessionId,
+  };
+}
+
+/** Resolve custom physical ownership in the existing read worker. */
+export async function prepareSqliteScope(
+  scope: SqliteScopeInput & { sessionKey: string },
+  signal?: AbortSignal,
+): Promise<ResolvedSqliteScope> {
+  const env = cloneEnvWithPlatformSemantics(scope.env ?? process.env);
+  env.OPENCLAW_STATE_DIR = resolveStateDir(env);
+  const captured = { ...scope, env };
+  return resolveSqliteScope(captured, undefined, await prepareSqliteScopeTarget(captured, signal));
+}
+
+export async function prepareSqliteScopeTarget(scope: SqliteScopeInput, signal?: AbortSignal) {
+  const { effectiveAgentId, effectiveStorePath, explicitIncognito } =
+    resolveSqliteDatabaseScopeIdentity(scope);
+  if (explicitIncognito) {
+    return explicitIncognito;
+  }
+  if (isIncognitoSessionKey(scope.sessionKey)) {
+    return undefined;
+  }
+  return effectiveStorePath
+    ? await prepareSqliteTargetFromSessionStorePath(
+        effectiveStorePath,
+        {
+          agentId: effectiveAgentId,
+          defaultAgentId: scope.defaultAgentId,
+          env: scope.env,
+        },
+        signal,
+      )
+    : undefined;
 }

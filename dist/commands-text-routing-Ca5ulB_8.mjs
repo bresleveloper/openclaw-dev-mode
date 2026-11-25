@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";import{n as getLoadedChannelPluginById}from"./registry-loaded-C9YuqxCT.mjs";
+//!src/auto-reply/commands-text-routing.ts
+function shouldHandleTextCommands(e){if(e.commandSource===`native`||e.cfg.commands?.text!==false)return true;const t=normalizeOptionalLowercaseString(e.surface);return!t||getLoadedChannelPluginById(t)?.capabilities?.nativeCommands!==true}export{shouldHandleTextCommands as t};

@@ -1,4 +1,4 @@
-//#region extensions/tencent/config-compat.ts
+// extensions/tencent/config-compat.ts
 const TENCENT_TOKENHUB_HY3_MODEL_REF = "tencent-tokenhub/hy3";
 const TENCENT_TOKENHUB_HY3_PREVIEW_MODEL_REF = "tencent-tokenhub/hy3-preview";
 const TENCENT_TOKENHUB_HY4_PREVIEW_MODEL_REF = "tencent-tokenhub/hy4-preview";
@@ -65,5 +65,4 @@ function migrateTencentTokenHubModelDefaults(cfg) {
 		changes
 	};
 }
-//#endregion
 export { migrateTencentTokenHubModelDefaults };

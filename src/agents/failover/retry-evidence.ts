@@ -1,7 +1,7 @@
 import {
   RETRY_AFTER_TEXT_RE,
   parseGoogleRetryDelaySeconds,
-  parseRetryAfterErrorSeconds,
+  parseRetryAfterErrorTiming,
   parseRetryAfterTextSeconds,
 } from "@openclaw/ai/internal/retry-after";
 import { safeParseJsonRecord } from "@openclaw/normalization-core/json-coercion";
@@ -13,7 +13,11 @@ import {
   parseApiErrorInfo,
 } from "../../shared/assistant-error-format.js";
 import { classifyFailoverReasonFromCode } from "./classification-rules.js";
-import { INCOMPLETE_ASSISTANT_STREAM_RE, MALFORMED_SSE_MESSAGE_RE } from "./message-patterns.js";
+import {
+  INCOMPLETE_ASSISTANT_STREAM_RE,
+  MALFORMED_SSE_MESSAGE_RE,
+  isPeriodicUsageLimitErrorMessage,
+} from "./message-patterns.js";
 import type { FailoverClassification, FailoverSignal } from "./signal.js";
 
 type RateLimitWindow =
@@ -103,7 +107,8 @@ function retryTextSeconds(message: string | undefined, nowMs: number): number | 
 
 /**
  * Extracts the provider retry floor from error text and response headers. The greatest
- * explicit instruction (Retry-After headers, RetryInfo, retry prose) wins.
+ * explicit instruction (Retry-After headers, RetryInfo, retry prose) wins; an exhausted
+ * bucket's full-refill reset applies only when the provider gave no explicit time.
  */
 export function resolveRetryAfterMs(
   message: string | undefined,
@@ -111,18 +116,22 @@ export function resolveRetryAfterMs(
   errorBody?: unknown,
 ): number | undefined {
   const body = typeof errorBody === "string" ? safeParseJsonRecord(errorBody) : errorBody;
-  const seconds = maxDefined(
-    parseRetryAfterErrorSeconds(body, nowMs),
-    retryTextSeconds(message, nowMs),
-    parseGoogleRetryDelaySeconds(errorBody),
-  );
+  const headers = parseRetryAfterErrorTiming(body, nowMs);
+  const seconds =
+    maxDefined(
+      headers?.explicitSeconds,
+      retryTextSeconds(message, nowMs),
+      parseGoogleRetryDelaySeconds(errorBody),
+    ) ?? headers?.resetSeconds;
   return seconds === undefined ? undefined : Math.ceil(seconds * 1000);
 }
 
 /** Usage-window evidence is distinct from a temporary throttle's retry floor. */
 export function hasLongWindowRateLimitEvidence(message: string | undefined): boolean {
   return Boolean(
-    message && LONG_WINDOW_RATE_LIMIT_RE.test(message) && !SHORT_RATE_LIMIT_UNIT_RE.test(message),
+    message &&
+    (LONG_WINDOW_RATE_LIMIT_RE.test(message) || isPeriodicUsageLimitErrorMessage(message)) &&
+    !SHORT_RATE_LIMIT_UNIT_RE.test(message),
   );
 }
 
@@ -168,7 +177,11 @@ export function shouldRetryFailoverSignal(params: {
   classification: FailoverClassification | null;
   signal: Pick<FailoverSignal, "code" | "message" | "status">;
 }): boolean {
-  if (!hasTransientRetryEvidence(params.signal)) {
+  if (
+    (params.classification?.kind === "reason" &&
+      params.classification.reason === "route_unavailable") ||
+    !hasTransientRetryEvidence(params.signal)
+  ) {
     return false;
   }
   const reason =

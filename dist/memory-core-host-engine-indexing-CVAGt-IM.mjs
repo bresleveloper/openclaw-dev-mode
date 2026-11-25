@@ -1,0 +1,7 @@
+import{n as sha256Hex}from"./node-crypto-DPk8agfR.mjs";import{n as estimateUtf8Bytes,r as splitTextToUtf8ByteLimit}from"./embedding-input-limits-B5fg8EsK.mjs";import{r as hasNonTextEmbeddingParts}from"./embedding-inputs-D4fq3shl.mjs";
+//!packages/memory-host-sdk/src/host/embedding-model-limits.ts
+const DEFAULT_EMBEDDING_MAX_INPUT_TOKENS=8192;const DEFAULT_LOCAL_EMBEDDING_MAX_INPUT_TOKENS=2048;function resolveEmbeddingMaxInputTokens(e){if(typeof e.maxInputTokens===`number`)return e.maxInputTokens;if(e.id===`local`)return DEFAULT_LOCAL_EMBEDDING_MAX_INPUT_TOKENS;return DEFAULT_EMBEDDING_MAX_INPUT_TOKENS}
+//!packages/memory-host-sdk/src/host/embedding-chunk-limits.ts
+function enforceEmbeddingMaxInputTokens(e,t,n){const r=resolveEmbeddingMaxInputTokens(e);const i=typeof n===`number`&&n>0?Math.min(r,n):r;const a=[];for(const e of t){if(hasNonTextEmbeddingParts(e.embeddingInput)||estimateUtf8Bytes(e.text)<=i){a.push(e);continue}for(const t of splitTextToUtf8ByteLimit(e.text,i))a.push({startLine:e.startLine,endLine:e.endLine,...e.entryStartLine!==void 0?{entryStartLine:e.entryStartLine,entryEndLine:e.entryEndLine}:{},text:t,hash:sha256Hex(t),embeddingInput:{text:t},...e.provenance?{provenance:e.provenance}:{}})}return a}
+//!src/plugin-sdk/memory-core-host-engine-indexing.ts
+const hashText=sha256Hex;export{enforceEmbeddingMaxInputTokens as n,hashText as t};

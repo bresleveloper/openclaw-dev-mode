@@ -1,5 +1,5 @@
 import { ARCEE_BASE_URL, ARCEE_MODEL_CATALOG, buildArceeModelDefinition } from "./models.js";
-//#region extensions/arcee/provider-catalog.ts
+// extensions/arcee/provider-catalog.ts
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const OPENROUTER_LEGACY_BASE_URL = "https://openrouter.ai/v1";
 const ARCEE_OPENROUTER_MODEL_IDS = /* @__PURE__ */ new Set(["trinity-large-preview", "trinity-large-thinking"]);
@@ -33,5 +33,4 @@ function buildArceeOpenRouterProvider() {
 		models: buildArceeOpenRouterCatalogModels()
 	};
 }
-//#endregion
 export { OPENROUTER_BASE_URL, buildArceeCatalogModels, buildArceeOpenRouterCatalogModels, buildArceeOpenRouterProvider, buildArceeProvider, normalizeArceeOpenRouterBaseUrl, toArceeOpenRouterModelId };

@@ -1,0 +1,3 @@
+import{t as runInDetachedAsyncContext}from"./detached-async-context-DwscbavR.mjs";import path from"node:path";import{resolvePathViaExistingAncestorSync,resolveRootPath,resolveRootPathSync as resolveRootPathSync$1}from"@openclaw/fs-safe/advanced";import{safeRealpathSync,safeRealpathSync as safeRealpathSync$1}from"@openclaw/fs-safe/path";
+//!src/infra/boundary-path.ts
+function resolvePathViaExistingAncestorSync$1(e){return runInDetachedAsyncContext(()=>resolvePathViaExistingAncestorSync(e))}function resolveRealpathOrAbsolute(e){return safeRealpathSync(e)??path.resolve(e)}export{safeRealpathSync$1 as a,resolveRootPathSync$1 as i,resolveRealpathOrAbsolute as n,resolveRootPath as r,resolvePathViaExistingAncestorSync$1 as t};

@@ -1,6 +1,6 @@
 import { registerDiscordSubagentHooks } from "./subagent-hooks-api.js";
 import { defineBundledChannelEntry, loadBundledEntryExportSync } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/discord/index.ts
+// extensions/discord/index.ts
 var discord_default = defineBundledChannelEntry({
 	id: "discord",
 	name: "Discord",
@@ -32,5 +32,4 @@ var discord_default = defineBundledChannelEntry({
 		})(api);
 	}
 });
-//#endregion
 export { discord_default as default };

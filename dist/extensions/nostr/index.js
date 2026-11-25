@@ -1,5 +1,5 @@
 import { defineBundledChannelEntry, loadBundledEntryExportSync } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/nostr/index.ts
+// extensions/nostr/index.ts
 var nostr_default = defineBundledChannelEntry({
 	id: "nostr",
 	name: "Nostr",
@@ -66,5 +66,4 @@ var nostr_default = defineBundledChannelEntry({
 		});
 	}
 });
-//#endregion
 export { nostr_default as default };

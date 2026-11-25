@@ -1,0 +1,1 @@
+import{i as resolveInstallerKindReadiness,n as installSkill,r as installSkillDependencies,t as MIN_AUTO_GO_VERSION}from"./install-DL5MLl9g.mjs";export{installSkillDependencies};

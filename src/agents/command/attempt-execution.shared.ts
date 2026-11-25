@@ -1,5 +1,3 @@
-/** Shared session persistence for agent attempt execution. */
-import { clearCommittedSessionResetRuntimeState } from "../../auto-reply/reply/session-reset-cleanup.js";
 import { createSessionWorkStartChangedError } from "../../config/sessions/lifecycle.js";
 import { patchSessionEntryCore } from "../../config/sessions/session-accessor.js";
 import type { SessionResetBoundaryWrite } from "../../config/sessions/session-accessor.lifecycle-types.js";
@@ -12,8 +10,6 @@ import {
 } from "../../config/sessions/session-source-authority.js";
 import { normalizeStoreSessionKey } from "../../config/sessions/store-entry.js";
 import type { SessionEntry } from "../../config/sessions/types.js";
-import { createSubsystemLogger } from "../../logging/subsystem.js";
-import { clearBootstrapSnapshotOnSessionBoundary } from "../bootstrap-cache.js";
 type PersistSessionEntryParams = {
   agentId: string;
   sessionStore: Record<string, SessionEntry>;
@@ -98,19 +94,6 @@ export async function persistAgentSession(
   }
   if (!published) {
     params.sessionStore[params.sessionKey] = persisted;
-  }
-  if (params.resetBoundary) {
-    // Once committed, cleanup remains owned even if the awaiting turn was cancelled.
-    clearBootstrapSnapshotOnSessionBoundary({
-      boundaryAppended: true,
-      sessionKey: params.sessionKey,
-    });
-    clearCommittedSessionResetRuntimeState({
-      previousSessionEntry: params.initialEntry,
-      agentId: params.agentId,
-      sessionKey: params.sessionKey,
-      onError: (error) => createSubsystemLogger("agents/agent-command").warn(String(error)),
-    });
   }
   return persisted;
 }

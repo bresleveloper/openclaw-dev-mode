@@ -18,7 +18,7 @@ import type { ConfigFileSnapshot, OpenClawConfig } from "../config/types.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { defaultRuntime, writeRuntimeJson } from "../runtime.js";
-import { isRecord, resolveUserPath, shortenHomePath } from "../utils.js";
+import { displayPath, isRecord, resolveUserPath, shortenHomePath } from "../utils.js";
 
 type SetupOptions = { workspace?: string; skipBootstrap?: boolean; json?: boolean };
 
@@ -143,17 +143,16 @@ async function planSetupConfig(snapshot: ConfigFileSnapshot, opts: SetupOptions 
       };
     }
     if (shouldWriteWorkspace && !writeInheritedWorkspaceOverride) {
-      const roster = structuredClone(listAgentEntries(next));
-      if (snapshot.exists && defaultEntryWorkspace) {
-        for (const entry of roster) {
-          if (normalizeAgentId(entry.id) === selectedAgentId) {
-            // An explicit workspace follows the resolved setup owner. Fresh and inherited
-            // workspaces stay in defaults so setup does not duplicate them into the roster.
+      const roster = listAgentEntries(next);
+      const entries = roster.length > 0 ? toAgentEntriesRecord(roster) : undefined;
+      if (snapshot.exists && defaultEntryWorkspace && entries) {
+        for (const [id, entry] of Object.entries(entries)) {
+          if (normalizeAgentId(id) === selectedAgentId) {
+            // The converter owns this row; fresh and inherited workspaces stay in defaults.
             entry.workspace = workspace;
           }
         }
       }
-      const entries = roster.length > 0 ? toAgentEntriesRecord(roster) : undefined;
       next = {
         ...next,
         agents: {
@@ -300,10 +299,15 @@ async function setupUnderOwner(opts: SetupOptions | undefined, runtime: RuntimeE
     skipOptionalBootstrapFiles: plan.skipOptionalBootstrapFiles,
   });
   if (!opts?.json) {
-    runtime.log(`Workspace OK: ${shortenHomePath(ws.dir)}`);
+    runtime.log(`Workspace OK: ${displayPath(ws.dir)}`);
   }
 
   const sessionsDir = await ensureSessionsDir(selectedAgentId);
+  const { provisionDefaultProactiveJob } = await import("../cron/default-proactive-job.js");
+  await provisionDefaultProactiveJob(next, selectedAgentId);
+  const { initializeFreshDaemonRuntimePinMigration } =
+    await import("../infra/state-migrations.daemon-runtime-pins.js");
+  initializeFreshDaemonRuntimePinMigration(process.env);
   finishSetup(opts, runtime, {
     configPath,
     configStatus: plan.configChanged ? (snapshot.exists ? "updated" : "created") : "unchanged",
@@ -315,7 +319,8 @@ async function setupUnderOwner(opts: SetupOptions | undefined, runtime: RuntimeE
 /**
  * A running Gateway owns config, the state database and workspace setup state. Setup sends
  * only its config change, as the offline writer would save it, through config.patch. The
- * Gateway seeds the workspace when the agent first runs.
+ * Gateway seeds the workspace when the agent first runs; its startup already completed the
+ * runtime-pin migration, and agent creation provisioned the proactive job.
  */
 async function setupWithGatewayOwner(
   opts: SetupOptions | undefined,
@@ -364,7 +369,11 @@ async function setupWithGatewayOwner(
     });
     configChanged = !isDeepStrictEqual(change.previous, change.next);
     if (configChanged) {
-      restartHint = await commit(change);
+      const committed = await commit(change);
+      restartHint = committed.hint;
+      for (const warning of committed.warnings) {
+        runtime.error(warning);
+      }
     }
   }
   if (!opts?.json) {
@@ -378,7 +387,7 @@ async function setupWithGatewayOwner(
       runtime.log(restartHint);
     }
     runtime.log(
-      `Workspace: ${shortenHomePath(resolveUserPath(plan.workspace))} (owned by the running Gateway, which seeds missing files on the agent's first run)`,
+      `Workspace: ${displayPath(resolveUserPath(plan.workspace))} (owned by the running Gateway, which seeds missing files on the agent's first run)`,
     );
   }
   finishSetup(opts, runtime, {
@@ -410,7 +419,7 @@ function finishSetup(
     writeRuntimeJson(runtime, { ok: true, ...result });
     return;
   }
-  runtime.log(`Sessions OK: ${shortenHomePath(result.sessionsDir)}`);
+  runtime.log(`Sessions OK: ${displayPath(result.sessionsDir)}`);
   runtime.log("");
   runtime.log("Setup complete: config, workspace, and session directories are ready.");
   runtime.log(`Next guided path: ${formatCliCommand("openclaw onboard")}.`);

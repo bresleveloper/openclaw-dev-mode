@@ -1,10 +1,45 @@
-import { buildComfyImageGenerationProvider } from "./image-generation-provider.js";
-import { buildComfyMusicGenerationProvider } from "./music-generation-provider.js";
-import { buildComfyVideoGenerationProvider } from "./video-generation-provider.js";
+import { DEFAULT_COMFY_MODEL, isComfyCapabilityConfigured, isComfyCapabilityConfiguredAsync, runComfyWorkflow } from "./workflow-runtime.js";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { createProviderApiKeyAuthMethod } from "openclaw/plugin-sdk/provider-auth-api-key";
-//#region extensions/comfy/index.ts
+// extensions/comfy/index.ts
 const PROVIDER_ID = "comfy";
+const COMFY_MAX_INPUT_IMAGES = 1;
+function comfyProviderDefaults(capability) {
+	return {
+		id: PROVIDER_ID,
+		label: "ComfyUI",
+		defaultModel: DEFAULT_COMFY_MODEL,
+		models: [DEFAULT_COMFY_MODEL],
+		isConfigured: ({ cfg, agentDir }) => isComfyCapabilityConfigured({
+			cfg,
+			agentDir,
+			capability
+		}),
+		isConfiguredAsync: ({ cfg, agentDir }) => isComfyCapabilityConfiguredAsync({
+			cfg,
+			agentDir,
+			capability
+		})
+	};
+}
+function resolveInputImage(inputImage) {
+	if (!inputImage) return;
+	if (!inputImage.buffer) throw new Error("Comfy music generation requires loaded reference image bytes.");
+	return {
+		buffer: inputImage.buffer,
+		mimeType: inputImage.mimeType ?? "image/png",
+		fileName: inputImage.fileName
+	};
+}
+function toComfyInputImage(inputImage) {
+	if (!inputImage) return;
+	if (!inputImage.buffer || !inputImage.mimeType) throw new Error("Comfy video generation requires a local reference image file");
+	return {
+		buffer: inputImage.buffer,
+		mimeType: inputImage.mimeType,
+		fileName: inputImage.fileName
+	};
+}
 var comfy_default = definePluginEntry({
 	id: PROVIDER_ID,
 	name: "ComfyUI Provider",
@@ -35,10 +70,106 @@ var comfy_default = definePluginEntry({
 				}
 			})]
 		});
-		api.registerImageGenerationProvider(buildComfyImageGenerationProvider());
-		api.registerMusicGenerationProvider(buildComfyMusicGenerationProvider());
-		api.registerVideoGenerationProvider(buildComfyVideoGenerationProvider());
+		api.registerImageGenerationProvider({
+			...comfyProviderDefaults("image"),
+			capabilities: {
+				generate: {
+					maxCount: 1,
+					supportsSize: false,
+					supportsAspectRatio: false,
+					supportsResolution: false
+				},
+				edit: {
+					enabled: true,
+					maxCount: 1,
+					maxInputImages: 1,
+					supportsSize: false,
+					supportsAspectRatio: false,
+					supportsResolution: false
+				}
+			},
+			async generateImage(req) {
+				if ((req.inputImages?.length ?? 0) > 1) throw new Error("Comfy image generation currently supports at most one reference image");
+				const result = await runComfyWorkflow({
+					...req,
+					capability: "image",
+					inputImage: req.inputImages?.[0]
+				});
+				return {
+					images: result.assets,
+					model: result.model,
+					metadata: result.metadata
+				};
+			}
+		});
+		api.registerMusicGenerationProvider({
+			...comfyProviderDefaults("music"),
+			capabilities: {
+				generate: {},
+				edit: {
+					enabled: true,
+					maxInputImages: COMFY_MAX_INPUT_IMAGES
+				}
+			},
+			async generateMusic(req) {
+				if ((req.inputImages?.length ?? 0) > COMFY_MAX_INPUT_IMAGES) throw new Error(`Comfy music generation supports at most ${COMFY_MAX_INPUT_IMAGES} reference image.`);
+				const result = await runComfyWorkflow({
+					...req,
+					capability: "music",
+					inputImage: resolveInputImage(req.inputImages?.[0])
+				});
+				return {
+					tracks: result.assets.map(({ buffer, mimeType, fileName }) => ({
+						buffer,
+						mimeType,
+						fileName
+					})),
+					model: result.model,
+					metadata: {
+						...result.metadata,
+						inputImageCount: req.inputImages?.length ?? 0
+					}
+				};
+			}
+		});
+		api.registerVideoGenerationProvider({
+			...comfyProviderDefaults("video"),
+			capabilities: {
+				generate: {
+					maxVideos: 1,
+					supportsSize: false,
+					supportsAspectRatio: false,
+					supportsResolution: false,
+					supportsAudio: false,
+					supportsWatermark: false
+				},
+				imageToVideo: {
+					enabled: true,
+					maxVideos: 1,
+					maxInputImages: 1,
+					supportsSize: false,
+					supportsAspectRatio: false,
+					supportsResolution: false,
+					supportsAudio: false,
+					supportsWatermark: false
+				},
+				videoToVideo: { enabled: false }
+			},
+			async generateVideo(req) {
+				if ((req.inputImages?.length ?? 0) > 1) throw new Error("Comfy video generation currently supports at most one reference image");
+				if ((req.inputVideos?.length ?? 0) > 0) throw new Error("Comfy video generation does not support input videos");
+				const result = await runComfyWorkflow({
+					...req,
+					capability: "video",
+					inputImage: toComfyInputImage(req.inputImages?.[0])
+				});
+				return {
+					videos: result.assets,
+					model: result.model,
+					metadata: result.metadata
+				};
+			}
+		});
 	}
 });
-//#endregion
 export { comfy_default as default };

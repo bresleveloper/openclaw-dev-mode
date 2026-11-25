@@ -1,0 +1,2 @@
+//!src/commands/doctor-workspace-suggestions.ts
+async function*collectWorkspaceSuggestionNotes(e){const{collectWorkspaceBackupTip:t,MEMORY_SYSTEM_PROMPT:n,shouldSuggestMemorySystem:r}=await import(`./doctor-workspace-B-synWfw.mjs`);const i=t(e);if(i)yield i;if(await r(e))yield n}export{collectWorkspaceSuggestionNotes};

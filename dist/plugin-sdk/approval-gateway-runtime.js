@@ -1,3 +1,1 @@
-import { n as resolveApprovalOverGateway } from "../approval-gateway-resolver-BbTScaK5.mjs";
-import "../approval-gateway-runtime-BpWU7yBO.mjs";
-export { resolveApprovalOverGateway };
+import{n as resolveApprovalOverGateway}from"../approval-gateway-resolver-BUZCqHmj.mjs";import"../approval-gateway-runtime-DeJ6CdTJ.mjs";export{resolveApprovalOverGateway};

@@ -1,0 +1,1 @@
+import{a as testing,i as requireAcpRuntimeBackend,n as isAcpRuntimeBackendHealthy,o as unregisterAcpRuntimeBackend,r as registerAcpRuntimeBackend,t as getAcpRuntimeBackend}from"./registry-D43-srmk.mjs";export{getAcpRuntimeBackend};

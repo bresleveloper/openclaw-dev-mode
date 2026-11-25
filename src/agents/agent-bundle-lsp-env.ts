@@ -1,5 +1,5 @@
 /** Bundle LSP server environment: allowlisted base plus withheld-name diagnostics. */
-import { getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { getDefaultEnvironment } from "@modelcontextprotocol/client/stdio";
 import { inspectHostExecEnvOverrides, sanitizeHostExecEnv } from "../infra/host-env-security.js";
 
 export const LSP_ENV_PASSTHROUGH_DOCS_URL =
@@ -127,7 +127,8 @@ export function collectWithheldLspEnvNames(params: {
     }
   }
   const result: WithheldLspEnvNames = { configurable: [], refused: [] };
-  for (const name of [...withheld].toSorted()) {
+  // oxlint-disable-next-line unicorn/no-array-sort -- The Set spread is private to this diagnostics pass.
+  for (const name of [...withheld].sort()) {
     const { rejectedOverrideBlockedKeys } = inspectHostExecEnvOverrides({
       overrides: { [name]: "" },
     });

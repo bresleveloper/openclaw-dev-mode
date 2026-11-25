@@ -1,0 +1,2 @@
+//!extensions/telegram/src/poll-visibility.ts
+function resolveTelegramPollVisibility(e){if(e.pollAnonymous&&e.pollPublic)throw new Error(`pollAnonymous and pollPublic are mutually exclusive`);return e.pollAnonymous?true:e.pollPublic?false:void 0}export{resolveTelegramPollVisibility as t};

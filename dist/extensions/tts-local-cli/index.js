@@ -1,13 +1,3 @@
-import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
-import { t as buildCliSpeechProvider } from "../../speech-provider-BXEyCRy5.mjs";
-//#region extensions/tts-local-cli/index.ts
-var tts_local_cli_default = definePluginEntry({
-	id: "tts-local-cli",
-	name: "Local CLI TTS",
-	description: "Bundled CLI speech provider for local TTS",
-	register(api) {
-		api.registerSpeechProvider(buildCliSpeechProvider());
-	}
-});
-//#endregion
-export { tts_local_cli_default as default };
+import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import{t as buildCliSpeechProvider}from"../../speech-provider-DZUJGxQ3.mjs";
+//!extensions/tts-local-cli/index.ts
+var tts_local_cli_default=definePluginEntry({id:`tts-local-cli`,name:`Local CLI TTS`,description:`Bundled CLI speech provider for local TTS`,register(e){e.registerSpeechProvider(buildCliSpeechProvider())}});export{tts_local_cli_default as default};

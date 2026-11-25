@@ -1,0 +1,3 @@
+import{g as parseSecretRef}from"./types.secrets-UWdyCdE6.mjs";import{a as getRuntimeConfigSnapshot}from"./runtime-snapshot-7A_MWYPP.mjs";
+//!src/skills/loading/runtime-config.ts
+function hasConfiguredSkillApiKeyRef(e){return Object.values(e?.skills?.entries??{}).some(e=>parseSecretRef(e.apiKey)!==null)}function resolveSkillRuntimeConfig(e){const t=getRuntimeConfigSnapshot();if(!t)return e;if(!e)return t;const n=hasConfiguredSkillApiKeyRef(t);const r=hasConfiguredSkillApiKeyRef(e);if(n&&!r)return e;return t}export{resolveSkillRuntimeConfig as t};

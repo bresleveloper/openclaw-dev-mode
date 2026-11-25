@@ -1,0 +1,1 @@
+import{t as createDeferredCore}from"./deferred-QsZCoVH-.mjs";export{createDeferredCore};

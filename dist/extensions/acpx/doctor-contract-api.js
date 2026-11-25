@@ -1,5 +1,5 @@
-import { t as runtime_doctor_migrations_exports } from "./.setup/runtime-doctor-migrations-hxP-CXX7.mjs";
-//#region extensions/acpx/doctor-contract-api.ts
+import { t as runtime_doctor_migrations_exports } from "./.setup/runtime-doctor-migrations-CSvRANPN.mjs";
+// extensions/acpx/doctor-contract-api.ts
 const ACPX_CONFIG_PATH = [
 	"plugins",
 	"entries",
@@ -21,16 +21,22 @@ function normalizeCompatibilityConfig({ cfg }) {
 		config: cfg,
 		changes: []
 	};
-	const nextConfig = structuredClone(cfg);
-	const nextEntry = (0, runtime_doctor_migrations_exports.asObjectRecord)(nextConfig.plugins?.entries?.acpx);
-	const nextPluginConfig = (0, runtime_doctor_migrations_exports.asObjectRecord)(nextEntry?.config);
-	if (!nextPluginConfig) return {
-		config: cfg,
-		changes: []
-	};
+	const nextPluginConfig = { ...pluginConfig };
 	for (const key of retiredKeys) delete nextPluginConfig[key];
 	return {
-		config: nextConfig,
+		config: {
+			...cfg,
+			plugins: {
+				...cfg.plugins,
+				entries: {
+					...cfg.plugins?.entries,
+					acpx: {
+						...entry,
+						config: nextPluginConfig
+					}
+				}
+			}
+		},
 		changes: [`Removed retired ACPX plugin config: ${retiredKeys.map((key) => [...ACPX_CONFIG_PATH, key].join(".")).join(", ")}.`]
 	};
 }
@@ -40,14 +46,13 @@ const stateMigrations = [{
 	doctorOnly: true,
 	phase: "after-session-repair",
 	async collectBackupResources(input) {
-		return (await import("./.setup/session-owner-migration-BA3DJKb2.mjs")).acpxSessionOwnerMigration.collectBackupResources(input);
+		return (await import("./.setup/session-owner-migration-7XWkS6VE.mjs")).acpxSessionOwnerMigration.collectBackupResources(input);
 	},
 	async detectLegacyState(input) {
-		return (await import("./.setup/session-owner-migration-BA3DJKb2.mjs")).acpxSessionOwnerMigration.detectLegacyState(input);
+		return (await import("./.setup/session-owner-migration-7XWkS6VE.mjs")).acpxSessionOwnerMigration.detectLegacyState(input);
 	},
 	async migrateLegacyState(input) {
-		return (await import("./.setup/session-owner-migration-BA3DJKb2.mjs")).acpxSessionOwnerMigration.migrateLegacyState(input);
+		return (await import("./.setup/session-owner-migration-7XWkS6VE.mjs")).acpxSessionOwnerMigration.migrateLegacyState(input);
 	}
 }];
-//#endregion
 export { legacyConfigRules, normalizeCompatibilityConfig, stateMigrations };

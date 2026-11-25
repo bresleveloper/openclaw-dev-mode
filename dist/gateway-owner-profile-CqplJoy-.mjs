@@ -1,0 +1,2 @@
+//!src/gateway/gateway-owner-profile.ts
+function shouldUseGatewayOwnerProfile(e){return e.role===`operator`&&!e.authenticatedUserId&&(!e.rolesConfigured||e.authMethod===`token`||e.authMethod===`password`||e.openclawIdOwner===true)}export{shouldUseGatewayOwnerProfile as t};

@@ -1,9 +1,6 @@
-import { readSourceReplyDeliveryRuntime } from "../../../auto-reply/reply/source-reply-delivery-runtime.js";
 import type { ThinkLevel } from "../../../auto-reply/thinking.js";
 import { resolveProviderRuntimePluginHandle } from "../../../plugins/provider-hook-runtime.js";
 import type { CommandQueueTaskDeadline } from "../../../process/command-queue.types.js";
-import { createStageTimingTracker } from "../../../shared/stage-timing.js";
-import { resolvePreparedRunAdmission } from "../../admitted-run-context.js";
 import type { AuthProfileStore } from "../../auth-profiles.js";
 import { resolvePreparedModelThinkingCompat } from "../../model-catalog-lookup.js";
 import type { PreparedModelRuntimeSnapshot } from "../../prepared-model-runtime.js";
@@ -13,13 +10,10 @@ import {
   hasPreparedAuthAttemptModelMetadata,
   resolveCredentialScopedAuthAttemptModelDecision,
 } from "../../runtime-plan/credential-scoped-model.js";
-import {
-  canRunPreparedAgentRuntimeAuthAttempt,
-  type PreparedAgentRuntimeAuthAttempt,
-} from "../../runtime-plan/prepare-auth.js";
+import { canRunPreparedAgentRuntimeAuthAttempt } from "../../runtime-plan/prepare-auth.js";
+import type { PreparedAgentRuntimeAuthAttempt } from "../../runtime-plan/types.js";
 import { resolveCandidateThinkingLevel } from "../../thinking-runtime.js";
 import { log } from "../logger.js";
-import { formatEmbeddedRunStageSummary } from "./attempt-stage-timing.js";
 import {
   createEmbeddedRunAuthController,
   createEmbeddedAuthProfileAdmission,
@@ -33,7 +27,7 @@ import { resolveEmbeddedRunModelSetup } from "./model-setup.js";
 import type { RunEmbeddedAgentParams } from "./params.js";
 import { resolveInitialThinkLevel } from "./runtime-resolution.js";
 
-export async function prepareEmbeddedRunRuntime(input: {
+export async function prepareEmbeddedRunTransport(input: {
   assertCurrent: () => void;
   getAuthDeadline?: () => CommandQueueTaskDeadline | undefined;
   runParams: RunEmbeddedAgentInternalParams;
@@ -52,6 +46,13 @@ export async function prepareEmbeddedRunRuntime(input: {
   ) => void;
   fallbackConfigured: boolean;
   preparedModelRuntime?: PreparedModelRuntimeSnapshot;
+  /** Refreshing transport cannot admit another model, harness, or credential source. */
+  refreshTransport?: {
+    provider: string;
+    modelId: string;
+    api: string;
+    harnessId: string;
+  };
 }) {
   const params = input.runParams;
   const modelSetup = await resolveEmbeddedRunModelSetup({
@@ -140,12 +141,26 @@ export async function prepareEmbeddedRunRuntime(input: {
           requestStreamTransportOverrides,
           pinnedHarnessId,
         });
+  const assertRefreshTarget = () => {
+    const expected = input.refreshTransport;
+    if (
+      expected &&
+      (provider !== expected.provider ||
+        modelId !== expected.modelId ||
+        models.effective.api !== expected.api ||
+        agentHarness.id !== expected.harnessId ||
+        nativeModelOwned ||
+        requestStreamTransportOverrides)
+    ) {
+      throw new Error("Connection recovery cannot change the admitted model or harness.");
+    }
+  };
+  assertRefreshTarget();
   input.markStartupStage("model-resolution");
   input.notifyExecutionPhase("model_resolution", { provider, model: modelId });
 
   agentHarness = selectHarness(models.effective);
   let pluginHarnessOwnsTransport = agentHarness.id !== "openclaw";
-  const authStages = log.isEnabled("trace") ? createStageTimingTracker(Date.now) : undefined;
   const preparedAuthPlan = await prepareEmbeddedRunAuthPlan({
     assertCurrent: input.assertCurrent,
     runParams: params,
@@ -161,6 +176,7 @@ export async function prepareEmbeddedRunRuntime(input: {
     authStorage,
     modelRegistry,
     preparedModelRuntime: input.preparedModelRuntime,
+    requireConfiguredTransportAuth: input.refreshTransport !== undefined,
     getAgentHarness: () => agentHarness,
     setAgentHarness: (nextHarness) => {
       agentHarness = nextHarness;
@@ -170,8 +186,8 @@ export async function prepareEmbeddedRunRuntime(input: {
     getEffectiveModel: () => models.effective,
     applyResolvedRuntimeModel,
     selectHarnessForPreparedAttempts: selectHarness,
-    markStage: (stage) => authStages?.mark(stage),
   });
+  assertRefreshTarget();
   const {
     attemptAuthProfileStore,
     lockedProfileId,
@@ -184,7 +200,8 @@ export async function prepareEmbeddedRunRuntime(input: {
   let { activePreparedAuthPlan } = preparedAuthPlan;
   preparedThinkingCapabilityReady = true;
   applyResolvedRuntimeModel(models.runtime);
-  const genericCompactionRecoveryAllowed = !pluginHarnessOwnsTransport;
+  const genericCompactionRecoveryAllowed =
+    !pluginHarnessOwnsTransport && !params.disableCompactionRecovery;
   const profileCandidates = preparedAuthAttempts.map((attempt) => attempt.profileId);
   const forwardedPluginHarnessProfileId = pluginHarnessOwnsTransport
     ? activePreparedAuthPlan.forwardedAuthProfileId
@@ -335,7 +352,6 @@ export async function prepareEmbeddedRunRuntime(input: {
     log,
   });
   try {
-    authStages?.mark("controller");
     const admitAuthProfile = createEmbeddedAuthProfileAdmission({
       authStore: attemptAuthProfileStore,
       profileCandidates,
@@ -375,8 +391,6 @@ export async function prepareEmbeddedRunRuntime(input: {
           try {
             await authController.applyAuthProfileCandidate(candidate, candidateIndex);
           } catch {
-            input.assertCurrent();
-            authController.throwIfAborted();
             continue;
           }
         } else {
@@ -418,15 +432,6 @@ export async function prepareEmbeddedRunRuntime(input: {
         authState.lastProfileId = forwardedPluginHarnessProfileId;
       }
     }
-    authStages?.mark("initialize");
-    if (authStages) {
-      log.trace(
-        formatEmbeddedRunStageSummary(
-          `[trace:embedded-run] auth stages: runId=${params.runId} sessionId=${params.sessionId} phase=auth`,
-          authStages.snapshot(),
-        ),
-      );
-    }
     input.markStartupStage("auth");
     input.notifyExecutionPhase("auth", { provider, model: modelId });
     const routeFacts = getModelProviderRequestRouteFacts(models.effective);
@@ -454,26 +459,7 @@ export async function prepareEmbeddedRunRuntime(input: {
       prepared: true as const,
     };
 
-    const admittedRunContext = await resolvePreparedRunAdmission({
-      runId: params.runId,
-      runtimeKind: pluginHarnessOwnsTransport ? "plugin-harness" : "embedded",
-      admittedRunContext: params.admittedRunContext,
-      preparedRunAdmission: params.preparedRunAdmission,
-    });
-
-    const sourceReplyDeliveryRuntime = readSourceReplyDeliveryRuntime(params);
-    if (sourceReplyDeliveryRuntime?.origin === "runtime_default") {
-      // Route/auth/transport preparation owns the final harness selection. Publishing
-      // an earlier guess can either suppress a valid final or leak a private one.
-      const visibleReplies =
-        agentHarness.deliveryDefaults?.visibleReplies ??
-        agentHarness.deliveryDefaults?.sourceVisibleReplies;
-      const mode = visibleReplies === "message_tool" ? "message_tool_only" : "automatic";
-      sourceReplyDeliveryRuntime.applyPreparedMode(params, mode);
-      params.forceMessageTool = mode === "message_tool_only";
-    }
     return {
-      admittedRunContext,
       provider,
       modelId,
       requestedModelId,

@@ -41,6 +41,7 @@
       "xiaomi": {
         "baseUrl": "https://api.xiaomimimo.com/v1",
         "api": "openai-completions",
+        "family": "xiaomi",
         "models": [
           {
             "id": "mimo-v2.6-pro",
@@ -140,6 +141,7 @@
       "xiaomi-token-plan": {
         "baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1",
         "api": "openai-completions",
+        "family": "xiaomi",
         "models": [
           {
             "id": "mimo-v2.6-pro",

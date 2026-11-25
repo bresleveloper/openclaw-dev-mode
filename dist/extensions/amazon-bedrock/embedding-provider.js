@@ -1,7 +1,7 @@
 import { bedrockCredentialDefaultProvider } from "./aws-credential-refresh.js";
 import { asOptionalRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { debugEmbeddingsLog, normalizeEmbeddingModelWithPrefixes, sanitizeAndNormalizeEmbedding } from "openclaw/plugin-sdk/memory-core-host-engine-embeddings";
-//#region extensions/amazon-bedrock/embedding-provider.ts
+// extensions/amazon-bedrock/embedding-provider.ts
 const DEFAULT_BEDROCK_EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0";
 const MODELS = {
 	"amazon.titan-embed-text-v2:0": {
@@ -134,18 +134,6 @@ function buildBody(family, text, dims) {
 		default: return JSON.stringify({ inputText: text });
 	}
 }
-function buildCohereBody(family, texts, inputType, dims) {
-	const body = {
-		texts,
-		input_type: inputType,
-		truncate: "END"
-	};
-	if (family === "cohere-v4") {
-		body.embedding_types = ["float"];
-		if (dims != null) body.output_dimension = dims;
-	}
-	return JSON.stringify(body);
-}
 function parseEmbeddingResponseJson(raw) {
 	try {
 		const parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(raw));
@@ -163,10 +151,6 @@ function asNumberArray(value) {
 	for (const entry of value) if (typeof entry !== "number" || !Number.isFinite(entry)) throw malformedBedrockEmbeddingResponse();
 	return value;
 }
-function asNumberArrayBatch(value) {
-	if (!Array.isArray(value)) throw malformedBedrockEmbeddingResponse();
-	return value.map(asNumberArray);
-}
 function parseSingle(family, raw) {
 	const data = parseEmbeddingResponseJson(raw);
 	switch (family) {
@@ -181,13 +165,10 @@ function parseSingle(family, raw) {
 	}
 }
 function parseCohereBatch(family, raw) {
-	const embeddings = parseEmbeddingResponseJson(raw).embeddings;
-	if (family === "cohere-v4" && !Array.isArray(embeddings)) {
-		const embeddingRecord = asOptionalRecord(embeddings);
-		if (!embeddingRecord) throw malformedBedrockEmbeddingResponse();
-		return asNumberArrayBatch(embeddingRecord.float);
-	}
-	return asNumberArrayBatch(embeddings);
+	const data = parseEmbeddingResponseJson(raw);
+	const embeddings = family === "cohere-v4" && !Array.isArray(data.embeddings) ? asOptionalRecord(data.embeddings)?.float : data.embeddings;
+	if (!Array.isArray(embeddings)) throw malformedBedrockEmbeddingResponse();
+	return embeddings.map((embedding) => sanitizeAndNormalizeEmbedding(asNumberArray(embedding)));
 }
 async function createBedrockEmbeddingProvider(options) {
 	const { BedrockRuntimeClient, InvokeModelCommand } = await import("@aws-sdk/client-bedrock-runtime").catch(() => {
@@ -235,8 +216,18 @@ async function createBedrockEmbeddingProvider(options) {
 		return sanitizeAndNormalizeEmbedding(parseSingle(family, raw));
 	};
 	const embedCohere = async (texts, inputType, signal) => {
-		const raw = await invoke(buildCohereBody(family, texts, inputType, client.dimensions), signal);
-		return parseCohereBatch(family, raw).map(sanitizeAndNormalizeEmbedding);
+		const dims = client.dimensions;
+		const body = {
+			texts,
+			input_type: inputType,
+			truncate: "END"
+		};
+		if (family === "cohere-v4") {
+			body.embedding_types = ["float"];
+			if (dims != null) body.output_dimension = dims;
+		}
+		const raw = await invoke(JSON.stringify(body), signal);
+		return parseCohereBatch(family, raw);
 	};
 	const embedQuery = async (text, signal) => {
 		if (!text.trim()) return [];
@@ -341,5 +332,4 @@ async function hasAwsCredentials(env = process.env, loadCredentialProvider = loa
 		return false;
 	}
 }
-//#endregion
 export { DEFAULT_BEDROCK_EMBEDDING_MODEL, createBedrockEmbeddingProvider, hasAwsCredentials };

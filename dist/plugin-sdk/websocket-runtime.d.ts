@@ -1,7 +1,6 @@
-import { a as WebSocketServer, i as RawData, n as Data, o as createWebSocketStream, t as ClientOptions } from "../websocket-DbnFnlN8.js";
-import { Socket } from "node:net";
+import { a as WebSocketServer, i as RawData, n as Data, o as createWebSocketStream, t as ClientOptions } from "../websocket-D7KFeEfD.js";
 import { Duplex } from "node:stream";
-//#region src/shared/one-time-ticket-store.d.ts
+import { Socket } from "node:net";
 type OneTimeTicketStore<T> = ReturnType<typeof createOneTimeTicketStore<T>>;
 export declare function createOneTimeTicketStore<T>(opts: {
   ttlMs: number;
@@ -24,8 +23,6 @@ export declare function createOneTimeTicketStore<T>(opts: {
   clear(): void;
   readonly size: number;
 };
-//#endregion
-//#region src/gateway/websocket-keepalive.d.ts
 type WebSocketKeepaliveSocket = {
   readonly readyState: number;
   readonly bufferedAmount: number;
@@ -44,8 +41,6 @@ type WebSocketHeartbeatDiagnostics = PingWrite & {
 };
 /** Keep idle transports active; only the connection owner may impose a pong deadline. */
 export declare function startWebSocketKeepalive(socket: WebSocketKeepaliveSocket, onMissedPong?: (diagnostics: WebSocketHeartbeatDiagnostics) => void, transport?: Pick<Socket, "setTimeout" | "on" | "off" | "timeout">): () => void;
-//#endregion
-//#region src/shared/websocket-upgrade-reject.d.ts
 type WebSocketUpgradeRejection = {
   status: 400 | 401 | 403 | 404 | 426 | 429 | 502 | 503 | 504;
   reason?: string;
@@ -56,9 +51,6 @@ type WebSocketUpgradeRejection = {
   headers?: Record<string, string>;
 };
 export declare function rejectWebSocketUpgrade(socket: Pick<Duplex, "end" | "destroy">, params: WebSocketUpgradeRejection): void;
-//#endregion
-//#region src/plugin-sdk/websocket-runtime.d.ts
 export declare const WebSocket: typeof import("ws").WebSocket;
 export type WebSocket = import("ws").WebSocket;
-//#endregion
 export { type ClientOptions, type Data, type OneTimeTicketStore, type RawData, type WebSocketHeartbeatDiagnostics, type WebSocketKeepaliveSocket, WebSocketServer, type WebSocketUpgradeRejection, createWebSocketStream };

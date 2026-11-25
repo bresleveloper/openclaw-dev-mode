@@ -1,0 +1,2 @@
+//!src/channels/typing-lifecycle.ts
+function createTypingKeepaliveLoop(e){let t;let n=false;const tick=async()=>{if(n)return;n=true;try{await e.onTick()}finally{n=false}};const start=()=>{if(e.intervalMs<=0||t)return;t=setInterval(()=>{tick().catch(e=>{const t=e instanceof Error?e.message:String(e);console.warn(`[typing] keepalive tick failed: ${t}`)})},e.intervalMs);t.unref?.()};const stop=()=>{clearInterval(t);t=void 0};return{tick,start,stop,isRunning:()=>t!==void 0}}export{createTypingKeepaliveLoop as t};

@@ -1,0 +1,2 @@
+//!src/agents/prepared-model-runtime.startup-status.ts
+let startupStatus;function getPreparedModelRuntimeStartupStatus(){return startupStatus}function setPreparedModelRuntimeStartupStatus(e){startupStatus=e}export{setPreparedModelRuntimeStartupStatus as n,getPreparedModelRuntimeStartupStatus as t};

@@ -211,7 +211,6 @@ async function doFetch(store: PreparedCacheStore | null): Promise<void> {
 
     cache = map;
     await writeSqliteCache(store, map);
-    log.debug(`Cached ${map.size} OpenRouter models from API`);
   } catch (err: unknown) {
     const message = formatErrorMessage(err);
     log.warn(`Failed to fetch OpenRouter models: ${message}`);
@@ -239,7 +238,6 @@ function ensureOpenRouterModelCache(): void {
   const stored = readSqliteCache();
   if (stored) {
     cache = stored;
-    log.debug(`Loaded ${stored.size} OpenRouter models from SQLite cache`);
     return;
   }
 
@@ -264,7 +262,6 @@ export async function loadOpenRouterModelCapabilities(modelId: string): Promise<
         const stored = prepared ? parseSqliteCache(await prepared.entries()) : undefined;
         if (stored && !cache) {
           cache = stored;
-          log.debug(`Loaded ${stored.size} OpenRouter models from SQLite cache`);
         }
       } catch (err: unknown) {
         log.debug(`Failed to read OpenRouter SQLite cache: ${formatErrorMessage(err)}`);

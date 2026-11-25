@@ -1,0 +1,2 @@
+//!src/infra/native-error-response.ts
+function restoreNativeErrorResponse(e){const t=e.cause?Object.assign(new Error(e.cause.message),e.cause):void 0;return Object.assign(new Error(e.message,t?{cause:t}:void 0),{name:e.name,code:e.code,errcode:e.errcode})}export{restoreNativeErrorResponse as t};

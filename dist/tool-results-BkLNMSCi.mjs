@@ -1,0 +1,2 @@
+//!src/agents/tools/tool-results.ts
+function textResult(e,t){return{content:[{type:`text`,text:e}],details:t}}function jsonResult(e){return textResult(JSON.stringify(e),e)}function stringifyToolPayload(e){if(typeof e===`string`)return e;try{const t=JSON.stringify(e);if(typeof t===`string`)return t}catch{}return String(e)}function payloadTextResult(e){return textResult(stringifyToolPayload(e),e)}function failText(e){return textResult(e,{status:`failed`,error:e})}export{textResult as i,jsonResult as n,payloadTextResult as r,failText as t};

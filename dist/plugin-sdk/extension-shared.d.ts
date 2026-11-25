@@ -1,11 +1,13 @@
-import { t as createLoggerBackedRuntime } from "../runtime-logger.internal-DbcYwkHp.js";
+import { t as Deferred } from "../deferred-CyFc43qT.js";
+import { t as createLoggerBackedRuntime } from "../runtime-logger.internal-BYGSeHkU.js";
 import { ZodType, z } from "zod";
-//#region src/utils/fetch-timeout.d.ts
 type TimeoutAbortSignalParams = {
   timeoutMs?: number;
   signal?: AbortSignal;
   operation?: string;
   url?: string;
+  /** Read-only callers report the returned timeout without creating file logs. */
+  logTimeout?: boolean;
 };
 /**
  * Builds an abort signal that combines an optional parent signal with a timeout.
@@ -16,15 +18,6 @@ export declare function buildTimeoutAbortSignal(params: TimeoutAbortSignalParams
   cleanup: () => void;
   refresh: () => void;
 };
-//#endregion
-//#region src/shared/deferred.d.ts
-type Deferred<T = void> = {
-  promise: Promise<T>;
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason?: unknown) => void;
-};
-//#endregion
-//#region src/utils/zod-parse.d.ts
 /**
  * Null-returning Zod parse helpers for plugin and runtime boundaries.
  *
@@ -35,8 +28,6 @@ type Deferred<T = void> = {
 export declare function safeParseWithSchema<T>(schema: ZodType<T>, value: unknown): T | null;
 /** Parses JSON, then safely validates it with a Zod schema, returning null for parse or schema failures. */
 export declare function safeParseJsonWithSchema<T>(schema: ZodType<T>, raw: string): T | null;
-//#endregion
-//#region src/plugin-sdk/extension-shared.d.ts
 type PassiveChannelStatusSnapshot = {
   configured?: boolean;
   running?: boolean;
@@ -138,4 +129,4 @@ export declare function resolveAmbientNodeProxyAgent<TAgent>(params?: {
   onUsingProxy?: () => void;
   protocol?: "http" | "https";
 }): Promise<TAgent | undefined>;
-//#endregion
+export {};

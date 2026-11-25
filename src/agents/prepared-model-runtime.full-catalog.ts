@@ -13,7 +13,6 @@ import {
 } from "./embedded-agent-runner/model.inline-provider.js";
 import { loadBundledProviderStaticCatalogContextModels } from "./embedded-agent-runner/model.static-catalog.js";
 import { createPreparedConfiguredRuntimeModelLookup } from "./embedded-agent-runner/model.static-id.js";
-import { augmentPreparedModelCatalogWithAgentHarness } from "./harness/model-catalog.js";
 import {
   enrichHarnessRows,
   modelCatalogRouteVariantKey,
@@ -25,6 +24,7 @@ import { createPreparedModelCatalogProviderNormalizer } from "./model-catalog-pr
 import { buildPreparedModelCatalogSnapshot } from "./model-catalog.js";
 import type { ModelCatalogSnapshot } from "./model-catalog.types.js";
 import { modelTransportRoutesMatch } from "./model-compat-catalog.js";
+import { applyModelServingContextLimit } from "./model-serving-context.js";
 import { createModelCatalogIdentityKeyResolver } from "./openai-model-routes.js";
 import {
   copyPreparedModelFullCatalogAuth,
@@ -47,7 +47,7 @@ import type {
   PreparedModelRuntimePluginGeneration,
   PreparedModelRuntimeSnapshot,
 } from "./prepared-model-runtime.types.js";
-import { AuthStorage } from "./sessions/auth-storage.js";
+import { AuthStorage } from "./sessions/auth-storage.core.js";
 
 const fullModelCatalogSnapshots = new WeakSet<ModelCatalogSnapshot>();
 
@@ -64,7 +64,11 @@ export async function prepareFullCatalogFacts(
   >,
   catalogMode: PreparedModelRuntimeCatalogMode,
   catalogSource: PreparedModelRuntimeCatalogSource,
-  options: { includeNative?: boolean; providerIds?: readonly string[] } = {},
+  options: {
+    includeNative?: boolean;
+    providerIds?: readonly string[];
+    assertCurrent?: () => void;
+  } = {},
 ): Promise<PreparedModelRuntimeCatalogFacts & { catalogModels: readonly Model[] }> {
   const prepare = async () => {
     const { env, input, templateAuthStorage } = agentFacts;
@@ -73,7 +77,7 @@ export async function prepareFullCatalogFacts(
     const observedProviders = new Set(
       catalogSource.providerOutcomes?.map(({ provider }) => normalizeProviderId(provider)),
     );
-    const templateModelRegistry = await discoverModelsAsync(templateAuthStorage, input.agentDir, {
+    let templateModelRegistry = await discoverModelsAsync(templateAuthStorage, input.agentDir, {
       config: input.config,
       ...(input.workspaceDir ? { workspaceDir: input.workspaceDir } : {}),
       pluginMetadataSnapshot,
@@ -87,6 +91,18 @@ export async function prepareFullCatalogFacts(
         ),
       ),
     });
+    if (catalogSource.servingLimits?.size) {
+      // Serving observations are acquisition facts, not models.json/config fields.
+      // Reuse the registry's immutable publication projection so forks and worker
+      // serialization preserve them after every authored metadata overlay.
+      const published = new Map<string, Model[]>();
+      for (const model of templateModelRegistry.getAll()) {
+        const models = published.get(model.provider) ?? [];
+        models.push(applyModelServingContextLimit(model, catalogSource.servingLimits));
+        published.set(model.provider, models);
+      }
+      templateModelRegistry = templateModelRegistry.fork(templateAuthStorage, published);
+    }
     const catalogModels = templateModelRegistry.getAll();
     const snapshot = await buildPreparedModelCatalogSnapshot({
       agentDir: input.agentDir,
@@ -101,10 +117,16 @@ export async function prepareFullCatalogFacts(
       ...(input.readOnly ? { readOnly: true } : {}),
       ...(input.workspaceDir ? { workspaceDir: input.workspaceDir } : {}),
     });
-    const modelCatalog =
-      catalogMode === "live" && options.includeNative !== false
-        ? await augmentPreparedModelCatalogWithAgentHarness({ input, snapshot, pluginRegistry })
-        : snapshot;
+    let modelCatalog = snapshot;
+    if (catalogMode === "live" && options.includeNative !== false) {
+      const { augmentPreparedModelCatalogWithAgentHarness } =
+        await import("./harness/model-catalog.js");
+      modelCatalog = await augmentPreparedModelCatalogWithAgentHarness({
+        input,
+        snapshot,
+        pluginRegistry,
+      });
+    }
     const providerStaticModels =
       input.config.models?.mode === "replace"
         ? []
@@ -118,7 +140,7 @@ export async function prepareFullCatalogFacts(
             ...(preparedStaticProviderCatalog ? { preparedStaticProviderCatalog } : {}),
             ...(input.workspaceDir ? { workspaceDir: input.workspaceDir } : {}),
           })));
-    // Signed-in providers keep their known manifest rows when the account listing fails.
+    // Signed-in providers whose manifest is their list keep it when an account listing fails.
     const credentialProviders = Object.keys(agentFacts.credentials).map(normalizeProviderId);
     const scopedProviders =
       options.providerIds && new Set(options.providerIds.map(normalizeProviderId));
@@ -136,10 +158,11 @@ export async function prepareFullCatalogFacts(
         { providerMetadataOwners: pluginMetadataSnapshot.owners },
       ).map((model) => completeInlineProviderModel(model, providerConfig)),
     );
-    const configuredRuntimeModels = completeConfiguredRuntimeModels(
+    const configuredRuntimeModels = await completeConfiguredRuntimeModels(
       agentFacts,
       pluginGeneration,
       templateModelRegistry,
+      options.assertCurrent,
     );
     const providerOutcomes = catalogSource.providerOutcomes ?? [];
     const normalizeProvider = createPreparedModelCatalogProviderNormalizer(
@@ -389,10 +412,13 @@ export function createPreparedModelRuntimeSnapshot(
       pluginMetadataSnapshot,
     ),
     inlineProviderModels,
-    createStores: () => {
+    createStores: (publishedModels, selectedModel) => {
       // Runtime keys and session extensions mutate per-run stores; parsed inputs stay shared.
       const authStorage = AuthStorage.inMemory(credentials);
-      return { authStorage, modelRegistry: templateModelRegistry.fork(authStorage) };
+      return {
+        authStorage,
+        modelRegistry: templateModelRegistry.fork(authStorage, publishedModels, selectedModel),
+      };
     },
     routeModelResolutionMemo: new Map<string, Promise<Model>>(),
   });

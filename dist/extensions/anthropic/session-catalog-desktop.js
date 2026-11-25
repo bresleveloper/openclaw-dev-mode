@@ -1,2 +1,1 @@
-import { i as readDesktopOverlay, n as emptyDesktopOverlay, r as parsePullRequestSummary, t as MAX_STRING_LENGTH } from "../../session-catalog-desktop-gPnyRfH0.mjs";
-export { MAX_STRING_LENGTH, emptyDesktopOverlay, parsePullRequestSummary, readDesktopOverlay };
+import{i as readDesktopOverlay,n as emptyDesktopOverlay,r as parsePullRequestSummary,t as MAX_STRING_LENGTH}from"../../session-catalog-desktop-DDly1i7e.mjs";export{MAX_STRING_LENGTH,emptyDesktopOverlay,parsePullRequestSummary,readDesktopOverlay};

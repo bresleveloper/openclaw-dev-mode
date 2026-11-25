@@ -1,0 +1,1 @@
+import{a as sameFileMutationFingerprint,i as hashFileMutationSnapshotSync,n as flushAndHashFileSync,o as sameFileMutationMetadata,r as hashFileDescriptorSync,s as writeFileWindowFully,t as copyFileHandle}from"./file-descriptor-CRkf5tcV.mjs";export{hashFileMutationSnapshotSync};

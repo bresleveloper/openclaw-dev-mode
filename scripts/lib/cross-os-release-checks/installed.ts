@@ -15,6 +15,7 @@ import {
   gatewayReadyDeadlineMs,
   installTimeoutMs,
   looksLikeCommitSha,
+  managedGatewayStartupCommandTimeoutMs,
   resolveExplicitBaselineVersion,
   resolveExpectedDevUpdateRef,
   shouldUseManagedGatewayService,
@@ -591,7 +592,7 @@ export async function ensureManagedGatewayReady(params: {
       cwd: params.lane.homeDir,
       env: params.env,
       logPath: params.logPath,
-      timeoutMs: 2 * 60 * 1000,
+      timeoutMs: managedGatewayStartupCommandTimeoutMs(),
       check: false,
     });
   }

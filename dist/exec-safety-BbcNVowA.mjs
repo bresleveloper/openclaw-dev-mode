@@ -1,0 +1,2 @@
+//!src/infra/exec-safety.ts
+const SHELL_METACHARS=/[;&|`$<>]/;const CONTROL_CHARS=/[\r\n]/;const QUOTE_CHARS=/["']/;const BARE_NAME_PATTERN=/^[A-Za-z0-9._+-]+$/;function isLikelyPath(e){return e.startsWith(`.`)||e.startsWith(`~`)||e.includes(`/`)||e.includes(`\\`)}function isSafeExecutableValue(e){if(!e)return false;const t=e.trim();if(!t||t.includes(`\0`)||CONTROL_CHARS.test(t)||SHELL_METACHARS.test(t)||QUOTE_CHARS.test(t))return false;if(isLikelyPath(t))return true;if(t.startsWith(`-`))return false;return BARE_NAME_PATTERN.test(t)}export{isSafeExecutableValue as t};

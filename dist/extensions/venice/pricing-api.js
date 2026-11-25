@@ -1,6 +1,6 @@
 import { asFiniteNumberInRange, asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { normalizeModelPricingCatalog } from "openclaw/plugin-sdk/model-catalog-pricing";
-//#region extensions/venice/pricing-api.ts
+// extensions/venice/pricing-api.ts
 function readVeniceRates(value) {
 	const row = asOptionalRecord(value);
 	const [input, output, cacheRead, cacheWrite] = [
@@ -50,5 +50,4 @@ function parseVeniceModelPricing(value) {
 function parseVenicePricingCatalog(payload) {
 	return normalizeModelPricingCatalog(asOptionalRecord(payload)?.data, parseVeniceModelPricing, { readPricing: (model) => model.type === "text" ? asOptionalRecord(model.model_spec)?.pricing : void 0 });
 }
-//#endregion
 export { parseVeniceModelPricing, parseVenicePricingCatalog };

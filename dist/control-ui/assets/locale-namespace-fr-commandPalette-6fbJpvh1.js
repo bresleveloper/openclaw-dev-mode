@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"Paramètres de la nouvelle session","rememberSettings":"Mémoriser les paramètres pour {shortcut}","rememberSettingsNoShortcut":"Mémoriser ces paramètres","rememberUnavailable":"Reconnectez-vous pour mémoriser les paramètres.","settingsSaveFailed":"Impossible d’enregistrer les paramètres. Réessayez."}};

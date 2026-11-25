@@ -1,0 +1,1 @@
+import{t as captureAuthProfileAuthorization}from"./authorization-BIskH1lL.mjs";export{captureAuthProfileAuthorization as captureMcpAuthProfileAuthorization};

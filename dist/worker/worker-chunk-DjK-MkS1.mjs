@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function groupPluginRecords(e,t){let n=/* @__PURE__ */ new Map;for(let r of e){let e=t(r),i=n.get(e);i?i.push(r):n.set(e,[r])}return n}var t,n=e((()=>{t={config:{explicit:0,provider:0},workspace:{explicit:1,provider:3},global:{explicit:2,provider:2},bundled:{explicit:3,provider:1}}}));export{groupPluginRecords as n,n as r,t};

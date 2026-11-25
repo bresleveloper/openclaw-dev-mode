@@ -2,7 +2,7 @@ import { resolveAnthropicVertexRegion } from "./region.js";
 import { resolveAnthropicVertexBaseUrl, resolveAnthropicVertexClientRegion } from "./region-endpoint.js";
 import { modelCostsEqual, resolveClaudeFable5ModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity } from "openclaw/plugin-sdk/provider-model-shared";
 import { normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/anthropic-vertex/provider-catalog.ts
+// extensions/anthropic-vertex/provider-catalog.ts
 const ANTHROPIC_VERTEX_DEFAULT_MODEL_ID = "claude-sonnet-4-6";
 const ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW = 1e6;
 const ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS = 128e3;
@@ -186,14 +186,14 @@ function normalizeAnthropicVertexResolvedModel(modelId, model) {
 	const region = resolveAnthropicVertexClientRegion({ baseUrl: model.baseUrl });
 	const cost = opus5 ? resolveClaude5Cost(region, OPUS_5_COST) : sonnet5 ? resolveClaude5Cost(region, SONNET_5_COST) : void 0;
 	const costMatches = !cost || modelCostsEqual(model.cost, cost);
-	if (model.reasoning && input === model.input && model.contextWindow === ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW && model.contextTokens === ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW && (model.maxTokens ?? 0) >= ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS && nativeThinkingLevelsMatch && costMatches) return;
+	if (model.reasoning && input === model.input && model.contextWindow === ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW && model.contextTokens === ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW && model.maxTokens >= ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS && nativeThinkingLevelsMatch && costMatches) return;
 	return {
 		...model,
 		reasoning: true,
 		input,
 		contextWindow: ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW,
 		contextTokens: ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW,
-		maxTokens: Math.max(model.maxTokens ?? 0, ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS),
+		maxTokens: Math.max(model.maxTokens, ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS),
 		thinkingLevelMap,
 		...cost ? { cost } : {}
 	};
@@ -207,5 +207,4 @@ function buildAnthropicVertexProvider(params) {
 		models: buildAnthropicVertexCatalog(region)
 	};
 }
-//#endregion
 export { ANTHROPIC_VERTEX_DEFAULT_MODEL_ID, buildAnthropicVertexProvider, normalizeAnthropicVertexResolvedModel, resolveAnthropicVertexDynamicModel };

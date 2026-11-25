@@ -1,0 +1,1 @@
+import{Type as e}from"typebox";function closedObject(t){let n=e.Object(t,{additionalProperties:!1});return Object.defineProperty(n,"~openclawClosedObjectIdentity",{value:Symbol(`closedObject`)}),n}export{closedObject as t};

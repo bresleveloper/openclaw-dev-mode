@@ -1,8 +1,8 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { d as DmPolicy } from "../types.base-6bKsSmWG.js";
-import { PE as ChannelSetupDmPolicy, wA as ChannelId } from "../config-contracts-CY87ANNp.js";
-import { d as ChannelSetupAdapter } from "../manifest-registry-DcAsDGQ5.js";
-//#region src/plugin-sdk/channel-dm-policy.d.ts
+import { aA as ChannelSetupDmPolicy } from "../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import { d as DmPolicy } from "../types.base-BJujKINr.js";
+import "../types-ACDCRjU-.js";
+import { d as ChannelSetupAdapter, m as ChannelId } from "../manifest-registry-CNNq5Vj2.js";
 type DmPolicyAccountConfig = {
   dmPolicy?: DmPolicy;
   allowFrom?: ReadonlyArray<string | number> | null;
@@ -44,4 +44,4 @@ type CreateChannelDmPolicyParams<TConfig extends DmPolicyAccountConfig> = {
 export declare function createChannelDmPolicy<TConfig extends DmPolicyAccountConfig>(params: CreateChannelDmPolicyParams<TConfig>): ChannelSetupDmPolicy & {
   promptAllowFrom: NonNullable<ChannelSetupDmPolicy["promptAllowFrom"]>;
 };
-//#endregion
+export {};

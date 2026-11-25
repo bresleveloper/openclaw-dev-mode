@@ -1,9 +1,9 @@
-import { a as resolveConfiguredMatrixAccountIds, i as requiresExplicitMatrixDefaultAccount, n as findMatrixAccountEntry, o as resolveMatrixChannelConfig, s as resolveMatrixDefaultOrOnlyAccountId } from "./.setup/account-selection-CWsL5zIU.mjs";
-import { n as listMatrixEnvAccountIds, r as resolveMatrixEnvAccountToken, t as getMatrixScopedEnvVarNames } from "./.setup/env-vars-aEBngJPa.mjs";
-import { a as resolveMatrixCredentialsFilename, i as resolveMatrixCredentialsDir, l as sanitizeMatrixPathSegment, o as resolveMatrixCredentialsPath, r as resolveMatrixAccountStorageRoot, s as resolveMatrixHomeserverKey, t as hashMatrixAccessToken } from "./.setup/storage-paths-B51JM-pC.mjs";
-import { r as matrixSetupAdapter, t as createMatrixSetupWizardProxy } from "./.setup/setup-core-Di6NtQ_J.mjs";
-import { t as matrixPlugin } from "./.setup/channel-BBvOdxTc.mjs";
-import { f as setMatrixThreadBindingMaxAgeBySessionKey, l as setMatrixThreadBindingIdleTimeoutBySessionKey, n as getMatrixThreadBindingManager, p as setMatrixThreadBindingMaxAgeBySessionKeyAsync, u as setMatrixThreadBindingIdleTimeoutBySessionKeyAsync } from "./.setup/thread-bindings-shared-CPjUA0Ib.mjs";
-import { t as matrixOnboardingAdapter } from "./.setup/onboarding-DOLEjkg2.mjs";
-import { t as createMatrixThreadBindingManager } from "./.setup/thread-bindings-pNgPVdof.mjs";
+import { a as resolveConfiguredMatrixAccountIds, i as requiresExplicitMatrixDefaultAccount, n as findMatrixAccountEntry, o as resolveMatrixChannelConfig, s as resolveMatrixDefaultOrOnlyAccountId } from "./.setup/account-selection-Cow3TMFO.mjs";
+import { n as listMatrixEnvAccountIds, r as resolveMatrixEnvAccountToken, t as getMatrixScopedEnvVarNames } from "./.setup/env-vars-Bh1iOXJ1.mjs";
+import { a as resolveMatrixCredentialsFilename, i as resolveMatrixCredentialsDir, l as sanitizeMatrixPathSegment, o as resolveMatrixCredentialsPath, r as resolveMatrixAccountStorageRoot, s as resolveMatrixHomeserverKey, t as hashMatrixAccessToken } from "./.setup/storage-paths-e_Vq6cvw.mjs";
+import { r as matrixSetupAdapter, t as createMatrixSetupWizardProxy } from "./.setup/setup-core-BRD4PRVa.mjs";
+import { t as matrixPlugin } from "./.setup/channel-DkjJIQBk.mjs";
+import { f as setMatrixThreadBindingMaxAgeBySessionKey, l as setMatrixThreadBindingIdleTimeoutBySessionKey, n as getMatrixThreadBindingManager, p as setMatrixThreadBindingMaxAgeBySessionKeyAsync, u as setMatrixThreadBindingIdleTimeoutBySessionKeyAsync } from "./.setup/thread-bindings-shared-DEAGGuDA.mjs";
+import { t as matrixOnboardingAdapter } from "./.setup/onboarding-DA5lN0I1.mjs";
+import { t as createMatrixThreadBindingManager } from "./.setup/thread-bindings-DrYooQd3.mjs";
 export { createMatrixSetupWizardProxy, createMatrixThreadBindingManager, findMatrixAccountEntry, getMatrixScopedEnvVarNames, getMatrixThreadBindingManager, hashMatrixAccessToken, listMatrixEnvAccountIds, matrixOnboardingAdapter, matrixOnboardingAdapter as matrixSetupWizard, matrixPlugin, matrixSetupAdapter, requiresExplicitMatrixDefaultAccount, resolveConfiguredMatrixAccountIds, resolveMatrixAccountStorageRoot, resolveMatrixChannelConfig, resolveMatrixCredentialsDir, resolveMatrixCredentialsFilename, resolveMatrixCredentialsPath, resolveMatrixDefaultOrOnlyAccountId, resolveMatrixEnvAccountToken, resolveMatrixHomeserverKey, sanitizeMatrixPathSegment, setMatrixThreadBindingIdleTimeoutBySessionKey, setMatrixThreadBindingIdleTimeoutBySessionKeyAsync, setMatrixThreadBindingMaxAgeBySessionKey, setMatrixThreadBindingMaxAgeBySessionKeyAsync };

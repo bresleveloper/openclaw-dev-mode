@@ -1,0 +1,5 @@
+import{n as sha256Hex}from"./node-crypto-DPk8agfR.mjs";import{n as parseConversationRouteContext}from"./conversation-route-context-DqietVff.mjs";
+//!src/config/sessions/conversation-route-fingerprint.ts
+function resolveConversationRouteFingerprint(e){const t=e.routeContext?parseConversationRouteContext(e.routeContext):void 0;return sha256Hex(JSON.stringify([e.channel,e.accountId,e.kind,e.peerId,e.target,e.parentConversationRef??null,e.threadId??null,e.nativeChannelId??null,e.nativeDirectUserId??null,e.routeContextObserved===true,t??null]))}
+//!src/config/sessions/conversation-authority.ts
+function assertConversationAuthority(e,t){if(!e||e.conversationRef!==t.conversationRef||resolveConversationRouteFingerprint(e)!==t.expectedRouteFingerprint||t.expectedSessionId!==void 0&&e.sessionId!==t.expectedSessionId||t.expectedSessionKey!==void 0&&e.sessionKey!==t.expectedSessionKey){const e=/* @__PURE__ */ new Error(`Conversation is no longer available to this agent: ${t.conversationRef}`);e.name=`ConversationAuthorityError`;throw e}}export{resolveConversationRouteFingerprint as n,assertConversationAuthority as t};

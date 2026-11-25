@@ -1,0 +1,2 @@
+//!src/config/sessions/session-reaction-errors.ts
+var SessionReactionLimitError=class extends Error{constructor(){super(`reaction limit reached`);this.name=`SessionReactionLimitError`}};var SessionReactionMessageMissingError=class extends Error{constructor(){super(`unknown message`);this.name=`SessionReactionMessageMissingError`}};export{SessionReactionMessageMissingError as n,SessionReactionLimitError as t};

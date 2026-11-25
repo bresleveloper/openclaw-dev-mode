@@ -1,7 +1,10 @@
 import { homedir as readHomeDir } from "node:os";
 import path from "node:path";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-import type { CodexAppServerStartOptions } from "./config-contracts.js";
+import type {
+  CodexAppServerRuntimeOptions,
+  CodexAppServerStartOptions,
+} from "./config-contracts.js";
 import { isCodexAppServerProxyLaunch, normalizeCodexAppServerArgs } from "./launch-args.js";
 
 const CODEX_APP_SERVER_HOME_DIRNAME = "codex-home";
@@ -41,8 +44,28 @@ export function resolveCodexAppServerLocalHomeDir(
     : resolveCodexAppServerHomeDir(agentDir);
 }
 
+/**
+ * Rollout paths name files on this host only when a local transport runs Codex
+ * against the home OpenClaw selected; remote or redirected homes stay unreadable.
+ */
+export function resolveCodexAppServerVerifiedLocalHomeDir(
+  appServer: Pick<CodexAppServerRuntimeOptions, "start" | "remoteWorkspaceRoot">,
+  agentDir: string | undefined,
+  actualHome: string | undefined,
+): string | undefined {
+  if (
+    (appServer.start.transport !== "stdio" && appServer.start.transport !== "unix") ||
+    appServer.remoteWorkspaceRoot ||
+    !actualHome
+  ) {
+    return undefined;
+  }
+  const home = resolveCodexAppServerLocalHomeDir(appServer.start, agentDir);
+  return path.resolve(actualHome) === path.resolve(home) ? home : undefined;
+}
+
 /** Forces OpenClaw-owned Codex auth to remain process-local. */
-function withEphemeralCodexAuthStore(params: {
+export function withEphemeralCodexAuthStore(params: {
   startOptions: CodexAppServerStartOptions;
   preparedAuth?: unknown;
   authProfileId?: string | null;
@@ -64,7 +87,7 @@ export function usesManagedCodexThreadUnloading(start: CodexAppServerStartOption
 }
 
 // OpenClaw retains warm/child subscriptions; native post-release caching is redundant.
-function withManagedCodexThreadUnloading(
+export function withManagedCodexThreadUnloading(
   startOptions: CodexAppServerStartOptions,
 ): CodexAppServerStartOptions {
   if (!usesManagedCodexThreadUnloading(startOptions)) {
@@ -72,14 +95,6 @@ function withManagedCodexThreadUnloading(
   }
   const args = normalizeCodexAppServerArgs(startOptions.args, "thread_unload_delay_secs=0");
   return args === startOptions.args ? startOptions : { ...startOptions, args };
-}
-
-export function withManagedCodexAuthStore(params: {
-  startOptions: CodexAppServerStartOptions;
-  preparedAuth?: unknown;
-  authProfileId?: string | null;
-}): CodexAppServerStartOptions {
-  return withManagedCodexThreadUnloading(withEphemeralCodexAuthStore(params));
 }
 
 export function withClearedEnvironmentVariables(

@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.27.1
+# syntax=docker/dockerfile:1.28.0@sha256:bb22d9815c728170f72750f4e5b0d672e06176142e1d602c7e66c050100b7e5b
 #
 # Shared Docker E2E image.
 # `bare` is a clean Node/Git runner for install/update lanes. `functional`
@@ -6,7 +6,7 @@
 
 ARG OPENCLAW_NODE_ALPINE_IMAGE="docker.io/library/node:24.22.1-alpine@sha256:6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d"
 
-FROM node:24.22.1-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS e2e-runner
+FROM node:24.22.1-trixie-slim@sha256:43b9ba1142b8dcf33fa8f922ca1be85714adc444e0586c7cf7726daaeabc1bea AS e2e-runner
 
 # openssl provisions short-lived fixture certificates for HTTPS-only provider
 # routes. python3 covers package/plugin install paths that execute helper scripts.
@@ -32,8 +32,8 @@ INSTALL_TYPESCRIPT
 
 COPY --chmod=0644 scripts/prepublish-plugin-registry-artifact.mjs /opt/openclaw-e2e/scripts/
 COPY --chmod=0755 scripts/e2e/lib/prepublish-plugin-registry.sh /opt/openclaw-e2e/scripts/e2e/lib/
-COPY scripts/e2e/lib/plugins/npm-registry-server.mjs /opt/openclaw-e2e/scripts/e2e/lib/plugins/
-COPY scripts/lib/bounded-response.mjs /opt/openclaw-e2e/scripts/lib/
+COPY --chmod=0644 scripts/e2e/lib/plugins/npm-registry-server.mjs /opt/openclaw-e2e/scripts/e2e/lib/plugins/
+COPY --chmod=0644 scripts/lib/bounded-response.mjs scripts/lib/release-version.mjs /opt/openclaw-e2e/scripts/lib/
 
 # COPY --chmod can also set modes on newly created parent directories.
 RUN find /opt/openclaw-e2e -type d -exec chmod 0755 {} +

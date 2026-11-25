@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"العمل على: {context}","removeContext":"إزالة سياق العمل","includeContext":"تضمين سياق العمل","selection":"النص المحدد","attachSelection":"إرفاق النص المحدد","attachSelectionTooltip":"إرفاق التحديد","removeSelection":"إزالة النص المحدد"}};

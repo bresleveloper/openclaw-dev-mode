@@ -3,7 +3,7 @@ import { resolveAnthropicVertexClientRegion, resolveAnthropicVertexRegionFromBas
 import { ANTHROPIC_VERTEX_DEFAULT_MODEL_ID, buildAnthropicVertexProvider } from "./provider-catalog.js";
 import { mergeImplicitAnthropicVertexProvider, resolveImplicitAnthropicVertexProvider } from "./provider-catalog-runtime.js";
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
-//#region extensions/anthropic-vertex/api.ts
+// extensions/anthropic-vertex/api.ts
 const loadStreamRuntimeModule = createLazyRuntimeModule(() => import("./stream-runtime.js"));
 /** Create a lazy Anthropic Vertex stream function for a known project/region/base URL. */
 function createAnthropicVertexStreamFn(projectId, region, baseURL, deps) {
@@ -19,5 +19,4 @@ function createAnthropicVertexStreamFnForModel(model, env = process.env, deps) {
 		return (await streamFnPromise)(...args);
 	};
 }
-//#endregion
 export { ANTHROPIC_VERTEX_DEFAULT_MODEL_ID, buildAnthropicVertexProvider, createAnthropicVertexStreamFn, createAnthropicVertexStreamFnForModel, hasAnthropicVertexAvailableAuth, hasAnthropicVertexCredentials, mergeImplicitAnthropicVertexProvider, resolveAnthropicVertexClientRegion, resolveAnthropicVertexConfigApiKey, resolveAnthropicVertexProjectId, resolveAnthropicVertexRegion, resolveAnthropicVertexRegionFromBaseUrl, resolveImplicitAnthropicVertexProvider };

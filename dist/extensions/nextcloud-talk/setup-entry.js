@@ -1,16 +1,15 @@
 import { defineBundledChannelSetupEntry } from "openclaw/plugin-sdk/channel-entry-contract";
 import { fileURLToPath } from "node:url";
-//#region extensions/nextcloud-talk/setup-entry.ts
+// extensions/nextcloud-talk/setup-entry.ts
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/api-BF9Pu6Yv.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/api-DNtfdfUV.mjs", import.meta.url).href),
 		exportName: "nextcloudTalkPlugin"
 	},
 	secrets: {
-		specifier: fileURLToPath(new URL(".setup/secret-contract-api-Crkkicb7.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/secret-contract-api-QMihLdr1.mjs", import.meta.url).href),
 		exportName: "channelSecrets"
 	}
 });
-//#endregion
 export { setup_entry_default as default };

@@ -1,0 +1,1 @@
+const e=/^ghp_[a-f0-9]{32}$/u;export{e as t};

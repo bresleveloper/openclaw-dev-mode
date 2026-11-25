@@ -1,0 +1,1 @@
+import{t as e}from"./openclaw-state-lease-heartbeat.worker-subsystem-Dmi3VKXB.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

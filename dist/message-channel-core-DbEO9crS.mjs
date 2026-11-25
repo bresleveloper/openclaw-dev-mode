@@ -1,0 +1,3 @@
+import{c as normalizeOptionalLowercaseString}from"./string-coerce-CpTFcSwY.mjs";import{i as normalizeChatChannelId}from"./ids-BOHgsxan.mjs";import{t as INTERNAL_MESSAGE_CHANNEL}from"./message-channel-constants-BbP_hczw.mjs";import{t as normalizeAnyChannelId}from"./registry-normalize-BP0gv89S.mjs";
+//!src/utils/message-channel-core.ts
+function normalizeMessageChannel(e){const t=normalizeOptionalLowercaseString(e);if(!t)return;if(t===`webchat`)return INTERNAL_MESSAGE_CHANNEL;const n=normalizeChatChannelId(t);if(n)return n;return normalizeAnyChannelId(t)??t}function isNormalizedMessageChannel(e){const t=normalizeMessageChannel(e);return t!==void 0&&t!==`webchat`&&t===e}export{normalizeMessageChannel as n,isNormalizedMessageChannel as t};

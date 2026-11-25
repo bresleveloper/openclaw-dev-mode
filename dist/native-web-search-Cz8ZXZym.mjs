@@ -1,0 +1,1 @@
+import{t as resolveNativeWebSearchRoute}from"./native-web-search-CpvXUMS2.mjs";export{resolveNativeWebSearchRoute};

@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"Üzerinde çalışılan: {context}","removeContext":"Çalışma bağlamını kaldır","includeContext":"Çalışma bağlamını dahil et","selection":"Seçili metin","attachSelection":"Seçili metni ekle","attachSelectionTooltip":"Seçimi ekle","removeSelection":"Seçili metni kaldır"}};

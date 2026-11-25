@@ -1,0 +1,3 @@
+import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";
+//!src/auto-reply/reply/reply-reference.ts
+function isSingleUseReplyToMode(e){return e===`first`||e===`batched`}function createReplyReferencePlanner(e){let t=e.hasReplied??false;const n=e.allowReference!==false;const r=normalizeOptionalString(e.existingId);const i=normalizeOptionalString(e.startId);const resolve=()=>{if(!n||e.replyToMode===`off`||isSingleUseReplyToMode(e.replyToMode)&&t)return;return r??i};return{peek:resolve,use(){const e=resolve();if(e)t=true;return e},markSent(){t=true},hasReplied:()=>t}}export{isSingleUseReplyToMode as n,createReplyReferencePlanner as t};

@@ -1,0 +1,3 @@
+import{s as readFileDescriptorBounded}from"./boundary-file-read-bB9An35K.mjs";
+//!src/agents/workspace-bootstrap-read.ts
+const MAX_WORKSPACE_BOOTSTRAP_FILE_BYTES=2097152;async function readWorkspaceBootstrapFile(e){return(await readFileDescriptorBounded(e,MAX_WORKSPACE_BOOTSTRAP_FILE_BYTES)).toString(`utf-8`)}function isUnreadableWorkspaceBootstrapFile(e){return!e.missing&&e.content?.startsWith(`[UNREADABLE: `)===true}export{isUnreadableWorkspaceBootstrapFile as n,readWorkspaceBootstrapFile as r,MAX_WORKSPACE_BOOTSTRAP_FILE_BYTES as t};

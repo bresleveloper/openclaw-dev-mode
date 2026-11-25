@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function normalizeConversationReadInvocationOrigin(e){return e===`direct-operator`?`direct-operator`:`delegated`}var t=e((()=>{}));export{normalizeConversationReadInvocationOrigin as n,t};

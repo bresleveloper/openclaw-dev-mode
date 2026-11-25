@@ -1,0 +1,2 @@
+//!src/infra/approval-channel-policy-support.ts
+function canChannelEnforcePluginReviewerPolicy(e,t,n){return!Object.hasOwn(e.approvals?.plugin??{},t)||n?.supportsScopedPluginApprovalApprovers===true}export{canChannelEnforcePluginReviewerPolicy as t};

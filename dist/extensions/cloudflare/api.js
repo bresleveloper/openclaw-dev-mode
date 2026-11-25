@@ -1,2 +1,1 @@
-import { t as r2StorageProvider } from "../../api-B7K4STgz.mjs";
-export { r2StorageProvider };
+import{t as r2StorageProvider}from"../../api-Ce8RmykK.mjs";export{r2StorageProvider};

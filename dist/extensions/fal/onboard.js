@@ -1,2 +1,1 @@
-import { t as applyFalConfig } from "../../onboard-mrYJB08W.mjs";
-export { applyFalConfig };
+import{t as applyFalConfig}from"../../onboard-BziUAxJg.mjs";export{applyFalConfig};

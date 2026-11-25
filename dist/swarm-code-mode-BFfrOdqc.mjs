@@ -1,0 +1,2 @@
+//!src/agents/subagents/swarm/swarm-code-mode.ts
+const SWARM_CODE_MODE_IDEMPOTENCY_KEY=Symbol.for(`openclaw.swarmCodeModeIdempotencyKey`);const SWARM_CODE_MODE_REQUEST_FINGERPRINT=Symbol.for(`openclaw.swarmCodeModeRequestFingerprint`);export{SWARM_CODE_MODE_REQUEST_FINGERPRINT as n,SWARM_CODE_MODE_IDEMPOTENCY_KEY as t};

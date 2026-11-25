@@ -1,7 +1,5 @@
-import { t as registerSlackPluginHttpRoutes } from "./.setup/plugin-routes-D4qozHVn.mjs";
-import "./http-routes-api.js";
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/slack/index.ts
+// extensions/slack/index.ts
 var slack_default = defineBundledChannelEntry({
 	id: "slack",
 	name: "Slack",
@@ -22,11 +20,6 @@ var slack_default = defineBundledChannelEntry({
 	accountInspect: {
 		specifier: "./account-inspect-api.js",
 		exportName: "inspectSlackReadOnlyAccount"
-	},
-	registerFull: (api) => {
-		if (api.registrationMode !== "full") return;
-		registerSlackPluginHttpRoutes(api);
 	}
 });
-//#endregion
 export { slack_default as default };

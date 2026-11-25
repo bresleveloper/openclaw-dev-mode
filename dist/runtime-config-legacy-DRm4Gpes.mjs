@@ -1,0 +1,3 @@
+import{a as pluginInstanceInvocation}from"./plugin-instance-invocation-CpEyv1JW.mjs";import{r as loadConfig}from"./io.runtime-D-fLYL3-.mjs";import{t as warnSessionPersistenceDeprecation}from"./session-persistence-deprecation-Bd1jZSBK.mjs";
+//!src/plugin-sdk/runtime-config-legacy.ts
+function getRuntimeConfig(e){warnSessionPersistenceDeprecation(`getRuntimeConfig`,`readRuntimeConfig after awaiting captureRuntimeConfigAsyncReader()()`,{pluginId:pluginInstanceInvocation.getStore()?.instance.pluginId,family:`runtime-config`});return loadConfig(e)}export{getRuntimeConfig as t};

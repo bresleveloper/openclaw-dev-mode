@@ -1,0 +1,3 @@
+import{r as createLazyRuntimeModule}from"./lazy-runtime-Ds6M7vp4.mjs";
+//!extensions/clawrouter/decision-provider.ts
+const loadRuntime=createLazyRuntimeModule(()=>import(`./extensions/clawrouter/decision-provider.runtime.js`));function buildClawRouterDecisionProvider(){return{id:`clawrouter`,contractVersion:2,async evaluate(e,t){t.signal.throwIfAborted();const{evaluateClawRouterDecision:n}=await loadRuntime();t.signal.throwIfAborted();return n(e,t)}}}export{buildClawRouterDecisionProvider as t};

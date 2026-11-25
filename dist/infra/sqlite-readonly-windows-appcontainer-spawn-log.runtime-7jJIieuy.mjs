@@ -1,0 +1,1 @@
+import{t as e}from"./sqlite-readonly-subsystem-CYeCVKK_.mjs";function logAppContainerTokenProbeFailure(t){e(`process`).debug(`AppContainer token probe failed; allowing spawn`,{error:String(t)})}export{logAppContainerTokenProbeFailure};

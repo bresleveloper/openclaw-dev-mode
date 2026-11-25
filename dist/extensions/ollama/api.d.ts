@@ -1,12 +1,11 @@
-import { $n as ChannelsConfig, Dn as HooksConfig, I as PluginsConfig, Jr as CommandsConfig, Kr as BroadcastConfig, L as NodeHostConfig, M as OpenClawConfig, Mr as TtsConfig, N as ProxyConfig, P as SkillsConfig, Qn as TranscriptsConfig, Qr as MessagesConfig, Rn as CronConfig, Tn as McpConfig, U as ModelProviderDeclarationConfig, Vn as AcpConfig, W as ModelsConfig, Wr as ToolsConfig, d as MemoryConfig, jn as GatewayConfig, l as AgentsConfig, s as AgentBinding, z as ModelDefinitionConfig, zn as BrowserConfig } from "../../types-D7I_F5Ux.js";
-import { n as AuditConfig } from "../../types.base-6bKsSmWG.js";
-import { ik as WizardPrompter } from "../../config-contracts-CY87ANNp.js";
-import { n as RuntimeEnv } from "../../runtime-M_jncu14.js";
-import "../../runtime-env-4zIJrIPC.js";
-import "../../provider-model-shared-uYxY__EE.js";
-import "../../provider-onboard-BNuhTHon.js";
-import { _ as OLLAMA_DEFAULT_COST, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, g as OLLAMA_DEFAULT_CONTEXT_WINDOW, h as OLLAMA_DEFAULT_BASE_URL, l as createConfiguredOllamaCompatStreamWrapper, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, u as isOllamaCompatProvider, v as OLLAMA_DEFAULT_MODEL, y as resolveOllamaSetupDefaultBaseUrl } from "../../stream-api-B8t_Olz6.js";
-//#region extensions/ollama/src/provider-models.d.ts
+import { _A as WizardPrompter } from "../../config-contracts-hzlacViZ.js";
+import { At as BrowserConfig, Ft as ChannelsConfig, N as CronConfig, Nt as AcpConfig, P as TranscriptsConfig, Rn as AgentBinding, Sn as MessagesConfig, T as GatewayConfig, Vn as AgentsConfig, Wn as TtsConfig, a as SkillsConfig, c as NodeHostConfig, gn as BroadcastConfig, h as ModelsConfig, i as ProxyConfig, ir as MemoryConfig, l as ModelDefinitionConfig, p as ModelProviderDeclarationConfig, r as OpenClawConfig, s as PluginsConfig, tr as ToolsConfig, vn as CommandsConfig, x as HooksConfig, y as McpConfig } from "../../types.openclaw-D8uW-XQA.js";
+import { n as AuditConfig } from "../../types.base-BJujKINr.js";
+import { n as RuntimeEnv } from "../../runtime-C7vMCRi6.js";
+import "../../runtime-env-CERK9fjD.js";
+import "../../provider-model-shared-OQQj5XdR.js";
+import "../../provider-onboard-BitR1dNE.js";
+import { _ as OLLAMA_DEFAULT_MODEL, c as createConfiguredOllamaCompatStreamWrapper, d as shouldInjectOllamaCompatNumCtx, f as wrapOllamaCompatNumCtx, g as OLLAMA_DEFAULT_COST, h as OLLAMA_DEFAULT_CONTEXT_WINDOW, l as isOllamaCompatProvider, m as OLLAMA_DEFAULT_BASE_URL, r as buildOllamaChatRequest, u as resolveOllamaCompatNumCtxEnabled, v as resolveOllamaSetupDefaultBaseUrl } from "../../stream-api-CZSjw123.js";
 type OllamaTagModel = {
   name: string;
   modified_at?: string;
@@ -30,10 +29,10 @@ type OllamaModelWithContext = OllamaTagModel & OllamaModelShowInfo & {
 };
 export declare function resolveOllamaApiBase(configuredBaseUrl?: string): string;
 type OllamaModelShowInfo = {
-  remote?: boolean;
   contextWindow?: number;
   capabilities?: string[];
   thinkingLevelMap?: ModelDefinitionConfig["thinkingLevelMap"];
+  parameterCount?: number;
   /** Distinguishes a failed request from a successful response that omitted capabilities. */
   showInspectionFailed?: boolean;
 };
@@ -48,7 +47,9 @@ export declare function queryOllamaModelShowInfo(apiBase: string, modelName: str
 export declare function queryOllamaContextWindow(apiBase: string, modelName: string): Promise<number | undefined>;
 export declare function enrichOllamaModelsWithContext(apiBase: string, models: OllamaTagModel[], opts?: OllamaModelRequestOptions): Promise<OllamaModelWithContext[]>;
 export declare function isReasoningModelHeuristic(modelId: string): boolean;
-export declare function buildOllamaModelDefinition(modelId: string, contextWindow?: number, capabilities?: string[], opts?: OllamaModelShowInfo): ModelDefinitionConfig;
+export declare function buildOllamaModelDefinition(modelId: string, contextWindow?: number, capabilities?: string[], opts?: OllamaModelShowInfo & {
+  remote?: boolean;
+}): ModelDefinitionConfig;
 export declare function fetchOllamaModels(baseUrl: string, opts?: OllamaModelRequestOptions): Promise<{
   reachable: boolean;
   models: OllamaTagModel[];
@@ -59,16 +60,14 @@ export declare function buildOllamaProvider(configuredBaseUrl?: string, opts?: {
   discoveryMode?: "strict";
   onListedModels?: (names: string[]) => void;
 }): Promise<ModelProviderDeclarationConfig>;
-//#endregion
-//#region extensions/ollama/src/setup.d.ts
 export declare const promptAndConfigureOllama: (params: {
   cfg: OpenClawConfig;
   env?: NodeJS.ProcessEnv;
   prompter: WizardPrompter;
   signal?: AbortSignal;
 }) => Promise<{
+  defaultModel?: string | undefined;
   config: OpenClawConfig;
-  defaultModel?: string;
 }>;
 export declare const configureOllamaNonInteractive: (params: {
   nextConfig: OpenClawConfig;
@@ -85,6 +84,8 @@ export declare const configureOllamaNonInteractive: (params: {
     migrations?: {
       modelPolicyAllowlist?: true | undefined;
       utilityModelSeparation?: true | undefined;
+      skillWorkshopPlugin?: true | undefined;
+      skillLibraryToolSplit?: true | undefined;
       webhookListeners?: true | Record<string, string[][]> | undefined;
     } | undefined;
   } | undefined;
@@ -148,6 +149,7 @@ export declare const configureOllamaNonInteractive: (params: {
     checkOnStart?: boolean | undefined;
     auto?: {
       enabled?: boolean | undefined;
+      schedule?: string | undefined;
     } | undefined;
   } | undefined;
   telemetry?: {
@@ -175,7 +177,7 @@ export declare const configureOllamaNonInteractive: (params: {
       blockedHostnames?: string[] | undefined;
     } | undefined;
     profiles?: Record<string, {
-      engine?: "chromium" | "lightpanda" | undefined;
+      engine?: "chromium" | "kitesurf" | "lightpanda" | undefined;
       cdpPort?: number | undefined;
       cdpUrl?: string | undefined;
       userDataDir?: string | undefined;
@@ -292,6 +294,17 @@ export declare const configureOllamaNonInteractive: (params: {
   models?: {
     mode?: "merge" | "replace" | undefined;
     providers?: Record<string, {
+      name?: string | undefined;
+      icon?: {
+        source: "file";
+        path: string;
+      } | {
+        source: "url";
+        url: string;
+      } | {
+        source: "builtin";
+        name: string;
+      } | undefined;
       baseUrl?: string | undefined;
       apiKey?: string | {
         source: "env";
@@ -310,7 +323,7 @@ export declare const configureOllamaNonInteractive: (params: {
         provider: string;
         id: string;
       } | undefined;
-      auth?: "api-key" | "aws-sdk" | "oauth" | "token" | undefined;
+      auth?: "api-key" | "aws-sdk" | "native-command" | "none" | "oauth" | "token" | undefined;
       api?: "anthropic-messages" | "azure-openai-responses" | "bedrock-converse-stream" | "github-copilot" | "google-generative-ai" | "google-interactions" | "google-vertex" | "ollama" | "openai-chatgpt-responses" | "openai-completions" | "openai-responses" | "pi-messages" | undefined;
       maxTokens?: number | undefined;
       timeoutSeconds?: number | undefined;
@@ -329,6 +342,7 @@ export declare const configureOllamaNonInteractive: (params: {
         readyTimeoutMs?: number | undefined;
         idleStopMs?: number | undefined;
       } | undefined;
+      remote?: boolean | undefined;
       headers?: Record<string, string | {
         source: "env";
         provider: string;
@@ -677,6 +691,7 @@ export declare const configureOllamaNonInteractive: (params: {
           supportsReasoningEffort?: boolean | undefined;
           supportsTemperature?: boolean | undefined;
           supportsInstructions?: boolean | undefined;
+          cachesInstructions?: boolean | undefined;
           supportsUsageInStreaming?: boolean | undefined;
           supportsTools?: boolean | undefined;
           codeMode?: "capable" | "preferred" | undefined;
@@ -688,6 +703,10 @@ export declare const configureOllamaNonInteractive: (params: {
           supportedReasoningEfforts?: string[] | undefined;
           reasoningEffortMap?: Record<string, string> | undefined;
           defaultThinkingLevel?: string | undefined;
+          thinkingLevels?: string[] | undefined;
+          adaptiveThinking?: boolean | undefined;
+          thinkingRequired?: boolean | undefined;
+          thinkingLevelLabels?: Record<string, string> | undefined;
           maxTokensField?: "max_completion_tokens" | "max_tokens" | undefined;
           thinkingFormat?: "deepseek" | "openai" | "openrouter" | "qwen" | "qwen-chat-template" | "together" | "zai" | undefined;
           requiresToolResultName?: boolean | undefined;
@@ -760,6 +779,9 @@ export declare const configureOllamaNonInteractive: (params: {
       enabled?: boolean | undefined;
       url?: string | undefined;
     } | undefined;
+    usage?: {
+      cacheTtlMs?: number | undefined;
+    } | undefined;
   } | undefined;
   nodeHost?: {
     autoUpdate?: {
@@ -797,7 +819,10 @@ export declare const configureOllamaNonInteractive: (params: {
         fallbacks?: string[] | undefined;
       } | undefined;
       modelSelectionScope?: "agent" | "global" | "session" | undefined;
-      utilityModel?: string | undefined;
+      utilityModel?: string | {
+        primary?: string | undefined;
+        fallbacks?: string[] | undefined;
+      } | undefined;
       decisionModel?: string | undefined;
       imageModel?: string | {
         primary?: string | undefined;
@@ -847,6 +872,7 @@ export declare const configureOllamaNonInteractive: (params: {
         allow?: string[] | undefined;
       } | undefined;
       workspace?: string | undefined;
+      workspaceFileMode?: "0600" | "0620" | "0640" | "0660" | undefined;
       cwd?: string | undefined;
       skills?: string[] | undefined;
       silentReply?: {
@@ -860,6 +886,7 @@ export declare const configureOllamaNonInteractive: (params: {
       bootstrapTotalMaxChars?: number | undefined;
       experimental?: {
         decisionAssistance?: boolean | undefined;
+        usageRankedToolIndex?: boolean | undefined;
         localModelLean?: boolean | undefined;
       } | undefined;
       userTimezone?: string | undefined;
@@ -889,6 +916,7 @@ export declare const configureOllamaNonInteractive: (params: {
         provider?: string | undefined;
         thinkingLevel?: "adaptive" | "high" | "inherit" | "low" | "max" | "medium" | "minimal" | "off" | "ultra" | "xhigh" | undefined;
         keepRecentTokens?: number | undefined;
+        maxSummaryChars?: number | undefined;
         identifierPolicy?: "off" | "strict" | undefined;
         recentTurnsPreserve?: number | undefined;
         qualityGuard?: {
@@ -904,7 +932,6 @@ export declare const configureOllamaNonInteractive: (params: {
         timeoutSeconds?: number | undefined;
         memoryFlush?: {
           enabled?: boolean | undefined;
-          model?: string | undefined;
           softThresholdTokens?: number | undefined;
           forceFlushTranscriptBytes?: string | number | undefined;
         } | undefined;
@@ -916,7 +943,6 @@ export declare const configureOllamaNonInteractive: (params: {
         executionContract?: "default" | "strict-agentic" | undefined;
         cyberFailover?: {
           mode?: "auto" | "off" | undefined;
-          model?: string | undefined;
           cooloffMs?: number | undefined;
         } | undefined;
       } | undefined;
@@ -979,25 +1005,6 @@ export declare const configureOllamaNonInteractive: (params: {
         maxMs?: number | undefined;
       } | undefined;
       typingMode?: "instant" | "message" | "never" | "thinking" | undefined;
-      heartbeat?: {
-        every?: string | undefined;
-        activeHours?: {
-          start?: string | undefined;
-          end?: string | undefined;
-          timezone?: string | undefined;
-        } | undefined;
-        model?: string | undefined;
-        session?: string | undefined;
-        target?: string | undefined;
-        directPolicy?: "allow" | "block" | undefined;
-        to?: string | undefined;
-        accountId?: string | undefined;
-        prompt?: string | undefined;
-        timeoutSeconds?: number | undefined;
-        lightContext?: boolean | undefined;
-        isolatedSession?: boolean | undefined;
-        agentId?: string | undefined;
-      } | undefined;
       sandbox?: {
         mode?: "all" | "non-main" | "off" | undefined;
         backend?: string | undefined;
@@ -1120,6 +1127,7 @@ export declare const configureOllamaNonInteractive: (params: {
     entries?: Record<string, unknown> | undefined;
   } | undefined;
   worktreeRoot?: string | undefined;
+  repositoryBranchPrefix?: string | undefined;
   worktreeAcceleration?: NonNullable<boolean | undefined> | undefined;
   worktreeMaxCount?: number | undefined;
   tools?: {
@@ -1132,12 +1140,23 @@ export declare const configureOllamaNonInteractive: (params: {
       alsoAllow?: string[] | undefined;
       deny?: string[] | undefined;
       profile?: "coding" | "full" | "messaging" | "minimal" | undefined;
+      exec?: {
+        mode?: "allowlist" | "ask" | "auto" | "deny" | "full" | undefined;
+      } | undefined;
     }> | undefined;
     toolsBySender?: Partial<Record<string, {
       allow?: string[] | undefined;
       alsoAllow?: string[] | undefined;
       deny?: string[] | undefined;
     } | undefined>> | undefined;
+    gatewayPolicy?: {
+      allow: string[];
+      actions?: Record<string, string[]> | undefined;
+      automations?: {
+        scope?: "caller" | undefined;
+        allowCommandJobs?: boolean | undefined;
+      } | undefined;
+    } | undefined;
     web?: {
       search?: unknown;
       fetch?: {
@@ -1164,18 +1183,53 @@ export declare const configureOllamaNonInteractive: (params: {
     } | undefined;
     github?: {
       profileId: string;
-      kind?: "oauth" | undefined;
       gitAuthor?: {
         name?: string | undefined;
         email?: string | undefined;
       } | undefined;
+      kind?: "oauth" | undefined;
+    } | {
+      profileId: string;
+      gitAuthor?: {
+        name?: string | undefined;
+        email?: string | undefined;
+      } | undefined;
+      kind: "app-installation";
+      app: {
+        appId: number;
+        installationId: number;
+        accountId: number;
+        repositories: {
+          id: number;
+          fullName: string;
+        }[];
+        permissions: Record<string, "read" | "write">;
+        privateKey: string | {
+          source: "env";
+          provider: string;
+          id: string;
+        } | {
+          source: "exec";
+          provider: string;
+          id: string;
+        } | {
+          source: "file";
+          provider: string;
+          id: string;
+        } | {
+          source: "store";
+          provider: string;
+          id: string;
+        };
+        keyVersion: string;
+      };
     } | undefined;
     media?: {
       models?: ({
         prompt?: string | undefined;
         timeoutSeconds?: number | undefined;
         language?: string | undefined;
-        providerOptions?: Record<string, Record<string, string | number | boolean>> | undefined;
+        providerOptions?: Record<string, Record<string, string | number | boolean | string[]>> | undefined;
         baseUrl?: string | undefined;
         headers?: Record<string, string> | undefined;
         request?: {
@@ -1478,7 +1532,7 @@ export declare const configureOllamaNonInteractive: (params: {
         prompt?: string | undefined;
         timeoutSeconds?: number | undefined;
         language?: string | undefined;
-        providerOptions?: Record<string, Record<string, string | number | boolean>> | undefined;
+        providerOptions?: Record<string, Record<string, string | number | boolean | string[]>> | undefined;
         baseUrl?: string | undefined;
         headers?: Record<string, string> | undefined;
         request?: {
@@ -1791,7 +1845,7 @@ export declare const configureOllamaNonInteractive: (params: {
         prompt?: string | undefined;
         timeoutSeconds?: number | undefined;
         language?: string | undefined;
-        providerOptions?: Record<string, Record<string, string | number | boolean>> | undefined;
+        providerOptions?: Record<string, Record<string, string | number | boolean | string[]>> | undefined;
         baseUrl?: string | undefined;
         headers?: Record<string, string> | undefined;
         request?: {
@@ -2106,7 +2160,7 @@ export declare const configureOllamaNonInteractive: (params: {
         prompt?: string | undefined;
         timeoutSeconds?: number | undefined;
         language?: string | undefined;
-        providerOptions?: Record<string, Record<string, string | number | boolean>> | undefined;
+        providerOptions?: Record<string, Record<string, string | number | boolean | string[]>> | undefined;
         baseUrl?: string | undefined;
         headers?: Record<string, string> | undefined;
         request?: {
@@ -2449,6 +2503,14 @@ export declare const configureOllamaNonInteractive: (params: {
     toolSearch?: boolean | {
       enabled?: boolean | undefined;
       mode?: "directory" | "tools" | undefined;
+      include?: {
+        source?: "client" | "mcp" | "openclaw" | undefined;
+        name?: string | undefined;
+      }[] | undefined;
+      exclude?: {
+        source?: "client" | "mcp" | "openclaw" | undefined;
+        name?: string | undefined;
+      }[] | undefined;
       searchDefaultLimit?: number | undefined;
       maxSearchLimit?: number | undefined;
     } | undefined;
@@ -2536,6 +2598,9 @@ export declare const configureOllamaNonInteractive: (params: {
         workspaceOnly?: boolean | undefined;
         allowModels?: string[] | undefined;
       } | undefined;
+    } | undefined;
+    openclaw?: {
+      autoApproveChanges?: boolean | undefined;
     } | undefined;
     fs?: {
       workspaceOnly?: boolean | undefined;
@@ -2869,6 +2934,7 @@ export declare const configureOllamaNonInteractive: (params: {
   } | undefined;
   cron?: {
     enabled?: boolean | undefined;
+    defaultTools?: string[] | undefined;
     skipMissedJobs?: boolean | undefined;
     triggers?: {
       enabled?: boolean | undefined;
@@ -2898,16 +2964,53 @@ export declare const configureOllamaNonInteractive: (params: {
       blockedHostnames?: string[] | undefined;
     } | undefined;
     sessionRetention?: string | false | undefined;
+    delivery?: {
+      channel?: string | undefined;
+      to: string;
+      threadId?: string | number | undefined;
+      accountId?: string | undefined;
+    } | undefined;
     failureAlert?: {
-      enabled?: boolean | undefined;
-      after?: number | undefined;
-      cooldownMs?: number | undefined;
-      includeSkipped?: boolean | undefined;
+      threadId?: string | number | undefined;
       mode?: "announce" | "webhook" | undefined;
       accountId?: string | undefined;
       channel?: string | undefined;
       to?: string | undefined;
+      enabled?: boolean | undefined;
+      after?: number | undefined;
+      cooldownMs?: number | undefined;
+      includeSkipped?: boolean | undefined;
     } | undefined;
+    agents?: Record<string, {
+      delivery?: {
+        channel?: string | undefined;
+        to: string;
+        threadId?: string | number | undefined;
+        accountId?: string | undefined;
+      } | undefined;
+      failureAlert?: {
+        threadId?: string | number | undefined;
+        mode?: "announce" | "webhook" | undefined;
+        accountId?: string | undefined;
+        channel?: string | undefined;
+        to?: string | undefined;
+      } | undefined;
+    }> | undefined;
+    creators?: Record<string, {
+      delivery?: {
+        channel?: string | undefined;
+        to: string;
+        threadId?: string | number | undefined;
+        accountId?: string | undefined;
+      } | undefined;
+      failureAlert?: {
+        threadId?: string | number | undefined;
+        mode?: "announce" | "webhook" | undefined;
+        accountId?: string | undefined;
+        channel?: string | undefined;
+        to?: string | undefined;
+      } | undefined;
+    }> | undefined;
   } | undefined;
   transcripts?: {
     enabled?: boolean | undefined;
@@ -3048,6 +3151,7 @@ export declare const configureOllamaNonInteractive: (params: {
           provider: string;
           id: string;
         } | undefined;
+        inputTranscriptionModel?: string | undefined;
       }> | undefined;
       model?: string | undefined;
       speakerVoice?: string | undefined;
@@ -3080,10 +3184,21 @@ export declare const configureOllamaNonInteractive: (params: {
         port: number;
       } | undefined;
     } | undefined;
+    openclawId?: {
+      enabled?: boolean | undefined;
+      issuerUrl?: string | undefined;
+      clientId?: string | undefined;
+      discoveryUrl?: string | undefined;
+      relayUrl?: string | undefined;
+      loaderDomain?: string | undefined;
+      ownerDeviceInactivityDays?: number | undefined;
+      memberDeviceInactivityDays?: number | undefined;
+    } | undefined;
     github?: {
       host?: string | undefined;
       apiBaseUrl?: string | undefined;
     } | undefined;
+    repositoryIntegration?: string | undefined;
     projects?: {
       defaultRepository?: {
         url: string;
@@ -3097,7 +3212,12 @@ export declare const configureOllamaNonInteractive: (params: {
       basePath?: string | undefined;
       experimental?: {
         customPlugins?: boolean | undefined;
+        templates?: boolean | undefined;
         chatBubbles?: boolean | undefined;
+        composerPredictions?: {
+          enabled?: boolean | undefined;
+          model?: "conversation" | "default" | "utility" | undefined;
+        } | undefined;
       } | undefined;
       root?: string | undefined;
       environment?: {
@@ -3181,7 +3301,7 @@ export declare const configureOllamaNonInteractive: (params: {
         id: string;
       } | undefined;
       allowTailscale?: boolean | undefined;
-      identityScopes?: Record<string, ("operator.admin" | "operator.approvals" | "operator.pairing" | "operator.questions" | "operator.read" | "operator.sessions.read" | "operator.sessions.write" | "operator.talk" | "operator.talk.secrets" | "operator.write")[]> | undefined;
+      identityScopes?: Record<string, ("operator.admin" | "operator.approvals" | "operator.cron" | "operator.pairing" | "operator.questions" | "operator.read" | "operator.sessions.read" | "operator.sessions.write" | "operator.talk" | "operator.talk.secrets" | "operator.write")[]> | undefined;
       rateLimit?: {
         maxAttempts?: number | undefined;
         windowMs?: number | undefined;
@@ -3193,6 +3313,14 @@ export declare const configureOllamaNonInteractive: (params: {
         requiredHeaders?: string[] | undefined;
         allowUsers?: string[] | undefined;
         allowLoopback?: boolean | undefined;
+        delegation?: {
+          credentialFile: string;
+        } | undefined;
+        gitCoauthor?: {
+          nameHeader: string;
+          emailHeader: string;
+          emailVerifiedHeader?: string | undefined;
+        } | undefined;
         cloudflareAccessOidc?: {
           issuer: string;
           providerId: string;
@@ -3205,7 +3333,7 @@ export declare const configureOllamaNonInteractive: (params: {
       } | undefined;
     } | undefined;
     roles?: {
-      default: string;
+      default?: string | undefined;
       assignments?: {
         byGithubLogin?: Record<string, string> | undefined;
       } | undefined;
@@ -3215,12 +3343,16 @@ export declare const configureOllamaNonInteractive: (params: {
         };
         sandbox?: "inherit" | "required" | undefined;
         agents: "*" | string[];
+        workerProfiles?: string[] | undefined;
         modelPolicy?: {
           sourceAgent?: string | undefined;
           allow?: string[] | undefined;
           deny?: string[] | undefined;
         } | undefined;
-        scopes: ("operator.admin" | "operator.approvals" | "operator.pairing" | "operator.questions" | "operator.read" | "operator.sessions.read" | "operator.sessions.write" | "operator.talk" | "operator.talk.secrets" | "operator.write")[];
+        accessPrograms?: {
+          cyber: ("daybreak_blue" | "daybreak_red")[];
+        } | undefined;
+        scopes: ("operator.admin" | "operator.approvals" | "operator.cron" | "operator.pairing" | "operator.questions" | "operator.read" | "operator.sessions.read" | "operator.sessions.write" | "operator.talk" | "operator.talk.secrets" | "operator.write")[];
         accessPolicyPlugin?: string | undefined;
       }>;
     } | undefined;
@@ -3391,6 +3523,12 @@ export declare const configureOllamaNonInteractive: (params: {
     profiles?: Record<string, {
       provider: string;
       install?: "bundle" | "npm" | undefined;
+      workspaceDurability?: {
+        mode: "mirrored";
+      } | {
+        mode: "retained-disk";
+        computeWindowSeconds: number;
+      } | undefined;
       suspendAfter?: string | undefined;
       readyWorkers?: number | undefined;
       settings?: Record<string, unknown> | undefined;
@@ -3398,6 +3536,23 @@ export declare const configureOllamaNonInteractive: (params: {
   } | undefined;
   database?: {
     engine?: "postgres" | "sqlite" | undefined;
+    families?: {
+      state?: {
+        engine: "postgres" | "sqlite";
+      } | undefined;
+      agent?: {
+        engine: "postgres" | "sqlite";
+      } | undefined;
+      workboard?: {
+        engine: "postgres" | "sqlite";
+      } | undefined;
+      logbook?: {
+        engine: "postgres" | "sqlite";
+      } | undefined;
+      "team-reports"?: {
+        engine: "postgres" | "sqlite";
+      } | undefined;
+    } | undefined;
     postgres?: {
       connection?: string | {
         source: "env";
@@ -3417,6 +3572,8 @@ export declare const configureOllamaNonInteractive: (params: {
         id: string;
       } | undefined;
       schemaPrefix?: string | undefined;
+      recoveryCaptures?: "portable" | "server" | undefined;
+      ownership?: "installation" | "state-directory" | undefined;
     } | undefined;
   } | undefined;
   storage?: {
@@ -3461,6 +3618,7 @@ export declare const configureOllamaNonInteractive: (params: {
       extraPaths?: (string | {
         path: string;
         pattern?: string | undefined;
+        evergreen?: boolean | undefined;
       })[] | undefined;
       multimodal?: {
         enabled?: boolean | undefined;
@@ -3497,8 +3655,13 @@ export declare const configureOllamaNonInteractive: (params: {
       } | undefined;
       fallback?: string | undefined;
       model?: string | undefined;
+      inputFormat?: {
+        query: string;
+        document: string;
+      } | undefined;
       inputType?: string | undefined;
       queryInputType?: string | undefined;
+      queryInstruction?: string | undefined;
       documentInputType?: string | undefined;
       outputDimensionality?: number | undefined;
       local?: {
@@ -3550,13 +3713,6 @@ export declare const configureOllamaNonInteractive: (params: {
       maxSkillsPromptChars?: number | undefined;
       maxSkillFileBytes?: number | undefined;
     } | undefined;
-    workshop?: {
-      autonomous?: {
-        mode?: "auto" | "off" | undefined;
-        channelNotices?: boolean | undefined;
-      } | undefined;
-      maxSkillBytes?: number | undefined;
-    } | undefined;
     entries?: Record<string, {
       enabled?: boolean | undefined;
       apiKey?: string | {
@@ -3594,7 +3750,7 @@ export declare const configureOllamaNonInteractive: (params: {
     entries?: Record<string, {
       enabled?: boolean | undefined;
       hooks?: {
-        allowPromptInjection?: boolean | undefined;
+        allowPromptModification?: boolean | undefined;
         allowConversationAccess?: boolean | undefined;
         timeoutMs?: number | undefined;
         timeouts?: Record<string, number> | undefined;
@@ -3700,5 +3856,4 @@ export declare const ensureOllamaModelPulled: (params: {
   model: string;
   prompter: WizardPrompter;
 }) => Promise<void>;
-//#endregion
 export { OLLAMA_DEFAULT_BASE_URL, OLLAMA_DEFAULT_CONTEXT_WINDOW, OLLAMA_DEFAULT_COST, OLLAMA_DEFAULT_MODEL, type OllamaModelShowInfo, type OllamaModelWithContext, type OllamaTagModel, type OllamaTagsResponse, buildOllamaChatRequest, createConfiguredOllamaCompatStreamWrapper, isOllamaCompatProvider, resolveOllamaCompatNumCtxEnabled, resolveOllamaSetupDefaultBaseUrl, shouldInjectOllamaCompatNumCtx, wrapOllamaCompatNumCtx };

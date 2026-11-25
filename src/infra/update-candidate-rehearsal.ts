@@ -7,6 +7,7 @@ import type { OpenClawConfigWithLegacyRoster } from "../config/legacy.roster.js"
 import type { AgentEntryConfig } from "../config/types.agents.js";
 import { coerceSecretRef } from "../config/types.secrets.js";
 import { resolveOpenClawStateSqlitePath } from "../state/openclaw-state-db.paths.js";
+import { resolveDatabaseFamilyEngines } from "./database-engine/registry.js";
 import { resolveUserPath } from "./home-dir.js";
 import { tryListenOnPort } from "./ports-probe.js";
 import { SUPERVISOR_HINT_ENV_VARS } from "./supervisor-markers.js";
@@ -60,6 +61,11 @@ function isolatedConfig(
   migrationPolicy?: "rehearse" | "startup-only",
 ): OpenClawConfigWithLegacyRoster {
   const copied = structuredClone(config);
+  if (Object.values(resolveDatabaseFamilyEngines(copied)).includes("postgres")) {
+    // Provider exports are private SQLite images, never live PostgreSQL anchors.
+    // Candidates repeat this for older drivers (projectUpdateRehearsalDatabaseConfig).
+    copied.database = { engine: "sqlite" };
+  }
   const projectPluginPath = (value: string) => {
     const projected = pluginPaths[resolveUserPath(value, sourceEnv)];
     if (!projected) {
@@ -107,11 +113,10 @@ function isolatedConfig(
           resolveUserPath(agent.agentDir, sourceEnv),
         )
       : path.join(stateDir, "agents", id, "agent"),
-    heartbeat: { every: "0m" },
   });
   copied.agents = {
     ...copied.agents,
-    defaults: { ...copied.agents?.defaults, workspace, cwd: workspace, heartbeat: { every: "0m" } },
+    defaults: { ...copied.agents?.defaults, workspace, cwd: workspace },
     ...(entries
       ? {
           entries: Object.fromEntries(
@@ -186,6 +191,7 @@ export async function prepareUpdateCandidateRehearsal(params: {
   stateDir: string;
   env?: NodeJS.ProcessEnv;
   nodeRunner?: string;
+  fullIntegrityCheck?: boolean;
   timeoutMs?: number;
   signal?: AbortSignal;
   assertCurrent?: () => void;
@@ -281,7 +287,10 @@ export async function prepareUpdateCandidateRehearsal(params: {
     const port = await tryListenOnPort({
       port: 0,
       host: "127.0.0.1",
-      signal: params.signal ?? AbortSignal.timeout(params.timeoutMs ?? 300_000),
+      signal: AbortSignal.any([
+        AbortSignal.timeout(params.timeoutMs ?? 300_000),
+        ...(params.signal ? [params.signal] : []),
+      ]),
     });
     const serialized = JSON.stringify(
       isolatedConfig(
@@ -299,6 +308,15 @@ export async function prepareUpdateCandidateRehearsal(params: {
     params.signal?.throwIfAborted();
     params.assertCurrent?.();
     await fs.mkdir(workspaceDir, { recursive: true, mode: 0o700 });
+    if (
+      Object.values(params.config.secrets?.providers ?? {}).some(
+        (provider) => provider.source === "exec",
+      )
+    ) {
+      snapshotWarnings.push(
+        "Update rehearsal leaves exec SecretRef providers cold; credential availability is not verified.",
+      );
+    }
     return {
       stateDir: tempDir,
       configPath,

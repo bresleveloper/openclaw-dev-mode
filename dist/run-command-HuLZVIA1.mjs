@@ -1,0 +1,3 @@
+import{t as formatErrorMessage}from"./errors-CRXp6JVo.mjs";import{n as runCommandWithTimeout}from"./exec-runner-DpcWIHOp.mjs";import"./exec-DMFvryVA.mjs";
+//!src/plugin-sdk/run-command.ts
+async function runPluginCommandWithTimeout(e){const[t]=e.argv;if(!t)return{code:1,stdout:``,stderr:`command is required`};try{const t=await runCommandWithTimeout(e.argv,{timeoutMs:e.timeoutMs,cwd:e.cwd,env:e.env});const n=t.termination===`timeout`||t.termination===`no-output-timeout`;return{code:t.code??1,stdout:t.stdout,stderr:n?t.stderr||`command timed out after ${e.timeoutMs}ms`:t.stderr}}catch(e){return{code:1,stdout:``,stderr:formatErrorMessage(e)}}}export{runPluginCommandWithTimeout as t};

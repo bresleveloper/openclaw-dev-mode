@@ -1,0 +1,1 @@
+import{n as resolvePluginArtifactDeclaredSurface,t as inspectPluginCapabilityArtifact}from"./capability-artifact-1h5IP4Cw.mjs";export{resolvePluginArtifactDeclaredSurface};

@@ -1,0 +1,3 @@
+import{o as normalizeLowercaseStringOrEmpty}from"./string-coerce-CpTFcSwY.mjs";
+//!src/security/external-content-source.ts
+function resolveHookExternalContentSource(e){const t=normalizeLowercaseStringOrEmpty(e);if(t.startsWith(`hook:gmail:`))return`gmail`;if(t.startsWith(`hook:`))return`webhook`}function mapHookExternalContentSource(e){return e===`webhook`?`webhook`:`email`}function isExternalHookSession(e){return resolveHookExternalContentSource(e)!==void 0}export{mapHookExternalContentSource as n,resolveHookExternalContentSource as r,isExternalHookSession as t};

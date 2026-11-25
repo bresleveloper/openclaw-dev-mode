@@ -1,0 +1,3 @@
+import{r as resolveStateDir}from"./state-dir-BwbNjuVe.mjs";import{l as resolveOpenClawAgentSqlitePath}from"./openclaw-agent-db.paths-CxBl-eWJ.mjs";import"./state-paths--to_cMmg.mjs";import"./sqlite-runtime-Hiw4zf2-.mjs";
+//!extensions/memory-core/src/memory-agent-database.ts
+function captureMemoryAgentDatabaseOptions(e){const t={...process.env,OPENCLAW_STATE_DIR:resolveStateDir()};return{agentId:e,env:t,path:resolveOpenClawAgentSqlitePath({agentId:e,env:t})}}function captureMemoryAgentReadTarget(e){return{agentId:e.agentId,databasePath:resolveOpenClawAgentSqlitePath(e),stateDir:resolveStateDir(e.env)}}export{captureMemoryAgentReadTarget as n,captureMemoryAgentDatabaseOptions as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function isRenderableAvatarImageDataUrl(e){return e.length<=2796230&&a.test(e)}var t,n,r,i,a,o=e((()=>{t=[`image/png`,`image/jpeg`,`image/webp`],n=2097152,r=26,i=Math.ceil(n/3)*4+r,a=/^data:image\//i}));export{isRenderableAvatarImageDataUrl as a,o as i,i as n,t as r,n as t};

@@ -1,0 +1,2 @@
+//!src/skills/skill-file-host.ts
+function recordSkillFileHost(e,t){return Object.assign(e,{fileHost:t})}function resolveSkillFileHost(e){return e.fileHost}function clearSkillFileHost(e){Reflect.deleteProperty(e,`fileHost`);Reflect.deleteProperty(e,`resourceRootIdentity`);return e}export{recordSkillFileHost as n,resolveSkillFileHost as r,clearSkillFileHost as t};

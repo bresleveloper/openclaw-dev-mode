@@ -1,0 +1,1 @@
+import{t as resolveInstallableChannelPlugin}from"./channel-plugin-resolution-CdlBmO2V.mjs";export{resolveInstallableChannelPlugin};

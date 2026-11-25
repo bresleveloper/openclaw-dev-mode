@@ -1,0 +1,3 @@
+import{createHash}from"node:crypto";
+//!src/gateway/github-personal-publication-store.ts
+function personalGitHubRequestDigest(e){return createHash(`sha256`).update(JSON.stringify([e.request_id,e.owner_profile_id,e.session_id,e.session_key,e.agent_id,e.idempotency_key,e.connection_generation,e.identity_source,e.identity_profile_id,e.identity_account_id,e.identity_login,e.worktree_id,e.repository_fingerprint,e.push_repository,e.repository,e.branch,e.base_branch,e.source_head_commit,e.source_index_tree,e.workspace_tree,e.title,e.body,e.created_at_ms,...e.draft!=null?[e.draft]:[]])).digest(`hex`)}export{personalGitHubRequestDigest as t};

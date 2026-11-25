@@ -1,0 +1,3 @@
+import{Type}from"typebox";
+//!src/agents/schema/string-enum.ts
+function stringEnum(e,t={}){const n=Array.isArray(e)?e:e&&typeof e===`object`?Object.values(e).filter(e=>typeof e===`string`):[];return n.length===0?Type.Unsafe({type:`string`,...t}):Type.Enum(n,{type:`string`,...t})}function optionalStringEnum(e,t={}){return Type.Optional(stringEnum(e,t))}export{stringEnum as n,optionalStringEnum as t};

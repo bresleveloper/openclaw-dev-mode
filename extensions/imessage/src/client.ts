@@ -5,7 +5,7 @@ import {
   captureChannelReadAuthority,
   captureEffectAuthority,
 } from "openclaw/plugin-sdk/fetch-runtime";
-import { logVerbose, type RuntimeEnv } from "openclaw/plugin-sdk/runtime-env";
+import type { RuntimeEnv } from "openclaw/plugin-sdk/runtime-env";
 import {
   isRecord,
   normalizeLowercaseStringOrEmpty,
@@ -16,7 +16,10 @@ import { recoverIMessageBridge } from "./bridge-recovery.js";
 import { expandIMessageUserPath } from "./cli-path.js";
 import { DEFAULT_IMESSAGE_PROBE_TIMEOUT_MS } from "./constants.js";
 import { invalidateCachedIMessagePrivateApiStatus } from "./private-api-status.js";
-import { describeIMessageAutomationFailure } from "./process-diagnostics.js";
+import {
+  describeIMessageAutomationFailure,
+  normalizeIMessageFullDiskAccessError,
+} from "./process-diagnostics.js";
 
 // Match only the documented Contacts reconciliation diagnostic; other Apple
 // framework messages must keep their error level.
@@ -106,8 +109,6 @@ type PendingRequest = {
   reject: (error: Error) => void;
 };
 
-const PUBLIC_IMESSAGE_FULL_DISK_ACCESS_ERROR =
-  "imsg cannot access ~/Library/Messages/chat.db. Grant Full Disk Access to the Gateway/launcher process and restart Gateway.";
 const IMESSAGE_RPC_CLOSE_GRACE_MS = 500;
 
 function isTestEnv(): boolean {
@@ -116,14 +117,6 @@ function isTestEnv(): boolean {
   }
   const vitest = normalizeLowercaseStringOrEmpty(process.env.VITEST);
   return Boolean(vitest);
-}
-
-function normalizeIMessageFullDiskAccessError(message: string): string | undefined {
-  const normalized = normalizeLowercaseStringOrEmpty(message);
-  if (!normalized.includes("full disk access") || !normalized.includes("chat.db")) {
-    return undefined;
-  }
-  return PUBLIC_IMESSAGE_FULL_DISK_ACCESS_ERROR;
 }
 
 function createLfLineFramer(onLine: (line: string) => void): {
@@ -248,7 +241,9 @@ export class IMessageRpcClient {
         this.child = null;
       }
       this.finish(this.buildCloseError(code, signal));
-      this.markReaped();
+      const resolve = this.reapedResolve;
+      this.reapedResolve = null;
+      resolve?.();
     });
   }
 
@@ -342,7 +337,8 @@ export class IMessageRpcClient {
           await recoverIMessageBridge(this.configuredCliPath);
         } catch (recoveryError) {
           this.runtime?.error?.(
-            `imessage: automatic bridge recovery failed: ${formatErrorMessage(recoveryError)}`,
+            normalizeIMessageFullDiskAccessError(formatErrorMessage(recoveryError)) ??
+              `imessage: automatic bridge recovery failed. ${BRIDGE_STALL_GUIDANCE}`,
           );
         }
         throw describeIMessageBridgeStall(err);
@@ -415,20 +411,20 @@ export class IMessageRpcClient {
     // the benign ones, so record before choosing the log level.
     this.recordProcessDiagnostic(trimmed);
     if (IMSG_APPLE_FRAMEWORK_STDERR_PATTERN.test(trimmed)) {
-      logVerbose(`imsg rpc: ${trimmed}`);
       return;
     }
-    this.runtime?.error?.(`imsg rpc: ${trimmed}`);
+    this.runtime?.error?.(
+      normalizeIMessageFullDiskAccessError(trimmed) ?? "imsg rpc: stderr diagnostic received",
+    );
   }
 
   private handleLine(line: string) {
     let parsed: IMessageRpcResponse<unknown>;
     try {
       parsed = JSON.parse(line) as IMessageRpcResponse<unknown>;
-    } catch (err) {
+    } catch {
       this.recordProcessDiagnostic(line);
-      const detail = formatErrorMessage(err);
-      this.runtime?.error?.(`imsg rpc: failed to parse ${line}: ${detail}`);
+      this.runtime?.error?.("imsg rpc: failed to parse JSON response");
       return;
     }
 
@@ -493,28 +489,18 @@ export class IMessageRpcClient {
     return new Error("imsg rpc closed");
   }
 
-  private failAll(err: Error) {
-    for (const [key, pending] of this.pending.entries()) {
-      pending.reject(err);
-      this.pending.delete(key);
-    }
-  }
-
   private finish(err: Error): boolean {
     const resolve = this.terminalResolve;
     if (!resolve) {
       return false;
     }
     this.terminalResolve = null;
-    this.failAll(err);
+    for (const [key, pending] of this.pending.entries()) {
+      pending.reject(err);
+      this.pending.delete(key);
+    }
     resolve(err);
     return true;
-  }
-
-  private markReaped(): void {
-    const resolve = this.reapedResolve;
-    this.reapedResolve = null;
-    resolve?.();
   }
 }
 

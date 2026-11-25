@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function createPendingPromiseTracker(e){return t=>{e.add(t);let settled=()=>e.delete(t);return t.then(settled,settled),t}}var t=e((()=>{}));export{t as n,createPendingPromiseTracker as t};

@@ -1,5 +1,5 @@
 import { buildMoonshotProvider } from "./provider-catalog.js";
-//#region extensions/moonshot/provider-discovery.ts
+// extensions/moonshot/provider-discovery.ts
 const moonshotProviderDiscovery = {
 	id: "moonshot",
 	label: "Moonshot",
@@ -11,5 +11,4 @@ const moonshotProviderDiscovery = {
 		run: async () => ({ provider: buildMoonshotProvider() })
 	}
 };
-//#endregion
 export { moonshotProviderDiscovery as default };

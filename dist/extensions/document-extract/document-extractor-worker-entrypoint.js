@@ -1,2 +1,1 @@
-import { t as documentExtractorWorkerEntrypoint } from "../../document-extractor-worker-entrypoint-DcfMvI4N.mjs";
-export { documentExtractorWorkerEntrypoint };
+import{t as documentExtractorWorkerEntrypoint}from"../../document-extractor-worker-entrypoint-CV0QJJve.mjs";export{documentExtractorWorkerEntrypoint};

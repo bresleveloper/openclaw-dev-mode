@@ -1,0 +1,3 @@
+import{t as createPluginRuntimeProcessEntrypoint}from"../../runtime-process-manifest-BJ6oKIvE.mjs";import{a as resolveRuntimeWorkerUrl}from"../../runtime-worker-url-B4gxQVQi.mjs";import{t as WorkerTaskPool}from"../../worker-task-pool-CiGDnAai.mjs";import"../../process-runtime-DW4VP5wa.mjs";
+//!extensions/web-readability/web-content-extractor-worker.runtime.ts
+const pool=new WorkerTaskPool({workerUrl:resolveRuntimeWorkerUrl(createPluginRuntimeProcessEntrypoint(`webReadability`,import.meta.url)),workerClass:`compute`,sharedCompute:true});function extractInWorker(e){return pool.run(e,{inputBytes:e.html.length*2})}export{extractInWorker};

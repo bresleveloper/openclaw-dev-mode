@@ -1,0 +1,2 @@
+//!src/agents/bootstrap-mode.ts
+function resolveBootstrapMode(e){if(!e.bootstrapPending)return`none`;if(e.runKind===`cron`)return`none`;if(!e.isPrimaryRun||!e.isInteractiveUserFacing)return`none`;return e.hasBootstrapFileAccess&&e.isCanonicalWorkspace?`full`:`limited`}export{resolveBootstrapMode as t};

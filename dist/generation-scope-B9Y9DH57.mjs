@@ -1,0 +1,1 @@
+import{t as getPluginRuntimeGenerationRegistry}from"./generation-state-CdUtdePl.mjs";import{n as withPluginRuntimeGenerationScope,t as runOutsidePluginRuntimeGenerationScope}from"./generation-scope-C-hKJp_l.mjs";export{getPluginRuntimeGenerationRegistry,runOutsidePluginRuntimeGenerationScope,withPluginRuntimeGenerationScope};

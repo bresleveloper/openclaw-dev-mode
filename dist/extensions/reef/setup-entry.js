@@ -1,16 +1,3 @@
-import { fileURLToPath } from "node:url";
-import { defineBundledChannelSetupEntry } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/reef/setup-entry.ts
-var setup_entry_default = defineBundledChannelSetupEntry({
-	importMetaUrl: import.meta.url,
-	plugin: {
-		specifier: fileURLToPath(new URL(".setup/channel-plugin-api-BUIz9qeQ.mjs", import.meta.url).href),
-		exportName: "reefPlugin"
-	},
-	runtime: {
-		specifier: fileURLToPath(new URL(".setup/runtime-api-DFEf9LUn.mjs", import.meta.url).href),
-		exportName: "setReefRuntime"
-	}
-});
-//#endregion
-export { setup_entry_default as default };
+import{fileURLToPath}from"node:url";import{defineBundledChannelSetupEntry}from"openclaw/plugin-sdk/channel-entry-contract";
+//!extensions/reef/setup-entry.ts
+var setup_entry_default=defineBundledChannelSetupEntry({importMetaUrl:import.meta.url,plugin:{specifier:fileURLToPath(new URL(`.setup/channel-plugin-api-CZ8-nfQP.mjs`,import.meta.url).href),exportName:`reefPlugin`},runtime:{specifier:fileURLToPath(new URL(`.setup/runtime-api-_BO2WFhf.mjs`,import.meta.url).href),exportName:`setReefRuntime`}});export{setup_entry_default as default};

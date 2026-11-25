@@ -1,0 +1,3 @@
+import{t as hasErrnoCode}from"./errno-DUBt6SQQ.mjs";import fs from"node:fs";import path from"node:path";
+//!src/daemon/systemd-cgroup.ts
+function systemdCgroupEventsPath(e){if(!e.startsWith(`/`)||e===`/`||e.split(`/`).slice(1).some(e=>!e||e===`..`||e===`.`))throw new Error(`The systemd cgroup cannot be verified.`);return path.join(`/sys/fs/cgroup`,e,`cgroup.events`)}function isSystemdControlGroupEmpty(e){const t=systemdCgroupEventsPath(e);try{const e=fs.readFileSync(t,`utf8`);const n=/^populated ([01])$/mu.exec(e)?.[1];if(n===void 0)throw new Error(`The systemd cgroup population is unavailable.`);return n===`0`}catch(e){if(hasErrnoCode(e,`ENOENT`))return true;throw e}}export{isSystemdControlGroupEmpty as t};

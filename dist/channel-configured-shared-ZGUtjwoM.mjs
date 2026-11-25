@@ -1,0 +1,1 @@
+import{t as isStaticallyChannelConfigured}from"./channel-configured-shared--v--vy8p.mjs";export{isStaticallyChannelConfigured};

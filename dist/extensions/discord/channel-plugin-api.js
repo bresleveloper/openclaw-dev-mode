@@ -1,2 +1,1 @@
-import { t as discordPlugin } from "./.setup/channel-ZilgdF5e.mjs";
-export { discordPlugin };
+export { t as discordPlugin } from "./.setup/channel-C0GMDf_u.mjs";

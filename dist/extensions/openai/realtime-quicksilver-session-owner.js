@@ -1,2 +1,1 @@
-import { n as releaseOpenAIQuicksilverBrowserSessionBroker, t as acquireOpenAIQuicksilverBrowserSessionBroker } from "../../realtime-quicksilver-session-owner-BdkpR8pS.mjs";
-export { acquireOpenAIQuicksilverBrowserSessionBroker, releaseOpenAIQuicksilverBrowserSessionBroker };
+import{n as releaseOpenAIQuicksilverBrowserSessionBroker,t as acquireOpenAIQuicksilverBrowserSessionBroker}from"../../realtime-quicksilver-session-owner-CxsfMs06.mjs";export{acquireOpenAIQuicksilverBrowserSessionBroker,releaseOpenAIQuicksilverBrowserSessionBroker};

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{i as t,r as n}from"./worker-chunk-C8FvJXcq.mjs";function resolveCanonicalPluginApprovalRequestAllowedDecisions(e){let n=t(e);return n.includes(`deny`)?n:[...n,`deny`]}var r=e((()=>{n()}));export{resolveCanonicalPluginApprovalRequestAllowedDecisions as n,r as t};

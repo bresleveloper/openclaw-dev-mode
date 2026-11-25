@@ -1,7 +1,7 @@
-import { n as __reExport, t as __exportAll } from "./.setup/rolldown-runtime-BBjsoOtd.mjs";
+import { n as __reExport, t as __exportAll } from "./.setup/rolldown-runtime-782esTHO.mjs";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import path from "node:path";
-//#region packages/normalization-core/src/record-coerce.ts
+// packages/normalization-core/src/record-coerce.ts
 /** Type guard for non-array object records at browser-safe boundaries. */
 function isRecord$1(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -10,8 +10,7 @@ function isRecord$1(value) {
 function asNullableRecord$1(value) {
 	return isRecord$1(value) ? value : null;
 }
-//#endregion
-//#region src/config/channel-config-normalization.ts
+// src/config/channel-config-normalization.ts
 /** Applies one channel-specific doctor migration to every object-shaped account. */
 function normalizeChannelAccounts(params) {
 	const rawAccounts = asNullableRecord$1(params.entry.accounts);
@@ -87,8 +86,7 @@ function normalizeChannelConfigEntries$1(params) {
 		changes
 	};
 }
-//#endregion
-//#region src/plugin-sdk/legacy-webhook-listener-migration.ts
+// src/plugin-sdk/legacy-webhook-listener-migration.ts
 /** Preserve explicitly configured webhook listeners while moving ingress onto Gateway routes. */
 function createLegacyWebhookListenerDoctorContract(params) {
 	const portKey = params.portKey ?? "webhookPort";
@@ -158,13 +156,11 @@ function createLegacyWebhookListenerDoctorContract(params) {
 		}
 	};
 }
-//#endregion
-//#region \0openclaw:bundled-sdk:openclaw/plugin-sdk/runtime-doctor-migrations
+// \0openclaw:bundled-sdk:openclaw/plugin-sdk/runtime-doctor-migrations
 var runtime_doctor_migrations_exports = /* @__PURE__ */ __exportAll({ createLegacyWebhookListenerDoctorContract: () => createLegacyWebhookListenerDoctorContract });
 import * as import_openclaw_plugin_sdk_runtime_doctor_migrations from "openclaw/plugin-sdk/runtime-doctor-migrations";
 __reExport(runtime_doctor_migrations_exports, import_openclaw_plugin_sdk_runtime_doctor_migrations);
-//#endregion
-//#region extensions/imessage/config-doctor-api.ts
+// extensions/imessage/config-doctor-api.ts
 function isEnabledCatchup(value) {
 	return isRecord(value) && value.enabled === true;
 }
@@ -210,8 +206,7 @@ function normalizeCompatibilityConfig({ cfg }) {
 		changes: catchup.changes
 	});
 }
-//#endregion
-//#region extensions/imessage/doctor-contract-api.ts
+// extensions/imessage/doctor-contract-api.ts
 const stateMigrations = [(0, runtime_doctor_migrations_exports.defineRetiredPluginStateMigration)({
 	id: "imessage-retired-state",
 	label: "iMessage retired monitor state",
@@ -225,5 +220,4 @@ const stateMigrations = [(0, runtime_doctor_migrations_exports.defineRetiredPlug
 		}
 	]
 })];
-//#endregion
 export { legacyConfigRules, normalizeCompatibilityConfig, stateMigrations };

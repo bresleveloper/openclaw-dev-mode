@@ -1,3 +1,4 @@
+import { agentControlText } from "openclaw/plugin-sdk/agent-control-runtime";
 import {
   normalizeMessagePresentation,
   renderMessagePresentationFallbackText,
@@ -90,7 +91,8 @@ export function resolveMattermostPresentation(params: {
                     },
                   ];
             }
-            if (action) {
+            // Typed callbacks render only when a message action authored them for the agent.
+            if (action && !(action.type === "callback" && agentControlText(action.value))) {
               return [];
             }
             const value = resolveMessagePresentationControlValue(button);

@@ -1,0 +1,3 @@
+import{a as usePluginFilesLocation}from"../../../plugin-files-lFcEtgtt.mjs";import{t as installWorkerSdkResolver}from"../../../worker-sdk-resolver-BYgMUiza.mjs";import{parentPort,workerData}from"node:worker_threads";
+//!extensions/knowledge/src/storage-worker.ts
+const data=workerData;installWorkerSdkResolver(data.sdk);usePluginFilesLocation(data.files);const{serve}=await import(`../../../storage-host-CFLP-f-s.mjs`);serve(parentPort,data);export{};

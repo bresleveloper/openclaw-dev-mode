@@ -1,0 +1,1 @@
+import{n as normalizeBifrostBaseUrl,r as tryNormalizeBifrostBaseUrl,t as BIFROST_BASE_URL}from"../../defaults-DEkAvIu1.mjs";export{BIFROST_BASE_URL,normalizeBifrostBaseUrl,tryNormalizeBifrostBaseUrl};

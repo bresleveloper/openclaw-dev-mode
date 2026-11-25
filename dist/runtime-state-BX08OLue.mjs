@@ -1,0 +1,3 @@
+import{t as PLUGIN_REGISTRY_STATE}from"./runtime-state-key-BVC-O1g3.mjs";
+//!src/plugins/runtime-state.ts
+function getPluginRegistryState(){return globalThis[PLUGIN_REGISTRY_STATE]}function getPluginRegistryVersion(e){return e?getPluginRegistryState()?.registryVersions?.get(e):void 0}function getRetiringPluginRegistries(){return[...getPluginRegistryState()?.retiredRegistryCleanups?.values()??[]].map(({registry:e})=>e)}function getActivePluginGatewayNodePolicyRegistry(){return getPluginRegistryState()?.activeRegistry??null}export{getRetiringPluginRegistries as i,getPluginRegistryState as n,getPluginRegistryVersion as r,getActivePluginGatewayNodePolicyRegistry as t};

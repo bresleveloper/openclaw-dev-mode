@@ -1,0 +1,3 @@
+import path from"node:path";import crypto from"node:crypto";
+//!extensions/google/gemini-cli-auth-home.ts
+const GOOGLE_GEMINI_CLI_PROVIDER_ID=`google-gemini-cli`;function resolveGeminiCliProfileHome(e,t){const n=crypto.createHash(`sha256`).update(t).digest(`hex`).slice(0,24);return path.join(e,`${GOOGLE_GEMINI_CLI_PROVIDER_ID}-home`,`profiles`,n)}export{resolveGeminiCliProfileHome as n,GOOGLE_GEMINI_CLI_PROVIDER_ID as t};

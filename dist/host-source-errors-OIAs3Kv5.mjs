@@ -1,0 +1,2 @@
+//!src/gateway/desktop/host-source-errors.ts
+var DesktopCredentialsRequiredError=class extends Error{constructor(e,t){super(t);this.auth=e;this.detailCode=`DESKTOP_CREDENTIALS_REQUIRED`;this.name=`DesktopCredentialsRequiredError`}};var HostDesktopCredentialsRequiredError=class extends DesktopCredentialsRequiredError{constructor(){super(`ard-account`,`macOS account credentials are required to observe Screen Sharing`);this.name=`HostDesktopCredentialsRequiredError`}};export{HostDesktopCredentialsRequiredError as n,DesktopCredentialsRequiredError as t};

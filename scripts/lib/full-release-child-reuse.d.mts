@@ -4,6 +4,10 @@ export interface ReusableReleaseChildRequest {
   workflowSha: string;
   role: string;
   inputs: Record<string, string | boolean | number>;
+  /** Authenticated candidate version used when applying release policy. */
+  policyTargetVersion?: string;
+  /** Required job names from the authenticated qualification coverage, when available. */
+  requiredJobs?: readonly string[];
   /** Exclude children dispatched by this parent run. */
   excludeRunId?: string;
 }
@@ -32,7 +36,11 @@ export interface ReusableReleaseChildSelection {
 }
 
 export interface ReusableReleaseChildDependencies {
+  immutableReads?: ReturnType<
+    typeof import("./release-evidence-replay.mjs").createReleaseEvidenceReplay
+  >;
   report?: (message: string) => void;
+
   github?: (endpoint: string) => Promise<unknown>;
   downloadArchive?: (input: Record<string, unknown>) => Promise<{
     artifactMetadata: unknown;
@@ -42,6 +50,14 @@ export interface ReusableReleaseChildDependencies {
   deadlineMs?: number;
   token?: string;
 }
+
+export function validateReleaseWorkloadIdentity(
+  workflowSha: string,
+  request: Pick<ReusableReleaseChildRequest, "workflowSha" | "role"> & {
+    spec: Pick<import("../full-release-validation-policy.mjs").ReleaseChildSpec, "workflow">;
+  },
+  deps: Required<Pick<ReusableReleaseChildDependencies, "github">>,
+): Promise<void>;
 
 export function discoverReusableReleaseChild(
   request: ReusableReleaseChildRequest,
@@ -55,6 +71,7 @@ export function validateReusableReleaseChild(
 ): Promise<{
   selection: ReusableReleaseChildSelection;
   receipt: Record<string, unknown>;
+  compositeJobs: Record<string, unknown>[];
   run: Record<string, unknown>;
   jobs: Record<string, unknown>[];
 }>;

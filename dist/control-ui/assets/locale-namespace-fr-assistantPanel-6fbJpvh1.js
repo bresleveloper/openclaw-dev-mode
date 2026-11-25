@@ -1,0 +1,1 @@
+export default {"assistantPanel":{"context":"Travail en cours : {context}","removeContext":"Retirer le contexte de travail","includeContext":"Inclure le contexte de travail","selection":"Texte sélectionné","attachSelection":"Joindre le texte sélectionné","attachSelectionTooltip":"Joindre la sélection","removeSelection":"Retirer le texte sélectionné"}};

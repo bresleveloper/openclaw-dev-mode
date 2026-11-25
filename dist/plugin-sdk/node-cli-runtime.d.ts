@@ -1,6 +1,5 @@
-import "../node-list-types-kzEt3Ma3.js";
+import "../node-list-types-DLpCJFxG.js";
 import { Command } from "commander";
-//#region src/cli/nodes-cli/cli-utils.d.ts
 /** Return color helpers that degrade to plain text in non-rich terminals. */
 export declare function getNodesTheme(): {
   rich: boolean;
@@ -12,8 +11,6 @@ export declare function getNodesTheme(): {
 };
 /** Run a node CLI action with standard failure text and authorization hints. */
 export declare function runNodesCommand(label: string, action: () => Promise<void>): Promise<void>;
-//#endregion
-//#region src/cli/nodes-cli/rpc.d.ts
 /** Attach shared Gateway connection/json options to a node command. */
 export declare const nodesCallOpts: (cmd: Command, defaults?: {
   timeoutMs?: number;
@@ -26,4 +23,3 @@ export declare function buildNodeInvokeParams(params: {
   timeoutMs?: number;
   idempotencyKey?: string;
 }): Record<string, unknown>;
-//#endregion

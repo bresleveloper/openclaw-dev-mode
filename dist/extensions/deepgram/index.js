@@ -1,15 +1,3 @@
-import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
-import { t as deepgramMediaUnderstandingProvider } from "../../media-understanding-provider-DSmmEPHY.mjs";
-import { t as buildDeepgramRealtimeTranscriptionProvider } from "../../realtime-transcription-provider-factory-OEYuXYJC.mjs";
-//#region extensions/deepgram/index.ts
-var deepgram_default = definePluginEntry({
-	id: "deepgram",
-	name: "Deepgram Media Understanding",
-	description: "Bundled Deepgram audio transcription provider",
-	register(api) {
-		api.registerMediaUnderstandingProvider(deepgramMediaUnderstandingProvider);
-		api.registerRealtimeTranscriptionProvider(buildDeepgramRealtimeTranscriptionProvider);
-	}
-});
-//#endregion
-export { deepgram_default as default };
+import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import{n as DEFAULT_DEEPGRAM_AUDIO_MODEL,r as transcribeDeepgramAudio}from"../../audio-QMY21LdW.mjs";import{t as buildDeepgramRealtimeTranscriptionProvider}from"../../realtime-transcription-provider-factory-DM_4uxNQ.mjs";
+//!extensions/deepgram/index.ts
+var deepgram_default=definePluginEntry({id:`deepgram`,name:`Deepgram Media Understanding`,description:`Bundled Deepgram audio transcription provider`,register(e){e.registerMediaUnderstandingProvider({id:`deepgram`,capabilities:[`audio`],defaultModels:{audio:DEFAULT_DEEPGRAM_AUDIO_MODEL},autoPriority:{audio:30},transcribeAudio:transcribeDeepgramAudio});e.registerRealtimeTranscriptionProvider(buildDeepgramRealtimeTranscriptionProvider)}});export{deepgram_default as default};

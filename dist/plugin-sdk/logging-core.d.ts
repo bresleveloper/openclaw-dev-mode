@@ -1,10 +1,10 @@
-import { M as OpenClawConfig } from "../types-D7I_F5Ux.js";
-import { R as DiagnosticMemoryUsage, a as DiagnosticLivenessWarningReason, c as DiagnosticSessionState, r as DiagnosticEventPayload, s as DiagnosticSessionActiveWorkKind } from "../diagnostic-events-CMrJXSRl.js";
-import { n as RuntimeEnv } from "../runtime-M_jncu14.js";
-import { n as createSubsystemLogger } from "../subsystem-RmDRaRJV.js";
-import { a as GatewayScheduler, n as redactSensitiveText, r as redactToolPayloadText, t as redactSensitiveFieldValue } from "../diagnostic-run-activity-hzzl6lha.js";
-import { n as getChildLogger, o as LoggerSettings, t as LoggerResolvedSettings } from "../logger-B5J5_m3z.js";
-//#region src/logging/diagnostic-liveness.d.ts
+import { JT as ReplyOperation, KE as GatewayScheduler, Lb as redactSensitiveFieldValue, Rb as redactSensitiveText, zb as redactToolPayloadText } from "../config-contracts-hzlacViZ.js";
+import { r as OpenClawConfig } from "../types.openclaw-D8uW-XQA.js";
+import { i as DiagnosticMemoryUsage } from "../diagnostic-process-types-BIzAFG7u.js";
+import { n as RuntimeEnv } from "../runtime-C7vMCRi6.js";
+import { n as createSubsystemLogger } from "../subsystem-wnS6DJyq.js";
+import { i as DiagnosticLivenessWarningReason, n as DiagnosticEventPayload, o as DiagnosticSessionActiveWorkKind, s as DiagnosticSessionState } from "../diagnostic-events-ClGLRZ6Y.js";
+import { a as LoggerResolvedSettings, o as getChildLogger, u as LoggerSettings } from "../runtime-env-CERK9fjD.js";
 type DiagnosticLivenessSample = {
   reasons: DiagnosticLivenessWarningReason[];
   intervalMs: number;
@@ -17,8 +17,6 @@ type DiagnosticLivenessSample = {
   cpuTotalMs?: number;
   cpuCoreRatio?: number;
 };
-//#endregion
-//#region src/logging/diagnostic-memory.d.ts
 type DiagnosticMemoryThresholds = {
   rssWarningBytes?: number;
   rssCriticalBytes?: number;
@@ -36,7 +34,7 @@ declare function emitDiagnosticMemorySample(options?: {
   uptimeMs?: number;
   thresholds?: DiagnosticMemoryThresholds;
   emitSample?: boolean;
-}): DiagnosticMemoryUsage;
+}, collectDiagnostics?: boolean): DiagnosticMemoryUsage;
 type EmitDiagnosticMemorySample = (options?: NonNullable<Parameters<typeof emitDiagnosticMemorySample>[0]> & {
   thresholds?: DiagnosticMemoryThresholds & {
     rssGrowthWarningBytes?: number;
@@ -48,31 +46,52 @@ type EmitDiagnosticMemorySample = (options?: NonNullable<Parameters<typeof emitD
   sessionStorePaths?: string[];
   resolveSessionStorePaths?: () => string[] | undefined;
 }) => ReturnType<typeof emitDiagnosticMemorySample>;
-//#endregion
-//#region src/logging/diagnostic-session-recovery.d.ts
-type DiagnosticSessionRecoverySkipReason = "active_embedded_run" | "model_attempt_recovery" | "active_reply_work" | "human_input_wait" | "runtime_owned_wait" | "deferred_maintenance_wait" | "terminal_outcome_committed" | "global_lane_wait" | "active_lane_task" | "already_in_flight" | "missing_session_ref" | "stale_session_state";
+type SessionAttentionClassification = {
+  eventType: "session.long_running";
+  reason: string;
+  classification: "long_running";
+  activeWorkKind?: DiagnosticSessionActiveWorkKind;
+} | {
+  eventType: "session.stalled";
+  reason: string;
+  classification: "blocked_tool_call" | "stalled_agent_run";
+  activeWorkKind?: DiagnosticSessionActiveWorkKind;
+} | {
+  eventType: "session.stuck";
+  reason: string;
+  classification: "stale_session_state";
+  activeWorkKind?: undefined;
+};
 type StuckSessionRecoveryRequest = {
+  /** Exact captured controller owner; diagnostic IDs and map absence grant no authority. */
+  operation?: ReplyOperation;
   sessionId?: string;
   sessionKey?: string;
   sessionFile?: string;
   ageMs: number;
   queueDepth?: number;
+  /** Recorded controller decision for SDK recovery callbacks, never independent authority. */
   allowActiveAbort?: boolean;
-  /** Revalidate semantic no-progress evidence after deferred recovery dispatch. */
+  /** Legacy diagnostic threshold metadata retained by the logging-core SDK callback contract. */
   repeatedRequestNoProgressAbortMs?: number;
   expectedState?: DiagnosticSessionState;
   stateGeneration?: number;
   /**
-   * Built-in no-forward-progress age after
-   * which an "active" run with queued work is treated as a leaked/dead handle and
-   * reclaimed. Honors an operator-raised threshold; falls back to a safe floor.
+   * Legacy observation threshold retained for SDK callback compatibility.
+   * The captured controller alone decides whether its work can be recovered.
    */
   staleActiveProgressAbortMs?: number;
   /**
-   * Resolved compaction safety timeout. Ownerless lane recovery waits at least
-   * this long plus settle grace so queued compaction cannot be double-run.
+   * Resolved compaction timeout metadata retained for SDK callbacks.
+   * It never grants ownerless recovery or changes the controller deadline.
    */
   compactionSafetyTimeoutMs?: number;
+  /**
+   * Attention classification that triggered this recovery. Carried through so the
+   * abort branch can report the semantic cause (e.g. `blocked_tool_call`) instead
+   * of a cause-free literal. Never grants recovery authority on its own.
+   */
+  classification?: SessionAttentionClassification;
 };
 type DiagnosticSessionRecoveryBaseOutcome = {
   sessionId?: string;
@@ -82,6 +101,10 @@ type DiagnosticSessionRecoveryBaseOutcome = {
   activeWorkKind?: DiagnosticSessionActiveWorkKind;
 };
 type StuckSessionRecoveryOutcome = (DiagnosticSessionRecoveryBaseOutcome & {
+  status: "noop";
+  action: "reconcile_state";
+  reason: "no_active_work" | "pending_session_work";
+}) | (DiagnosticSessionRecoveryBaseOutcome & {
   status: "aborted";
   action: "abort_embedded_run";
   aborted: boolean;
@@ -89,6 +112,12 @@ type StuckSessionRecoveryOutcome = (DiagnosticSessionRecoveryBaseOutcome & {
   forceCleared: boolean;
   released: number;
   queuedCount?: number;
+  /**
+   * Semantic cause the recovery acted on when it killed the run (e.g.
+   * `blocked_tool_call`). The other terminal branches each carry a reason;
+   * this one previously dropped it, leaving a cause-free history entry.
+   */
+  reason?: string;
 }) | (DiagnosticSessionRecoveryBaseOutcome & {
   status: "released";
   action: "release_lane";
@@ -98,7 +127,7 @@ type StuckSessionRecoveryOutcome = (DiagnosticSessionRecoveryBaseOutcome & {
 }) | (DiagnosticSessionRecoveryBaseOutcome & {
   status: "skipped";
   action: "observe_only" | "keep_lane";
-  reason: DiagnosticSessionRecoverySkipReason;
+  reason: "active_embedded_run" | "model_attempt_recovery" | "active_reply_work" | "human_input_wait" | "runtime_owned_wait" | "deferred_maintenance_wait" | "terminal_outcome_committed" | "global_lane_wait" | "active_lane_task" | "already_in_flight" | "missing_session_ref" | "stale_session_state";
   activeCount?: number;
   queuedCount?: number;
 }) | (DiagnosticSessionRecoveryBaseOutcome & {
@@ -112,11 +141,7 @@ type StuckSessionRecoveryOutcome = (DiagnosticSessionRecoveryBaseOutcome & {
   reason: "terminal_worker";
   error: string;
 });
-//#endregion
-//#region src/logging/diagnostic-session-recovery-coordinator.d.ts
 type RecoverStuckSession = (params: StuckSessionRecoveryRequest) => void | StuckSessionRecoveryOutcome | Promise<void | StuckSessionRecoveryOutcome>;
-//#endregion
-//#region src/logging/diagnostic.d.ts
 type DiagnosticWorkSnapshot = {
   activeCount: number;
   waitingCount: number;
@@ -125,14 +150,13 @@ type DiagnosticWorkSnapshot = {
   waitingLabels: string[];
   queuedLabels: string[];
 };
-type SampleDiagnosticLiveness = (now: number, work: DiagnosticWorkSnapshot) => DiagnosticLivenessSample | null;
 type StartDiagnosticHeartbeatOptions = {
   getConfig?: () => OpenClawConfig;
   emitMemorySample?: EmitDiagnosticMemorySample;
-  sampleLiveness?: SampleDiagnosticLiveness;
+  sampleLiveness?: (now: number, work: DiagnosticWorkSnapshot) => DiagnosticLivenessSample | null;
   recoverStuckSession?: RecoverStuckSession;
   startupGraceMs?: number;
-  /** Keeps fake-timer recovery tests fast without reopening runtime config tuning. */
+  /** Bounds diagnostic reporting in tests, never the controller-owned watchdog policy. */
   testTimings?: {
     stuckSessionWarnMs: number;
     stuckSessionAbortMs: number;
@@ -144,22 +168,15 @@ type DiagnosticLogParams<T extends DiagnosticEventPayload["type"]> = Omit<Extrac
 export declare function logWebhookReceived(params: DiagnosticLogParams<"webhook.received">): void;
 export declare function logWebhookProcessed(params: DiagnosticLogParams<"webhook.processed">): void;
 export declare function logWebhookError(params: DiagnosticLogParams<"webhook.error">): void;
-declare function startGatewayDiagnosticHeartbeat(scheduler: GatewayScheduler, config?: OpenClawConfig, opts?: StartDiagnosticHeartbeatOptions): void;
-//#endregion
-//#region src/logger.d.ts
+declare function startGatewayDiagnosticHeartbeat(scheduler: GatewayScheduler, initialConfig?: OpenClawConfig, initialOpts?: StartDiagnosticHeartbeatOptions): void;
 export declare function logInfo(message: string, runtime?: RuntimeEnv): void;
 export declare function logError(message: string, runtime?: RuntimeEnv): void;
 export declare function logDebug(message: string): void;
-//#endregion
-//#region packages/normalization-core/src/node-crypto.d.ts
 /** Redacts an identifier to a stable hash label, or "-" for missing values. */
 export declare function redactIdentifier(value: string | undefined, opts?: {
   len?: number;
 }): string;
-//#endregion
-//#region src/plugin-sdk/logging-core.d.ts
 /** Standalone SDK callers own this schedule; Gateway plugins use their bound host. */
 export declare function startDiagnosticHeartbeat(config?: Parameters<typeof startGatewayDiagnosticHeartbeat>[1], opts?: Parameters<typeof startGatewayDiagnosticHeartbeat>[2]): void;
 export declare function stopDiagnosticHeartbeat(): void;
-//#endregion
 export { type LoggerResolvedSettings, type LoggerSettings, createSubsystemLogger, getChildLogger, redactSensitiveFieldValue, redactSensitiveText, redactToolPayloadText };

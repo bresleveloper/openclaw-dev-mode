@@ -308,6 +308,11 @@
     "additionalProperties": false,
     "properties": {}
   },
+  "recommendedPrompts": [
+    "Help me plan Feishu or Lark access for this agent.",
+    "Answer a question about a Feishu document or wiki page without editing it.",
+    "Inspect a Feishu Bitable and summarize findings without changing records."
+  ],
   "channelConfigs": {
     "feishu": {
       "schema": {

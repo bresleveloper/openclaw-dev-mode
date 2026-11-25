@@ -8,18 +8,18 @@
   "background_color": "#0a0a0a",
   "icons": [
     {
-      "src": "./favicon.svg?v=2026.11.3-129010a08106-2026-11-10T15-25-59.090Z-b18a3630daa863182b90557e179af9ac2cc039279a5d29fce1985e8dd8499f55",
+      "src": "./favicon.svg?v=6e74b355e7b48aef2767488568de44fc7889ac0949ac0d83b3f850a5483753a0",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "./favicon-32.png?v=2026.11.3-129010a08106-2026-11-10T15-25-59.090Z-b18a3630daa863182b90557e179af9ac2cc039279a5d29fce1985e8dd8499f55",
+      "src": "./favicon-32.png?v=6e74b355e7b48aef2767488568de44fc7889ac0949ac0d83b3f850a5483753a0",
       "sizes": "32x32",
       "type": "image/png"
     },
     {
-      "src": "./apple-touch-icon.png?v=2026.11.3-129010a08106-2026-11-10T15-25-59.090Z-b18a3630daa863182b90557e179af9ac2cc039279a5d29fce1985e8dd8499f55",
+      "src": "./apple-touch-icon.png?v=6e74b355e7b48aef2767488568de44fc7889ac0949ac0d83b3f850a5483753a0",
       "sizes": "180x180",
       "type": "image/png"
     }

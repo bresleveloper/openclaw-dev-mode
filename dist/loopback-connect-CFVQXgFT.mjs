@@ -1,0 +1,2 @@
+//!src/infra/loopback-connect.ts
+function createLoopbackConnectOptions(e){return{host:`localhost`,port:e,autoSelectFamily:true,lookup(e,t,n){queueMicrotask(()=>{if(t.all)n(null,[{address:`127.0.0.1`,family:4},{address:`::1`,family:6}]);else if(t.family===6)n(null,`::1`,6);else n(null,`127.0.0.1`,4)})}}}export{createLoopbackConnectOptions as t};

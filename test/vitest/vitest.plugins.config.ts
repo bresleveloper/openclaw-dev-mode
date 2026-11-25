@@ -16,6 +16,8 @@ export const nativeLoaderPluginTestFiles = [
   "src/plugins/manifest-registry.test.ts",
   "src/plugins/plugin-module-generation.interop.test.ts",
   "src/plugins/plugin-module-generation.test.ts",
+  "src/plugins/plugin-module-generation.url.test.ts",
+  "src/plugins/plugin-module-generation.work.test.ts",
   "src/plugins/plugin-module-loader-cache.source-prescan.test.ts",
   "src/plugins/plugin-runtime-artifact-resolution.test.ts",
   "src/plugins/plugin-sdk-native-resolver.test.ts",
@@ -24,7 +26,10 @@ export const nativeLoaderPluginTestFiles = [
   "src/plugins/stage-bundled-plugin-runtime.test.ts",
 ];
 
-export function createPluginsVitestConfig(env?: Record<string, string | undefined>) {
+export function createPluginsVitestConfig(
+  env?: Record<string, string | undefined>,
+  leaf?: "source" | "native-loader",
+) {
   const options = {
     dir: "src/plugins",
     env,
@@ -48,24 +53,29 @@ export function createPluginsVitestConfig(env?: Record<string, string | undefine
     intersectIncludeFile: true,
     name: "plugins-native-loader",
   });
+  if (leaf === "native-loader") {
+    return nativeLoader;
+  }
+  if (leaf === "source") {
+    return defineConfig({
+      ...config,
+      test: {
+        ...config.test,
+        exclude: [
+          ...(config.test?.exclude ?? []),
+          ...relativizeScopedPatterns(nativeLoaderPluginTestFiles, options.dir),
+        ],
+      },
+    });
+  }
   return defineConfig({
     ...config,
     test: {
       ...config.test,
-      // Config discovery retains the complete inventory; only the inline leaves run.
+      // File-backed leaves retain their distinct loader and report identities.
       projects: [
-        {
-          ...config,
-          extends: false,
-          test: {
-            ...config.test,
-            exclude: [
-              ...(config.test?.exclude ?? []),
-              ...relativizeScopedPatterns(nativeLoaderPluginTestFiles, options.dir),
-            ],
-          },
-        },
-        { ...nativeLoader, extends: false },
+        "test/vitest/vitest.plugins-source.config.ts",
+        "test/vitest/vitest.plugins-native-loader.config.ts",
       ],
     },
   });

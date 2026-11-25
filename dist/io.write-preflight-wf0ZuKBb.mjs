@@ -1,0 +1,3 @@
+import{t as formatErrorMessage}from"./errors-CRXp6JVo.mjs";import{m as preflightRuntimeSnapshotWrite}from"./runtime-snapshot-7A_MWYPP.mjs";import{t as ConfigRuntimeRefreshError}from"./io.types-EaPlzGV_.mjs";
+//!src/config/io.write-preflight.ts
+function preflightConfigRuntimeWrite(e,t,n){return preflightRuntimeSnapshotWrite({nextSourceConfig:t,refreshOptions:n,formatRefreshError:e=>formatErrorMessage(e),createRefreshError:(t,n)=>new ConfigRuntimeRefreshError(`Config write blocked before committing ${e}: active SecretRef resolution failed: ${t}`,{cause:n})})}export{preflightConfigRuntimeWrite as t};

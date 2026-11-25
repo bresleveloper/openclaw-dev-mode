@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-B1OqUdvQ.mjs";t();export{e as resolveUpdateInstallRoot};

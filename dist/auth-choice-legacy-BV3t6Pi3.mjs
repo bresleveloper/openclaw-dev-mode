@@ -1,0 +1,1 @@
+import{t as resolveLegacyOnboardAuthChoice}from"./auth-choice-legacy-CBZ6xyNA.mjs";export{resolveLegacyOnboardAuthChoice};

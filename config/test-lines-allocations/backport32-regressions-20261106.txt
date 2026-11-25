@@ -1,3 +1,0 @@
-2115
-# Exact net new test/support lines for the 32 bounded backports; no global budget change.
-# Includes adapted C1 fixtures and standalone regressions. See test-patches/manifest.json in release artifacts.

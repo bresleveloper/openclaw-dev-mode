@@ -1,0 +1,2 @@
+//!src/commands/status.scan-result.ts
+function buildStatusScanResult(e){const{gatewaySnapshot:t,advertisedControlUiLinks:n,...r}=e;const{gatewayCallOverrides:i,...a}=t;return{...r,...n?{advertisedControlUiLinks:n}:{},...a,gatewayProbeAuthWarning:t.gatewayProbeAuthWarning,localGatewayHealthy:t.localGatewayHealthy}}export{buildStatusScanResult as t};

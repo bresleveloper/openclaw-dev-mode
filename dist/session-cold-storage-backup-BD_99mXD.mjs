@@ -1,0 +1,1 @@
+import{t as embedSessionColdArchivesInSnapshot}from"./session-cold-storage-backup-2U4nwqUn.mjs";export{embedSessionColdArchivesInSnapshot};

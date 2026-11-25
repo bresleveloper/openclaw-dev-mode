@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";var t,n,r=e((()=>{t=[`ca`,`cert`,`key`,`passphrase`],n=[{path:[`headers`],fields:`*`,registryOrder:0},{path:[`auth`],fields:[`token`,`value`],registryOrder:1},{path:[`tls`],fields:t,registryOrder:3},{path:[`proxy`,`tls`],fields:t,registryOrder:2}]}));export{t as n,r,n as t};

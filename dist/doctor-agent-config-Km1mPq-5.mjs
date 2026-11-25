@@ -1,0 +1,3 @@
+import{i as asOptionalObjectRecord}from"./record-coerce-BTbqdJ3-.mjs";import"./string-coerce-runtime-BYDH9Quw.mjs";
+//!extensions/memory-core/src/doctor-agent-config.ts
+function readDoctorAgentEntries(e){const t=asOptionalObjectRecord(asOptionalObjectRecord(e)?.agents);const n=Object.prototype.propertyIsEnumerable.call(t??{},`list`)&&Array.isArray(t?.list)?t.list:[];return{keyed:asOptionalObjectRecord(t?.entries),listed:n}}export{readDoctorAgentEntries as t};

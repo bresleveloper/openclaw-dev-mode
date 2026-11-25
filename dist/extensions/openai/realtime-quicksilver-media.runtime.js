@@ -1,2 +1,1 @@
-import { t as OpenAIQuicksilverAudioPeer } from "../../realtime-quicksilver-media.runtime-CLzzfP-S.mjs";
-export { OpenAIQuicksilverAudioPeer };
+import{t as OpenAIQuicksilverAudioPeer}from"../../realtime-quicksilver-media.runtime-DDd3Pa70.mjs";export{OpenAIQuicksilverAudioPeer};

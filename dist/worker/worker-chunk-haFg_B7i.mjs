@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function enableDefaultOnboardingInternalHooks(e){let t=e.hooks?.internal,n=t?.entries?.[`session-memory`];return t?.enabled===!1||n?.enabled===!1||n?.enabled===!0?e:{...e,hooks:{...e.hooks,internal:{...t,entries:{...t?.entries,"session-memory":{...n,enabled:!0}}}}}}e((()=>{}))();export{enableDefaultOnboardingInternalHooks};

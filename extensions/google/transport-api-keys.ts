@@ -1,9 +1,9 @@
-import type { Model, SimpleStreamOptions } from "openclaw/plugin-sdk/llm";
+import type { Model, ModelRequestHeaders, SimpleStreamOptions } from "openclaw/plugin-sdk/llm";
 import { collectProviderApiKeysForExecution } from "openclaw/plugin-sdk/provider-auth-runtime";
 import { parseGeminiAuth } from "./gemini-auth.js";
 import { isOfficialGoogleAiStudioBaseUrl } from "./provider-policy.js";
 
-function hasGoogleAuthHeader(headers: Record<string, string> | undefined): boolean {
+function hasGoogleAuthHeader(headers: ModelRequestHeaders | undefined): boolean {
   return Object.keys(headers ?? {}).some((name) => {
     const normalized = name.trim().toLowerCase();
     return normalized === "authorization" || normalized === "x-goog-api-key";

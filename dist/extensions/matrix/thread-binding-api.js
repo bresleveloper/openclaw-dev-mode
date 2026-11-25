@@ -1,2 +1,1 @@
-import { n as resolveMatrixInboundConversation, t as defaultTopLevelPlacement } from "./.setup/thread-binding-api-BvuaKpd0.mjs";
-export { defaultTopLevelPlacement, resolveMatrixInboundConversation as resolveInboundConversation };
+export { t as defaultTopLevelPlacement, n as resolveInboundConversation } from "./.setup/thread-binding-api-OtSciHmZ.mjs";

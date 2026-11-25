@@ -9,40 +9,6 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { writeHeapSnapshot } from "node:v8";
 
-// Node 26 returns CDP allocation samples, but this checkout's Node declarations only describe head.
-// Validate the actual protocol fields before reading them; retain the donor's sum of sample sizes.
-type AllocationSample = { size: number; nodeId: number; ordinal: number };
-function isAllocationSample(value: unknown): value is AllocationSample {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "size" in value &&
-    typeof value.size === "number" &&
-    Number.isFinite(value.size) &&
-    value.size >= 0 &&
-    "nodeId" in value &&
-    Number.isSafeInteger(value.nodeId) &&
-    "ordinal" in value &&
-    Number.isSafeInteger(value.ordinal)
-  );
-}
-function readAllocationSampleBytes(profile: unknown): number {
-  assert(
-    typeof profile === "object" &&
-      profile !== null &&
-      "samples" in profile &&
-      Array.isArray(profile.samples),
-    "Inspector allocation profile must contain samples",
-  );
-  let total = 0;
-  const samples: readonly unknown[] = profile.samples;
-  for (const sample of samples) {
-    assert(isAllocationSample(sample), "Inspector allocation sample has an invalid shape");
-    total += sample.size;
-  }
-  return total;
-}
-
 const { values } = parseArgs({
   options: {
     owner: { type: "string" },
@@ -181,7 +147,7 @@ if (values.mode === "retention") {
   let sampledBytes: number | undefined;
   if (values.mode === "allocation") {
     const { profile } = await inspector.post("HeapProfiler.stopSampling");
-    sampledBytes = readAllocationSampleBytes(profile);
+    sampledBytes = profile.samples.reduce((sum, sample) => sum + sample.size, 0);
     inspector.disconnect();
   }
   await nextTurn();

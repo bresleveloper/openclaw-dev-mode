@@ -1,0 +1,2 @@
+//!src/state/user-profiles-tailscale-login.ts
+function classifyTailscaleLogin(e){const t=e.trim();const n=t.lastIndexOf(`@`);if(n<=0||n===t.length-1)return{kind:`invalid`};const r=t.slice(0,n);const i=t.slice(n+1);return i.includes(`.`)?{kind:`email`,email:t}:{kind:`provider`,provider:i.toLowerCase(),subject:r.toLowerCase()}}export{classifyTailscaleLogin as t};

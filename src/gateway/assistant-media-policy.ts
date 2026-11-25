@@ -5,10 +5,12 @@ import {
 } from "@openclaw/normalization-core/number-coercion";
 import { isCloudWorkerPlacementState } from "../../packages/gateway-protocol/src/schema/session-placement-state.js";
 import { GATEWAY_OWNER_PROFILE_ID } from "../../packages/gateway-protocol/src/schema/users.js";
+import { resolveSandboxPathMapping } from "../agents/path-policy.js";
+import { resolveSandboxConfigForAgent } from "../agents/sandbox/config.js";
+import { resolvePreparedSandboxRuntimeStatus } from "../agents/sandbox/runtime-status.js";
 import { resolveSessionPermissionCoreToolPolicy } from "../agents/session-permission-exec-mode.js";
 import { resolveEffectiveToolFsWorkspaceOnly } from "../agents/tool-fs-policy.js";
 import { getRuntimeConfig } from "../config/io.js";
-import { readRetainedSessionEntryFacts } from "../config/sessions/session-entry-read-facts.js";
 import { captureSessionEntryMetadataRead } from "../config/sessions/session-entry-source-authority.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { FsSafeError } from "../infra/fs-safe.js";
@@ -20,8 +22,12 @@ import { captureResidentUserProfileAccess } from "../state/user-profile-list.js"
 import { applyHttpOperatorRoleScopeCeiling, resolveHttpProfile } from "./http-auth-user-profile.js";
 import type { AuthorizedControlUiReadRequest } from "./http-auth-utils.js";
 import { authorizeOperatorScopesForMethod } from "./method-scopes.js";
+import {
+  isOpenClawIdTunnelPrincipalCurrent,
+  prepareOpenClawIdTunnelPrincipal,
+} from "./openclaw-id/tunnel-principal.js";
+import { isNamedOperatorRoleEnforcementEnabled } from "./operator-role-enforcement.js";
 import { resolveRequestedSessionAgentId } from "./session-request-agent.js";
-import { captureSessionMutationRouting } from "./session-sharing-preparation.js";
 import { createProfileSessionEntryFilter } from "./session-sharing.js";
 import type { GatewaySessionEntryRead } from "./session-utils.js";
 import { resolveSessionWorkerPlacementContext } from "./session-worker-placement-context.js";
@@ -65,6 +71,10 @@ export function assertAssistantMediaPolicyCurrent(
     current.messageId !== policy.messageId ||
     current.remote !== policy.remote ||
     current.executionCwd !== policy.executionCwd ||
+    current.sandboxWorkspace?.hostRoot !== policy.sandboxWorkspace?.hostRoot ||
+    current.sandboxWorkspace?.containerRoot !== policy.sandboxWorkspace?.containerRoot ||
+    current.sandboxWorkspace?.worktreeId !== policy.sandboxWorkspace?.worktreeId ||
+    current.sandboxWorkspace?.lifecycleRevision !== policy.sandboxWorkspace?.lifecycleRevision ||
     current.workspaceOnly !== policy.workspaceOnly ||
     current.localRoots.length !== policy.localRoots.length ||
     current.localRoots.some((root, index) => root !== policy.localRoots[index]) ||
@@ -77,7 +87,7 @@ export function assertAssistantMediaPolicyCurrent(
 
 type AssistantMediaReader = Pick<
   AuthorizedControlUiReadRequest,
-  "authMethod" | "operatorScopes"
+  "authMethod" | "operatorScopes" | "openclawIdPrincipal"
 > & {
   profileId?: string;
 };
@@ -88,10 +98,19 @@ function resolveAssistantMediaReaderAuth(
   messageRead: boolean,
 ): AuthorizedControlUiReadRequest | undefined {
   try {
+    if (
+      (reader.openclawIdPrincipal &&
+        !isOpenClawIdTunnelPrincipalCurrent(reader.openclawIdPrincipal)) ||
+      // Member session visibility and access policies require a durable person.
+      (reader.openclawIdPrincipal?.kind === "member" && !reader.profileId)
+    ) {
+      return undefined;
+    }
     const currentProfile = reader.profileId
       ? resolveHttpProfile(
           captureResidentUserProfileAccess(reader.profileId).assertCurrent().id,
           config,
+          reader.openclawIdPrincipal,
         )
       : undefined;
     const operatorScopes = applyHttpOperatorRoleScopeCeiling(reader.operatorScopes, currentProfile);
@@ -127,65 +146,75 @@ async function resolveAssistantMediaSessionPolicy(params: AssistantMediaPolicyPa
   let loaded: AssistantMediaSessionRead | undefined;
   let readSession = (): AssistantMediaSessionRead | undefined => loaded;
   let assertCurrent: (() => void) | undefined;
-  if (params.sessionKey) {
-    const owner = resolveRequestedSessionAgentId(params.config, params.sessionKey, params.agentId);
-    if (!owner.ok) {
-      return undefined;
-    }
-    const canonicalKey = normalizeSessionKeyPreservingOpaquePeerIds(params.sessionKey);
-    const source = captureSessionEntryMetadataRead(
-      { sessionKey: canonicalKey, agentId: owner.agentId },
-      () => {
-        if (params.requestAuth?.hasCurrentClientAuthority?.() === false) {
-          throw new FsSafeError("path-mismatch", "Media access changed");
-        }
-      },
-    );
-    if (source) {
-      assertCurrent = source.assertCurrent;
-      readSession = () => ({
-        cfg: getRuntimeConfig(),
-        agentId: owner.agentId,
-        canonicalKey,
-        entry: source.readCurrent(),
-      });
-      loaded = readSession();
-    } else {
-      const assertRoutingCurrent = captureSessionMutationRouting(getRuntimeConfig(), undefined, [
+  let releaseSession: (() => void) | undefined;
+  let policy: ReturnType<typeof resolvePreparedAssistantMediaPolicy>;
+  try {
+    if (params.sessionKey) {
+      const owner = resolveRequestedSessionAgentId(
+        params.config,
+        params.sessionKey,
+        params.agentId,
+      );
+      if (!owner.ok) {
+        return undefined;
+      }
+      const canonicalKey = normalizeSessionKeyPreservingOpaquePeerIds(params.sessionKey);
+      const source = captureSessionEntryMetadataRead(
         { sessionKey: canonicalKey, agentId: owner.agentId },
-      ]);
-      assertCurrent = () => assertRoutingCurrent(getRuntimeConfig());
-      const { loadGatewaySessionEntryReadOnlyInWorker } =
-        await import("./session-utils-store-worker.js");
-      const durable = await loadGatewaySessionEntryReadOnlyInWorker({
-        cfg: getRuntimeConfig(),
-        key: params.sessionKey,
-        agentId: owner.agentId,
-        exactRead: true,
-        readOnly: true,
-        projection: [],
-      });
-      readSession = () => {
-        assertCurrent?.();
-        return {
-          ...durable,
+        () => {
+          if (params.requestAuth?.hasCurrentClientAuthority?.() === false) {
+            throw new FsSafeError("path-mismatch", "Media access changed");
+          }
+        },
+      );
+      if (source) {
+        assertCurrent = source.assertCurrent;
+        readSession = () => ({
           cfg: getRuntimeConfig(),
-          entry: readRetainedSessionEntryFacts(
-            {
-              agentId: durable.readSource?.agentId ?? durable.agentId,
-              path: durable.readSource?.path ?? durable.storePath,
-            },
-            { sessionKeys: [durable.canonicalKey], projection: "exact", snapshotFields: [] },
-          )?.entries.find((row) => row.sessionKey === durable.canonicalKey)?.entry,
+          agentId: owner.agentId,
+          canonicalKey,
+          entry: source.readCurrent(),
+        });
+        loaded = readSession();
+      } else {
+        const { retainGatewaySessionEntryReadOnly } =
+          await import("./session-utils-read-lifetime.js");
+        const durable = await retainGatewaySessionEntryReadOnly(
+          params.sessionKey,
+          owner.agentId,
+          // The media policy below checks current permissions and roots; unrelated
+          // transcript activity must not turn an evicted row cache into revocation.
+          () => true,
+          getRuntimeConfig(),
+          { exactRead: true },
+        );
+        releaseSession = durable.release;
+        assertCurrent = () => {
+          if (!durable.isCurrentAtResponse()) {
+            throw new FsSafeError("path-mismatch", "Media access changed");
+          }
         };
-      };
-      loaded = readSession();
+        readSession = () => {
+          assertCurrent?.();
+          return {
+            ...durable,
+            cfg: getRuntimeConfig(),
+            entry: durable.readRetainedEntry(),
+          };
+        };
+        loaded = readSession();
+      }
+      if (!loaded?.entry?.sessionId) {
+        return undefined;
+      }
     }
-    if (!loaded?.entry?.sessionId) {
-      return undefined;
+    policy = resolvePreparedAssistantMediaPolicy(params, loaded, readSession, assertCurrent);
+    return policy && { ...policy, releaseSession };
+  } finally {
+    if (!policy) {
+      releaseSession?.();
     }
   }
-  return resolvePreparedAssistantMediaPolicy(params, loaded, readSession, assertCurrent);
 }
 
 function resolvePreparedAssistantMediaPolicy(
@@ -205,6 +234,8 @@ function resolvePreparedAssistantMediaPolicy(
       ? {
           authMethod: params.requestAuth.authMethod,
           operatorScopes: params.requestAuth.operatorScopes,
+          // Tickets retain the device's membership ceiling independently of its linked profile.
+          openclawIdPrincipal: params.requestAuth.openclawIdPrincipal,
           ...(params.requestAuth.authenticatedUserProfile
             ? { profileId: params.requestAuth.authenticatedUserProfile.profileId }
             : {}),
@@ -241,6 +272,9 @@ function resolvePreparedAssistantMediaPolicy(
   let session: AssistantMediaSession | undefined;
   let sessionRoot: string | undefined;
   let executionCwd: string | undefined;
+  let sandboxWorkspace:
+    | { hostRoot: string; containerRoot: string; worktreeId: string; lifecycleRevision?: string }
+    | undefined;
   if (loaded && entry && agentId) {
     if (!auth.operatorScopes.includes("operator.admin")) {
       const profileId = auth.authenticatedUserProfile?.profileId;
@@ -259,7 +293,7 @@ function resolvePreparedAssistantMediaPolicy(
         ) {
           return undefined;
         }
-      } else if (!profileId && config.gateway?.roles) {
+      } else if (!profileId && isNamedOperatorRoleEnforcementEnabled(config)) {
         return undefined;
       }
     }
@@ -268,6 +302,24 @@ function resolvePreparedAssistantMediaPolicy(
       const workspace = resolveSessionWorkspaceRoots(config, agentId, entry);
       sessionRoot = entry.sessionRoot ?? workspace.root;
       executionCwd = workspace.diffCwd;
+      if (entry.worktree && sessionRoot) {
+        const runtime = resolvePreparedSandboxRuntimeStatus({
+          cfg: config,
+          agentId,
+          sessionKey: loaded.canonicalKey,
+          preparedSessionEntry: entry,
+        });
+        const sandbox = resolveSandboxConfigForAgent(config, agentId);
+        if (runtime.sandboxed && (sandbox.backend === "docker" || sandbox.backend === "podman")) {
+          // Managed local sandboxes checkpoint into this session's canonical worktree.
+          sandboxWorkspace = {
+            hostRoot: sessionRoot,
+            containerRoot: sandbox.docker.workdir,
+            worktreeId: entry.worktree.id,
+            lifecycleRevision: entry.lifecycleRevision,
+          };
+        }
+      }
     }
   }
   const workspaceOnly =
@@ -291,6 +343,7 @@ function resolvePreparedAssistantMediaPolicy(
     messageId,
     session,
     executionCwd,
+    sandboxWorkspace,
     remote,
     localRoots,
     workspaceOnly,
@@ -300,18 +353,27 @@ function resolvePreparedAssistantMediaPolicy(
 }
 
 export async function resolveAssistantMediaPolicy(params: AssistantMediaPolicyParams) {
+  if (params.reader?.openclawIdPrincipal) {
+    try {
+      await prepareOpenClawIdTunnelPrincipal(params.reader.openclawIdPrincipal);
+    } catch {
+      return undefined;
+    }
+  }
   const policy = await resolveAssistantMediaSessionPolicy(params);
   if (!policy) {
     return undefined;
   }
-  const context = policy.session ? resolveSessionWorkerPlacementContext() : undefined;
-  const placementRead =
-    policy.session && context?.workerSessionPlacementService?.prepareSessionPlacement
-      ? await context.workerSessionPlacementService.prepareSessionPlacement(
-          policy.session.sessionId,
-        )
-      : undefined;
+  let releasePlacement: (() => void) | undefined;
   try {
+    const context = policy.session ? resolveSessionWorkerPlacementContext() : undefined;
+    const placementRead =
+      policy.session && context?.workerSessionPlacementService?.prepareSessionPlacement
+        ? await context.workerSessionPlacementService.prepareSessionPlacement(
+            policy.session.sessionId,
+          )
+        : undefined;
+    releasePlacement = () => placementRead?.release();
     if (policy.session && context) {
       const placement = placementRead
         ? placementRead.current()
@@ -319,9 +381,17 @@ export async function resolveAssistantMediaPolicy(params: AssistantMediaPolicyPa
       // Cloud placement owns its filesystem independently of the session exec-node setting.
       policy.remote ||= isCloudWorkerPlacementState(placement?.state);
     }
-    return { ...policy, placementRead };
+    return {
+      ...policy,
+      placementRead,
+      release() {
+        placementRead?.release();
+        policy.releaseSession?.();
+      },
+    };
   } catch (error) {
-    placementRead?.release();
+    releasePlacement?.();
+    policy.releaseSession?.();
     throw error;
   }
 }
@@ -333,6 +403,7 @@ const controlUiAssistantMediaTicketSecret = randomBytes(32);
 export type AssistantMediaTicketPayload = {
   scope: typeof CONTROL_UI_ASSISTANT_MEDIA_TICKET_SCOPE;
   source: string;
+  workspaceKey?: string;
   exp: number;
   session?: AssistantMediaSession;
   messageId?: string;
@@ -345,6 +416,18 @@ function signAssistantMediaTicketPayload(encodedPayload: string): string {
   return createHmac("sha256", controlUiAssistantMediaTicketSecret)
     .update(encodedPayload)
     .digest("base64url");
+}
+
+/** Bind virtual paths to their current workspace without exposing its host path. */
+export function resolveAssistantMediaWorkspaceTicketKey(
+  source: string,
+  policy: NonNullable<Awaited<ReturnType<typeof resolveAssistantMediaPolicy>>>,
+): string | undefined {
+  const workspace = policy.sandboxWorkspace;
+  if (policy.remote || !workspace || !resolveSandboxPathMapping([workspace], source)) {
+    return undefined;
+  }
+  return signAssistantMediaTicketPayload(JSON.stringify(workspace));
 }
 
 export function createAssistantMediaTicket(
@@ -401,6 +484,7 @@ export function verifyAssistantMediaTicket(
     const valid =
       payload.scope === CONTROL_UI_ASSISTANT_MEDIA_TICKET_SCOPE &&
       typeof payload.source === "string" &&
+      (payload.workspaceKey === undefined || typeof payload.workspaceKey === "string") &&
       (source === undefined || payload.source === source) &&
       payload.agentId === agentId &&
       typeof payload.reader?.authMethod === "string" &&

@@ -62,6 +62,8 @@ export function sanitizeOpenClawGlobalStateSnapshot(database: DatabaseSync): voi
           .set({
             raw_json: `${JSON.stringify(sanitized, null, 2)}\n`,
             ...projectionValues(sanitized),
+            // Historical snapshots retain the path for credential migration to verify and move.
+            socket_path: sanitized.socket?.path ?? null,
           })
           .where("config_key", "=", row.config_key),
       );
@@ -72,7 +74,7 @@ export function sanitizeOpenClawGlobalStateSnapshot(database: DatabaseSync): voi
 /** Keep a policy Doctor can still migrate instead of substituting fail-closed defaults. */
 function readSnapshotExecApprovals(rawJson: string): ExecApprovalsFile {
   const parsed = tryParsePersistedExecApprovals(rawJson) ?? readLegacyExecApprovals(rawJson);
-  const sanitized = structuredClone(parsed ?? FAIL_CLOSED_EXEC_APPROVALS);
+  const sanitized = parsed ?? FAIL_CLOSED_EXEC_APPROVALS;
   if (sanitized.socket) {
     delete sanitized.socket.token;
   }

@@ -1,0 +1,2 @@
+//!src/config/sessions/session-source-conversation-matches.ts
+function createSessionSourceConversationMatches(e){return e.flatMap((e,t)=>e.conversationAlternatives?[{index:t,matches:new Int32Array(new SharedArrayBuffer((e.conversationAlternatives.length+1)*Int32Array.BYTES_PER_ELEMENT))}]:[])}export{createSessionSourceConversationMatches as t};

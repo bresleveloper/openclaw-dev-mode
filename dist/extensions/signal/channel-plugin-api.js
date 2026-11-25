@@ -1,2 +1,1 @@
-import { t as signalPlugin } from "./.setup/channel-CM-rLLPN.mjs";
-export { signalPlugin };
+export { t as signalPlugin } from "./.setup/channel-BIbSVvro.mjs";

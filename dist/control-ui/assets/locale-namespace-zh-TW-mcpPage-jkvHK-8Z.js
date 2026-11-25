@@ -1,0 +1,1 @@
+export default {"mcpPage":{"servers":"伺服器","settings":"設定","apps":"MCP 應用程式","noServers":"尚無 MCP 伺服器。","setUpFirstServer":"MCP 伺服器設定指南","operatorCommands":"命令列","operatorCommandsHint":"狀態、診斷與執行階段重新載入。","serversHelp":"關於 MCP 伺服器","runtimeHint":"啟用自動重新載入後，會在下次使用時重建連線。","toolFilter":"工具篩選器","parallel":"平行","tlsVerifyOff":"TLS 驗證已關閉","mtls":"mTLS"}};

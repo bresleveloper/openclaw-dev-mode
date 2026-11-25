@@ -1,0 +1,3 @@
+import{t as assertTransactionUsable}from"./sqlite-transaction-mUAqxIBY.mjs";
+//!src/infra/sqlite-worker-binding.ts
+function bindSqliteWorkerDatabase(e,t){let n=false;const assertOpen=()=>{assertTransactionUsable(e);if(n||!e.isOpen)throw new Error(`SQLite worker binding is closed`)};return{...t,assertOpen,execute(e){assertOpen();return t.execute(e)},assertSettled(){assertOpen();if(e.isTransaction)throw new Error(`SQLite worker binding left an unsettled transaction`)},close(){n=true;t.close?.()}}}export{bindSqliteWorkerDatabase as t};

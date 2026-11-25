@@ -1,0 +1,1 @@
+import{n as buildBifrostConnectionConfig,t as applyBifrostModelConfig}from"../../onboard-Coj0I_4z.mjs";export{applyBifrostModelConfig,buildBifrostConnectionConfig};

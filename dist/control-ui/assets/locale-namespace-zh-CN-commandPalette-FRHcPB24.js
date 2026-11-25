@@ -1,0 +1,1 @@
+export default {"commandPalette":{"newSessionSettings":"新会话设置","rememberSettings":"记住 {shortcut} 的设置","rememberSettingsNoShortcut":"记住这些设置","rememberUnavailable":"请重新连接以记住设置。","settingsSaveFailed":"无法保存设置，请重试。"}};

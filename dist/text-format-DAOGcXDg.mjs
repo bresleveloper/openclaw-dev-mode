@@ -1,0 +1,3 @@
+import{c as visibleWidth,s as truncateToVisibleWidth}from"./ansi-54CEWBZf.mjs";
+//!src/commands/text-format.ts
+const graphemeSegmenter=new Intl.Segmenter(void 0,{granularity:`grapheme`});const shortenText=(e,t)=>{if(t<=0)return``;if(e.length<=t)return e;const n=Array.from(e.slice(0,(t+1)*2));return n.length<=t?e:`${n.slice(0,Math.max(0,t-1)).join(``)}…`};function formatTextCell(e,t){const n=graphemeSegmenter.segment(e).containing(t*7);const r=n?`${e.slice(0,n.index)}…`:e;const i=visibleWidth(r);const a=i>t?`${truncateToVisibleWidth(r,t-1)}…`:r;const o=a===r?i:visibleWidth(a);return`${a}${` `.repeat(t-o)}`}export{shortenText as n,formatTextCell as t};

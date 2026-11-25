@@ -5,15 +5,18 @@ import {
   type MessageReceiptSourceResult,
 } from "openclaw/plugin-sdk/channel-outbound";
 import type { MarkdownTableMode } from "openclaw/plugin-sdk/config-contracts";
+import {
+  buildOutboundMediaLoadOptions,
+  type OutboundMediaAccess,
+} from "openclaw/plugin-sdk/media-runtime";
 import type { ChunkMode, ReplyPayload } from "openclaw/plugin-sdk/reply-chunking";
 import {
   isReasoningReplyPayload,
   resolveTextChunksWithFallback,
   sendMediaWithLeadingCaption,
 } from "openclaw/plugin-sdk/reply-payload";
-import { logVerbose, shouldLogVerbose } from "openclaw/plugin-sdk/runtime-env";
+import { loadWebMedia } from "openclaw/plugin-sdk/web-media";
 import { formatDevModeReasoningPayload } from "../dev-mode/reasoning.js";
-import { requireWhatsAppInboundAdmission } from "../inbound/admission.js";
 import {
   listWhatsAppSendResultMessageIds,
   mergeWhatsAppAcceptedSendError,
@@ -24,7 +27,6 @@ import {
   type WhatsAppSendResult,
 } from "../inbound/send-result.js";
 import type { AdmittedWebInboundMessage } from "../inbound/types.js";
-import { loadWebMedia } from "../media.js";
 import {
   type DeliverableWhatsAppOutboundPayload,
   normalizeWhatsAppOutboundPayload,
@@ -33,10 +35,8 @@ import {
 } from "../outbound-media-contract.js";
 import { buildQuotedMessageOptions, lookupInboundMessageMeta } from "../quoted-message.js";
 import { newConnectionId } from "../reconnect.js";
-import { formatError } from "../session.js";
 import { markdownToWhatsAppChunks } from "../targets-runtime.js";
 import { whatsappOutboundLog } from "./loggers.js";
-import { elide } from "./util.js";
 
 export type WhatsAppReplyDeliveryResult = Awaited<ReturnType<typeof deliverWebReply>>;
 
@@ -49,7 +49,7 @@ export type WhatsAppReplyTransportContext = Omit<
 };
 
 export function createWhatsAppReplyTransportContext(msg: AdmittedWebInboundMessage) {
-  const admission = requireWhatsAppInboundAdmission(msg);
+  const admission = msg.admission;
   return {
     accountId: admission.accountId,
     conversationId: admission.conversation.id,
@@ -108,6 +108,7 @@ type WhatsAppReplyDeliveryParams = {
   normalizedReplyResult?: DeliverableWhatsAppOutboundPayload<ReplyPayload>;
   transport: WhatsAppReplyTransportContext;
   mediaLocalRoots?: readonly string[];
+  mediaAccess?: OutboundMediaAccess;
   maxMediaBytes: number;
   textLimit: number;
   chunkMode?: ChunkMode;
@@ -116,7 +117,6 @@ type WhatsAppReplyDeliveryParams = {
     warn: (obj: object, msg: string) => void;
   };
   connectionId?: string;
-  skipLog?: boolean;
   tableMode?: MarkdownTableMode;
   onMediaAccepted?: (mediaUrl: string) => void;
 };
@@ -126,7 +126,7 @@ export async function deliverWebReply(params: WhatsAppReplyDeliveryParams) {
 }
 
 async function deliverWebReplyInActivityScope(params: WhatsAppReplyDeliveryParams) {
-  const { transport, maxMediaBytes, textLimit, replyLogger, connectionId, skipLog } = params;
+  const { transport, maxMediaBytes, textLimit, replyLogger, connectionId } = params;
   // [dev-mode] SEC-WA1: paths that bypass inbound dispatch (routed replies) still show
   // reasoning as 💭 instead of hitting the suppression below.
   const replyResult = formatDevModeReasoningPayload(params.replyResult) ?? params.replyResult;
@@ -251,17 +251,9 @@ async function deliverWebReplyInActivityScope(params: WhatsAppReplyDeliveryParam
   };
 
   if (mediaList.length === 0 && textChunks.length) {
-    const totalChunks = textChunks.length;
-    for (const [index, chunk] of textChunks.entries()) {
-      const chunkStarted = Date.now();
+    for (const chunk of textChunks) {
       const quote = getQuote();
       await sendText(chunk, () => quote);
-      if (!skipLog) {
-        const durationMs = Date.now() - chunkStarted;
-        whatsappOutboundLog.debug(
-          `Sent chunk ${index + 1}/${totalChunks} to ${conversationId} (${durationMs.toFixed(0)}ms)`,
-        );
-      }
     }
     const delivery = finishDelivery();
     const logPayload = {
@@ -269,8 +261,7 @@ async function deliverWebReplyInActivityScope(params: WhatsAppReplyDeliveryParam
       connectionId: connectionId ?? null,
       to: conversationId,
       from: transport.recipientJid,
-      text: elide(replyResult.text, 240),
-      mediaUrl: null,
+      textLength: text.length,
       mediaSizeBytes: null,
       mediaKind: null,
       durationMs: Date.now() - replyStarted,
@@ -291,18 +282,14 @@ async function deliverWebReplyInActivityScope(params: WhatsAppReplyDeliveryParam
     caption: leadingCaption,
     send: async ({ mediaUrl, caption }) => {
       const media = await prepareWhatsAppOutboundMedia(
+        // Keep raw localRoots ([] still denies local reads); only add the remote deny list.
         await loadWebMedia(mediaUrl, {
           maxBytes: maxMediaBytes,
           localRoots: params.mediaLocalRoots,
+          ssrfPolicy: buildOutboundMediaLoadOptions({ mediaAccess: params.mediaAccess }).ssrfPolicy,
         }),
         mediaUrl,
       );
-      if (shouldLogVerbose()) {
-        logVerbose(
-          `Web auto-reply media size: ${(media.buffer.length / (1024 * 1024)).toFixed(2)}MB`,
-        );
-        logVerbose(`Web auto-reply media source: ${mediaUrl} (kind ${media.kind})`);
-      }
       const quote = getQuote();
       const mediaContent =
         media.kind === "image"
@@ -323,17 +310,13 @@ async function deliverWebReplyInActivityScope(params: WhatsAppReplyDeliveryParam
       if (media.kind === "audio" && caption) {
         await sendText(caption, () => quote);
       }
-      whatsappOutboundLog.info(
-        `Sent media reply to ${conversationId} (${(media.buffer.length / (1024 * 1024)).toFixed(2)}MB)`,
-      );
       replyLogger.info(
         {
           correlationId: transport.correlationId ?? newConnectionId(),
           connectionId: connectionId ?? null,
           to: conversationId,
           from: transport.recipientJid,
-          text: caption ?? null,
-          mediaUrl,
+          textLength: caption?.length ?? 0,
           mediaSizeBytes: media.buffer.length,
           mediaKind: media.kind,
           durationMs: Date.now() - replyStarted,
@@ -346,10 +329,8 @@ async function deliverWebReplyInActivityScope(params: WhatsAppReplyDeliveryParam
         // Earlier accepted uploads do not make a genuinely rejected trailing upload successful.
         throw preserveAcceptedDeliveryError(error);
       }
-      whatsappOutboundLog.error(
-        `Failed sending web media to ${conversationId}: ${formatError(error)}`,
-      );
-      replyLogger.warn({ err: error, mediaUrl }, "failed to send web media reply");
+      whatsappOutboundLog.error(`Failed sending web media to ${conversationId}`);
+      replyLogger.warn({ to: conversationId }, "failed to send web media reply");
       // A failed trailing attachment needs its own warning after earlier accepted media.
       const fallbackText = isFirst
         ? [caption ?? "", "⚠️ Media failed."].filter(Boolean).join("\n")

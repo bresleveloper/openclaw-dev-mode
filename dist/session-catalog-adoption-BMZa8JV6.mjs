@@ -1,0 +1,3 @@
+import{createHash}from"node:crypto";
+//!extensions/anthropic/session-catalog-adoption.ts
+const CLAUDE_LOCAL_SESSION_HOST_ID=`gateway:local`;const CLAUDE_ADOPTED_SESSION_KEY_PREFIX=`plugin:anthropic:catalog-adopt:claude:`;function adoptedSourceKey(e,t){return`${e}\0${t}`}function adoptedSessionKey(e,t){const n=e===`gateway:local`?t:adoptedSourceKey(e,t);return`${CLAUDE_ADOPTED_SESSION_KEY_PREFIX}${createHash(`sha256`).update(n).digest(`hex`)}`}export{adoptedSessionKey as n,adoptedSourceKey as r,CLAUDE_LOCAL_SESSION_HOST_ID as t};

@@ -1,0 +1,7 @@
+import{n as StartupMaintenanceRequiredError}from"./startup-maintenance-required-Cz4Y_ofl.mjs";
+//!src/config/sessions/session-canonical-key-error.ts
+var SessionCanonicalKeyMigrationRequiredError=class extends Error{constructor(e){super(`${e}; stop the Gateway and run openclaw doctor --fix`);this.code=`SESSION_CANONICAL_KEY_MIGRATION_REQUIRED`;this.name=`SessionCanonicalKeyMigrationRequiredError`}};
+//!src/state/openclaw-agent-db-migration-required.ts
+var OpenClawAgentDatabaseMediaMigrationRequiredError=class extends StartupMaintenanceRequiredError{constructor(e,t){super(`agent-media`,`OpenClaw agent database ${e} uses schema version ${t}; run openclaw doctor --fix to migrate persisted media before using it.`);this.pathname=e;this.schemaVersion=t;this.name=`OpenClawAgentDatabaseMediaMigrationRequiredError`}};
+//!src/state/session-metadata-unavailable-error.ts
+var SessionMetadataUnavailableError=class extends Error{constructor(e,t,n=[]){super(`Session metadata unavailable (${[e,...n].join(`: `)}); retry after the agent store is ready.`,t);this.reason=e;this.missingTables=n;this.name=`SessionMetadataUnavailableError`}};export{OpenClawAgentDatabaseMediaMigrationRequiredError as n,SessionCanonicalKeyMigrationRequiredError as r,SessionMetadataUnavailableError as t};

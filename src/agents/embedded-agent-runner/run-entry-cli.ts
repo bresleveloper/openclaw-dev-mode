@@ -13,10 +13,12 @@ import {
   persistStoppedFirstCliSessionInStore,
 } from "../cli-session-store.js";
 import { getCliSessionBinding } from "../cli-session.js";
-import type { ModelFallbackResultClassification } from "../model-fallback-attempt.js";
+import type { ModelFallbackResultClassification } from "../model-fallback.types.js";
 import { createAgentRunSupersededAbortError } from "../run-termination.js";
 import { withLocalSessionPlacementTurnSettlement } from "../session-placement-admission.js";
 import type { LocalTurnPlacementClaim } from "../session-placement-admission.types.js";
+import { deriveSessionTotalTokens } from "../usage.js";
+import type { CompactionAccountingFact } from "./run/internal-params.js";
 import type { EmbeddedAgentRunResult } from "./types.js";
 
 type CliCandidateSettlement = Pick<
@@ -35,6 +37,7 @@ export function withAdmittedCliCandidate(
     readMode: "writable" | "read-only";
     getSessionEntry: () => SessionEntry | undefined;
     classifyResult?: (result: EmbeddedAgentRunResult) => ModelFallbackResultClassification;
+    onCompactionAccounting?: (fact: CompactionAccountingFact) => void;
   },
   run: (candidate: {
     sessionEntry: SessionEntry | undefined;
@@ -69,11 +72,14 @@ export function withAdmittedCliCandidate(
       ) {
         throw createAgentRunSupersededAbortError();
       }
-      return run({
-        sessionEntry,
+      // History preparation publishes its writer into this candidate's working row.
+      let contextEntry = sessionEntry ? { ...sessionEntry } : undefined;
+      const runResult = await run({
+        sessionEntry: contextEntry,
         cliSessionBinding: getCliSessionBinding(sessionEntry, params.provider),
         assertSettlementCurrent,
         settleResult: async ({ result, expectedSession, sessionStore, preserveBinding }) => {
+          contextEntry = expectedSession;
           const classification = params.classifyResult?.(result);
           if (classification && result.meta.agentMeta?.clearCliSessionBinding !== true) {
             return result;
@@ -103,7 +109,30 @@ export function withAdmittedCliCandidate(
             assertSettlementCurrent,
           }),
       });
+      if (target && contextEntry) {
+        params.onCompactionAccounting?.({
+          kind: "durable",
+          // Native compactions the CLI completed during this turn; its transcript stays native.
+          count: runResult.meta.agentMeta?.compactionCount ?? 0,
+          target: {
+            ...target,
+            sessionId: contextEntry.sessionId,
+            lifecycleRevision: contextEntry.lifecycleRevision,
+            activeWriterRunId: contextEntry.activeWriterRunId,
+          },
+          currentContextSnapshot:
+            runResult.meta.providerStarted === false
+              ? undefined
+              : {
+                  tokens: deriveSessionTotalTokens({
+                    lastCallUsage: runResult.meta.agentMeta?.lastCallUsage,
+                    promptTokens: runResult.meta.agentMeta?.promptTokens,
+                  }),
+                },
+        });
+      }
+      return runResult;
     },
-    params.admission,
+    { ...params.admission, sessionTarget: params.sessionTarget },
   );
 }

@@ -10,6 +10,14 @@ Matrix is a downloadable channel plugin (`@openclaw/matrix`) built on the offici
 
 Node remains the recommended runtime. Matrix also accepts the [opt-in Bun runtime](/install/bun); E2EE requires the Matrix SDK's native crypto bindings to be available for your platform.
 
+Matrix account and token-hash stores follow the effective `database.families.state.engine`
+(or `database.engine` when inherited). PostgreSQL gives each root its own local
+anchor and remote namespace, including its serialized crypto state. Stop the
+Gateway and use [database port](/reference/database-engines#port-existing-stores)
+to move existing roots; changing config alone does not migrate them. Keep the
+Matrix plugin installed so backup, restore, updates, and Doctor can discover its
+retained roots, including disabled accounts.
+
 `openclaw matrix verify status`, `verify bootstrap`, and `verify device` route
 through the local Gateway when it is running. Update an older Gateway if it does
 not support this routing; failed requests are never replayed locally.
@@ -21,7 +29,10 @@ Commands refuse before loading account state when a Gateway owns the state
 directory. Offline ownership lasts through crypto persistence and client shutdown.
 
 After an interrupted encrypted session, `openclaw matrix doctor inspect` reports
-accounts that need explicit snapshot recovery. Clean sessions retain their crypto
+accounts that need explicit snapshot recovery. This recovery subtree remains available
+when a pending plugin migration withholds other Matrix commands. After explicit
+recovery, finish pending migrations with `openclaw update repair` or
+`openclaw doctor --fix` before restarting the Gateway. Clean sessions retain their crypto
 guard files; do not delete them. See [encrypted-state recovery](/channels/matrix/encryption)
 before accepting a snapshot rollback.
 

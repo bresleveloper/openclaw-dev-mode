@@ -1,0 +1,1 @@
+export default {"skillDiscovery":{"search":"Tìm kiếm kỹ năng","settings":"Cài đặt kỹ năng","libraryStatus":"Kỹ năng trong thư viện. Các lựa chọn trong phiên quyết định thời điểm sử dụng kỹ năng này."}};

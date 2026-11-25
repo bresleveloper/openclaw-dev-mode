@@ -2,6 +2,10 @@ import { resolveIntegerOption } from "@openclaw/normalization-core/number-coerci
 import { asOptionalRecord, isRecord } from "@openclaw/normalization-core/record-coerce";
 import { selectResetKeptEntries } from "../../../packages/agent-core/src/harness/session/tool-result-pairing.js";
 import {
+  CODE_MODE_STORE_CUSTOM_TYPE,
+  collectCodeModeStoreWrites,
+} from "../../agents/code-mode-session-store-replay.js";
+import {
   buildSessionPreviewItems,
   projectSessionDisplayMessage,
 } from "../../gateway/session-display-projection.js";
@@ -11,8 +15,12 @@ import {
 } from "../../gateway/session-transcript-source-pages.js";
 import { hasInterSessionUserProvenance } from "../../sessions/input-provenance.js";
 import { NESTED_TOOL_ACTIVITY_CUSTOM_TYPE } from "../../sessions/nested-tool-activity.js";
+import { resolveSessionTitleSource } from "../../sessions/session-title-source.js";
 import { readSessionTranscriptRunId } from "../../sessions/transcript-events.js";
-import { matchesTranscriptEvent } from "../../sessions/transcript-visible-record.js";
+import {
+  createVisibleAssistantResultEventMatcher,
+  matchesTranscriptEvent,
+} from "../../sessions/transcript-visible-record.js";
 import { buildRunUserTurnIdempotencyKey } from "../../sessions/user-turn-transcript.metadata.js";
 import { isTranscriptOnlyOpenClawAssistantModel } from "../../shared/transcript-only-openclaw-assistant.js";
 import type {
@@ -32,15 +40,25 @@ import {
 } from "./session-actor-memory-history-navigation.js";
 import type { SessionActorMemoryWindow } from "./session-actor-memory-state.js";
 import { readSessionActorMemoryTranscriptStats } from "./session-actor-memory-usage.js";
-import { isIndexedSessionEntry } from "./session-entry-codec.js";
+import {
+  assertCurrentSessionTranscriptHeader,
+  findSessionTranscriptHeader,
+  isIndexedSessionEntry,
+} from "./session-entry-codec.js";
 import { extractSessionBranchHeadline } from "./session-message-cut-content.js";
-import { readSessionTranscriptAccountingTail } from "./session-transcript-accounting-policy.js";
+import {
+  readSessionTranscriptAccountingTail,
+  selectSessionTranscriptAccountingTail,
+} from "./session-transcript-accounting-policy.js";
 import { SQLITE_USAGE_TAIL_MAX_EVENTS } from "./session-transcript-accounting.types.js";
 import type {
   SessionTranscriptMaintenanceFacts,
   SessionTranscriptMaintenanceRead,
 } from "./session-transcript-hydration.types.js";
+import { selectTranscriptMaintenanceSuffix } from "./session-transcript-maintenance-suffix.js";
 import { transcriptEventContextEligibility } from "./session-transcript-projection-append.js";
+import { projectSessionTranscriptReportFacts } from "./session-transcript-report-facts.js";
+import { TranscriptReportNavigation } from "./session-transcript-report-policy.js";
 import { projectAssistantTranscriptText } from "./transcript-assistant-delivery-read.js";
 import {
   selectSessionTranscriptTreePathNodes,
@@ -151,10 +169,86 @@ function contextAccountingRows(navigation: Navigation): SessionActorMemoryHistor
 
 function maintenance(
   window: SessionActorMemoryWindow,
-  navigation: Navigation,
   request: SessionTranscriptMaintenanceRead,
 ): SessionTranscriptMaintenanceFacts {
   const kind = "transcript-maintenance";
+  if (request.operation === "custom-branch" || request.operation === "code-mode-store") {
+    const version = {
+      ...window.hot.transcript.version,
+      ...(request.operation === "code-mode-store"
+        ? { rawSeq: window.events.at(-1)?.rawSeq ?? null }
+        : {}),
+    };
+    const checkpoint = request.operation === "code-mode-store" ? request.checkpoint : undefined;
+    if (
+      checkpoint &&
+      checkpoint.generation === version.generation &&
+      checkpoint.rawSeq <= (version.rawSeq ?? -1)
+    ) {
+      let start = window.events.length;
+      while (start > 0 && window.events[start - 1]!.rawSeq > checkpoint.rawSeq) {
+        start--;
+      }
+      const suffix = selectTranscriptMaintenanceSuffix(
+        (function* () {
+          for (let index = start; index < window.events.length; index++) {
+            const row = window.events[index]!;
+            yield { event: row.event, bytes: row.eventJson.length * 2 };
+          }
+        })(),
+        checkpoint,
+        request.leafEntryId,
+        CODE_MODE_STORE_CUSTOM_TYPE,
+      );
+      if (suffix) {
+        return {
+          kind,
+          version,
+          store: { writes: collectCodeModeStoreWrites(suffix, true), incremental: true },
+        };
+      }
+    }
+    const eventsBySeq = new Map<number, unknown>();
+    let header: ReturnType<typeof findSessionTranscriptHeader>;
+    const navigation = new TranscriptReportNavigation(
+      (function* () {
+        for (const row of window.events) {
+          if (!header) {
+            header = findSessionTranscriptHeader([row.event]);
+            if (header) {
+              assertCurrentSessionTranscriptHeader(header);
+            }
+          }
+          const facts = projectSessionTranscriptReportFacts(row.event);
+          if (facts.kind === "canonical" && facts.entry.type === "custom") {
+            eventsBySeq.set(row.rawSeq, row.event);
+          }
+          yield { seq: row.rawSeq, facts };
+        }
+      })(),
+    );
+    if (window.events.length > 0) {
+      assertCurrentSessionTranscriptHeader(header);
+    }
+    const events = navigation.readCustomBranch(
+      request.leafEntryId,
+      request.operation === "code-mode-store" ? CODE_MODE_STORE_CUSTOM_TYPE : request.customType,
+      (seq) => asOptionalRecord(eventsBySeq.get(seq)),
+    );
+    return {
+      kind: "transcript-maintenance",
+      version,
+      ...(request.operation === "code-mode-store"
+        ? {
+            store: events
+              ? { writes: collectCodeModeStoreWrites(events), incremental: false }
+              : undefined,
+          }
+        : { events: events && [...events] }),
+    };
+  }
+
+  const navigation = createSessionActorMemoryHistoryNavigation(window);
   switch (request.operation) {
     case "previous":
       return {
@@ -265,6 +359,8 @@ export function readSessionActorMemoryHistoryFacts(
   query: SessionActorMemoryHistoryFactsQuery,
 ): SessionActorMemoryHistoryFactsReads[keyof SessionActorMemoryHistoryFactsReads]["output"] {
   switch (query.type) {
+    case "session.history.maintenance":
+      return maintenance(window, query.input.request);
     case "session.history.stats":
       return readSessionActorMemoryTranscriptStats(window);
     case "session.history.watermark":
@@ -329,13 +425,20 @@ export function readSessionActorMemoryHistoryFacts(
       });
     }
     case "session.history.title": {
-      const first = navigation.visibleMessages.slice(0, 100).find(({ event }) => {
+      let firstUserMessage: string | null = null;
+      for (const { event } of navigation.visibleMessages.slice(0, 100)) {
         const message = asOptionalRecord(asOptionalRecord(event)?.message);
-        return (
-          projectSessionDisplayMessage(message)?.role === "user" &&
+        const projected = projectSessionDisplayMessage(message);
+        if (
+          projected?.role === "user" &&
           (query.input.includeInterSession === true || !hasInterSessionUserProvenance(message))
-        );
-      });
+        ) {
+          firstUserMessage = resolveSessionTitleSource(projected.text, query.input.skillCommands);
+        }
+        if (firstUserMessage !== null) {
+          break;
+        }
+      }
       let lastMessagePreview: string | null = null;
       const tail = navigation.visibleMessages.slice(-100);
       for (let index = tail.length - 1; index >= 0 && lastMessagePreview === null; index -= 1) {
@@ -347,8 +450,7 @@ export function readSessionActorMemoryHistoryFacts(
       return {
         kind: "session-title-fields",
         fields: {
-          firstUserMessage:
-            projectSessionDisplayMessage(asOptionalRecord(first?.event)?.message)?.text ?? null,
+          firstUserMessage,
           lastMessagePreview,
         },
       };
@@ -409,13 +511,21 @@ export function readSessionActorMemoryHistoryFacts(
             : undefined,
       };
     }
-    case "session.history.maintenance":
-      return maintenance(window, navigation, query.input.request);
     case "session.history.match": {
       const match = query.input.match;
+      if (match.kind === "canvas-widget") {
+        const row = navigation.active.findLast(({ event }) => matchesTranscriptEvent(event, match));
+        return { kind: "transcript-match", result: row ? { event: row.event } : undefined };
+      }
+      const matchesVisibleFinal =
+        match.kind === "visible-final"
+          ? createVisibleAssistantResultEventMatcher(match.runId)
+          : undefined;
       const row = window.events.findLast(
         ({ event }) =>
-          matchesTranscriptEvent(event, match) &&
+          (matchesVisibleFinal
+            ? matchesVisibleFinal(event)
+            : matchesTranscriptEvent(event, match)) &&
           (match.kind !== "active-assistant" ||
             window.hot.transcript.anchors.some(
               (anchor) => anchor.entryId === asOptionalRecord(event)?.id,
@@ -450,11 +560,13 @@ export function readSessionActorMemoryHistoryFacts(
             }
           : {}),
         ...(options.includeUsage || options.includeTurnTaint
-          ? readSessionTranscriptAccountingTail((visit) => {
-              for (let index = tail.length - 1; index >= 0; index -= 1) {
-                visit(tail[index]!.event);
-              }
-            }, options)
+          ? readSessionTranscriptAccountingTail(
+              selectSessionTranscriptAccountingTail(tail, (row) => row.event)
+                .toReversed()
+                .map((row) => row.event),
+              options,
+              tail.length,
+            )
           : {}),
       };
     }
@@ -469,7 +581,7 @@ export function readSessionActorMemoryHistoryFacts(
       for (const row of rows.slice(start, start + SOURCE_PAGE_MAX_MESSAGES)) {
         if (row.serializedBytes > SOURCE_PAGE_MAX_BYTES) {
           throw new Error(
-            `Transcript source message exceeds the ${SOURCE_PAGE_MAX_BYTES}-byte page limit`,
+            `Chat history message exceeds the ${SOURCE_PAGE_MAX_BYTES}-byte page limit`,
           );
         }
         if (bytes + row.serializedBytes > SOURCE_PAGE_MAX_BYTES) {

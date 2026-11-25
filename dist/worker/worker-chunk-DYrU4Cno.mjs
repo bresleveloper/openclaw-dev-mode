@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{a as t,l as n}from"./worker-chunk-tGlREc5F.mjs";function setSafeTimeout(e,t){return setTimeout(e,n(t))}var r=e((()=>{t()}));export{setSafeTimeout as n,r as t};

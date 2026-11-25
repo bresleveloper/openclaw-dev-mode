@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-DyeIuPEC.mjs";import{n as t}from"./worker-chunk-DCZb9pts.mjs";import{i as n}from"./worker-chunk-KkR0KN0I.mjs";import"node:os";function init_context(){return(init_context=e((()=>{t(),n()})))()}export{init_context as t};

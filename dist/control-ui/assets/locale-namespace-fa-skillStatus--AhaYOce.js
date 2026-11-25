@@ -1,0 +1,1 @@
+export default {"skillStatus":{"bundled":"همراه بسته","eligible":"واجد شرایط","blocked":"مسدود","disabled":"غیرفعال","blockedAllowlist":"مسدودشده توسط فهرست مجاز","blockedAgentFilter":"مسدودشده توسط فیلتر عامل"}};

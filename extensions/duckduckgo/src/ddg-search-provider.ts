@@ -3,6 +3,7 @@ import { readPositiveIntegerParam, readStringParam } from "openclaw/plugin-sdk/p
 import type { SearchConfigRecord } from "openclaw/plugin-sdk/provider-web-search";
 import {
   createWebSearchProviderContractFields,
+  WEB_SEARCH_QUERY_COUNT_PROPERTIES,
   type WebSearchProviderPlugin,
 } from "openclaw/plugin-sdk/provider-web-search-contract";
 
@@ -11,13 +12,7 @@ const loadDuckDuckGoClientModule = createLazyRuntimeModule(() => import("./ddg-c
 const DuckDuckGoSearchSchema = {
   type: "object",
   properties: {
-    query: { type: "string", description: "Search query string." },
-    count: {
-      type: "integer",
-      description: "Number of results to return (1-10).",
-      minimum: 1,
-      maximum: 10,
-    },
+    ...WEB_SEARCH_QUERY_COUNT_PROPERTIES,
     region: {
       type: "string",
       description: "Optional DuckDuckGo region code such as us-en, uk-en, or de-de.",
@@ -55,6 +50,7 @@ export function createDuckDuckGoWebSearchProvider(): WebSearchProviderPlugin {
       execute: async (args, context) => {
         context?.signal?.throwIfAborted();
         const { runDuckDuckGoSearch } = await loadDuckDuckGoClientModule();
+        const safeSearch = readStringParam(args, "safeSearch");
         // SAFETY: tools.web.search is config-schema-validated upstream of this cast.
         const searchConfig = ctx.searchConfig as SearchConfigRecord | undefined;
         return await runDuckDuckGoSearch({
@@ -67,11 +63,10 @@ export function createDuckDuckGoWebSearchProvider(): WebSearchProviderPlugin {
             }) ?? searchConfig?.maxResults,
           timeoutSeconds: searchConfig?.timeoutSeconds,
           region: readStringParam(args, "region"),
-          safeSearch: readStringParam(args, "safeSearch") as
-            | "strict"
-            | "moderate"
-            | "off"
-            | undefined,
+          safeSearch:
+            safeSearch === "strict" || safeSearch === "moderate" || safeSearch === "off"
+              ? safeSearch
+              : undefined,
           ...(context?.signal ? { signal: context.signal } : {}),
         });
       },

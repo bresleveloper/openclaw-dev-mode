@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function getFsSafeTestHooks(){return t}var t,n=e((()=>{}));export{n,getFsSafeTestHooks as t};

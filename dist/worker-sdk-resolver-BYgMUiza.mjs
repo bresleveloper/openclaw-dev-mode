@@ -1,0 +1,3 @@
+import Module from"node:module";import{fileURLToPath}from"node:url";
+//!extensions/knowledge/src/worker-sdk-resolver.ts
+function installWorkerSdkResolver(e){const t=globalThis.Bun;if(t){const n=new Map(Object.entries(e).map(([e,t])=>[e,fileURLToPath(t)]));t.plugin({name:`openclaw-plugin-sdk-alias`,setup(e){e.onResolve({filter:/^openclaw\/plugin-sdk(?:\/|$)/u,namespace:`file`},({path:e})=>{const t=n.get(e);return t?{path:t,namespace:`file`}:void 0})}});return}Module.registerHooks({resolve(t,n,r){const i=e[t];return i?{url:i,shortCircuit:true}:r(t,n)}})}export{installWorkerSdkResolver as t};

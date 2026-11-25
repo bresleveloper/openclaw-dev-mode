@@ -1,0 +1,1 @@
+import{t as e}from"./exec-realpath.worker-subsystem-9Fg2v7cw.mjs";const t=e(`worker/delivery`);function reportSlowWorkerDelivery(e){t.warn(`slow SQLite worker delivery`,e)}export{reportSlowWorkerDelivery};

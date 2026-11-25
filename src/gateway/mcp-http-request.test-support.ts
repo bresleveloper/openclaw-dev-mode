@@ -1,17 +1,33 @@
+import { expectDefined } from "@openclaw/normalization-core/expect";
 import { expect } from "vitest";
 import {
   createOperationalRunInstanceRef,
   prepareAgentRunAdmission,
 } from "../agents/admitted-run-context.js";
+import type { AnyAgentTool } from "../agents/tools/common.js";
 import {
   activateMcpLoopbackClientGrantCapture,
   mintMcpLoopbackClientGrant,
 } from "./mcp-grant-store.js";
+import { getActiveMcpLoopbackRuntime } from "./mcp-http.loopback-runtime.js";
+
+export const runtime = () => expectDefined(getActiveMcpLoopbackRuntime(), "MCP runtime");
 
 export async function json(response: Response): Promise<unknown> {
   const body = await response.text();
   expect(response.status, body).toBe(200);
   return JSON.parse(body);
+}
+
+export function probeTools(name: string, execute: AnyAgentTool["execute"]) {
+  const tool = {
+    name,
+    label: name,
+    description: name,
+    parameters: { type: "object", properties: {} },
+    execute,
+  };
+  return { agentId: "main", tools: [tool] };
 }
 
 type AdmissionOptions = Partial<

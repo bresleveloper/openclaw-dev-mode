@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";function t(e){return e.artifacts===null||e.dashboard===void 0?null:e.artifacts.length+(e.dashboard===null?0:1)}function n(e){return!!(e.artifacts?.length||e.dashboard||e.artifactsError||e.dashboardError)}function r(){return(r=e((()=>{})))()}export{n,r,t};
+//# sourceMappingURL=chat-outputs-data-C9n2Y5nG.js.map

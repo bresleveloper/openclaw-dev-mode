@@ -1,2 +1,1 @@
-import { t as resolveGoogleVertexAuthorizedUserHeaders } from "../../vertex-adc-DuEe6_AM.mjs";
-export { resolveGoogleVertexAuthorizedUserHeaders };
+import{t as resolveGoogleVertexAuthorizedUserHeaders}from"../../vertex-adc-CuNG5MOa.mjs";export{resolveGoogleVertexAuthorizedUserHeaders};

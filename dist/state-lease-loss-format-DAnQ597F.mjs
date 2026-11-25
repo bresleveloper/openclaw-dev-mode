@@ -1,0 +1,2 @@
+//!src/shared/state-lease-loss-format.ts
+function formatStateLeaseLoss(e){if(e.reason===`expired`)return`lease loss: expired; expiredByMs=${e.expiredByMs}; expiresAt=${e.expiresAt}; heartbeatAgeMs=${e.heartbeatAgeMs}${e.renewalTimerLateByMs===void 0?``:`; renewal timer late ${e.renewalTimerLateByMs} ms`}`;return e.reason===`replaced`?`lease loss: replaced; owner=[redacted]`:`lease loss: ${e.reason}`}export{formatStateLeaseLoss as t};

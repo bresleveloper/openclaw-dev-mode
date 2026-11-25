@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";import{a as hasCommandProcessCleanupError}from"./exec-result-TD4w1Z1i.mjs";
+//!src/infra/lifecycle-write-custody.ts
+const owners=resolveGlobalSingleton(Symbol.for(`openclaw.lifecycleWriteCustody`),()=>/* @__PURE__ */ new Map);function beginLifecycleWriteCustody(e){const t=owners.get(e)??{count:0};t.count++;owners.set(e,t);let n=false;return r=>{if(n||hasCommandProcessCleanupError(r))return;n=true;if(--t.count===0)owners.delete(e)}}function readLifecycleWriteCustody(){return[...owners].toSorted(([e],[t])=>e.localeCompare(t)).map(([e,{count:t}])=>({phase:e,count:t}))}export{readLifecycleWriteCustody as n,beginLifecycleWriteCustody as t};

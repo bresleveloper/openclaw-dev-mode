@@ -1,0 +1,3 @@
+import{l as isRecord}from"./record-coerce-BTbqdJ3-.mjs";import"./string-coerce-runtime-BYDH9Quw.mjs";
+//!extensions/clawrouter/decision-catalog.ts
+function grantsLuna(e){return e.some(e=>isRecord(e)&&e.id===`openai`&&e.nativeBaseUrl===`/v1/native/openai`&&Array.isArray(e.routes)&&e.routes.some(e=>isRecord(e)&&e.path===`/v1/decisions`&&e.requestFormat===`openai.decisions`&&Array.isArray(e.methods)&&e.methods.includes(`POST`))&&Array.isArray(e.models)&&e.models.some(e=>isRecord(e)&&e.id===`openai/gpt-6-luna`&&e.upstream===`gpt-6-luna`&&Array.isArray(e.capabilities)&&e.capabilities.includes(`llm.decisions`)))}export{grantsLuna as t};

@@ -1,7 +1,7 @@
-import { t as createMuseAgentHarness } from "./.setup/harness-DFnhalb6.mjs";
+import { t as createMuseAgentHarness } from "./.setup/harness-BUD4-NcB.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
-//#region extensions/muse/index.ts
+// extensions/muse/index.ts
 var muse_default = definePluginEntry({
 	id: "muse",
 	name: "Muse Code agent runtime",
@@ -38,5 +38,4 @@ var muse_default = definePluginEntry({
 		api.registerAgentHarness(harness);
 	}
 });
-//#endregion
 export { muse_default as default };

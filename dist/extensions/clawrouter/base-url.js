@@ -1,0 +1,1 @@
+import{n as normalizeClawRouterRootUrl,t as normalizeClawRouterApiBaseUrl}from"../../base-url-xFktHTtK.mjs";export{normalizeClawRouterApiBaseUrl,normalizeClawRouterRootUrl};

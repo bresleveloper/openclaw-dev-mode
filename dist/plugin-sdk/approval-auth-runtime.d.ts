@@ -1,2 +1,2 @@
-import { As as markImplicitSameChatApprovalAuthorization, Ds as createChannelApprovalAuth, Os as createResolvedApproverActionAuthAdapter, ds as resolveApprovalApprovers, ks as isImplicitSameChatApprovalAuthorization } from "../config-contracts-CY87ANNp.js";
+import { Fr as isImplicitSameChatApprovalAuthorization, Ir as markImplicitSameChatApprovalAuthorization, Nr as createChannelApprovalAuth, Pr as createResolvedApproverActionAuthAdapter, _r as resolveApprovalApprovers } from "../config-contracts-hzlacViZ.js";
 export { createChannelApprovalAuth, createResolvedApproverActionAuthAdapter, isImplicitSameChatApprovalAuthorization, markImplicitSameChatApprovalAuthorization, resolveApprovalApprovers };

@@ -1,6 +1,6 @@
-import { a as buildXiaomiProvider, i as XIAOMI_TOKEN_PLAN_PROVIDER_ID, n as XIAOMI_PROVIDER_ID, o as buildXiaomiTokenPlanProvider, r as XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_ID, s as resolveXiaomiTokenPlanBaseUrl, t as XIAOMI_DEFAULT_MODEL_ID } from "./.setup/provider-catalog-v9-9qyII.mjs";
+import { a as buildXiaomiProvider, i as XIAOMI_TOKEN_PLAN_PROVIDER_ID, n as XIAOMI_PROVIDER_ID, o as buildXiaomiTokenPlanProvider, r as XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_ID, s as resolveXiaomiTokenPlanBaseUrl, t as XIAOMI_DEFAULT_MODEL_ID } from "./.setup/provider-catalog-BW_i26UR.mjs";
 import { createDefaultModelsConnectionPresetAppliers, createDefaultModelsPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
-//#region extensions/xiaomi/onboard.ts
+// extensions/xiaomi/onboard.ts
 const XIAOMI_DEFAULT_MODEL_REF = `${XIAOMI_PROVIDER_ID}/${XIAOMI_DEFAULT_MODEL_ID}`;
 const XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_REF = `${XIAOMI_TOKEN_PLAN_PROVIDER_ID}/${XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_ID}`;
 const xiaomiPreset = {
@@ -40,5 +40,4 @@ const { applyConfig: applyXiaomiTokenPlanConfig } = createDefaultModelsPresetApp
 		};
 	}
 });
-//#endregion
 export { XIAOMI_DEFAULT_MODEL_REF, XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_REF, applyXiaomiConfig, applyXiaomiConnectionConfig, applyXiaomiProviderConfig, applyXiaomiTokenPlanConfig };

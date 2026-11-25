@@ -1,0 +1,8 @@
+import{c as stripEnvelope}from"./chat-display-projection.sanitize-BiPlw5Om.mjs";import{t as findMarkdownCodeRegions}from"./markdown-code-regions-DW0eMqgb.mjs";import{r as isInsideCode}from"./code-ranges-DvhlRpPR.mjs";import{u as stripInternalMetadataForDisplay}from"./agent-run-terminal-reply-lP7Vfxkp.mjs";
+//!src/auto-reply/reply/user-envelope-display.ts
+const MESSAGE_ID_LINE=/^\s*\[message_id:\s*[^\]]+\]\s*$/i;const SUBAGENT_TASK_PREFIX=/^\[Subagent Context\] You are running as a subagent \(depth \d+\/\d+\)\. Complete the current \[Subagent Task\]; inherited conversation is background context, not your assignment\.\n\n(?:\[Subagent Context\] This subagent session is persistent and remains available for thread follow-up messages\.\n\n)?\[Subagent Task\]\n\n/u;const SUBAGENT_TASK_SUFFIX=`
+
+Begin. Execute the assigned task to completion.`;function stripUserEnvelopeForDisplay(e){let t=stripEnvelope(stripInternalMetadataForDisplay(e));if(/\[message_id:/i.test(t)){const e=t.replace(/\r\n/g,`
+`);const n=e.split(`
+`);let r=0;let i;const a=n.filter(t=>{const n=t.search(/\[message_id:/i);const a=n>=0&&MESSAGE_ID_LINE.test(t)&&!isInsideCode(r+n,i??=findMarkdownCodeRegions(e));r+=t.length+1;return!a});if(a.length!==n.length)t=a.join(`
+`)}const n=t.match(SUBAGENT_TASK_PREFIX);if(!n)return t;const r=t.slice(n[0].length);return r.endsWith(SUBAGENT_TASK_SUFFIX)?r.slice(0,-49):r}export{stripUserEnvelopeForDisplay as t};

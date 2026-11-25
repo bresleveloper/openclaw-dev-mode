@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function monotonicNow(){return performance.now()}function monotonicDeadlineAfter(e){return monotonicNow()+e}function remainingMonotonicMs(e){return e-monotonicNow()}var t=e((()=>{}));export{remainingMonotonicMs as i,monotonicDeadlineAfter as n,monotonicNow as r,t};

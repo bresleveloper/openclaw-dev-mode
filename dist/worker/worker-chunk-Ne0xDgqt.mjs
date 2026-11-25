@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{n as t,r as n}from"./worker-chunk-TgMlpsZo.mjs";function resolveAgentDatabaseIdleHandleTtlMs(){return t()===`cli-oneshot`?i:r}var r,i,a=e((()=>{n(),r=18e5,i=3e4}));export{a as n,resolveAgentDatabaseIdleHandleTtlMs as r,r as t};

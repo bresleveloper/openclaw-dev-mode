@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{Writable as t}from"node:stream";function createNullWriter(){return new t({write(e,t,n){n()}})}var n=e((()=>{}));export{n,createNullWriter as t};

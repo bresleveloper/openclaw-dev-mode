@@ -1,0 +1,3 @@
+import{r as normalizeControlUiBasePath}from"./grammar-D8qvVkaJ.mjs";
+//!packages/session-url-contract/src/focus.ts
+const FOCUS_SEGMENT=`/focus`;function normalizePathname(e){const t=e.trim();const n=t.startsWith(`/`)?t:`/${t}`;return n.length>1?n.replace(/\/+$/u,``):n}function isControlUiFocusPath(e,t=``){const n=normalizePathname(e);const r=`${normalizeControlUiBasePath(t)}${FOCUS_SEGMENT}`;return n===r||n.startsWith(`${r}/`)}export{isControlUiFocusPath as t};

@@ -1,0 +1,2 @@
+//!src/plugins/startup-trace-segment.ts
+const SAFE_STARTUP_TRACE_SEGMENT_CHAR=/^[A-Za-z0-9_-]$/u;function encodeStartupTraceSegment(e){if(!e)return`~`;let t=``;for(let n=0;n<e.length;n+=1){const r=e[n]??``;if(SAFE_STARTUP_TRACE_SEGMENT_CHAR.test(r)){t+=r;continue}t+=`~${e.charCodeAt(n).toString(16).toUpperCase().padStart(4,`0`)}`}return t}export{encodeStartupTraceSegment as t};

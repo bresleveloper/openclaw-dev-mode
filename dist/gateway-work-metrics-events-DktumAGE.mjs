@@ -1,0 +1,3 @@
+import{o as resolveGlobalSingleton}from"./global-singleton-BoQ13xsk.mjs";import{n as notifyListeners,r as registerListener}from"./listeners-awzYn4LE.mjs";
+//!src/infra/gateway-work-metrics-events.ts
+const listeners=resolveGlobalSingleton(Symbol.for(`openclaw.gatewayWorkMetricsListeners`),()=>/* @__PURE__ */ new Set,e=>e.clear());function onGatewayWorkMetricsChanged(e){return registerListener(listeners,e)}function notifyGatewayWorkMetricsChanged(){notifyListeners(listeners,void 0)}export{onGatewayWorkMetricsChanged as n,notifyGatewayWorkMetricsChanged as t};

@@ -1,0 +1,3 @@
+import{r as resolveStateDir}from"./state-dir-BwbNjuVe.mjs";import"./paths-DxXULbkO.mjs";import{r as resolveActivePluginInstallRoots,t as hasActivePluginInstallRoots}from"./install-root-context-BX7IOb7J.mjs";
+//!src/plugin-sdk/state-paths.ts
+function resolveManagedResourceStateDir(){return hasActivePluginInstallRoots()?resolveActivePluginInstallRoots().stateDir:resolveStateDir()}export{resolveManagedResourceStateDir as t};

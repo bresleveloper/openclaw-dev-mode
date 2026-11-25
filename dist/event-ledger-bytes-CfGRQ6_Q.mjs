@@ -1,0 +1,2 @@
+//!src/acp/event-ledger-bytes.ts
+function estimateAcpSessionRowBytes(e){return Buffer.byteLength(e.sessionId,`utf8`)+Buffer.byteLength(e.sessionKey,`utf8`)+Buffer.byteLength(e.cwd,`utf8`)+32}function estimateAcpEventRowBytes(e){return Buffer.byteLength(e.sessionId,`utf8`)+Buffer.byteLength(e.sessionKey,`utf8`)+Buffer.byteLength(e.runId??``,`utf8`)+Buffer.byteLength(e.updateJson,`utf8`)+32}export{estimateAcpSessionRowBytes as n,estimateAcpEventRowBytes as t};

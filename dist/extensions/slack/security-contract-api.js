@@ -1,2 +1,1 @@
-import { t as collectSlackSecurityAuditFindings } from "./.setup/security-audit-DFGiFLqd.mjs";
-export { collectSlackSecurityAuditFindings };
+export { t as collectSlackSecurityAuditFindings } from "./.setup/security-audit-C3hXCfDt.mjs";

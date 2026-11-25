@@ -226,6 +226,8 @@ docker_e2e_build_or_reuse "$IMAGE_NAME" npm-telegram-live "$ROOT_DIR/scripts/e2e
 mkdir -p "$ROOT_DIR/.artifacts/qa-e2e"
 mkdir -p "$OUTPUT_DIR_HOST"
 npm_prefix_host="$(mktemp -d "$ROOT_DIR/.artifacts/qa-e2e/npm-telegram-live-prefix.XXXXXX")"
+# Both host-created mounts are shared with the container's non-root appuser.
+chmod a+rwx "$npm_prefix_host" "$OUTPUT_DIR_HOST"
 harness_root="$(mktemp -d "$ROOT_DIR/.artifacts/qa-e2e/npm-telegram-live-harness.XXXXXX")"
 harness_package_json="$harness_root/package.json"
 cp "$ROOT_DIR/package.json" "$harness_package_json"
@@ -233,6 +235,16 @@ node --import tsx "$ROOT_DIR/scripts/e2e/lib/npm-telegram-live/prepare-package.m
 cleanup() {
   local rc=$?
   trap - EXIT
+  # QA intentionally creates private (0700/0600) artifacts. Return only these
+  # two owned mounts to the host UID before reading evidence or removing npm.
+  # Keep their modes private; do not grant other users access to live evidence.
+  if ! docker_e2e_docker_with_timeout 60s run --rm --network none --user 0:0 \
+    --entrypoint chown \
+    -v "$npm_prefix_host:/npm-global" -v "$OUTPUT_DIR_HOST:/qa-output" \
+    "$IMAGE_NAME" -hR "$(id -u):$(id -g)" /npm-global /qa-output; then
+    echo "Could not return Telegram package artifacts to the host owner" >&2
+    if [ "$rc" -eq 0 ]; then rc=1; fi
+  fi
   printf 'schema=1\nexit_code=%s\nlive_output=job_log\n' "$rc" > "$OUTPUT_DIR_HOST/run-metadata.txt"
   rm -rf "$npm_prefix_host"
   rm -rf "$harness_root"
@@ -483,7 +495,7 @@ cleanup_recovery() {
 }
 trap cleanup_recovery EXIT
 
-dump_hotpath_logs() {
+dump_debug_logs() {
   local status="$1"
   echo "installed-package onboarding recovery hot path failed with exit code $status" >&2
   for file in \
@@ -499,7 +511,7 @@ dump_hotpath_logs() {
     fi
   done
 }
-trap 'status=$?; dump_hotpath_logs "$status"; exit "$status"' ERR
+openclaw_e2e_enable_failure_diagnostics
 
 test -x "$sut_command"
 openclaw_e2e_run_command "$sut_command" --version
@@ -586,7 +598,12 @@ if [ "${OPENCLAW_NPM_TELEGRAM_SKIP_HOTPATH:-0}" != "1" ]; then
   plugin_install_help="$(openclaw_e2e_run_command "$sut_command" plugins install --help)"
   fixture_consent="$(printf '%s' "$plugin_install_help" | node scripts/e2e/lib/package-compat.mjs fixture-consent)"
   if [ -n "$fixture_consent" ]; then
-    openclaw_e2e_fixture_plugin_command "$sut_command" -- plugins install @openclaw/codex \
+    codex_install_args=("@openclaw/codex")
+    if [ -n "${OPENCLAW_PREPUBLISH_PLUGIN_REGISTRY_DIR:-}" ]; then
+      # A mounted candidate must use its sealed npm companion, not a published ClawHub fallback.
+      codex_install_args=("npm:@openclaw/codex@${OPENCLAW_PREPUBLISH_PLUGIN_REGISTRY_CANDIDATE_VERSION:?missing candidate version}" --pin)
+    fi
+    openclaw_e2e_fixture_plugin_command "$sut_command" -- plugins install "${codex_install_args[@]}" \
       >/tmp/openclaw-npm-telegram-codex-install.log 2>&1 </dev/null
   fi
   OPENAI_API_KEY="$hotpath_model_value" openclaw_e2e_run_command "$sut_command" onboard \

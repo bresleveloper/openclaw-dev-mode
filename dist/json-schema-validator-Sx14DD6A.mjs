@@ -1,0 +1,3 @@
+import{s as normalizeTypeBoxValidationErrors}from"./json-schema-BlwsWcBs.mjs";import{CheckContext,CheckSchema,Errors,Stack}from"typebox/schema";
+//!packages/normalization-core/src/json-schema-validator.ts
+function createJsonSchemaValidator(e,t={}){const n=t.context??{};const r=Stack(n,e);const check=t=>CheckSchema(r,new CheckContext,e,t);return{schema:e,check,errors:t=>normalizeTypeBoxValidationErrors(Errors(n,e,t)[1])}}export{createJsonSchemaValidator as t};

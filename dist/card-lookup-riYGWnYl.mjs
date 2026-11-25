@@ -1,0 +1,2 @@
+//!extensions/workboard/src/card-lookup.ts
+function resolveWorkboardCardByIdOrPrefix(e,t){const n=e.find(e=>e.id===t);if(n)return{card:n};const r=e.filter(e=>e.id.startsWith(t));if(r.length===0)return{error:`Card not found: ${t}`};if(r.length>1)return{error:`Ambiguous card id prefix: ${t} (${r.length} matches)`};const i=r[0];return i?{card:i}:{error:`Card not found: ${t}`}}export{resolveWorkboardCardByIdOrPrefix as t};

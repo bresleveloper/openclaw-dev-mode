@@ -1,0 +1,2 @@
+//!src/config/mutation-conflict.ts
+var ConfigMutationConflictError=class extends Error{constructor(e,t={}){super(e);this.name=`ConfigMutationConflictError`;this.retryable=t.retryable??true}};const GUARDED_CONFIG_INCLUDE_WRITE_ERROR=`This approved operation cannot update include-owned configuration. Use a trusted shell for this change.`;export{GUARDED_CONFIG_INCLUDE_WRITE_ERROR as n,ConfigMutationConflictError as t};

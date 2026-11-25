@@ -1,0 +1,1 @@
+import{a as resolvePluginVersionDriftTargets,i as resolvePluginVersionDriftRegistryLag,n as hasOfficialPluginVersionCandidates,o as resolvePluginVersionDriftUpdateCommand,r as resolveOfficialPluginCohortNpmSpecs,t as detectPluginVersionDrift}from"./plugin-version-drift-ZDEl0S7-.mjs";export{resolvePluginVersionDriftTargets};

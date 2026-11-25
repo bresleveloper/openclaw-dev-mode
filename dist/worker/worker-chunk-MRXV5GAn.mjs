@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function withNodePathPrependWarning(e,n){return n?`${e}\n\n${t}`:e}var t,n=e((()=>{t=`Warning: tools.exec.pathPrepend is ignored for host=node. Configure PATH on the node host/service instead.`}));export{n,withNodePathPrependWarning as r,t};

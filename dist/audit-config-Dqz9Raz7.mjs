@@ -1,0 +1,2 @@
+//!src/audit/audit-config.ts
+function isAuditLedgerEnabled(e){return e?.logging?.audit?.enabled!==false}function isExecutionIdentityCollectionEnabled(e){return isAuditLedgerEnabled(e)&&e?.logging?.audit?.executionIdentity===true}function resolveAuditMessageMode(e){return e?.logging?.audit?.messages??`off`}export{isExecutionIdentityCollectionEnabled as n,resolveAuditMessageMode as r,isAuditLedgerEnabled as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";export{s as movePathToTrash}from"./worker-chunk-qL_zCMfG.mjs";import{t}from"./worker-chunk-B5b9uJOV.mjs";import{i as n}from"./worker-chunk-Je8_LpZe.mjs";import{t as r}from"./worker-chunk-g12rqkbI.mjs";function init_browser_config(){return(init_browser_config=e((()=>{n(),t(),r()})))()}init_browser_config();

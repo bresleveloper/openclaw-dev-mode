@@ -30,7 +30,14 @@ import {
   isWorkboardClaimReclaimable,
   MAX_CARD_ARTIFACTS,
   secondsToDurationMs,
+  workboardBoardOwnerSlotLimit,
 } from "./store-constants.js";
+import {
+  appendEvidence,
+  buildCompletionClaims,
+  buildVerification,
+  evidenceFits,
+} from "./store-evidence.js";
 import type {
   WorkboardBlockInput,
   WorkboardCardPatch,
@@ -43,6 +50,7 @@ import type {
   WorkboardReassignInput,
   WorkboardReclaimInput,
   WorkboardSpecifyInput,
+  WorkboardVerifyInput,
 } from "./store-inputs.js";
 import {
   appendCompletionProof,
@@ -50,7 +58,6 @@ import {
   clearDiagnostics,
   deriveChildIdempotencyKey,
   normalizeArtifact,
-  normalizeAutomation,
   normalizeBoundedString,
   normalizeProofInput,
   normalizeStatus,
@@ -97,7 +104,7 @@ export class WorkboardWorkflowStore extends WorkboardPromoteStore {
         now,
         ttlSeconds ? secondsToDurationMs(ttlSeconds) : DEFAULT_CLAIM_TTL_MS,
       );
-      const guarded = await this.promoteDependencyReady(id, now);
+      const guarded = await this.promoteDependencyReady(await this.requireCard(id), now);
       if (guarded.metadata?.archivedAt) {
         throw new Error("card is archived.");
       }
@@ -149,6 +156,7 @@ export class WorkboardWorkflowStore extends WorkboardPromoteStore {
         throw new WorkboardClaimRefusedError(`card already claimed by ${activeClaim.ownerId}.`);
       }
       const metadata = clearDiagnostics(guarded.metadata, ["stranded_ready"]);
+      const board = await this.boardStore.lookup(cardBoardId(guarded));
       const card = await this.updateCard(
         guarded,
         {
@@ -166,7 +174,7 @@ export class WorkboardWorkflowStore extends WorkboardPromoteStore {
         },
         {
           expectedUpdatedAt: guarded.updatedAt,
-          ownerSlot: { ownerId, now },
+          ownerSlot: { ownerId, now, limit: workboardBoardOwnerSlotLimit(board?.board) },
         },
       );
       return { card, token };
@@ -270,6 +278,15 @@ export class WorkboardWorkflowStore extends WorkboardPromoteStore {
           .filter((artifact): artifact is WorkboardArtifact => artifact !== null)
           .slice(-MAX_CARD_ARTIFACTS)
       : [];
+    // Claims are stamped with the caller. Gateway completion has none and must not
+    // borrow the claim owner's name.
+    const claimedBy = normalizeOptionalString(scope?.ownerId);
+    if (!claimedBy && input.claims !== undefined) {
+      throw new Error(
+        "claims need the completing agent's identity; complete through workboard_complete.",
+      );
+    }
+    const claims = claimedBy ? buildCompletionClaims(existing, input.claims, claimedBy, now) : [];
     const finished = finishRun(existing, "done", now);
     const metadata = clearDiagnostics(finished.metadata, ["missing_proof"]);
     const notifications = this.appendNotification(metadata, now, {
@@ -284,14 +301,7 @@ export class WorkboardWorkflowStore extends WorkboardPromoteStore {
         ...finished,
         metadata: {
           ...metadata,
-          automation: normalizeAutomation(
-            {
-              ...metadata.automation,
-              summary,
-              createdCardIds,
-            },
-            metadata.automation,
-          ),
+          automation: { ...metadata.automation, summary, createdCardIds },
           comments: appendComment(metadata.comments, summary, now),
           proof: appendCompletionProof(metadata.proof, proof, proofId),
           artifacts: artifacts.length
@@ -304,8 +314,46 @@ export class WorkboardWorkflowStore extends WorkboardPromoteStore {
         enforceStatusHolds: true,
         preserveProofId: proofId ?? proof?.id,
         preserveNotificationId: notifications.at(-1)?.id,
+        ...(claims.length
+          ? { automationEvidence: appendEvidence(existing.metadata?.automation?.evidence, claims) }
+          : {}),
       },
     );
+  }
+
+  /**
+   * Records a checker's verdict. Evidence only: status, claim, proof, and dependency
+   * scheduling are untouched, so it works the same before or after completion.
+   */
+  async verify(
+    id: string,
+    input: WorkboardVerifyInput,
+    scope: WorkboardMutationScope,
+  ): Promise<WorkboardCard> {
+    const checkerId = normalizeOptionalString(scope.ownerId);
+    if (!checkerId) {
+      throw new Error("verification needs a caller identity.");
+    }
+    return await this.enqueueMutation(async () => {
+      const existing = await this.requireCard(id);
+      assertCanMutateClaimedCard(existing, scope);
+      const verification = buildVerification(existing, input, checkerId, Date.now());
+      if (!evidenceFits(existing, verification)) {
+        // A checker gets a visible refusal, as a tool input error, rather than a silent drop.
+        throw new WorkboardClaimRefusedError(
+          "card metadata has no room for this verification; shorten scope, note, or url.",
+        );
+      }
+      return await this.updateCard(
+        existing,
+        {},
+        {
+          automationEvidence: appendEvidence(existing.metadata?.automation?.evidence, [
+            verification,
+          ]),
+        },
+      );
+    });
   }
 
   protected buildBlockedCardPatch(
@@ -429,7 +477,7 @@ export class WorkboardWorkflowStore extends WorkboardPromoteStore {
         },
         { enforceStatusHolds: true },
       );
-      return await this.promoteDependencyReady(reclaimed.id, now);
+      return await this.promoteDependencyReady(reclaimed, now);
     });
   }
 
@@ -462,13 +510,10 @@ export class WorkboardWorkflowStore extends WorkboardPromoteStore {
       const metadata = {
         ...existing.metadata,
         comments: appendComment(existing.metadata?.comments, summary, now),
-        automation: normalizeAutomation(
-          {
-            ...existing.metadata?.automation,
-            summary: summary ?? existing.metadata?.automation?.summary,
-          },
-          existing.metadata?.automation,
-        ),
+        automation: {
+          ...existing.metadata?.automation,
+          summary: summary ?? existing.metadata?.automation?.summary,
+        },
       };
       const { summary: _summary, status: _status, ...cardPatch } = input;
       return await this.updateCard(
@@ -545,14 +590,11 @@ export class WorkboardWorkflowStore extends WorkboardPromoteStore {
                     : latestParent.status,
                 metadata: {
                   ...latestParent.metadata,
-                  automation: normalizeAutomation(
-                    {
-                      ...latestParent.metadata?.automation,
-                      summary,
-                      createdCardIds: children.map((child) => child.id),
-                    },
-                    latestParent.metadata?.automation,
-                  ),
+                  automation: {
+                    ...latestParent.metadata?.automation,
+                    summary,
+                    createdCardIds: children.map((child) => child.id),
+                  },
                 },
               },
               { enforceStatusHolds: true },

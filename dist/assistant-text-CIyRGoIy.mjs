@@ -1,0 +1,3 @@
+import{c as extractEmbeddedAssistantText}from"./embedded-agent-utils-CNk-Fj6-.mjs";
+//!src/media-understanding/assistant-text.ts
+var MediaAssistantNoTextError=class extends Error{};function createMediaAssistantTextCoercer(e){return t=>{const n=`${t.provider}/${t.model}`;const r=t.message.errorMessage?.trim();if(t.message.stopReason===`error`||t.message.stopReason===`aborted`||r)throw new Error(r?`${e} model failed (${n}): ${r}`:`${e} model failed (${n})`);const i=extractEmbeddedAssistantText(t.message).trim();if(i)return i;throw new MediaAssistantNoTextError(`${e} model returned no text (${n}).`)}}export{createMediaAssistantTextCoercer as n,MediaAssistantNoTextError as t};

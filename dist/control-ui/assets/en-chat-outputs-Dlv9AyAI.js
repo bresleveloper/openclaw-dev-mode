@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{mi as t,pi as n}from"./_4____________________________.js";var r,i;function a(){return(a=e((()=>{t(),r={outputs:{viewAll:`View all`,dashboard:n.outputs.dashboard,files:`Files`,loading:`Loading outputs…`,updating:`Updating outputs…`,loadingDashboard:`Loading dashboard…`,emptyTitle:`No outputs yet.`,emptyDescription:`Files and dashboards from this session appear here.`}},i=Object.assign(()=>{Object.assign(n.outputs,r.outputs)},{catalog:r})})))()}export{i as n,a as t};
+//# sourceMappingURL=en-chat-outputs-Dlv9AyAI.js.map

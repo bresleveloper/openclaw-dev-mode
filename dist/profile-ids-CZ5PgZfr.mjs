@@ -1,0 +1,2 @@
+//!src/agents/auth-profiles/profile-ids.ts
+const CLAUDE_CLI_PROFILE_ID=`anthropic:claude-cli`;const CODEX_CLI_PROFILE_ID=`openai:codex-cli`;const MINIMAX_CLI_PROFILE_ID=`minimax-portal:minimax-cli`;export{CODEX_CLI_PROFILE_ID as n,MINIMAX_CLI_PROFILE_ID as r,CLAUDE_CLI_PROFILE_ID as t};

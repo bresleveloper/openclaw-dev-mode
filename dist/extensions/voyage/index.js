@@ -1,6 +1,6 @@
 import { voyageMemoryEmbeddingProviderAdapter } from "./memory-embedding-adapter.js";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-//#region extensions/voyage/index.ts
+// extensions/voyage/index.ts
 var voyage_default = definePluginEntry({
 	id: "voyage",
 	name: "Voyage Embeddings",
@@ -9,5 +9,4 @@ var voyage_default = definePluginEntry({
 		api.registerEmbeddingProvider(voyageMemoryEmbeddingProviderAdapter);
 	}
 });
-//#endregion
 export { voyage_default as default };

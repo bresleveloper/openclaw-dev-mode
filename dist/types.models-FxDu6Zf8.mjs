@@ -1,0 +1,1 @@
+import"./model-config-vocabulary-CXg1OXeo.mjs";export{};

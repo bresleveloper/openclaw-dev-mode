@@ -357,12 +357,18 @@ export function runtimeAuthMetadataState(
   store: RuntimeAuthProfileStore,
   includeAvailability = true,
 ) {
+  // Startup loads stores without external overlays; resolving them and finding none names the
+  // same profiles, so only a non-empty external set is catalog identity.
+  const externalProfileIds = store.runtimeExternalProfileIds?.length
+    ? store.runtimeExternalProfileIds
+    : undefined;
   return {
     order: store.order,
     profiles: store.profiles,
     runtimePersistedProfileIds: store.runtimePersistedProfileIds,
-    runtimeExternalProfileIds: store.runtimeExternalProfileIds,
-    runtimeExternalProfileIdsAuthoritative: store.runtimeExternalProfileIdsAuthoritative,
+    runtimeExternalProfileIds: externalProfileIds,
+    runtimeExternalProfileIdsAuthoritative:
+      externalProfileIds && store.runtimeExternalProfileIdsAuthoritative,
     runtimeLocalProfileIds: store.runtimeLocalProfileIds,
     runtimeLocalOrderProviderIds: store.runtimeLocalOrderProviderIds,
     availability: includeAvailability
@@ -428,11 +434,14 @@ export function pruneAuthProfileStoreReferences(
   store.order = store.order
     ? Object.fromEntries(
         Object.entries(store.order)
-          .map(([provider, profileIds]) => [
-            provider,
-            profileIds.filter((profileId) => keptOrderProfileIds.has(profileId)),
-          ])
-          .filter(([, profileIds]) => Array.isArray(profileIds) && profileIds.length > 0),
+          .map(
+            ([provider, profileIds]) =>
+              [
+                provider,
+                profileIds.filter((profileId) => keptOrderProfileIds.has(profileId)),
+              ] as const,
+          )
+          .filter(([, profileIds]) => profileIds.length > 0),
       )
     : undefined;
   store.lastGood = store.lastGood

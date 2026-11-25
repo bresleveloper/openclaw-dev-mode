@@ -1,0 +1,2 @@
+//!packages/gateway-protocol/src/schema/approval-id.ts
+const APPROVAL_ID_WELL_FORMED_UNICODE_PATTERN=`^(?!\\.{1,2}$)(?:[^\\uD800-\\uDFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])+$`;function isWellFormedApprovalId(e){if(e.length===0||e===`.`||e===`..`)return false;for(let t=0;t<e.length;t+=1){const n=e.charCodeAt(t);if(n>=55296&&n<=56319){if(t+1>=e.length)return false;const n=e.charCodeAt(t+1);if(n<56320||n>57343)return false;t+=1}else if(n>=56320&&n<=57343)return false}return true}export{isWellFormedApprovalId as n,APPROVAL_ID_WELL_FORMED_UNICODE_PATTERN as t};

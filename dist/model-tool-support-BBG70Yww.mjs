@@ -1,0 +1,4 @@
+//!src/agents/model-tool-support.ts
+const MODEL_TOOLS_UNAVAILABLE_PROMPT=`## Tool availability
+
+This model cannot use tools in this run. Do not claim that you ran commands, read or wrote files, browsed the web, generated media, or performed any other tool-backed action. If a request requires tools, say they are unavailable in this chat and ask the user to switch to a tool-capable model.`;function supportsModelTools(e){return(e.compat&&typeof e.compat===`object`?e.compat:void 0)?.supportsTools!==false}function buildModelToolsUnavailablePrompt(e){return e?void 0:MODEL_TOOLS_UNAVAILABLE_PROMPT}export{supportsModelTools as n,buildModelToolsUnavailablePrompt as t};

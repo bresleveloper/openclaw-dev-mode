@@ -1,0 +1,3 @@
+import{l as scanSessionTranscriptTree,p as selectSessionTranscriptTreePathNodes}from"./transcript-tree-Dwc2Zlw1.mjs";
+//!src/config/sessions/transcript-visible-events.ts
+function selectVisibleTranscriptEventEntries(e){const t=scanSessionTranscriptTree(e);const n=selectSessionTranscriptTreePathNodes(t,t.leafId);if(n.length>0)return n.map(e=>({event:e.entry,parentId:e.parentId,seq:e.index+1}));return t.hasLeafControl?[]:e.map((e,t)=>({event:e,parentId:null,seq:t+1}))}function selectVisibleTranscriptEvents(e){return selectVisibleTranscriptEventEntries(e).map(e=>e.event)}export{selectVisibleTranscriptEvents as n,selectVisibleTranscriptEventEntries as t};

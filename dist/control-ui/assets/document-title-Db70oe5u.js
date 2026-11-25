@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{P as t,U as n,ht as r}from"./_6____________________.js";function i(){return(i=e((()=>{})))()}function a(e){let n=document.title,i;r(()=>{i!==void 0&&document.title===i&&(document.title=n)}),t(e,e=>{document.title=e,i=e})}function o(){return(o=e((()=>{n()})))()}export{o as n,i as r,a as t};
+//# sourceMappingURL=document-title-Db70oe5u.js.map

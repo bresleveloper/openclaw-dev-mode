@@ -1,0 +1,1 @@
+import{v as e}from"./openclaw-state-read-read-open-flags-CtNL1rJs.mjs";function withMissingSecretStoreFallback(t,n){try{return t()}catch(t){if(t instanceof Error&&e(t,`ERR_SQLITE_ERROR`)&&t.message===`no such table: secret_store_entries`)return n;throw t}}export{withMissingSecretStoreFallback as t};

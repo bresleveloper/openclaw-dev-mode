@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-CNOWq4Kh.js";import{li as t,oi as n}from"./_4____________________________.js";function r(e){let n=e?.trim()??``;return n?URL.parse(n)?.host||n:t(`common.unknown`)}function i(){return(i=e((()=>{n()})))()}export{i as n,r as t};
+//# sourceMappingURL=gateway-host-BX61lukd.js.map

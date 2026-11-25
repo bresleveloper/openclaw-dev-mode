@@ -1,0 +1,3 @@
+import{t as parseJsonWithJson5Fallback}from"./parse-json-compat-BEbcOl-a.mjs";import{r as decodeUtf8Input}from"./utf8-input-CiFSnxL0.mjs";import fs from"node:fs";
+//!src/infra/state-migrations.fs.ts
+function readSessionStoreJson5(e){try{return parseSessionStoreJson5(decodeUtf8Input(fs.readFileSync(e),`Legacy session store`))}catch{}return{store:{},ok:false}}function parseSessionStoreJson5(e){try{const t=parseJsonWithJson5Fallback(e);if(t&&typeof t===`object`&&!Array.isArray(t))return{store:t,ok:true}}catch{}return{store:{},ok:false}}export{readSessionStoreJson5 as n,parseSessionStoreJson5 as t};

@@ -1,6 +1,6 @@
 import { registerFeishuSubagentHooks } from "./subagent-hooks-api.js";
 import { defineBundledChannelEntry, loadBundledEntryExportSync } from "openclaw/plugin-sdk/channel-entry-contract";
-//#region extensions/feishu/index.ts
+// extensions/feishu/index.ts
 var feishu_default = defineBundledChannelEntry({
 	id: "feishu",
 	name: "Feishu",
@@ -33,5 +33,4 @@ var feishu_default = defineBundledChannelEntry({
 		})(api);
 	}
 });
-//#endregion
 export { feishu_default as default };

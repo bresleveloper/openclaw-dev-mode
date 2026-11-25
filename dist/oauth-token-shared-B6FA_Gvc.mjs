@@ -1,0 +1,3 @@
+import{g as readStringValue}from"./string-coerce-CpTFcSwY.mjs";import"./string-coerce-runtime-BYDH9Quw.mjs";
+//!extensions/google/oauth-token-shared.ts
+function parseGoogleOauthApiKey(e){try{const t=JSON.parse(e);return{token:readStringValue(t.token),projectId:readStringValue(t.projectId)}}catch{return null}}function formatGoogleOauthApiKey(e){if(e.type!==`oauth`||typeof e.access!==`string`||!e.access.trim())return``;return JSON.stringify({token:e.access,projectId:e.projectId})}export{parseGoogleOauthApiKey as n,formatGoogleOauthApiKey as t};

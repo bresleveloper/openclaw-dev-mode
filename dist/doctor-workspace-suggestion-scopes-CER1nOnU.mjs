@@ -1,0 +1,3 @@
+import{i as listAgentIds}from"./agent-roster-Cq57wKEj.mjs";import{f as resolveAgentWorkspaceDir}from"./agent-scope-config-a2Ym-O21.mjs";import"./agent-scope-A1AqU6fw.mjs";
+//!src/flows/doctor-workspace-suggestion-scopes.ts
+function resolveDoctorWorkspaceSuggestionScopes(e){const t=listAgentIds(e);const n=t.length>1;return t.map(t=>({agentId:t,workspaceDir:resolveAgentWorkspaceDir(e,t),labelAgent:n}))}export{resolveDoctorWorkspaceSuggestionScopes as t};

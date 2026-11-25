@@ -1,18 +1,3 @@
-import { t as definePluginEntry } from "../../plugin-entry-D4OPnFRH.mjs";
-import { t as POLICY_CLI_DESCRIPTOR } from "../../cli-output-mode-BBFJN3Xe.mjs";
-import { t as registerPolicyDoctorChecks } from "../../register-DXvnguD_.mjs";
-//#region extensions/policy/index.ts
-var policy_default = definePluginEntry({
-	id: "policy",
-	name: "Policy",
-	description: "Adds policy-backed doctor checks for workspace conformance.",
-	register(api) {
-		api.registerCli(async ({ program }) => {
-			const { registerPolicyCli } = await import("../../cli-DEurDdhE.mjs");
-			registerPolicyCli(program);
-		}, { descriptors: [POLICY_CLI_DESCRIPTOR] });
-		registerPolicyDoctorChecks();
-	}
-});
-//#endregion
-export { policy_default as default };
+import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import{t as POLICY_CLI_DESCRIPTOR}from"../../cli-output-mode-D182CYNX.mjs";import{t as registerPolicyDoctorChecks}from"../../register-BnEhGDql.mjs";
+//!extensions/policy/index.ts
+var policy_default=definePluginEntry({id:`policy`,name:`Policy`,description:`Adds policy-backed doctor checks for workspace conformance.`,register(e){e.registerCli(async({program:e})=>{const{registerPolicyCli:t}=await import(`../../cli-Day9t0m_.mjs`);t(e)},{descriptors:[POLICY_CLI_DESCRIPTOR]});registerPolicyDoctorChecks()}});export{policy_default as default};

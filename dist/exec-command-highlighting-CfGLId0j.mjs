@@ -1,0 +1,3 @@
+import{n as normalizeAgentId}from"./agent-id-cOfqmfln.mjs";import"./session-key-C6YO7qUA.mjs";import{r as resolveAgentConfig}from"./agent-scope-config-a2Ym-O21.mjs";
+//!src/config/exec-command-highlighting.ts
+function resolveExecCommandHighlighting(e){const t=e.config??{};const n=t.tools?.exec?.commandHighlighting;const r=e.agentId?normalizeAgentId(e.agentId):null;return(r?resolveAgentConfig(t,r)?.tools?.exec?.commandHighlighting:void 0)??n??false}export{resolveExecCommandHighlighting as t};

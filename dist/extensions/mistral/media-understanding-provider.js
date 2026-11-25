@@ -1,5 +1,5 @@
 import { transcribeOpenAiCompatibleAudio } from "openclaw/plugin-sdk/media-understanding";
-//#region extensions/mistral/media-understanding-provider.ts
+// extensions/mistral/media-understanding-provider.ts
 const DEFAULT_MISTRAL_AUDIO_BASE_URL = "https://api.mistral.ai/v1";
 const DEFAULT_MISTRAL_AUDIO_MODEL = "voxtral-mini-latest";
 const mistralMediaUnderstandingProvider = {
@@ -14,5 +14,4 @@ const mistralMediaUnderstandingProvider = {
 		defaultModel: DEFAULT_MISTRAL_AUDIO_MODEL
 	})
 };
-//#endregion
 export { mistralMediaUnderstandingProvider };

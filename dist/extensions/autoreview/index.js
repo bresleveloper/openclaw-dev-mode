@@ -1,0 +1,3 @@
+import{r as emptyPluginConfigSchema}from"../../config-schema-BQYgWf1D.mjs";import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import{t as createAutoReviewTool}from"../../tool-2s4SspXt.mjs";
+//!extensions/autoreview/index.ts
+var autoreview_default=definePluginEntry({id:`autoreview`,name:`Auto Review`,description:`Run the installed Auto Review workflow against the current sandbox.`,configSchema:emptyPluginConfigSchema(),register(e){e.registerTool({contextVersion:2,create:e=>createAutoReviewTool(e)},{name:`autoreview`,optional:true,workspaceAccess:`execute`})}});export{autoreview_default as default};

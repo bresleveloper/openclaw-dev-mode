@@ -1,2 +1,1 @@
-import { i as resolveMinimaxThinkingProfile, n as MINIMAX_M31_THINKING_LEVELS, r as isMinimaxM31ModelId, t as MINIMAX_M31_MODEL_ID } from "../../thinking-Dg9lPaiN.mjs";
-export { MINIMAX_M31_MODEL_ID, MINIMAX_M31_THINKING_LEVELS, isMinimaxM31ModelId, resolveMinimaxThinkingProfile };
+import{a as resolveMinimaxThinkingProfile,i as isMinimaxM31ModelId,n as MINIMAX_M31_PREVIEW_MODEL_ID,r as MINIMAX_M31_THINKING_LEVELS,t as MINIMAX_M31_MODEL_ID}from"../../thinking-BQWq8hzy.mjs";export{MINIMAX_M31_MODEL_ID,MINIMAX_M31_PREVIEW_MODEL_ID,MINIMAX_M31_THINKING_LEVELS,isMinimaxM31ModelId,resolveMinimaxThinkingProfile};

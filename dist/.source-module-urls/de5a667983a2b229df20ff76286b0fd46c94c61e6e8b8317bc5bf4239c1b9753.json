@@ -1,0 +1,1 @@
+{"version":3,"entries":[{"output":"extensions/browser/setup-api.js","source":"extensions/browser/setup-api.ts"}],"chunks":[{"output":"extensions/browser/setup-api.js","sha256":"bb7f18baf9f04f9c66f03cdf497aa4599007e8fd317940a8ea55bef2171bb4c1","facadeSource":"extensions/browser/setup-api.ts","sources":["extensions/browser/setup-api.ts"]}],"unrenderedSources":[]}

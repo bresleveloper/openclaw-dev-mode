@@ -1,0 +1,1 @@
+import{n as MAX_IMAGE_INPUT_PIXELS,r as createLocalImageProcessor,t as MAX_IMAGE_DOWNSCALE_SOURCE_PIXELS}from"./image-processor-config-CEE2vN5Q.mjs";export{MAX_IMAGE_DOWNSCALE_SOURCE_PIXELS};

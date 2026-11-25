@@ -1,0 +1,2 @@
+//!src/infra/mutation-authority.ts
+function retainMutationAuthority(e){let t;return(...n)=>{if(t)throw t.error;try{const t=e(...n);if(t!==null&&(typeof t===`object`||typeof t===`function`)&&typeof t.then===`function`){Promise.resolve(t).catch(()=>void 0);throw new TypeError(`mutation authority must be synchronous`)}}catch(e){t={error:e};throw e}}}export{retainMutationAuthority as t};

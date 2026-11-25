@@ -1,0 +1,3 @@
+import{t as isPlainObject}from"./plain-object-CHrMoU5Q.mjs";
+//!src/config/commands.flags.ts
+function getOwnCommandFlagValue(e,t){const{commands:n}=e??{};if(!isPlainObject(n)||!Object.hasOwn(n,t))return;return n[t]}function isCommandFlagEnabled(e,t){return getOwnCommandFlagValue(e,t)===true}function isRestartEnabled(e){return getOwnCommandFlagValue(e,`restart`)!==false}export{isRestartEnabled as n,isCommandFlagEnabled as t};

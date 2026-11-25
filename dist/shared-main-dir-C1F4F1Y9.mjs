@@ -1,0 +1,3 @@
+import{c as resolveUserPath}from"./home-dir-aZetQWeY.mjs";import{r as resolveStateDir}from"./state-dir-BwbNjuVe.mjs";import{n as LEGACY_IMPLICIT_AGENT_ID}from"./session-key-C6YO7qUA.mjs";import path from"node:path";
+//!src/agents/auth-profiles/shared-main-dir.ts
+function resolveSharedMainAuthAgentDir(e=process.env){const t=e.OPENCLAW_AGENT_DIR?.trim();return t?resolveUserPath(t,e):path.join(resolveStateDir(e),`agents`,LEGACY_IMPLICIT_AGENT_ID,`agent`)}export{resolveSharedMainAuthAgentDir as t};
