@@ -23,7 +23,11 @@ Ariel's task: "get latest version, update our dev mode, dont forget to delete al
 - Other 11.10 behaviour seen in the log: agents can no longer `sqlite3` the live state DBs (`[tools] exec failed: external sqlite3 cannot open databases under the active OpenClaw state directory`, a kimi turn in Ariel's chat at 11:43); `Agent exec isolation unavailable: requires Delegate=yes and DelegateSubgroup=gateway` (the unit has no delegation; optional); other people's WhatsApp DMs log `Inbound message blocked (reason=dm_policy_not_allowlisted)` (allowlist = Ariel only, unchanged); the transcript-facts backfill (18,755 rows, 482 sessions) took the gateway to 6.0 GB peak RSS for ~30 min, MemAvailable 5.4 GB afterwards.
 - Backup: `/root/oc-backup-pre-11.10-20261125-113234` (full `cp -a ~/.openclaw`, shell profiles, unit file, `old-head.txt` = `64198b5542c`, `before.json`/`after.json`/`changes.md`, `acl-before.txt`). Revert = stop, `git reset --hard 64198b5542c` + `pnpm install` + link script + `ln -sfn`, restore `dot-openclaw` over `~/.openclaw`, start.
 
-## README proposal (waiting for Ariel's OK, not applied)
+## Greeting live test (aborted, 15:35–15:59 UTC)
+
+Ariel: "readme approved. also it runs kimi, so make the test live". He meant FIX-11 (next message: "not doing new... have you tested the onsystemprompt working?"); I read it as the FIX-04 greeting test. Sent `/new FIX-04 live test: …` twice and `/new` once into his WhatsApp session via `chat.send` `deliver:true`. None ran as a command: the hub's SSH-alert turn for our own login was active (compacting, the session being over budget), so each became a plain user message. No reset, nothing sent to WhatsApp. Cleanup: `sessions.abort` `clearQueued` (nothing queued), then `sessions.rewind` to the entry before hub alert #7612 (refused twice while the agent worked, done 15:59:23); his history ends at the agent's last real reply again. Side finding: while over budget, every hub turn starts a full kimi compaction that fails at the hub's 30 s timeout (`HTTP client disconnected`, 15:40:32 and 15:51:22), so those alerts are never forwarded.
+
+## README changelog (Ariel's OK, committed)
 
 ```
 - 2026-11-25

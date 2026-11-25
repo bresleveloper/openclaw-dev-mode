@@ -23,6 +23,9 @@ saving full log to enjoy my journey with OC ♥
 
 ## CHANGE LOG
 
+- 2026-11-25
+  - updated to v2026.11.10
+  - FIX-11 `onSystemPromptEnd` plugin hook => a plugin gets the full final system prompt on every request and returns the one actually sent
 - 2026-11-10
   - updated to v2026.11.3
 - 2026-11-05
