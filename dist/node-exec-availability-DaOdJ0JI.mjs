@@ -1,0 +1,3 @@
+import{n as listNodes,o as resolveNodeIdFromList}from"./nodes-utils-B5Mmpt_z.mjs";
+//!src/agents/node-exec-availability.ts
+async function loadNodeExecAvailability(e){const t=await listNodes({},e).catch(()=>{e?.throwIfAborted();return[]});e?.throwIfAborted();return{cacheKey:JSON.stringify(t.toSorted((e,t)=>e.nodeId.localeCompare(t.nodeId)).map(({nodeId:e,displayName:t,remoteIp:n,clientId:r,connected:i,commands:a})=>[e,t,n,r,i===true,a?.includes(`system.run`)===true])),isAvailable:e=>{try{const n=e?.trim()?resolveNodeIdFromList(t,e):void 0;return t.some(e=>(!n||e.nodeId===n)&&e.connected===true&&e.commands?.includes(`system.run`)===true)}catch{return false}}}}export{loadNodeExecAvailability as t};

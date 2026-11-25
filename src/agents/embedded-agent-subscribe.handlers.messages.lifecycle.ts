@@ -46,7 +46,6 @@ import {
   extractThinkingFromTaggedText,
   promoteThinkingTagsToBlocks,
 } from "./embedded-agent-utils.js";
-import { promoteDanglingThinkTags } from "./fork-dangling-think-tags.js"; // openclaw-dev-mode FIX-12
 import type { AgentEvent, AgentMessage } from "./runtime/index.js";
 import { normalizeToolPolicyName } from "./tool-policy.js";
 
@@ -160,7 +159,6 @@ export function handleMessageEnd(
     return;
   }
   const sourceContent = assistantMessage.content;
-  promoteDanglingThinkTags(assistantMessage); // openclaw-dev-mode FIX-12
   promoteThinkingTagsToBlocks(assistantMessage);
 
   let rawText: string | undefined;

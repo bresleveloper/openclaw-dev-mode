@@ -1,0 +1,3 @@
+import{i as getCurrentPluginMetadataSnapshot}from"./current-plugin-metadata-snapshot-DXukR3_P.mjs";import{i as buildModelAliasIndex}from"./model-selection-shared-D5yY0q4q.mjs";import{n as resolveDefaultModelForAgent}from"./model-selection-config-CMRU-iNY.mjs";import"./model-selection-dFNU2_Vj.mjs";
+//!src/auto-reply/reply/directive-handling.defaults.ts
+function resolveDefaultModel(e){const t=getCurrentPluginMetadataSnapshot({config:e.cfg,allowWorkspaceScopedSnapshot:true});const n={cfg:e.cfg,agentId:e.agentId,manifestPlugins:t};const{provider:r,model:i}=resolveDefaultModelForAgent(n);return{defaultProvider:r,defaultModel:i,aliasIndex:buildModelAliasIndex({...n,defaultProvider:r})}}export{resolveDefaultModel as t};

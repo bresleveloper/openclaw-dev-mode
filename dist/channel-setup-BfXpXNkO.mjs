@@ -1,0 +1,1 @@
+import{i as setupChannels,n as createChannelSetupHooks,r as runCollectedChannelOnboardingPostWriteHooks,t as createChannelOnboardingPostWriteHook}from"./channel-setup-BImBf_CI.mjs";export{createChannelOnboardingPostWriteHook,createChannelSetupHooks,runCollectedChannelOnboardingPostWriteHooks,setupChannels};

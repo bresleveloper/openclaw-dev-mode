@@ -1,0 +1,1 @@
+import{a as e,c as t,i as n,l as r,n as i,o as a,r as o,s,t as c}from"./worker-chunk-CmIGVFAC.mjs";n();export{c as checkUpdateStatus,i as fetchNpmTagVersion,o as formatGitInstallLabel,e as resolveExtendedStablePackage,a as resolveNpmChannelTag,s as resolveUpdateInstallIdentity,t as resolveUpdateInstallKind,r as resolveUpdateRegistryTarget};

@@ -1,0 +1,1 @@
+import{i as updateRecoverImmutableCommand,n as tryRunImmutableUpdateCommand,r as updateAdoptImmutableCommand,t as refuseImmutableUpdateActivation}from"./update-command-immutable-D4pmd8YO.mjs";export{tryRunImmutableUpdateCommand,updateAdoptImmutableCommand,updateRecoverImmutableCommand};

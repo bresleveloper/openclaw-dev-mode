@@ -1,0 +1,3 @@
+import{t as createBrowserRouteDispatcher}from"./dispatcher-DvLfBsZy.mjs";import{t as createBrowserControlContext}from"./browser-control-state-Big4XjRw.mjs";import{t as describeBrowserControlUnavailable}from"./plugin-enabled-B-tHj7T1.mjs";import{t as startBrowserControlServiceFromConfig}from"./control-service-Cn43_vkN.mjs";
+//!extensions/browser/src/browser/local-dispatch.runtime.ts
+async function dispatchBrowserControlRequest(e){if(!await startBrowserControlServiceFromConfig())return{status:503,body:{error:await describeBrowserControlUnavailable()}};const t=createBrowserRouteDispatcher(createBrowserControlContext());await e.assertCurrent?.();return await t.dispatch(e)}export{dispatchBrowserControlRequest};

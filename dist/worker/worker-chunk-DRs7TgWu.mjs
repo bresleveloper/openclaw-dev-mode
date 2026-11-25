@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-DC5w-A8L.mjs";t();export{e as withSetupProviderAuthMethod};

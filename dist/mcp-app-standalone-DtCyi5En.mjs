@@ -1,1 +1,0 @@
-import{n as handleMcpAppStandaloneHttpRequest,t as createMcpAppStandaloneTicket}from"./mcp-app-standalone-BRZeCi9e.mjs";export{createMcpAppStandaloneTicket,handleMcpAppStandaloneHttpRequest};

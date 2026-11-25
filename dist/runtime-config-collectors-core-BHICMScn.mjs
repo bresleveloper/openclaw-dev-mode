@@ -1,1 +1,0 @@
-import{t as collectCoreConfigAssignments}from"./runtime-config-collectors-core-BIi2pFR-.mjs";export{collectCoreConfigAssignments};

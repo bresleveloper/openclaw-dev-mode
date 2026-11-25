@@ -1,3 +1,0 @@
-import{t as buildOpenAIRealtimeTranscriptionProvider$1}from"./realtime-transcription-provider-factory-BsMc0QGl.mjs";import{t as openAIRealtimeHost}from"./realtime-host-Dsx1gEnq.mjs";
-//!extensions/openai/realtime-transcription-provider.ts
-function buildOpenAIRealtimeTranscriptionProvider(){return buildOpenAIRealtimeTranscriptionProvider$1(openAIRealtimeHost)}export{buildOpenAIRealtimeTranscriptionProvider as t};

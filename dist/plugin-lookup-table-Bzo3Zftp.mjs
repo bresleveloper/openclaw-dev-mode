@@ -1,0 +1,3 @@
+import{n as normalizeWorkerProviderIds}from"./worker-provider-config-B2m51vyc.mjs";import{n as loadGatewayStartupPluginPlanWithMetadata}from"./gateway-startup-plugin-loader-Cf7E8Irl.mjs";
+//!src/plugins/plugin-lookup-table.ts
+function loadPluginLookUpTable(e){const t=normalizeWorkerProviderIds(e.workerProviderIds??[]);const{metadataSnapshot:n,plan:r,startupPlanMs:i}=loadGatewayStartupPluginPlanWithMetadata({...e,workerProviderIds:t});return{...n,startup:r,workerProviderIds:t,metrics:{...n.metrics,startupPlanMs:i,totalMs:n.metrics.totalMs+i,startupPluginCount:r.pluginIds.length}}}export{loadPluginLookUpTable as t};

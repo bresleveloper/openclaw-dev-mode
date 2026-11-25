@@ -1,0 +1,3 @@
+import{a as resolveDisplaySessionKey,o as resolveInternalSessionKey,s as resolveMainSessionAlias}from"./sessions-resolution-TBQaJ8Yh.mjs";import"./sessions-helpers-By9ePn81.mjs";
+//!src/agents/subagents/spawn/subagent-spawn-ownership.ts
+function resolveSubagentSpawnOwnership(e){const{mainKey:t,alias:n}=resolveMainSessionAlias(e.cfg);const r=e.agentSessionKey?resolveInternalSessionKey({key:e.agentSessionKey,alias:n}):n;const i=e.completionOwnerKey?.trim();const a=i?resolveInternalSessionKey({key:i,alias:n}):r;return{controllerSessionKey:r,completionRequesterSessionKey:a,completionRequesterDisplayKey:resolveDisplaySessionKey({key:a,alias:n,mainKey:t})}}export{resolveSubagentSpawnOwnership as t};

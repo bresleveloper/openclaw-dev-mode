@@ -1,1 +1,0 @@
-import{t as setupSkills}from"./onboard-skills-4x0cOdPG.mjs";export{setupSkills};

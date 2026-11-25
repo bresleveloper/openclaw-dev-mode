@@ -1,0 +1,3 @@
+import{d as readTranscriptCaptureSnapshot,l as isTranscriptSessionActive}from"./capture-operations-cd68dFZl.mjs";
+//!src/transcripts/read-live.ts
+function presentTranscriptSession(e,t=readTranscriptCaptureSnapshot(),n){return{...e,active:isTranscriptSessionActive(e),providerName:n,activeSubscription:t.some(t=>t.state===`armed`&&t.session.sessionId===e.sessionId&&t.session.startedAt===e.startedAt)}}export{presentTranscriptSession as t};

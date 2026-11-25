@@ -1,3 +1,0 @@
-import{r as createLazyRuntimeModule,t as createLazyRuntimeMethod}from"./lazy-runtime-Ds6M7vp4.mjs";import{r as getBoundLegacyPluginSdkResourceHost}from"./legacy-sdk-resource-host-BQ1SYUkj.mjs";import"./errors-CDlEVHim.mjs";import"./registry-D43-srmk.mjs";
-//!src/plugin-sdk/acpx.ts
-const dispatch=createLazyRuntimeMethod(createLazyRuntimeModule(()=>import(`./dispatch-acp-sdk-BL0Lizd8.mjs`)),e=>e.tryDispatchAcpReplyHookCore);async function tryDispatchAcpReplyHook(e,t){const n=getBoundLegacyPluginSdkResourceHost();return n?n.invokeReplyDispatch(n=>n.tryDispatchAcpReplyHook(e,t)):dispatch(e,t)}export{tryDispatchAcpReplyHook as t};

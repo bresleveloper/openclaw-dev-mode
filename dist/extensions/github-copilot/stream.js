@@ -1,1 +1,1 @@
-import{n as wrapCopilotSimpleCompletionStream,t as wrapCopilotProviderStream}from"../../stream-tvN874R0.mjs";export{wrapCopilotProviderStream,wrapCopilotSimpleCompletionStream};
+import{n as wrapCopilotSimpleCompletionStream,t as wrapCopilotProviderStream}from"../../stream-BxggP3Cq.mjs";export{wrapCopilotProviderStream,wrapCopilotSimpleCompletionStream};

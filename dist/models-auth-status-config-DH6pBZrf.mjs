@@ -1,0 +1,3 @@
+import{v as resolveProviderEntryApiKeyProfileReference}from"./model-auth-provider-config-BGdT3xA1.mjs";import"./model-auth-5-mKPtGO.mjs";
+//!src/gateway/server-methods/models-auth-status-config.ts
+function resolveConfigBoundProfileIds(e,t,n){const r=/* @__PURE__ */ new Set;for(const i of Object.keys(e.models?.providers??{})){const a=resolveProviderEntryApiKeyProfileReference({cfg:e,authAliasLookupParams:n,provider:i,store:t});if(a.kind===`profile`||a.kind===`profile-incompatible`)r.add(a.profileId)}return r}export{resolveConfigBoundProfileIds as t};

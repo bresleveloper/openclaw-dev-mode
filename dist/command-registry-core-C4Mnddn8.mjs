@@ -1,1 +1,0 @@
-import{n as registerCoreCliByName,r as registerCoreCliCommands,t as getCoreCliCompletionGroups}from"./command-registry-core-Cr4C4d6I.mjs";export{registerCoreCliByName};

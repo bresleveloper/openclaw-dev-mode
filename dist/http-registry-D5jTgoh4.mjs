@@ -1,0 +1,1 @@
+import{i as withPluginHttpRouteRegistry,n as createPluginHttpRouteHandoff,r as registerPluginHttpRoute,t as adoptPluginHttpRouteHandoffs}from"./http-registry-Bf8h_wYN.mjs";export{withPluginHttpRouteRegistry};

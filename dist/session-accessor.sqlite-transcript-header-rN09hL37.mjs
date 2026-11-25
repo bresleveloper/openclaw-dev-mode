@@ -1,0 +1,1 @@
+import{t as ensureTranscriptHeader}from"./session-accessor.sqlite-transcript-header-B9kJMOXl.mjs";export{ensureTranscriptHeader};

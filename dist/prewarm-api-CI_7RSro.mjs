@@ -1,0 +1,3 @@
+import{t as listAgentIdsCompatibility}from"./agent-scope-runtime-BYK4fve4.mjs";import{a as resolveMemorySearchSyncConfig}from"./memory-search-OSv85imV.mjs";import"./memory-core-host-engine-foundation-BQO0EnCG.mjs";
+//!extensions/memory-core/prewarm-api.ts
+async function prewarmMemorySearchWorker(e){if(!listAgentIdsCompatibility(e).some(t=>resolveMemorySearchSyncConfig(e,t)))return;await(await import(`./manager-cpu-worker-runtime-DJROU-VG.mjs`)).prewarmMemorySearchWorker()}export{prewarmMemorySearchWorker as t};

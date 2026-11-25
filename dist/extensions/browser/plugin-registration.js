@@ -1,1 +1,1 @@
-import{i as registerBrowserPlugin,n as browserPluginReload,r as browserSecurityAuditCollectors,t as browserPluginNodeHostCommands}from"../../plugin-registration-LcgwMXUM.mjs";export{browserPluginNodeHostCommands,browserPluginReload,browserSecurityAuditCollectors,registerBrowserPlugin};
+import{i as registerBrowserPlugin,n as browserPluginReload,r as browserSecurityAuditCollectors,t as browserPluginNodeHostCommands}from"../../plugin-registration-cMiITXVc.mjs";export{browserPluginNodeHostCommands,browserPluginReload,browserSecurityAuditCollectors,registerBrowserPlugin};

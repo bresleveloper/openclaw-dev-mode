@@ -1,0 +1,3 @@
+import"./stream-compat-CY8h74iH.mjs";import"./stream-ndjson-CmKJeZf0.mjs";
+//!extensions/ollama/src/stream-api.ts
+const{OLLAMA_NATIVE_BASE_URL,resolveOllamaBaseUrlForRun,buildOllamaChatRequest,buildAssistantMessage,createOllamaStreamFn,createConfiguredOllamaStreamFn}=await import(`./stream.runtime-CU7EFXjG.mjs`);export{createOllamaStreamFn as a,createConfiguredOllamaStreamFn as i,buildAssistantMessage as n,resolveOllamaBaseUrlForRun as o,buildOllamaChatRequest as r,OLLAMA_NATIVE_BASE_URL as t};

@@ -1,0 +1,3 @@
+import{t as withSessionTranscriptReadSource}from"./session-transcript-read-source-Cs69h9dj.mjs";import{n as readRestoredSessionTranscriptInWorker}from"./session-cold-storage-read-DERv5iCJ.mjs";
+//!src/config/sessions/session-compaction-prepared.ts
+function readPreparedSessionCompactionInWorker(e,t,n){return withSessionTranscriptReadSource(e,async r=>{r.assertCurrent();const i=await readRestoredSessionTranscriptInWorker(r,()=>r.owner.readPreparedCompaction({target:{...r.scope,sessionId:e.sessionId,sessionKey:e.sessionKey},resolvedScope:r.resolved,expectedIdentity:r.expectedIdentity,operation:t,caller:`compaction`},n));r.assertCurrent();return i},n)}export{readPreparedSessionCompactionInWorker as t};

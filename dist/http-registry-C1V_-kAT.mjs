@@ -1,1 +1,0 @@
-import{i as withPluginHttpRouteRegistry,n as createPluginHttpRouteHandoff,r as registerPluginHttpRoute,t as adoptPluginHttpRouteHandoffs}from"./http-registry-CLBaRnSJ.mjs";export{withPluginHttpRouteRegistry};

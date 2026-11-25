@@ -1,3 +1,0 @@
-import{l as triggerInternalHook,o as omitHookSessionOperatorSources,r as hasInternalHookListeners}from"./internal-hooks-dgY8HT8v.mjs";
-//!src/gateway/session-patch-hooks.ts
-function triggerSessionPatchHook(e){if(!hasInternalHookListeners(`session`,`patch`))return;const t=structuredClone({sessionEntry:omitHookSessionOperatorSources(e.sessionEntry),patch:e.patch,cfg:e.cfg});const n={type:`session`,action:`patch`,sessionKey:e.sessionKey,context:t,timestamp:/* @__PURE__ */ new Date,messages:[]};triggerInternalHook(n)}export{triggerSessionPatchHook as t};

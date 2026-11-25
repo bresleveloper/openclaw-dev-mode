@@ -1,1 +1,0 @@
-import{i as installSkillArchiveFromPath,n as applyExtractedSkillRoot,r as installExtractedSkillRoot,t as CLAWHUB_SKILL_ARCHIVE_ROOT_MARKERS}from"./archive-install-C11h2tmF.mjs";export{CLAWHUB_SKILL_ARCHIVE_ROOT_MARKERS,applyExtractedSkillRoot};

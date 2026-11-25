@@ -1,0 +1,1 @@
+import{n as prepareConfigOwnerChange,t as bindConfigOwner}from"./config-cli-owner-patch-D-ozAYUe.mjs";export{bindConfigOwner,prepareConfigOwnerChange};

@@ -1,1 +1,1 @@
-import{t as resolveCopilotStarterModel}from"../../starter-model-CGRN3LcR.mjs";export{resolveCopilotStarterModel};
+import{t as resolveCopilotStarterModel}from"../../starter-model-JJ2bs6gZ.mjs";export{resolveCopilotStarterModel};

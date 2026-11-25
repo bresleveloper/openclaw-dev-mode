@@ -1,0 +1,1 @@
+import{t as registerNodesCanvasCommands}from"./cli-DcKhxWfa.mjs";export{registerNodesCanvasCommands};

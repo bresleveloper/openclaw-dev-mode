@@ -1,1 +1,1 @@
-import{t as resolveGoogleApiClientHeaders}from"../../google-api-client-header-BJr6Wr4F.mjs";export{resolveGoogleApiClientHeaders};
+import{t as resolveGoogleApiClientHeaders}from"../../google-api-client-header-C2pASjfO.mjs";export{resolveGoogleApiClientHeaders};

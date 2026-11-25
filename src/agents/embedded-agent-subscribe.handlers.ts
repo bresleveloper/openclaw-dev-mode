@@ -25,6 +25,7 @@ import { handleToolExecutionStart } from "./embedded-agent-subscribe.handlers.to
 import type { EmbeddedAgentSubscribeContext } from "./embedded-agent-subscribe.handlers.types.js";
 import { recordEmbeddedToolTrajectoryEvent } from "./embedded-agent-subscribe.trajectory.js";
 import { prepareToolResult } from "./embedded-agent-tool-results.js";
+import { promoteDanglingThinkTags } from "./fork-dangling-think-tags.js"; // openclaw-dev-mode FIX-12
 import type { AgentSessionEvent } from "./sessions/index.js";
 
 /** Create the serialized event dispatcher for subscribed embedded-agent sessions. */
@@ -89,6 +90,9 @@ export function createEmbeddedAgentSessionEventHandler(ctx: EmbeddedAgentSubscri
           ...evt.message.openclawDelivery,
           sourceMessageId: assistantReplyToId,
         };
+      }
+      if (evt.type === "message_end") {
+        promoteDanglingThinkTags(evt.message); // openclaw-dev-mode FIX-12, before captureModelEvent
       }
     }
     // Model facts advance before persistence, independently of queued reply delivery.

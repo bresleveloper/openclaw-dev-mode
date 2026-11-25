@@ -1,0 +1,1 @@
+import{n as runUpdateFinalizationDoctorInFreshProcess,r as withPrePluginUpdateDoctorEnv,t as completePostCorePluginUpdate}from"./update-command-fresh-doctor-DuDtrIqQ.mjs";export{runUpdateFinalizationDoctorInFreshProcess};

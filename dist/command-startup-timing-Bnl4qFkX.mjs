@@ -1,0 +1,3 @@
+import{o as measureGatewayBootstrapStep}from"./startup-trace-Be2K5wfc.mjs";
+//!src/cli/command-startup-timing.ts
+let diagnosticsTimelineModulePromise;async function measureCliCommandStartup(e,t,n={}){const r=n.env??process.env;const i=e.startsWith(`doctor.config-preflight.`)?t:()=>measureGatewayBootstrapStep(`cli.command.${e}`,t);if(!r.OPENCLAW_DIAGNOSTICS_TIMELINE_PATH?.trim())return await i();diagnosticsTimelineModulePromise??=import(`./diagnostics-timeline-Bt_ezHdO.mjs`);const{measureDiagnosticsTimelineSpan:a}=await diagnosticsTimelineModulePromise;return await a(`cli.command-startup`,i,{config:n.config,env:r,phase:`cli.command-startup`,attributes:{stage:e}})}export{measureCliCommandStartup as t};

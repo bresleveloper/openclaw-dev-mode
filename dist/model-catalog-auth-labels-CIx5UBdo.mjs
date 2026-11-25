@@ -1,0 +1,1 @@
+import{n as prepareModelCatalogAuthLabels,t as formatModelCatalogAuthLabel}from"./model-catalog-auth-labels-S2bxr2s-.mjs";export{formatModelCatalogAuthLabel};

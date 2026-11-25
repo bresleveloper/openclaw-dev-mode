@@ -1,2 +1,0 @@
-//!src/auto-reply/reply/acp-elicitation-handler-lazy.ts
-function createLazyAcpElicitationHandler(e){let t;return async(n,r)=>{t??=import(`./acp-elicitation-handler-ViwavKI5.mjs`).then(({createAcpElicitationHandler:t})=>t(e));return(await t)(n,r)}}export{createLazyAcpElicitationHandler as t};

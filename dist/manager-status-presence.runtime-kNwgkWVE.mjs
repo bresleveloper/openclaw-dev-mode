@@ -1,0 +1,2 @@
+//!extensions/memory-core/src/memory/manager-status-presence.runtime.ts
+async function inspectMemoryIndexPresence(e,t){const{runMemoryPresenceInspection:n}=await import(`./manager-cpu-worker-runtime-DJROU-VG.mjs`);try{return await n(e,t)}catch{return false}}export{inspectMemoryIndexPresence as t};

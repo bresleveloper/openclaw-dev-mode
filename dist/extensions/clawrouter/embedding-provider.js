@@ -1,1 +1,1 @@
-import{t as clawrouterEmbeddingProvider}from"../../embedding-provider-DhKPHnKP.mjs";export{clawrouterEmbeddingProvider};
+import{t as clawrouterEmbeddingProvider}from"../../embedding-provider-Dieo6_sF.mjs";export{clawrouterEmbeddingProvider};

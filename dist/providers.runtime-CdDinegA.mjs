@@ -1,0 +1,3 @@
+import{s as nativePluginBindings}from"./loader-runtime-load-BfmwV6fC.mjs";
+//!src/plugins/providers.runtime.ts
+const{isPluginProvidersLoadInFlight,resolvePluginProviderRegistryCore,resolvePluginProvidersCore,withPluginProviders}=nativePluginBindings.providerRegistry;export{withPluginProviders as i,resolvePluginProviderRegistryCore as n,resolvePluginProvidersCore as r,isPluginProvidersLoadInFlight as t};

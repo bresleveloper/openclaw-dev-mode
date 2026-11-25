@@ -1,0 +1,1 @@
+import{t as createMemoryRuntime}from"./runtime-provider-CiDs8A_n.mjs";export{createMemoryRuntime};

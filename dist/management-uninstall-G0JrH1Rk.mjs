@@ -1,0 +1,1 @@
+import{n as uninstallManagedPlugin,r as uninstallPluginWithPolicy,t as preparePluginUninstall}from"./management-uninstall-E2k6EUQG.mjs";export{preparePluginUninstall,uninstallPluginWithPolicy};

@@ -1,0 +1,1 @@
+import{i as installSkillArchiveFromPath,n as applyExtractedSkillRoot,r as installExtractedSkillRoot,t as CLAWHUB_SKILL_ARCHIVE_ROOT_MARKERS}from"./archive-install-D96gD4pI.mjs";export{CLAWHUB_SKILL_ARCHIVE_ROOT_MARKERS,applyExtractedSkillRoot};

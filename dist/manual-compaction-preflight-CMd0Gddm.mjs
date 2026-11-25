@@ -1,3 +1,0 @@
-import{x as prepareCompactionEntries}from"./agent-core-C5jrDGxu.mjs";
-//!src/agents/sessions/manual-compaction-preflight.ts
-function preflightManualSessionCompaction(e,t,n){return preflightManualCompactionPreparation(t,e.at(-1)?.type,t=>prepareCompactionEntries(e,t,void 0,void 0,n))}function preflightManualCompactionPreparation(e,t,n){let r=n(e);if(r.ok&&!r.value)r=n({...e,keepRecentTokens:0});if(!r.ok)throw r.error;const i=r.value;if(i)return{compactable:true,preparation:i};return{compactable:false,reason:t===`compaction`?`Already compacted`:`Nothing to compact (session too small)`}}export{preflightManualSessionCompaction as n,preflightManualCompactionPreparation as t};

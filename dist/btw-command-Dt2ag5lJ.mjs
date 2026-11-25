@@ -1,3 +1,0 @@
-import{i as matchSlashCommandToken}from"./commands-registry.data-Bm4R7RU_.mjs";import{n as normalizeCommandBody}from"./commands-registry-normalize-C29oRd3_.mjs";import"./commands-registry-C2jJ9jvz.mjs";
-//!src/auto-reply/reply/btw-command.ts
-const BTW_COMMAND_RE=/^\/btw(?::|\s|$)/i;function isBtwRequestText(e,t){if(!e)return false;const n=normalizeCommandBody(e,t).trim();return BTW_COMMAND_RE.test(n)}function extractBtwQuestion(e){if(!e)return null;return matchSlashCommandToken(normalizeCommandBody(e),`/btw`)}export{isBtwRequestText as n,extractBtwQuestion as t};

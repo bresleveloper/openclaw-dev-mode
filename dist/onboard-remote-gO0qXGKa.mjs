@@ -1,0 +1,1 @@
+import{n as validateGatewayWebSocketUrl,t as promptRemoteGatewayConfig}from"./onboard-remote-BecgS8dy.mjs";export{promptRemoteGatewayConfig,validateGatewayWebSocketUrl};

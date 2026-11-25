@@ -1,1 +1,0 @@
-import{n as prepareModelCatalogAuthLabels,t as formatModelCatalogAuthLabel}from"./model-catalog-auth-labels-ClLQR5Iv.mjs";export{formatModelCatalogAuthLabel};

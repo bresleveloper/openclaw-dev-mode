@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-DqZ__VlX.mjs";t();export{e as registerBrowserRoutes};

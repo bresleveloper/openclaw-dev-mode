@@ -1,1 +1,1 @@
-import{n as buildLiveNvidiaProvider,r as buildNvidiaProvider,t as NVIDIA_DEFAULT_MODEL_ID}from"../../provider-catalog-BuUMjaKl.mjs";export{NVIDIA_DEFAULT_MODEL_ID,buildLiveNvidiaProvider,buildNvidiaProvider};
+import{n as buildLiveNvidiaProvider,r as buildNvidiaProvider,t as NVIDIA_DEFAULT_MODEL_ID}from"../../provider-catalog-DkNGBmyF.mjs";export{NVIDIA_DEFAULT_MODEL_ID,buildLiveNvidiaProvider,buildNvidiaProvider};

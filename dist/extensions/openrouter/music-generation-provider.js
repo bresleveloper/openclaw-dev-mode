@@ -1,1 +1,1 @@
-import{t as buildOpenRouterMusicGenerationProvider}from"../../music-generation-provider-CMtYzK_p.mjs";export{buildOpenRouterMusicGenerationProvider};
+import{t as buildOpenRouterMusicGenerationProvider}from"../../music-generation-provider-pRsHOsPP.mjs";export{buildOpenRouterMusicGenerationProvider};

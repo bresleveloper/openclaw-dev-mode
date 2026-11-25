@@ -1,1 +1,0 @@
-import{t as loadPluginMetadataRegistrySnapshot}from"./metadata-registry-loader-DGX4G7Nq.mjs";export{loadPluginMetadataRegistrySnapshot};

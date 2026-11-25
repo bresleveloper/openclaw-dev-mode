@@ -1,3 +1,0 @@
-import{t as splitTrailingAuthProfile}from"./model-ref-profile-DFGpvDZX.mjs";import{a as resolveMergedModelProviderConfig,r as findConfiguredProviderModel}from"./model-provider-config-DrdykcWe.mjs";import{t as createProviderModelCatalogIdNormalizer}from"./provider-model-routes-8OCWnJSO.mjs";
-//!src/agents/model-input.ts
-function configuredModelSupportsNativeVideo(e){const t=resolveMergedModelProviderConfig(e.cfg,e.provider);const n=findConfiguredProviderModel(t,e.provider,splitTrailingAuthProfile(e.modelId).model,createProviderModelCatalogIdNormalizer(e.provider));return(e.api??n?.api??t?.api)===`openai-completions`&&(n?.input.includes(`video`)??false)}export{configuredModelSupportsNativeVideo as t};

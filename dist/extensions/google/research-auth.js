@@ -1,1 +1,1 @@
-import{t as withGoogleResearchAuth}from"../../research-auth-Cv9uzPby.mjs";export{withGoogleResearchAuth};
+import{t as withGoogleResearchAuth}from"../../research-auth-B1_BXeoX.mjs";export{withGoogleResearchAuth};

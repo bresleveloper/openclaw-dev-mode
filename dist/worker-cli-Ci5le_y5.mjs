@@ -1,3 +1,0 @@
-import{Option}from"commander";
-//!src/cli/worker-cli.ts
-function registerWorkerCli(e){e.command(`worker`).description(`Run the restricted cloud worker runtime`).addOption(new Option(`--internal-worker-ipc`).hideHelp()).addOption(new Option(`--internal-worker-native-inference`).hideHelp()).action(async e=>{const{runWorkerProcess:t}=await import(`./worker-process-Bm1378P1.mjs`);await t({internalWorkerIpc:e.internalWorkerIpc===true})})}export{registerWorkerCli};

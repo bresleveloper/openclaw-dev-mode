@@ -19,7 +19,7 @@
     "tsdown-runtime-sdk": "74e8e594eeac43230372043db29c34caf907f439dd79924e2c1be4a4d2179b08",
     "tsdown-runtime-terminal-core": "685d50d77d1a7b52c953c6f549bb87c2048c76ef2c6b0014ea964408ae04cd8e",
     "tsdown-runtime-worker-runtime": "1766b64f1ed3c610bac161a7be19e96e0194b8e5eddef4357b3795b97fade541",
-    "tsdown-unified-openclaw-dts": "2dbf278d00c48684687cb9ed388e8296e938a269c52f43539f69f69fa2df02ed",
+    "tsdown-unified-openclaw-dts": "47b30ad09d35ac43a391ac3479022ebe8a8266a2bfa16657a3a07090800ec97f",
     "tsdown:external-plugin:abliteration": "179e48b2e616ac70cae1218704d9a777bd5d5021ef2575f308f2bbe89f0fb66b",
     "tsdown:external-plugin:acpx": "f7b0ed856d4232feffe159ce494219206b90e29a2e37a00ae4d38f32a1d36721",
     "tsdown:external-plugin:amazon-bedrock-mantle": "21d4fab1945a893ca55919f3b42fab4a2c93f0291858dbf93f5678c427a447a5",

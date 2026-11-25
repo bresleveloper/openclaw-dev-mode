@@ -1,3 +1,0 @@
-import{f as generateSummary$1}from"./agent-core-C5jrDGxu.mjs";import{t as createCompactionRuntime}from"./runtime-DGM0n1pW.mjs";import"./runtime-BufG3_wK.mjs";import{o as unwrapCoreResult}from"./agent-session-utils-BaPKLfzf.mjs";
-//!src/agents/sessions/compaction/compaction.ts
-async function generateSummary(e,t,n,r,i,a,o,s,c,l,u,d){return unwrapCoreResult(await generateSummary$1(e,t,n,r,i,a,o,s,c,l,createCompactionRuntime(u),d))}export{generateSummary as t};

@@ -1,0 +1,3 @@
+import{t as applyPluginAutoEnable}from"./plugin-auto-enable-BPxsnj9C.mjs";import{t as resolveCommandSecretRefsViaGateway}from"./command-secret-gateway-a7SiXWTx.mjs";
+//!src/cli/command-config-resolution.ts
+async function resolveCommandConfigWithSecrets(e){const{runtime:t,autoEnable:n,env:r,...i}=e;const{resolvedConfig:a,diagnostics:o}=await resolveCommandSecretRefsViaGateway(i);if(t)for(const e of o)t.error(`[secrets] ${e}`);return{resolvedConfig:a,effectiveConfig:n?applyPluginAutoEnable({config:a,env:r??process.env}).config:a,diagnostics:o}}export{resolveCommandConfigWithSecrets as t};

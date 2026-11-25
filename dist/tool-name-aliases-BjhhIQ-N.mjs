@@ -1,0 +1,1 @@
+import{n as wrapOllamaToolNames,t as normalizeOllamaToolCallName}from"./tool-name-aliases-D59U_XN-.mjs";export{normalizeOllamaToolCallName,wrapOllamaToolNames};

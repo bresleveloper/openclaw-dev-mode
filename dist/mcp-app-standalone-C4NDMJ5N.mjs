@@ -1,0 +1,1 @@
+import{n as handleMcpAppStandaloneHttpRequest,t as createMcpAppStandaloneTicket}from"./mcp-app-standalone-D1az_L_7.mjs";export{createMcpAppStandaloneTicket,handleMcpAppStandaloneHttpRequest};

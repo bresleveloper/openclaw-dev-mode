@@ -1,0 +1,1 @@
+import{a as e,n as t}from"./worker-chunk-DMFb3O9f.mjs";e();export{t as applyPluginDoctorCompatibilityMigrations};

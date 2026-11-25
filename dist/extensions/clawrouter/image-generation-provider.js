@@ -1,1 +1,1 @@
-import{t as buildClawRouterImageGenerationProvider}from"../../image-generation-provider-DWK65oJp.mjs";export{buildClawRouterImageGenerationProvider};
+import{t as buildClawRouterImageGenerationProvider}from"../../image-generation-provider-BI6x5ZDY.mjs";export{buildClawRouterImageGenerationProvider};

@@ -1,0 +1,1 @@
+import{t as resolveNativeWebSearchRoute}from"./native-web-search-8Gv-w4RV.mjs";export{resolveNativeWebSearchRoute};

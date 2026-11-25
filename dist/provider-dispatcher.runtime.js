@@ -1,3 +1,3 @@
-import{n as dispatchInboundMessageWithBufferedDispatcher,r as dispatchInboundMessageWithDispatcher}from"./dispatch-P55kIGmo.mjs";
+import{n as dispatchInboundMessageWithBufferedDispatcher,r as dispatchInboundMessageWithDispatcher}from"./dispatch-CF4SJb8T.mjs";
 //!src/auto-reply/reply/provider-dispatcher.ts
 function projectDispatchParams(e){return{ctx:e.ctx,cfg:e.cfg,dispatcherOptions:e.dispatcherOptions,toolsAllow:e.toolsAllow,replyResolver:e.replyResolver,replyOptions:e.replyOptions}}const dispatchReplyWithBufferedBlockDispatcherCore=async e=>await dispatchInboundMessageWithBufferedDispatcher({...projectDispatchParams(e),dispatchReplyFromConfig:e.dispatchReplyFromConfig});const dispatchReplyWithDispatcherCore=async e=>await dispatchInboundMessageWithDispatcher(projectDispatchParams(e));export{dispatchReplyWithBufferedBlockDispatcherCore,dispatchReplyWithDispatcherCore};

@@ -1,1 +1,1 @@
-import{n as registerBrowserCliMetadata,t as cli_metadata_default}from"../../cli-metadata-CNm_iIT_.mjs";export{cli_metadata_default as default,registerBrowserCliMetadata};
+import{n as registerBrowserCliMetadata,t as cli_metadata_default}from"../../cli-metadata-BNgPwpOr.mjs";export{cli_metadata_default as default,registerBrowserCliMetadata};

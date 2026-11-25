@@ -1,3 +1,0 @@
-import{a as normalizeCapabilityProviderId}from"./provider-registry-shared-WqkaV5jB.mjs";import{t as createMediaProviderRegistry}from"./provider-registry-DK80ybFx.mjs";
-//!src/realtime-transcription/provider-registry.ts
-const{listProviders:listRealtimeTranscriptionProviders,getProvider:getRealtimeTranscriptionProvider}=createMediaProviderRegistry(`realtimeTranscriptionProviders`,{directLookup:true});function canonicalizeRealtimeTranscriptionProviderId(e,t){const n=normalizeCapabilityProviderId(e);return n?getRealtimeTranscriptionProvider(n,t)?.id??n:void 0}export{getRealtimeTranscriptionProvider as n,listRealtimeTranscriptionProviders as r,canonicalizeRealtimeTranscriptionProviderId as t};

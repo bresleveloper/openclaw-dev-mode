@@ -8,23 +8,31 @@
 // followed the tag, and no 💭 ever showed (373 such replies in Ariel's WhatsApp chat,
 // 2026-11-10 to 2026-11-25).
 //
-// At message end, right before upstream's promotion, promoteDanglingThinkTags splits such a
-// text block into a thinking block plus the rest, so core emits the reasoning under
-// /reasoning on (WhatsApp shows it as 💭, SEC-WA1) and the reply keeps only the answer:
+// At message end, in the session event dispatcher right before captureModelEvent,
+// promoteDanglingThinkTags splits such a text block into a thinking block plus the rest, so
+// core emits the reasoning under /reasoning on (WhatsApp shows it as 💭, SEC-WA1) and the
+// reply keeps only the answer:
 // - a closing tag with no opening tag before it: the text before it is reasoning;
 // - an opening tag with no closing tag after it: the text after it is reasoning.
 // Dev-mode only, so non-dev-mode output is upstream's exactly. Skipped when the message
 // already has a thinking block (upstream's guard: signed blocks must replay unchanged).
 // Tags inside code stay text; a complete pair is left to upstream's promotion.
 //
+// Why the dispatcher and not handleMessageEnd: the runner builds the final reply from the
+// clone that captureModelEvent takes at message_end (embedded-agent-subscribe.model-state.ts,
+// read back in attempt-result.ts), BEFORE handleMessageEnd runs. A hook behind that clone left
+// it raw: a wake turn whose text ended "</think>NO_REPLY" sent "NO_REPLY" to WhatsApp, and
+// "reasoning</think>" went out as a plain reply (live, 2026-11-25).
+//
 // Regression checklist after an upstream upgrade:
-// - The hook sits in src/agents/embedded-agent-subscribe.handlers.messages.lifecycle.ts right
-//   after `const sourceContent = assistantMessage.content;` and right before
-//   promoteThinkingTagsToBlocks(assistantMessage); `git grep -n "openclaw-dev-mode FIX-12"`
-//   lists the call and its import. If upstream moved its promotion, move the hook with it.
+// - The hook sits in src/agents/embedded-agent-subscribe.handlers.ts, in the event dispatcher's
+//   assistant block, on message_end, right before `ctx.captureModelEvent(evt)`;
+//   `git grep -n "openclaw-dev-mode FIX-12"` lists the call and its import. If upstream moves
+//   or adds a snapshot of message_end before this hook, move the hook ahead of it.
 // - THINK_TAG_RE uses the tag names of THINKING_TAG_NAME_PATTERN in embedded-agent-utils.ts.
 // - If upstream's promotion starts handling a missing partner tag itself, drop FIX-12.
-// - Test: src/agents/fork-dangling-think-tags.test.ts.
+// - Test: src/agents/fork-dangling-think-tags.test.ts (its final-reply cases fail when the
+//   hook runs behind the snapshot).
 import { stripCompactionReplayCheckpointInPlace } from "@openclaw/ai/transports";
 import { isDevMode } from "../globals.js";
 import type { AssistantMessage } from "../llm/types.js";

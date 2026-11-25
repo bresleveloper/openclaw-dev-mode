@@ -1,1 +1,0 @@
-import{n as listActiveChannelSetupPlugins,r as listChannelSetupPlugins,t as getChannelSetupPlugin}from"./setup-registry-zu5wRirT.mjs";export{getChannelSetupPlugin,listActiveChannelSetupPlugins,listChannelSetupPlugins};

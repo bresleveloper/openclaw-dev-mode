@@ -1,3 +1,0 @@
-import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{t as areRuntimeModelRefsEquivalent}from"./model-runtime-aliases-DAoBkUjh.mjs";
-//!src/status/fallback-notice-state.ts
-function resolveActiveFallbackState(e){const t=normalizeOptionalString(e.state?.fallbackNotice?.selectedModel);const n=normalizeOptionalString(e.state?.fallbackNotice?.activeModel);const r=normalizeOptionalString(e.state?.fallbackNotice?.reason);const i=t===e.selectedModelRef&&n===e.activeModelRef&&!areRuntimeModelRefsEquivalent(e.selectedModelRef,e.activeModelRef,{config:e.config});return{active:i,reason:i?r:void 0}}export{resolveActiveFallbackState as t};

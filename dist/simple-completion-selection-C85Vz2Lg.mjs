@@ -1,0 +1,1 @@
+import{n as resolveSimpleCompletionSelectionRequest,t as resolveSimpleCompletionSelectionForAgent}from"./simple-completion-selection-Btf10P7s.mjs";export{resolveSimpleCompletionSelectionForAgent,resolveSimpleCompletionSelectionRequest};

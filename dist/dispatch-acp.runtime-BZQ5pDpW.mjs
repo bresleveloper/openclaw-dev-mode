@@ -1,0 +1,3 @@
+import{n as createLazyPromise}from"./lazy-promise-CismJCQR.mjs";
+//!src/auto-reply/reply/dispatch-acp.runtime.ts
+const loadDispatchAcp=createLazyPromise(()=>import(`./dispatch-acp-CJLgUZck.mjs`));const loadDispatchAcpCommandBypass=createLazyPromise(()=>import(`./dispatch-acp-command-bypass-Ce812YD1.mjs`));async function shouldBypassAcpDispatchForCommand(...e){return(await loadDispatchAcpCommandBypass()).shouldBypassAcpDispatchForCommand(...e)}async function tryDispatchAcpReply(...e){return await(await loadDispatchAcp()).tryDispatchAcpReplyCore(...e)}export{shouldBypassAcpDispatchForCommand,tryDispatchAcpReply};

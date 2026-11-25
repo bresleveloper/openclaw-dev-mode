@@ -1,0 +1,2 @@
+//!src/infra/update-run-report-health.ts
+async function readUpdateRunReportHealth(e,t={}){if(e.port===void 0)return{kind:`unavailable`};try{const{confirmGatewayReachable:n}=await import(`./restart-health-probe-BHAbs9nx.mjs`);const r=await n({port:e.port,...t});return r.reachable&&r.gatewayVersion?{kind:`responding`,version:r.gatewayVersion,...r.gatewayBuildId?{buildId:r.gatewayBuildId}:{}}:{kind:`unavailable`}}catch{return{kind:`unavailable`}}}export{readUpdateRunReportHealth as t};

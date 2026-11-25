@@ -1,1 +1,0 @@
-import{n as e,t}from"./worker-chunk-CqGqaPYv.mjs";t();export{e as sendMessage};

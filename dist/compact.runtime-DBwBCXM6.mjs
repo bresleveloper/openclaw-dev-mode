@@ -1,3 +1,0 @@
-import{t as createLazyImportLoader}from"./lazy-promise-CismJCQR.mjs";import{r as readCompactionAccountingRecorder}from"./compaction-accounting-bridge-C6trjYoR.mjs";
-//!src/agents/embedded-agent-runner/compact.runtime.ts
-const compactRuntimeLoader=createLazyImportLoader(()=>import(`./compact-CzMyJcyw.mjs`));async function compactEmbeddedAgentSessionOnDemand(e){const{compactEmbeddedAgentSessionDirect:t}=await compactRuntimeLoader.load();const n=await t(e);if(n.failure)readCompactionAccountingRecorder(e.contextEngineRuntimeContext)?.recordFailure?.(n.failure);return n}export{compactEmbeddedAgentSessionOnDemand};

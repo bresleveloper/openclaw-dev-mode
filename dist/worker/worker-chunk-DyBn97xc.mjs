@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-BG81WxhY.mjs";t();export{e as runAutoUpdateCommand};

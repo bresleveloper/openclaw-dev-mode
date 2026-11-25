@@ -1,1 +1,1 @@
-import{t as loadGoogleLiveCatalog}from"../../provider-catalog-runtime-BE-vTdl8.mjs";export{loadGoogleLiveCatalog};
+import{t as loadGoogleLiveCatalog}from"../../provider-catalog-runtime-C-A0v0WD.mjs";export{loadGoogleLiveCatalog};

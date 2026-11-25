@@ -1,0 +1,3 @@
+import{n as dispatchReplyWithBufferedBlockDispatcher$1,r as dispatchReplyWithDispatcher$1}from"./legacy-sdk-reply-dispatch-BjSxP_11.mjs";import"./inbound-context-DhAQpGu-.mjs";import"./chunk-BM97wxDk.mjs";import"./conversation-label-generator-BMbz8z1P.mjs";
+//!src/plugin-sdk/reply-dispatch-runtime.ts
+const dispatchReplyWithBufferedBlockDispatcher=dispatchReplyWithBufferedBlockDispatcher$1;const dispatchReplyWithDispatcher=dispatchReplyWithDispatcher$1;export{dispatchReplyWithDispatcher as n,dispatchReplyWithBufferedBlockDispatcher as t};

@@ -1,0 +1,1 @@
+import{n as loadChannelSetupPluginRegistrySnapshotForChannel,t as ensureChannelSetupPluginInstalled}from"./plugin-install-CPyxi012.mjs";export{ensureChannelSetupPluginInstalled,loadChannelSetupPluginRegistrySnapshotForChannel};

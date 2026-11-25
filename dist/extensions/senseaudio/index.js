@@ -1,3 +1,3 @@
-import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import{t as senseaudioMediaUnderstandingProvider}from"../../media-understanding-provider-D_vIQEyl.mjs";
+import{t as definePluginEntry}from"../../plugin-entry-DhKiQ4Uu.mjs";import{t as senseaudioMediaUnderstandingProvider}from"../../media-understanding-provider-msWfnZhz.mjs";
 //!extensions/senseaudio/index.ts
 var senseaudio_default=definePluginEntry({id:`senseaudio`,name:`SenseAudio`,description:`Bundled SenseAudio audio transcription provider`,register(e){e.registerMediaUnderstandingProvider(senseaudioMediaUnderstandingProvider)}});export{senseaudio_default as default};

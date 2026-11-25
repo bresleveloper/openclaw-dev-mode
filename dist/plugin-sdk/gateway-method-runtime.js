@@ -1,1 +1,1 @@
-import{t as dispatchGatewayMethod}from"../gateway-method-runtime-Dqjbz1Lq.mjs";export{dispatchGatewayMethod};
+import{t as dispatchGatewayMethod}from"../gateway-method-runtime-CXxadp9Y.mjs";export{dispatchGatewayMethod};

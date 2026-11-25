@@ -1,1 +1,1 @@
-import{i as applyMinimaxApiProviderConfigCn,n as applyMinimaxApiConfigCn,r as applyMinimaxApiProviderConfig,t as applyMinimaxApiConfig}from"../../onboard-BazPnGZB.mjs";export{applyMinimaxApiConfig,applyMinimaxApiConfigCn,applyMinimaxApiProviderConfig,applyMinimaxApiProviderConfigCn};
+import{i as applyMinimaxApiProviderConfigCn,n as applyMinimaxApiConfigCn,r as applyMinimaxApiProviderConfig,t as applyMinimaxApiConfig}from"../../onboard-Dnhol-JG.mjs";export{applyMinimaxApiConfig,applyMinimaxApiConfigCn,applyMinimaxApiProviderConfig,applyMinimaxApiProviderConfigCn};

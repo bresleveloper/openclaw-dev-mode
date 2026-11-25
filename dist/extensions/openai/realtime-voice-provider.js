@@ -1,1 +1,1 @@
-import{t as buildOpenAIRealtimeVoiceProvider}from"../../realtime-voice-provider-CrOb5rns.mjs";export{buildOpenAIRealtimeVoiceProvider};
+import{t as buildOpenAIRealtimeVoiceProvider}from"../../realtime-voice-provider-sXNN79qd.mjs";export{buildOpenAIRealtimeVoiceProvider};

@@ -1,3 +1,0 @@
-import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{A as resolveProviderReasoningOutputModeWithPlugin}from"./provider-runtime-CkCHSfMm.mjs";
-//!src/utils/provider-utils.ts
-function isReasoningTagProvider(e,t){const n=normalizeOptionalString(e);if(!n)return false;const{config:r,workspaceDir:i,env:a,runtimeHandle:o,modelId:s,modelApi:c,model:l}=t??{};return resolveProviderReasoningOutputModeWithPlugin({provider:n,config:r,workspaceDir:i,env:a,runtimeHandle:o,context:{config:r,workspaceDir:i,env:a,provider:n,modelId:s,modelApi:c,model:l}})===`tagged`}export{isReasoningTagProvider as t};

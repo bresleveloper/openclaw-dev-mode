@@ -1,3 +1,0 @@
-import{C as readAuthProfileUsageStats,O as resolveProfileUnusableUntilForDisplay}from"./user-model-account-authority-CHAGYnix.mjs";import"./usage-Bt3yNzrT.mjs";
-//!src/commands/models/auth-unavailability.ts
-function listUnavailableAuthProfiles(e){const t=Date.now();return Object.keys(e.usageStats??{}).flatMap(n=>{const r=resolveProfileUnusableUntilForDisplay(e,n);if(!r||t>=r)return[];const i=readAuthProfileUsageStats(e,n);const a=typeof i?.disabledUntil===`number`&&t<i.disabledUntil?`disabled`:`cooldown`;return[{profileId:n,provider:e.profiles[n]?.provider,kind:a,reason:a===`disabled`?i?.disabledReason:i?.cooldownReason,classification:a===`cooldown`?i?.cooldownClassification:void 0,until:r,remainingMs:r-t}]})}export{listUnavailableAuthProfiles as t};

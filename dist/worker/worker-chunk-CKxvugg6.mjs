@@ -1,3 +1,0 @@
-import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{i as t,r as n,t as r}from"./worker-chunk-BXEVYhHC.mjs";import{a as i,n as a}from"./worker-chunk-C3YvYWVU.mjs";import{n as o}from"./worker-chunk-BFbX3YJA.mjs";async function handleSubagentsListAction(e){let{params:n,readContext:i}=e,o=r({context:i.list,sessionEntries:await t(n.cfg,i.list),taskMaxChars:110}),formatRows=e=>e.length?e.map(e=>e.line).join(`
-`):`(none)`;return a([`active subagents:`,`-----`,formatRows(o.active),``,`recent subagents (last 30m):`,`-----`,formatRows(o.recent)].join(`
-`))}e((()=>{n(),i(),o()}))();export{handleSubagentsListAction};

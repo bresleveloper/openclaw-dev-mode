@@ -1,1 +1,1 @@
-import{n as resolveXaiForwardCompatModel,t as isModernXaiModel}from"../../provider-models-B-nxBFhn.mjs";export{isModernXaiModel,resolveXaiForwardCompatModel};
+import{n as resolveXaiForwardCompatModel,t as isModernXaiModel}from"../../provider-models-B_EmaIHk.mjs";export{isModernXaiModel,resolveXaiForwardCompatModel};

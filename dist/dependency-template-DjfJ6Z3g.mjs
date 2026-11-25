@@ -1,1 +1,0 @@
-import{i as retireSandboxDependencyTemplate,n as resolveSandboxDependencyTemplateIdentity,r as retireSandboxDependencyBuilder,t as prepareSandboxDependencyTemplate}from"./dependency-template-B9D5hmw6.mjs";export{prepareSandboxDependencyTemplate,resolveSandboxDependencyTemplateIdentity,retireSandboxDependencyBuilder,retireSandboxDependencyTemplate};

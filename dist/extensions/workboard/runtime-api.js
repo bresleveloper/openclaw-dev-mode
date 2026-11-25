@@ -1,1 +1,1 @@
-import{a as WorkboardStore,t as registerWorkboardGatewayMethods}from"../../runtime-api-CGj4djeF.mjs";export{WorkboardStore,registerWorkboardGatewayMethods};
+import{a as WorkboardStore,t as registerWorkboardGatewayMethods}from"../../runtime-api-qL1qQnXw.mjs";export{WorkboardStore,registerWorkboardGatewayMethods};

@@ -1,0 +1,1 @@
+import{t as augmentModelCatalogWithProviderPlugins}from"./provider-catalog-augment-EYalDPnO.mjs";export{augmentModelCatalogWithProviderPlugins};

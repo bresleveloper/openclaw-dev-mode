@@ -1,3 +1,0 @@
-import"./message-patterns-0tTUVM7X.mjs";import{n as classifyFailoverSignalCore,t as classifyFailoverReasonCore}from"./classify-core-C82kDpZw.mjs";import"./classification-rules-BaNVFdwV.mjs";import{r as classifyProviderPluginError}from"./context-overflow-7gnADkR5.mjs";
-//!src/agents/failover/classify.ts
-function classifyFailoverSignal(e,t){return classifyFailoverSignalCore(e,e=>classifyProviderPluginError({...e,providerPlugin:t?.providerPlugin}))}function classifyFailoverReason(e,t){return classifyFailoverReasonCore(e,t,e=>classifyProviderPluginError({...e,providerPlugin:t?.providerPlugin}))}export{classifyFailoverSignal as n,classifyFailoverReason as t};

@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./worker-chunk-BuYJPBuM.mjs";e();export{t as loadConfigForInstall};

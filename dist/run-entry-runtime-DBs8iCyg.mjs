@@ -1,0 +1,3 @@
+import"./model-selection-dFNU2_Vj.mjs";import{t as isCliProvider}from"./model-selection-cli-C3V16WON.mjs";import{c as resolveCliRuntimeExecutionProvider}from"./model-runtime-aliases-BgqtGFRk.mjs";
+//!src/agents/embedded-agent-runner/run-entry-runtime.ts
+function resolveRunEntryCliRuntime(e){const t=e.sessionRuntimeOverride;if(t){const n=t!==e.pinnedHarnessId&&isCliProvider(t,e.config);return{cliExecutionProvider:n?t:e.provider,useCliExecution:n}}const n=resolveCliRuntimeExecutionProvider({provider:e.provider,cfg:e.config,agentId:e.agentId,modelId:e.model,authProfileId:e.authProfileId})??e.provider;return{cliExecutionProvider:n,useCliExecution:isCliProvider(n,e.config)}}export{resolveRunEntryCliRuntime as t};

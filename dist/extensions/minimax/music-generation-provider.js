@@ -1,1 +1,1 @@
-import{t as buildMinimaxMusicGenerationProvider}from"../../music-generation-provider-C7e8hW3O.mjs";export{buildMinimaxMusicGenerationProvider};
+import{t as buildMinimaxMusicGenerationProvider}from"../../music-generation-provider-BxbLnTEr.mjs";export{buildMinimaxMusicGenerationProvider};

@@ -1,1 +1,0 @@
-import{t as withSetupProviderAuthMethod}from"./setup-provider-method-BqmfZCP6.mjs";export{withSetupProviderAuthMethod};

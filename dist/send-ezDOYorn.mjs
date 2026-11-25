@@ -1,0 +1,1 @@
+import{t as sendXDelivery}from"./send-9hKKIkBf.mjs";export{sendXDelivery};

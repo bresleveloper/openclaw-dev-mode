@@ -1,0 +1,3 @@
+import{o as getPluginRuntimeGatewayRequestScope}from"./gateway-request-scope-C7znf80h.mjs";import{l as getActivePluginRegistry}from"./runtime-CohfSUzf.mjs";
+//!src/channels/plugins/registry-loader.ts
+function createChannelRegistryLoader(e){return async t=>{const n=(getPluginRuntimeGatewayRequestScope()?.pluginRegistry??getActivePluginRegistry())?.channels.find(e=>e.plugin.id===t);return n?e(n):void 0}}export{createChannelRegistryLoader as t};

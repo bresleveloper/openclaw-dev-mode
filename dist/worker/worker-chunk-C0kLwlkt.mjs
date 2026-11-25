@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-BPpGPVJ7.mjs";t();export{e as requestMcpAppToolApproval};

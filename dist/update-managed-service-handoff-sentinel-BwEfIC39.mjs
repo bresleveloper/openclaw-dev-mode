@@ -1,0 +1,1 @@
+import{n as resolveManagedHandoffStateEngine,r as runManagedHandoffSentinelOwnerRequest,t as executeInstalledHandoffSentinelOperation}from"./update-managed-service-handoff-sentinel-JXfCY_o9.mjs";export{executeInstalledHandoffSentinelOperation,resolveManagedHandoffStateEngine,runManagedHandoffSentinelOwnerRequest};

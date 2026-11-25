@@ -1,1 +1,1 @@
-import{t as buildOpenRouterImageGenerationProvider}from"../../image-generation-provider-CkDA4nm-.mjs";export{buildOpenRouterImageGenerationProvider};
+import{t as buildOpenRouterImageGenerationProvider}from"../../image-generation-provider-CGFWS9kA.mjs";export{buildOpenRouterImageGenerationProvider};

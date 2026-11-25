@@ -1,0 +1,1 @@
+import{c as e,n as t}from"./worker-chunk-ByZcKiaz.mjs";t();export{e as runProviderStaticCatalog};

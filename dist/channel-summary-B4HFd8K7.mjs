@@ -1,0 +1,1 @@
+import{t as buildChannelSummary}from"./channel-summary-CcVNKHCX.mjs";export{buildChannelSummary};

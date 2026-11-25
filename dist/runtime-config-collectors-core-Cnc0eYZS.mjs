@@ -1,0 +1,1 @@
+import{t as collectCoreConfigAssignments}from"./runtime-config-collectors-core-B960mbtL.mjs";export{collectCoreConfigAssignments};

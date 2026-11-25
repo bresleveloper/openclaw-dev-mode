@@ -1,0 +1,3 @@
+import{o as getAsyncWorkSignal}from"./async-work-scope-D40kkw8R.mjs";import{r as callGatewayFromCliWithTransport}from"./gateway-rpc-BhupLucq.mjs";
+//!src/cli/devices-cli-gateway.ts
+const DEFAULT_DEVICES_TIMEOUT_MS=1e4;const callDevicesGateway=async(e,t,n,r)=>callGatewayFromCliWithTransport(e,t,n,{label:`Devices ${e}`,defaultTimeoutMs:DEFAULT_DEVICES_TIMEOUT_MS,scopes:r?.scopes,signal:r?.signal,sharedStateMode:`read-only`});async function readUnlessAborted(e){const t=getAsyncWorkSignal();try{const n=await e(t);return t?.aborted?null:n}catch(e){if(!t?.aborted)throw e}return null}export{readUnlessAborted as n,callDevicesGateway as t};

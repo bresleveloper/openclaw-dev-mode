@@ -1,3 +1,0 @@
-import{t as resolveMemoryPathClassification}from"./memory-path-provenance-B5KBwIZo.mjs";import path from"node:path";
-//!extensions/memory-core/src/workspace-path-classifier.ts
-const classifyWorkspaceMemoryPaths=async e=>await Promise.all(e.relativePaths.map(async t=>{return{relativePath:t,originClass:(await resolveMemoryPathClassification({absolutePath:path.resolve(e.workspaceDir,t),source:`memory`,workspaceDir:e.workspaceDir,...e.readSources!==void 0?{readSource:{canonicalRelativePath:e.readSources.find(e=>e.relativePath===t)?.canonicalRelativePath}}:{}})).originClass}}));export{classifyWorkspaceMemoryPaths as t};

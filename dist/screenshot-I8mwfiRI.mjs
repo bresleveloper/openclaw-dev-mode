@@ -1,0 +1,1 @@
+import{n as DEFAULT_BROWSER_SCREENSHOT_MAX_SIDE,r as normalizeBrowserScreenshot,t as DEFAULT_BROWSER_SCREENSHOT_MAX_BYTES}from"./screenshot-BQZTJtwT.mjs";export{normalizeBrowserScreenshot};

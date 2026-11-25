@@ -1,3 +1,0 @@
-import{r as resolveBundledProviderPolicySurface}from"./provider-public-artifacts-BsrN0jB3.mjs";
-//!src/config/provider-policy.ts
-function normalizeProviderConfigForConfigDefaults(e){return resolveBundledProviderPolicySurface(e.provider,{manifestRegistry:e.manifestRegistry})?.normalizeConfig?.({provider:e.provider,providerConfig:e.providerConfig})||e.providerConfig}function applyProviderConfigDefaultsForConfig(e){return resolveBundledProviderPolicySurface(e.provider,{manifestRegistry:e.manifestRegistry,loadManifestRegistry:e.loadManifestRegistry})?.applyConfigDefaults?.({provider:e.provider,config:e.config,env:e.env})??e.config}export{normalizeProviderConfigForConfigDefaults as n,applyProviderConfigDefaultsForConfig as t};

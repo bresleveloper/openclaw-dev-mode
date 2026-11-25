@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";function createLazyAcpElicitationHandler(e){let t;return async(n,r)=>(t??=import(`./worker-chunk-B6Jy6H4s.mjs`).then(({createAcpElicitationHandler:t})=>t(e)),(await t)(n,r))}var t=e((()=>{}));export{t as n,createLazyAcpElicitationHandler as t};

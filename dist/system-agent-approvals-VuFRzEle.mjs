@@ -1,0 +1,3 @@
+import{r as listVisiblePendingApprovalRequests}from"./approval-record-lookup-CQ5eiUpR.mjs";
+//!src/gateway/server-methods/system-agent-approvals.ts
+const systemAgentApprovalHandlers={"openclaw.approval.list":async({respond:e,client:t,context:n})=>{const r=n.systemAgentApprovalManager;e(true,r?await listVisiblePendingApprovalRequests({manager:r,client:t,...t?.authenticatedUserProfile?{getCfg:n.getRuntimeConfig}:{}}):[],void 0)}};export{systemAgentApprovalHandlers};

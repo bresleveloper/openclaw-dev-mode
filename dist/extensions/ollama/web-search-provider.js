@@ -1,1 +1,1 @@
-import{t as createLazyOllamaWebSearchProvider}from"../../web-search-provider-registration-BDWvALhT.mjs";export{createLazyOllamaWebSearchProvider as createOllamaWebSearchProvider};
+import{t as createLazyOllamaWebSearchProvider}from"../../web-search-provider-registration-Dn_oKBzZ.mjs";export{createLazyOllamaWebSearchProvider as createOllamaWebSearchProvider};

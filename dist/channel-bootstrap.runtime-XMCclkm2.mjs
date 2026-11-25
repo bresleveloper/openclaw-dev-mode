@@ -1,0 +1,1 @@
+import{n as bootstrapOutboundChannelPluginAsync,t as bootstrapOutboundChannelPlugin}from"./channel-bootstrap.runtime-5xPwBDcL.mjs";export{bootstrapOutboundChannelPlugin,bootstrapOutboundChannelPluginAsync};

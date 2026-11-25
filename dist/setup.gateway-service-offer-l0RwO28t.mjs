@@ -1,0 +1,3 @@
+import{_ as isSystemdUserServiceAvailable}from"./systemd-busctl-query-iemZKpoA.mjs";import{f as resolveDaemonInstallBlockMessage}from"./shared-DuB1oUCc.mjs";import{n as resolveGatewayService}from"./service-DvQhTh4T.mjs";import"./systemd-DenepVBK.mjs";
+//!src/wizard/setup.gateway-service-offer.ts
+async function canOfferGatewayServiceForOnboarding(){if(resolveDaemonInstallBlockMessage(`gateway`)||resolveGatewayService().unsupportedReason)return false;return process.platform!==`linux`||await isSystemdUserServiceAvailable()}export{canOfferGatewayServiceForOnboarding};

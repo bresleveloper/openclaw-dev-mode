@@ -1,3 +1,0 @@
-import{o as authorizeSessionAgentRun}from"./session-sharing-policy-BwupM_ur.mjs";
-//!src/gateway/session-workspace-read-policy.ts
-function authorizeSessionWorkspaceRead(e,t){return e.unscopedHostRoot?authorizeSessionAgentRun({...e,sandboxRequiredMessage:`Your operator role requires a sandboxed session. You cannot read this session's host workspace files. Ask the owner to download and share the file, then attach it to your own session.`},t):null}export{authorizeSessionWorkspaceRead as t};

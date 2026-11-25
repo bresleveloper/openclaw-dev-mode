@@ -1,3 +1,0 @@
-import{t as configureAiTransportRuntimeHost}from"./ai-transport-runtime-host-7lCwU7-V.mjs";import{buildOpenAICompletionsParams,createOpenAIResponsesTransportStreamFn}from"@openclaw/ai/transports";
-//!src/agents/openai-transport-stream.ts
-function buildOpenAICompletionsParams$1(e,t,n){configureAiTransportRuntimeHost();return buildOpenAICompletionsParams(e,t,n)}export{createOpenAIResponsesTransportStreamFn as n,buildOpenAICompletionsParams$1 as t};

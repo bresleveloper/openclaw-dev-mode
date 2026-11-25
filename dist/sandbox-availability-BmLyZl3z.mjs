@@ -1,0 +1,3 @@
+import{i as resolveSandboxConfigForAgent}from"./config-6ZEnWWEm.mjs";import{i as execContainer,t as DOCKER_SANDBOX_ENGINE}from"./container-engine-TAiO1SCl.mjs";
+//!src/gateway/openclaw-id/sandbox-availability.ts
+async function readSandboxBackendAvailability(e){const t=resolveSandboxConfigForAgent(e).backend.toLowerCase();if(t!==`docker`&&t!==`podman`)return{backend:t,available:null};try{let e=DOCKER_SANDBOX_ENGINE;if(t===`podman`){const{bindPodmanSandboxEngine:t,resolvePodmanSandboxRuntimeInfo:n}=await import(`./podman-runtime-BHxrMFi-.mjs`);e=t((await n()).target)}await execContainer(e,[`info`],{signal:AbortSignal.timeout(3e4)});return{backend:t,available:true}}catch{return{backend:t,available:false}}}export{readSandboxBackendAvailability};

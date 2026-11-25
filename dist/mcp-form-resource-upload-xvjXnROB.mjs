@@ -1,1 +1,0 @@
-import{t as prepareMcpAppFormUpload}from"./mcp-form-resource-upload-DODJ5YRx.mjs";export{prepareMcpAppFormUpload};

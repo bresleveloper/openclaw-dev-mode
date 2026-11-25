@@ -1,1 +1,1 @@
-import{n as buildMinimaxProvider,r as resolveMinimaxCatalogBaseUrl,t as buildMinimaxModelDiscovery}from"../../provider-catalog-WL9DAH9c.mjs";export{buildMinimaxModelDiscovery,buildMinimaxProvider,resolveMinimaxCatalogBaseUrl};
+import{n as buildMinimaxProvider,r as resolveMinimaxCatalogBaseUrl,t as buildMinimaxModelDiscovery}from"../../provider-catalog-DZTb5Aeh.mjs";export{buildMinimaxModelDiscovery,buildMinimaxProvider,resolveMinimaxCatalogBaseUrl};

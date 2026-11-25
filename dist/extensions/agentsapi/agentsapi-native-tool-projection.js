@@ -1,1 +1,1 @@
-import{t as AgentsApiNativeToolProjection}from"../../agentsapi-native-tool-projection-CewpXgp9.mjs";export{AgentsApiNativeToolProjection};
+import{t as AgentsApiNativeToolProjection}from"../../agentsapi-native-tool-projection-CnuXt3M8.mjs";export{AgentsApiNativeToolProjection};
