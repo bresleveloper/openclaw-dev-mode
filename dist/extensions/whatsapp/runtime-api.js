@@ -10,7 +10,7 @@ import { n as resolveWebAccountId, t as getActiveWebListener } from "./.setup/ac
 import { i as waitForWaConnection, r as createWaSocket, s as newConnectionId } from "./.setup/socket-close-CtVmtGJZ.mjs";
 import { n as getStatusCode, t as formatError } from "./.setup/session-errors-DrPDsEQy.mjs";
 import { p as extractText, s as extractContactContext, u as extractLocationData } from "./.setup/send-api-D_e_YfvV.mjs";
-import { n as monitorWebInbox, r as resetWebInboundDedupe, t as monitorWebChannel } from "./.setup/monitor-ICPzqTX0.mjs";
+import { n as monitorWebInbox, r as resetWebInboundDedupe, t as monitorWebChannel } from "./.setup/monitor-BmnaIuis.mjs";
 import { t as loginWeb } from "./.setup/login-CdDRn9wx.mjs";
 import { SILENT_REPLY_TOKEN } from "openclaw/plugin-sdk/reply-runtime";
 import { LocalMediaAccessError, getDefaultLocalRoots, loadWebMedia, loadWebMediaRaw, optimizeImageToJpeg, optimizeImageToPng } from "openclaw/plugin-sdk/web-media";

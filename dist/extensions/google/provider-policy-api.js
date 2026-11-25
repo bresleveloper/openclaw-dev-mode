@@ -1,3 +1,3 @@
-import{n as resolveGoogleFastModeSupport,o as resolveGoogleThinkingProfile,t as normalizeGoogleProviderConfig}from"../../provider-policy-DwA12kLP.mjs";
+import{n as resolveGoogleFastModeSupport,o as resolveGoogleThinkingProfile,t as normalizeGoogleProviderConfig}from"../../provider-policy-utn4cPSo.mjs";
 //!extensions/google/provider-policy-api.ts
 function normalizeConfig(e){return normalizeGoogleProviderConfig(e.provider,e.providerConfig)}export{normalizeConfig,resolveGoogleFastModeSupport as resolveFastModeSupport,resolveGoogleThinkingProfile as resolveThinkingProfile};

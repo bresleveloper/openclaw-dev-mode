@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-CfsUBPzi.mjs";e();export{t as createDoctorPluginMetadataSnapshotScope};

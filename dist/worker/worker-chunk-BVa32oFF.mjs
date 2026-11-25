@@ -1,1 +1,0 @@
-import{n as e,r as t}from"./worker-chunk-B19V0GtC.mjs";e();export{t as loadConfigForInstall};

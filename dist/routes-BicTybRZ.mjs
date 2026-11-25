@@ -1,0 +1,1 @@
+import{t as registerBrowserRoutes}from"./routes-AtBRnQTC.mjs";export{registerBrowserRoutes};

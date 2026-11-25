@@ -1,0 +1,1 @@
+import{n as uninstallManagedPlugin,r as uninstallPluginWithPolicy,t as preparePluginUninstall}from"./management-uninstall-DJOb4cDt.mjs";export{preparePluginUninstall,uninstallPluginWithPolicy};

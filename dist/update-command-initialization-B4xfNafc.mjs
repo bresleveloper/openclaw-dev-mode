@@ -1,0 +1,1 @@
+import{a as withUpdateInitializationCleanup,i as updateStateNeedsInitialization,n as confirmFreshUpdateDowngrade,r as initializeUpdateStateFromTarget,t as acquireLegacyUpdateInitializationFence}from"./update-command-initialization-D3pRRvVD.mjs";export{updateStateNeedsInitialization};

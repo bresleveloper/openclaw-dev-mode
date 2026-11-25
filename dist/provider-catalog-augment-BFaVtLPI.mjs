@@ -1,0 +1,1 @@
+import{t as augmentModelCatalogWithProviderPlugins}from"./provider-catalog-augment-DGwanEr7.mjs";export{augmentModelCatalogWithProviderPlugins};

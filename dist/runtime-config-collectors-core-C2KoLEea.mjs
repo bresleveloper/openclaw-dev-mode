@@ -1,1 +1,0 @@
-import{t as collectCoreConfigAssignments}from"./runtime-config-collectors-core-CGSr4EQD.mjs";export{collectCoreConfigAssignments};

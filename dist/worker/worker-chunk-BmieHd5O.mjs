@@ -1,1 +1,0 @@
-import{n as e,r as t,t as n}from"./worker-chunk-CpideAhw.mjs";e();export{n as executeRegisteredPluginCommand,t as resolvePluginCommandAuthorizationRefusal};

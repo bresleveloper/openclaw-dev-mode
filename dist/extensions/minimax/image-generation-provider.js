@@ -1,1 +1,1 @@
-import{t as buildMinimaxImageGenerationProvider}from"../../image-generation-provider-CkbFk-es.mjs";export{buildMinimaxImageGenerationProvider};
+import{t as buildMinimaxImageGenerationProvider}from"../../image-generation-provider-CS2plOFB.mjs";export{buildMinimaxImageGenerationProvider};

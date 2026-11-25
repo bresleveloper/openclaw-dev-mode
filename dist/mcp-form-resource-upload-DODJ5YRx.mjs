@@ -1,0 +1,2 @@
+//!src/agents/mcp-form-resource-upload.ts
+async function prepareMcpAppFormUpload(e){e.assertCurrent();if(e.runtime.canReadLocalFiles?.(e.serverName)!==true)return;const{createMcpAppWorkspaceUploadProvider:t}=await import(`./mcp-app-form-resources-Dzvk14C8.mjs`);const assertCurrent=()=>{e.assertCurrent();if(e.runtime.canReadLocalFiles?.(e.serverName)!==true)throw new Error(`MCP form local-file transport changed`)};assertCurrent();return t({workspaceDir:e.runtime.workspaceDir,sessionKey:e.sessionKey,agentId:e.agentId,assertCurrent})}export{prepareMcpAppFormUpload as t};

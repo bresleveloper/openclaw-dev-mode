@@ -1,3 +1,0 @@
-import{t as applyModelCompatPatch}from"./provider-model-compat-WTDnPCEo.mjs";import{i as XAI_TOOL_MODEL_COMPAT}from"./provider-model-shared-DZoYbOxR.mjs";import"./model-id-DKvJD-jT.mjs";
-//!extensions/xai/model-compat.ts
-const XAI_TOOL_SCHEMA_PROFILE=XAI_TOOL_MODEL_COMPAT.toolSchemaProfile;const HTML_ENTITY_TOOL_CALL_ARGUMENTS_ENCODING=XAI_TOOL_MODEL_COMPAT.toolCallArgumentsEncoding;function applyXaiModelCompat(e){return applyModelCompatPatch(e,XAI_TOOL_MODEL_COMPAT)}export{XAI_TOOL_SCHEMA_PROFILE as n,applyXaiModelCompat as r,HTML_ENTITY_TOOL_CALL_ARGUMENTS_ENCODING as t};

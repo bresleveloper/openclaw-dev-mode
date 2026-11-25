@@ -1,1 +1,0 @@
-import{i as flushPendingSessionsChangedEvents,n as emitSessionTitleChanged,r as emitSessionsChanged,t as attachSessionChangeEventLifetime}from"./session-change-event-CXbunMHi.mjs";export{attachSessionChangeEventLifetime,emitSessionTitleChanged,emitSessionsChanged,flushPendingSessionsChangedEvents};

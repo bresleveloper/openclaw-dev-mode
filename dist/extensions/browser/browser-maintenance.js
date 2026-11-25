@@ -1,3 +1,3 @@
-import{t as movePathToTrash}from"../../trash-AZRaRMdy.mjs";import{n as closeTrackedBrowserTabsForSessions$1}from"../../session-tab-registry-DayGIbKR.mjs";
+import{t as movePathToTrash}from"../../trash-AZRaRMdy.mjs";import{n as closeTrackedBrowserTabsForSessions$1}from"../../session-tab-registry-CmIQl4xq.mjs";
 //!extensions/browser/browser-maintenance.ts
-const supportsSessionEntryCurrent=true;async function closeTrackedBrowserTabsForSessions(e){return await closeTrackedBrowserTabsForSessions$1({...e,getResolvedBrowserConfig:async()=>{const{getBrowserControlState:e}=await import(`../../browser-control-state-1uD3kgRh.mjs`);return e()?.resolved??null}})}export{closeTrackedBrowserTabsForSessions,movePathToTrash,supportsSessionEntryCurrent};
+const supportsSessionEntryCurrent=true;async function closeTrackedBrowserTabsForSessions(e){return await closeTrackedBrowserTabsForSessions$1({...e,getResolvedBrowserConfig:async()=>{const{getBrowserControlState:e}=await import(`../../browser-control-state-BjmQm4yQ.mjs`);return e()?.resolved??null}})}export{closeTrackedBrowserTabsForSessions,movePathToTrash,supportsSessionEntryCurrent};

@@ -1,3 +1,0 @@
-import{E as listRegisteredEmbeddingProviders}from"./gateway-startup-plugin-config-DCBw2d4J.mjs";import{n as listEmbeddingProviders,t as getEmbeddingProvider}from"./embedding-provider-runtime-DG4RWG-j.mjs";
-//!src/plugins/memory-embedding-provider-runtime.ts
-function listRegisteredMemoryEmbeddingProviderAdapters(){return listRegisteredEmbeddingProviders().map(e=>e.adapter)}function listMemoryEmbeddingProviders(e){return listEmbeddingProviders(e)}function getMemoryEmbeddingProvider(e,t){return getEmbeddingProvider(e,t)}export{listMemoryEmbeddingProviders as n,listRegisteredMemoryEmbeddingProviderAdapters as r,getMemoryEmbeddingProvider as t};

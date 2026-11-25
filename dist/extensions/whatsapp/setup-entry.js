@@ -5,7 +5,7 @@ var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	features: { legacySessionSurfaces: true },
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-jduXclZI.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-Cza_b2XC.mjs", import.meta.url).href),
 		exportName: "whatsappSetupPlugin"
 	},
 	legacySessionSurface: {

@@ -1,0 +1,3 @@
+import"./session-accessor-BmR72KUE.mjs";import{o as withLegacySessionCapabilityReader}from"./subagent-session-store-D-lV0Sn8.mjs";import{i as loadSessionEntryByIdReadOnly,r as loadExactSessionEntryReadOnly}from"./session-accessor.sqlite-exact-read-DuUTQVnr.mjs";
+//!src/agents/subagents/spawn/subagent-session-store-legacy.ts
+function withLegacySessionCapabilityRead(e){return withLegacySessionCapabilityReader(e=>{const t={storePath:e.storePath,agentId:e.agentId,projection:`list`};try{return e.sessionKey!==void 0?loadExactSessionEntryReadOnly({...t,sessionKey:e.sessionKey})?.entry:loadSessionEntryByIdReadOnly({...t,sessionId:e.sessionId})?.entry}catch{return}},e)}export{withLegacySessionCapabilityRead as t};

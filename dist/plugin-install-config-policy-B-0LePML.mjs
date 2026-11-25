@@ -1,3 +1,0 @@
-import{a as resolvePluginInstallRequestContext}from"./install-config-DNSQv6b1.mjs";
-//!src/cli/plugin-install-config-policy.ts
-function resolvePluginInstallPreactionRequest(e){if(e.commandPath[0]!==`plugins`||e.commandPath[1]!==`install`)return null;const t=e.actionCommand.opts();const n=typeof t.marketplace===`string`?t.marketplace||void 0:void 0;const r=typeof e.actionCommand.processedArgs[0]===`string`?e.actionCommand.processedArgs[0]:null;if(!r)return null;const i=resolvePluginInstallRequestContext({rawSpec:r,marketplace:n});return i.ok?i.request:null}export{resolvePluginInstallPreactionRequest};

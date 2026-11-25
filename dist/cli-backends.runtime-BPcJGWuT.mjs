@@ -1,0 +1,3 @@
+import{i as getPluginRegistryForContext}from"./gateway-request-scope-C7znf80h.mjs";import{x as isPluginRegistryRetired}from"./registry-lifecycle-37Hm8X8C.mjs";
+//!src/plugins/cli-backends.runtime.ts
+function resolveRuntimeCliBackends(e){const t=getPluginRegistryForContext();return(t&&!isPluginRegistryRetired(t)?t.cliBackends:[]).map(t=>e===`metadata`?{id:t.backend.id,modelProvider:t.backend.modelProvider,subscriptionAuthDispatch:t.backend.subscriptionAuthDispatch,pluginId:t.pluginId}:Object.assign({},t.backend,{pluginId:t.pluginId,builtWithOpenClawVersion:t.builtWithOpenClawVersion}))}export{resolveRuntimeCliBackends as t};

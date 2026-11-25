@@ -1,0 +1,1 @@
+import{i as projectImmutableInstall,n as inspectImmutableInstall,r as prepareImmutableUpdate,t as adoptImmutableInstall}from"./update-immutable-install-Dwvu3mpN.mjs";export{inspectImmutableInstall};

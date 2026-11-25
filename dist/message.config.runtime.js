@@ -1,1 +1,1 @@
-export * from "./message.config.runtime-CK5nkP40.mjs";
+export * from "./message.config.runtime-8SkwDnBE.mjs";

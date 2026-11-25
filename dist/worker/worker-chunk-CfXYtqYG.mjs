@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-Du4wjDfF.mjs";import{i as t,t as n}from"./worker-chunk-S0_bZBRk.mjs";e((()=>{n()}))();export{t as resolveMessageChannelSelection};

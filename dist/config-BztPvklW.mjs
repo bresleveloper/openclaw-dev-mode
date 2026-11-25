@@ -1,3 +1,0 @@
-import{p as readCurrentConfigForResolution}from"./io.runtime-D-fLYL3-.mjs";import{t as resolveInstallAgentDir}from"./install-agent-dir-Bqe-LzAg.mjs";import{join}from"node:path";
-//!src/agents/config.ts
-function getAgentDirResolution(){return resolveInstallAgentDir(e=>readCurrentConfigForResolution({env:e}))}function getAgentDir(){return getAgentDirResolution().directory.dir}function getBinDir(){const e=getAgentDirResolution().optionalDirectory;return e?join(e.dir,`bin`):void 0}export{getBinDir as n,getAgentDir as t};

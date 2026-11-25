@@ -1,0 +1,3 @@
+import{t as findLegacyConfigIssues}from"./legacy-2CHWjIjx.mjs";
+//!src/config/io.legacy-issues.runtime.ts
+let doctorIssuesModule;async function collectInvalidConfigLegacyIssues(e,t,n){if(!e||typeof e!==`object`)return[];const r=findLegacyConfigIssues(e,t);if(n.coreOnly||r.length>0)return r;const{findDoctorLegacyConfigIssues:i}=await(doctorIssuesModule??=import(`./legacy-config-issues-DGZKCi7w.mjs`));const{withPreparedPluginSetupRead:a}=await import(`./plugin-setup-module-DFp9uY-T.mjs`);(await n.preparePluginDiagnostics?.())?.();return a(()=>i(e,t))}export{collectInvalidConfigLegacyIssues};

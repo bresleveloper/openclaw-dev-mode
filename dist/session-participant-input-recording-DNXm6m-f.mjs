@@ -1,3 +1,0 @@
-import{o as sessionParticipantInput}from"./session-participant-input-YHz__oSD.mjs";import{t as recordSessionParticipantBestEffort}from"./session-participant-recording-BSg3F-pW.mjs";
-//!src/sessions/session-participant-input-recording.ts
-function recordAcceptedSessionParticipantInput(e,t){for(const n of e[sessionParticipantInput]??[])if(!n.recorded){n.recorded=true;recordSessionParticipantBestEffort({...t,identity:n.identity,promptedAt:n.promptedAt})}}export{recordAcceptedSessionParticipantInput as t};

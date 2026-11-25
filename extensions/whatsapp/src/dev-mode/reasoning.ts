@@ -22,8 +22,34 @@
 //   "Thinking" -> update REASONING_PREAMBLE_RE (7.1 broke exactly this way: it matched
 //   only "Reasoning:" while core had switched to "Thinking").
 // - upstream's REASONING_PREFIX_RE (src/plugin-sdk/reply-payload.ts) starts matching "💭".
+// - 💭 arrives as just "💭 Reasoning:" + "_": a reasoning-tag marker left in the body made
+//   WhatsApp's outbound sanitizer (normalizeWhatsAppPayloadTextPreservingIndentation) hide
+//   the rest. Keep THINK_TAG_RE in step with REASONING_TAG_NAMES in
+//   packages/markdown-core/src/reasoning-tag-syntax.ts (minus the private "internal").
 // Self-chat echo loops of these messages: see ./echo-guard.ts.
+import { findCodeRegions, isInsideCode, type CodeRegion } from "openclaw/plugin-sdk/text-chunking";
+
 const REASONING_PREAMBLE_RE = /^(?:>[ \t]?)*(?:reasoning:|thinking\.{0,3})[ \t]*(?:\r?\n|$)/iu;
+
+// Reasoning-tag markers WhatsApp's outbound sanitizer reads as the start or end of hidden
+// reasoning; "internal" is left out because its content must stay hidden.
+const THINK_TAG_RE =
+  /<\s*\/?\s*(?:(?:antml:|mm:)?(?:think|thinking|thought|reasoning)|antthinking)(?=[\s/>])[^<>]*>/giu;
+
+/**
+ * Everything in a 💭 message is reasoning, so think tags in it are only markers: drop them
+ * and keep their text; an opening tag without a closing one counts as closed at the end.
+ * kimi-k2.7-code via Ollama starts its thinking with a bare "<think>"; left in, the
+ * sanitizer hid everything after it and the phone got an empty 💭. Literal tags inside
+ * inline code stay, because the sanitizer leaves those alone.
+ */
+function unwrapThinkTags(body: string): string {
+  let inlineCode: CodeRegion[] | undefined;
+  return body.replace(THINK_TAG_RE, (tag: string, index: number) => {
+    inlineCode ??= findCodeRegions(body).filter((region) => !region.block);
+    return isInsideCode(index, inlineCode) ? tag : "";
+  });
+}
 
 function italicizeLines(body: string): string {
   return body
@@ -54,7 +80,7 @@ export function formatDevModeReasoningPayload<T extends { text?: string; isReaso
   if (payload.isReasoning !== true && !preamble) {
     return undefined;
   }
-  const body = (preamble ? text.slice(preamble[0].length) : text).trim();
+  const body = unwrapThinkTags(preamble ? text.slice(preamble[0].length) : text).trim();
   if (!body) {
     return undefined;
   }

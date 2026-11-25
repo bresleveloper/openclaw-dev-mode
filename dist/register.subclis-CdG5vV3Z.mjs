@@ -1,1 +1,0 @@
-import{n as registerSubCliByName,r as registerSubCliCommands,t as getSubCliCompletionGroups}from"./register.subclis-CUHwNXSc.mjs";export{registerSubCliByName};

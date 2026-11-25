@@ -1,0 +1,3 @@
+import{a as resolveConfiguredAcpBindingSpecFromRecord}from"./persistent-bindings.types-bsELldLd.mjs";import{n as resolveConfiguredBindingRecord,r as resolveConfiguredBindingRecordBySessionKey}from"./configured-binding-registry-CZt-19te.mjs";
+//!src/acp/persistent-bindings.resolve.ts
+function resolveConfiguredAcpBindingRecord(e){const t=resolveConfiguredBindingRecord(e);if(!t)return null;const n=resolveConfiguredAcpBindingSpecFromRecord(t.record);return n?{spec:n,record:t.record}:null}function resolveConfiguredAcpBindingSpecBySessionKey(e){const t=resolveConfiguredBindingRecordBySessionKey(e);return t?resolveConfiguredAcpBindingSpecFromRecord(t.record):null}export{resolveConfiguredAcpBindingSpecBySessionKey as n,resolveConfiguredAcpBindingRecord as t};

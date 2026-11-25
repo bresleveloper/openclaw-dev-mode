@@ -1,0 +1,1 @@
+import"./worker-chunk-Jd1FSpbv.mjs";import{a as e,o as t}from"./worker-chunk-BDzXaEqP.mjs";t();export{e as dispatchInboundMessageWithRoutedChannelDispatcher};

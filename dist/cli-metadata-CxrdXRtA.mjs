@@ -1,3 +1,0 @@
-import{t as definePluginEntry}from"./plugin-entry-DhKiQ4Uu.mjs";import"./core-CcpPhqtv.mjs";
-//!extensions/memory-core/cli-metadata.ts
-function registerMemoryCoreCli(e,t){e.registerCli(async({program:n})=>{const{registerMemoryCli:r}=await import(`./extensions/memory-core/cli.js`);r(n,t??{acquireLocalService:e.runtime.llm?.acquireLocalService,openKeyedStore:t=>e.runtime.state.openKeyedStore(t)})},{descriptors:[{name:`memory`,description:`Search, inspect, and reindex memory files`,hasSubcommands:true}]})}var cli_metadata_default=definePluginEntry({id:`memory-core`,name:`OpenClaw Memory`,description:`File-backed memory search tools and CLI`,register(e){registerMemoryCoreCli(e)}});export{registerMemoryCoreCli as n,cli_metadata_default as t};

@@ -1,0 +1,3 @@
+import{f as resolveOfficialExternalChannelCompatibilityMigration}from"./official-external-plugin-catalog-CUQDetgV.mjs";import{t as LEGACY_CONFIG_MIGRATIONS}from"./legacy-config-migrations-DF7DYlEH.mjs";
+//!src/commands/channel-setup/config-compatibility.ts
+function normalizeExternalChannelSetupConfig(e){const t=resolveOfficialExternalChannelCompatibilityMigration(e.channel);if(!t)return e.cfg;const n=LEGACY_CONFIG_MIGRATIONS.find(e=>e.id===t);if(!n)throw new Error(`Official external channel ${e.channel} references unknown compatibility migration ${t}`);const r=structuredClone(e.cfg);n.apply(r,[]);return r}export{normalizeExternalChannelSetupConfig as t};

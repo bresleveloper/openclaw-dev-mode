@@ -1,3 +1,0 @@
-import{t as VERSION}from"./version-oopGZCxg.mjs";import{t as mergeGatewayServiceEnv}from"./service-env-merge-rfBe11s8.mjs";
-//!src/cli/daemon-cli/status.projection.ts
-async function projectDaemonRuntimeStatus(e){const t=process.argv[1]?.trim();const n={version:VERSION,...t?{entrypoint:t}:{}};if(!e.deep)return{cli:n};const{inspectCliRuntime:r,inspectServiceRuntimeIntent:i}=await import(`./status.runtime-intent-CJZ8VRX9.mjs`);const a=process.env;const{command:o,loadState:s,inspectionFailed:c,inspectionReason:l}=e.state;const u=await i({kind:`gateway`,service:e.service,command:o,env:a,serviceEnv:mergeGatewayServiceEnv(a,o),inspectionKnown:s.status!==`unknown`&&!c&&!l});return{cli:{...n,runtime:await r()},runtimeIntent:u}}export{projectDaemonRuntimeStatus as t};

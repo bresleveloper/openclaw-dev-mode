@@ -1,0 +1,3 @@
+import{n as resolveOpenClawPackageRoot}from"./openclaw-root-CflKFIlX.mjs";import{n as runUpdateFailureTriage}from"./update-triage-DJeMmQS1.mjs";
+//!src/commands/triage-failure.ts
+async function triageAfterFailure(e,t,n){await runUpdateFailureTriage({mode:`non-interactive`,runtime:{log:(...t)=>e.error(...t),error:(...t)=>e.error(...t)},failure:{error:`${t.phase}: ${t.error}`},target:{root:t.installationRoot,env:{...process.env}},resolveRoot:async()=>await resolveOpenClawPackageRoot({argv1:process.argv[1]})??``,signal:n})}export{triageAfterFailure};

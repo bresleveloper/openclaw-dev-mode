@@ -1,1 +1,1 @@
-import{n as registerReefCliMetadata,t as cli_metadata_default}from"../../cli-metadata-AvHEWPwD.mjs";export{cli_metadata_default as default,registerReefCliMetadata};
+import{n as registerReefCliMetadata,t as cli_metadata_default}from"../../cli-metadata-DyKamrys.mjs";export{cli_metadata_default as default,registerReefCliMetadata};

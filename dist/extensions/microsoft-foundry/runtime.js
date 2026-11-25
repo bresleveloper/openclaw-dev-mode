@@ -1,1 +1,1 @@
-import{t as prepareFoundryRuntimeAuth}from"../../runtime-KrXDIT-t.mjs";export{prepareFoundryRuntimeAuth};
+import{t as prepareFoundryRuntimeAuth}from"../../runtime-BxSkhzk4.mjs";export{prepareFoundryRuntimeAuth};

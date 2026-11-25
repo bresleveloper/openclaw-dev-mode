@@ -1,1 +1,0 @@
-import{n as prepareModelCatalogAuthLabels,t as formatModelCatalogAuthLabel}from"./model-catalog-auth-labels-Ce-afxHu.mjs";export{formatModelCatalogAuthLabel};

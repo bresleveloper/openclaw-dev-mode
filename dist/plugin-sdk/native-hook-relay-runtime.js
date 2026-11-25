@@ -1,1 +1,1 @@
-import{a as registerOwnedNativeHookRelay,s as buildNativeHookRelayCommandPlan}from"../native-hook-relay-DYwDqnzX.mjs";export{buildNativeHookRelayCommandPlan,registerOwnedNativeHookRelay as registerNativeHookRelayForBundledRuntime};
+import{a as registerOwnedNativeHookRelay,s as buildNativeHookRelayCommandPlan}from"../native-hook-relay-Cq6PXZxr.mjs";export{buildNativeHookRelayCommandPlan,registerOwnedNativeHookRelay as registerNativeHookRelayForBundledRuntime};

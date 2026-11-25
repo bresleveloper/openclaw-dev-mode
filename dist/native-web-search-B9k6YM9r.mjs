@@ -1,0 +1,1 @@
+import{t as resolveNativeWebSearchRoute}from"./native-web-search-rgUD8BXS.mjs";export{resolveNativeWebSearchRoute};

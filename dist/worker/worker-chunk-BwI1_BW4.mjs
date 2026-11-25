@@ -1,0 +1,1 @@
+import{g as e,t}from"./worker-chunk-Cdgd_cSE.mjs";t();export{e as writeDoctorGatewayConfig};

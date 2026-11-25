@@ -1,0 +1,3 @@
+import{r as createLazyRuntimeModule}from"./lazy-runtime-Ds6M7vp4.mjs";
+//!extensions/browser/src/browser/extension-relay.runtime.ts
+const getGatewayExtensionRelayModule=createLazyRuntimeModule(()=>import(`./gateway-relay-route-BYgyBJjL.mjs`));const getExtensionRelayModule=createLazyRuntimeModule(()=>import(`./relay-lifecycle-YKaoonNn.mjs`));export{getGatewayExtensionRelayModule as n,getExtensionRelayModule as t};

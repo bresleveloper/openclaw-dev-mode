@@ -1,0 +1,3 @@
+import{s as resolveAgentModelPrimaryValue}from"./model-input-CJnF-FEy.mjs";import{r as logConfigUpdated}from"./logging-CSaNytwo.mjs";import{d as updateDefaultModelPrimaryConfig}from"./shared-D3yStv0E.mjs";
+//!src/commands/models/set.ts
+async function modelsSetCommand(e,t,n=`model`){const r=n===`model`?(await import(`./runtime-plugin-install-3QWKlsNP.mjs`)).repairModelSelectionRuntimePlugins:void 0;const{updated:i,warning:a}=await updateDefaultModelPrimaryConfig({modelRaw:e,field:n});if(a)t.error?.(a);const o=resolveAgentModelPrimaryValue(i.agents?.defaults?.[n])??e;const s=r?await r({cfg:i,model:o}):[];for(const e of s)t.error?.(e);logConfigUpdated(t);t.log(`${n===`model`?`Default`:`Image`} model: ${o}`)}export{modelsSetCommand};

@@ -1,0 +1,2 @@
+//!src/cli/run-main-doctor-startup.ts
+async function prepareDoctorCliStartup(e,t){if(process.env.OPENCLAW_UPDATE_POST_INSTALL_DOCTOR_RESULT_PATH?.trim()===`-`){const{tryRunDoctorResultBridge:t}=await import(`./run-main-doctor-result-DUkH7Rec.mjs`);if(await t(e))return{handled:true}}const{preflightUpdateDoctorCli:n}=await import(`./commands/doctor-update-schema-guard.js`);return{handled:false,preflight:await n({...t,fullIntegrityCheck:e.includes(`--full-integrity-check`)})}}export{prepareDoctorCliStartup};

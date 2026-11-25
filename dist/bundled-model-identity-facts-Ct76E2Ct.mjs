@@ -1,0 +1,1 @@
+import{n as createVendorModelFactsResolver,t as createBundledModelIdentityFactsResolver}from"./bundled-model-identity-facts-DE4r_aZf.mjs";export{createBundledModelIdentityFactsResolver};

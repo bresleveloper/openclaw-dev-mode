@@ -1,1 +1,0 @@
-import{n as discoverOpenAICompatibleSelfHostedProvider,t as discoverOpenAICompatibleLocalModels}from"./provider-self-hosted-discovery-x-yHDFJK.mjs";export{discoverOpenAICompatibleLocalModels,discoverOpenAICompatibleSelfHostedProvider};

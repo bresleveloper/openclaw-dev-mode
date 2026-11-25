@@ -1,0 +1,1 @@
+import{n as resolveConfigWideDoctorPluginMetadataSnapshot,t as createDoctorPluginMetadataSnapshotScope}from"./plugin-metadata-snapshot-scope-7ePEsQJF.mjs";export{createDoctorPluginMetadataSnapshotScope};

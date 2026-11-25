@@ -1,3 +1,0 @@
-import{a as resolveAuthenticatedPersonalGatewayProfileId}from"./gateway-personal-caller-DYkDa66Q.mjs";
-//!src/gateway/openclaw-id/channel.ts
-function resolveOpenClawIdClientChannel(e){if(e?.internal?.openclawIdPeerKey)return`tunnel`;return e?.internal?.isLocalClient===true?`local_operator`:void 0}function resolveOpenClawIdClientPeerKey(e){return e?.internal?.openclawIdPeerKey}function resolveOpenClawIdSignInRoute(e){const t=resolveOpenClawIdClientChannel(e);if(t===`local_operator`)return`popup`;if(!e||t===`tunnel`||e.internal?.remoteIngressPrincipal)return null;return resolveAuthenticatedPersonalGatewayProfileId(e)?`device`:null}export{resolveOpenClawIdClientPeerKey as n,resolveOpenClawIdSignInRoute as r,resolveOpenClawIdClientChannel as t};

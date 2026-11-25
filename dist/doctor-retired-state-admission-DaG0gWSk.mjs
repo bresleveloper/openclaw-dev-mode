@@ -1,0 +1,1 @@
+import{t as assertDoctorRetiredStateAdmission}from"./doctor-retired-state-admission-BJkPczdp.mjs";export{assertDoctorRetiredStateAdmission};

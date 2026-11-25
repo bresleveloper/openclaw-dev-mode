@@ -1,0 +1,1 @@
+import{t as ensureCliPluginRegistryLoaded}from"./plugin-registry-loader-D_JOFyex.mjs";export{ensureCliPluginRegistryLoaded};

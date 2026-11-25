@@ -1,4 +1,4 @@
-import{l as normalizeOptionalString,o as normalizeLowercaseStringOrEmpty}from"../../string-coerce-CpTFcSwY.mjs";import"../../string-coerce-runtime-BYDH9Quw.mjs";import{n as approveDevicePairing}from"../../device-pairing-approval-Cuhmw8iP.mjs";import"../../api-BozIzBxk.mjs";import{n as formatPendingRequests}from"../../notify-CJLlN2aW.mjs";
+import{l as normalizeOptionalString,o as normalizeLowercaseStringOrEmpty}from"../../string-coerce-CpTFcSwY.mjs";import"../../string-coerce-runtime-BYDH9Quw.mjs";import{n as approveDevicePairing}from"../../device-pairing-approval-Cuhmw8iP.mjs";import"../../api-m2m5N7PH.mjs";import{n as formatPendingRequests}from"../../notify-CJLlN2aW.mjs";
 //!extensions/device-pair/pair-command-approve.ts
 function buildMultiplePendingApprovalReply(e){return{text:`${formatPendingRequests(e)}\n\nMultiple pending requests found. Approve one explicitly:
 /pair approve <requestId>

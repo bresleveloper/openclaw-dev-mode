@@ -1,3 +1,0 @@
-import{h as readRuntimeConfig}from"./runtime-snapshot-7A_MWYPP.mjs";import"./io-CKA3RFlG.mjs";import{l as resolveApnsRelayConfigFromEnv,t as resolveApnsAuthConfigFromEnv}from"./push-apns-DzMARIZ5.mjs";
-//!src/gateway/server-methods/node-push-transport.ts
-async function resolveNodePushTransport(e,t){if(e.transport===`relay`){const n=resolveApnsRelayConfigFromEnv(process.env,(t??readRuntimeConfig()).gateway,{registrationRelayOrigin:e.relayOrigin});return n.ok?{ok:true,transport:{registration:e,relayConfig:n.value}}:{ok:false,error:n.error}}const n=await resolveApnsAuthConfigFromEnv(process.env);return n.ok?{ok:true,transport:{registration:e,auth:n.value}}:{ok:false,error:n.error}}export{resolveNodePushTransport as t};

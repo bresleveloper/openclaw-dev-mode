@@ -1,1 +1,1 @@
-import{t as registerTelegramWidgetPresenter}from"../../widget-api-DIlZ_7kA.mjs";export{registerTelegramWidgetPresenter};
+import{t as registerTelegramWidgetPresenter}from"../../widget-api-BxUwfc32.mjs";export{registerTelegramWidgetPresenter};

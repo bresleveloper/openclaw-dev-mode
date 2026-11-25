@@ -1,3 +1,0 @@
-import{t as runWithLocalStateOwner}from"./local-state-owner-BWo4_U8L.mjs";import"./cli-state-owner-ue_w1rP3.mjs";import{t as renderMemorySearch}from"./cli-search-output-BXP8WC63.mjs";
-//!extensions/memory-core/src/cli-search-owner.runtime.ts
-async function runMemorySearchWithOwner(e,t,n){const r=await runWithLocalStateOwner({method:`memory.search.owner`,params:{query:e,...t.agent!==void 0?{agentId:t.agent}:{},...t.maxResults!==void 0?{maxResults:t.maxResults}:{},...t.minScore!==void 0?{minScore:t.minScore}:{}},target:`memory search`,databaseEngine:`configured`,runLocal:async()=>{const{runMemorySearch:r}=await import(`./cli.runtime-DXiSQnH3.mjs`);await r(e,t,n)}});if(r)renderMemorySearch(r,t.json)}export{runMemorySearchWithOwner};

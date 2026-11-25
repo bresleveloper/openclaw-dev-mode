@@ -1,1 +1,1 @@
-import{n as registerMemoryCoreCli,t as cli_metadata_default}from"../../cli-metadata-CxrdXRtA.mjs";export{cli_metadata_default as default,registerMemoryCoreCli};
+import{n as registerMemoryCoreCli,t as cli_metadata_default}from"../../cli-metadata-Cxdozzs1.mjs";export{cli_metadata_default as default,registerMemoryCoreCli};

@@ -1,3 +1,0 @@
-import{t as definePluginEntry}from"./plugin-entry-DhKiQ4Uu.mjs";import"./core-CcpPhqtv.mjs";
-//!extensions/reef/cli-metadata.ts
-function registerReefCliMetadata(e){e.registerCli(async({program:e})=>{const{registerReefCli:t}=await import(`./cli-B-7Fi8Lp.mjs`);t({program:e})},{descriptors:[{name:`reef`,description:`Register on a Reef relay and manage guarded claw-to-claw friendships`,hasSubcommands:true}]})}var cli_metadata_default=definePluginEntry({id:`reef`,name:`Reef`,description:`Guarded end-to-end encrypted claw channel`,register:registerReefCliMetadata});export{registerReefCliMetadata as n,cli_metadata_default as t};

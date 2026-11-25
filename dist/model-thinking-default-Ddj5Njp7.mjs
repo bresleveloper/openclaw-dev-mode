@@ -1,0 +1,3 @@
+import{r as buildConfiguredModelCatalog}from"./model-selection-shared-5xXo2wZo.mjs";import{r as resolveThinkingDefaultCore,t as buildThinkingCatalog}from"./model-thinking-default-core-B0lKSw3j.mjs";
+//!src/agents/model-thinking-default.ts
+async function resolveThinkingDefaultWithRuntimeCatalogCore(e){const t=buildConfiguredModelCatalog({cfg:e.cfg}).find(t=>t.provider===e.provider&&t.id===e.model)?.reasoning===void 0?await e.loadRuntimeCatalog():void 0;const n=t?.find(t=>t.provider===e.provider&&t.id===e.model)&&t?t:buildThinkingCatalog(e);return resolveThinkingDefaultCore({cfg:e.cfg,agentId:e.agentId,provider:e.provider,model:e.model,catalog:n,agentRuntime:e.agentRuntime})}export{resolveThinkingDefaultWithRuntimeCatalogCore as t};

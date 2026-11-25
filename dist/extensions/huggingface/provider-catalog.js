@@ -1,1 +1,1 @@
-import{t as buildHuggingfaceProvider}from"../../provider-catalog-C8wX54Oc.mjs";export{buildHuggingfaceProvider};
+import{t as buildHuggingfaceProvider}from"../../provider-catalog-DiPKHZov.mjs";export{buildHuggingfaceProvider};

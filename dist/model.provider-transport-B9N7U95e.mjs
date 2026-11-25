@@ -1,3 +1,0 @@
-import{r as normalizeResolvedTransportApi}from"./model.inline-provider-4AjtQ0mh.mjs";import{u as normalizeProviderTransportWithPlugin}from"./provider-runtime-DZq0NqHV.mjs";
-//!src/agents/embedded-agent-runner/model.provider-transport.ts
-function resolveProviderTransport(e){const t=(e.runtimeHooks??{normalizeProviderTransportWithPlugin}).normalizeProviderTransportWithPlugin({provider:e.provider,...e.modelId?{modelId:e.modelId}:{},config:e.cfg,workspaceDir:e.workspaceDir,context:{config:e.cfg,workspaceDir:e.workspaceDir,provider:e.provider,...e.modelId?{modelId:e.modelId}:{},api:e.api,baseUrl:e.baseUrl}});return{api:normalizeResolvedTransportApi(t?.api??e.api),baseUrl:t?.baseUrl??e.baseUrl}}export{resolveProviderTransport as t};

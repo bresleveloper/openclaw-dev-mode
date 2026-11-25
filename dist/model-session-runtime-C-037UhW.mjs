@@ -1,0 +1,3 @@
+import"./validation-core-vbl2ZW42.mjs";import"./session-runtime-compat-7_jJUk-a.mjs";import"./session-model-ref-352V5sJ9.mjs";import"./store-runtime-DH4utT6D.mjs";import"./model-overrides-BU1n032e.mjs";import"./auth-profile-preservation-Cg6yDu-D.mjs";import{t as applySessionModelSelectionInternal}from"./apply-session-model-selection-npsR6Dsg.mjs";
+//!src/plugin-sdk/model-session-runtime.ts
+const applySessionModelSelection=e=>applySessionModelSelectionInternal({...e,...e.validateAuthProfileSelection?{nativeCommitValidation:true}:{}});export{applySessionModelSelection as t};

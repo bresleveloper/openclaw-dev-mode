@@ -1,0 +1,1 @@
+import{h as readRuntimeConfig}from"./runtime-snapshot-7A_MWYPP.mjs";import"./io-CV5iS8Nl.mjs";export{readRuntimeConfig as getRuntimeConfig};

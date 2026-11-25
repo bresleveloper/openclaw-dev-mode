@@ -1,3 +1,0 @@
-import{o as registerSecretValueForRedaction}from"./secret-redaction-registry-DstfyArs.mjs";import{r as isIncognitoSessionKey}from"./session-key-DYtwLLn1.mjs";import"./session-key-C6YO7qUA.mjs";import{c as resolveSessionPublicShare}from"./session-accessor.sqlite-entry-store-Ct9LdJJl.mjs";import{randomBytes}from"node:crypto";
-//!src/gateway/session-publication-grant.ts
-function prepareSessionPublicShareGrant(e,t){if(e.incognito||isIncognitoSessionKey(t))throw new Error(`Incognito sessions cannot be published.`);const n=resolveSessionPublicShare(e)??{id:randomBytes(24).toString(`hex`),sessionId:e.sessionId,createdAt:Date.now()};registerSecretValueForRedaction(n.id);return n}export{prepareSessionPublicShareGrant as t};

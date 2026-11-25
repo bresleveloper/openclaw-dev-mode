@@ -1,3 +1,0 @@
-import{i as loadOpenClawPlugins}from"./loader-runtime-load-VURNukAV.mjs";import"./active-runtime-registry-BMyeJhNK.mjs";
-//!src/plugins/loader.ts
-function loadPluginRegistryHandle(e={}){return loadOpenClawPlugins({...e,activate:false})}async function loadOpenClawPluginCliRegistry(e={}){return loadOpenClawPlugins({...e,mode:`cli-metadata`,activate:false})}export{loadPluginRegistryHandle as n,loadOpenClawPluginCliRegistry as t};

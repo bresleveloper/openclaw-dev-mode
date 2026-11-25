@@ -1,0 +1,1 @@
+import{i as e,r as t}from"./worker-chunk-DUbtMSuI.mjs";e();export{t as getUpdateCheckResult};

@@ -1,1 +1,1 @@
-import{t as buildGoogleGeminiCliProvider}from"../../gemini-cli-provider-Cp-X8-Ry.mjs";export{buildGoogleGeminiCliProvider};
+import{t as buildGoogleGeminiCliProvider}from"../../gemini-cli-provider-CfQr0Q0J.mjs";export{buildGoogleGeminiCliProvider};

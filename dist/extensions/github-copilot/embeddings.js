@@ -1,1 +1,1 @@
-import{t as githubCopilotMemoryEmbeddingProviderAdapter}from"../../embeddings-DTbUPdDm.mjs";export{githubCopilotMemoryEmbeddingProviderAdapter};
+import{t as githubCopilotMemoryEmbeddingProviderAdapter}from"../../embeddings-Cchkmgne.mjs";export{githubCopilotMemoryEmbeddingProviderAdapter};

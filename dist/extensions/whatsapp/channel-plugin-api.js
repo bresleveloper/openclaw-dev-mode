@@ -1,1 +1,1 @@
-export { t as whatsappPlugin } from "./.setup/channel-DrxkuR5z.mjs";
+export { t as whatsappPlugin } from "./.setup/channel-DzJfZSnZ.mjs";

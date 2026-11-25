@@ -1,3 +1,0 @@
-import"./crabbox-binary-Bo1EgOsf.mjs";import"./crabbox-worker-runtime-verification-DmBdljK1.mjs";
-//!extensions/crabbox/cli-runtime-api.ts
-async function createCrabboxOfflineRuntimeSetup(e){return(await import(`./crabbox-worker-node-enrollment-DQ-qlaIe.mjs`)).createCrabboxOfflineRuntimeSetup(e)}async function createCrabboxRuntimeCacheVerification(e){return(await import(`./crabbox-worker-node-enrollment-DQ-qlaIe.mjs`)).createCrabboxRuntimeCacheVerification(e)}async function ensureManagedCrabboxBinary(e){return(await import(`./crabbox-managed-binary-8leoEX64.mjs`)).ensureManagedCrabboxBinary(e)}export{createCrabboxRuntimeCacheVerification as n,ensureManagedCrabboxBinary as r,createCrabboxOfflineRuntimeSetup as t};

@@ -1,3 +1,0 @@
-import{s as nativePluginBindings}from"./loader-runtime-load-VURNukAV.mjs";
-//!src/plugins/providers.runtime.ts
-const{isPluginProvidersLoadInFlight,resolvePluginProviderRegistryCore,resolvePluginProvidersCore,withPluginProviders}=nativePluginBindings.providerRegistry;export{withPluginProviders as i,resolvePluginProviderRegistryCore as n,resolvePluginProvidersCore as r,isPluginProvidersLoadInFlight as t};

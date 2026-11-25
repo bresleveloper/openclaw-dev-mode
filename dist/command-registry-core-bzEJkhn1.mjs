@@ -1,1 +1,0 @@
-import{n as registerCoreCliByName,r as registerCoreCliCommands,t as getCoreCliCompletionGroups}from"./command-registry-core-DhXO-rWf.mjs";export{registerCoreCliByName};

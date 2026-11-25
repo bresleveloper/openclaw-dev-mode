@@ -1,0 +1,3 @@
+import{f as resolveOwningPluginIdsForProviderRef}from"./providers-C6ditVpp.mjs";import{r as resolvePluginProvidersCore}from"./providers.runtime-EMdigjvW.mjs";import{n as resolveProviderPluginChoiceCore}from"./provider-wizard-DOIopVg6.mjs";
+//!src/commands/onboard-non-interactive/local/auth-choice.plugin-providers.runtime.ts
+const authChoicePluginProvidersRuntime={resolveOwningPluginIdsForProviderRef,resolveProviderPluginChoice:resolveProviderPluginChoiceCore,resolvePluginProviders:resolvePluginProvidersCore};export{authChoicePluginProvidersRuntime};

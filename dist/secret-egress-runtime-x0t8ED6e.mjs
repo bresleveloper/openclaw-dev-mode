@@ -1,0 +1,3 @@
+import{r as createLazyRuntimeModule}from"./lazy-runtime-Ds6M7vp4.mjs";
+//!src/plugin-sdk/secret-egress-runtime.ts
+const loadModelEgressRuntime=createLazyRuntimeModule(()=>import(`./model-egress-BKQZZsMy.mjs`));const loadJobEgressRuntime=createLazyRuntimeModule(()=>import(`./job-egress-Ci42VZIs.mjs`));async function withSetupSecretEgress(e,t){return(await loadJobEgressRuntime()).withSetupSecretEgress(e,t)}async function withConfiguredModelEgress(e,t){return(await loadModelEgressRuntime()).withConfiguredModelEgress(e,t)}export{withSetupSecretEgress as n,withConfiguredModelEgress as t};

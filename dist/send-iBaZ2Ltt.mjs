@@ -1,1 +1,0 @@
-import{t as sendXDelivery}from"./send-UFG-I0o2.mjs";export{sendXDelivery};

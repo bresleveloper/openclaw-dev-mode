@@ -1,3 +1,0 @@
-import{o as loadInstalledPluginIndexWithDiscovery}from"./installed-plugin-index-0gkMCA0C.mjs";import{i as loadInstalledPluginIndexInstallRecordsSync}from"./installed-plugin-index-record-reader-Cer2pJV0.mjs";import"./setup-registry-Cn6DMUyO.mjs";import{r as resolvePluginProvidersCore}from"./providers.runtime-b9jl3RwV.mjs";import"./provider-wizard-BVABg2E7.mjs";
-//!src/plugins/provider-auth-choice.runtime.ts
-function resolvePluginProviders(e,t){if(!t)return resolvePluginProvidersCore(e);const n=loadInstalledPluginIndexWithDiscovery({config:e.config,workspaceDir:e.workspaceDir,env:e.env,installRecords:{...loadInstalledPluginIndexInstallRecordsSync({env:e.env}),...t}});return resolvePluginProvidersCore({...e,pluginMetadataSnapshot:n})}export{resolvePluginProviders as t};

@@ -1,3 +1,0 @@
-import{a as resolveAgentDir}from"./agent-scope-config-a2Ym-O21.mjs";import"./agent-scope-A1AqU6fw.mjs";import"./commands-registry-normalize-CfTYZL0S.mjs";import"./commands-text-routing-Ca5ulB_8.mjs";
-//!src/auto-reply/command-arg-menu-catalog.ts
-async function loadCommandArgMenuModelCatalog(e){const{loadPublishedPreparedModelCatalog:t}=await import(`./prepared-model-catalog-CVQrJ4-g.mjs`);return await t({config:e.cfg,...e.agentId?{agentId:e.agentId,agentDir:resolveAgentDir(e.cfg,e.agentId)}:{},readOnly:true})}export{loadCommandArgMenuModelCatalog as t};

@@ -1,3 +1,0 @@
-import{l as normalizeOptionalString}from"./string-coerce-CpTFcSwY.mjs";import{v as clearSessionControllerMailbox}from"./session-controller.mailbox-DkNU_Ejw.mjs";import{n as completeFollowupRunLifecycle}from"./lifecycle-DEalBN7g.mjs";import{a as getExistingFollowupQueue}from"./state-DdRJ19dI.mjs";
-//!src/auto-reply/reply/queue/cleanup.ts
-function clearSessionQueues(e,t,n,r){const i=/* @__PURE__ */ new Set;const a=/* @__PURE__ */ new Set;const o=[];for(const s of e){const e=normalizeOptionalString(s);if(!e||i.has(e))continue;i.add(e);o.push(e);r?.();const c=getExistingFollowupQueue(e,t);if(c&&!a.has(c)){a.add(c);clearSessionControllerMailbox(c,completeFollowupRunLifecycle,n,r)}}return o}export{clearSessionQueues as t};

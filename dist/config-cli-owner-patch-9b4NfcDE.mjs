@@ -1,1 +1,0 @@
-import{n as prepareConfigOwnerChange,t as bindConfigOwner}from"./config-cli-owner-patch-Bxuz2RMR.mjs";export{bindConfigOwner,prepareConfigOwnerChange};

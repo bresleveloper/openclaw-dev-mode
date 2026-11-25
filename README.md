@@ -26,6 +26,7 @@ saving full log to enjoy my journey with OC ♥
 - 2026-11-25
   - updated to v2026.11.10
   - FIX-11 `onSystemPromptEnd` plugin hook => a plugin gets the full final system prompt on every request and returns the one actually sent
+  - SEC-WA1 + FIX-12 lone `<think>` or `</think>` => counts as a complete pair, so 💭 reasoning no longer comes empty or gets lost (kimi via ollama)
 - 2026-11-10
   - updated to v2026.11.3
 - 2026-11-05

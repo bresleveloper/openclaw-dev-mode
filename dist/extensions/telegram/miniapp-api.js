@@ -1,1 +1,1 @@
-import{t as registerTelegramMiniApp}from"../../miniapp-api-VzEY_LOI.mjs";export{registerTelegramMiniApp};
+import{t as registerTelegramMiniApp}from"../../miniapp-api-CAE_dCvc.mjs";export{registerTelegramMiniApp};

@@ -1,0 +1,3 @@
+import{a as asOptionalRecord}from"./record-coerce-BTbqdJ3-.mjs";import{t as collectConfiguredAgentHarnessRuntimes}from"./harness-runtimes-DCIUquJJ.mjs";
+//!src/commands/doctor/shared/configured-runtime-plugin-installs.ts
+function acpxRuntimeIsConfigured(e){const t=asOptionalRecord(e.acp);const n=typeof t?.backend===`string`?t.backend.trim().toLowerCase():``;return n?n===`acpx`:t?.enabled===true||asOptionalRecord(t?.dispatch)?.enabled===true}function collectConfiguredRuntimeIds(e,t){const n=new Set(collectConfiguredAgentHarnessRuntimes(e,t));if(acpxRuntimeIsConfigured(e))n.add(`acpx`);return[...n].toSorted((e,t)=>e.localeCompare(t))}export{collectConfiguredRuntimeIds as n,acpxRuntimeIsConfigured as t};

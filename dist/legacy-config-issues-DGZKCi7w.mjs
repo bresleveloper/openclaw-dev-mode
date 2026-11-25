@@ -1,0 +1,1 @@
+import{n as findDoctorLegacyConfigIssues,t as addDoctorLegacyIssues}from"./legacy-config-issues-CYmmrLs5.mjs";export{addDoctorLegacyIssues,findDoctorLegacyConfigIssues};
