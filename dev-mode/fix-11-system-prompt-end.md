@@ -1,6 +1,6 @@
 # FIX-11: `onSystemPromptEnd`, a plugin hook for the final system prompt
 
-**Date:** 2026-11-25 · **Base:** upstream tag `v2026.11.10` · **Status:** written in a separate worktree without `node_modules`, so nothing here has been type-checked, linted or run yet. The real branch still has to pass `pnpm tsgo:core`, `oxfmt`, `oxlint` and `src/agents/fork-system-prompt-end.test.ts`.
+**Date:** 2026-11-25 · **Base:** upstream tag `v2026.11.10` · **Status:** shipped in build `ca12fb63b3e` (typecheck, lint and `src/agents/fork-system-prompt-end.test.ts` pass). Verified live on the VPS 2026-11-25 on `ollama/kimi-k2.7-code:cloud` (embedded) with a probe plugin; the claude-cli path is not verified live. Step-by-step for agents: [onSystemPromptEnd-hook.ai.md](onSystemPromptEnd-hook.ai.md).
 
 The code, its semantics and the per-upgrade regression checklist live in the header comment of `src/agents/fork-system-prompt-end.ts`. This page is for plugin authors and operators.
 
@@ -147,7 +147,7 @@ openclaw plugins enable prompt-end-demo < /dev/null
 or put the directory under `plugins.load.paths`, or into `~/.openclaw/extensions/prompt-end-demo`, and add the id to `plugins.allow`. Then restart or reload (`openclaw plugins reload prompt-end-demo`) and verify:
 
 1. `openclaw plugins inspect prompt-end-demo --runtime --json < /dev/null`: the hook list contains `onSystemPromptEnd` and the diagnostics have no "ignored" or "blocked" entry for it.
-2. Send a chat message on an embedded model, then on a claude-cli model. The reply ends with `PE-OK`. With debug logging on, `/tmp/openclaw/openclaw-YYYY-MM-DD.log` has the `replaced the embedded system prompt` / `replaced the claude-cli system prompt` line.
+2. Send a chat message on an embedded model, then on a claude-cli model. The reply ends with `PE-OK`. With debug logging on, `~/.openclaw/logs/openclaw-YYYY-MM-DD.log` has the `replaced the embedded system prompt` / `replaced the claude-cli system prompt` line.
 3. Set `hooks.allowPromptModification: false` for the plugin: the reply no longer ends with `PE-OK`, and the inspect diagnostics show the blocked registration.
 
 ## 8. Fork bookkeeping
